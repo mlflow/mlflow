@@ -607,8 +607,8 @@ langchain:
     run: |
       pytest tests/langchain/test_langchain_model_export.py
   autologging:
-    minimum: "0.1.0"
-    maximum: "0.1.3"
+    minimum: "0.1.4"
+    maximum: "0.1.5"
     requirements:
       ">= 0.0.0":
         [

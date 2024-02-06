@@ -55,10 +55,11 @@ def get_default_pip_requirements() -> List[str]:
     """
     Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
 
-    :return: A list of default pip requirements for MLflow Models that have been produced with the
-             ``sentence-transformers`` flavor. Calls to :py:func:`save_model()` and
-             :py:func:`log_model()` produce a pip environment that contain these
-             requirements at a minimum.
+    Returns:
+        A list of default pip requirements for MLflow Models that have been produced with the
+        ``sentence-transformers`` flavor. Calls to :py:func:`save_model()` and
+        :py:func:`log_model()` produce a pip environment that contain these
+        requirements at a minimum.
     """
     base_reqs = ["sentence-transformers", "transformers", "torch"]
     return [_get_pinned_requirement(module) for module in base_reqs]
@@ -67,8 +68,9 @@ def get_default_pip_requirements() -> List[str]:
 @experimental
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced with the
-             ``sentence_transformers`` flavor.
+    Returns:
+        The default Conda environment for MLflow Models produced with the
+        ``sentence_transformers`` flavor.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -92,39 +94,39 @@ def save_model(
     """
     Save a trained ``sentence-transformers`` model to a path on the local file system.
 
-    :param model: A trained ``sentence-transformers`` model.
-    :param path: Local path destination for the serialized model to be saved.
-    :param inference_config:
-        A dict of valid inference parameters that can be applied to a ``sentence-transformer``
-        model instance during inference.
-        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-        Model or for use in Spark.
-        These values are not applied to a returned model from a call to
-        ``mlflow.sentence_transformers.load_model()``
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: An MLflow model object that specifies the flavor that this model is being
-                         added to.
-    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      class that describes the model's inputs and outputs. If not specified but an
-                      ``input_example`` is supplied, a signature will be automatically inferred
-                      based on the supplied input example and model. If both ``signature`` and
-                      ``input_example`` are not specified or the automatic signature inference
-                      fails, a default signature will be adopted. To prevent a signature from being
-                      adopted, set ``signature`` to ``False``. To manually infer a model signature,
-                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
-                      with valid model inputs and valid model outputs.
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param conda_env: {{ conda_env }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        model: A trained ``sentence-transformers`` model.
+        path: Local path destination for the serialized model to be saved.
+        inference_config:
+            A dict of valid inference parameters that can be applied to a ``sentence-transformer``
+            model instance during inference.
+            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+            Model or for use in Spark.
+            These values are not applied to a returned model from a call to
+            ``mlflow.sentence_transformers.load_model()``
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: An MLflow model object that specifies the flavor that this model is being
+            added to.
+        signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            class that describes the model's inputs and outputs. If not specified but an
+            ``input_example`` is supplied, a signature will be automatically inferred
+            based on the supplied input example and model. If both ``signature`` and
+            ``input_example`` are not specified or the automatic signature inference
+            fails, a default signature will be adopted. To prevent a signature from being
+            adopted, set ``signature`` to ``False``. To manually infer a model signature,
+            call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+            with valid model inputs and valid model outputs.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
-    :return: None
     """
     import sentence_transformers
 
@@ -220,7 +222,6 @@ def log_model(
     """
     Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
 
-    :param model: A trained ``sentence-transformers`` model.
 
     .. code-block:: python
 
@@ -246,38 +247,40 @@ def log_model(
 
 
 
-    :param artifact_path: Local path destination for the serialized model to be saved.
-    :param inference_config:
-        A dict of valid overrides that can be applied to a ``sentence-transformer`` model instance
-        during inference.
-        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-        Model or for use in Spark.
-        These values are not applied to a returned model from a call to
-        ``mlflow.sentence_transformers.load_model()``
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
-    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      class that describes the model's inputs and outputs. If not specified but an
-                      ``input_example`` is supplied, a signature will be automatically inferred
-                      based on the supplied input example and model. If both ``signature`` and
-                      ``input_example`` are not specified or the automatic signature inference
-                      fails, a default signature will be adopted. To prevent a signature from being
-                      adopted, set ``signature`` to ``False``. To manually infer a model signature,
-                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
-                      with valid model inputs and valid model outputs.
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param conda_env: {{ conda_env }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        model: A trained ``sentence-transformers`` model.
+        artifact_path: Local path destination for the serialized model to be saved.
+        inference_config:
+            A dict of valid overrides that can be applied to a ``sentence-transformer`` model
+            instance during inference.
+            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+            Model or for use in Spark.
+            These values are not applied to a returned model from a call to
+            ``mlflow.sentence_transformers.load_model()``
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: This argument may change or be removed in a
+            future release without warning. If given, create a model
+            version under ``registered_model_name``, also creating a
+            registered model if one with the given name does not exist.
+        signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            class that describes the model's inputs and outputs. If not specified but an
+            ``input_example`` is supplied, a signature will be automatically inferred
+            based on the supplied input example and model. If both ``signature`` and
+            ``input_example`` are not specified or the automatic signature inference
+            fails, a default signature will be adopted. To prevent a signature from being
+            adopted, set ``signature`` to ``False``. To manually infer a model signature,
+            call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+            with valid model inputs and valid model outputs.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
     """
     return Model.log(
@@ -300,7 +303,9 @@ def log_model(
 def _load_pyfunc(path):
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
-    :param path: Local filesystem path to the MLflow Model with the ``sentence_transformer`` flavor.
+
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``sentence_transformer`` flavor.
     """
     import sentence_transformers
 
@@ -314,21 +319,24 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
     """
     Load a ``sentence_transformers`` object from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``mlflow-artifacts:/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``mlflow-artifacts:/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to utilize for downloading the model artifact.
-                     This directory must already exist if provided. If unspecified, a local output
-                     path will be created.
-    :return: A ``sentence_transformers`` model instance
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to utilize for downloading the model artifact.
+            This directory must already exist if provided. If unspecified, a local output
+            path will be created.
+
+    Returns:
+        A ``sentence_transformers`` model instance
     """
 
     import sentence_transformers
@@ -363,13 +371,16 @@ class _SentenceTransformerModelWrapper:
 
     def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
         """
-        :param sentences: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            sentences: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                                        release without warning.
 
-        :return: Model predictions.
+
+        Returns
+            Model predictions.
         """
         # When the input is a single string, it is transformed into a DataFrame with one column
         # and row, but the encode function does not accept DataFrame input

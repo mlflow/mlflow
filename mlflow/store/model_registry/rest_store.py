@@ -64,12 +64,15 @@ class RestStore(BaseRestStore):
         """
         Create a new registered model in backend store.
 
-        :param name: Name of the new model. This is expected to be unique in the backend store.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-                     instances associated with this registered model.
-        :param description: Description of the model.
-        :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
-                 created in the backend.
+        Args:
+            name: Name of the new model. This is expected to be unique in the backend store.
+            tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
+                instances associated with this registered model.
+            description: Description of the model.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
+            created in the backend.
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(
@@ -82,9 +85,12 @@ class RestStore(BaseRestStore):
         """
         Update description of the registered model.
 
-        :param name: Registered model name.
-        :param description: New description.
-        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+            description: New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         req_body = message_to_json(UpdateRegisteredModel(name=name, description=description))
         response_proto = self._call_endpoint(UpdateRegisteredModel, req_body)
@@ -94,9 +100,13 @@ class RestStore(BaseRestStore):
         """
         Rename the registered model.
 
-        :param name: Registered model name.
-        :param new_name: New proposed name.
-        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+            new_name: New proposed name.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+
         """
         req_body = message_to_json(RenameRegisteredModel(name=name, new_name=new_name))
         response_proto = self._call_endpoint(RenameRegisteredModel, req_body)
@@ -107,8 +117,11 @@ class RestStore(BaseRestStore):
         Delete the registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param name: Registered model name.
-        :return: None
+        Args:
+            name: Registered model name.
+
+        Returns:
+            None
         """
         req_body = message_to_json(DeleteRegisteredModel(name=name))
         self._call_endpoint(DeleteRegisteredModel, req_body)
@@ -119,15 +132,19 @@ class RestStore(BaseRestStore):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string, defaults to searching all registered models.
-        :param max_results: Maximum number of registered models desired.
-        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
-                         matching search results.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``search_registered_models`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-                that satisfy the search expressions. The pagination token for the next page can be
-                obtained via the ``token`` attribute of the object.
+        Args:
+            filter_string: Filter query string, defaults to searching all registered models.
+            max_results: Maximum number of registered models desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_registered_models`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+
         """
         req_body = message_to_json(
             SearchRegisteredModels(
@@ -148,8 +165,11 @@ class RestStore(BaseRestStore):
         """
         Get registered model instance by name.
 
-        :param name: Registered model name.
-        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         req_body = message_to_json(GetRegisteredModel(name=name))
         response_proto = self._call_endpoint(GetRegisteredModel, req_body)
@@ -160,10 +180,13 @@ class RestStore(BaseRestStore):
         Latest version models for each requested stage. If no ``stages`` argument is provided,
         returns the latest version for each stage.
 
-        :param name: Registered model name.
-        :param stages: List of desired stages. If input list is None, return latest versions for
-                       each stage.
-        :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+        Args:
+            name: Registered model name.
+            stages: List of desired stages. If input list is None, return latest versions for
+                each stage.
+
+        Returns:
+            List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         req_body = message_to_json(GetLatestVersions(name=name, stages=stages))
         response_proto = self._call_endpoint(GetLatestVersions, req_body, call_all_endpoints=True)
@@ -176,9 +199,12 @@ class RestStore(BaseRestStore):
         """
         Set a tag for the registered model.
 
-        :param name: Registered model name.
-        :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
-        :return: None
+        Args:
+            name: Registered model name.
+            tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
+
+        Returns:
+            None
         """
         req_body = message_to_json(SetRegisteredModelTag(name=name, key=tag.key, value=tag.value))
         self._call_endpoint(SetRegisteredModelTag, req_body)
@@ -187,9 +213,12 @@ class RestStore(BaseRestStore):
         """
         Delete a tag associated with the registered model.
 
-        :param name: Registered model name.
-        :param key: Registered model tag key.
-        :return: None
+        Args:
+            name: Registered model name.
+            key: Registered model tag key.
+
+        Returns:
+            None
         """
         req_body = message_to_json(DeleteRegisteredModelTag(name=name, key=key))
         self._call_endpoint(DeleteRegisteredModelTag, req_body)
@@ -209,15 +238,19 @@ class RestStore(BaseRestStore):
         """
         Create a new model version from given source and run ID.
 
-        :param name: Registered model name.
-        :param source: URI indicating the location of the model artifacts.
-        :param run_id: Run ID from MLflow tracking server that generated the model.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-                     instances associated with this model version.
-        :param run_link: Link to the run from an MLflow tracking server that generated this model.
-        :param description: Description of the version.
-        :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 created in the backend.
+        Args:
+            name: Registered model name.
+            source: URI indicating the location of the model artifacts.
+            run_id: Run ID from MLflow tracking server that generated the model.
+            tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+                instances associated with this model version.
+            run_link: Link to the run from an MLflow tracking server that generated this model.
+            description: Description of the version.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            created in the backend.
+
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(
@@ -237,14 +270,18 @@ class RestStore(BaseRestStore):
         """
         Update model version stage.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param stage: New desired stage for this model version.
-        :param archive_existing_versions: If this flag is set to ``True``, all existing model
-            versions in the stage will be automatically moved to the "archived" stage. Only valid
-            when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            stage: New desired stage for this model version.
+            archive_existing_versions: If this flag is set to ``True``, all existing model
+                versions in the stage will be automatically moved to the "archived" stage. Only
+                valid when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will
+                be raised.
 
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
         """
         req_body = message_to_json(
             TransitionModelVersionStage(
@@ -261,10 +298,14 @@ class RestStore(BaseRestStore):
         """
         Update metadata associated with a model version in backend.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param description: New model description.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            description: New model description.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
         """
         req_body = message_to_json(
             UpdateModelVersion(name=name, version=str(version), description=description)
@@ -276,9 +317,12 @@ class RestStore(BaseRestStore):
         """
         Delete model version in backend.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: None
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            None
         """
         req_body = message_to_json(DeleteModelVersion(name=name, version=str(version)))
         self._call_endpoint(DeleteModelVersion, req_body)
@@ -287,9 +331,12 @@ class RestStore(BaseRestStore):
         """
         Get the model version instance by name and version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         req_body = message_to_json(GetModelVersion(name=name, version=str(version)))
         response_proto = self._call_endpoint(GetModelVersion, req_body)
@@ -301,9 +348,12 @@ class RestStore(BaseRestStore):
         NOTE: For first version of Model Registry, since the models are not copied over to another
               location, download URI points to input source path.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: A single URI location that allows reads for downloading.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            A single URI location that allows reads for downloading.
         """
         req_body = message_to_json(GetModelVersionDownloadUri(name=name, version=str(version)))
         response_proto = self._call_endpoint(GetModelVersionDownloadUri, req_body)
@@ -315,17 +365,21 @@ class RestStore(BaseRestStore):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently supports a single filter
-                              condition either name of model like ``name = 'model_name'`` or
-                              ``run_id = '...'``.
-        :param max_results: Maximum number of model versions desired.
-        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
-                         matching search results.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``search_model_versions`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects that satisfy the search expressions. The pagination token for the next
-                 page can be obtained via the ``token`` attribute of the object.
+        Args:
+            filter_string: A filter string expression. Currently supports a single filter
+                condition either name of model like ``name = 'model_name'`` or
+                ``run_id = '...'``.
+            max_results: Maximum number of model versions desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_model_versions`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            objects that satisfy the search expressions. The pagination token for the next
+            page can be obtained via the ``token`` attribute of the object.
+
         """
         req_body = message_to_json(
             SearchModelVersions(
@@ -343,10 +397,13 @@ class RestStore(BaseRestStore):
         """
         Set a tag for the model version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
-        :return: None
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
+
+        Returns:
+            None
         """
         req_body = message_to_json(
             SetModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
@@ -357,10 +414,13 @@ class RestStore(BaseRestStore):
         """
         Delete a tag associated with the model version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param key: Tag key.
-        :return: None
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            key: Tag key.
+
+        Returns:
+            None
         """
         req_body = message_to_json(DeleteModelVersionTag(name=name, version=version, key=key))
         self._call_endpoint(DeleteModelVersionTag, req_body)
@@ -369,10 +429,13 @@ class RestStore(BaseRestStore):
         """
         Set a registered model alias pointing to a model version.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :param version: Registered model version number.
-        :return: None
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+            version: Registered model version number.
+
+        Returns:
+            None
         """
         req_body = message_to_json(SetRegisteredModelAlias(name=name, alias=alias, version=version))
         self._call_endpoint(SetRegisteredModelAlias, req_body)
@@ -381,9 +444,12 @@ class RestStore(BaseRestStore):
         """
         Delete an alias associated with a registered model.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :return: None
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+
+        Returns:
+            None
         """
         req_body = message_to_json(DeleteRegisteredModelAlias(name=name, alias=alias))
         self._call_endpoint(DeleteRegisteredModelAlias, req_body)
@@ -392,9 +458,12 @@ class RestStore(BaseRestStore):
         """
         Get the model version instance by name and alias.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         req_body = message_to_json(GetModelVersionByAlias(name=name, alias=alias))
         response_proto = self._call_endpoint(GetModelVersionByAlias, req_body)

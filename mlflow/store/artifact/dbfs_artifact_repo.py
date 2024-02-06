@@ -191,8 +191,11 @@ def dbfs_artifact_repo_factory(artifact_uri):
     a DatabricksArtifactRepository is returned. This is capable of storing access controlled
     artifacts.
 
-    :param artifact_uri: DBFS root artifact URI (string).
-    :return: Subclass of ArtifactRepository capable of storing artifacts on DBFS.
+    Args:
+        artifact_uri: DBFS root artifact URI.
+
+    Returns:
+        Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
     if not is_valid_dbfs_uri(artifact_uri):
         raise MlflowException(
