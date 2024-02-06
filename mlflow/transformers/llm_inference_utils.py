@@ -3,6 +3,11 @@ from typing import Any, Dict, List, Optional, Union
 import torch
 from transformers import AutoTokenizer, StoppingCriteria
 
+from mlflow.exceptions import MlflowException
+from mlflow.models import ModelSignature
+from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA
+from mlflow.types.schema import Array, ColSpec, DataType, Schema
+
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
 # future Databricks Provisioned Throughput support of more model architectures for inference.
@@ -16,19 +21,81 @@ _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK = {
 }
 
 
-def preprocess_llm_inference_params(
-    params: Optional[Dict[str, Any]] = None, flavor_config: Optional[Dict[str, Any]] = None
-):
-    """Replace OpenAI specific parameters with Hugging Face specific parameters."""
-    if params is None:
+COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(name="prompt", type=DataType.string),
+        ColSpec(name="temperature", type=DataType.double, required=False),
+        ColSpec(name="max_tokens", type=DataType.long, required=False),
+        ColSpec(name="stop", type=Array(DataType.string), required=False),
+        ColSpec(name="n", type=DataType.long, required=False),
+        ColSpec(name="stream", type=DataType.boolean, required=False),
+    ]
+)
+
+
+def infer_signature_from_llm_inference_task(
+    inference_task: str, signature: Optional[ModelSignature] = None
+) -> ModelSignature:
+    if signature is not None:
+        if inference_task:
+            raise MlflowException(
+                "When `task` is specified as `llm/v1/completions "
+                "or llm/v1/chat, the signature would be set by MLflow. "
+                "Please do not set the signature."
+            )
+        return signature
+
+    # TODO: add tests
+    if inference_task == _LLM_INFERENCE_TASK_CHAT:
+        signature = ModelSignature(
+            inputs=CHAT_MODEL_INPUT_SCHEMA,
+        )
+    elif inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
+        signature = ModelSignature(
+            inputs=COMPLETIONS_MODEL_INPUT_SCHEMA,
+        )
+
+    return signature
+
+
+def check_messages_and_apply_chat_template(data, tokenizer, inference_task):
+    if inference_task != _LLM_INFERENCE_TASK_CHAT:
         return
 
-    params["max_new_tokens"] = params.pop("max_tokens", None)
+    # TODO: add test for this function for the messages, prompt type check
+    try:
+        messages = data.pop("messages").tolist()[0]
+        messages_str = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        data["prompt"] = messages_str
+    except KeyError:
+        raise MlflowException("The 'messages' field is required for the Chat inference task.")
+    except Exception as e:
+        raise MlflowException(f"Failed to apply chat template: {e}")
+
+
+def preprocess_llm_inference_params(
+    data, params: Optional[Dict[str, Any]] = None, flavor_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Replace OpenAI specific parameters with Hugging Face specific parameters."""
+    # TODO: add test for data - params separation, and params update
+    if params is None:
+        params = {}
+
+    for column in data.columns:
+        if column not in ["prompt", "messages"]:
+            params[column] = data.pop(column).tolist()[0]
+
+    if "max_tokens" in params:
+        params["max_new_tokens"] = params.pop("max_tokens")
 
     model_name = None
     if flavor_config is not None:
         model_name = flavor_config.get("source_model_name", None)
     params["stopping_criteria"] = _set_stopping_criteria(params.pop("stop", None), model_name)
+
+    return params
 
 
 def _set_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
@@ -134,7 +201,7 @@ def _get_output_and_usage_from_tensor(
     if inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
         output_dict["text"] = completions_text
     elif inference_task == _LLM_INFERENCE_TASK_CHAT:
-        output_dict["messages"] = {"role": "assistant", "content": completions_text}
+        output_dict["message"] = {"role": "assistant", "content": completions_text}
 
     return output_dict
 
@@ -147,7 +214,23 @@ def _get_completions_text(prompt: str, output_tensor: List[int], pipeline):
         clean_up_tokenization_spaces=True,
     )
 
-    return generated_text[len(prompt) :].lstrip()
+    # TODO: add unit tests
+
+    # In order to correctly remove the prompt tokens from the decoded tokens,
+    # we need to acquire the length of the prompt without special tokens
+    prompt_ids_without_special_tokens = pipeline.tokenizer(
+        prompt, return_tensors=pipeline.framework, add_special_tokens=False
+    )["input_ids"][0]
+
+    prompt_length = len(
+        pipeline.tokenizer.decode(
+            prompt_ids_without_special_tokens,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+        )
+    )
+
+    return generated_text[prompt_length:].lstrip()
 
 
 def _get_token_usage(prompt: str, output_tensor: List[int], pipeline, model_config):

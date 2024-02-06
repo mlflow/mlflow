@@ -3906,63 +3906,19 @@ def test_text_generation_save_model_with_invalid_inference_task(
         )
 
 
-def test_text_generation_task_completions_predict_with_hf_params(
-    text_generation_pipeline, model_path
-):
-    data = "How to learn Python in 3 weeks?"
-
-    signature_with_params = infer_signature(
-        data,
-        mlflow.transformers.generate_signature_output(text_generation_pipeline, data),
-        params={"max_new_tokens": 50},
-    )
-
-    mlflow.transformers.save_model(
-        transformers_model=text_generation_pipeline,
-        path=model_path,
-        task="llm/v1/completions",
-        signature=signature_with_params,
-    )
-
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-
-    inference = pyfunc_loaded.predict(
-        {"prompt": "How to learn Python in 3 weeks?"},
-        params={"max_new_tokens": 10},
-    )
-
-    assert isinstance(inference[0], dict)
-    assert (
-        inference[0]["finish_reason"] == "length"
-        and inference[0]["usage"]["completion_tokens"] == 10
-    ) or (
-        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
-    )
-
-
 def test_text_generation_task_completions_predict_with_max_tokens(
     text_generation_pipeline, model_path
 ):
-    data = "How to learn Python in 3 weeks?"
-
-    signature_with_params = infer_signature(
-        data,
-        mlflow.transformers.generate_signature_output(text_generation_pipeline, data),
-        params={"max_tokens": 50},
-    )
-
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
-        signature=signature_with_params,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(
-        {"prompt": "How to learn Python in 3 weeks?"},
-        params={"max_tokens": 10},
+        {"prompt": "How to learn Python in 3 weeks?", "max_tokens": 10},
     )
 
     assert isinstance(inference[0], dict)
@@ -3975,26 +3931,16 @@ def test_text_generation_task_completions_predict_with_max_tokens(
 
 
 def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
-    data = "How to learn Python in 3 weeks?"
-
-    signature_with_params = infer_signature(
-        data,
-        "This is a sample output sentence",
-        params={"stop": ""},
-    )
-
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
-        signature=signature_with_params,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(
-        {"prompt": "How to learn Python in 3 weeks?"},
-        params={"stop": "Python"},
+        {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
     )
 
     assert inference[0]["finish_reason"] == "stop"
@@ -4026,3 +3972,31 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     assert output_dict["text"] is not None
     assert output_dict["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
+
+
+def test_text_generation_task_chat_predict(text_generation_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/chat",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {
+            "messages": [
+                {"role": "system", "content": "Hello, how can I help you today?"},
+                {"role": "user", "content": "How to learn Python in 3 weeks?"},
+            ],
+            "max_tokens": 10,
+        }
+    )
+
+    assert inference[0]["message"]["role"] == "assistant"
+    assert (
+        inference[0]["finish_reason"] == "length"
+        and inference[0]["usage"]["completion_tokens"] == 10
+    ) or (
+        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
+    )

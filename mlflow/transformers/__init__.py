@@ -52,6 +52,8 @@ from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_KEY,
     _METADATA_LLM_INFERENCE_TASK_KEY,
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
+    check_messages_and_apply_chat_template,
+    infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
     preprocess_llm_inference_params,
 )
@@ -492,8 +494,9 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    if signature is not None:
-        mlflow_model.signature = signature
+
+    mlflow_model.signature = infer_signature_from_llm_inference_task(llm_inference_task, signature)
+
     if input_example is not None:
         input_example = _format_input_example_for_special_cases(input_example, built_pipeline)
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
@@ -1944,7 +1947,11 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
-        preprocess_llm_inference_params(params, self.flavor_config)
+        check_messages_and_apply_chat_template(
+            data, self.pipeline.tokenizer, self.llm_inference_task
+        )
+        params = preprocess_llm_inference_params(data, params, self.flavor_config)
+
         self._override_model_config(params)
 
         if isinstance(data, pd.DataFrame):

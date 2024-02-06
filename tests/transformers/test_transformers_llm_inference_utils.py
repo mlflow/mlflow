@@ -14,9 +14,11 @@ from mlflow.transformers.llm_inference_utils import (
 class DummyTokenizer:
     def __call__(self, text: str, **kwargs):
         input_ids = list(map(int, text.split(" ")))
-        return {"input_ids": torch.tensor(input_ids)}
+        return {"input_ids": torch.tensor([input_ids])}
 
-    def decode(self, tensor: List[int], **kwargs):
+    def decode(self, tensor, **kwargs):
+        if isinstance(tensor, torch.Tensor):
+            tensor = tensor.tolist()
         return " ".join([str(x) for x in tensor])
 
     def convert_tokens_to_ids(self, tokens: List[str]):
