@@ -89,14 +89,16 @@ def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
        extract it from fit_args or fit_kwargs and return (X, y, sample_weight),
        otherwise return (X, y)
 
-    :param fit_func: A fit function object.
-    :param fit_args: Positional arguments given to fit_func.
-    :param fit_kwargs: Keyword arguments given to fit_func.
+    Args:
+        fit_func: A fit function object.
+        fit_args: Positional arguments given to fit_func.
+        fit_kwargs: Keyword arguments given to fit_func.
 
-    :returns: A tuple of either (X, y, sample_weight), where `y` and `sample_weight` may be
-              `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
-              a sample weighting. Copies of `X` and `y` are made in order to avoid mutation
-              of the dataset during training.
+    Returns:
+        A tuple of either (X, y, sample_weight), where `y` and `sample_weight` may be
+        `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
+        a sample weighting. Copies of `X` and `y` are made in order to avoid mutation
+        of the dataset during training.
     """
 
     def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -189,10 +191,13 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
     (y_true, y_pred, ...... sample_weight), otherwise as (y_true, y_pred, ......)
     3. return a dictionary of metric(name, value)
 
-    :param fitted_estimator: The already fitted classifier
-    :param fit_args: Positional arguments given to fit_func.
-    :param fit_kwargs: Keyword arguments given to fit_func.
-    :return: dictionary of (function name, computed value)
+    Args:
+        fitted_estimator: The already fitted classifier
+        fit_args: Positional arguments given to fit_func.
+        fit_kwargs: Keyword arguments given to fit_func.
+
+    Returns:
+        dictionary of (function name, computed value)
     """
     import sklearn
 
@@ -314,10 +319,13 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     (y_true, y_pred, sample_weight, multioutput), otherwise as (y_true, y_pred, multioutput)
     3. return a list of artifacts path to be logged
 
-    :param fitted_estimator: The already fitted regressor
-    :param fit_args: Positional arguments given to fit_func.
-    :param fit_kwargs: Keyword arguments given to fit_func.
-    :return: List of artifacts to be logged
+    Args:
+        fitted_estimator: The already fitted regressor
+        fit_args: Positional arguments given to fit_func.
+        fit_kwargs: Keyword arguments given to fit_func.
+
+    Returns:
+        List of artifacts to be logged
     """
     import sklearn
 
@@ -422,10 +430,13 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     (y_true, y_pred, sample_weight, multioutput), otherwise as (y_true, y_pred, multioutput)
     3. return a dictionary of metric(name, value)
 
-    :param fitted_estimator: The already fitted regressor
-    :param fit_args: Positional arguments given to fit_func.
-    :param fit_kwargs: Keyword arguments given to fit_func.
-    :return: dictionary of (function name, computed value)
+    Args:
+        fitted_estimator: The already fitted regressor
+        fit_args: Positional arguments given to fit_func.
+        fit_kwargs: Keyword arguments given to fit_func.
+
+    Returns:
+        dictionary of (function name, computed value)
     """
     import sklearn
 
@@ -611,20 +622,23 @@ def _log_estimator_content(
     tailored to the estimator's type (e.g., regression vs classification). Training labels
     are required for metric computation; metrics will be omitted if labels are not available.
 
-    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
-                               efficiently logging run data to MLflow Tracking.
-    :param estimator: The estimator used to compute metrics and artifacts.
-    :param run_id: The run under which the content is logged.
-    :param prefix: A prefix used to name the logged content. Typically it's 'training_' for
-                   training-time content and user-controlled for evaluation-time content.
-    :param X: The data samples.
-    :param y_true: Labels.
-    :param sample_weight: Per-sample weights used in the computation of metrics and artifacts.
-    :param pos_label: The positive label used to compute binary classification metrics such as
-        precision, recall, f1, etc. This parameter is only used for classification metrics.
-        If set to `None`, the function will calculate metrics for each label and find their
-        average weighted by support (number of true instances for each label).
-    :return: A dict of the computed metrics.
+    Args:
+        autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+            efficiently logging run data to MLflow Tracking.
+        estimator: The estimator used to compute metrics and artifacts.
+        run_id: The run under which the content is logged.
+        prefix: A prefix used to name the logged content. Typically it's 'training_' for
+            training-time content and user-controlled for evaluation-time content.
+        X: The data samples.
+        y_true: Labels.
+        sample_weight: Per-sample weights used in the computation of metrics and artifacts.
+        pos_label: The positive label used to compute binary classification metrics such as
+            precision, recall, f1, etc. This parameter is only used for classification metrics.
+            If set to `None`, the function will calculate metrics for each label and find their
+            average weighted by support (number of true instances for each label).
+
+    Returns:
+        A dict of the computed metrics.
     """
     metrics = _log_specialized_estimator_content(
         autologging_client=autologging_client,
@@ -662,9 +676,10 @@ def _log_estimator_content(
 
 def _get_meta_estimators_for_autologging():
     """
-    :return: A list of meta estimator class definitions
-             (e.g., `sklearn.model_selection.GridSearchCV`) that should be included
-             when patching training functions for autologging
+    Returns:
+        A list of meta estimator class definitions
+        (e.g., `sklearn.model_selection.GridSearchCV`) that should be included
+        when patching training functions for autologging
     """
     from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
     from sklearn.pipeline import Pipeline
@@ -678,8 +693,9 @@ def _get_meta_estimators_for_autologging():
 
 def _is_parameter_search_estimator(estimator):
     """
-    :return: `True` if the specified scikit-learn estimator is a parameter search estimator,
-             such as `GridSearchCV`. `False` otherwise.
+    Returns:
+        `True` if the specified scikit-learn estimator is a parameter search estimator,
+        such as `GridSearchCV`. `False` otherwise.
     """
     from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
@@ -699,11 +715,12 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
     Records a collection of parameter search results as an MLflow artifact
     for the specified run.
 
-    :param cv_results_df: A Pandas DataFrame containing the results of a parameter search
-                          training session, which may be obtained by parsing the `cv_results_`
-                          attribute of a trained parameter search estimator such as
-                          `GridSearchCV`.
-    :param run_id: The ID of the MLflow Run to which the artifact should be recorded.
+    Args:
+        cv_results_df: A Pandas DataFrame containing the results of a parameter search
+            training session, which may be obtained by parsing the `cv_results_`
+            attribute of a trained parameter search estimator such as
+            `GridSearchCV`.
+        run_id: The ID of the MLflow Run to which the artifact should be recorded.
     """
     with TempDir() as t:
         results_path = t.path("cv_results.csv")
@@ -745,14 +762,15 @@ def _create_child_runs_for_parameter_search(
     for each point in the parameter search space. For additional information, see
     `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_.
 
-    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
-                               efficiently logging run data to MLflow Tracking.
-    :param cv_estimator: The trained parameter search estimator for which to create
-                         child runs.
-    :param parent_run: A py:class:`mlflow.entities.Run` object referring to the parent
-                       parameter search run for which child runs should be created.
-    :param child_tags: An optional dictionary of MLflow tag keys and values to log
-                       for each child run.
+    Args:
+        autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+            efficiently logging run data to MLflow Tracking.
+        cv_estimator: The trained parameter search estimator for which to create
+            child runs.
+        parent_run: A py:class:`mlflow.entities.Run` object referring to the parent
+            parameter search run for which child runs should be created.
+        child_tags: An optional dictionary of MLflow tag keys and values to log
+            for each child run.
     """
     import pandas as pd
 
