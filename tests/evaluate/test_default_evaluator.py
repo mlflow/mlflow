@@ -3110,6 +3110,39 @@ def test_derived_metrics_circular_dependencies_raises_exception():
             )
 
 
+def test_derived_metrics_missing_dependencies_raises_exception():
+    def metric_1(predictions, targets, metric_2):
+        return 0
+
+    def metric_2(predictions, targets, metric_3):
+        return 0
+
+    error_message = r"Error: Metric calculation failed for the following metrics:\n"
+
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        }
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                data=data,
+                predictions="answer",
+                model_type="text",
+                extra_metrics=[
+                    make_metric(eval_fn=metric_1, greater_is_better=True),
+                    make_metric(eval_fn=metric_2, greater_is_better=True),
+                ],
+                evaluators="default",
+            )
+
+
 def test_custom_metric_bad_names():
     def metric_fn(predictions, targets):
         return 0
