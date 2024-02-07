@@ -111,7 +111,8 @@ def save_model(
     save_model_kwargs=None,
     metadata=None,
 ):
-    """Save a Keras model along with metadata.
+    """
+    Save a Keras model along with metadata.
 
     This method saves a Keras model along with metadata such as model signature and conda
     environments to local file system. This method is called inside `mlflow.keras.log_model()`.
@@ -286,7 +287,8 @@ def log_model(
     save_model_kwargs=None,
     metadata=None,
 ):
-    """Log a Keras model along with metadata to MLflow.
+    """
+    Log a Keras model along with metadata to MLflow.
 
     This method saves a Keras model along with metadata such as model signature and conda
     environments to MLflow.

@@ -352,15 +352,15 @@ class Model:
         """
         Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-        Args:
-            getter: Retrieves custom metadata that have been applied to a model instance.
-            setter: Sets a dictionary of custom keys and values to be included with the model
-                instance
+        :getter: Retrieves custom metadata that have been applied to a model instance.
+        :setter: Sets a dictionary of custom keys and values to be included with the model instance
+        :type: Optional[Dict[str, Any]]
 
         Returns:
             A Dictionary of user-defined metadata iff defined.
 
         .. code-block:: python
+            :caption: Example
 
             # Create and log a model with metadata to the Model Registry
             from sklearn import datasets

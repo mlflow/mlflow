@@ -1069,7 +1069,7 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
         expected_schema: Expected Schema of the input data.
 
     Raises:
-        MlflowException: when the input data does not match the schema.
+        mlflow.exceptions.MlflowException: when the input data does not match the schema.
 
     .. code-block:: python
         :caption: Example usage of validate_schema

@@ -227,7 +227,7 @@ def run(
 
     Raises:
         :py:class:`mlflow.exceptions.ExecutionException` If a run launched in blocking mode
-        is unsuccessful.
+            is unsuccessful.
 
     Args:
         uri: URI of project to run. A local filesystem path

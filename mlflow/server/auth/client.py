@@ -45,9 +45,11 @@ class AuthServiceClient:
             username: The username.
             password: The user's password. Must not be empty string.
 
+        Raises:
+            mlflow.exceptions.RestException: if the username is already taken.
+
         Returns:
             A single :py:class:`mlflow.server.auth.entities.User` object.
-            Raises ``RestException`` if the username is already taken.
 
         .. code-block:: python
             :caption: Example
@@ -83,9 +85,11 @@ class AuthServiceClient:
         Args:
             username: The username.
 
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist
+
         Returns:
-            A single :py:class:`mlflow.server.auth.entities.User` object. Raises ``RestException``
-            if the user does not exist.
+            A single :py:class:`mlflow.server.auth.entities.User` object.
 
         .. code-block:: bash
             :caption: Example
@@ -129,8 +133,8 @@ class AuthServiceClient:
             username: The username.
             password: The new password.
 
-        Returns:
-            None. Raises ``RestException`` if the user does not exist.
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist
 
         .. code-block:: bash
             :caption: Example
@@ -161,8 +165,8 @@ class AuthServiceClient:
             username: The username.
             is_admin: The new admin status.
 
-        Returns:
-            None. Raises ``RestException`` if the user does not exist.
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist
 
         .. code-block:: bash
             :caption: Example
@@ -192,8 +196,8 @@ class AuthServiceClient:
         Args:
             username: The username.
 
-        Returns:
-            None. Raises ``RestException`` if the user does not exist.
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist
 
         .. code-block:: bash
             :caption: Example
@@ -226,11 +230,13 @@ class AuthServiceClient:
             permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist, or a permission already
+                exists for this experiment user pair, or if the permission is invalid. Does not
+                require ``experiment_id`` to be an existing experiment.
+
         Returns:
-            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object. Raises
-            ``RestException`` if the user does not exist, or a permission already exists for this
-            experiment user pair, or if the permission is invalid. Does not require
-            ``experiment_id`` to be an existing experiment.
+            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
 
         .. code-block:: bash
             :caption: Example
@@ -272,12 +278,14 @@ class AuthServiceClient:
             experiment_id: The id of the experiment.
             username: The username.
 
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist,
+                or no permission exists for this experiment user pair.
+                Note that the default permission will still be effective even if
+                no permission exists.
+
         Returns:
             A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
-            Raises ``RestException`` if the user does not exist,
-            or no permission exists for this experiment user pair.
-            Note that the default permission will still be effective even if
-            no permission exists.
 
         .. code-block:: bash
             :caption: Example
@@ -321,9 +329,9 @@ class AuthServiceClient:
             permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
-        Returns:
-            None. Raises ``RestException`` if the user does not exist, or no permission exists for
-            this experiment user pair, or if the permission is invalid.
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
+                this experiment user pair, or if the permission is invalid
 
         .. code-block:: bash
             :caption: Example
@@ -354,12 +362,12 @@ class AuthServiceClient:
             experiment_id: The id of the experiment.
             username: The username.
 
-        Returns:
-            None. Raises ``RestException`` if the user does not exist,
-            or no permission exists for this experiment user pair,
-            or if the permission is invalid.
-            Note that the default permission will still be effective even
-            after the permission has been deleted.
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
+                this experiment user pair, or if the permission is invalid.
+                Note that the default permission will still be effective even
+                after the permission has been deleted.
+
 
         .. code-block:: bash
             :caption: Example
@@ -392,10 +400,14 @@ class AuthServiceClient:
             permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist,
+                or a permission already exists for this registered model user pair,
+                or if the permission is invalid.
+                Does not require ``name`` to be an existing registered model.
+
         Returns:
-            A single RegisteredModelPermission object. Raises RestException if the user does not
-            exist, or a permission already exists for this registered model user pair, or if the
-            permission is invalid. Does not require name to be an existing registered model.
+            A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
         """
         resp = self._request(
             CREATE_REGISTERED_MODEL_PERMISSION,
@@ -412,10 +424,13 @@ class AuthServiceClient:
             name: The name of the registered model.
             username: The username.
 
+        Raises:
+            mlflow.exceptions.RestException: if the user does not
+                exist, or no permission exists for this registered model user pair. Note that the
+                default permission will still be effective even if no permission exists.
+
         Returns:
-            A single RegisteredModelPermission object. Raises RestException if the user does not
-            exist, or no permission exists for this registered model user pair. Note that the
-            default permission will still be effective even if no permission exists.
+             A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
 
         .. code-block:: bash
             :caption: Example
@@ -461,8 +476,8 @@ class AuthServiceClient:
                 "NO_PERMISSIONS".
 
         Raises:
-            ``RestException`` if the user does not exist, or no permission exists for
-            this registered model user pair, or if the permission is invalid.
+            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
+                this registered model user pair, or if the permission is invalid.
 
         .. code-block:: bash
             :caption: Example
@@ -493,12 +508,12 @@ class AuthServiceClient:
             name: The name of the registered model.
             username: The username.
 
-        Returns:
-            None. Raises ``RestException`` if the user does not exist,
-            or no permission exists for this registered model user pair,
-            or if the permission is invalid.
-            Note that the default permission will still be effective even
-            after the permission has been deleted.
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist,
+                or no permission exists for this registered model user pair,
+                or if the permission is invalid.
+                Note that the default permission will still be effective even
+                after the permission has been deleted.
 
         .. code-block:: bash
             :caption: Example

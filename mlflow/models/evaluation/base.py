@@ -108,12 +108,12 @@ class EvaluationMetric:
                     """
                     ...
 
-            name: The name of the metric.
-            greater_is_better: Whether a higher value of the metric is better.
-            long_name: (Optional) The long name of the metric. For example,
-                ``"root_mean_squared_error"`` for ``"mse"``.
-            version: (Optional) The metric version. For example ``v1``.
-            metric_details: (Optional) A description of the metric and how it is calculated.
+        name: The name of the metric.
+        greater_is_better: Whether a higher value of the metric is better.
+        long_name: (Optional) The long name of the metric. For example,
+            ``"root_mean_squared_error"`` for ``"mse"``.
+        version: (Optional) The metric version. For example ``v1``.
+        metric_details: (Optional) A description of the metric and how it is calculated.
     '''
 
     def __init__(
@@ -1196,7 +1196,8 @@ def evaluate(
     model_config=None,
     baseline_config=None,
 ):
-    '''Evaluate the model performance on given data and selected metrics.
+    '''
+    Evaluate the model performance on given data and selected metrics.
 
     This function evaluates a PyFunc model or custom callable on the specified dataset using
     specified ``evaluators``, and logs resulting metrics & artifacts to MLflow tracking server.
@@ -1428,33 +1429,34 @@ def evaluate(
 
               ..code-block:: python
 
-                model = mlflow.pyfunc.load_model(model_uri)
+                  model = mlflow.pyfunc.load_model(model_uri)
 
-                def fn(model_input):
-                    return model.predict(model_input)
+                  def fn(model_input):
+                      return model.predict(model_input)
 
             If omitted, it indicates a static dataset will be used for evaluation instead of a
             model.  In this case, the ``data`` argument must be a Pandas DataFrame or an mlflow
             PandasDataset that contains model outputs, and the ``predictions`` argument must be the
             name of the column in ``data`` that contains model outputs.
 
-        data: One of the following:
+        data: One of the
+            following:
 
             - A numpy array or list of evaluation features, excluding labels.
             - A Pandas DataFrame containing evaluation features, labels, and optionally model
-              outputs. Model outputs are required to be provided when model is unspecified.
-              If ``feature_names`` argument not specified, all columns except for the label
-              column and model_output column are regarded as feature columns. Otherwise,
-              only column names present in ``feature_names`` are regarded as feature columns.
+                outputs. Model outputs are required to be provided when model is unspecified.
+                If ``feature_names`` argument not specified, all columns except for the label
+                column and model_output column are regarded as feature columns. Otherwise,
+                only column names present in ``feature_names`` are regarded as feature columns.
             -  A Spark DataFrame containing evaluation features and labels. If
-              ``feature_names`` argument not specified, all columns except for the label
-              column are regarded as feature columns. Otherwise, only column names present in
-              ``feature_names`` are regarded as feature columns. Only the first 10000 rows in
-              the Spark DataFrame will be used as evaluation data.
+                ``feature_names`` argument not specified, all columns except for the label
+                column are regarded as feature columns. Otherwise, only column names present in
+                ``feature_names`` are regarded as feature columns. Only the first 10000 rows in
+                the Spark DataFrame will be used as evaluation data.
             - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
-              features, labels, and optionally model outputs. Model outputs are only supported
-              with a PandasDataset. Model outputs are required when model is unspecified, and
-              should be specified via the ``predictions`` property of the PandasDataset.
+                features, labels, and optionally model outputs. Model outputs are only supported
+                with a PandasDataset. Model outputs are required when model is unspecified, and
+                should be specified via the ``predictions`` prerty of the PandasDataset.
 
         targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
             labels. If ``data`` is a DataFrame, the string name of a column from ``data``
@@ -1599,7 +1601,6 @@ def evaluate(
                 - Matplotlib Figure. This will be saved as an image artifact. Note that
                   ``matplotlib.pyplot.savefig`` is called behind the scene with default
                   configurations.
-
                   To customize, either save the figure with the desired configurations and return
                   its file path or define customizations through environment variables in
                   ``matplotlib.rcParams``.
