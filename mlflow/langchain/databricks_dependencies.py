@@ -98,7 +98,7 @@ def _traverse_runnable(lc_model, dependency_dict: DefaultDict[str, List[Any]], v
     visited.add(current_object_id)
     _extract_dependency_dict_from_lc_model(lc_model, dependency_dict)
 
-    if isinstance(lc_model, langchain_core.runnables.RunnableSerializable):
+    if isinstance(lc_model, langchain_core.runnables.Runnable):
         # Visit the returned graph
         for node in lc_model.get_graph().nodes.values():
             _traverse_runnable(node.data, dependency_dict, visited)
