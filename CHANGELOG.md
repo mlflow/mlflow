@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2.10.1 (2024-02-06)
+
+MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `transformers` and `langchain` flavors, the MLflow UI, and the S3 artifact store. More details can be found in the patch notes below.
+
+Bug fixes:
+
+- [UI] Fixed a bug that prevented datasets from showing up in the MLflow UI (#10992, @daniellok-db)
+- [Artifact Store] Fixed directory bucket region name retrieval (#10967, @kriscon-db)
+- Bug fixes for Transformers flavor
+    - [Models] Fix an issue with transformer pipelines not inheriting the torch dtype specified on the model, causing pipeline inference to consume more resources than expected. (#10979, @B-Step62)
+    - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
+    - [Models] Fixed a bug affecting prompt templating with Text2TextGeneration pipelines. Previously, calling `predict()` on a pyfunc-loaded Text2TextGeneration pipeline would fail for `string` and `List[string]` inputs. (#10960, @B-Step62)
+- Bug fixes for Langchain flavor
+    - Fixed errors that occur when logging inputs and outputs with different lengths (#10952, @serena-ruan)
+
+Documentation updates:
+
+- [Docs] Add indications of DL UI capabilities to the DL landing page (#10991, @BenWilson2)
+- [Docs] Fix incorrect logo on LLMs landing page (#11017, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10930, #11005, @serena-ruan; #10927, @harupy
+
 ## 2.10.0 (2024-01-26)
 
 MLflow 2.10.0 includes several major features and improvements

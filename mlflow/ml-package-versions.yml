@@ -78,7 +78,7 @@ keras:
   package_info:
     pip_release: "keras"
     install_dev: |
-      pip install --upgrade keras-nightly
+      pip install --upgrade git+https://github.com/keras-team/keras.git
 
   models:
     minimum: "3.0.2"
