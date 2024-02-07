@@ -36,15 +36,15 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 Packages
 
-+--------------+-------------------------------------------------------------+
-| PyPI         | |pypi-mlflow| |pypi-skinny|                                 |
-+--------------+-------------------------------------------------------------+
-| conda-forge  | |conda-mlflow| |conda-skinny|                               |
-+--------------+-------------------------------------------------------------+
-| CRAN         | |cran-mlflow|                                               |
-+--------------+-------------------------------------------------------------+
-| Maven        | |maven-client| |maven-parent| |maven-scoring| |maven-spark| |
-+--------------+-------------------------------------------------------------+
++---------------+-------------------------------------------------------------+
+| PyPI          | |pypi-mlflow| |pypi-skinny|                                 |
++---------------+-------------------------------------------------------------+
+| conda-forge   | |conda-mlflow| |conda-skinny|                               |
++---------------+-------------------------------------------------------------+
+| CRAN          | |cran-mlflow|                                               |
++---------------+-------------------------------------------------------------+
+| Maven Central | |maven-client| |maven-parent| |maven-scoring| |maven-spark| |
++---------------+-------------------------------------------------------------+
 
 .. |pypi-mlflow| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi&logoColor=white&label=mlflow
     :target: https://pypi.org/project/mlflow/
