@@ -383,6 +383,7 @@ nitpick_ignore = [
     ("py:class", "pytorch_lightning.callbacks.callback.Callback"),
     ("py:class", "pytorch_lightning.trainer.trainer.Trainer"),
     ("py:class", "pytorch_lightning.core.module.LightningModule"),
+    ("py:class", "pytorch_lightning.core.LightningModule"),
 ]
 
 
