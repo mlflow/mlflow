@@ -380,6 +380,9 @@ nitpick_ignore = [
     ("py:class", "keras.src.callbacks.callback.Callback"),
     ("py:class", "keras.callbacks.Callback"),
     ("py:class", "keras.src.callbacks.Callback"),
+    ("py:class", "pytorch_lightning.callbacks.callback.Callback"),
+    ("py:class", "pytorch_lightning.trainer.trainer.Trainer"),
+    ("py:class", "pytorch_lightning.core.module.LightningModule"),
 ]
 
 
