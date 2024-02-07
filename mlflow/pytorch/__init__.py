@@ -1143,13 +1143,13 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
 
     Args:
         model_class: The class of the training model, the class should inherit
-          'pytorch_lightning.LightningModule'.
+            'pytorch_lightning.LightningModule'.
         run_id: The id of the run which model is logged to. If not provided,
-          current active run is used.
+            current active run is used.
         epoch: The epoch of the checkpoint to be loaded, if you set
-          "checkpoint_save_freq" to "epoch".
+            "checkpoint_save_freq" to "epoch".
         global_step: The global step of the checkpoint to be loaded, if
-          you set "checkpoint_save_freq" to an integer.
+            you set "checkpoint_save_freq" to an integer.
     """
     from mlflow.pytorch._lightning_autolog import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 

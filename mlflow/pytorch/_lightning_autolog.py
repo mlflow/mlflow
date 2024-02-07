@@ -2,7 +2,6 @@ import logging
 import os
 import shutil
 import tempfile
-import time
 import warnings
 
 from packaging.version import Version
