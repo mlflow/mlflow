@@ -14,10 +14,10 @@ from mlflow import MlflowClient
 from mlflow.entities import RunStatus, SourceType, ViewType
 from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.projects import _parse_kubernetes_config, _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import PYTHON_VERSION
-from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils.conda import CONDA_EXE, get_or_create_conda_env
 from mlflow.utils.mlflow_tags import (
     LEGACY_MLFLOW_GIT_BRANCH_NAME,
