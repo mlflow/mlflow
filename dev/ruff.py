@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 
-RUFF = [sys.executable, "-m", "ruff"]
+RUFF = [sys.executable, "-m", "ruff", "check"]
 MESSAGE_REGEX = re.compile(r"^.+:\d+:\d+: ([A-Z0-9]+) (\[\*\] )?.+$")
 
 
