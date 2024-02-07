@@ -1,4 +1,5 @@
 """MLflow module for HuggingFace/transformer support."""
+from __future__ import annotations
 
 import ast
 import base64
@@ -14,8 +15,8 @@ import re
 import shutil
 import string
 import sys
-from functools import lru_cache
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -88,6 +89,10 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+# The following import is only used for type hinting
+if TYPE_CHECKING:
+    import torch
 
 FLAVOR_NAME = "transformers"
 
@@ -572,7 +577,10 @@ def save_model(
         # from the input_example if provided, otherwise, apply a generic signature.
         if mlflow_model.signature is None:
             mlflow_model.signature = _get_default_pipeline_signature(
-                built_pipeline, input_example, model_config or inference_config
+                pipeline=built_pipeline,
+                example=input_example,
+                model_config=model_config or inference_config,
+                flavor_config=flavor_conf,
             )
 
         # if pipeline is text-generation and a prompt template is specified,
@@ -1049,7 +1057,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         if _TORCH_DTYPE_KEY in kwargs:
             dtype_val = kwargs[_TORCH_DTYPE_KEY]
         else:
-            dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
+            dtype_val = _deserialize_torch_dtype(flavor_config[_TORCH_DTYPE_KEY])
         conf[_TORCH_DTYPE_KEY] = dtype_val
         accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
 
@@ -1089,20 +1097,13 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         return conf
 
 
-@lru_cache
-def _torch_dype_mapping():
+def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
     """
-    Memoized torch data type mapping from the torch primary datatypes for use in deserializing the
-    saved pipeline parameter `torch_dtype`
+    Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
+    instance value for applying to a loaded pipeline instance.
     """
     try:
         import torch
-
-        return {
-            str(dtype): dtype
-            for name, dtype in torch.__dict__.items()
-            if isinstance(dtype, torch.dtype)
-        }
     except ImportError as e:
         raise MlflowException(
             "Unable to determine if the value supplied by the argument "
@@ -1110,14 +1111,17 @@ def _torch_dype_mapping():
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
+    if dtype_str.startswith("torch."):
+        dtype_str = dtype_str[6:]
 
-def _deserialize_torch_dtype_if_exists(flavor_config):
-    """
-    Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
-    instance value for applying to a loaded pipeline instance.
-    """
+    dtype = getattr(torch, dtype_str, None)
+    if isinstance(dtype, torch.dtype):
+        return dtype
 
-    return _torch_dype_mapping()[flavor_config["torch_dtype"]]
+    raise MlflowException(
+        f"The value '{dtype_str}' is not a valid torch.dtype",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _fetch_model_card(model_name):
@@ -1328,7 +1332,8 @@ def _generate_base_flavor_configuration(
 
     # Extract a serialized representation of torch_dtype if provided
     if torch_dtype := _extract_torch_dtype_if_set(pipeline):
-        flavor_configuration[_TORCH_DTYPE_KEY] = torch_dtype
+        # Convert the torch dtype and back to standardize the string representation
+        flavor_configuration[_TORCH_DTYPE_KEY] = str(torch_dtype)
 
     return flavor_configuration
 
@@ -1342,12 +1347,32 @@ def _get_scalar_argument_from_pipeline(pipeline, arg_key):
     return getattr(pipeline, arg_key, None)
 
 
-def _extract_torch_dtype_if_set(pipeline):
+def _extract_torch_dtype_if_set(pipeline) -> Optional[torch.dtype]:
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
     if torch_dtype := getattr(pipeline, _TORCH_DTYPE_KEY, None):
-        return str(torch_dtype)
+        # Torch dtype value may be a string or a torch.dtype instance
+        if isinstance(torch_dtype, str):
+            torch_dtype = _deserialize_torch_dtype(torch_dtype)
+        return torch_dtype
+
+    try:
+        import torch
+    except ImportError:
+        # If torch is not installed, safe to assume the model doesn't have a custom torch_dtype
+        return None
+
+    # Transformers pipeline doesn't inherit underlying model's dtype, so we have to also check
+    # the model's dtype.
+    model = pipeline.model
+    model_dtype = getattr(model.config, _TORCH_DTYPE_KEY, None) or getattr(model, "dtype", None)
+
+    # However, we should not extract dtype from parameters if it's default one (float32),
+    # to avoid setting torch_dtype for the model that doesn't support it.
+    if isinstance(model_dtype, str):
+        model_dtype = _deserialize_torch_dtype(model_dtype)
+    return model_dtype if model_dtype != torch.float32 else None
 
 
 def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str]:
@@ -1554,7 +1579,9 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
-def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -> ModelSignature:
+def _get_default_pipeline_signature(
+    pipeline, example=None, model_config=None, flavor_config=None
+) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
     default signatures should only be generated and assigned when saving a model iff the user
@@ -1571,7 +1598,13 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             if _contains_params(example):
                 example, params = example
             example = _format_input_example_for_special_cases(example, pipeline)
-            prediction = generate_signature_output(pipeline, example, model_config, params)
+            prediction = generate_signature_output(
+                pipeline=pipeline,
+                data=example,
+                model_config=model_config,
+                params=params,
+                flavor_config=flavor_config,
+            )
             return infer_signature(example, prediction, params)
         except Exception as e:
             _logger.warning(
@@ -1807,7 +1840,7 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
 
 
 @experimental
-def generate_signature_output(pipeline, data, model_config=None, params=None):
+def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
@@ -1820,6 +1853,7 @@ def generate_signature_output(pipeline, data, model_config=None, params=None):
         model_config: Any additional model configuration, provided as kwargs, to inform
             the format of the output type from a pipeline inference call.
         params: A dictionary of additional parameters to pass to the pipeline for inference.
+        flavor_config: The flavor configuration for the model.
 
     Returns:
         The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
@@ -1833,16 +1867,24 @@ def generate_signature_output(pipeline, data, model_config=None, params=None):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline=pipeline, model_config=model_config).predict(
-        data, params=params
+    pyfunc_model = _TransformersWrapper(
+        pipeline=pipeline,
+        flavor_config=flavor_config,
+        model_config=model_config,
     )
+    return pyfunc_model.predict(data, params=params)
 
 
 class _TransformersWrapper:
     def __init__(self, pipeline, flavor_config=None, model_config=None, prompt_template=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
-        self.model_config = model_config or {}
+        # The predict method updates the model_config several times. This should be done over a
+        # deep copy of the original model_config that was specified by the user, otherwise the
+        # prediction won't be idempotent. Hence we creates an immutable dictionary of the original
+        # model config here and enforce creating a deep copy at every predict call.
+        self.model_config = MappingProxyType(model_config or {})
+
         self.prompt_template = prompt_template
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
@@ -1883,21 +1925,21 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def _override_model_config(self, params):
+    def _merge_model_config_with_params(self, model_config, params):
         if params:
             _logger.warning(
                 "params provided to the `predict` method will override the inference "
                 "configuration saved with the model. If the params provided are not "
                 "valid for the pipeline, MlflowException will be raised."
             )
-
             # Override the inference configuration with any additional kwargs provided by the user.
-            self.model_config.update(params)
+            return {**model_config, **params}
+        else:
+            return model_config
 
-    def _validate_model_config_and_return_output(self, data, return_tensors=False):
+    def _validate_model_config_and_return_output(self, data, model_config, return_tensors=False):
         import transformers
 
-        model_config = copy.deepcopy(self.model_config)
         if return_tensors:
             model_config["return_tensors"] = True
 
@@ -1943,7 +1985,12 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
-        self._override_model_config(params)
+        # NB: This `predict` method updates the model_config several times. To make the predict
+        # call idempotent, we keep the original self.model_config immutable and creates a deep
+        # copy of it at every predict call.
+        model_config = copy.deepcopy(dict(self.model_config))
+
+        model_config = self._merge_model_config_with_params(model_config, params)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
@@ -1975,10 +2022,9 @@ class _TransformersWrapper:
                 _validate_input_dictionary_contains_only_strings_and_lists_of_strings(x)
                 for x in input_data
             )
+        return self._predict(input_data, model_config)
 
-        return self._predict(input_data)
-
-    def _predict(self, data):
+    def _predict(self, data, model_config):
         import transformers
 
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
@@ -2032,7 +2078,7 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.AutomaticSpeechRecognitionPipeline):
-            if self.model_config.get("return_timestamps", None) in ["word", "char"]:
+            if model_config.get("return_timestamps", None) in ["word", "char"]:
                 output_key = None
             else:
                 output_key = "text"
@@ -2051,9 +2097,9 @@ class _TransformersWrapper:
         # formatting output), but if `include_prompt` is set to False in the `model_config`
         # option during model saving, excess newline characters and the fed-in prompt will be
         # trimmed out from the start of the response.
-        include_prompt = self.model_config.pop("include_prompt", True)
+        include_prompt = model_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
-        collapse_whitespace = self.model_config.pop("collapse_whitespace", False)
+        collapse_whitespace = model_config.pop("collapse_whitespace", False)
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
@@ -2069,7 +2115,7 @@ class _TransformersWrapper:
                 output_key = "generated_token_ids"
 
             raw_output = self._validate_model_config_and_return_output(
-                data, return_tensors=return_tensors
+                data, model_config=model_config, return_tensors=return_tensors
             )
 
         # Handle the pipeline outputs
@@ -2087,7 +2133,7 @@ class _TransformersWrapper:
 
             if self.llm_inference_task:
                 output = postprocess_output_for_llm_inference_task(
-                    data, output, self.pipeline, self.model_config, self.llm_inference_task
+                    data, output, self.pipeline, model_config, self.llm_inference_task
                 )
 
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
@@ -2100,7 +2146,7 @@ class _TransformersWrapper:
             output = self._parse_tokenizer_output(raw_output, output_key)
         elif isinstance(
             self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
-        ) and self.model_config.get("return_timestamps", None) in ["word", "char"]:
+        ) and model_config.get("return_timestamps", None) in ["word", "char"]:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,

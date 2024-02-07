@@ -4,7 +4,6 @@ from io import StringIO
 from unittest import mock
 
 import fastai
-import langchain
 import lightgbm
 import pyspark
 import pyspark.ml
@@ -41,7 +40,6 @@ library_to_mlflow_module_without_spark_datasource = {
     pytorch_lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
-    langchain: mlflow.langchain,
 }
 
 library_to_mlflow_module = {
@@ -145,10 +143,6 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         "disable_for_unsupported_versions": True,
         "silent": True,
     }
-    if library == langchain:
-        # not supported yet
-        args_to_test.pop("log_datasets")
-        args_to_test.update({"log_input_examples": False, "log_model_signatures": False})
     if library in integrations_with_additional_config:
         args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
 
