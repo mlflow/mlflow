@@ -348,13 +348,12 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
                     "If checkpoint 'save_best_only' config is set to True, you need to set "
                     "'monitor' config as well."
                 )
-            if self.mode is not in ["min", "max"]:
+            if self.mode not in ["min", "max"]:
                 raise MlflowException(
                     "If checkpoint 'save_best_only' config is set to True, you need to set "
                     "'mode' config and available modes includes 'min' and 'max', but you set "
                     f"'mode' to '{self.mode}'."
                 )
-
 
     def _is_new_checkpoint_better(self, new_monitor_value):
         if self.last_monitor_value is None:
@@ -363,12 +362,7 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
         if self.mode == "min":
             return new_monitor_value <= self.last_monitor_value
 
-        if self.mode == "max":
-            return new_monitor_value >= self.last_monitor_value
-
-        raise MlflowException(
-            "Illegal MLflowModelCheckpoint config: 'mode' must be either 'min' or 'max'"
-        )
+        return new_monitor_value >= self.last_monitor_value
 
     def _save_checkpoint_rank_zero_only(self, trainer: "pl.Trainer", filepath: str):
         checkpoint = trainer._checkpoint_connector.dump_checkpoint(self.save_weights_only)
