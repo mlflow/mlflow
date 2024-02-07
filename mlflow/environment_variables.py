@@ -230,7 +230,7 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
 #: requirements. Sometimes the prediction hangs for a long time, especially for a large model.
 #: This timeout avoid the hanging and fall back to the default signature and pip requirements.
 MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT", int, 60
+    "MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT", int, 180
 )
 
 
