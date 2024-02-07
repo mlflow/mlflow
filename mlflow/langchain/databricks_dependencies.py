@@ -14,10 +14,8 @@ def _extract_databricks_dependencies_from_retriever(
 ):
     import langchain
 
-    if hasattr(retriever, "vectorstore") and hasattr(retriever.vectorstore, "embeddings"):
-        vectorstore = retriever.vectorstore
-        embeddings = vectorstore.embeddings
-
+    vectorstore = getattr(retriever, "vectorstore", None)
+    if vectorstore and (embeddings := getattr(vectorstore, "embeddings", None)):
         if isinstance(vectorstore, langchain.vectorstores.DatabricksVectorSearch):
             index = vectorstore.index
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY].append(index.name)
@@ -26,8 +24,7 @@ def _extract_databricks_dependencies_from_retriever(
         if isinstance(embeddings, langchain.embeddings.DatabricksEmbeddings):
             dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(embeddings.endpoint)
         elif (
-            hasattr(vectorstore, "_is_databricks_managed_embeddings")
-            and callable(getattr(vectorstore, "_is_databricks_managed_embeddings"))
+            callable(getattr(vectorstore, "_is_databricks_managed_embeddings", None))
             and vectorstore._is_databricks_managed_embeddings()
         ):
             dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(
