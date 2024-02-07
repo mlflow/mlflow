@@ -1142,7 +1142,8 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
     `epoch` param and `global_step` can't be set together.
 
     Args:
-        model_class: The class of the training model.
+        model_class: The class of the training model, the class should inherit
+          'pytorch_lightning.LightningModule'.
         run_id: The id of the run which model is logged to. If not provided,
           current active run is used.
         epoch: The epoch of the checkpoint to be loaded, if you set
@@ -1166,7 +1167,7 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
 
     latest_checkpoint_artifact_path = run.data.tags.get(LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
     if latest_checkpoint_artifact_path is None:
-        raise MlflowException("There is no logged checkpoint artifact in current run.")
+        raise MlflowException("There is no logged checkpoint artifact in the current run.")
 
     checkpoint_filename = os.path.basename(latest_checkpoint_artifact_path)
 

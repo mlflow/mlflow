@@ -367,9 +367,9 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
         if self.save_best_only:
             if self.monitor not in metric_dict:
                 _logger.error(
-                    "If MLflowModelCheckpoint 'save_best_only' config is True, it requires to "
-                    "compare the monitored metric value, but the provided monitored metric value "
-                    "is not available."
+                    "Checkpoint logging is skipped, because checkpoint 'save_best_only' config is "
+                    "True, it requires to compare the monitored metric value, but the provided "
+                    "monitored metric value is not available."
                 )
                 return
 
