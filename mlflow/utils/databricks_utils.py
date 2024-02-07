@@ -759,14 +759,15 @@ def _init_databricks_cli_config_provider(entry_point):
             # current command execution, so it's critical that we execute it on every get_config().
             api_url_option = notebook_utils.getContext().apiUrl()
             api_url = api_url_option.get() if api_url_option.isDefined() else None
-            # Invoking getNonUcApiToken() will attempt to find the current credentials related to the
-            # current command execution and refresh it if its expired automatically,
+            # Invoking getNonUcApiToken() will attempt to find the current credentials related to
+            # the current command execution and refresh it if its expired automatically,
             # so it's critical that we execute it on every get_config().
             api_token = None
             try:
                 api_token = entry_point.getNonUcApiToken()
             except Exception:
-                # Using apiToken from command context would return back the token which is not refreshed.
+                # Using apiToken from command context would return back the token which is not
+                # refreshed.
                 fallback_api_token_option = notebook_utils.getContext().apiToken()
                 logger.logUsage(
                     "refreshableTokenNotFound",
