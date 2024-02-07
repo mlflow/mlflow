@@ -2,6 +2,11 @@
 name: MLflow Slow Tests
 
 on:
+  pull_request:
+    paths:
+      # Run this workflow in PR when relevant files change
+      - 'slow-tests.yml'
+      - 'tests/pyfunc/docker/test_docker.py'
   workflow_dispatch:
     inputs:
       repository:
