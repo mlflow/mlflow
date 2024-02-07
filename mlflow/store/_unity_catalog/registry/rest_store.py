@@ -6,7 +6,6 @@ import shutil
 from contextlib import contextmanager
 
 import mlflow
-from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.entities import Run
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -499,6 +498,8 @@ class UcModelRegistryStore(BaseRestStore):
         return run.data.tags.get(MLFLOW_DATABRICKS_JOB_RUN_ID, None)
 
     def _get_lineage_input_sources(self, run):
+        from mlflow.data.delta_dataset_source import DeltaDatasetSource
+
         if run is None:
             return None
         securable_list = []
