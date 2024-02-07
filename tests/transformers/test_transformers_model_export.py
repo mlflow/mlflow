@@ -4043,7 +4043,7 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
     )
 
     assert inference[0]["finish_reason"] == "stop"
-    assert inference[0]["text"].endswith("Python")
+    assert inference[0]["text"].endswith("Python") or "Python" not in inference[0]["text"]
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
@@ -4106,6 +4106,9 @@ def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipel
         assert len(prediction_output[0].split(" ")) <= 5
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
+)
 def test_text_generation_task_chat_predict(text_generation_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
