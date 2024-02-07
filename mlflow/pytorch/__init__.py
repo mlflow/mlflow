@@ -1197,6 +1197,7 @@ __all__ = [
 
 try:
     from mlflow.pytorch._lightning_autolog import MLflowModelCheckpointCallback  # noqa: F401
+
     __all__.append("MLflowModelCheckpointCallback")
 except ImportError:
     # Swallow exception if pytorch-lightning is not installed.

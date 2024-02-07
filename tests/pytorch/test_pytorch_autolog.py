@@ -521,9 +521,7 @@ def test_model_checkpoint_per_epoch_callback():
     reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
 )
 def test_model_checkpoint_per_epoch_save_weight_only_callback():
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.client.MlflowClient.log_dict"
-    ), mock.patch(
+    with mlflow.start_run() as run, mock.patch("mlflow.client.MlflowClient.log_dict"), mock.patch(
         "mlflow.client.MlflowClient.log_artifact"
     ) as log_artifact_mock, mock.patch(
         "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"

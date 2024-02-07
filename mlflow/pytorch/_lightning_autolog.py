@@ -571,7 +571,6 @@ def patched_fit(original, self, *args, **kwargs):
 
         model_checkpoint = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "checkpoint", True)
         if model_checkpoint:
-
             # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.6.0
             if _pl_version >= Version("1.6.0"):
                 checkpoint_monitor = get_autologging_config(
