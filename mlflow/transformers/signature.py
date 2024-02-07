@@ -97,18 +97,18 @@ def infer_or_get_default_signature(
             if timeout and not _IS_UNIX:
                 timeout = None
                 _logger.warning(
-                    "On Windows, timeout is not supported for model signature inference. Therefore, "
-                    "the operation is not bound by a timeout and may hang indefinitely. If it hangs, "
-                    "please consider specifying the signature manually."
+                    "On Windows, timeout is not supported for model signature inference. "
+                    "Therefore, the operation is not bound by a timeout and may hang indefinitely. "
+                    "If it hangs, please consider specifying the signature manually."
                 )
             return _infer_signature_with_prediction(
                 pipeline, example, model_config, flavor_config, timeout
             )
         except MLflowTimeoutError:
             _logger.warning(
-                "Attempted to generate a signature for the saved model or pipeline but prediction "
-                f"operation timed out after {timeout} seconds. Falling back to the default signature "
-                "for the pipeline type. You can specify a signature manually or increase the timeout "
+                "Attempted to generate a signature for the saved model but prediction operation "
+                f"timed out after {timeout} seconds. Falling back to the default signature for the "
+                "pipeline. You can specify a signature manually or increase the timeout "
                 f"by setting the environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}"
             )
             pass
