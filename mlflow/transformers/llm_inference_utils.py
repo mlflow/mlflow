@@ -76,9 +76,11 @@ def preprocess_llm_inference_params(
     - Replace OpenAI specific parameters with Hugging Face specific parameters, in particular
       - `max_tokens` with `max_new_tokens`
       - `stop` with `stopping_criteria`
+
+    `data` is updated in place, and the extracted params are returned.
     """
     if inference_task is None:
-        return
+        return params
 
     if params is None:
         params = {}

@@ -107,8 +107,15 @@ def test_preprocess_llm_inference_params():
         data, params=None, inference_task="llm/v1/completions", flavor_config=None
     )
 
+    # Test that OpenAI params are separated from data and replaced with Hugging Face params
     pd.testing.assert_frame_equal(data, pd.DataFrame({"prompt": ["Hello world!"]}))
     assert params == {"max_new_tokens": 100, "temperature": 0.7}
+
+    # Test that without an inference task, the params are not changed
+    params = preprocess_llm_inference_params(
+        data, params={"my_param": "value"}, inference_task=None, flavor_config=None
+    )
+    assert params == {"my_param": "value"}
 
 
 @mock.patch("transformers.AutoTokenizer.from_pretrained")
