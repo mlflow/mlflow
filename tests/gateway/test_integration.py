@@ -291,7 +291,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 18
+    assert len(routes) == 20
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -997,7 +997,7 @@ def test_mistral_completions(gateway):
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "user", "content": "mock using MagicMock please"},
+                "text": "mock using MagicMock please",
                 "finish_reason": "length",
             }
         ],
