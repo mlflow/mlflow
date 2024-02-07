@@ -37,8 +37,6 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 Packages
 
 +--------------+-------------------------------------------------------------+
-| Repository   | Badges                                                      |
-+==============+=============================================================+
 | PyPI         | |pypi-mlflow| |pypi-skinny|                                 |
 +--------------+-------------------------------------------------------------+
 | conda-forge  | |conda-mlflow| |conda-skinny|                               |
