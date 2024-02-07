@@ -36,7 +36,17 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 Packages
 
-|pypi-mlflow| |pypi-skinny| |conda-mlflow| |conda-skinny| |cran| |maven-client| |maven-parent| |maven-scoring| |maven-spark|
++--------------+-------------------------------------------------------------+
+| Repository   | Badges                                                      |
++==============+=============================================================+
+| PyPI         | |pypi-mlflow| |pypi-skinny|                                 |
++--------------+-------------------------------------------------------------+
+| conda-forge  | |conda-mlflow| |conda-skinny|                               |
++--------------+-------------------------------------------------------------+
+| CRAN         | |cran-mlflow|                                               |
++--------------+-------------------------------------------------------------+
+| Maven        | |maven-client| |maven-parent| |maven-scoring| |maven-spark| |
++--------------+-------------------------------------------------------------+
 
 .. |pypi-mlflow| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi&logoColor=white&label=mlflow
     :target: https://pypi.org/project/mlflow/
@@ -50,9 +60,9 @@ Packages
 .. |conda-skinny| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg?style=for-the-badge&logo=anaconda&label=mlflow-skinny
     :target: https://anaconda.org/conda-forge/mlflow-skinny
     :alt: Conda - mlflow-skinny
-.. |cran| image:: https://img.shields.io/cran/v/mlflow.svg?style=for-the-badge&logo=r
+.. |cran-mlflow| image:: https://img.shields.io/cran/v/mlflow.svg?style=for-the-badge&logo=r&label=mlflow
     :target: https://cran.r-project.org/package=mlflow
-    :alt: Latest CRAN Release
+    :alt: CRAN - mlflow
 .. |maven-client| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven&label=mlflow-client
     :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-client
     :alt: Maven Central - mlflow-client
