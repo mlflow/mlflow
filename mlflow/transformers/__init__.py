@@ -586,14 +586,11 @@ def save_model(
     # consisting exclusively of a Model and a Tokenizer.
     if _should_add_pyfunc_to_model(built_pipeline):
         if mlflow_model.signature is None:
-            # Signature inference involves model prediction if input_example is given.
-            # Setting a reasonable timeout so that prediction does not hang indefinitely.
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
                 example=input_example,
                 model_config=model_config or inference_config,
                 flavor_config=flavor_conf,
-                timeout=60,
             )
 
         # if pipeline is text-generation and a prompt template is specified,
@@ -643,7 +640,7 @@ def save_model(
             default_reqs = get_default_pip_requirements(transformers_model.model)
             # Infer the pip requirements with a timeout to avoid hanging indefinitely at prediction
             inferred_reqs = infer_pip_requirements_with_timeout(
-                str(path), FLAVOR_NAME, fallback=default_reqs, timeout=60
+                str(path), FLAVOR_NAME, fallback=default_reqs
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import transformers
 
+from mlflow.environment_variables import MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _contains_params
@@ -81,7 +82,7 @@ _DEFAULT_SIGNATURE_FOR_PIPELINES = {
 
 
 def infer_or_get_default_signature(
-    pipeline, example=None, model_config=None, flavor_config=None, timeout=60
+    pipeline, example=None, model_config=None, flavor_config=None
 ) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
@@ -92,14 +93,23 @@ def infer_or_get_default_signature(
     """
     if example:
         try:
+            timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
+            if timeout and not _IS_UNIX:
+                timeout = None
+                _logger.warning(
+                    "On Windows, timeout is not supported for model signature inference. Therefore, "
+                    "the operation is not bound by a timeout and may hang indefinitely. If it hangs, "
+                    "please consider specifying the signature manually."
+                )
             return _infer_signature_with_prediction(
                 pipeline, example, model_config, flavor_config, timeout
             )
         except MLflowTimeoutError:
             _logger.warning(
-                "Attempted to generate a signature for the saved model or pipeline "
-                "but prediction operation timed out. Falling back to the default "
-                "signature for the pipeline type."
+                "Attempted to generate a signature for the saved model or pipeline but prediction "
+                f"operation timed out after {timeout} seconds. Falling back to the default signature "
+                "for the pipeline type. You can specify a signature manually or increase the timeout "
+                f"by setting the environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}"
             )
             pass
         except Exception as e:
@@ -122,7 +132,7 @@ def infer_or_get_default_signature(
 
 
 def _infer_signature_with_prediction(
-    pipeline, example, model_config=None, flavor_config=None, timeout=300
+    pipeline, example, model_config=None, flavor_config=None, timeout=None
 ) -> ModelSignature:
     import transformers
 
@@ -138,17 +148,17 @@ def _infer_signature_with_prediction(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if _IS_UNIX:
+    if timeout:
+        _logger.info(
+            "Running model prediction to infer the model output signature with a timeout "
+            f"of {timeout} seconds. You can specify a different timeout by setting the "
+            f"environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
+        )
         with run_with_timeout(timeout):
             prediction = _generate_signature_output(
                 pipeline, example, model_config, flavor_config, params
             )
     else:
-        _logger.warning(
-            "Running prediction on the input example to infer model signature. On Windows, "
-            "the prediction is not bound by a timeout and may hang indefinitely. If it "
-            "hangs, please consider specifying the signature manually."
-        )
         prediction = _generate_signature_output(
             pipeline, example, model_config, flavor_config, params
         )

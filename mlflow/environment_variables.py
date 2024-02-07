@@ -225,6 +225,15 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT", int, None
 )
 
+#: Specifies the timeout for model inference with input example(s) when logging/saving a model.
+#: MLflow runs a few inference requests against the model to infer model signature and pip
+#: requirements. Sometimes the prediction hangs for a long time, especially for a large model.
+#: This timeout avoid the hanging and fall back to the default signature and pip requirements.
+MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT", int, 60
+)
+
+
 #: Specifies the device intended for use in the predict function - can be used
 #: to override behavior where the GPU is used by default when available by
 #: setting this environment variable to be ``cpu``. Currently, this
