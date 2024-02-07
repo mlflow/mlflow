@@ -1183,8 +1183,7 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
         checkpoint_artifact_path = latest_checkpoint_artifact_path
 
     downloaded_checkpoint_filepath = client.download_artifacts(run_id, checkpoint_artifact_path)
-    model = model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
-    return model
+    return model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
 
 
 __all__ = [

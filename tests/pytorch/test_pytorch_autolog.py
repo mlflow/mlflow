@@ -523,7 +523,7 @@ def test_model_checkpoint_per_epoch_callback():
 def test_model_checkpoint_per_epoch_save_weight_only_callback():
     with mlflow.start_run() as run, mock.patch(
         "mlflow.client.MlflowClient.log_dict"
-    ) as log_dict_mock, mock.patch(
+    ), mock.patch(
         "mlflow.client.MlflowClient.log_artifact"
     ) as log_artifact_mock, mock.patch(
         "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
