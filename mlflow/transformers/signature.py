@@ -11,7 +11,7 @@ from mlflow.models.utils import _contains_params
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.schema import ColSpec, DataType, Schema, TensorSpec
 from mlflow.utils.process import _IS_UNIX
-from mlflow.utils.timeout import MLflowTimeoutError, run_with_timeout
+from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 
 _logger = logging.getLogger(__name__)
 
@@ -104,14 +104,13 @@ def infer_or_get_default_signature(
             return _infer_signature_with_prediction(
                 pipeline, example, model_config, flavor_config, timeout
             )
-        except MLflowTimeoutError:
+        except MlflowTimeoutError:
             _logger.warning(
                 "Attempted to generate a signature for the saved model but prediction operation "
                 f"timed out after {timeout} seconds. Falling back to the default signature for the "
                 "pipeline. You can specify a signature manually or increase the timeout "
                 f"by setting the environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}"
             )
-            pass
         except Exception as e:
             _logger.error(
                 "Attempted to generate a signature for the saved model or pipeline "

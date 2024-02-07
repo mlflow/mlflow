@@ -228,7 +228,8 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
 #: Specifies the timeout for model inference with input example(s) when logging/saving a model.
 #: MLflow runs a few inference requests against the model to infer model signature and pip
 #: requirements. Sometimes the prediction hangs for a long time, especially for a large model.
-#: This timeout avoid the hanging and fall back to the default signature and pip requirements.
+#: This timeout limits the allowable time for performing a prediction for signature inference
+#: and will abort the prediction, falling back to the default signature and pip requirements.
 MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT", int, 180
 )

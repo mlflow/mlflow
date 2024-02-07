@@ -19,7 +19,7 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
-from mlflow.utils.timeout import MLflowTimeoutError, run_with_timeout
+from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -412,7 +412,7 @@ def infer_pip_requirements_with_timeout(model_uri, flavor, fallback):
             return infer_pip_requirements(model_uri, flavor, fallback)
     except Exception as e:
         if fallback is not None:
-            if isinstance(e, MLflowTimeoutError):
+            if isinstance(e, MlflowTimeoutError):
                 msg = (
                     "Attempted to infer pip requirements for the saved model or pipeline but the "
                     f"operation timed out in {timeout} seconds. Fall back to return {fallback}. "

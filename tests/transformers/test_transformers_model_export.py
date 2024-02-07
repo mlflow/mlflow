@@ -927,6 +927,8 @@ def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expec
     pip_requirements = _get_deps_from_requirement_file(model_uri)
     assert "tensorflow" in pip_requirements
     assert "torch" not in pip_requirements
+    # Accelerate installs Pytorch along with it, so it should not be present in the requirements
+    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(

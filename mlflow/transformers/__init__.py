@@ -91,7 +91,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 IS_TRANSFORMERS_AVAILABLE = importlib.util.find_spec("transformers") is not None
 
-# The following modules depends on transformers and only imported when it is available
+# The following modules depend on transformers and only imported when it is available
 if IS_TRANSFORMERS_AVAILABLE:
     from mlflow.transformers.signature import (
         _generate_signature_output,

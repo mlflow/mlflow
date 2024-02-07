@@ -1,10 +1,12 @@
 import signal
 from contextlib import contextmanager
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import NOT_IMPLEMENTED
 from mlflow.utils.process import _IS_UNIX
 
 
-class MLflowTimeoutError(Exception):
+class MlflowTimeoutError(Exception):
     pass
 
 
@@ -22,10 +24,14 @@ def run_with_timeout(seconds):
             model.predict(data)
         ```
     """
-    assert _IS_UNIX, "Timeouts are not implemented yet for non-Unix platforms"
+    if not _IS_UNIX:
+        raise MlflowException(
+            "Timeouts are not implemented yet for non-Unix platforms",
+            error_code=NOT_IMPLEMENTED,
+        )
 
     def signal_handler(signum, frame):
-        raise MLflowTimeoutError(f"Operation timed out after {seconds} seconds")
+        raise MlflowTimeoutError(f"Operation timed out after {seconds} seconds")
 
     signal.signal(signal.SIGALRM, signal_handler)
     signal.alarm(seconds)
