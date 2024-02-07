@@ -62,7 +62,6 @@ def test_enforce_schema_spark_dataframe(spark):
         )
     ]
 
-    input_df = spark.createDataFrame(data, spark_df_schema)
     input_schema = Schema(
         [
             ColSpec(DataType.integer, "smallint"),
@@ -77,6 +76,8 @@ def test_enforce_schema_spark_dataframe(spark):
             ColSpec(DataType.binary, "binary"),
         ]
     )
+
+    input_df = spark.createDataFrame(data, spark_df_schema)
     result = _enforce_schema(input_df, input_schema)
     assertDataFrameEqual(input_df, result)
 
@@ -248,7 +249,6 @@ def test_enforce_schema_spark_dataframe_missing_col(spark):
         )
     ]
 
-    df = spark.createDataFrame(data, spark_df_schema)
     input_schema = Schema(
         [
             ColSpec(DataType.integer, "smallint"),
@@ -256,6 +256,8 @@ def test_enforce_schema_spark_dataframe_missing_col(spark):
             ColSpec(DataType.long, "bigint"),
         ]
     )
+
+    df = spark.createDataFrame(data, spark_df_schema)
     with pytest.raises(MlflowException, match="Model is missing inputs"):
         _enforce_schema(df, input_schema)
 
@@ -272,14 +274,57 @@ def test_enforce_schema_spark_dataframe_incompatible_type(spark):
         )
     ]
 
-    df = spark.createDataFrame(data, spark_df_schema)
     input_schema = Schema(
         [
             ColSpec(DataType.integer, "a"),
             ColSpec(DataType.integer, "b"),
         ]
     )
+
+    df = spark.createDataFrame(data, spark_df_schema)
     with pytest.raises(MlflowException, match="Incompatible input types"):
+        _enforce_schema(df, input_schema)
+
+
+def test_enforce_schema_spark_dataframe_incompatible_type_complex(spark):
+    spark_df_schema = StructType(
+        [
+            StructField(
+                "teststruct",
+                StructType(
+                    [
+                        StructField("int", IntegerType(), True),
+                        StructField("double", DoubleType(), True),
+                    ]
+                ),
+            )
+        ]
+    )
+
+    data = [
+        Row(
+            teststruct=Row(
+                int=1000,
+                double=20.5,
+            )
+        )
+    ]
+
+    input_schema = Schema(
+        [
+            ColSpec(
+                Object(
+                    [
+                        Property("int", DataType.integer),
+                        Property("double", DataType.string),
+                    ]
+                )
+            )
+        ]
+    )
+
+    df = spark.createDataFrame(data, spark_df_schema)
+    with pytest.raises(MlflowException, match="Failed to enforce schema"):
         _enforce_schema(df, input_schema)
 
 
@@ -295,8 +340,9 @@ def test_enforce_schema_spark_dataframe_extra_col(spark):
         )
     ]
 
-    df = spark.createDataFrame(data, spark_df_schema)
     input_schema = Schema([ColSpec(DataType.integer, "a")])
+
+    df = spark.createDataFrame(data, spark_df_schema)
     result = _enforce_schema(df, input_schema)
     expected_result = df.drop("b")
     assertDataFrameEqual(result, expected_result)
@@ -310,8 +356,6 @@ def test_enforce_schema_spark_dataframe_no_schema(spark):
         )
     ]
 
-    df = spark.createDataFrame(data)
-
     input_schema = Schema(
         [
             ColSpec(DataType.integer, "a"),
@@ -319,5 +363,6 @@ def test_enforce_schema_spark_dataframe_no_schema(spark):
         ]
     )
 
-    with pytest.raises(MlflowException, match="Model is missing inputs"):
+    df = spark.createDataFrame(data, ["a", "b"])
+    with pytest.raises(MlflowException, match="Incompatible input types"):
         _enforce_schema(df, input_schema)
