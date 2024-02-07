@@ -1150,6 +1150,30 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
             "checkpoint_save_freq" to "epoch".
         global_step: The global step of the checkpoint to be loaded, if
             you set "checkpoint_save_freq" to an integer.
+
+    Returns:
+        The instance of a pytorch-lightning model restored from the specified checkpoint.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.pytorch
+
+        mlflow.pytorch.autolog(checkpoint=True)
+
+        model = MyLightningModuleNet()  # A custom-pytorch lightning model
+        trainer = Trainer()
+
+        with mlflow.start_run() as run:
+            trainer.fit(net)
+
+        run_id = run.info.run_id
+
+        # load latest checkpoint model
+        latest_checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id)
+
+        # load history checkpoint model logged in second epoch
+        checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id, epoch=2)
     """
     from mlflow.pytorch._lightning_autolog import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
