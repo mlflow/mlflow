@@ -1193,6 +1193,7 @@ __all__ = [
     "log_model",
     "get_default_pip_requirements",
     "get_default_conda_env",
+    "load_checkpoint",
 ]
 
 try:
