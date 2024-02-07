@@ -19,7 +19,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
 from mlflow.utils import file_utils
-from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
+from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_RUN_URL,
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,

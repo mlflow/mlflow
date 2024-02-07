@@ -6,7 +6,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import databricks_utils
-from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
+from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     get_mlflow_credential_context_by_run_id,

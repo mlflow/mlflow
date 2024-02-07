@@ -8,7 +8,7 @@ from typing import Optional, TypeVar
 import mlflow.utils
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
-from mlflow.utils._legacy_databricks_cli_utils import (
+from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
     DatabricksConfigProvider,
     DefaultConfigProvider,
