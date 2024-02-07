@@ -3,7 +3,7 @@ import os
 from pyspark.sql import SparkSession
 
 import mlflow
-from mlflow.spark._autolog import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow.spark.autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 
 def _get_mlflow_spark_jar_path():
