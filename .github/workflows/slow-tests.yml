@@ -60,6 +60,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          python -m pip install langchain_experimental
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
