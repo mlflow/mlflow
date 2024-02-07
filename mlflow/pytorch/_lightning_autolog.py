@@ -7,7 +7,6 @@ import warnings
 
 from packaging.version import Version
 
-from mlflow.utils.file_utils import create_tmp_dir
 import mlflow.pytorch
 from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
@@ -19,6 +18,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
     get_autologging_config,
 )
+from mlflow.utils.file_utils import create_tmp_dir
 
 logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
@@ -395,10 +395,10 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
                 sub_dir_name = f"global_step_{trainer.global_step}"
 
             if self.save_weights_only:
-                checkpoint_model_filename = f"checkpoint.weights.pth"
+                checkpoint_model_filename = "checkpoint.weights.pth"
             else:
-                checkpoint_model_filename = f"checkpoint.pth"
-            checkpoint_metrics_filename = f"checkpoint_metrics.json"
+                checkpoint_model_filename = "checkpoint.pth"
+            checkpoint_metrics_filename = "checkpoint_metrics.json"
             checkpoint_artifact_dir = f"checkpoints/{sub_dir_name}"
 
         self.client.set_tag(
@@ -563,7 +563,6 @@ def patched_fit(original, self, *args, **kwargs):
 
         model_checkpoint = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "checkpoint", True)
         if model_checkpoint:
-            from pytorch_lightning.callbacks import ModelCheckpoint
 
             # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.6.0
             if _pl_version >= Version("1.6.0"):

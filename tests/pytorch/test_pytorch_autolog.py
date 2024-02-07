@@ -1,6 +1,5 @@
-import os.path
-import time
 from unittest import mock
+
 import pytest
 import pytorch_lightning as pl
 import torch
@@ -18,7 +17,7 @@ import mlflow
 import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.pytorch import load_checkpoint, MLflowModelCheckpointCallback
+from mlflow.pytorch import MLflowModelCheckpointCallback, load_checkpoint
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 from mlflow.utils.file_utils import TempDir
 
