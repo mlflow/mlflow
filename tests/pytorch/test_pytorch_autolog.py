@@ -462,17 +462,18 @@ def test_autolog_registering_model():
         assert registered_model.name == registered_model_name
 
 
+class FakeTrainer:
+    def __init__(self):
+        self.callback_metrics = {}
+        self.current_epoch = 0
+        self.global_step = 0
+
+
 @pytest.mark.skipif(
     Version(pl.__version__) < Version("1.6.0"),
     reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
 )
-def test_model_checkpoint_callback():
-    class FakeTrainer:
-        def __init__(self):
-            self.callback_metrics = {}
-            self.current_epoch = 0
-            self.global_step = 0
-
+def test_model_checkpoint_per_epoch_callback():
     with mlflow.start_run() as run, mock.patch(
         "mlflow.client.MlflowClient.log_dict"
     ) as log_dict_mock, mock.patch(
@@ -514,9 +515,23 @@ def test_model_checkpoint_callback():
         )
         save_chekpoint_mock.assert_called_once()
 
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_model_checkpoint_per_epoch_save_weight_only_callback():
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.client.MlflowClient.log_dict"
+    ) as log_dict_mock, mock.patch(
+        "mlflow.client.MlflowClient.log_artifact"
+    ) as log_artifact_mock, mock.patch(
+        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
+    ) as save_chekpoint_mock:
+        model = object()
+
+        client = MlflowClient()
+        run_id = run.info.run_id
 
         # Test save_weights_only = True
         callback2 = MLflowModelCheckpointCallback(
@@ -542,9 +557,23 @@ def test_model_checkpoint_callback():
         )
         save_chekpoint_mock.assert_called_once()
 
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_model_checkpoint_per_10_steps_callback():
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.client.MlflowClient.log_dict"
+    ) as log_dict_mock, mock.patch(
+        "mlflow.client.MlflowClient.log_artifact"
+    ) as log_artifact_mock, mock.patch(
+        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
+    ) as save_chekpoint_mock:
+        model = object()
+
+        client = MlflowClient()
+        run_id = run.info.run_id
 
         # Test checkpoint per 10 steps, save_best_only = False, save_weights_only = False
         callback3 = MLflowModelCheckpointCallback(
@@ -582,9 +611,24 @@ def test_model_checkpoint_callback():
             mock.ANY,
             "checkpoints/global_step_10",
         )
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
+
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_model_checkpoint_per_10_steps_save_best_only_callback():
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.client.MlflowClient.log_dict"
+    ) as log_dict_mock, mock.patch(
+        "mlflow.client.MlflowClient.log_artifact"
+    ) as log_artifact_mock, mock.patch(
+        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
+    ) as save_chekpoint_mock:
+        model = object()
+
+        client = MlflowClient()
+        run_id = run.info.run_id
 
         # Test checkpoint every 10 steps, save_best_only = True, monitor = 'val_acc_step',
         # mode = "max"
@@ -636,9 +680,24 @@ def test_model_checkpoint_callback():
             mock.ANY,
             "checkpoints",
         )
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
+
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_model_checkpoint_per_epoch_save_best_only_min_monitor_callback():
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.client.MlflowClient.log_dict"
+    ) as log_dict_mock, mock.patch(
+        "mlflow.client.MlflowClient.log_artifact"
+    ) as log_artifact_mock, mock.patch(
+        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
+    ) as save_chekpoint_mock:
+        model = object()
+
+        client = MlflowClient()
+        run_id = run.info.run_id
 
         # Test checkpoint per epoch, save_best_only = True, monitor = 'val_loss', mode = "min"
         callback5 = MLflowModelCheckpointCallback(
@@ -696,9 +755,24 @@ def test_model_checkpoint_callback():
             mock.ANY,
             "checkpoints",
         )
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
+
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_model_checkpoint_per_epoch_save_best_only_max_monitor_callback():
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.client.MlflowClient.log_dict"
+    ) as log_dict_mock, mock.patch(
+        "mlflow.client.MlflowClient.log_artifact"
+    ) as log_artifact_mock, mock.patch(
+        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
+    ) as save_chekpoint_mock:
+        model = object()
+
+        client = MlflowClient()
+        run_id = run.info.run_id
 
         # Test checkpoint per epoch, save_best_only = True, monitor = 'val_acc', mode = "max"
         callback6 = MLflowModelCheckpointCallback(
@@ -749,9 +823,6 @@ def test_model_checkpoint_callback():
             mock.ANY,
             "checkpoints",
         )
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
 
 
 @pytest.mark.skipif(
