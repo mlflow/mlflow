@@ -48,7 +48,6 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.databricks_dependencies import _assign_value_or_append_to_list
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
@@ -1568,9 +1567,7 @@ def test_chat_with_history(spark, fake_chat_model):
 
 def _extract_endpoint_name_from_lc_model(lc_model, dependency_dict: DefaultDict[str, List[Any]]):
     if type(lc_model).__name__ == type(get_fake_chat_model()).__name__:
-        _assign_value_or_append_to_list(
-            dependency_dict, "fake_chat_model_endpoint_name", lc_model.endpoint_name
-        )
+        dependency_dict["fake_chat_model_endpoint_name"].append(lc_model.endpoint_name)
 
 
 @pytest.mark.skipif(
@@ -1614,20 +1611,15 @@ def _extract_databricks_dependencies_from_retriever(
         embeddings = vectorstore.embeddings
 
         if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
-            _assign_value_or_append_to_list(dependency_dict, "fake_index", "faiss-index")
+            dependency_dict["fake_index"].append("faiss-index")
 
         if isinstance(embeddings, FakeEmbeddings):
-            _assign_value_or_append_to_list(
-                dependency_dict, "fake_embeddings_size", embeddings.size
-            )
+            dependency_dict["fake_embeddings_size"].append(embeddings.size)
 
 
 def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
     if isinstance(llm, FakeLLM):
-        _assign_value_or_append_to_list(
-            dependency_dict, "fake_llm_endpoint_name", llm.endpoint_name
-        )
-    return dependency_dict
+        dependency_dict["fake_llm_endpoint_name"].append(llm.endpoint_name)
 
 
 @pytest.mark.skipif(

@@ -9,10 +9,6 @@ _DATABRICKS_LLM_ENDPOINT_NAME_KEY = "databricks_llm_endpoint_name"
 _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
 
 
-def _assign_value_or_append_to_list(d, key, value):
-    d[key].append(value)
-
-
 def _extract_databricks_dependencies_from_retriever(
     retriever, dependency_dict: DefaultDict[str, List[Any]]
 ):
@@ -24,26 +20,18 @@ def _extract_databricks_dependencies_from_retriever(
 
         if isinstance(vectorstore, langchain.vectorstores.DatabricksVectorSearch):
             index = vectorstore.index
-            _assign_value_or_append_to_list(
-                dependency_dict, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY, index.name
-            )
-            _assign_value_or_append_to_list(
-                dependency_dict, _DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY, index.endpoint_name
-            )
+            dependency_dict[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY].append(index.name)
+            dependency_dict[_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY].append(index.endpoint_name)
 
         if isinstance(embeddings, langchain.embeddings.DatabricksEmbeddings):
-            _assign_value_or_append_to_list(
-                dependency_dict, _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY, embeddings.endpoint
-            )
+            dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(embeddings.endpoint)
         elif (
             hasattr(vectorstore, "_is_databricks_managed_embeddings")
             and callable(getattr(vectorstore, "_is_databricks_managed_embeddings"))
             and vectorstore._is_databricks_managed_embeddings()
         ):
-            _assign_value_or_append_to_list(
-                dependency_dict,
-                _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-                "_is_databricks_managed_embeddings",
+            dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(
+                "_is_databricks_managed_embeddings"
             )
 
 
@@ -51,9 +39,7 @@ def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[
     import langchain
 
     if isinstance(llm, langchain.llms.Databricks):
-        _assign_value_or_append_to_list(
-            dependency_dict, _DATABRICKS_LLM_ENDPOINT_NAME_KEY, llm.endpoint_name
-        )
+        dependency_dict[_DATABRICKS_LLM_ENDPOINT_NAME_KEY].append(llm.endpoint_name)
 
 
 def _extract_databricks_dependencies_from_chat_model(
@@ -62,9 +48,20 @@ def _extract_databricks_dependencies_from_chat_model(
     import langchain
 
     if isinstance(chat_model, langchain.chat_models.ChatDatabricks):
-        _assign_value_or_append_to_list(
-            dependency_dict, _DATABRICKS_CHAT_ENDPOINT_NAME_KEY, chat_model.endpoint
-        )
+        dependency_dict[_DATABRICKS_CHAT_ENDPOINT_NAME_KEY].append(chat_model.endpoint)
+
+
+_LEGACY_MODEL_ATTR_SET = {
+    "llm",  # LLMChain
+    "retriever",  # RetrievalQA
+    "llm_chain",  # StuffDocumentsChain, MapRerankDocumentsChain, MapReduceDocumentsChain
+    "question_generator",  # BaseConversationalRetrievalChain
+    "initial_llm_chain",  # RefineDocumentsChain
+    "refine_llm_chain",  # RefineDocumentsChain
+    "combine_documents_chain",  # RetrievalQA, ReduceDocumentsChain
+    "combine_docs_chain",  # BaseConversationalRetrievalChain
+    "collapse_documents_chain",  # ReduceDocumentsChain
+}
 
 
 def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict: DefaultDict[str, List[Any]]):
@@ -82,29 +79,8 @@ def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict: DefaultDic
     _extract_databricks_dependencies_from_llm(lc_model, dependency_dict)
 
     # recursively inspect legacy chain
-    if hasattr(lc_model, "retriever"):
-        _extract_dependency_dict_from_lc_model(lc_model.retriever, dependency_dict)
-    if hasattr(
-        lc_model, "llm_chain"
-    ):  # StuffDocumentsChain, MapRerankDocumentsChain, MapReduceDocumentsChain
-        _extract_dependency_dict_from_lc_model(lc_model.llm_chain.llm, dependency_dict)
-    if hasattr(lc_model, "question_generator"):  # BaseConversationalRetrievalChain
-        _extract_dependency_dict_from_lc_model(lc_model.question_generator.llm, dependency_dict)
-    if hasattr(lc_model, "initial_llm_chain") and hasattr(
-        lc_model, "refine_llm_chain"
-    ):  # RefineDocumentsChain
-        _extract_dependency_dict_from_lc_model(lc_model.initial_llm_chain.llm, dependency_dict)
-        _extract_dependency_dict_from_lc_model(lc_model.refine_llm_chain.llm, dependency_dict)
-
-    if hasattr(lc_model, "combine_documents_chain"):  # RetrievalQA, ReduceDocumentsChain
-        _extract_dependency_dict_from_lc_model(lc_model.combine_documents_chain, dependency_dict)
-    if hasattr(lc_model, "combine_docs_chain"):  # BaseConversationalRetrievalChain
-        _extract_dependency_dict_from_lc_model(lc_model.combine_docs_chain, dependency_dict)
-    if (
-        hasattr(lc_model, "collapse_documents_chain")
-        and lc_model.collapse_documents_chain is not None
-    ):  # ReduceDocumentsChain
-        _extract_dependency_dict_from_lc_model(lc_model.collapse_documents_chain, dependency_dict)
+    for attr_name in _LEGACY_MODEL_ATTR_SET:
+        _extract_dependency_dict_from_lc_model(getattr(lc_model, attr_name, None), dependency_dict)
 
 
 def _traverse_runnable(lc_model, dependency_dict: DefaultDict[str, List[Any]], visited: Set[str]):
