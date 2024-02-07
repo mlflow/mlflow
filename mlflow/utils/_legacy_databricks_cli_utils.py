@@ -1,5 +1,6 @@
 # This module is copied from legacy databricks CLI python library
-# module `databricks_cli.configure.provider`,
+# module `databricks_cli.configure.provider`, see
+# https://github.com/databricks/databricks-cli/blob/0.18.0/databricks_cli/configure/provider.py
 # because the latest Databricks Runtime does not contain legacy databricks CLI
 # but MLflow still depends on it.
 
