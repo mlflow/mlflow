@@ -19,11 +19,11 @@ import pytest
 import requests
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_RUN_SLOW_TESTS
+from mlflow.environment_variables import _MLFLOW_RUN_SLOW_TESTS
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 
 # Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
-if MLFLOW_RUN_SLOW_TESTS.get():
+if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
     from tests.diviner.test_diviner_model_export import (  # noqa: F401
         diviner_data,
@@ -61,7 +61,7 @@ if MLFLOW_RUN_SLOW_TESTS.get():
     from tests.transformers.helper import load_small_qa_pipeline, load_small_seq2seq_pipeline
 
 @pytest.mark.skipif(
-    not MLFLOW_RUN_SLOW_TESTS.get(),
+    not _MLFLOW_RUN_SLOW_TESTS.get(),
     reason="Skip slow tests. Set MLFLOW_RUN_SLOW_TESTS environment variable to run them.",
 )
 @pytest.mark.parametrize(
