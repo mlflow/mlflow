@@ -5,8 +5,8 @@ on:
   pull_request:
     paths:
       # Run this workflow in PR when relevant files change
-      - '.github/workflows/slow-tests.yml'
-      - 'tests/pyfunc/docker/test_docker.py'
+      - ".github/workflows/slow-tests.yml"
+      - "tests/pyfunc/docker/test_docker.py"
   workflow_dispatch:
     inputs:
       repository:
@@ -46,7 +46,7 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - uses: actions/checkout@v4
         with:
