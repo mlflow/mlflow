@@ -4,7 +4,6 @@ from unittest import mock
 
 import numpy as np
 import openai
-import openai.error
 import pandas as pd
 import pytest
 import yaml
@@ -497,51 +496,6 @@ class ChatCompletionModel(mlflow.pyfunc.PythonModel):
             messages=[{"role": "user", "content": "What is MLflow?"}],
         )
         return completion.choices[0].message.content
-
-
-@pytest.mark.parametrize(
-    "error",
-    [
-        openai.error.RateLimitError(message="RateLimitError", code=403),
-        openai.error.Timeout(message="Timeout", code=408),
-        openai.error.ServiceUnavailableError(message="ServiceUnavailable", code=503),
-        openai.error.APIConnectionError(message="APIConnectionError", code=500),
-        openai.error.APIError(message="APIError", code=500),
-    ],
-)
-def test_auto_request_retry(tmp_path, error):
-    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    resp = _mock_chat_completion_response(content="test")
-    with _mock_request(side_effect=[error, resp]) as mock_request:
-        text = loaded_model.predict(None)
-        assert text == "test"
-        assert mock_request.call_count == 2
-
-
-def test_auto_request_retry_exceeds_maximum_attempts(tmp_path):
-    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    with pytest.raises(openai.error.RateLimitError, match="RateLimitError"):
-        with _mock_request(
-            side_effect=openai.error.RateLimitError(message="RateLimitError", code=403)
-        ) as mock_request:
-            loaded_model.predict(None)
-
-    assert mock_request.call_count == 5
-
-
-def test_auto_request_retry_is_disabled_when_env_var_is_false(tmp_path, monkeypatch):
-    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    monkeypatch.setenv("MLFLOW_OPENAI_RETRIES_ENABLED", "false")
-    with pytest.raises(openai.error.RateLimitError, match="RateLimitError"):
-        with _mock_request(
-            side_effect=openai.error.RateLimitError(message="RateLimitError", code=403)
-        ) as mock_request:
-            loaded_model.predict(None)
-
-    assert mock_request.call_count == 1
 
 
 def test_embeddings(tmp_path):

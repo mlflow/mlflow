@@ -16,23 +16,11 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack| |twitter|
+|docs| |license| |downloads| |slack| |twitter|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge
     :target: https://mlflow.org/docs/latest/index.html
     :alt: Latest Docs
-.. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi&logoColor=white
-    :target: https://pypi.org/project/mlflow/
-    :alt: Latest Python Release
-.. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg?style=for-the-badge&logo=anaconda
-    :target: https://anaconda.org/conda-forge/mlflow
-    :alt: Latest Conda Release
-.. |cran| image:: https://img.shields.io/cran/v/mlflow.svg?style=for-the-badge&logo=r
-    :target: https://cran.r-project.org/package=mlflow
-    :alt: Latest CRAN Release
-.. |maven| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven
-    :target: https://mvnrepository.com/artifact/org.mlflow
-    :alt: Maven Central
 .. |license| image:: https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache
     :target: https://github.com/mlflow/mlflow/blob/master/LICENSE.txt
     :alt: Apache 2 License
@@ -45,6 +33,46 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |twitter| image:: https://img.shields.io/twitter/follow/MLflow?style=for-the-badge&labelColor=00ACEE&logo=twitter&logoColor=white
     :target: https://twitter.com/MLflow
     :alt: Account Twitter
+
+Packages
+
++---------------+-------------------------------------------------------------+
+| PyPI          | |pypi-mlflow| |pypi-skinny|                                 |
++---------------+-------------------------------------------------------------+
+| conda-forge   | |conda-mlflow| |conda-skinny|                               |
++---------------+-------------------------------------------------------------+
+| CRAN          | |cran-mlflow|                                               |
++---------------+-------------------------------------------------------------+
+| Maven Central | |maven-client| |maven-parent| |maven-scoring| |maven-spark| |
++---------------+-------------------------------------------------------------+
+
+.. |pypi-mlflow| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi&logoColor=white&label=mlflow
+    :target: https://pypi.org/project/mlflow/
+    :alt: PyPI - mlflow
+.. |pypi-skinny| image:: https://img.shields.io/pypi/v/mlflow-skinny.svg?style=for-the-badge&logo=pypi&logoColor=white&label=mlflow-skinny
+    :target: https://pypi.org/project/mlflow-skinny/
+    :alt: PyPI - mlflow-skinny
+.. |conda-mlflow| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg?style=for-the-badge&logo=anaconda&label=mlflow
+    :target: https://anaconda.org/conda-forge/mlflow
+    :alt: Conda - mlflow
+.. |conda-skinny| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg?style=for-the-badge&logo=anaconda&label=mlflow-skinny
+    :target: https://anaconda.org/conda-forge/mlflow-skinny
+    :alt: Conda - mlflow-skinny
+.. |cran-mlflow| image:: https://img.shields.io/cran/v/mlflow.svg?style=for-the-badge&logo=r&label=mlflow
+    :target: https://cran.r-project.org/package=mlflow
+    :alt: CRAN - mlflow
+.. |maven-client| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven&label=mlflow-client
+    :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-client
+    :alt: Maven Central - mlflow-client
+.. |maven-parent| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven&label=mlflow-parent
+    :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-parent
+    :alt: Maven Central - mlflow-parent
+.. |maven-scoring| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven&label=mlflow-scoring
+    :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-scoring
+    :alt: Maven Central - mlflow-scoring
+.. |maven-spark| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven&label=mlflow-spark
+    :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
+    :alt: Maven Central - mlflow-spark
 
 .. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1iffrtbly-UNU8hV03aV8feUeGmqf_uA
 

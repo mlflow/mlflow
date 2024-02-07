@@ -231,7 +231,6 @@ import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
-    MLFLOW_OPENAI_RETRIES_ENABLED,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
@@ -493,26 +492,10 @@ class PyFuncModel:
 
         params = _validate_params(params, self.metadata)
 
-        def _predict():
-            # Models saved prior to MLflow 2.5.0 do not support `params` in the pyfunc `predict()`
-            # function definition, nor do they support `**kwargs`. Accordingly, we only pass
-            # `params` to the `predict()` method if it defines the `params` argument
-            if inspect.signature(self._predict_fn).parameters.get("params"):
-                return self._predict_fn(data, params=params)
-            _log_warning_if_params_not_in_predict_signature(_logger, params)
-            return self._predict_fn(data)
-
-        if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
-            from mlflow.openai.retry import openai_auto_retry_patch
-
-            try:
-                with openai_auto_retry_patch():
-                    return _predict()
-            except Exception:
-                if _MLFLOW_TESTING.get():
-                    raise
-
-        return _predict()
+        if inspect.signature(self._predict_fn).parameters.get("params"):
+            return self._predict_fn(data, params=params)
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        return self._predict_fn(data)
 
     @experimental
     def unwrap_python_model(self):
