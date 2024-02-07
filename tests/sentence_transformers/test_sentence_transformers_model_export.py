@@ -487,7 +487,9 @@ def test_veryfy_task_and_update_metadata():
     metadata = mlflow.sentence_transformers._veryfy_task_and_update_metadata("llm/v1/embeddings")
     assert metadata == {"task": "llm/v1/embeddings"}
     # Update embedding task with metadata containing task
-    metadata = mlflow.sentence_transformers._veryfy_task_and_update_metadata("llm/v1/embeddings", metadata)
+    metadata = mlflow.sentence_transformers._veryfy_task_and_update_metadata(
+        "llm/v1/embeddings", metadata
+    )
     assert metadata == {"task": "llm/v1/embeddings"}
 
     # Update embedding task with metadata containing different task

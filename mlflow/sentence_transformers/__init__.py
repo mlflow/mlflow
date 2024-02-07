@@ -78,7 +78,9 @@ def get_default_conda_env():
 
 
 @experimental
-def _veryfy_task_and_update_metadata(task: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _veryfy_task_and_update_metadata(
+    task: str, metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
         raise MlflowException.invalid_parameter_value(
             f"Received invalid parameter value for `task` argument {task}. Task type could "
@@ -413,8 +415,8 @@ class _SentenceTransformerModelWrapper:
         Returns:
             Model predictions.
         """
-        # When the input is a single string or a dictionary, it is transformed into a DataFrame with one column
-        # and row, but the encode function does not accept DataFrame input
+        # When the input is a single string or a dictionary, it is transformed into a DataFrame
+        # with one column and row, but the encode function does not accept DataFrame input
         convert_output_to_llm_v1_format = False
         if type(sentences) == pd.DataFrame:
             # Wrap the output to OpenAI format only when the input is dict `{"input": ... }`
@@ -449,47 +451,44 @@ class _SentenceTransformerModelWrapper:
         Examples:
             .. code-block:: python
                 input_prompt = ["hello world and hello mlflow"]
-                output_embedding = [
-                    0.47137904,
-                    0.4669448,
-                    ...
-                    0.69726706
-                ]
-                output_dicts = postprocess_output_for_llm_v1_embedding_task(input_prompt, output_embedding)
+                output_embedding = [0.47137904, 0.4669448, ..., 0.69726706]
+                output_dicts = postprocess_output_for_llm_v1_embedding_task(
+                    input_prompt, output_embedding
+                )
                 assert output_dicts == [
-                {
-                    "object": "list",
-                    "data": [{
-                        "object": "embedding",
-                        "index": 0,
-                        "embedding": [
-                            0.47137904,
-                            0.4669448,
-                            ...
-                            0.69726706
+                    {
+                        "object": "list",
+                        "data": [
+                            {
+                                "object": "embedding",
+                                "index": 0,
+                                "embedding": [0.47137904, 0.4669448, ..., 0.69726706],
+                            }
                         ],
-                    }],
-                    "usage": {"prompt_tokens": 8, "total_tokens": 8},
-                }
-            ]
+                        "usage": {"prompt_tokens": 8, "total_tokens": 8},
+                    }
+                ]
 
         Args:
             input_prompts: text input prompts
             output_tensers: List of output tensors that contain the generated embeddings
 
         Returns:
-             Dictionaries containing the output embedding and usage information for each input prompt.
+             Dictionaries containing the output embedding and usage information for each
+             input prompt.
         """
-        prompt_tokens = sum([len(self.model.tokenizer(prompt)["input_ids"]) for prompt in input_prompts])
-        output_dict = {
+        prompt_tokens = sum(
+            [len(self.model.tokenizer(prompt)["input_ids"]) for prompt in input_prompts]
+        )
+        return {
             "object": "list",
-            "data": [{
-                "object": "embedding",
-                "index": i,
-                "embedding": tensor,
-            } for i, tensor in enumerate(output_tensers)
+            "data": [
+                {
+                    "object": "embedding",
+                    "index": i,
+                    "embedding": tensor,
+                }
+                for i, tensor in enumerate(output_tensers)
             ],
-            "usage": {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens}
+            "usage": {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens},
         }
-
-        return output_dict
