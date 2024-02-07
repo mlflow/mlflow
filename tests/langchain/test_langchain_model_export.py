@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 from contextlib import contextmanager
 from operator import itemgetter
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, DefaultDict, Dict, List, Mapping, Optional
 from unittest import mock
 
 import langchain
@@ -1566,12 +1566,11 @@ def test_chat_with_history(spark, fake_chat_model):
     }
 
 
-def _extract_endpoint_name_from_lc_model(lc_model, dependency_dict) -> Dict[str, str]:
+def _extract_endpoint_name_from_lc_model(lc_model, dependency_dict: DefaultDict[str, List[Any]]):
     if type(lc_model).__name__ == type(get_fake_chat_model()).__name__:
         _assign_value_or_append_to_list(
             dependency_dict, "fake_chat_model_endpoint_name", lc_model.endpoint_name
         )
-    return dependency_dict
 
 
 @pytest.mark.skipif(
@@ -1605,7 +1604,9 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     }
 
 
-def _extract_databricks_dependencies_from_retriever(retriever, dependency_dict) -> Dict[str, str]:
+def _extract_databricks_dependencies_from_retriever(
+    retriever, dependency_dict: DefaultDict[str, List[Any]]
+):
     import langchain_community
 
     if hasattr(retriever, "vectorstore") and hasattr(retriever.vectorstore, "embeddings"):
@@ -1620,10 +1621,8 @@ def _extract_databricks_dependencies_from_retriever(retriever, dependency_dict) 
                 dependency_dict, "fake_embeddings_size", embeddings.size
             )
 
-    return dependency_dict
 
-
-def _extract_databricks_dependencies_from_llm(llm, dependency_dict) -> Dict[str, str]:
+def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
     if isinstance(llm, FakeLLM):
         _assign_value_or_append_to_list(
             dependency_dict, "fake_llm_endpoint_name", llm.endpoint_name
@@ -1671,9 +1670,9 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
         )
     langchain_flavor = logged_model.flavors["langchain"]
     assert langchain_flavor["databricks_dependency"] == {
-        "fake_llm_endpoint_name": "fake-llm-endpoint",
-        "fake_index": "faiss-index",
-        "fake_embeddings_size": 5,
+        "fake_llm_endpoint_name": ["fake-llm-endpoint"],
+        "fake_index": ["faiss-index"],
+        "fake_embeddings_size": [5],
     }
 
 

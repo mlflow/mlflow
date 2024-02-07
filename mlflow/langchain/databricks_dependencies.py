@@ -1,4 +1,5 @@
-from typing import Dict, Set
+from collections import defaultdict
+from typing import Any, DefaultDict, Dict, List, Set
 
 _DATABRICKS_DEPENDENCY_KEY = "databricks_dependency"
 _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY = "databricks_vector_search_index_name"
@@ -9,17 +10,12 @@ _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
 
 
 def _assign_value_or_append_to_list(d, key, value):
-    if key in d:
-        if isinstance(d[key], list):
-            d[key].append(value)
-        else:
-            d[key] = [d[key], value]
-    else:
-        d[key] = value
-    return d
+    d[key].append(value)
 
 
-def _extract_databricks_dependencies_from_retriever(retriever, dependency_dict) -> Dict[str, str]:
+def _extract_databricks_dependencies_from_retriever(
+    retriever, dependency_dict: DefaultDict[str, List[Any]]
+):
     import langchain
 
     if hasattr(retriever, "vectorstore") and hasattr(retriever.vectorstore, "embeddings"):
@@ -50,90 +46,68 @@ def _extract_databricks_dependencies_from_retriever(retriever, dependency_dict) 
                 "_is_databricks_managed_embeddings",
             )
 
-    return dependency_dict
 
-
-def _extract_databricks_dependencies_from_llm(llm, dependency_dict) -> Dict[str, str]:
+def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
     import langchain
 
     if isinstance(llm, langchain.llms.Databricks):
         _assign_value_or_append_to_list(
             dependency_dict, _DATABRICKS_LLM_ENDPOINT_NAME_KEY, llm.endpoint_name
         )
-    return dependency_dict
 
 
-def _extract_databricks_dependencies_from_chat_model(chat_model, dependency_dict) -> Dict[str, str]:
+def _extract_databricks_dependencies_from_chat_model(
+    chat_model, dependency_dict: DefaultDict[str, List[Any]]
+):
     import langchain
 
     if isinstance(chat_model, langchain.chat_models.ChatDatabricks):
         _assign_value_or_append_to_list(
             dependency_dict, _DATABRICKS_CHAT_ENDPOINT_NAME_KEY, chat_model.endpoint
         )
-    return dependency_dict
 
 
-def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[str, str]:
+def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict: DefaultDict[str, List[Any]]):
     """
     This function contains the logic to examine a non-Runnable component of a langchain model.
     The logic here does not cover all legacy chains. If you need to support a custom chain,
     you need to monkey patch this function.
     """
     if lc_model is None:
-        return dependency_dict
+        return
 
     # leaf node
-    dependency_dict = _extract_databricks_dependencies_from_chat_model(lc_model, dependency_dict)
-    dependency_dict = _extract_databricks_dependencies_from_retriever(lc_model, dependency_dict)
-    dependency_dict = _extract_databricks_dependencies_from_llm(lc_model, dependency_dict)
+    _extract_databricks_dependencies_from_chat_model(lc_model, dependency_dict)
+    _extract_databricks_dependencies_from_retriever(lc_model, dependency_dict)
+    _extract_databricks_dependencies_from_llm(lc_model, dependency_dict)
 
     # recursively inspect legacy chain
     if hasattr(lc_model, "retriever"):
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.retriever, dependency_dict
-        )
+        _extract_dependency_dict_from_lc_model(lc_model.retriever, dependency_dict)
     if hasattr(
         lc_model, "llm_chain"
     ):  # StuffDocumentsChain, MapRerankDocumentsChain, MapReduceDocumentsChain
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.llm_chain.llm, dependency_dict
-        )
+        _extract_dependency_dict_from_lc_model(lc_model.llm_chain.llm, dependency_dict)
     if hasattr(lc_model, "question_generator"):  # BaseConversationalRetrievalChain
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.question_generator.llm, dependency_dict
-        )
+        _extract_dependency_dict_from_lc_model(lc_model.question_generator.llm, dependency_dict)
     if hasattr(lc_model, "initial_llm_chain") and hasattr(
         lc_model, "refine_llm_chain"
     ):  # RefineDocumentsChain
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.initial_llm_chain.llm, dependency_dict
-        )
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.refine_llm_chain.llm, dependency_dict
-        )
+        _extract_dependency_dict_from_lc_model(lc_model.initial_llm_chain.llm, dependency_dict)
+        _extract_dependency_dict_from_lc_model(lc_model.refine_llm_chain.llm, dependency_dict)
 
     if hasattr(lc_model, "combine_documents_chain"):  # RetrievalQA, ReduceDocumentsChain
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.combine_documents_chain, dependency_dict
-        )
+        _extract_dependency_dict_from_lc_model(lc_model.combine_documents_chain, dependency_dict)
     if hasattr(lc_model, "combine_docs_chain"):  # BaseConversationalRetrievalChain
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.combine_docs_chain, dependency_dict
-        )
+        _extract_dependency_dict_from_lc_model(lc_model.combine_docs_chain, dependency_dict)
     if (
         hasattr(lc_model, "collapse_documents_chain")
         and lc_model.collapse_documents_chain is not None
     ):  # ReduceDocumentsChain
-        dependency_dict = _extract_dependency_dict_from_lc_model(
-            lc_model.collapse_documents_chain, dependency_dict
-        )
-
-    return dependency_dict
+        _extract_dependency_dict_from_lc_model(lc_model.collapse_documents_chain, dependency_dict)
 
 
-def _traverse_runnable(
-    lc_model, dependency_dict: Dict[str, str], visited: Set[str]
-) -> (Dict[str, str], Set[str]):
+def _traverse_runnable(lc_model, dependency_dict: DefaultDict[str, List[Any]], visited: Set[str]):
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
     object. It first inspects the current object using _extract_dependency_dict_from_lc_model
@@ -145,23 +119,23 @@ def _traverse_runnable(
 
     current_object_id = id(lc_model)
     if current_object_id in visited:
-        return dependency_dict, visited
+        return
 
     # Visit the current object
     visited.add(current_object_id)
-    dependency_dict = _extract_dependency_dict_from_lc_model(lc_model, dependency_dict)
+    _extract_dependency_dict_from_lc_model(lc_model, dependency_dict)
 
     if isinstance(lc_model, langchain_core.runnables.RunnableSerializable):
         # Visit the returned graph
         for node in lc_model.get_graph().nodes.values():
-            dependency_dict, visited = _traverse_runnable(node.data, dependency_dict, visited)
+            _traverse_runnable(node.data, dependency_dict, visited)
     else:
         # This is a leaf node
         pass
-    return dependency_dict, visited
+    return
 
 
-def _detect_databricks_dependencies(lc_model) -> Dict[str, str]:
+def _detect_databricks_dependencies(lc_model) -> Dict[str, List[Any]]:
     """
     Detects the databricks dependencies of a langchain model and returns a dictionary of
     detected endpoint names and index names.
@@ -182,4 +156,6 @@ def _detect_databricks_dependencies(lc_model) -> Dict[str, str]:
     If an llm is found, it will be used to extract the databricks llm dependencies.
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
-    return _traverse_runnable(lc_model, {}, set())[0]
+    dependency_dict = defaultdict(list)
+    _traverse_runnable(lc_model, dependency_dict, set())
+    return dict(dependency_dict)
