@@ -339,7 +339,6 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
         self.save_best_only = save_best_only
         self.save_weights_only = save_weights_only
         self.save_freq = save_freq
-        self.latest_checkpoint_timestamp = time.time()
         self.last_monitor_value = None
 
         if self.save_best_only:
@@ -374,7 +373,7 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
 
         if self.save_best_only:
             if self.monitor not in metric_dict:
-                _logger.error(
+                _logger.warning(
                     "Checkpoint logging is skipped, because checkpoint 'save_best_only' config is "
                     "True, it requires to compare the monitored metric value, but the provided "
                     "monitored metric value is not available."
@@ -437,8 +436,6 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
             self.client.log_artifact(self.run_id, tmp_model_save_path, checkpoint_artifact_dir)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-
-        self.latest_checkpoint_timestamp = time.time()
 
     @rank_zero_only
     def on_train_batch_end(
