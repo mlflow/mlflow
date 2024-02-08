@@ -22,9 +22,7 @@ def test_databricks_request_header_provider_in_context(
         return_value=is_in_databricks_notebook,
     ), mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster
-    ):
+    ), mock.patch("mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster):
         assert (
             DatabricksRequestHeaderProvider().in_context() == is_in_databricks_notebook
             or is_in_databricks_job
@@ -47,9 +45,7 @@ def test_databricks_request_header_provider_request_headers(
         "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
     ), mock.patch(
         "mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_notebook_id"
-    ) as notebook_id_mock, mock.patch(
+    ), mock.patch("mlflow.utils.databricks_utils.get_notebook_id") as notebook_id_mock, mock.patch(
         "mlflow.utils.databricks_utils.get_job_id"
     ) as job_id_mock, mock.patch(
         "mlflow.utils.databricks_utils.get_job_run_id"

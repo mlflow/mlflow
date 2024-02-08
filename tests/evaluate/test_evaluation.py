@@ -1196,9 +1196,7 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
         {"test_evaluator1": FakeEvauator1},
     ), mock.patch.object(FakeEvauator1, "can_evaluate", return_value=True), mock.patch.object(
         FakeEvauator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
-    ), mock.patch(
-        "mlflow.pyfunc._load_model_or_server"
-    ) as server_loader, mock.patch(
+    ), mock.patch("mlflow.pyfunc._load_model_or_server") as server_loader, mock.patch(
         "os.kill"
     ) as os_mock:
         server_loader.side_effect = [served_model_1, served_model_2]

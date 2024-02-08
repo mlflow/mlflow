@@ -134,9 +134,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     if _pl_version >= Version("1.4.0dev"):
 
         @rank_zero_only
-        def on_train_epoch_end(
-            self, trainer, pl_module, *args
-        ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+        def on_train_epoch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
             self._log_epoch_metrics(trainer, pl_module)
 
     # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
@@ -151,9 +149,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # pytorch-lightning >= 1.3.0
 
         @rank_zero_only
-        def on_train_epoch_end(
-            self, trainer, pl_module, *args
-        ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+        def on_train_epoch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
             """
             Log loss and other metrics values after each train epoch
 
@@ -192,9 +188,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             self._log_epoch_metrics(trainer, pl_module)
 
     @rank_zero_only
-    def on_train_batch_end(
-        self, trainer, pl_module, *args
-    ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+    def on_train_batch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
         """
         Log metric values after each step
 

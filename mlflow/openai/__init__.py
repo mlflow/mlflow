@@ -816,7 +816,9 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     """A wrapper class that should be used for testing purposes only."""
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Args:
