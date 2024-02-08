@@ -31,7 +31,6 @@ When the logged model is served on Databricks, each secret will be resolved and 
 corresponding environment variable. See https://docs.databricks.com/security/secrets/index.html
 for how to set up secrets on Databricks.
 """
-
 import itertools
 import logging
 import os
