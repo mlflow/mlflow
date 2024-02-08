@@ -18,6 +18,7 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 from mlflow.utils.file_utils import create_tmp_dir
+from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
 logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
@@ -291,9 +292,6 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
-LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
-
-
 class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
     This callback implementation only supports pytorch-lightning >= 1.6.0.
@@ -383,6 +381,7 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
             if not self._is_new_checkpoint_better(new_monitor_value):
                 # Current checkpoint is worse than last saved checkpoint,
                 # so skip checkpointing.
+                self.last_monitor_value = new_monitor_value
                 return
 
             self.last_monitor_value = new_monitor_value

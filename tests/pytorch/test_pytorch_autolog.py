@@ -427,7 +427,6 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     run = client.get_run(run.info.run_id)
 
     # Checking if metrics are logged
-    client = MlflowClient()
     for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
         assert metric_key in run.data.metrics
 
@@ -462,414 +461,45 @@ def test_autolog_registering_model():
         assert registered_model.name == registered_model_name
 
 
-class FakeTrainer:
-    def __init__(self):
-        self.callback_metrics = {}
-        self.current_epoch = 0
-        self.global_step = 0
-
-
 @pytest.mark.skipif(
     Version(pl.__version__) < Version("1.6.0"),
     reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
 )
-def test_model_checkpoint_per_epoch_callback():
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.client.MlflowClient.log_dict"
-    ) as log_dict_mock, mock.patch(
-        "mlflow.client.MlflowClient.log_artifact"
-    ) as log_artifact_mock, mock.patch(
-        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
-    ) as save_chekpoint_mock:
-        model = object()
-
-        client = MlflowClient()
-        run_id = run.info.run_id
-
-        # Test checkpoint per epoch, save_best_only = False, save_weights_only = False
-        callback1 = MLflowModelCheckpointCallback(
-            client=client,
-            run_id=run_id,
-            monitor=None,
-            mode=None,
-            save_best_only=False,
-            save_weights_only=False,
-            save_freq="epoch",
-        )
-
-        trainer1 = FakeTrainer()
-        trainer1.current_epoch = 1
-        trainer1.callback_metrics = {"loss": torch.tensor(1.5), "val_loss": torch.tensor(2.0)}
-        trainer1.global_step = 100
-        callback1.on_train_epoch_end(trainer1, model)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"loss": 1.5, "val_loss": 2.0, "epoch": 1, "global_step": 100},
-            "checkpoints/epoch_1/checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints/epoch_1",
-        )
-        save_chekpoint_mock.assert_called_once()
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) < Version("1.6.0"),
-    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
-)
-def test_model_checkpoint_per_epoch_save_weight_only_callback():
-    with mlflow.start_run() as run, mock.patch("mlflow.client.MlflowClient.log_dict"), mock.patch(
-        "mlflow.client.MlflowClient.log_artifact"
-    ) as log_artifact_mock, mock.patch(
-        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
-    ) as save_chekpoint_mock:
-        model = object()
-
-        client = MlflowClient()
-        run_id = run.info.run_id
-
-        # Test save_weights_only = True
-        callback2 = MLflowModelCheckpointCallback(
-            client=client,
-            run_id=run_id,
-            monitor=None,
-            mode=None,
-            save_best_only=False,
-            save_weights_only=True,
-            save_freq="epoch",
-        )
-
-        trainer2 = FakeTrainer()
-        trainer2.current_epoch = 1
-        trainer2.global_step = 100
-        trainer2.callback_metrics = {}
-        callback2.on_train_epoch_end(trainer2, model)
-
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints/epoch_1",
-        )
-        save_chekpoint_mock.assert_called_once()
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) < Version("1.6.0"),
-    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
-)
-def test_model_checkpoint_per_10_steps_callback():
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.client.MlflowClient.log_dict"
-    ) as log_dict_mock, mock.patch(
-        "mlflow.client.MlflowClient.log_artifact"
-    ) as log_artifact_mock, mock.patch(
-        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
-    ) as save_chekpoint_mock:
-        model = object()
-
-        client = MlflowClient()
-        run_id = run.info.run_id
-
-        # Test checkpoint per 10 steps, save_best_only = False, save_weights_only = False
-        callback3 = MLflowModelCheckpointCallback(
-            client=client,
-            run_id=run_id,
-            monitor=None,
-            mode=None,
-            save_best_only=False,
-            save_weights_only=False,
-            save_freq=10,
-        )
-
-        trainer3 = FakeTrainer()
-        trainer3.current_epoch = 1
-        trainer3.global_step = 5
-
-        callback3.on_train_batch_end(trainer3, model, None, None, 5)
-        log_dict_mock.assert_not_called()
-        log_artifact_mock.assert_not_called()
-        save_chekpoint_mock.reset_mock()
-
-        trainer3.global_step = 10
-        trainer3.callback_metrics = {"loss": 1.2, "val_loss": 1.3}
-        trainer3.expect_weights_only_saving = False
-        trainer3.expected_checkpoint_filename = "checkpoint.pth"
-        callback3.on_train_batch_end(trainer3, model, None, None, 10)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"loss": 1.2, "val_loss": 1.3, "epoch": 1, "global_step": 10},
-            "checkpoints/global_step_10/checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints/global_step_10",
-        )
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) < Version("1.6.0"),
-    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
-)
-def test_model_checkpoint_per_10_steps_save_best_only_callback():
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.client.MlflowClient.log_dict"
-    ) as log_dict_mock, mock.patch(
-        "mlflow.client.MlflowClient.log_artifact"
-    ) as log_artifact_mock, mock.patch(
-        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
-    ) as save_chekpoint_mock:
-        model = object()
-
-        client = MlflowClient()
-        run_id = run.info.run_id
-
-        # Test checkpoint every 10 steps, save_best_only = True, monitor = 'val_acc_step',
-        # mode = "max"
-        callback4 = MLflowModelCheckpointCallback(
-            client=client,
-            run_id=run_id,
-            monitor="train_acc_step",
-            mode="max",
-            save_best_only=True,
-            save_weights_only=False,
-            save_freq=10,
-        )
-        trainer4 = FakeTrainer()
-        trainer4.current_epoch = 1
-        trainer4.global_step = 10
-        trainer4.callback_metrics = {"train_acc_step": 0.7}
-        trainer4.expect_weights_only_saving = False
-        trainer4.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback4.on_train_batch_end(trainer4, model, None, None, 10)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"train_acc_step": 0.7, "epoch": 1, "global_step": 10},
-            "checkpoints/latest_checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints",
-        )
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
-
-        trainer4.current_epoch = 1
-        trainer4.global_step = 20
-        trainer4.callback_metrics = {"train_acc_step": 0.8}
-        trainer4.expect_weights_only_saving = False
-        trainer4.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback4.on_train_batch_end(trainer4, model, None, None, 20)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"train_acc_step": 0.8, "epoch": 1, "global_step": 20},
-            "checkpoints/latest_checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints",
-        )
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) < Version("1.6.0"),
-    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
-)
-def test_model_checkpoint_per_epoch_save_best_only_min_monitor_callback():
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.client.MlflowClient.log_dict"
-    ) as log_dict_mock, mock.patch(
-        "mlflow.client.MlflowClient.log_artifact"
-    ) as log_artifact_mock, mock.patch(
-        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
-    ) as save_chekpoint_mock:
-        model = object()
-
-        client = MlflowClient()
-        run_id = run.info.run_id
-
-        # Test checkpoint per epoch, save_best_only = True, monitor = 'val_loss', mode = "min"
-        callback5 = MLflowModelCheckpointCallback(
-            client=client,
-            run_id=run_id,
-            monitor="val_loss",
-            mode="min",
-            save_best_only=True,
-            save_weights_only=False,
-            save_freq="epoch",
-        )
-
-        trainer5 = FakeTrainer()
-        trainer5.current_epoch = 1
-        trainer5.global_step = 100
-        trainer5.callback_metrics = {"loss": 1.5, "val_loss": 1.6}
-        trainer5.expect_weights_only_saving = False
-        trainer5.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback5.on_train_epoch_end(trainer5, model)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"loss": 1.5, "val_loss": 1.6, "epoch": 1, "global_step": 100},
-            "checkpoints/latest_checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints",
-        )
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
-
-        trainer5.current_epoch = 2
-        trainer5.callback_metrics = {"loss": 1.4, "val_loss": 1.65}
-        callback5.on_train_epoch_end(trainer5, model)
-        log_dict_mock.assert_not_called()
-        log_artifact_mock.assert_not_called()
-        save_chekpoint_mock.reset_mock()
-
-        trainer5.current_epoch = 3
-        trainer5.callback_metrics = {"loss": 1.3, "val_loss": 1.5}
-        trainer5.expect_weights_only_saving = False
-        trainer5.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback5.on_train_epoch_end(trainer5, model)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"loss": 1.3, "val_loss": 1.5, "epoch": 3, "global_step": 100},
-            "checkpoints/latest_checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints",
-        )
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) < Version("1.6.0"),
-    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
-)
-def test_model_checkpoint_per_epoch_save_best_only_max_monitor_callback():
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.client.MlflowClient.log_dict"
-    ) as log_dict_mock, mock.patch(
-        "mlflow.client.MlflowClient.log_artifact"
-    ) as log_artifact_mock, mock.patch(
-        "mlflow.pytorch.MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only"
-    ) as save_chekpoint_mock:
-        model = object()
-
-        client = MlflowClient()
-        run_id = run.info.run_id
-
-        # Test checkpoint per epoch, save_best_only = True, monitor = 'val_acc', mode = "max"
-        callback6 = MLflowModelCheckpointCallback(
-            client=client,
-            run_id=run_id,
-            monitor="val_acc",
-            mode="max",
-            save_best_only=True,
-            save_weights_only=False,
-            save_freq="epoch",
-        )
-
-        trainer6 = FakeTrainer()
-        trainer6.current_epoch = 1
-        trainer6.global_step = 100
-        trainer6.callback_metrics = {"acc": 0.9, "val_acc": 0.8}
-        trainer6.expect_weights_only_saving = False
-        trainer6.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback6.on_train_epoch_end(trainer6, model)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"acc": 0.9, "val_acc": 0.8, "epoch": 1, "global_step": 100},
-            "checkpoints/latest_checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints",
-        )
-        log_dict_mock.reset_mock()
-        log_artifact_mock.reset_mock()
-        save_chekpoint_mock.reset_mock()
-
-        trainer6.current_epoch = 2
-        trainer6.callback_metrics = {"acc": 0.95, "val_acc": 0.85}
-        trainer6.expect_weights_only_saving = False
-        trainer6.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback6.on_train_epoch_end(trainer6, model)
-
-        log_dict_mock.assert_called_once_with(
-            run_id,
-            {"acc": 0.95, "val_acc": 0.85, "epoch": 2, "global_step": 100},
-            "checkpoints/latest_checkpoint_metrics.json",
-        )
-        log_artifact_mock.assert_called_once_with(
-            run_id,
-            mock.ANY,
-            "checkpoints",
-        )
-
-
-@pytest.mark.skipif(
-    Version(pl.__version__) < Version("1.6.0"),
-    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
-)
-def test_per_epoch_automatic_model_checkpoint():
+def test_automatic_checkpoint_per_epoch_callback():
     mlflow.pytorch.autolog(
         checkpoint=True,
-        checkpoint_monitor="val_loss",
-        checkpoint_mode="min",
-        checkpoint_save_best_only=True,
-        checkpoint_save_weights_only=True,
+        checkpoint_monitor=None,
+        checkpoint_mode=None,
+        checkpoint_save_best_only=False,
+        checkpoint_save_weights_only=False,
         checkpoint_save_freq="epoch",
     )
 
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
-    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer = pl.Trainer(max_epochs=1)
 
     with mlflow.start_run() as run:
         trainer.fit(model, dm)
 
-    client = MlflowClient()
-    artifacts = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
+    run_id = run.info.run_id
 
-    assert "checkpoints" in artifacts
+    assert {'epoch': 0, 'global_step': 33} | {
+        k: float(v) for k, v in trainer.callback_metrics.items()
+    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json")
 
-    result_metrics = mlflow.artifacts.load_dict(
-        f"runs:/{run.info.run_id}/checkpoints/latest_checkpoint_metrics.json"
-    )
+    IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path="checkpoints/epoch_0/checkpoint.pth"
+    ))
 
-    assert set(result_metrics.keys()) == {
-        "loss",
-        "global_step",
-        "loss_forked",
-        "loss_forked_step",
-        "val_acc",
-        "val_loss",
-        "train_acc",
-        "loss_forked_epoch",
-        "epoch",
-    }
 
-    loaded_model = load_checkpoint(IrisClassification, run.info.run_id)
-    assert isinstance(loaded_model, IrisClassification)
-
-    # Test logging all history checkpoints
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_automatic_checkpoint_per_epoch_save_weight_only_callback():
     mlflow.pytorch.autolog(
         checkpoint=True,
         checkpoint_monitor=None,
@@ -882,128 +512,187 @@ def test_per_epoch_automatic_model_checkpoint():
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
-    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer = pl.Trainer(max_epochs=1)
 
     with mlflow.start_run() as run:
         trainer.fit(model, dm)
 
-    client = MlflowClient()
-    artifacts = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
+    run_id = run.info.run_id
 
-    assert "checkpoints" in artifacts
+    assert {'epoch': 0, 'global_step': 33} | {
+        k: float(v) for k, v in trainer.callback_metrics.items()
+    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json")
 
-    result_metrics = mlflow.artifacts.load_dict(
-        f"runs:/{run.info.run_id}/checkpoints/epoch_{NUM_EPOCHS - 1}/checkpoint_metrics.json"
-    )
-
-    assert set(result_metrics.keys()) == {
-        "loss",
-        "global_step",
-        "loss_forked",
-        "loss_forked_step",
-        "val_acc",
-        "val_loss",
-        "train_acc",
-        "loss_forked_epoch",
-        "epoch",
-    }
-
-    loaded_latest_model = load_checkpoint(IrisClassification, run.info.run_id)
-    assert isinstance(loaded_latest_model, IrisClassification)
-
-    loaded_history_model = load_checkpoint(
-        IrisClassification, run.info.run_id, epoch=NUM_EPOCHS // 2
-    )
-    assert isinstance(loaded_history_model, IrisClassification)
+    IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path="checkpoints/epoch_0/checkpoint.weights.pth"
+    ))
 
 
 @pytest.mark.skipif(
     Version(pl.__version__) < Version("1.6.0"),
     reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
 )
-def test_per_n_steps_automatic_model_checkpoint():
+def test_automatic_checkpoint_per_10_steps_callback():
+    mlflow.pytorch.autolog(
+        checkpoint=True,
+        checkpoint_monitor=None,
+        checkpoint_mode=None,
+        checkpoint_save_best_only=False,
+        checkpoint_save_weights_only=False,
+        checkpoint_save_freq=10,
+    )
+
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=1)
+
+    with mlflow.start_run() as run:
+        trainer.fit(model, dm)
+
+    run_id = run.info.run_id
+
+    metric_keys = {'epoch', 'loss_forked_step', 'loss', 'global_step', 'loss_forked'}
+    assert metric_keys == set(mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/global_step_10/checkpoint_metrics.json"
+    ).keys())
+    IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path=f"checkpoints/global_step_10/checkpoint.pth"
+    ))
+
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_automatic_checkpoint_per_10_steps_save_best_only_callback():
     mlflow.pytorch.autolog(
         checkpoint=True,
         checkpoint_monitor="loss_forked_step",
         checkpoint_mode="min",
         checkpoint_save_best_only=True,
-        checkpoint_save_weights_only=True,
+        checkpoint_save_weights_only=False,
+        checkpoint_save_freq=30,
+    )
+
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=1)
+
+    with mlflow.start_run() as run:
+        trainer.fit(model, dm)
+
+    run_id = run.info.run_id
+
+    metric_keys = {'epoch', 'loss_forked_step', 'loss', 'global_step', 'loss_forked'}
+    logged_metrics = mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )
+    assert logged_metrics["global_step"] == 30
+    assert metric_keys == set(logged_metrics.keys())
+
+    IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path=f"checkpoints/latest_checkpoint.pth"
+    ))
+
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
+    mlflow.pytorch.autolog(
+        checkpoint=True,
+        checkpoint_monitor="val_loss",
+        checkpoint_mode="min",
+        checkpoint_save_best_only=True,
+        checkpoint_save_weights_only=False,
         checkpoint_save_freq="epoch",
     )
 
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
-    trainer = pl.Trainer(max_epochs=4)
+    trainer = pl.Trainer(max_epochs=1)
 
     with mlflow.start_run() as run:
         trainer.fit(model, dm)
 
-    client = MlflowClient()
-    artifacts = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
+    run_id = run.info.run_id
 
-    assert "checkpoints" in artifacts
+    assert {'epoch': 0, 'global_step': 33} | {
+        k: float(v) for k, v in trainer.callback_metrics.items()
+    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")
 
-    result_metrics = mlflow.artifacts.load_dict(
-        f"runs:/{run.info.run_id}/checkpoints/latest_checkpoint_metrics.json"
-    )
+    IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path=f"checkpoints/latest_checkpoint.pth"
+    ))
 
-    assert set(result_metrics.keys()) == {
-        "loss",
-        "global_step",
-        "loss_forked",
-        "loss_forked_step",
-        "val_acc",
-        "val_loss",
-        "train_acc",
-        "loss_forked_epoch",
-        "epoch",
-    }
+    callback = [c for c in trainer.callbacks if isinstance(c, MLflowModelCheckpointCallback)][0]
+    trainer.fit_loop.epoch_progress.current.completed += 1
+    trainer._logger_connector._callback_metrics["val_loss"] += 0.1
+    callback.on_train_epoch_end(trainer, model)
+    assert mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )["epoch"] == 0
 
-    loaded_model = load_checkpoint(IrisClassification, run.info.run_id)
-    assert isinstance(loaded_model, IrisClassification)
+    trainer.fit_loop.epoch_progress.current.completed += 1
+    trainer._logger_connector._callback_metrics["val_loss"] -= 0.2
+    callback.on_train_epoch_end(trainer, model)
+    assert mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )["epoch"] == 3
 
-    # Test logging all history checkpoints
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
+def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
     mlflow.pytorch.autolog(
         checkpoint=True,
-        checkpoint_monitor=None,
-        checkpoint_mode=None,
-        checkpoint_save_best_only=False,
-        checkpoint_save_weights_only=True,
-        checkpoint_save_freq=20,
+        checkpoint_monitor="val_acc",
+        checkpoint_mode="max",
+        checkpoint_save_best_only=True,
+        checkpoint_save_weights_only=False,
+        checkpoint_save_freq="epoch",
     )
 
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")
-    trainer = pl.Trainer(max_epochs=4)
+    trainer = pl.Trainer(max_epochs=1)
 
     with mlflow.start_run() as run:
         trainer.fit(model, dm)
 
-    client = MlflowClient()
-    artifacts = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
+    run_id = run.info.run_id
 
-    assert "checkpoints" in artifacts
+    assert {'epoch': 0, 'global_step': 33} | {
+        k: float(v) for k, v in trainer.callback_metrics.items()
+    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")
 
-    result_metrics = mlflow.artifacts.load_dict(
-        f"runs:/{run.info.run_id}/checkpoints/global_step_120/checkpoint_metrics.json"
-    )
+    IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path=f"checkpoints/latest_checkpoint.pth"
+    ))
 
-    assert set(result_metrics.keys()) == {
-        "loss",
-        "global_step",
-        "loss_forked",
-        "loss_forked_step",
-        "val_acc",
-        "val_loss",
-        "train_acc",
-        "loss_forked_epoch",
-        "epoch",
-    }
+    callback = [c for c in trainer.callbacks if isinstance(c, MLflowModelCheckpointCallback)][0]
+    trainer.fit_loop.epoch_progress.current.completed += 1
+    trainer._logger_connector._callback_metrics["val_acc"] -= 0.1
+    callback.on_train_epoch_end(trainer, model)
+    assert mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )["epoch"] == 0
 
-    loaded_latest_model = load_checkpoint(IrisClassification, run.info.run_id)
-    assert isinstance(loaded_latest_model, IrisClassification)
-
-    loaded_history_model = load_checkpoint(IrisClassification, run.info.run_id, global_step=40)
-    assert isinstance(loaded_history_model, IrisClassification)
+    trainer.fit_loop.epoch_progress.current.completed += 1
+    trainer._logger_connector._callback_metrics["val_acc"] += 0.2
+    callback.on_train_epoch_end(trainer, model)
+    assert mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )["epoch"] == 3

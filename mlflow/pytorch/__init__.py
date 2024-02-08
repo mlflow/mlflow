@@ -1175,7 +1175,7 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
         # load history checkpoint model logged in second epoch
         checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id, epoch=2)
     """
-    from mlflow.pytorch._lightning_autolog import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
+    from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
     client = MlflowClient()
 
