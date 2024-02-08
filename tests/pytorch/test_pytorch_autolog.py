@@ -1,4 +1,3 @@
-from unittest import mock
 
 import pytest
 import pytorch_lightning as pl
@@ -17,7 +16,7 @@ import mlflow
 import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.pytorch import MLflowModelCheckpointCallback, load_checkpoint
+from mlflow.pytorch import MLflowModelCheckpointCallback
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 from mlflow.utils.file_utils import TempDir
 
@@ -485,9 +484,11 @@ def test_automatic_checkpoint_per_epoch_callback():
 
     run_id = run.info.run_id
 
-    assert {'epoch': 0, 'global_step': 33} | {
-        k: float(v) for k, v in trainer.callback_metrics.items()
-    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json")
+    logged_metrics = {k: float(v) for k, v in trainer.callback_metrics.items()}
+    logged_metrics.update({'epoch': 0, 'global_step': 33})
+    assert logged_metrics == mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json"
+    )
 
     IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
         run_id=run_id,
@@ -519,9 +520,11 @@ def test_automatic_checkpoint_per_epoch_save_weight_only_callback():
 
     run_id = run.info.run_id
 
-    assert {'epoch': 0, 'global_step': 33} | {
-        k: float(v) for k, v in trainer.callback_metrics.items()
-    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json")
+    logged_metrics = {k: float(v) for k, v in trainer.callback_metrics.items()}
+    logged_metrics.update({'epoch': 0, 'global_step': 33})
+    assert logged_metrics == mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json"
+    )
 
     IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
         run_id=run_id,
@@ -559,7 +562,7 @@ def test_automatic_checkpoint_per_10_steps_callback():
     ).keys())
     IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
         run_id=run_id,
-        artifact_path=f"checkpoints/global_step_10/checkpoint.pth"
+        artifact_path="checkpoints/global_step_10/checkpoint.pth"
     ))
 
 
@@ -567,14 +570,14 @@ def test_automatic_checkpoint_per_10_steps_callback():
     Version(pl.__version__) < Version("1.6.0"),
     reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
 )
-def test_automatic_checkpoint_per_10_steps_save_best_only_callback():
+def test_automatic_checkpoint_per_30_steps_save_best_only_callback():
     mlflow.pytorch.autolog(
         checkpoint=True,
         checkpoint_monitor="loss_forked_step",
         checkpoint_mode="min",
         checkpoint_save_best_only=True,
         checkpoint_save_weights_only=False,
-        checkpoint_save_freq=10,
+        checkpoint_save_freq=30,
     )
 
     model = IrisClassification()
@@ -596,7 +599,7 @@ def test_automatic_checkpoint_per_10_steps_save_best_only_callback():
 
     IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
         run_id=run_id,
-        artifact_path=f"checkpoints/latest_checkpoint.pth"
+        artifact_path="checkpoints/latest_checkpoint.pth"
     ))
 
 
@@ -624,13 +627,15 @@ def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
 
     run_id = run.info.run_id
 
-    assert {'epoch': 0, 'global_step': 33} | {
-        k: float(v) for k, v in trainer.callback_metrics.items()
-    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")
+    logged_metrics = {k: float(v) for k, v in trainer.callback_metrics.items()}
+    logged_metrics.update({'epoch': 0, 'global_step': 33})
+    assert logged_metrics == mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )
 
     IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
         run_id=run_id,
-        artifact_path=f"checkpoints/latest_checkpoint.pth"
+        artifact_path="checkpoints/latest_checkpoint.pth"
     ))
 
     callback = [c for c in trainer.callbacks if isinstance(c, MLflowModelCheckpointCallback)][0]
@@ -673,13 +678,15 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
 
     run_id = run.info.run_id
 
-    assert {'epoch': 0, 'global_step': 33} | {
-        k: float(v) for k, v in trainer.callback_metrics.items()
-    } == mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")
+    logged_metrics = {k: float(v) for k, v in trainer.callback_metrics.items()}
+    logged_metrics.update({'epoch': 0, 'global_step': 33})
+    assert logged_metrics == mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )
 
     IrisClassification.load_from_checkpoint(mlflow.artifacts.download_artifacts(
         run_id=run_id,
-        artifact_path=f"checkpoints/latest_checkpoint.pth"
+        artifact_path="checkpoints/latest_checkpoint.pth"
     ))
 
     callback = [c for c in trainer.callbacks if isinstance(c, MLflowModelCheckpointCallback)][0]
