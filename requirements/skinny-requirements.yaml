@@ -13,11 +13,6 @@ cloudpickle:
   pip_release: cloudpickle
   max_major_version: 3
 
-databricks-cli:
-  pip_release: databricks-cli
-  minimum: "0.8.7"
-  max_major_version: 0
-
 entrypoints:
   pip_release: entrypoints
   max_major_version: 0
