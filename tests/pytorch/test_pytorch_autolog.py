@@ -574,7 +574,7 @@ def test_automatic_checkpoint_per_10_steps_save_best_only_callback():
         checkpoint_mode="min",
         checkpoint_save_best_only=True,
         checkpoint_save_weights_only=False,
-        checkpoint_save_freq=30,
+        checkpoint_save_freq=10,
     )
 
     model = IrisClassification()
