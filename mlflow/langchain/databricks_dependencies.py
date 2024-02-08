@@ -103,7 +103,7 @@ def _traverse_runnable(lc_model, dependency_dict: DefaultDict[str, List[Any]], v
         for node in lc_model.get_graph().nodes.values():
             _traverse_runnable(node.data, dependency_dict, visited)
     else:
-        # This is a leaf node
+        # No-op for non-runnable, if any
         pass
     return
 
