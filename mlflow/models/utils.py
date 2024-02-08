@@ -324,7 +324,7 @@ def _save_example(
     mlflow_model: Model, input_example: ModelInputExample, path: str, no_conversion=False
 ):
     """
-    Save example to a file on the given path and updates passed Model with example metadata.
+    Saves example to a file on the given path and updates passed Model with example metadata.
 
     The metadata is a dictionary with the following fields:
       - 'artifact_path': example path relative to the model directory.
@@ -335,8 +335,10 @@ def _save_example(
             - 'format: Used to store tensors. Determines the standard used to store a tensor input
                        example. MLflow uses a JSON-formatted string representation of TF serving
                        input.
-    :param mlflow_model: Model metadata that will get updated with the example metadata.
-    :param path: Where to store the example file. Should be model the model directory.
+
+    Args:
+        mlflow_model: Model metadata that will get updated with the example metadata.
+        path: Where to store the example file. Should be model the model directory.
     """
     if no_conversion:
         example_info = {
@@ -361,11 +363,12 @@ def _save_example(
 
 def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
     """
-    Read input_example dictionary from the model artifact path. Returns None if there is no
-    example metadata.
-    :param mlflow_model: Model metadata.
-    :param path: Path to the model directory.
-    :return: Input example or None if the model has no example.
+    Args:
+        mlflow_model: Model metadata.
+        path: Path to the model directory.
+
+    Returns:
+        Input example or None if the model has no example.
     """
     if mlflow_model.saved_input_example_info is None:
         return None
@@ -389,9 +392,12 @@ def _read_example(mlflow_model: Model, path: str):
     model was saved without example). Raises FileNotFoundError if there is model metadata but the
     example file is missing.
 
-    :param mlflow_model: Model metadata.
-    :param path: Path to the model directory.
-    :return: Input example data or None if the model has no example.
+    Args:
+        mlflow_model: Model metadata.
+        path: Path to the model directory.
+
+    Returns:
+        Input example data or None if the model has no example.
     """
     input_example = _get_mlflow_model_input_example_dict(mlflow_model, path)
     if input_example is None:
@@ -1048,19 +1054,22 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
     """
     Validate that the input data has the expected schema.
 
-    :param data: Input data to be validated. Supported types are:
+    Args:
+        data: Input data to be validated. Supported types are:
 
-                 - pandas.DataFrame
-                 - pandas.Series
-                 - numpy.ndarray
-                 - scipy.sparse.csc_matrix
-                 - scipy.sparse.csr_matrix
-                 - List[Any]
-                 - Dict[str, Any]
-                 - str
-    :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
-    :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
-             not match the schema.
+            - pandas.DataFrame
+            - pandas.Series
+            - numpy.ndarray
+            - scipy.sparse.csc_matrix
+            - scipy.sparse.csr_matrix
+            - List[Any]
+            - Dict[str, Any]
+            - str
+
+        expected_schema: Expected Schema of the input data.
+
+    Raises:
+        mlflow.exceptions.MlflowException: when the input data does not match the schema.
 
     .. code-block:: python
         :caption: Example usage of validate_schema
@@ -1074,6 +1083,7 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
         # validate schema
         mlflow.models.validate_schema(input_data, model_signature.inputs)
     """
+
     _enforce_schema(data, expected_schema)
 
 
@@ -1090,15 +1100,16 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     by ``model_uri``. This behavior can be overridden by specifying the ``registered_model_name``
     argument.
 
-    :param model_uri: A registered model uri in the Model Registry of the form
-                      models:/<model_name>/<model_version/stage/latest>
-    :param run_id: The ID of the run to which the model with libraries is logged. If None, the model
-                   with libraries is logged to the source run corresponding to model version
-                   specified by ``model_uri``; if the model version does not have a source run, a
-                   new run created.
-    :param registered_model_name: The new model version (model with its libraries) is
-                                  registered under the inputted registered_model_name. If None, a
-                                  new version is logged to the existing model in the Model Registry.
+    Args:
+        model_uri: A registered model uri in the Model Registry of the form
+            models:/<model_name>/<model_version/stage/latest>
+        run_id: The ID of the run to which the model with libraries is logged. If None, the model
+            with libraries is logged to the source run corresponding to model version
+            specified by ``model_uri``; if the model version does not have a source run, a
+            new run created.
+        registered_model_name: The new model version (model with its libraries) is
+            registered under the inputted registered_model_name. If None, a
+            new version is logged to the existing model in the Model Registry.
 
     .. note::
         This utility only operates on a model that has been registered to the Model Registry.
@@ -1111,7 +1122,6 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         :caption: Example
 
         # Create and log a model to the Model Registry
-
         import pandas as pd
         from sklearn import datasets
         from sklearn.ensemble import RandomForestClassifier
@@ -1150,6 +1160,7 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         with mlflow.start_run():
             add_libraries_to_model(model_uri, registered_model_name="new-model")
     """
+
     import mlflow
     from mlflow.models.wheeled_model import WheeledModel
 

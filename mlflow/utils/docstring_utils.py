@@ -106,14 +106,12 @@ class ParamDocs(dict):
         ... :param p2: {{ p2 }}
         ... '''.strip()
         >>> print(pd.format_docstring(docstring))
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
 
         Args:
-            p1: {{ p1 }}
-            p2: {{ p2 }}
-
+            p1:
+                {{ p1 }}
+            p2:
+                {{ p2 }}
         """
         if docstring is None:
             return None
@@ -127,7 +125,8 @@ class ParamDocs(dict):
 
 
 def format_docstring(param_docs):
-    """Returns a decorator that replaces param doc placeholders (e.g. '{{ param_name }}') in the
+    """
+    Returns a decorator that replaces param doc placeholders (e.g. '{{ param_name }}') in the
     docstring of the decorated function.
 
     Args:
@@ -150,7 +149,6 @@ def format_docstring(param_docs):
         :param p1: doc1
         :param p2: doc2
                    doc2 second line
-
     """
     param_docs = ParamDocs(param_docs)
 

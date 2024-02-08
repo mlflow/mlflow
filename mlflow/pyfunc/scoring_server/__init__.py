@@ -101,9 +101,10 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 @deprecated("infer_and_parse_data", "2.6.0")
 def infer_and_parse_json_input(json_input, schema: Schema = None):
     """
-    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
-                       DataFrame, or a stream containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
+    Args:
+        json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                    DataFrame, or a stream containing such a string representation.
+        schema: Optional schema specification to be used during parsing.
     """
     if isinstance(json_input, dict):
         decoded_input = json_input
@@ -151,9 +152,12 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
 
 def _decode_json_input(json_input):
     """
-    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
-                       DataFrame, or a stream containing such a string representation.
-    :return: A dictionary representation of the JSON input.
+    Args:
+        json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                    DataFrame, or a stream containing such a string representation.
+
+    Returns:
+        A dictionary representation of the JSON input.
     """
     if isinstance(json_input, dict):
         return json_input
@@ -202,9 +206,10 @@ def _split_data_and_params(json_input):
 
 def infer_and_parse_data(data, schema: Schema = None):
     """
-    :param data: A dictionary representation of TF serving input or a Pandas
-                 DataFrame, or a stream containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
+    Args:
+        data: A dictionary representation of TF serving input or a Pandas
+            DataFrame, or a stream containing such a string representation.
+        schema: Optional schema specification to be used during parsing.
     """
 
     format_keys = set(data.keys()).intersection(SUPPORTED_FORMATS)
@@ -227,9 +232,10 @@ def infer_and_parse_data(data, schema: Schema = None):
 
 def parse_csv_input(csv_input, schema: Schema = None):
     """
-    :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
-                      containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
+    Args:
+        csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
+                   containing such a string representation.
+        schema: Optional schema specification to be used during parsing.
     """
     import pandas as pd
 
@@ -270,10 +276,11 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
     handled and reraises it with the specified error message. The exception stack trace
     is also included in the reraised error message.
 
-    :param error_message: A message for the reraised exception.
-    :param error_code: An appropriate error code for the reraised exception. This should be one of
-                       the codes listed in the `mlflow.protos.databricks_pb2` proto.
-    :param include_traceback: Whether to include the current traceback in the returned error.
+    Args:
+        error_message: A message for the reraised exception.
+        error_code: An appropriate error code for the reraised exception. This should be one of
+            the codes listed in the `mlflow.protos.databricks_pb2` proto.
+        include_traceback: Whether to include the current traceback in the returned error.
     """
     if include_traceback:
         traceback_buf = StringIO()
