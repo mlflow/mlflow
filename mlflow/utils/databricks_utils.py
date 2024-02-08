@@ -791,4 +791,11 @@ def _init_databricks_cli_config_provider(entry_point):
 
 
 if is_in_databricks_runtime():
-    _init_databricks_cli_config_provider(_get_dbutils().entry_point)
+    try:
+        dbutils = _get_dbutils()
+        _init_databricks_cli_config_provider(dbutils.entry_point)
+    except _NoDbutilsError:
+        # If there is no dbutils available, it means it is run in databricks driver local suite,
+        # in this case, we don't need to initialize databricks token because
+        # there is no backend mlflow service available.
+        pass
