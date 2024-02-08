@@ -1513,7 +1513,8 @@ Compound types:
                     )
             pdf = pandas.DataFrame(
                 data={
-                    names[i]: arg if isinstance(arg, pandas.Series)
+                    names[i]: arg
+                    if isinstance(arg, pandas.Series)
                     # pandas_udf receives a StructType column as a pandas DataFrame.
                     # We need to convert it back to a dict of pandas Series.
                     else arg.apply(lambda row: row.to_dict(), axis=1)
@@ -1582,7 +1583,7 @@ Compound types:
 
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (

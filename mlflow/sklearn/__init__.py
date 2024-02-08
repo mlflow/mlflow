@@ -510,7 +510,9 @@ class _SklearnModelWrapper:
         self.sklearn_model = sklearn_model
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Args:
@@ -1427,9 +1429,7 @@ def _autolog(
         params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(
-        autologging_client, estimator, X, y
-    ):  # pylint: disable=unused-argument
+    def _log_pretraining_metadata(autologging_client, estimator, X, y):  # pylint: disable=unused-argument
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine

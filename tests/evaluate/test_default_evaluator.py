@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -41,9 +42,8 @@ from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _compute_df_mode_or_mean,
     _CustomArtifact,
-    _CustomMetric,
     _evaluate_custom_artifacts,
-    _evaluate_extra_metric,
+    _evaluate_metric,
     _extract_output_and_other_columns,
     _extract_predict_fn,
     _extract_raw_model,
@@ -54,6 +54,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_multiclass_classifier_metrics,
     _get_regressor_metrics,
     _infer_model_type_by_labels,
+    _Metric,
 )
 
 from tests.evaluate.test_evaluation import (
@@ -1333,7 +1334,7 @@ def test_gen_multiclass_roc_curve_with_sample_weights():
     np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
-def test_evaluate_extra_metric_backwards_compatible():
+def test_evaluate_metric_backwards_compatible():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     builtin_metrics = _get_regressor_metrics(
         eval_df["target"], eval_df["prediction"], sample_weights=None
@@ -1344,7 +1345,7 @@ def test_evaluate_extra_metric_backwards_compatible():
         return builtin_metrics["mean_absolute_error"] * 1.5
 
     eval_fn_args = [eval_df, builtin_metrics]
-    res_metric = _evaluate_extra_metric(_CustomMetric(old_fn, "old_fn", 0), eval_fn_args)
+    res_metric = _evaluate_metric(_Metric(old_fn, "old_fn", 0), eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1354,7 +1355,7 @@ def test_evaluate_extra_metric_backwards_compatible():
     def new_fn(predictions, targets=None, metrics=None):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
-    res_metric = _evaluate_extra_metric(_CustomMetric(new_fn, "new_fn", 0), new_eval_fn_args)
+    res_metric = _evaluate_metric(_Metric(new_fn, "new_fn", 0), new_eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1371,7 +1372,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         pass
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_fn_args)
+        _evaluate_metric(_Metric(dummy_fn, "dummy_fn", 0, None), eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log metric 'dummy_fn' at index 0 in the `extra_metrics` parameter"
             " because it returned None."
@@ -1381,8 +1382,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return ["stuff"], 3
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0), eval_fn_args
+        _evaluate_metric(
+            _Metric(incorrect_return_type, incorrect_return_type.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log metric '{incorrect_return_type.__name__}' at index 0 in the "
@@ -1393,9 +1394,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(scores=5)
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(non_list_scores, non_list_scores.__name__, 0), eval_fn_args
-        )
+        _evaluate_metric(_Metric(non_list_scores, non_list_scores.__name__, 0), eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_scores.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with scores as a list."
@@ -1405,9 +1404,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(scores=[{"val": "string"}])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args
-        )
+        _evaluate_metric(_Metric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
             " parameter because it must return MetricValue with numeric or string scores."
@@ -1417,8 +1414,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(justifications="string")
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
+        _evaluate_metric(
+            _Metric(non_list_justifications, non_list_justifications.__name__, 0),
             eval_fn_args,
         )
         mock_warning.assert_called_once_with(
@@ -1431,8 +1428,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(justifications=[3, 4])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0), eval_fn_args
+        _evaluate_metric(
+            _Metric(non_str_justifications, non_str_justifications.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_str_justifications.__name__}' at index 0 in the "
@@ -1444,8 +1441,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(aggregate_results=[5.0, 4.0])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0), eval_fn_args
+        _evaluate_metric(
+            _Metric(non_dict_aggregates, non_dict_aggregates.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_dict_aggregates.__name__}' at index 0 in the "
@@ -1457,8 +1454,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0), eval_fn_args
+        _evaluate_metric(
+            _Metric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
             f"Did not log metric '{wrong_type_aggregates.__name__}' at index 0 in the "
@@ -1492,7 +1489,7 @@ def test_evaluate_custom_metric_lambda(fn):
     metrics = _get_aggregate_metrics_values(builtin_metrics)
     eval_fn_args = [eval_df, metrics]
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(_CustomMetric(fn, "<lambda>", 0), eval_fn_args)
+        _evaluate_metric(_Metric(fn, "<lambda>", 0), eval_fn_args)
         mock_warning.assert_not_called()
 
 
@@ -1515,9 +1512,7 @@ def test_evaluate_custom_metric_success():
         )
 
     eval_fn_args = [eval_df["prediction"], None, _get_aggregate_metrics_values(builtin_metrics)]
-    res_metric = _evaluate_extra_metric(
-        _CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args
-    )
+    res_metric = _evaluate_metric(_Metric(example_count_times_1_point_5, "", 0), eval_fn_args)
     assert (
         res_metric.aggregate_results["example_count_times_1_point_5"]
         == builtin_metrics["example_count"] * 1.5
@@ -2198,10 +2193,6 @@ def test_missing_args_raises_exception():
         r"Below are the existing column names for the input/output data:\n"
         r"Input Columns: \['question', 'answer'\]\n"
         r"Output Columns: \['predictions'\]\n\n"
-        r"To resolve this issue, you may need to specify any required parameters, or if you are\n"
-        r"missing columns, you may want to map them to an existing column using the following\n"
-        r"configuration:\n"
-        r"evaluator_config=\{'col_mapping': \{<missing column name>: <existing column name>\}\}"
     )
 
     with pytest.raises(
@@ -2928,7 +2919,7 @@ def multi_output_model(inputs):
     )
 
 
-def test_default_metrics_as_custom_metrics():
+def test_default_metrics_as_extra_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=multi_output_model, input_example=["a"]
@@ -2945,7 +2936,7 @@ def test_default_metrics_as_custom_metrics():
             targets="truth",
             predictions="answer",
             model_type="question-answering",
-            custom_metrics=[
+            extra_metrics=[
                 mlflow.metrics.exact_match(),
             ],
             evaluators="default",
@@ -2957,7 +2948,7 @@ def test_default_metrics_as_custom_metrics():
     assert "exact_match/v1" in results.metrics.keys()
 
 
-def test_default_metrics_as_custom_metrics_static_dataset():
+def test_default_metrics_as_extra_metrics_static_dataset():
     with mlflow.start_run() as run:
         data = pd.DataFrame(
             {
@@ -2972,7 +2963,7 @@ def test_default_metrics_as_custom_metrics_static_dataset():
             targets="truth",
             predictions="answer",
             model_type="question-answering",
-            custom_metrics=[
+            extra_metrics=[
                 mlflow.metrics.flesch_kincaid_grade_level(),
                 mlflow.metrics.ari_grade_level(),
                 mlflow.metrics.toxicity(),
@@ -2988,6 +2979,317 @@ def test_default_metrics_as_custom_metrics_static_dataset():
         for measure in ["mean", "p90", "variance"]:
             assert f"{metric}/v1/{measure}" in results.metrics.keys()
     assert "exact_match/v1" in results.metrics.keys()
+
+
+def test_derived_metrics_basic_dependency_graph():
+    def metric_1(predictions, targets, metrics):
+        return MetricValue(
+            scores=[0, 1],
+            justifications=["first justification", "second justification"],
+            aggregate_results={"aggregate": 0.5},
+        )
+
+    def metric_2(predictions, targets, metrics, metric_1):
+        return MetricValue(
+            scores=[score * 5 for score in metric_1.scores],
+            justifications=[
+                "metric_2: " + justification for justification in metric_1.justifications
+            ],
+            aggregate_results={
+                **metric_1.aggregate_results,
+                **metrics["toxicity/v1"].aggregate_results,
+            },
+        )
+
+    def metric_3(predictions, targets, metric_1, metric_2):
+        return MetricValue(
+            scores=[score - 1 for score in metric_2.scores],
+            justifications=metric_1.justifications,
+            aggregate_results=metric_2.aggregate_results,
+        )
+
+    with mlflow.start_run():
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "truth": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+            }
+        )
+        results = evaluate(
+            data=data,
+            targets="truth",
+            predictions="answer",
+            model_type="text",
+            extra_metrics=[
+                make_metric(eval_fn=metric_1, greater_is_better=True, version="v1"),
+                make_metric(eval_fn=metric_2, greater_is_better=True, version="v2"),
+                make_metric(eval_fn=metric_3, greater_is_better=True),
+            ],
+            evaluators="default",
+        )
+
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    assert set(logged_data.columns.tolist()) == {
+        "question",
+        "truth",
+        "answer",
+        "token_count",
+        "toxicity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+        "metric_1/v1/score",
+        "metric_2/v2/score",
+        "metric_3/score",
+        "metric_1/v1/justification",
+        "metric_2/v2/justification",
+        "metric_3/justification",
+    }
+
+    assert logged_data["metric_1/v1/score"].tolist() == [0, 1]
+    assert logged_data["metric_2/v2/score"].tolist() == [0, 5]
+    assert logged_data["metric_3/score"].tolist() == [-1, 4]
+    assert logged_data["metric_1/v1/justification"].tolist() == [
+        "first justification",
+        "second justification",
+    ]
+    assert logged_data["metric_2/v2/justification"].tolist() == [
+        "metric_2: first justification",
+        "metric_2: second justification",
+    ]
+    assert logged_data["metric_3/justification"].tolist() == [
+        "first justification",
+        "second justification",
+    ]
+
+    assert results.metrics["metric_1/v1/aggregate"] == 0.5
+    assert results.metrics["metric_2/v2/aggregate"] == 0.5
+    assert results.metrics["metric_3/aggregate"] == 0.5
+    assert "metric_2/v2/mean" in results.metrics.keys()
+    assert "metric_2/v2/variance" in results.metrics.keys()
+    assert "metric_2/v2/p90" in results.metrics.keys()
+    assert "metric_3/mean" in results.metrics.keys()
+    assert "metric_3/variance" in results.metrics.keys()
+    assert "metric_3/p90" in results.metrics.keys()
+
+
+def test_derived_metrics_complicated_dependency_graph():
+    def metric_1(predictions, targets, metric_2, metric_3, metric_6):
+        assert metric_2.scores == [2, 3]
+        assert metric_3.scores == [3, 4]
+        assert metric_6.scores == [6, 7]
+        return MetricValue(scores=[1, 2])
+
+    def metric_2(predictions, targets):
+        return MetricValue(scores=[2, 3])
+
+    def metric_3(predictions, targets, metric_4, metric_5):
+        assert metric_4.scores == [4, 5]
+        assert metric_5.scores == [5, 6]
+        return MetricValue(scores=[3, 4])
+
+    def metric_4(predictions, targets, metric_6):
+        assert metric_6.scores == [6, 7]
+        return MetricValue(scores=[4, 5])
+
+    def metric_5(predictions, targets, metric_4, metric_6):
+        assert metric_4.scores == [4, 5]
+        assert metric_6.scores == [6, 7]
+        return MetricValue(scores=[5, 6])
+
+    def metric_6(predictions, targets, metric_2):
+        assert metric_2.scores == [2, 3]
+        return MetricValue(scores=[6, 7])
+
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        }
+    )
+
+    with mlflow.start_run():
+        results = evaluate(
+            data=data,
+            predictions="answer",
+            targets="truth",
+            extra_metrics=[
+                make_metric(eval_fn=metric_1, greater_is_better=True, version="v1"),
+                make_metric(eval_fn=metric_2, greater_is_better=True, version="v2"),
+                make_metric(eval_fn=metric_3, greater_is_better=True),
+                make_metric(eval_fn=metric_4, greater_is_better=True),
+                make_metric(eval_fn=metric_5, greater_is_better=True, version="v1"),
+                make_metric(eval_fn=metric_6, greater_is_better=True, version="v3"),
+            ],
+            evaluators="default",
+        )
+
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    assert set(logged_data.columns.tolist()) == {
+        "question",
+        "truth",
+        "answer",
+        "metric_1/v1/score",
+        "metric_2/v2/score",
+        "metric_3/score",
+        "metric_4/score",
+        "metric_5/v1/score",
+        "metric_6/v3/score",
+    }
+
+    assert logged_data["metric_1/v1/score"].tolist() == [1, 2]
+    assert logged_data["metric_2/v2/score"].tolist() == [2, 3]
+    assert logged_data["metric_3/score"].tolist() == [3, 4]
+    assert logged_data["metric_4/score"].tolist() == [4, 5]
+    assert logged_data["metric_5/v1/score"].tolist() == [5, 6]
+    assert logged_data["metric_6/v3/score"].tolist() == [6, 7]
+
+    def metric_7(predictions, targets, metric_8, metric_9):
+        return MetricValue(scores=[7, 8])
+
+    def metric_8(predictions, targets, metric_11):
+        return MetricValue(scores=[8, 9])
+
+    def metric_9(predictions, targets):
+        return MetricValue(scores=[9, 10])
+
+    def metric_10(predictions, targets, metric_9):
+        return MetricValue(scores=[10, 11])
+
+    def metric_11(predictions, targets, metric_7, metric_10):
+        return MetricValue(scores=[11, 12])
+
+    error_message = r"Error: Metric calculation failed for the following metrics:\n"
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                data=data,
+                predictions="answer",
+                targets="truth",
+                model_type="text",
+                extra_metrics=[
+                    make_metric(eval_fn=metric_7, greater_is_better=True),
+                    make_metric(eval_fn=metric_8, greater_is_better=True),
+                    make_metric(eval_fn=metric_9, greater_is_better=True),
+                    make_metric(eval_fn=metric_10, greater_is_better=True),
+                    make_metric(eval_fn=metric_11, greater_is_better=True),
+                ],
+                evaluators="default",
+            )
+
+
+def test_derived_metrics_circular_dependencies_raises_exception():
+    def metric_1(predictions, targets, metric_2):
+        return 0
+
+    def metric_2(predictions, targets, metric_3):
+        return 0
+
+    def metric_3(predictions, targets, metric_1):
+        return 0
+
+    error_message = r"Error: Metric calculation failed for the following metrics:\n"
+
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        }
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                data=data,
+                predictions="answer",
+                model_type="text",
+                extra_metrics=[
+                    make_metric(eval_fn=metric_1, greater_is_better=True),
+                    make_metric(eval_fn=metric_2, greater_is_better=True),
+                    make_metric(eval_fn=metric_3, greater_is_better=True),
+                ],
+                evaluators="default",
+            )
+
+
+def test_derived_metrics_missing_dependencies_raises_exception():
+    def metric_1(predictions, targets, metric_2):
+        return 0
+
+    def metric_2(predictions, targets, metric_3):
+        return 0
+
+    error_message = r"Error: Metric calculation failed for the following metrics:\n"
+
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        }
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                data=data,
+                predictions="answer",
+                model_type="text",
+                extra_metrics=[
+                    make_metric(eval_fn=metric_1, greater_is_better=True),
+                    make_metric(eval_fn=metric_2, greater_is_better=True),
+                ],
+                evaluators="default",
+            )
+
+
+def test_custom_metric_bad_names():
+    def metric_fn(predictions, targets):
+        return 0
+
+    error_message = re.escape(
+        "Invalid metric name 'metric/with/slash'. Metric names cannot include "
+        "forward slashes ('/')."
+    )
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        make_metric(eval_fn=metric_fn, name="metric/with/slash", greater_is_better=True)
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="bad-metric-name", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'bad-metric-name' provided is not a valid Python identifier, which "
+            "will prevent its use as a base metric for derived metrics. Please use a valid "
+            "identifier to enable creation of derived metrics that use the given metric."
+        )
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="None", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'None' is a reserved Python keyword, which will "
+            "prevent its use as a base metric for derived metrics. Please use a valid identifier "
+            "to enable creation of derived metrics that use the given metric."
+        )
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="predictions", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'predictions' is used as a special parameter in MLflow metrics, which "
+            "will prevent its use as a base metric for derived metrics. Please use a different "
+            "name to enable creation of derived metrics that use the given metric."
+        )
 
 
 def test_multi_output_model_error_handling():
@@ -3010,7 +3312,7 @@ def test_multi_output_model_error_handling():
                 data,
                 targets="truth",
                 model_type="question-answering",
-                custom_metrics=[
+                extra_metrics=[
                     mlflow.metrics.flesch_kincaid_grade_level(),
                     mlflow.metrics.ari_grade_level(),
                     mlflow.metrics.toxicity(),

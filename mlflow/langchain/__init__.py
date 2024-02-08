@@ -580,7 +580,9 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     """
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Model input data and additional parameters.

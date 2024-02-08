@@ -115,8 +115,8 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.python == 'true'
         run: |
-          ruff --fix .
-          black .
+          ruff check --fix .
+          ruff format .
           blacken-docs $(git ls-files '*.py' '*.rst' '*.md') || true
       # ************************************************************************
       # js

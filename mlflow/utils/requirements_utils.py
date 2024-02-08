@@ -281,6 +281,14 @@ def _capture_imported_modules(model_uri, flavor):
             from mlflow.utils import _capture_transformers_modules
 
             for module_to_throw in ["tensorflow", "torch"]:
+                # NB: Setting USE_TF or USE_TORCH here as Transformers only checks these env
+                # variable on the first import of the library, which could happen anytime during
+                # the model loading process (or even mlflow import). When these variables are not
+                # set, Transformers import some torch/tensorflow modules even if they are not
+                # used by the model, resulting in false positives in the captured modules.
+                transformer_env = (
+                    {"USE_TF": "TRUE"} if module_to_throw == "torch" else {"USE_TORCH": "TRUE"}
+                )
                 try:
                     _run_command(
                         [
@@ -298,7 +306,7 @@ def _capture_imported_modules(model_uri, flavor):
                             module_to_throw,
                         ],
                         timeout_seconds=process_timeout,
-                        env=main_env,
+                        env={**main_env, **transformer_env},
                     )
                     with open(output_file) as f:
                         return f.read().splitlines()
