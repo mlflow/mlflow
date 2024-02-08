@@ -86,6 +86,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         account_url = f"https://{account_name}.{domain_suffix}"
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
+        self.domain_suffix = domain_suffix
         self.base_data_lake_directory = path
         self.account_name = account_name
         self.container = filesystem
@@ -232,7 +233,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         """
         sas_token = self.credential.signature
         return (
-            f"https://{self.account_name}.dfs.core.windows.net/{self.container}/"
+            f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
             f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
         )
 
