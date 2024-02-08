@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
+import pandas as pd
 import torch
 from transformers import AutoTokenizer, StoppingCriteria
 
@@ -116,36 +117,33 @@ def convert_data_messages_with_chat_template(data, tokenizer):
 
 def preprocess_llm_inference_params(
     data,
-    params: Optional[Dict[str, Any]] = None,
     flavor_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    When a MLflow inference task is given,
+    When a MLflow inference task is given, return updated `data` and `params` that
     - Extract the parameters from the input data.
     - Replace OpenAI specific parameters with Hugging Face specific parameters, in particular
       - `max_tokens` with `max_new_tokens`
       - `stop` with `stopping_criteria`
-
-    `data` is updated in place, and the extracted params are returned.
     """
-    if params is None:
-        params = {}
+    updated_data = pd.DataFrame()
+    params = {}
 
     for column in data.columns:
-        if column not in ["prompt", "messages"]:
-            params[column] = data.pop(column).tolist()[0]
+        if column in ["prompt", "messages"]:
+            updated_data[column] = data[column]
+        else:
+            param = data[column].tolist()[0]
+            if column == "max_tokens":
+                params["max_new_tokens"] = param
+            elif column == "stop":
+                params["stopping_criteria"] = _get_stopping_criteria(
+                    param, flavor_config.get("source_model_name", None)
+                )
+            else:
+                params[column] = param
 
-    if "max_tokens" in params:
-        params["max_new_tokens"] = params.pop("max_tokens")
-
-    model_name = None
-    if flavor_config is not None:
-        model_name = flavor_config.get("source_model_name", None)
-        stopping_criteria = _get_stopping_criteria(params.pop("stop", None), model_name)
-        if stopping_criteria:
-            params["stopping_criteria"] = stopping_criteria
-
-    return params
+    return updated_data, params
 
 
 class _StopSequenceMatchCriteria(StoppingCriteria):

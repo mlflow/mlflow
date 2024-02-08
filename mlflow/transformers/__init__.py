@@ -1866,7 +1866,7 @@ class _TransformersWrapper:
             convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
 
         if self.llm_inference_task:
-            params = preprocess_llm_inference_params(data, params, self.flavor_config)
+            data, params = preprocess_llm_inference_params(data, self.flavor_config)
 
         # NB: This `predict` method updates the model_config several times. To make the predict
         # call idempotent, we keep the original self.model_config immutable and creates a deep

@@ -83,7 +83,7 @@ def test_preprocess_llm_inference_params():
         }
     )
 
-    params = preprocess_llm_inference_params(data, params=None, flavor_config=None)
+    data, params = preprocess_llm_inference_params(data, flavor_config=None)
 
     # Test that OpenAI params are separated from data and replaced with Hugging Face params
     pd.testing.assert_frame_equal(data, pd.DataFrame({"prompt": ["Hello world!"]}))
