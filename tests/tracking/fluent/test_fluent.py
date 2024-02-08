@@ -761,9 +761,7 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
         MlflowClient.get_run.assert_called_with(run_id)
 
 
-def test_start_run_existing_run_from_environment(
-    empty_active_run_stack, monkeypatch
-):  # pylint: disable=unused-argument
+def test_start_run_existing_run_from_environment(empty_active_run_stack, monkeypatch):  # pylint: disable=unused-argument
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 

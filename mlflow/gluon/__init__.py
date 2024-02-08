@@ -104,7 +104,9 @@ class _GluonModelWrapper:
         self.gluon_model = gluon_model
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """This is a docstring. Here is more info.
 

@@ -71,8 +71,8 @@ def _gen_lightgbm_sklearn_estimators_to_patch():
 
 def _get_estimator_info_tags(estimator):
     """
-    :return: A dictionary of MLflow run tag keys and values
-             describing the specified estimator.
+    Returns:
+        A dictionary of MLflow run tag keys and values describing the specified estimator.
     """
     return {
         "estimator_name": estimator.__class__.__name__,

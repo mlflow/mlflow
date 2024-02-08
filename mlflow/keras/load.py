@@ -67,26 +67,28 @@ def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs
 
 @experimental
 def load_model(model_uri, dst_path=None, custom_objects=None, load_model_kwargs=None):
-    """Load Keras model from MLflow.
+    """
+    Load Keras model from MLflow.
 
     This method loads a saved Keras model from MLflow, and returns a Keras model instance.
 
-    :param model_uri: The URI of the saved Keras model in MLflow. For example:
+    Args:
+        model_uri: The URI of the saved Keras model in MLflow. For example:
 
-        - `/Users/me/path/to/local/model`
-        - `relative/path/to/local/model`
-        - `s3://my_bucket/path/to/model`
-        - `runs:/<mlflow_run_id>/run-relative/path/to/model`
-        - `models:/<model_name>/<model_version>`
-        - `models:/<model_name>/<stage>`
+            - `/Users/me/path/to/local/model`
+            - `relative/path/to/local/model`
+            - `s3://my_bucket/path/to/model`
+            - `runs:/<mlflow_run_id>/run-relative/path/to/model`
+            - `models:/<model_name>/<model_version>`
+            - `models:/<model_name>/<stage>`
 
-        For more information about supported URI schemes, see `Referencing
-        Artifacts <https://www.mlflow.org/docs/latest/concepts.html#artifact-locations>`_.
-    :param dst_path: string, defaults to None. The local filesystem path to which to download the
-        model artifact. If unspecified, a local output path will be created.
-    :param custom_objects: dict, defaults to None. The `custom_objects` arg in
-        `keras.saving.load_model`.
-    :param load_model_kwargs: dict, defaults to None. Extra args for `keras.saving.load_model`.
+            For more information about supported URI schemes, see `Referencing
+            Artifacts <https://www.mlflow.org/docs/latest/concepts.html#artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the
+            model artifact. If unspecified, a local output path will be created.
+        custom_objects: The `custom_objects` arg in
+            `keras.saving.load_model`.
+        load_model_kwargs: Extra args for `keras.saving.load_model`.
 
     .. code-block:: python
         :caption: Example
@@ -114,6 +116,9 @@ def load_model(model_uri, dst_path=None, custom_objects=None, load_model_kwargs=
             keras.ops.convert_to_numpy(model(test_input)),
             loaded_model.predict(test_input),
         )
+
+    Returns:
+        A Keras model instance.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     load_model_kwargs = {} if load_model_kwargs is None else load_model_kwargs
@@ -129,7 +134,8 @@ def _load_pyfunc(path):
 
     This function is called by `mlflow.pyfunc.load_model`.
 
-    :param path: Local filesystem path to the MLflow Model with the `keras` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the `keras` flavor.
     """
     model_meta_path1 = os.path.join(path, MLMODEL_FILE_NAME)
     model_meta_path2 = os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME)

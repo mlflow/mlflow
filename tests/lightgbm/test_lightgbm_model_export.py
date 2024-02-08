@@ -47,7 +47,8 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 def lgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
-        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
+        iris.data[:, :2],
+        columns=iris.feature_names[:2],  # we only take the first two features.
     )
     y = iris.target
 
@@ -73,7 +74,8 @@ def lgb_model_signature():
 def lgb_sklearn_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
-        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
+        iris.data[:, :2],
+        columns=iris.feature_names[:2],  # we only take the first two features.
     )
     y = iris.target
     model = lgb.LGBMClassifier(n_estimators=10)

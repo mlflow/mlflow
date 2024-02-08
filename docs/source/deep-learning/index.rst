@@ -51,7 +51,10 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
                 <p>Use charts to compare deep learning (DL) model training convergence easily. Quickly identify superior 
                 configuration sets across training iterations.</p>
             </div>
-            <img src="../_static/images/deep-learning/dl-run-selection.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-run-selection.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
         </div>
 
 .. |chart-customization| raw:: html
@@ -62,7 +65,10 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
                 <p>Easily customize charts for DL training run comparisons. Adjust visualizations to pinpoint optimal parameter 
                 settings, displaying optimization metrics across iterations in a unified view.</p>
             </div>
-            <img src="../_static/images/deep-learning/dl-run-navigation.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-run-navigation.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
         </div>
 
 .. |run-comparison| raw:: html
@@ -72,7 +78,10 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
                 <h4>Enhanced Parameter and Metric Comparison</h4>
                 <p>Analyze parameter relationships from a unified interface to refine tuning parameters, optimizing your DL models efficiently.</p>
             </div>
-            <img src="../_static/images/deep-learning/dl-run-comparison.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-run-comparison.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
         </div>
 
 .. |parameter-evaluation| raw:: html
@@ -83,7 +92,10 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
                 <p>Leverage boxplot visualizations for categorical parameter evaluation. Quickly discern the most effective 
                 settings for hyperparameter tuning.</p>
             </div>
-            <img src="../_static/images/deep-learning/dl-box-plot.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-boxplot.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
         </div>
 
 .. |realtime-tracking| raw:: html
@@ -94,7 +106,10 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
                 <p>Automatically monitor DL training progress over epochs with the MLflow UI. Instantly track results to validate 
                 your hypotheses, eliminating constant manual updates.</p>
             </div>
-            <img src="../_static/images/deep-learning/dl-tracking.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-tracking.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
         </div>
 
 

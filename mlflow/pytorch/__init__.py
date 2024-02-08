@@ -79,9 +79,10 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor. Calls to
+        :func:`save_model()` and :func:`log_model()` produce a pip environment that, at minimum,
+        contains these requirements.
     """
     return list(
         map(

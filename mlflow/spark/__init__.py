@@ -968,7 +968,9 @@ class _PyFuncModelWrapper:
         self.spark_model = spark_model
 
     def predict(
-        self, pandas_df, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        pandas_df,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Generate predictions given input data in a pandas DataFrame.

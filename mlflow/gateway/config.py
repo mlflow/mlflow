@@ -167,6 +167,7 @@ class OpenAIConfig(ConfigModel):
 
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
+    anthropic_version: str = "2023-06-01"
 
     # pylint: disable=no-self-argument
     @validator("anthropic_api_key", pre=True)
