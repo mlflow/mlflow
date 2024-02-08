@@ -53,7 +53,7 @@ from tests.spark.test_spark_model_export import (  # noqa: F401
 )
 from tests.statsmodels.model_fixtures import ols_model
 from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
-from tests.transformers.helper import load_small_seq2seq_pipeline
+from tests.transformers.helper import load_small_qa_pipeline, load_small_seq2seq_pipeline
 
 
 @pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Time consuming tests")
@@ -81,11 +81,13 @@ from tests.transformers.helper import load_small_seq2seq_pipeline
         "spark",
         "statsmodels",
         "tensorflow",
-        "transformers",
+        "transformers_pt",  # Test with Pytorch-based model
+        "transformers_tf",  # Test with TensorFlow-based model
     ],
 )
 def test_build_image_and_serve(flavor, request):
     model_path = request.getfixturevalue(f"{flavor}_model")
+    flavor = flavor.split("_")[0]  # Remove _pt or _tf from the flavor name
 
     # Build an image
     backend = get_flavor_backend(model_uri=model_path, docker_build=True)
@@ -389,7 +391,7 @@ def tensorflow_model(tmp_path, tf2_toy_model):
 
 
 @pytest.fixture
-def transformers_model(tmp_path):
+def transformers_pt_model(tmp_path):
     pipeline = load_small_seq2seq_pipeline()
     model_path = str(tmp_path / "transformers_model")
     save_model_with_latest_mlflow_version(
@@ -397,5 +399,18 @@ def transformers_model(tmp_path):
         transformers_model=pipeline,
         path=model_path,
         input_example="hi",
+    )
+    return model_path
+
+
+@pytest.fixture
+def transformers_tf_model(tmp_path):
+    pipeline = load_small_qa_pipeline()
+    model_path = str(tmp_path / "transformers_model")
+    save_model_with_latest_mlflow_version(
+        flavor="transformers",
+        transformers_model=pipeline,
+        path=model_path,
+        input_example={"question": "What is MLflow", "context": "It's an open source platform"},
     )
     return model_path

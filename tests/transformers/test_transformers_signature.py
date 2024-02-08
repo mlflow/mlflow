@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.transformers.signature import (
     _TEXT2TEXT_SIGNATURE,
@@ -147,17 +148,33 @@ def test_signature_inference(pipeline_name, example, expected_signature, request
     assert signature_from_input_example == expected_signature
 
 
-def test_infer_signature_timeout_then_fall_back_to_default(text_generation_pipeline):
+def test_infer_signature_timeout_then_fall_back_to_default(text_generation_pipeline, monkeypatch):
+    monkeypatch.setenv("MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT", "1")  # Set timeout to 1 second
+
     # Mock _TransformersWrapper.predict to simulate a long-running prediction
     def _slow_predict(*args, **kwargs):
         time.sleep(10)
         return 0
 
     with mock.patch("mlflow.transformers._TransformersWrapper.predict", side_effect=_slow_predict):
-        signature = infer_or_get_default_signature(
-            text_generation_pipeline, example=["test"], timeout=1
-        )
+        signature = infer_or_get_default_signature(text_generation_pipeline, example=["test"])
+
     assert signature == _TEXT2TEXT_SIGNATURE
+
+
+def test_infer_signature_prediction_error_then_fall_back_to_default(text_generation_pipeline):
+    with mock.patch(
+        "mlflow.transformers._TransformersWrapper.predict", side_effect=ValueError("Error")
+    ):
+        signature = infer_or_get_default_signature(text_generation_pipeline, example=["test"])
+
+    assert signature == _TEXT2TEXT_SIGNATURE
+
+
+@mock.patch("mlflow.transformers.signature._DEFAULT_SIGNATURE_FOR_PIPELINES", {})
+def test_infer_signature_no_default_signature_then_raise_error(text_generation_pipeline):
+    with pytest.raises(MlflowException, match="An unsupported Pipeline type was supplied"):
+        infer_or_get_default_signature(text_generation_pipeline)
 
 
 @pytest.mark.parametrize(

@@ -52,13 +52,13 @@ def main():
     if module_to_throw == "":
         raise MlflowException("Please specify the module to throw.")
     elif module_to_throw == "tensorflow":
-        if not os.environ.get("USE_TORCH", None) == "TRUE":
+        if os.environ.get("USE_TORCH", None) != "TRUE":
             raise MlflowException(
                 "The environment variable USE_TORCH has to be set to TRUE to disable Tensorflow.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
     elif module_to_throw == "torch":
-        if not os.environ.get("USE_TF", None) == "TRUE":
+        if os.environ.get("USE_TF", None) != "TRUE":
             raise MlflowException(
                 "The environment variable USE_TF has to be set to TRUE to disable Pytorch.",
                 error_code=INVALID_PARAMETER_VALUE,

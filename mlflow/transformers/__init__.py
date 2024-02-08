@@ -1728,6 +1728,15 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
     Returns:
         The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
     """
+    import transformers
+
+    if not isinstance(pipeline, transformers.Pipeline):
+        raise MlflowException(
+            f"The pipeline type submitted is not a valid transformers Pipeline. "
+            f"The type {type(pipeline).__name__} is not supported.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     return _generate_signature_output(pipeline, data, model_config, params)
 
 

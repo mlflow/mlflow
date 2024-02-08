@@ -101,51 +101,43 @@ def infer_or_get_default_signature(
                     "Therefore, the operation is not bound by a timeout and may hang indefinitely. "
                     "If it hangs, please consider specifying the signature manually."
                 )
-            return _infer_signature_with_prediction(
+            return _infer_signature_with_example(
                 pipeline, example, model_config, flavor_config, timeout
             )
-        except MlflowTimeoutError:
-            _logger.warning(
-                "Attempted to generate a signature for the saved model but prediction operation "
-                f"timed out after {timeout} seconds. Falling back to the default signature for the "
-                "pipeline. You can specify a signature manually or increase the timeout "
-                f"by setting the environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}"
-            )
         except Exception as e:
-            _logger.error(
-                "Attempted to generate a signature for the saved model or pipeline "
-                f"but encountered an error: {e}"
-            )
-            raise
+            if isinstance(e, MlflowTimeoutError):
+                msg = (
+                    "Attempted to generate a signature for the saved pipeline but prediction timed "
+                    "out after {timeout} seconds. Falling back to the default signature for the "
+                    "pipeline. You can specify a signature manually or increase the timeout "
+                    f"by setting the environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}"
+                )
+            else:
+                msg = (
+                    "Attempted to generate a signature for the saved pipeline but encountered an "
+                    "error. Fall back to the default signature for the pipeline type. Error: {e}"
+                )
+            _logger.warning(msg)
 
     for pipeline_type, signature in _DEFAULT_SIGNATURE_FOR_PIPELINES.items():
         if isinstance(pipeline, pipeline_type):
             return signature
 
-    _logger.warning(
-        "An unsupported Pipeline type was supplied for signature inference. "
-        "Either provide an `input_example` or generate a signature manually "
-        "via `infer_signature` if you would like to have a signature recorded "
-        "in the MLmodel file."
+    raise MlflowException(
+        "An unsupported Pipeline type was supplied for signature inference. Either provide an "
+        "`input_example` or generate a signature manually via `infer_signature` to have a "
+        "signature recorded in the MLmodel file.",
+        error_code=INVALID_PARAMETER_VALUE,
     )
 
 
-def _infer_signature_with_prediction(
+def _infer_signature_with_example(
     pipeline, example, model_config=None, flavor_config=None, timeout=None
 ) -> ModelSignature:
-    import transformers
-
     params = None
     if _contains_params(example):
         example, params = example
     example = format_input_example_for_special_cases(example, pipeline)
-
-    if not isinstance(pipeline, transformers.Pipeline):
-        raise MlflowException(
-            f"The pipeline type submitted is not a valid transformers Pipeline. "
-            f"The type {type(pipeline).__name__} is not supported.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
     if timeout:
         _logger.info(
@@ -184,18 +176,9 @@ def format_input_example_for_special_cases(input_example, pipeline):
 
 
 def _generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
-    import transformers
-
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
     from mlflow.transformers import _TransformersWrapper
-
-    if not isinstance(pipeline, transformers.Pipeline):
-        raise MlflowException(
-            f"The pipeline type submitted is not a valid transformers Pipeline. "
-            f"The type {type(pipeline).__name__} is not supported.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
     return _TransformersWrapper(
         pipeline=pipeline, model_config=model_config, flavor_config=flavor_config
