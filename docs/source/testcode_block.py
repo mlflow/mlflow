@@ -57,6 +57,16 @@ def get_code_block_location(obj_path, lineno_in_docstring, repo_root):
 
 
 class TestCodeBlockDirective(CodeBlock):
+    """
+    Dumps code blocks marked with the `:test:` option to files for testing.
+
+    ```
+    .. code-block:: ...
+        :test:
+
+        print("Hello, world!")
+    ```
+    """
     option_spec = {
         **CodeBlock.option_spec,
         "test": directives.flag
