@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -26,6 +27,10 @@ from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
+)
+from mlflow.langchain.databricks_dependencies import (
+    _DATABRICKS_DEPENDENCY_KEY,
+    _detect_databricks_dependencies,
 )
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
@@ -270,6 +275,11 @@ def save_model(
         _MODEL_TYPE_KEY: lc_model.__class__.__name__,
         **model_data_kwargs,
     }
+
+    if Version(langchain.__version__) >= Version("0.0.311"):
+        if databricks_dependency := _detect_databricks_dependencies(lc_model):
+            flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
