@@ -70,16 +70,35 @@ def mock_file_client(mock_directory_client):
 
 
 @pytest.mark.parametrize(
-    ("uri", "filesystem", "account", "path"),
+    ("uri", "filesystem", "account", "region_suffix", "path"),
     [
-        ("abfss://filesystem@acct.dfs.core.windows.net/path", "filesystem", "acct", "path"),
-        ("abfss://filesystem@acct.dfs.core.windows.net", "filesystem", "acct", ""),
-        ("abfss://filesystem@acct.dfs.core.windows.net/", "filesystem", "acct", ""),
-        ("abfss://filesystem@acct.dfs.core.windows.net/a/b", "filesystem", "acct", "a/b"),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/path",
+            "filesystem",
+            "acct",
+            "windows.net",
+            "path",
+        ),
+        ("abfss://filesystem@acct.dfs.core.windows.net", "filesystem", "acct", "windows.net", ""),
+        ("abfss://filesystem@acct.dfs.core.windows.net/", "filesystem", "acct", "windows.net", ""),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/a/b",
+            "filesystem",
+            "acct",
+            "windows.net",
+            "a/b",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.chinacloudapi.cn/a/b",
+            "filesystem",
+            "acct",
+            "chinacloudapi.cn",
+            "a/b",
+        ),
     ],
 )
-def test_parse_valid_abfss_uri(uri, filesystem, account, path):
-    assert _parse_abfss_uri(uri) == (filesystem, account, path)
+def test_parse_valid_abfss_uri(uri, filesystem, account, region_suffix, path):
+    assert _parse_abfss_uri(uri) == (filesystem, account, region_suffix, path)
 
 
 @pytest.mark.parametrize(

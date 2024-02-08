@@ -26,22 +26,23 @@ def _parse_abfss_uri(uri):
     """
     Parse an ABFSS URI in the format
     "abfss://<file_system>@<account_name>.dfs.core.[windows.net|/<path>",
-    returning a tuple consisting of the filesystem, account name, and path
+    returning a tuple consisting of the filesystem, account name, region suffix, and path
 
     See more details about ABFSS URIs at
     https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data
+    and Azure China URIs at https://learn.microsoft.com/en-us/azure/china/resources-developer-guide
 
     Args:
         uri: ABFSS URI to parse
 
     Returns:
-        A tuple containing the name of the filesystem, account name, and path
+        A tuple containing the name of the filesystem, account name, region suffix, and path
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
         raise MlflowException(f"Not an ABFSS URI: {uri}")
 
-    match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.@([windows\.net|chinacloudapi.cn])", parsed.netloc)
+    match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.(windows\.net|chinacloudapi\.cn)", parsed.netloc)
 
     if match is None:
         raise MlflowException(
