@@ -1042,13 +1042,12 @@ def test_invalid_task_inference_raises_error(model_path):
     )
     dummy_pipeline = PairClassificationPipeline(model=model)
 
-    with mock.patch.dict("sys.modules", {"huggingface_hub": None}):
-        with pytest.raises(
-            MlflowException, match="The task provided is invalid. '' is not a supported"
-        ):
-            mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
-        dummy_pipeline.task = "text-classification"
+    with pytest.raises(
+        MlflowException, match="The task provided is invalid. '' is not a supported"
+    ):
         mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
+    dummy_pipeline.task = "text-classification"
+    mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
 
 
 def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi_modal):

@@ -5,10 +5,8 @@ import numpy as np
 import transformers
 
 from mlflow.environment_variables import MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
-from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _contains_params
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.schema import ColSpec, DataType, Schema, TensorSpec
 from mlflow.utils.process import _IS_UNIX
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
@@ -123,11 +121,10 @@ def infer_or_get_default_signature(
         if isinstance(pipeline, pipeline_type):
             return signature
 
-    raise MlflowException(
+    _logger.warning(
         "An unsupported Pipeline type was supplied for signature inference. Either provide an "
         "`input_example` or generate a signature manually via `infer_signature` to have a "
-        "signature recorded in the MLmodel file.",
-        error_code=INVALID_PARAMETER_VALUE,
+        "signature recorded in the MLmodel file."
     )
 
 
