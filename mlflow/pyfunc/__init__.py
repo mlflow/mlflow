@@ -503,7 +503,8 @@ class PyFuncModel:
 
         :return: The underlying wrapped model object
 
-        .. testcode:: python
+        .. code-block:: python
+        :test:
             :caption: Example
 
             import mlflow

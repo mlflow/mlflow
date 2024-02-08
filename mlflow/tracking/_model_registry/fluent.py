@@ -45,7 +45,8 @@ def register_model(
         Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
         backend.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example
 
         import mlflow.sklearn
@@ -158,7 +159,8 @@ def search_registered_models(
         A list of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
         that satisfy the search expressions.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example
 
         import mlflow
@@ -270,7 +272,8 @@ def search_model_versions(
         A list of :py:class:`mlflow.entities.model_registry.ModelVersion` objects
             that satisfy the search expressions.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example
 
         import mlflow
