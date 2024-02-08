@@ -1,10 +1,12 @@
 from typing import Any, Dict, List, Optional, Union
 
 import torch
+from transformers import AutoTokenizer, StoppingCriteria
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, COMPLETIONS_MODEL_INPUT_SCHEMA
+from mlflow.types.schema import ColSpec, DataType, Object, Property, Schema
 
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
@@ -18,56 +20,103 @@ _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK = {
     "text-generation": [_LLM_INFERENCE_TASK_COMPLETIONS, _LLM_INFERENCE_TASK_CHAT],
 }
 
+_LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            name="text",
+            type=DataType.string,
+        ),
+        ColSpec(
+            name="finish_reason",
+            type=DataType.string,
+        ),
+        ColSpec(
+            name="usage",
+            type=Object(
+                [
+                    Property("prompt_tokens", DataType.long),
+                    Property("completion_tokens", DataType.long),
+                    Property("total_tokens", DataType.long),
+                ]
+            ),
+        ),
+    ]
+)
+
+_LLM_INFERENCE_CHAT_OUTPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            name="message",
+            type=Object(
+                [
+                    Property("role", DataType.string),
+                    Property("content", DataType.string),
+                ]
+            ),
+        ),
+        ColSpec(
+            name="finish_reason",
+            type=DataType.string,
+        ),
+        ColSpec(
+            name="usage",
+            type=Object(
+                [
+                    Property("prompt_tokens", DataType.long),
+                    Property("completion_tokens", DataType.long),
+                    Property("total_tokens", DataType.long),
+                ]
+            ),
+        ),
+    ]
+)
+
+_SIGNATURE_FOR_LLM_INFERENCE_TASK = {
+    _LLM_INFERENCE_TASK_CHAT: ModelSignature(
+        inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=_LLM_INFERENCE_CHAT_OUTPUT_SCHEMA
+    ),
+    _LLM_INFERENCE_TASK_COMPLETIONS: ModelSignature(
+        inputs=COMPLETIONS_MODEL_INPUT_SCHEMA, outputs=_LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA
+    ),
+}
+
 
 def infer_signature_from_llm_inference_task(
     inference_task: str, signature: Optional[ModelSignature] = None
 ) -> ModelSignature:
     """
-    Sets the model signature if provided.
-    When a MLflow inference task is given, raise exception if signature is given,
-    otherwise infer the signature from the task.
+    Infers the signature according to the MLflow inference task.
+    Raises exception if a signature is given.
     """
     if signature is not None:
-        if inference_task:
-            raise MlflowException(
-                f"When `task` is specified as `{inference_task}`, the signature would "
-                "be set by MLflow. Please do not set the signature."
-            )
-        return signature
-
-    if inference_task == _LLM_INFERENCE_TASK_CHAT:
-        signature = ModelSignature(
-            inputs=CHAT_MODEL_INPUT_SCHEMA,
-        )
-    elif inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
-        signature = ModelSignature(
-            inputs=COMPLETIONS_MODEL_INPUT_SCHEMA,
+        raise MlflowException(
+            f"When `task` is specified as `{inference_task}`, the signature would "
+            "be set by MLflow. Please do not set the signature."
         )
 
-    return signature
+    return _SIGNATURE_FOR_LLM_INFERENCE_TASK[inference_task]
 
 
-def check_messages_and_apply_chat_template(data, tokenizer, inference_task):
+def convert_data_messages_with_chat_template(data, tokenizer):
     """For the Chat inference task, apply chat template to messages to create prompt."""
-    if inference_task != _LLM_INFERENCE_TASK_CHAT:
-        return
-
     try:
         messages = data.pop("messages").tolist()[0]
+    except KeyError:
+        raise MlflowException("The 'messages' field is required for the Chat inference task.")
+
+    try:
         messages_str = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        data["prompt"] = messages_str
-    except KeyError:
-        raise MlflowException("The 'messages' field is required for the Chat inference task.")
     except Exception as e:
         raise MlflowException(f"Failed to apply chat template: {e}")
+
+    data["prompt"] = messages_str
 
 
 def preprocess_llm_inference_params(
     data,
     params: Optional[Dict[str, Any]] = None,
-    inference_task: Optional[str] = None,
     flavor_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
@@ -79,9 +128,6 @@ def preprocess_llm_inference_params(
 
     `data` is updated in place, and the extracted params are returned.
     """
-    if inference_task is None:
-        return params
-
     if params is None:
         params = {}
 
@@ -95,32 +141,29 @@ def preprocess_llm_inference_params(
     model_name = None
     if flavor_config is not None:
         model_name = flavor_config.get("source_model_name", None)
-        stopping_criteria = _set_stopping_criteria(params.pop("stop", None), model_name)
+        stopping_criteria = _get_stopping_criteria(params.pop("stop", None), model_name)
         if stopping_criteria:
             params["stopping_criteria"] = stopping_criteria
 
     return params
 
 
-def _set_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
+class _StopSequenceMatchCriteria(StoppingCriteria):
+    def __init__(self, stop_sequence_ids):
+        self.stop_sequence_ids = stop_sequence_ids
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+        last_ids = input_ids[:, -len(self.stop_sequence_ids) :].tolist()
+        return self.stop_sequence_ids in last_ids
+
+
+def _get_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
     """Return a list of Hugging Face stopping criteria objects for the given stop sequences."""
     if stop is None or model_name is None:
         return None
 
-    from transformers import AutoTokenizer, StoppingCriteria
-
     if isinstance(stop, str):
         stop = [stop]
-
-    class StopSequenceMatchCriteria(StoppingCriteria):
-        def __init__(self, stop_sequence_ids):
-            self.stop_sequence_ids = stop_sequence_ids
-
-        def __call__(
-            self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
-        ) -> bool:
-            last_ids = input_ids[:, -len(self.stop_sequence_ids) :].tolist()
-            return self.stop_sequence_ids in last_ids
 
     # To tokenize the stop sequences for stopping criteria, we need to use the slow tokenizer
     # for matching the actual tokens, according to https://github.com/huggingface/transformers/issues/27704
@@ -135,8 +178,8 @@ def _set_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Op
         token_ids = _get_slow_token_ids(stop_sequence)
         token_ids_with_space = _get_slow_token_ids(" " + stop_sequence)
         stopping_criteria += [
-            StopSequenceMatchCriteria(token_ids),
-            StopSequenceMatchCriteria(token_ids_with_space),
+            _StopSequenceMatchCriteria(token_ids),
+            _StopSequenceMatchCriteria(token_ids_with_space),
         ]
 
     return stopping_criteria

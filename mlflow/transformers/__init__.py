@@ -49,10 +49,11 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_CHAT,
     _LLM_INFERENCE_TASK_KEY,
     _METADATA_LLM_INFERENCE_TASK_KEY,
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
-    check_messages_and_apply_chat_template,
+    convert_data_messages_with_chat_template,
     infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
     preprocess_llm_inference_params,
@@ -512,7 +513,12 @@ def save_model(
     if mlflow_model is None:
         mlflow_model = Model()
 
-    mlflow_model.signature = infer_signature_from_llm_inference_task(llm_inference_task, signature)
+    if llm_inference_task:
+        mlflow_model.signature = infer_signature_from_llm_inference_task(
+            llm_inference_task, signature
+        )
+    elif signature is not None:
+        mlflow_model.signature = signature
 
     if input_example is not None:
         input_example = format_input_example_for_special_cases(input_example, built_pipeline)
@@ -1856,12 +1862,11 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
-        check_messages_and_apply_chat_template(
-            data, self.pipeline.tokenizer, self.llm_inference_task
-        )
-        params = preprocess_llm_inference_params(
-            data, params, self.llm_inference_task, self.flavor_config
-        )
+        if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
+            convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
+
+        if self.llm_inference_task:
+            params = preprocess_llm_inference_params(data, params, self.flavor_config)
 
         # NB: This `predict` method updates the model_config several times. To make the predict
         # call idempotent, we keep the original self.model_config immutable and creates a deep

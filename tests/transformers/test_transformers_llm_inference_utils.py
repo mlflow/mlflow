@@ -8,11 +8,13 @@ import torch
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature
 from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_CHAT_OUTPUT_SCHEMA,
+    _LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA,
     _get_finish_reason,
     _get_output_and_usage_from_tensor,
+    _get_stopping_criteria,
     _get_token_usage,
-    _set_stopping_criteria,
-    check_messages_and_apply_chat_template,
+    convert_data_messages_with_chat_template,
     infer_signature_from_llm_inference_task,
     preprocess_llm_inference_params,
 )
@@ -22,11 +24,11 @@ from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, COMPLETIONS_MODEL_INPUT_SC
 def test_infer_signature_from_llm_inference_task():
     signature = infer_signature_from_llm_inference_task("llm/v1/completions")
     assert signature.inputs == COMPLETIONS_MODEL_INPUT_SCHEMA
+    assert signature.outputs == _LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA
 
     signature = infer_signature_from_llm_inference_task("llm/v1/chat")
     assert signature.inputs == CHAT_MODEL_INPUT_SCHEMA
-
-    assert infer_signature_from_llm_inference_task(None, None) is None
+    assert signature.outputs == _LLM_INFERENCE_CHAT_OUTPUT_SCHEMA
 
     signature = infer_signature("hello", "world")
     with pytest.raises(MlflowException, match=r".*llm/v1/completions.*signature"):
@@ -66,32 +68,10 @@ def test_apply_chat_template():
     )
 
     # Test that the function modifies the data in place for Chat task
-    check_messages_and_apply_chat_template(data1, tokenizer, "llm/v1/chat")
+    convert_data_messages_with_chat_template(data1, tokenizer)
 
     expected_data = pd.DataFrame({"random": ["value"], "prompt": ["one two"]})
     pd.testing.assert_frame_equal(data1, expected_data)
-
-    # Test that the function does not modify the data for Completion task
-    data2 = pd.DataFrame(
-        {
-            "messages": pd.Series(
-                [[{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]]
-            ),
-            "random": ["value"],
-        }
-    )
-    check_messages_and_apply_chat_template(data2, tokenizer, "llm/v1/completions")
-    pd.testing.assert_frame_equal(
-        data2,
-        pd.DataFrame(
-            {
-                "messages": pd.Series(
-                    [[{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]]
-                ),
-                "random": ["value"],
-            }
-        ),
-    )
 
 
 def test_preprocess_llm_inference_params():
@@ -103,36 +83,28 @@ def test_preprocess_llm_inference_params():
         }
     )
 
-    params = preprocess_llm_inference_params(
-        data, params=None, inference_task="llm/v1/completions", flavor_config=None
-    )
+    params = preprocess_llm_inference_params(data, params=None, flavor_config=None)
 
     # Test that OpenAI params are separated from data and replaced with Hugging Face params
     pd.testing.assert_frame_equal(data, pd.DataFrame({"prompt": ["Hello world!"]}))
     assert params == {"max_new_tokens": 100, "temperature": 0.7}
-
-    # Test that without an inference task, the params are not changed
-    params = preprocess_llm_inference_params(
-        data, params={"my_param": "value"}, inference_task=None, flavor_config=None
-    )
-    assert params == {"my_param": "value"}
 
 
 @mock.patch("transformers.AutoTokenizer.from_pretrained")
 def test_stopping_criteria(mock_from_pretrained):
     mock_from_pretrained.return_value = DummyTokenizer()
 
-    stopping_criteria = _set_stopping_criteria(stop=None, model_name=None)
+    stopping_criteria = _get_stopping_criteria(stop=None, model_name=None)
     assert stopping_criteria is None
 
     input_ids = torch.tensor([[1, 2, 3, 4, 5]])
     scores = torch.ones(1, 5)
 
-    stopping_criteria = _set_stopping_criteria(stop="5", model_name="my/model")
+    stopping_criteria = _get_stopping_criteria(stop="5", model_name="my/model")
     stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
     assert stopping_criteria_matches == [True, True]
 
-    stopping_criteria = _set_stopping_criteria(stop=["100", "5"], model_name="my/model")
+    stopping_criteria = _get_stopping_criteria(stop=["100", "5"], model_name="my/model")
     stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
     assert stopping_criteria_matches == [False, False, True, True]
 
