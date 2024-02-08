@@ -24,7 +24,7 @@ entrypoints:
 
 gitpython:
   pip_release: gitpython
-  minimum: "2.1.0"
+  minimum: "3.1.9"
   max_major_version: 3
 
 pyyaml:
