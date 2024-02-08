@@ -178,7 +178,7 @@ def _get_task_name(task):
             raise mlflow.MlflowException(
                 f"Unsupported task object: {task}", error_code=INVALID_PARAMETER_VALUE
             )
-    return task_name
+        return task_name
 
 
 def _get_api_config() -> _OpenAIApiConfig:
