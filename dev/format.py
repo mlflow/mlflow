@@ -3,8 +3,8 @@ import re
 import subprocess
 import sys
 
-BLACK = [sys.executable, "-m", "black"]
-MESSAGE_REGEX = re.compile(r"^reformatted (.+)$")
+RUFF_FORMAT = [sys.executable, "-m", "ruff", "format"]
+MESSAGE_REGEX = re.compile(r"^Would reformat: (.+)$")
 
 
 def transform(stdout: str, is_maintainer: bool) -> str:
@@ -15,9 +15,9 @@ def transform(stdout: str, is_maintainer: bool) -> str:
         if m := MESSAGE_REGEX.match(line):
             path = m.group(1)
             command = (
-                "`black .` or comment `@mlflow-automation autoformat`"
+                "`ruff format .` or comment `@mlflow-automation autoformat`"
                 if is_maintainer
-                else "`black .`"
+                else "`ruff format .`"
             )
             line = f"{path}: Unformatted file. Run {command} to format."
 
@@ -29,7 +29,8 @@ def main():
     if "GITHUB_ACTIONS" in os.environ:
         with subprocess.Popen(
             [
-                *BLACK,
+                *RUFF_FORMAT,
+                "--check",
                 *sys.argv[1:],
             ],
             stdout=subprocess.PIPE,
@@ -38,13 +39,13 @@ def main():
         ) as prc:
             stdout, stderr = prc.communicate()
             is_maintainer = os.environ.get("IS_MAINTAINER", "false").lower() == "true"
-            sys.stdout.write(stdout)
-            sys.stderr.write(transform(stderr, is_maintainer))
+            sys.stdout.write(transform(stdout, is_maintainer))
+            sys.stderr.write(stderr)
             sys.exit(prc.returncode)
     else:
         with subprocess.Popen(
             [
-                *BLACK,
+                *RUFF_FORMAT,
                 *sys.argv[1:],
             ]
         ) as prc:

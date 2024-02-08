@@ -14,9 +14,9 @@ repos:
         types_or: [python, jupyter]
         stages: [commit]
 
-      - id: black
-        name: black
-        entry: python dev/black.py
+      - id: format
+        name: format
+        entry: python dev/format.py
         language: system
         types_or: [python, jupyter]
         stages: [commit]

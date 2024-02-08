@@ -30,10 +30,11 @@ def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_p
         .replace("${{ MLFLOW_VERSION }}", get_released_mlflow_version())
         .replace("${{ PYTHON_VERSION }}", PYTHON_VERSION)
     )
-    assert (
-        actual_dockerfile == expected_dockerfile
-    ), "Generated Dockerfile does not match expected one. Diff:\n" + "\n".join(
-        difflib.unified_diff(expected_dockerfile.splitlines(), actual_dockerfile.splitlines())
+    assert actual_dockerfile == expected_dockerfile, (
+        "Generated Dockerfile does not match expected one. Diff:\n"
+        + "\n".join(
+            difflib.unified_diff(expected_dockerfile.splitlines(), actual_dockerfile.splitlines())
+        )
     )
 
 
