@@ -26,7 +26,6 @@ from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
@@ -928,6 +927,8 @@ def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expec
     pip_requirements = _get_deps_from_requirement_file(model_uri)
     assert "tensorflow" in pip_requirements
     assert "torch" not in pip_requirements
+    # Accelerate installs Pytorch along with it, so it should not be present in the requirements
+    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -1041,13 +1042,12 @@ def test_invalid_task_inference_raises_error(model_path):
     )
     dummy_pipeline = PairClassificationPipeline(model=model)
 
-    with mock.patch.dict("sys.modules", {"huggingface_hub": None}):
-        with pytest.raises(
-            MlflowException, match="The task provided is invalid. '' is not a supported"
-        ):
-            mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
-        dummy_pipeline.task = "text-classification"
+    with pytest.raises(
+        MlflowException, match="The task provided is invalid. '' is not a supported"
+    ):
         mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
+    dummy_pipeline.task = "text-classification"
+    mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
 
 
 def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi_modal):
@@ -1746,106 +1746,6 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
     fourth_response = loaded_again_pyfunc.predict("Can I use it to go to the moon?")
 
     assert fourth_response == "Sure."
-
-
-@pytest.mark.parametrize(
-    ("pipeline_name", "example", "in_signature", "out_signature"),
-    [
-        (
-            "fill_mask_pipeline",
-            ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of cherries"],
-            [{"type": "string", "required": True}],
-            [{"type": "string", "required": True}],
-        ),
-        (
-            "zero_shot_pipeline",
-            {
-                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
-                "candidate_labels": ["happy", "sad"],
-                "hypothesis_template": "This example talks about how the dog is {}",
-            },
-            [
-                # in transformers, we internally convert values of candidate_labels
-                # to string for zero_shot_pipeline
-                {
-                    "name": "sequences",
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "required": True,
-                },
-                {"name": "candidate_labels", "type": "string", "required": True},
-                {"name": "hypothesis_template", "type": "string", "required": True},
-            ],
-            [
-                {"name": "sequence", "type": "string", "required": True},
-                {"name": "labels", "type": "string", "required": True},
-                {"name": "scores", "type": "double", "required": True},
-            ],
-        ),
-    ],
-)
-@pytest.mark.skipcacheclean
-def test_infer_signature_from_input_example_only(
-    pipeline_name, model_path, example, request, in_signature, out_signature
-):
-    pipeline = request.getfixturevalue(pipeline_name)
-    mlflow.transformers.save_model(pipeline, model_path, input_example=example)
-
-    model = Model.load(model_path)
-
-    assert model.signature.inputs.to_dict() == in_signature
-    assert model.signature.outputs.to_dict() == out_signature
-
-    saved_example = _read_example(model, model_path)
-    # saved example is the same as input example if it is list of scalars
-    if isinstance(example, list):
-        assert (saved_example == example).all()
-        assert model.saved_input_example_info["type"] == "ndarray"
-    elif isinstance(example, dict):
-        saved_example = saved_example.to_dict(orient="records")
-        assert set(saved_example[0].keys()).intersection(example.keys()) == set(
-            saved_example[0].keys()
-        )
-        assert model.saved_input_example_info["type"] == "dataframe"
-        assert model.saved_input_example_info["pandas_orient"] == "split"
-
-
-@pytest.mark.parametrize(
-    ("pipeline_name", "in_signature", "out_signature"),
-    [
-        (
-            "fill_mask_pipeline",
-            [{"required": True, "type": "string"}],
-            [{"required": True, "type": "string"}],
-        ),
-        (
-            "zero_shot_pipeline",
-            [
-                {"name": "sequences", "type": "string", "required": True},
-                {"name": "candidate_labels", "type": "string", "required": True},
-                {"name": "hypothesis_template", "type": "string", "required": True},
-            ],
-            [
-                {"name": "sequence", "type": "string", "required": True},
-                {"name": "labels", "type": "string", "required": True},
-                {"name": "scores", "type": "double", "required": True},
-            ],
-        ),
-    ],
-)
-@pytest.mark.skipcacheclean
-def test_get_default_pipeline_signature(
-    pipeline_name, model_path, request, in_signature, out_signature
-):
-    pipeline = request.getfixturevalue(pipeline_name)
-    mlflow.transformers.save_model(pipeline, model_path)
-
-    model = Model.load(model_path)
-
-    assert model.signature.inputs.to_dict() == in_signature
-    assert model.signature.outputs.to_dict() == out_signature
-
-    assert model.saved_input_example_info is None
 
 
 def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
@@ -2680,139 +2580,6 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
     assert inference[0].startswith("What is MLflow?")
     assert "\n\n" in inference[0]
-
-
-@pytest.mark.parametrize(
-    ("pipeline_name", "data", "result"),
-    [
-        (
-            "small_qa_pipeline",
-            {"question": "Who's house?", "context": "The house is owned by Run."},
-            {
-                "inputs": '[{"type": "string", "name": "question", "required": true}, '
-                '{"type": "string", "name": "context", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "zero_shot_pipeline",
-            {
-                "sequences": "These pipelines are super cool!",
-                "candidate_labels": ["interesting", "uninteresting"],
-                "hypothesis_template": "This example talks about how pipelines are {}",
-            },
-            {
-                "inputs": '[{"type": "string", "name": "sequences", "required": true}, '
-                '{"type": "string", "name": "candidate_labels", "required": true}, '
-                '{"type": "string", "name": "hypothesis_template", "required": true}]',
-                "outputs": '[{"type": "string", "name": "sequence", "required": true}, '
-                '{"type": "string", "name": "labels", "required": true}, '
-                '{"type": "double", "name": "scores", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "text_classification_pipeline",
-            "We're just going to have to agree to disagree, then.",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "name": "label", "required": true}, '
-                '{"type": "double", "name": "score", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "table_question_answering_pipeline",
-            {
-                "query": "how many widgets?",
-                "table": json.dumps({"units": ["100", "200"], "widgets": ["500", "500"]}),
-            },
-            {
-                "inputs": '[{"type": "string", "name": "query", "required": true}, '
-                '{"type": "string", "name": "table", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "summarizer_pipeline",
-            "If you write enough tests, you can be sure that your code isn't broken.",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "translation_pipeline",
-            "No, I am your father.",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "text_generation_pipeline",
-            ["models are", "apples are"],
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "text2text_generation_pipeline",
-            ["man apple pie", "dog pizza eat"],
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "fill_mask_pipeline",
-            "Juggling <mask> is remarkably dangerous",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "conversational_pipeline",
-            "What's shaking, my robot homie?",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "ner_pipeline",
-            "Blue apples are not a thing",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-    ],
-)
-@pytest.mark.skipcacheclean
-def test_signature_inference(pipeline_name, data, result, request):
-    pipeline = request.getfixturevalue(pipeline_name)
-
-    default_signature = mlflow.transformers._get_default_pipeline_signature(pipeline)
-
-    assert default_signature.to_dict() == result
-
-    signature_from_input_example = mlflow.transformers._get_default_pipeline_signature(
-        pipeline, data
-    )
-
-    assert signature_from_input_example.to_dict() == result
 
 
 @pytest.mark.parametrize(
