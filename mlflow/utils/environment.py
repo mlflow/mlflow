@@ -4,6 +4,8 @@ import re
 import subprocess
 import sys
 import tempfile
+from pprint import pformat
+from typing import List
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -727,6 +729,122 @@ def _get_pip_install_mlflow():
         return f"pip install -e {mlflow_home} 1>&2"
     else:
         return f"pip install mlflow=={VERSION} 1>&2"
+
+
+def _add_requirements_to_file(
+    new_reqs: List[Requirement],
+    file_path: str,
+) -> None:
+    """
+    Adds new requirements to the given requirements file (either `conda.yaml`
+    or `requirements.txt`). If any of the new requirements overlap with the
+    requirements in the file, the new requirements will overwrite the old ones.
+
+    Args:
+        new_reqs (List[`Requirement`]): List of new requirements to add to the file.
+        file_path (str): Path to the locally-saved requirements file. Must point to
+            either a `conda.yaml` or `requirements.txt` file.
+    """
+    old_reqs = _get_requirements_from_file(file_path)
+    updated_reqs = _add_or_overwrite_requirements(new_reqs, old_reqs)
+    _write_requirements_to_file(file_path, updated_reqs)
+    _logger.info(
+        "Done adding requirements!\n\n"
+        f"Old requirements:\n{pformat([str(req) for req in old_reqs])}\n\n"
+        f"Updated requirements:\n{pformat(updated_reqs)}\n"
+    )
+
+
+def _remove_requirements_from_file(
+    reqs_to_remove: List[Requirement],
+    file_path: str,
+) -> None:
+    """
+    Removes requirements from the given requirements file (either `conda.yaml`
+    or `requirements.txt`). If any of the provided requirements are not present
+    in the file, they will be ignored. This function also ignores version specifiers.
+    For example, if the file contains "pandas==1.2.3", and the provided requirement
+    is "pandas", the function will remove "pandas==1.2.3" from the file.
+
+    Args:
+        reqs_to_remove (List[`Requirement`]): List of requirements to remove from the file
+        file_path (str): Path to the locally-saved requirements file. Must point to
+            either a `conda.yaml` or `requirements.txt` file.
+    """
+    old_reqs = _get_requirements_from_file(file_path)
+    updated_reqs = _remove_requirements(reqs_to_remove, old_reqs)
+    _write_requirements_to_file(file_path, updated_reqs)
+    _logger.info(
+        "Done removing requirements!\n\n"
+        f"Old requirements:\n{pformat([str(req) for req in old_reqs])}\n\n"
+        f"Updated requirements:\n{pformat(updated_reqs)}\n"
+    )
+
+
+def _get_requirements_from_file(
+    file_path: str,
+) -> List[Requirement]:
+    file_name = os.path.basename(file_path)
+    if file_name == _CONDA_ENV_FILE_NAME:
+        with open(file_path) as file:
+            conda_env = yaml.safe_load(file)
+
+        return [Requirement(s) for s in _get_pip_deps(conda_env)]
+    elif file_name == _REQUIREMENTS_FILE_NAME:
+        with open(file_path) as file:
+            reqs = file.readlines()
+
+        return [Requirement(req) for req in reqs]
+    else:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid file path provided to _get_requirements_from_file! "
+            "Must be a path to either a `conda.yaml` or `requirements.txt` file. "
+            f"Received file path: {file_path}"
+        )
+
+
+def _write_requirements_to_file(
+    file_path: str,
+    new_reqs: List[str],
+) -> None:
+    file_name = os.path.basename(file_path)
+    if file_name == _CONDA_ENV_FILE_NAME:
+        with open(file_path) as file:
+            conda_env = yaml.safe_load(file)
+        conda_env = _overwrite_pip_deps(conda_env, new_reqs)
+        with open(file_path, "w") as file:
+            yaml.dump(conda_env, file)
+    elif file_name == _REQUIREMENTS_FILE_NAME:
+        with open(file_path, "w") as file:
+            file.write("\n".join(new_reqs))
+    else:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid file path provided to _write_requirements_to_file! "
+            "Must be a path to either a `conda.yaml` or `requirements.txt` file. "
+            f"Received file path: {file_path}"
+        )
+
+
+def _add_or_overwrite_requirements(
+    new_reqs: List[Requirement],
+    old_reqs: List[Requirement],
+) -> List[str]:
+    old_reqs_dict = {req.name: str(req) for req in old_reqs}
+    new_reqs_dict = {req.name: str(req) for req in new_reqs}
+    old_reqs_dict.update(new_reqs_dict)
+    return list(old_reqs_dict.values())
+
+
+def _remove_requirements(
+    reqs_to_remove: List[Requirement],
+    old_reqs: List[Requirement],
+) -> List[str]:
+    old_reqs_dict = {req.name: str(req) for req in old_reqs}
+    for req in reqs_to_remove:
+        if req.name in old_reqs_dict:
+            _logger.info(f'"{req.name}" not found in requirements, ignoring')
+        old_reqs_dict.pop(req.name, None)
+    return list(old_reqs_dict.values())
 
 
 class Environment:

@@ -4,19 +4,32 @@ import os
 import uuid
 import warnings
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _add_requirements_to_file,
+    _remove_requirements_from_file,
+)
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    get_uri_scheme,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -698,3 +711,98 @@ def get_model_info(model_uri: str) -> ModelInfo:
         mlflow_version=model_meta.mlflow_version,
         metadata=model_meta.metadata,
     )
+
+
+def get_model_requirements_files(resolved_uri: str) -> Dict[str, str]:
+    try:
+        requirements_txt_file = _download_artifact_from_uri(
+            artifact_uri=append_to_uri_path(resolved_uri, _REQUIREMENTS_FILE_NAME)
+        )
+        conda_yaml_file = _download_artifact_from_uri(
+            artifact_uri=append_to_uri_path(resolved_uri, _CONDA_ENV_FILE_NAME)
+        )
+    except Exception as ex:
+        raise MlflowException(
+            f'Failed to download a model file from "{resolved_uri}"',
+            RESOURCE_DOES_NOT_EXIST,
+        ) from ex
+
+    return {
+        _REQUIREMENTS_FILE_NAME: requirements_txt_file,
+        _CONDA_ENV_FILE_NAME: conda_yaml_file,
+    }
+
+
+def update_model_requirements(
+    model_uri: str,
+    operation: Literal["add", "remove"],
+    requirement_list: List[str],
+) -> None:
+    """
+    Add or remove requirements from a model's conda.yaml and requirements.txt files.
+
+    The process involves downloading these two files from the model artifacts
+    (if they're non-local), updating them with the specified requirements,
+    and then overwriting the existing files. Should the artifact repository
+    associated with the model artifacts disallow overwriting, this function will
+    fail.
+
+    Note that model registry URIs (i.e. URIs in the form ``models:/``) are not
+    supported, as artifacts in the model registry are intended to be read-only.
+
+    If adding requirements, the function will overwrite any existing requirements
+    that overlap, or else append the new requirements to the existing list.
+
+    If removing requirements, the function will ignore any version specifiers,
+    and remove all the specified package names. Any requirements that are not
+    found in the existing files will be ignored.
+
+    Args:
+        model_uri (str): The location, in URI format, of the MLflow model. For example:
+
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``mlflow-artifacts:/path/to/model``
+
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+
+        operation (Literal["add", "remove]): The operation to perform.
+            Must be one of "add" or "remove".
+
+        requirement_list (List[str]): A list of requirements to add or remove from the model.
+            For example: ["numpy==1.20.3", "pandas>=1.3.3"]
+    """
+    if ModelsArtifactRepository.is_models_uri(model_uri):
+        raise MlflowException(
+            f'Failed to set requirements on "{model_uri}". '
+            + "Model URIs with the `models:/` scheme are not supported.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    resolved_uri = model_uri
+    if RunsArtifactRepository.is_runs_uri(model_uri):
+        resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+
+    _logger.info(f"Retrieving model requirements files from {resolved_uri}...")
+    local_paths = get_model_requirements_files(resolved_uri)
+    conda_yaml_file = local_paths[_CONDA_ENV_FILE_NAME]
+    requirements_txt_file = local_paths[_REQUIREMENTS_FILE_NAME]
+
+    if operation == "add":
+        _logger.info(f"Adding requirements to {_CONDA_ENV_FILE_NAME}...")
+        _add_requirements_to_file(requirement_list, conda_yaml_file)
+        _logger.info(f"Adding requirements to {_REQUIREMENTS_FILE_NAME}...")
+        _add_requirements_to_file(requirement_list, requirements_txt_file)
+    else:
+        _logger.info(f"Removing requirements from {_CONDA_ENV_FILE_NAME}...")
+        _remove_requirements_from_file(requirement_list, conda_yaml_file)
+        _logger.info(f"Removing requirements from {_REQUIREMENTS_FILE_NAME}...")
+        _remove_requirements_from_file(requirement_list, requirements_txt_file)
+
+    _logger.info(f"Uploading updated requirements files to {resolved_uri}...")
+    _upload_artifact_to_uri(conda_yaml_file, resolved_uri)
+    _upload_artifact_to_uri(requirements_txt_file, resolved_uri)
