@@ -39,10 +39,11 @@ from string import Formatter
 from typing import Any, Dict, Optional, Set
 
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
+from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -114,47 +115,39 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _get_class_to_task_mapping():
-    from openai.api_resources import (
-        Audio,
-        ChatCompletion,
-        Completion,
-        Deployment,
-        Edit,
-        Embedding,
-        Engine,
-        File,
-        FineTune,
-        Image,
-        Moderation,
-    )
-    from openai.api_resources import (
-        Model as OpenAIModel,
-    )
+def _get_obj_to_task_mapping():
+    import openai
 
-    return {
-        Audio: Audio.OBJECT_NAME,
-        ChatCompletion: ChatCompletion.OBJECT_NAME,
-        Completion: Completion.OBJECT_NAME,
-        Edit: Edit.OBJECT_NAME,
-        Deployment: Deployment.OBJECT_NAME,
-        Embedding: Embedding.OBJECT_NAME,
-        Engine: Engine.OBJECT_NAME,
-        File: File.OBJECT_NAME,
-        Image: Image.OBJECT_NAME,
-        FineTune: FineTune.OBJECT_NAME,
-        OpenAIModel: OpenAIModel.OBJECT_NAME,
-        Moderation: "moderations",
-    }
+    if Version(_get_openai_package_version()).major < 1:
+        from openai import api_resources as ar
 
-
-def _class_to_task(cls):
-    task = _get_class_to_task_mapping().get(cls)
-    if task is None:
-        raise mlflow.MlflowException(
-            f"Unsupported class: {cls}", error_code=INVALID_PARAMETER_VALUE
-        )
-    return task
+        return {
+            ar.Audio: ar.Audio.OBJECT_NAME,
+            ar.ChatCompletion: ar.ChatCompletion.OBJECT_NAME,
+            ar.Completion: ar.Completion.OBJECT_NAME,
+            ar.Edit: ar.Edit.OBJECT_NAME,
+            ar.Deployment: ar.Deployment.OBJECT_NAME,
+            ar.Embedding: ar.Embedding.OBJECT_NAME,
+            ar.Engine: ar.Engine.OBJECT_NAME,
+            ar.File: ar.File.OBJECT_NAME,
+            ar.Image: ar.Image.OBJECT_NAME,
+            ar.FineTune: ar.FineTune.OBJECT_NAME,
+            ar.Model: ar.Model.OBJECT_NAME,
+            ar.Moderation: "moderations",
+        }
+    else:
+        return {
+            openai.audio: "audio",
+            openai.chat.completions: "chat.completions",
+            openai.completions: "completions",
+            openai.images.edit: "images.edit",
+            openai.embeddings: "embeddings",
+            openai.files: "files",
+            openai.images: "images",
+            openai.fine_tuning: "fine_tuning",
+            openai.moderations: "moderations",
+            openai.models: "models",
+        }
 
 
 def _get_model_name(model):
@@ -162,23 +155,30 @@ def _get_model_name(model):
 
     if isinstance(model, str):
         return model
-    elif isinstance(model, openai.Model):
+
+    if Version(_get_openai_package_version()).major < 1 and isinstance(model, openai.Model):
         return model.id
-    else:
-        raise mlflow.MlflowException(
-            f"Unsupported model type: {type(model)}", error_code=INVALID_PARAMETER_VALUE
-        )
+
+    raise mlflow.MlflowException(
+        f"Unsupported model type: {type(model)}", error_code=INVALID_PARAMETER_VALUE
+    )
 
 
 def _get_task_name(task):
+    mapping = _get_obj_to_task_mapping()
     if isinstance(task, str):
+        if task not in mapping.values():
+            raise mlflow.MlflowException(
+                f"Unsupported task: {task}", error_code=INVALID_PARAMETER_VALUE
+            )
         return task
-    elif isinstance(task, type):
-        return _class_to_task(task)
     else:
-        raise mlflow.MlflowException(
-            f"Unsupported task type: {type(task)}", error_code=INVALID_PARAMETER_VALUE
-        )
+        task_name = mapping.get(task)
+        if task_name is None:
+            raise mlflow.MlflowException(
+                f"Unsupported task object: {task}", error_code=INVALID_PARAMETER_VALUE
+            )
+        return task_name
 
 
 def _get_api_config() -> _OpenAIApiConfig:
@@ -266,9 +266,8 @@ def save_model(
     Save an OpenAI model to a path on the local file system.
 
     Args:
-        model: The OpenAI model name or reference instance, e.g.,
-            ``openai.Model.retrieve("gpt-3.5-turbo")``.
-        task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
+        model: The OpenAI model name.
+        task: The task the model is performing, e.g., ``openai.chat.completions`` or
             ``'chat.completions'``.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
@@ -310,7 +309,7 @@ def save_model(
         # Chat
         mlflow.openai.save_model(
             model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            task=openai.chat.completions,
             messages=[{"role": "user", "content": "Tell me a joke."}],
             path="model",
         )
@@ -318,7 +317,7 @@ def save_model(
         # Completions
         mlflow.openai.save_model(
             model="text-davinci-002",
-            task=openai.Completion,
+            task=openai.completions,
             prompt="{text}. The general sentiment of the text is",
             path="model",
         )
@@ -326,7 +325,7 @@ def save_model(
         # Embeddings
         mlflow.openai.save_model(
             model="text-embedding-ada-002",
-            task=openai.Embedding,
+            task=openai.embeddings,
             path="model",
         )
     """
@@ -468,7 +467,7 @@ def log_model(
     Args:
         model: The OpenAI model name or reference instance, e.g.,
             ``openai.Model.retrieve("gpt-3.5-turbo")``.
-        task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
+        task: The task the model is performing, e.g., ``openai.chat.completions`` or
             ``'chat.completions'``.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
@@ -521,7 +520,7 @@ def log_model(
         with mlflow.start_run():
             info = mlflow.openai.log_model(
                 model="gpt-3.5-turbo",
-                task=openai.ChatCompletion,
+                task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
                 artifact_path="model",
             )
@@ -533,7 +532,7 @@ def log_model(
         with mlflow.start_run():
             info = mlflow.openai.log_model(
                 model="text-embedding-ada-002",
-                task=openai.Embedding,
+                task=openai.embeddings,
                 artifact_path="embeddings",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
@@ -706,8 +705,8 @@ class _OpenAIWrapper:
 
     def _construct_request_url(self, task_url, default_url):
         api_type = self.request_configs.get("api_type")
+        api_base = self.request_configs.get("api_base")
         if api_type in ("azure", "azure_ad", "azuread"):
-            api_base = self.request_configs.get("api_base")
             api_version = self.request_configs.get("api_version")
             deployment_id = self.request_configs.get("deployment_id")
 
@@ -715,8 +714,8 @@ class _OpenAIWrapper:
                 f"{api_base}/openai/deployments/{deployment_id}/"
                 f"{task_url}?api-version={api_version}"
             )
-        else:
-            return default_url
+
+        return f"{api_base}/{task_url}" if api_base else default_url
 
     def _predict_chat(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
@@ -812,39 +811,13 @@ class _OpenAIWrapper:
             return self._predict_embeddings(data, params or {})
 
 
-class _TestOpenAIWrapper(_OpenAIWrapper):
-    """A wrapper class that should be used for testing purposes only."""
-
-    def predict(
-        self,
-        data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ):
-        """
-        Args:
-            data: Model input data.
-            params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
-
-        Returns:
-            Model predictions.
-        """
-        from mlflow.utils.openai_utils import _mock_openai_request
-
-        with _mock_openai_request():
-            return super().predict(data)
-
-
 def _load_pyfunc(path):
     """Loads PyFunc implementation. Called by ``pyfunc.load_model``.
 
     Args:
         path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
     """
-    wrapper_cls = _TestOpenAIWrapper if _MLFLOW_TESTING.get() else _OpenAIWrapper
-    return wrapper_cls(_load_model(path))
+    return _OpenAIWrapper(_load_model(path))
 
 
 @experimental

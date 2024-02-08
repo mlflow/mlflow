@@ -576,7 +576,7 @@ openai:
     #   pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "0.28.1"
+    maximum: "1.11.1"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
