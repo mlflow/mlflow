@@ -49,19 +49,21 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor. Calls to
+        :func:`save_model()` and :func:`log_model()` produce a pip environment that, at minimum,
+        contains these requirements.
     """
     return [_get_pinned_requirement("cloudpickle")]
 
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model() <mlflow.pyfunc.save_model>`
-             and :func:`log_model() <mlflow.pyfunc.log_model>` when a user-defined subclass of
-             :class:`PythonModel` is provided.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model() <mlflow.pyfunc.save_model>`
+        and :func:`log_model() <mlflow.pyfunc.log_model>` when a user-defined subclass of
+        :class:`PythonModel` is provided.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -95,8 +97,9 @@ class PythonModel:
         :func:`~PythonModel.predict`, but it may be more efficient to override this method
         and load artifacts from the context at model load time.
 
-        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
-                        can use to perform inference.
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
         """
 
     def _get_type_hints(self):
@@ -108,13 +111,14 @@ class PythonModel:
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
 
-        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
-                        can use to perform inference.
-        :param model_input: A pyfunc-compatible input for the model to evaluate.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                 release without warning.
         """
 
 
@@ -139,15 +143,17 @@ class _FunctionPythonModel(PythonModel):
         params: Optional[Dict[str, Any]] = None,
     ):
         """
-        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
-                        can use to perform inference.
-        :param model_input: A pyfunc-compatible input for the model to evaluate.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            context: A instance containing artifacts that the model
+                can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         if inspect.signature(self.func).parameters.get("params"):
             return self.func(model_input, params=params)
@@ -166,10 +172,11 @@ class PythonModelContext:
 
     def __init__(self, artifacts, model_config):
         """
-        :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
-                          is an absolute filesystem path to a given artifact.
-        :param model_config: The model configuration to make available to the model at
-                                 loading time.
+        Args:
+            artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
+                is an absolute filesystem path to a given artifact.
+            model_config: The model configuration to make available to the model at
+                loading time.
         """
         self._artifacts = artifacts
         self._model_config = model_config
@@ -241,33 +248,32 @@ def _save_model_with_class_artifacts_params(
     model_config=None,
 ):
     """
-    :param path: The path to which to save the Python model.
-    :param python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``
-                        defines how the model loads artifacts and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries.
-                      Remote artifact URIs are resolved to absolute filesystem paths, producing
-                      a dictionary of ``<name, absolute_path>`` entries,
-                      (e.g. {"file": "aboslute_path"}). ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      If ``<artifact_name, 'hf:/repo_id'>``(e.g. {"bert-tiny-model":
-                      "hf:/prajjwal1/bert-tiny"}) is provided, then the model can be fetched from
-                      huggingface hub using repo_id `prajjwal1/bert-tiny` directly.
-                      If ``None``, no artifacts are added to the model.
-    :param conda_env: Either a dictionary representation of a Conda environment or the
-                      path to a Conda environment yaml file. If provided, this decsribes the
-                      environment this model should be run in. At minimum, it should specify
-                      the dependencies
-                      contained in :func:`get_default_conda_env()`. If ``None``, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path before the model is loaded.
-    :param mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
-    :param model_config: The model configuration for the flavor. Model configuration is available
-                         during model loading time.
+    Args:
+        path: The path to which to save the Python model.
+        python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``
+            defines how the model loads artifacts and how it performs inference.
+        artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
+            are resolved to absolute filesystem paths, producing a dictionary of
+            ``<name, absolute_path>`` entries, (e.g. {"file": "aboslute_path"}).
+            ``python_model`` can reference these resolved entries as the ``artifacts`` property
+            of the ``context`` attribute. If ``<artifact_name, 'hf:/repo_id'>``(e.g.
+            {"bert-tiny-model": "hf:/prajjwal1/bert-tiny"}) is provided, then the model can be
+            fetched from huggingface hub using repo_id `prajjwal1/bert-tiny` directly. If ``None``,
+            no artifacts are added to the model.
+        conda_env: Either a dictionary representation of a Conda environment or the path to a Conda
+            environment yaml file. If provided, this decsribes the environment this model should be
+            run in. At minimum, it should specify the dependencies contained in
+            :func:`get_default_conda_env()`. If ``None``, the default
+            :func:`get_default_conda_env()` environment is added to the model.
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system path before the
+            model is loaded.
+        mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
+        model_config: The model configuration for the flavor. Model configuration is available
+            during model loading time.
 
-                            .. Note:: Experimental: This parameter may change or be removed in a
-                                      future release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future release
+                without warning.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -452,10 +458,11 @@ class _PythonModelPyfuncWrapper:
 
     def __init__(self, python_model, context, signature):
         """
-        :param python_model: An instance of a subclass of :class:`~PythonModel`.
-        :param context: A :class:`~PythonModelContext` instance containing artifacts that
-                        ``python_model`` may use when performing inference.
-        :param signature: :class:`~ModelSignature` instance describing model input and output.
+        Args:
+            python_model: An instance of a subclass of :class:`~PythonModel`.
+            context: A :class:`~PythonModelContext` instance containing artifacts that
+                     ``python_model`` may use when performing inference.
+            signature: :class:`~ModelSignature` instance describing model input and output.
         """
         self.python_model = python_model
         self.context = context
@@ -496,13 +503,15 @@ class _PythonModelPyfuncWrapper:
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
-        :param model_input: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            model_input: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         if inspect.signature(self.python_model.predict).parameters.get("params"):
             return self.python_model.predict(

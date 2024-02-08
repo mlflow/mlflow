@@ -296,9 +296,12 @@ def _get_dataframe_with_renamed_columns(x, new_column_names):
     instead creates a new pd.DataFrame object from x, and then explicitly renames the columns
     to avoid NaNs.
 
-    :param x: :param data: A data object, such as a Pandas DataFrame, numPy array, or list
-    :param new_column_names: Column names for the output Pandas DataFrame
-    :return: A pd.DataFrame with x as data, with columns new_column_names
+    Args:
+        x: A data object, such as a Pandas DataFrame, numPy array, or list
+        new_column_names: Column names for the output Pandas DataFrame
+
+    Returns:
+        A pd.DataFrame with x as data, with columns new_column_names
     """
     df = pd.DataFrame(x)
     return df.rename(columns=dict(zip(df.columns, new_column_names)))
@@ -318,15 +321,19 @@ def _gen_classifier_curve(
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
-    :param is_binomial: True if it is binary classifier otherwise False
-    :param y: True label values
-    :param y_probs: if binary classifier, the predicted probability for positive class.
-                    if multiclass classifier, the predicted probabilities for all classes.
-    :param labels: The set of labels.
-    :param pos_label: The label of the positive class.
-    :param curve_type: "pr" or "roc"
-    :param sample_weights: Optional sample weights.
-    :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
+
+    Args:
+        is_binomial: True if it is binary classifier otherwise False
+        y: True label values
+        y_probs: if binary classifier, the predicted probability for positive class.
+                  if multiclass classifier, the predicted probabilities for all classes.
+        labels: The set of labels.
+        pos_label: The label of the positive class.
+        curve_type: "pr" or "roc"
+        sample_weights: Optional sample weights.
+
+    Returns:
+        An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
     """
     if curve_type == "roc":
 
@@ -572,10 +579,13 @@ def _evaluate_metric(metric_tuple, eval_fn_args):
     result to ensure that they are in the expected format. It will warn and will not log metrics
     that are in the wrong format.
 
-    :param metric_tuple: Containing a user provided function and its index in the
-        ``extra_metrics`` parameter of ``mlflow.evaluate``
-    :param eval_fn_args: A dictionary of args needed to compute the eval metrics.
-    :return: MetricValue
+    Args:
+        extra_metric_tuple: Containing a user provided function and its index in the
+            ``extra_metrics`` parameter of ``mlflow.evaluate``
+        eval_fn_args: A dictionary of args needed to compute the eval metrics.
+
+    Returns:
+        MetricValue
     """
     if metric_tuple.index < 0:
         exception_header = f"Did not log builtin metric '{metric_tuple.name}' because it"
@@ -654,11 +664,14 @@ def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     result to ensure that they are in the expected format. It will raise a MlflowException if
     the result is not in the expected format.
 
-    :param custom_artifact_tuple: Containing a user provided function and its index in the
-                                ``custom_artifacts`` parameter of ``mlflow.evaluate``
-    :param eval_df: A Pandas dataframe object containing a prediction and a target column.
-    :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
-    :return: A dictionary of artifacts.
+    Args:
+        custom_artifact_tuple: Containing a user provided function and its index in the
+            ``custom_artifacts`` parameter of ``mlflow.evaluate``
+        eval_df: A Pandas dataframe object containing a prediction and a target column.
+        builtin_metrics: A dictionary of metrics produced by the default evaluator.
+
+    Returns:
+        A dictionary of artifacts.
     """
     exception_header = (
         f"Custom artifact function '{custom_artifact_tuple.name}' "
@@ -1106,10 +1119,13 @@ class DefaultEvaluator(ModelEvaluator):
             - Otherwise: will attempt to save the artifact to an temporary path with an inferred
               type. Then call mlflow.log_artifact.
 
-        :param artifact_name: the name of the artifact
-        :param raw_artifact:  the object representing the artifact
-        :param custom_metric_tuple: an instance of the _Metric namedtuple
-        :return: EvaluationArtifact
+        Args:
+            artifact_name: the name of the artifact
+            raw_artifact: the object representing the artifact
+            custom_metric_tuple: an instance of the _CustomMetric namedtuple
+
+        Returns:
+            EvaluationArtifact
         """
 
         exception_and_warning_header = (
@@ -1970,7 +1986,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         def __init__(self, data):
             """
-            :param data: A data object, such as a Pandas DataFrame, numPy array, or list.
+            Args:
+                data: A data object, such as a Pandas DataFrame, numPy array, or list.
             """
             self._data = data
 
@@ -1980,7 +1997,8 @@ class DefaultEvaluator(ModelEvaluator):
             to be used in a context where it may be subsequently mutated, guarding against
             accidental reuse after mutation.
 
-            :return: A copy of the data object.
+            Returns:
+                A copy of the data object.
             """
             if isinstance(self._data, pd.DataFrame):
                 return self._data.copy(deep=True)
@@ -1992,6 +2010,7 @@ class DefaultEvaluator(ModelEvaluator):
             Obtain the original data object. This method should only be called if the caller
             can guarantee that it will not mutate the data during subsequent operations.
 
-            :return: The original data object.
+            Returns:
+                The original data object.
             """
             return self._data
