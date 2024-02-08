@@ -97,12 +97,15 @@ Failed to find a documentation preview for {args.commit_sha}.
     workflow = session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
     build_doc_job_id = build_doc_job["id"]
-    artifact_url = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/index.html"
-    print(f"Artifact URL: {artifact_url}")
+    top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/index.html"
+    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/diff.html"
 
     # Post the artifact URL as a comment
     comment_body = f"""
-Documentation preview for {args.commit_sha} will be available [here]({artifact_url}) when [this CircleCI job]({job_url}) completes successfully.
+Documentation preview for {args.commit_sha} will be available when [this CircleCI job]({job_url}) completes successfully.
+
+- [Top page]({top_page})
+- [Changed pages]({changed_pages})
 
 <details>
 <summary>More info</summary>
