@@ -25,7 +25,7 @@ from mlflow.store.artifact.cloud_artifact_repo import (
 def _parse_abfss_uri(uri):
     """
     Parse an ABFSS URI in the format
-    "abfss://<file_system>@<account_name>.dbfs.core.windows.net/<path>",
+    "abfss://<file_system>@<account_name>.dfs.core.[windows.net|/<path>",
     returning a tuple consisting of the filesystem, account name, and path
 
     See more details about ABFSS URIs at
@@ -41,18 +41,20 @@ def _parse_abfss_uri(uri):
     if parsed.scheme != "abfss":
         raise MlflowException(f"Not an ABFSS URI: {uri}")
 
-    match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.windows\.net", parsed.netloc)
+    match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.@([windows\.net|chinacloudapi.cn])", parsed.netloc)
 
     if match is None:
         raise MlflowException(
-            "ABFSS URI must be of the form abfss://<filesystem>@<account>.dfs.core.windows.net"
+            "ABFSS URI must be of the form abfss://<filesystem>@<account>.dfs.core.windows.net or "
+            "abfss://<filesystem>@<account>.dfs.core.chinacloudapi.cn"
         )
     filesystem = match.group(1)
     account_name = match.group(2)
+    region_suffix = match.group(3)
     path = parsed.path
     if path.startswith("/"):
         path = path[1:]
-    return filesystem, account_name, path
+    return filesystem, account_name, region_suffix, path
 
 
 def _get_data_lake_client(account_url, credential):
@@ -78,11 +80,11 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         self.credential = credential
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
-        (filesystem, account_name, path) = _parse_abfss_uri(artifact_uri)
+        (filesystem, account_name, region_suffix, path) = _parse_abfss_uri(artifact_uri)
 
         # TODO: investigate setting the account URL based on whether the abfss URI is associated
         # with an Azure account in standard Azure, govcloud, mooncake, etc
-        account_url = f"https://{account_name}.dfs.core.windows.net"
+        account_url = f"https://{account_name}.dfs.core.${region_suffix}"
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.base_data_lake_directory = path
