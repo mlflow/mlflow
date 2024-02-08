@@ -48,16 +48,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.transformers.llm_inference_utils import (
-    _LLM_INFERENCE_TASK_CHAT,
-    _LLM_INFERENCE_TASK_KEY,
-    _METADATA_LLM_INFERENCE_TASK_KEY,
-    _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
-    convert_data_messages_with_chat_template,
-    infer_signature_from_llm_inference_task,
-    postprocess_output_for_llm_inference_task,
-    preprocess_llm_inference_params,
-)
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -97,6 +87,16 @@ IS_TRANSFORMERS_AVAILABLE = importlib.util.find_spec("transformers") is not None
 
 # The following modules depend on transformers and only imported when it is available
 if IS_TRANSFORMERS_AVAILABLE:
+    from mlflow.transformers.llm_inference_utils import (
+        _LLM_INFERENCE_TASK_CHAT,
+        _LLM_INFERENCE_TASK_KEY,
+        _METADATA_LLM_INFERENCE_TASK_KEY,
+        _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
+        convert_data_messages_with_chat_template,
+        infer_signature_from_llm_inference_task,
+        postprocess_output_for_llm_inference_task,
+        preprocess_llm_inference_params,
+    )
     from mlflow.transformers.signature import (
         _generate_signature_output,
         format_input_example_for_special_cases,
