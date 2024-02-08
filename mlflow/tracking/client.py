@@ -196,7 +196,7 @@ class MlflowClient:
             returns None.
 
         .. code-block:: python
-        :test:
+            :test:
             :caption: Example
 
             import mlflow
@@ -1586,7 +1586,7 @@ class MlflowClient:
                 the table is saved (e.g. "dir/file.json").
 
         .. code-block:: python
-        :test:
+            :test:
             :caption: Dictionary Example
 
             import mlflow
@@ -1604,7 +1604,7 @@ class MlflowClient:
             )
 
         .. code-block:: python
-        :test:
+            :test:
             :caption: Pandas DF Example
 
             import mlflow
@@ -1701,7 +1701,7 @@ class MlflowClient:
             or else throw a MlflowException.
 
          .. code-block:: python
-        :test:
+            :test:
             :caption: Example with passing run_ids
 
             import mlflow
@@ -1728,7 +1728,7 @@ class MlflowClient:
             )
 
         .. code-block:: python
-        :test:
+            :test:
             :caption: Example with passing no run_ids
 
             # Loads the table with the specified name for all runs in the given
