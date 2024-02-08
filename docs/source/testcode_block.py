@@ -40,7 +40,8 @@ def _func():           # <- obj_line
 
     Docstring            <- obj_line + offset + extra_offset
 
-    .. testcode:: <- obj_line + offset + extra_offset + lineno_in_docstring
+    .. code-block::      <- obj_line + offset + extra_offset + lineno_in_docstring
+        :test:
         ...
     """
     pass
