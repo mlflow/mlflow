@@ -1,11 +1,19 @@
 import logging
+import os
 
 import click
+import yaml
+from packaging.requirements import InvalidRequirement, Requirement
 
 from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _is_pip_deps,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -270,3 +278,71 @@ def build_docker(**kwargs):
     'python_function' flavor.
     """
     python_api.build_docker(**kwargs)
+
+
+@commands.command("update-pip-requirements")
+@cli_args.MODEL_URI
+@click.argument("operation", type=click.Choice(["add", "remove"]))
+@click.argument("reqs_string", type=str)
+def update_pip_requirements(model_uri, operation, reqs_string):
+    """
+    Updates the requirements.txt and conda.yaml files in the model's directory with a specified
+    comma-separated string of requirements. The provided requirements will be added to the list
+    of existing requirements. Any overlaps will be overwritten by the provided requirements.
+
+    Example usages:
+
+    mlflow models update-pip-requirements -m /path/to/model add "numpy==1.20.0,pandas==1.2.0"
+
+    mlflow models update-pip-requirements -m /path/to/model remove "numpy,pandas"
+    """
+    if not os.path.isdir(model_uri):
+        raise click.ClickException(f"Model directory not found at {model_uri}")
+
+    conda_filepath = os.path.join(model_uri, _CONDA_ENV_FILE_NAME)
+    if not os.path.exists(conda_filepath):
+        raise click.ClickException(f"Conda environment file not found at {conda_filepath}")
+
+    requirements_filepath = os.path.join(model_uri, _REQUIREMENTS_FILE_NAME)
+    if not os.path.exists(requirements_filepath):
+        raise click.ClickException(f"Requirements file not found at {requirements_filepath}")
+
+    with open(conda_filepath) as file:
+        conda_dict = yaml.safe_load(file)
+    conda_pip_deps_idx = None
+    conda_deps = conda_dict.get("dependencies", [])
+    for idx, dep in enumerate(conda_deps):
+        if _is_pip_deps(dep):
+            # return an index so we can pop from the dep list.
+            # this makes it easier to append it back later
+            conda_pip_deps_idx = idx
+
+    # treat conda YAML file as the source of truth for pip dependencies.
+    # note: if conda.yaml and requirements.txt are out of sync, then
+    # requirements.txt will be overwritten by the requirements from conda.yaml
+    conda_pip_deps = [Requirement(s) for s in conda_deps.pop(conda_pip_deps_idx)["pip"]]
+    conda_reqs_dict = {req.name: str(req) for req in conda_pip_deps}
+    try:
+        new_reqs = [Requirement(s.strip().lower()) for s in reqs_string.split(",")]
+    except InvalidRequirement as e:
+        raise click.ClickException(f"Received invalid requirement: {e}")
+
+    _logger.info(f"Old requirements: {list(conda_reqs_dict.values())}")
+    if operation == "remove":
+        for req in new_reqs:
+            if req.name not in conda_reqs_dict:
+                _logger.info(f'Requirement "{req.name}" not found in conda.yaml, ignoring')
+            conda_reqs_dict.pop(req.name, None)
+    elif operation == "add":
+        new_reqs_dict = {req.name: str(req) for req in new_reqs}
+        conda_reqs_dict.update(new_reqs_dict)
+
+    updated_reqs = list(conda_reqs_dict.values())
+    _logger.info(f"New requirements: {updated_reqs}")
+    conda_dict["dependencies"].append({"pip": updated_reqs})
+
+    with open(conda_filepath, "w") as file:
+        yaml.dump(conda_dict, file)
+
+    with open(requirements_filepath, "w") as file:
+        file.write("\n".join(updated_reqs))
