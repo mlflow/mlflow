@@ -1018,8 +1018,8 @@ def _enforce_pyspark_dataframe_schema(
                    handled specially.
     :return: New PySpark DataFrame that conforms to the model's input schema.
     """
-    if SparkDataFrame is None:
-        raise ValueError("PySpark is not installed. Cannot handle a PySpark DataFrame.")
+    if not HAS_PYSPARK:
+        raise MlflowException("PySpark is not installed. Cannot handle a PySpark DataFrame.")
     new_pf_input = original_pf_input.alias("pf_input_copy")
     if input_schema.has_input_names():
         _enforce_named_col_schema(pf_input_as_pandas, input_schema)
@@ -1336,7 +1336,14 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
 def convert_complex_types_pyspark_to_pandas(value, dataType):
     # This function is needed because the default `asDict` function in PySpark
     # converts the data to Python types, which is not compatible with the schema enforcement.
-
+    type_mapping = {
+        IntegerType: lambda v: np.int32(v),
+        ShortType: lambda v: np.int16(v),
+        FloatType: lambda v: np.float32(v),
+        DateType: lambda v: v.strftime("%Y-%m-%d"),
+        TimestampType: lambda v: v.strftime("%Y-%m-%d %H:%M:%S.%f"),
+        BinaryType: lambda v: np.bytes_(v),
+    }
     if value is None:
         return None
     if isinstance(dataType, StructType):
@@ -1348,16 +1355,7 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
         return [
             convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
         ]
-    elif isinstance(dataType, IntegerType):
-        return np.int32(value)
-    elif isinstance(dataType, ShortType):
-        return np.int16(value)
-    elif isinstance(dataType, FloatType):
-        return np.float32(value)
-    elif isinstance(dataType, DateType):
-        return value.strftime("%Y-%m-%d")
-    elif isinstance(dataType, TimestampType):
-        return value.strftime("%Y-%m-%d %H:%M:%S.%f")
-    elif isinstance(dataType, BinaryType):
-        return np.bytes_(value)
+    converter = type_mapping.get(type(dataType))
+    if converter:
+        return converter(value)
     return value
