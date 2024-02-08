@@ -34,9 +34,7 @@ def _build_uri(base_uri, subdirectory):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_docker_project_execution(
-    use_start_run, docker_example_base_image
-):  # pylint: disable=unused-argument
+def test_docker_project_execution(use_start_run, docker_example_base_image):  # pylint: disable=unused-argument
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,

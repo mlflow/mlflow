@@ -1023,9 +1023,7 @@ def test_databricks_download_file_get_request_fail(databricks_artifact_repo, tes
         return_value=[mock_credential_info],
     ) as read_credential_infos_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts", return_value=[]
-    ), mock.patch(
-        "requests.Session.request", side_effect=MlflowException("MOCK ERROR")
-    ):
+    ), mock.patch("requests.Session.request", side_effect=MlflowException("MOCK ERROR")):
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
             databricks_artifact_repo.download_artifacts(test_file)
         read_credential_infos_mock.assert_called_with(test_file)
@@ -1153,9 +1151,7 @@ def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path)
         ],
     ) as mock_get_write_creds, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._upload_to_cloud"
-    ), mock.patch(
-        f"{CLOUD_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2
-    ):
+    ), mock.patch(f"{CLOUD_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2):
         databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
 
         assert mock_get_write_creds.call_count == 5

@@ -691,9 +691,7 @@ def test_create_model_version_aws(store, local_model_dir):
     ) as request_mock, mock.patch(
         "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
         return_value=mock_artifact_repo,
-    ) as optimized_s3_artifact_repo_class_mock, mock.patch.dict(
-        "sys.modules", {"boto3": {}}
-    ):
+    ) as optimized_s3_artifact_repo_class_mock, mock.patch.dict("sys.modules", {"boto3": {}}):
         store.create_model_version(name=model_name, source=source, tags=tags)
         # Verify that s3 artifact repo mock was called with expected args
         optimized_s3_artifact_repo_class_mock.assert_called_once_with(
