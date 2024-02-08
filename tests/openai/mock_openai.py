@@ -94,7 +94,7 @@ def embeddings(payload: EmbeddingsPayload):
 
 
 @app.get("/models/{model}")
-def get_model(model: str):
+def models(model: str):
     return {
         "id": model,
         "object": "model",
