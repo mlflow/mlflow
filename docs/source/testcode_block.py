@@ -62,7 +62,7 @@ class TestCodeBlockDirective(CodeBlock):
     Dumps code blocks marked with the `:test:` option to files for testing.
 
     ```
-    .. code-block:: ...
+    .. code-block:: python
         :test:
 
         print("Hello, world!")
