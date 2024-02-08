@@ -25,7 +25,7 @@ from mlflow.store.artifact.cloud_artifact_repo import (
 def _parse_abfss_uri(uri):
     """
     Parse an ABFSS URI in the format
-    "abfss://<file_system>@<account_name>.dfs.core.[windows.net|/<path>",
+    "abfss://<file_system>@<account_name>.dfs.core.[windows.net|chinacloudapi.cn]/<path>",
     returning a tuple consisting of the filesystem, account name, region suffix, and path
 
     See more details about ABFSS URIs at
@@ -85,7 +85,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
 
         # TODO: investigate setting the account URL based on whether the abfss URI is associated
         # with an Azure account in standard Azure, govcloud, mooncake, etc
-        account_url = f"https://{account_name}.dfs.core.${region_suffix}"
+        account_url = f"https://{account_name}.dfs.core.{region_suffix}"
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.base_data_lake_directory = path
