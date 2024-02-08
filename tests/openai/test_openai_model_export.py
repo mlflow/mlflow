@@ -29,7 +29,7 @@ def spark():
         yield s
 
 
-is_v1 = Version(openai.__version__).major >= 1
+is_v1 = Version(mlflow.openai._get_openai_package_version()).major >= 1
 
 
 def chat_completions():
