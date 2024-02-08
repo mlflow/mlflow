@@ -432,6 +432,7 @@ def _hash_dict_as_bytes(data_dict):
     result = _hash_ndarray_as_bytes(list(data_dict.keys()))
     try:
         result += _hash_ndarray_as_bytes(list(data_dict.values()))
+    # If the values containing non-hashable objects, we will hash the values recursively.
     except Exception:
         for value in data_dict.values():
             result += _hash_data_as_bytes(value)
