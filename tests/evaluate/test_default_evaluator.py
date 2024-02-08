@@ -2981,7 +2981,7 @@ def test_default_metrics_as_extra_metrics_static_dataset():
     assert "exact_match/v1" in results.metrics.keys()
 
 
-def test_derived_metrics():
+def test_derived_metrics_basic_dependency_graph():
     def metric_1(predictions, targets, metrics):
         return MetricValue(
             scores=[0, 1],
@@ -3071,6 +3071,116 @@ def test_derived_metrics():
     assert "metric_3/mean" in results.metrics.keys()
     assert "metric_3/variance" in results.metrics.keys()
     assert "metric_3/p90" in results.metrics.keys()
+
+
+def test_derived_metrics_complicated_dependency_graph():
+    def metric_1(predictions, targets, metric_2, metric_3, metric_6):
+        assert metric_2.scores == [2, 3]
+        assert metric_3.scores == [3, 4]
+        assert metric_6.scores == [6, 7]
+        return MetricValue(scores=[1, 2])
+
+    def metric_2(predictions, targets):
+        return MetricValue(scores=[2, 3])
+
+    def metric_3(predictions, targets, metric_4, metric_5):
+        assert metric_4.scores == [4, 5]
+        assert metric_5.scores == [5, 6]
+        return MetricValue(scores=[3, 4])
+
+    def metric_4(predictions, targets, metric_6):
+        assert metric_6.scores == [6, 7]
+        return MetricValue(scores=[4, 5])
+
+    def metric_5(predictions, targets, metric_4, metric_6):
+        assert metric_4.scores == [4, 5]
+        assert metric_6.scores == [6, 7]
+        return MetricValue(scores=[5, 6])
+
+    def metric_6(predictions, targets, metric_2):
+        assert metric_2.scores == [2, 3]
+        return MetricValue(scores=[6, 7])
+
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        }
+    )
+
+    with mlflow.start_run():
+        results = evaluate(
+            data=data,
+            predictions="answer",
+            targets="truth",
+            extra_metrics=[
+                make_metric(eval_fn=metric_1, greater_is_better=True, version="v1"),
+                make_metric(eval_fn=metric_2, greater_is_better=True, version="v2"),
+                make_metric(eval_fn=metric_3, greater_is_better=True),
+                make_metric(eval_fn=metric_4, greater_is_better=True),
+                make_metric(eval_fn=metric_5, greater_is_better=True, version="v1"),
+                make_metric(eval_fn=metric_6, greater_is_better=True, version="v3"),
+            ],
+            evaluators="default",
+        )
+
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    assert set(logged_data.columns.tolist()) == {
+        "question",
+        "truth",
+        "answer",
+        "metric_1/v1/score",
+        "metric_2/v2/score",
+        "metric_3/score",
+        "metric_4/score",
+        "metric_5/v1/score",
+        "metric_6/v3/score",
+    }
+
+    assert logged_data["metric_1/v1/score"].tolist() == [1, 2]
+    assert logged_data["metric_2/v2/score"].tolist() == [2, 3]
+    assert logged_data["metric_3/score"].tolist() == [3, 4]
+    assert logged_data["metric_4/score"].tolist() == [4, 5]
+    assert logged_data["metric_5/v1/score"].tolist() == [5, 6]
+    assert logged_data["metric_6/v3/score"].tolist() == [6, 7]
+
+    def metric_7(predictions, targets, metric_8, metric_9):
+        return MetricValue(scores=[7, 8])
+
+    def metric_8(predictions, targets, metric_11):
+        return MetricValue(scores=[8, 9])
+
+    def metric_9(predictions, targets):
+        return MetricValue(scores=[9, 10])
+
+    def metric_10(predictions, targets, metric_9):
+        return MetricValue(scores=[10, 11])
+
+    def metric_11(predictions, targets, metric_7, metric_10):
+        return MetricValue(scores=[11, 12])
+
+    error_message = r"Error: Metric calculation failed for the following metrics:\n"
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                data=data,
+                predictions="answer",
+                targets="truth",
+                model_type="text",
+                extra_metrics=[
+                    make_metric(eval_fn=metric_7, greater_is_better=True),
+                    make_metric(eval_fn=metric_8, greater_is_better=True),
+                    make_metric(eval_fn=metric_9, greater_is_better=True),
+                    make_metric(eval_fn=metric_10, greater_is_better=True),
+                    make_metric(eval_fn=metric_11, greater_is_better=True),
+                ],
+                evaluators="default",
+            )
 
 
 def test_derived_metrics_circular_dependencies_raises_exception():
