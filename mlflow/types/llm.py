@@ -303,3 +303,37 @@ COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="stream", type=DataType.boolean, required=False),
     ]
 )
+
+COMPLETIONS_MODEL_OUTPUT_SCHEMA = Schema(
+    [
+        ColSpec(name="id", type=DataType.string),
+        ColSpec(name="object", type=DataType.string),
+        ColSpec(name="created", type=DataType.long),
+        ColSpec(name="model", type=DataType.string),
+        ColSpec(
+            name="choices",
+            type=Array(
+                Object(
+                    [
+                        Property("index", DataType.long),
+                        Property(
+                            "text",
+                            DataType.string,
+                        ),
+                        Property("finish_reason", DataType.string),
+                    ]
+                )
+            ),
+        ),
+        ColSpec(
+            name="usage",
+            type=Object(
+                [
+                    Property("prompt_tokens", DataType.long),
+                    Property("completion_tokens", DataType.long),
+                    Property("total_tokens", DataType.long),
+                ]
+            ),
+        ),
+    ]
+)

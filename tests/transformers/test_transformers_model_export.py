@@ -3788,11 +3788,14 @@ def test_text_generation_task_completions_predict_with_max_tokens(
     )
 
     assert isinstance(inference[0], dict)
+    assert inference[0]["model"] == "distilgpt2"
+    assert inference[0]["object"] == "text_completion"
     assert (
-        inference[0]["finish_reason"] == "length"
+        inference[0]["choices"][0]["finish_reason"] == "length"
         and inference[0]["usage"]["completion_tokens"] == 10
     ) or (
-        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 10
     )
 
 
@@ -3809,8 +3812,11 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
     )
 
-    assert inference[0]["finish_reason"] == "stop"
-    assert inference[0]["text"].endswith("Python") or "Python" not in inference[0]["text"]
+    assert inference[0]["choices"][0]["finish_reason"] == "stop"
+    assert (
+        inference[0]["choices"][0]["text"].endswith("Python")
+        or "Python" not in inference[0]["choices"][0]["text"]
+    )
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
@@ -3833,8 +3839,8 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
     output_dict = values.to_dict("records")[0]
-    assert output_dict["text"] is not None
-    assert output_dict["finish_reason"] == "stop"
+    assert output_dict["choices"][0]["text"] is not None
+    assert output_dict["choices"][0]["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
 
 
@@ -3895,10 +3901,11 @@ def test_text_generation_task_chat_predict(text_generation_pipeline, model_path)
         }
     )
 
-    assert inference[0]["message"]["role"] == "assistant"
+    assert inference[0]["choices"][0]["message"]["role"] == "assistant"
     assert (
-        inference[0]["finish_reason"] == "length"
+        inference[0]["choices"][0]["finish_reason"] == "length"
         and inference[0]["usage"]["completion_tokens"] == 10
     ) or (
-        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 10
     )

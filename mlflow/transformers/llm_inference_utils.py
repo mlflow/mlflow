@@ -1,13 +1,18 @@
-from typing import Any, Dict, List, Optional, Union
+import time
+import uuid
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
 import torch
 from transformers import AutoTokenizer, StoppingCriteria
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
-from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, COMPLETIONS_MODEL_INPUT_SCHEMA
-from mlflow.types.schema import ColSpec, DataType, Object, Property, Schema
+from mlflow.types.llm import (
+    CHAT_MODEL_INPUT_SCHEMA,
+    CHAT_MODEL_OUTPUT_SCHEMA,
+    COMPLETIONS_MODEL_INPUT_SCHEMA,
+    COMPLETIONS_MODEL_OUTPUT_SCHEMA,
+)
 
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
@@ -17,67 +22,21 @@ _METADATA_LLM_INFERENCE_TASK_KEY = "task"
 _LLM_INFERENCE_TASK_COMPLETIONS = "llm/v1/completions"
 _LLM_INFERENCE_TASK_CHAT = "llm/v1/chat"
 
+_LLM_INFERENCE_OBJECT_NAME = {
+    _LLM_INFERENCE_TASK_COMPLETIONS: "text_completion",
+    _LLM_INFERENCE_TASK_CHAT: "chat.completion",
+}
+
 _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK = {
     "text-generation": [_LLM_INFERENCE_TASK_COMPLETIONS, _LLM_INFERENCE_TASK_CHAT],
 }
 
-_LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA = Schema(
-    [
-        ColSpec(
-            name="text",
-            type=DataType.string,
-        ),
-        ColSpec(
-            name="finish_reason",
-            type=DataType.string,
-        ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-        ),
-    ]
-)
-
-_LLM_INFERENCE_CHAT_OUTPUT_SCHEMA = Schema(
-    [
-        ColSpec(
-            name="message",
-            type=Object(
-                [
-                    Property("role", DataType.string),
-                    Property("content", DataType.string),
-                ]
-            ),
-        ),
-        ColSpec(
-            name="finish_reason",
-            type=DataType.string,
-        ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-        ),
-    ]
-)
-
 _SIGNATURE_FOR_LLM_INFERENCE_TASK = {
     _LLM_INFERENCE_TASK_CHAT: ModelSignature(
-        inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=_LLM_INFERENCE_CHAT_OUTPUT_SCHEMA
+        inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=CHAT_MODEL_OUTPUT_SCHEMA
     ),
     _LLM_INFERENCE_TASK_COMPLETIONS: ModelSignature(
-        inputs=COMPLETIONS_MODEL_INPUT_SCHEMA, outputs=_LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA
+        inputs=COMPLETIONS_MODEL_INPUT_SCHEMA, outputs=COMPLETIONS_MODEL_OUTPUT_SCHEMA
     ),
 }
 
@@ -118,7 +77,7 @@ def convert_data_messages_with_chat_template(data, tokenizer):
 def preprocess_llm_inference_params(
     data,
     flavor_config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+) -> Tuple[List[Any], Dict[str, Any]]:
     """
     When a MLflow inference task is given, return updated `data` and `params` that
     - Extract the parameters from the input data.
@@ -126,12 +85,12 @@ def preprocess_llm_inference_params(
       - `max_tokens` with `max_new_tokens`
       - `stop` with `stopping_criteria`
     """
-    updated_data = pd.DataFrame()
+    updated_data = []
     params = {}
 
     for column in data.columns:
         if column in ["prompt", "messages"]:
-            updated_data[column] = data[column]
+            updated_data = data[column].tolist()
         else:
             param = data[column].tolist()[0]
             if column == "max_tokens":
@@ -184,7 +143,12 @@ def _get_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Op
 
 
 def postprocess_output_for_llm_inference_task(
-    data: List[str], output_tensors: List[List[int]], pipeline, model_config, inference_task
+    data: List[str],
+    output_tensors: List[List[int]],
+    pipeline,
+    flavor_config,
+    model_config,
+    inference_task,
 ):
     """
     Wrap output data with usage information according to the MLflow inference task.
@@ -204,8 +168,17 @@ def postprocess_output_for_llm_inference_task(
 
             assert output_dicts == [
                 {
-                    "text": "1. Start with a beginner's",
-                    "finish_reason": "length",
+                    "id": "e4f3b3e3-3b3e-4b3e-8b3e-3b3e4b3e8b3e",
+                    "object": "text_completion",
+                    "created": 1707466970,
+                    "model": "loaded_model_name",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "finish_reason": "length",
+                            "text": "1. Start with a beginner's",
+                        }
+                    ],
                     "usage": {"prompt_tokens": 9, "completion_tokens": 10, "total_tokens": 19},
                 }
             ]
@@ -215,6 +188,7 @@ def postprocess_output_for_llm_inference_task(
         output_tensors: List of output tensors that contain the generated tokens (including
             the prompt tokens) corresponding to each input prompt.
         pipeline: The pipeline object used for inference.
+        flavor_config: The flavor configuration dictionary for the model.
         model_config: The model configuration dictionary used for inference.
         inference_task: The MLflow inference task.
 
@@ -224,7 +198,7 @@ def postprocess_output_for_llm_inference_task(
     output_dicts = []
     for input_data, output_tensor in zip(data, output_tensors):
         output_dict = _get_output_and_usage_from_tensor(
-            input_data, output_tensor, pipeline, model_config, inference_task
+            input_data, output_tensor, pipeline, flavor_config, model_config, inference_task
         )
         output_dicts.append(output_dict)
 
@@ -232,7 +206,7 @@ def postprocess_output_for_llm_inference_task(
 
 
 def _get_output_and_usage_from_tensor(
-    prompt: str, output_tensor: List[int], pipeline, model_config, inference_task
+    prompt: str, output_tensor: List[int], pipeline, flavor_config, model_config, inference_task
 ):
     """
     Decode the output tensor and return the output text and usage information as a dictionary
@@ -244,12 +218,25 @@ def _get_output_and_usage_from_tensor(
         usage["total_tokens"], usage["completion_tokens"], model_config
     )
 
-    output_dict = {"finish_reason": finish_reason, "usage": usage}
+    output_dict = {
+        "id": str(uuid.uuid4()),
+        "object": _LLM_INFERENCE_OBJECT_NAME[inference_task],
+        "created": int(time.time()),
+        "model": flavor_config.get("source_model_name", ""),
+        "usage": usage,
+    }
+
+    completion_choice = {
+        "index": 0,
+        "finish_reason": finish_reason,
+    }
 
     if inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
-        output_dict["text"] = completions_text
+        completion_choice["text"] = completions_text
     elif inference_task == _LLM_INFERENCE_TASK_CHAT:
-        output_dict["message"] = {"role": "assistant", "content": completions_text}
+        completion_choice["message"] = {"role": "assistant", "content": completions_text}
+
+    output_dict["choices"] = [completion_choice]
 
     return output_dict
 

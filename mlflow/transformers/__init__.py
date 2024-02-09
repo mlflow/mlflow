@@ -2016,7 +2016,12 @@ class _TransformersWrapper:
 
             if self.llm_inference_task:
                 output = postprocess_output_for_llm_inference_task(
-                    data, output, self.pipeline, model_config, self.llm_inference_task
+                    data,
+                    output,
+                    self.pipeline,
+                    self.flavor_config,
+                    model_config,
+                    self.llm_inference_task,
                 )
 
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):

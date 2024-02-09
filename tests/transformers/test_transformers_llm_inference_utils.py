@@ -1,3 +1,4 @@
+import uuid
 from typing import Dict, List
 from unittest import mock
 
@@ -8,8 +9,6 @@ import torch
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature
 from mlflow.transformers.llm_inference_utils import (
-    _LLM_INFERENCE_CHAT_OUTPUT_SCHEMA,
-    _LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA,
     _get_finish_reason,
     _get_output_and_usage_from_tensor,
     _get_stopping_criteria,
@@ -18,17 +17,22 @@ from mlflow.transformers.llm_inference_utils import (
     infer_signature_from_llm_inference_task,
     preprocess_llm_inference_params,
 )
-from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, COMPLETIONS_MODEL_INPUT_SCHEMA
+from mlflow.types.llm import (
+    CHAT_MODEL_INPUT_SCHEMA,
+    CHAT_MODEL_OUTPUT_SCHEMA,
+    COMPLETIONS_MODEL_INPUT_SCHEMA,
+    COMPLETIONS_MODEL_OUTPUT_SCHEMA,
+)
 
 
 def test_infer_signature_from_llm_inference_task():
     signature = infer_signature_from_llm_inference_task("llm/v1/completions")
     assert signature.inputs == COMPLETIONS_MODEL_INPUT_SCHEMA
-    assert signature.outputs == _LLM_INFERENCE_COMPLETIONS_OUTPUT_SCHEMA
+    assert signature.outputs == COMPLETIONS_MODEL_OUTPUT_SCHEMA
 
     signature = infer_signature_from_llm_inference_task("llm/v1/chat")
     assert signature.inputs == CHAT_MODEL_INPUT_SCHEMA
-    assert signature.outputs == _LLM_INFERENCE_CHAT_OUTPUT_SCHEMA
+    assert signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
 
     signature = infer_signature("hello", "world")
     with pytest.raises(MlflowException, match=r".*llm/v1/completions.*signature"):
@@ -86,7 +90,7 @@ def test_preprocess_llm_inference_params():
     data, params = preprocess_llm_inference_params(data, flavor_config=None)
 
     # Test that OpenAI params are separated from data and replaced with Hugging Face params
-    pd.testing.assert_frame_equal(data, pd.DataFrame({"prompt": ["Hello world!"]}))
+    assert data == ["Hello world!"]
     assert params == {"max_new_tokens": 100, "temperature": 0.7}
 
 
@@ -112,6 +116,7 @@ def test_stopping_criteria(mock_from_pretrained):
 def test_output_dict_for_completions():
     prompt = "1 2 3"
     output_tensor = [1, 2, 3, 4, 5]
+    flavor_config = {"source_model_name": "gpt2"}
     model_config = {"max_new_tokens": 2}
     inference_task = "llm/v1/completions"
 
@@ -119,11 +124,17 @@ def test_output_dict_for_completions():
     pipeline.tokenizer = DummyTokenizer()
 
     output_dict = _get_output_and_usage_from_tensor(
-        prompt, output_tensor, pipeline, model_config, inference_task
+        prompt, output_tensor, pipeline, flavor_config, model_config, inference_task
     )
 
-    assert output_dict["text"] == "4 5"
-    assert output_dict["finish_reason"] == "length"
+    # Test UUID validity
+    uuid.UUID(output_dict["id"])
+
+    assert output_dict["object"] == "text_completion"
+    assert output_dict["model"] == "gpt2"
+
+    assert output_dict["choices"][0]["text"] == "4 5"
+    assert output_dict["choices"][0]["finish_reason"] == "length"
 
     usage = output_dict["usage"]
     assert usage["prompt_tokens"] + usage["completion_tokens"] == usage["total_tokens"]
