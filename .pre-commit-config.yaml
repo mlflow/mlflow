@@ -25,7 +25,7 @@ repos:
         name: blacken-docs
         entry: blacken-docs
         language: system
-        types_or: [python, rst, markdown]
+        types_or: [rst, markdown]
         stages: [commit]
 
       - id: pylint

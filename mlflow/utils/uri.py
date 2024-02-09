@@ -326,7 +326,9 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     >>> assert result2 == "relpath/absolutepath"
     >>> result3 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath", "relpath")
     >>> assert result3 == "/absolutepath/relpath"
-    >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
+    >>> result4 = _join_posixpaths_and_append_absolute_suffixes(
+    ...     "/absolutepath1", "/absolutepath2"
+    ... )
     >>> assert result4 == "/absolutepath1/absolutepath2"
     """
     if len(prefix_path) == 0:
