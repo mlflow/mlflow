@@ -56,7 +56,7 @@ def _join_continued_lines(lines):
     Joins lines ending with '\\'.
 
     >>> _join_continued_lines["a\\", "b\\", "c"]
-    >>> 'abc'
+    >>> "abc"
     """
     continued_lines = []
 
