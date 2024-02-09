@@ -258,3 +258,24 @@ def test_df_hashing_with_strings():
     )
 
     assert dataset1.digest != dataset2.digest
+
+
+def test_df_hashing_with_dicts():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+
+    df = pd.DataFrame(
+        [
+            {"a": [1, 2, 3], "b": {"b": "b", "c": {"c": "c"}}, "c": 3, "d": "d"},
+            {"a": [2, 3], "b": {"b": "b"}, "c": 3, "d": "d"},
+        ]
+    )
+    dataset1 = PandasDataset(df=df, source=source, name="testname")
+    dataset2 = PandasDataset(df=df, source=source, name="testname")
+    assert dataset1.digest == dataset2.digest
+
+    evaluation_dataset = dataset1.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(df)
+    evaluation_dataset2 = dataset2.to_evaluation_dataset()
+    assert evaluation_dataset.hash == evaluation_dataset2.hash
