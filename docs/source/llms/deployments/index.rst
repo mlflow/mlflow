@@ -688,7 +688,7 @@ To match your user's interaction and security access requirements, adjust the ``
 
 
 Mistral
-++++++
++++++++
 
 +--------------------------+----------+--------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                  | Description                                           |
