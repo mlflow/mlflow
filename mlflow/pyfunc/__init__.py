@@ -2171,9 +2171,7 @@ def log_model(
 
 
                 with mlflow.start_run():
-                    model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model", python_model=MyModel()
-                    )  # pylint: disable=line-too-long
+                    model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())  # pylint: disable=line-too-long
 
 
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -2221,9 +2219,7 @@ def log_model(
             and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
             For example, consider the following ``artifacts`` dictionary::
 
-                {
-                    "my_file": "s3://my-bucket/path/to/my/file"
-                }
+                {"my_file": "s3://my-bucket/path/to/my/file"}
 
             In this case, the ``"my_file"`` artifact is downloaded from S3. The
             ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem

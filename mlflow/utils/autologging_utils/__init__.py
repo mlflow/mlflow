@@ -535,9 +535,12 @@ def _get_new_training_session_class():
 
     Examples
     --------
-    >>> class Parent: pass
-    >>> class Child: pass
-    >>> class Grandchild: pass
+    >>> class Parent:
+    ...     pass
+    >>> class Child:
+    ...     pass
+    >>> class Grandchild:
+    ...     pass
     >>>
     >>> _TrainingSession = _get_new_training_session_class()
     >>> with _TrainingSession(Parent, False) as p:
@@ -554,7 +557,7 @@ def _get_new_training_session_class():
     >>>
     >>> with _TrainingSession(Child, True) as c1:
     ...     with _TrainingSession(Child, True) as c2:
-    ...             print(c1.should_log(), c2.should_log())
+    ...         print(c1.should_log(), c2.should_log())
     True False
     """
 
