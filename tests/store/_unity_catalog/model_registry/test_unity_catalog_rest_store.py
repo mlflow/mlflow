@@ -83,7 +83,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
-from tests.resources.data.dataset_source import TestDatasetSource
+from tests.resources.data.dataset_source import SampleDatasetSource
 from tests.store._unity_catalog.conftest import (
     _REGISTRY_HOST_CREDS,
     _TRACKING_HOST_CREDS,
@@ -1033,7 +1033,7 @@ def test_input_source_truncation(num_inputs, expected_truncation_size, store):
         "lifecycle_stage",
     )
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
     input_list = []
     for count in range(num_inputs):
