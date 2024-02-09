@@ -240,8 +240,8 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 |                          | - claude-1.3-100k        |                          |                          |
 |                          | - claude-2               |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
-| Cohere                   | - command                | N/A                      | - embed-english-v2.0     |
-|                          | - command-light-nightly  |                          | - embed-multilingual-v2.0|
+| Cohere                   | - command                | - command                | - embed-english-v2.0     |
+|                          | - command-light          | - command-light          | - embed-multilingual-v2.0|
 +--------------------------+--------------------------+--------------------------+--------------------------+
 | Azure OpenAI             | - text-davinci-003       | - gpt-35-turbo           | - text-embedding-ada-002 |
 |                          | - gpt-35-turbo           | - gpt-4                  |                          |
@@ -825,7 +825,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 - ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
-- ``stream`` (supported by OpenAI)
+- ``stream`` (supported by OpenAI, Cohere)
 
 Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
@@ -886,7 +886,7 @@ generated before receiving it. Streaming responses are supported by the followin
 +============+=====================+==============+
 | OpenAI     | ✓                   | ✓            |
 +------------+---------------------+--------------+
-| Cohere     | ✓                   | ✘            |
+| Cohere     | ✓                   | ✓            |
 +------------+---------------------+--------------+
 
 To enable streaming responses, set the ``stream`` parameter to ``true`` in your request. For example:
