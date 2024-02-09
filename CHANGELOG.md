@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.10.2 (2024-02-09)
+
+MLflow 2.10.2 includes several major features and improvements
+
+Small bug fixes and documentation updates:
+
+#11065, @WeichenXu123
+
 ## 2.10.1 (2024-02-06)
 
 MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `transformers` and `langchain` flavors, the MLflow UI, and the S3 artifact store. More details can be found in the patch notes below.
