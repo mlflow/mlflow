@@ -65,9 +65,9 @@ select = [
 ]
 force-exclude = true
 ignore = [
-  "E721",  # type-comparison
   "E402",  # module-import-not-at-top-of-file
   "E501",  # line-too-long
+  "E721",  # type-comparison
   "E741",  # ambiguous-variable-name
   "F811",  # redefined-while-unused
 ]
