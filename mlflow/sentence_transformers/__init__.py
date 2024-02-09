@@ -148,6 +148,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
 
@@ -275,6 +276,8 @@ def log_model(
                 input_example=data,
             )
 
+
+
     Args:
         model: A trained ``sentence-transformers`` model.
         artifact_path: Local path destination for the serialized model to be saved.
@@ -308,8 +311,10 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+
     """
     if task is not None:
         metadata = _veryfy_task_and_update_metadata(task, metadata)
