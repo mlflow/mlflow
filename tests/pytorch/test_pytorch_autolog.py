@@ -1,4 +1,5 @@
 import pytest
+from unittest import mock
 import pytorch_lightning as pl
 import torch
 from iris import (
@@ -645,9 +646,20 @@ def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
     )
 
     callback = [c for c in trainer.callbacks if isinstance(c, MlflowModelCheckpointCallback)][0]
-    trainer.fit_loop.epoch_progress.current.completed += 1
-    trainer._logger_connector._callback_metrics["val_loss"] += 0.1
-    callback.on_train_epoch_end(trainer, model)
+    callback_metrics = {k: float(v) for k, v in trainer.callback_metrics.items()}
+
+    with mock.patch(
+        "pytorch_lightning.Trainer.current_epoch",
+        new_callable=mock.PropertyMock,
+    ) as mock_current_epoch, mock.patch(
+        "pytorch_lightning.Trainer.callback_metrics",
+        new_callable=mock.PropertyMock,
+    ) as mock_callback_metrics:
+        mock_current_epoch.return_value = 1
+        callback_metrics["val_loss"] += 0.1
+        mock_callback_metrics.return_value = callback_metrics
+        callback.on_train_epoch_end(trainer, model)
+
     assert (
         mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")[
             "epoch"
@@ -655,14 +667,23 @@ def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
         == 0
     )
 
-    trainer.fit_loop.epoch_progress.current.completed += 1
-    trainer._logger_connector._callback_metrics["val_loss"] -= 0.2
-    callback.on_train_epoch_end(trainer, model)
+    with mock.patch(
+        "pytorch_lightning.Trainer.current_epoch",
+        new_callable=mock.PropertyMock,
+    ) as mock_current_epoch, mock.patch(
+        "pytorch_lightning.Trainer.callback_metrics",
+        new_callable=mock.PropertyMock,
+    ) as mock_callback_metrics:
+        mock_current_epoch.return_value = 2
+        callback_metrics["val_loss"] -= 0.2
+        mock_callback_metrics.return_value = callback_metrics
+        callback.on_train_epoch_end(trainer, model)
+
     assert (
         mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")[
             "epoch"
         ]
-        == 3
+        == 2
     )
 
 
@@ -703,9 +724,20 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
     )
 
     callback = [c for c in trainer.callbacks if isinstance(c, MlflowModelCheckpointCallback)][0]
-    trainer.fit_loop.epoch_progress.current.completed += 1
-    trainer._logger_connector._callback_metrics["val_acc"] -= 0.1
-    callback.on_train_epoch_end(trainer, model)
+    callback_metrics = {k: float(v) for k, v in trainer.callback_metrics.items()}
+
+    with mock.patch(
+        "pytorch_lightning.Trainer.current_epoch",
+        new_callable=mock.PropertyMock,
+    ) as mock_current_epoch, mock.patch(
+        "pytorch_lightning.Trainer.callback_metrics",
+        new_callable=mock.PropertyMock,
+    ) as mock_callback_metrics:
+        mock_current_epoch.return_value = 1
+        callback_metrics["val_acc"] -= 0.1
+        mock_callback_metrics.return_value = callback_metrics
+        callback.on_train_epoch_end(trainer, model)
+
     assert (
         mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")[
             "epoch"
@@ -713,12 +745,21 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
         == 0
     )
 
-    trainer.fit_loop.epoch_progress.current.completed += 1
-    trainer._logger_connector._callback_metrics["val_acc"] += 0.2
-    callback.on_train_epoch_end(trainer, model)
+    with mock.patch(
+        "pytorch_lightning.Trainer.current_epoch",
+        new_callable=mock.PropertyMock,
+    ) as mock_current_epoch, mock.patch(
+        "pytorch_lightning.Trainer.callback_metrics",
+        new_callable=mock.PropertyMock,
+    ) as mock_callback_metrics:
+        mock_current_epoch.return_value = 2
+        callback_metrics["val_acc"] += 0.2
+        mock_callback_metrics.return_value = callback_metrics
+        callback.on_train_epoch_end(trainer, model)
+
     assert (
         mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")[
             "epoch"
         ]
-        == 3
+        == 2
     )
