@@ -1817,8 +1817,14 @@ class _TransformersWrapper:
 
         if return_tensors:
             model_config["return_tensors"] = True
-            # `return_full_text` is mutually exclusive with `return_tensors`
-            model_config["return_full_text"] = None
+            if model_config.get("return_full_text", None) is not None:
+                _logger.warning(
+                    "The `return_full_text` parameter is mutually exclusive with the "
+                    "`return_tensors` parameter set when a MLflow inference task is provided. "
+                    "The `return_full_text` parameter will be ignored."
+                )
+                # `return_full_text` is mutually exclusive with `return_tensors`
+                model_config["return_full_text"] = None
 
         try:
             if isinstance(data, dict):

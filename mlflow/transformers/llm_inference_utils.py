@@ -2,6 +2,7 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import pandas as pd
 import torch
 from transformers import AutoTokenizer, StoppingCriteria
 
@@ -48,20 +49,22 @@ def infer_signature_from_llm_inference_task(
     Infers the signature according to the MLflow inference task.
     Raises exception if a signature is given.
     """
-    if signature is not None:
+    inferred_signature = _SIGNATURE_FOR_LLM_INFERENCE_TASK[inference_task]
+
+    if signature is not None and signature != inferred_signature:
         raise MlflowException(
             f"When `task` is specified as `{inference_task}`, the signature would "
             "be set by MLflow. Please do not set the signature."
         )
 
-    return _SIGNATURE_FOR_LLM_INFERENCE_TASK[inference_task]
+    return inferred_signature
 
 
 def convert_data_messages_with_chat_template(data, tokenizer):
     """For the Chat inference task, apply chat template to messages to create prompt."""
-    try:
+    if "messages" in data.columns:
         messages = data.pop("messages").tolist()[0]
-    except KeyError:
+    else:
         raise MlflowException("The 'messages' field is required for the Chat inference task.")
 
     try:
@@ -85,6 +88,12 @@ def preprocess_llm_inference_params(
       - `max_tokens` with `max_new_tokens`
       - `stop` with `stopping_criteria`
     """
+    if not isinstance(data, pd.DataFrame):
+        raise MlflowException(
+            "`data` is expected to be a pandas DataFrame for MLflow inference task after signature "
+            f"enforcement, but got type: {type(data)}."
+        )
+
     updated_data = []
     params = {}
 
