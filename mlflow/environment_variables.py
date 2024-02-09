@@ -464,6 +464,11 @@ MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
     "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", int, None
 )
 
+#: Specifies the node id of system metrics logging. This is useful in multi-node (distributed
+#: training) setup.
+MLFLOW_SYSTEM_METRICS_NODE_ID = _EnvironmentVariable("MLFLOW_SYSTEM_METRICS_NODE_ID", str, None)
+
+
 # Private environment variable to specify the number of chunk download retries for multipart
 # download.
 _MLFLOW_MPD_NUM_RETRIES = _EnvironmentVariable("_MLFLOW_MPD_NUM_RETRIES", int, 3)
