@@ -56,6 +56,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
     config.addinivalue_line(
+        "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
+    )
+    config.addinivalue_line(
         "markers",
         (
             "skipcacheclean: "
