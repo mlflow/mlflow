@@ -15,7 +15,7 @@ import mlflow
 import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.pytorch import MLflowModelCheckpointCallback
+from mlflow.pytorch import MlflowModelCheckpointCallback
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 from mlflow.utils.file_utils import TempDir
 
@@ -561,7 +561,7 @@ def test_automatic_checkpoint_per_10_steps_callback():
     assert metric_keys == set(
         mlflow.artifacts.load_dict(
             f"runs:/{run_id}/checkpoints/global_step_10/checkpoint_metrics.json"
-        ).keys()
+        )
     )
     IrisClassification.load_from_checkpoint(
         mlflow.artifacts.download_artifacts(
@@ -599,7 +599,7 @@ def test_automatic_checkpoint_per_30_steps_save_best_only_callback():
         f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
     )
     assert logged_metrics["global_step"] == 30
-    assert metric_keys == set(logged_metrics.keys())
+    assert metric_keys == set(logged_metrics)
 
     IrisClassification.load_from_checkpoint(
         mlflow.artifacts.download_artifacts(
@@ -644,7 +644,7 @@ def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
         )
     )
 
-    callback = [c for c in trainer.callbacks if isinstance(c, MLflowModelCheckpointCallback)][0]
+    callback = [c for c in trainer.callbacks if isinstance(c, MlflowModelCheckpointCallback)][0]
     trainer.fit_loop.epoch_progress.current.completed += 1
     trainer._logger_connector._callback_metrics["val_loss"] += 0.1
     callback.on_train_epoch_end(trainer, model)
@@ -702,7 +702,7 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
         )
     )
 
-    callback = [c for c in trainer.callbacks if isinstance(c, MLflowModelCheckpointCallback)][0]
+    callback = [c for c in trainer.callbacks if isinstance(c, MlflowModelCheckpointCallback)][0]
     trainer.fit_loop.epoch_progress.current.completed += 1
     trainer._logger_connector._callback_metrics["val_acc"] -= 0.1
     callback.on_train_epoch_end(trainer, model)

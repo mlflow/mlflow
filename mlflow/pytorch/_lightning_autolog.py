@@ -286,7 +286,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
-class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
+class MlflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
     This callback implementation only supports pytorch-lightning >= 1.6.0.
     """
@@ -579,11 +579,11 @@ def patched_fit(original, self, *args, **kwargs):
                 )
 
                 if not any(
-                    isinstance(callbacks, MLflowModelCheckpointCallback)
+                    isinstance(callbacks, MlflowModelCheckpointCallback)
                     for callbacks in self.callbacks
                 ):
                     self.callbacks += [
-                        MLflowModelCheckpointCallback(
+                        MlflowModelCheckpointCallback(
                             client=MlflowClient(tracking_uri),
                             run_id=run_id,
                             monitor=checkpoint_monitor,
@@ -596,7 +596,7 @@ def patched_fit(original, self, *args, **kwargs):
             else:
                 warnings.warn(
                     "Automatic model checkpointing is disabled because this feature only "
-                    "supports pytorch-lightning >= 1.4.0."
+                    "supports pytorch-lightning >= 1.6.0."
                 )
 
         client.flush(synchronous=False)

@@ -1199,7 +1199,7 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
 
     if epoch is not None and global_step is not None:
         raise MlflowException(
-            "You can only set one of 'epoch' and 'global_step' for 'load_checkpoint'."
+            "Only one of 'epoch' and 'global_step' can be set for 'load_checkpoint'."
         )
     elif global_step is not None:
         checkpoint_artifact_path = f"checkpoints/global_step_{global_step}/{checkpoint_filename}"
@@ -1223,7 +1223,7 @@ __all__ = [
 ]
 
 try:
-    from mlflow.pytorch._lightning_autolog import MLflowModelCheckpointCallback  # noqa: F401
+    from mlflow.pytorch._lightning_autolog import MlflowModelCheckpointCallback  # noqa: F401
 
     __all__.append("MLflowModelCheckpointCallback")
 except ImportError:
