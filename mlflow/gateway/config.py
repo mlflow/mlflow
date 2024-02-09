@@ -171,11 +171,11 @@ class AnyscaleConfig(ConfigModel):
     anyscale_api_base: Optional[str] = None
 
     @validator("anyscale_api_key", pre=True)
-    def validate_anyscale_api_key(self, value):
+    def validate_anyscale_api_key(cls, value):  # pylint: disable=no-self-argument
         return _resolve_api_key_from_input(value)
 
     @validator("anyscale_api_base", pre=True)
-    def validate_anyscale_api_base(self, value):
+    def validate_anyscale_api_base(cls, value):  # pylint: disable=no-self-argument
         try:
             return _resolve_api_key_from_input(value)
         except MlflowException:
