@@ -222,7 +222,9 @@ def load_ner_pipeline_aggregation():
 @prefetch
 @flaky()
 def load_conversational_pipeline():
-    return transformers.pipeline(model="AVeryRealHuman/DialoGPT-small-TonyStark")
+    return transformers.pipeline(
+        model="AVeryRealHuman/DialoGPT-small-TonyStark", task="conversational"
+    )
 
 
 @prefetch

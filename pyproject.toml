@@ -13,6 +13,21 @@ force-exclude = '''
 [tool.ruff]
 line-length = 100
 target-version = "py38"
+force-exclude = true
+extend-include = ["*.ipynb"]
+extend-exclude = [
+  "setup.py",
+  "docs/source",
+  "examples/recipes",
+  "mlflow/protos",
+  "mlflow/ml_package_versions.py",
+  "mlflow/server/js",
+  "mlflow/store/db_migrations",
+  "mlflow/temporary_db_migrations_for_pre_1_users",
+  "tests/protos",
+]
+
+[tool.ruff.lint]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",
@@ -63,7 +78,6 @@ select = [
   "TID251",
   "W",
 ]
-force-exclude = true
 ignore = [
   "E721",  # type-comparison
   "E402",  # module-import-not-at-top-of-file
@@ -71,35 +85,23 @@ ignore = [
   "E741",  # ambiguous-variable-name
   "F811",  # redefined-while-unused
 ]
-extend-include = ["*.ipynb"]
-extend-exclude = [
-  "setup.py",
-  "docs/source",
-  "examples/recipes",
-  "mlflow/protos",
-  "mlflow/ml_package_versions.py",
-  "mlflow/server/js",
-  "mlflow/store/db_migrations",
-  "mlflow/temporary_db_migrations_for_pre_1_users",
-  "tests/protos",
-]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
 "examples/*" = ["T20"]
 "docs/broken_links.py" = ["T20"]
 "mlflow/*" = ["PT018"]
 
-[tool.ruff.flake8-pytest-style]
+[tool.ruff.lint.flake8-pytest-style]
 mark-parentheses = false
 fixture-parentheses = false
 raises-require-match-for = ["*"]
 
-[tool.ruff.flake8-tidy-imports]
+[tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 forced-separate = ["tests"]
 
-[tool.ruff.flake8-tidy-imports.banned-api]
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."

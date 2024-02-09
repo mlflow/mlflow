@@ -47,21 +47,25 @@ sets and models, each subsequent modification that I was trying necessitated a n
 After finding a workable approach for the dataset generator, the results can be seen in the MLflow
 UI.
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/dogfood.gif
-   :width: 1024px
-   :align: center
-   :alt: Checking the results of the test
+.. raw:: html
 
-   Validating the results of a training run in the MLflow UI
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/tutorials/introductory/logging-first-model/dogfood.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 Once I found something that actually worked, I cleaned everything up (deleted them).
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/cleanup-experiments.gif
-   :width: 1024px
-   :align: center
-   :alt: Tidying up
+.. raw:: html
 
-   Removing experiments that were filled with failed attempts
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/tutorials/introductory/logging-first-model/cleanup-experiments.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 .. note::
     If you're precisely following along to this tutorial and you delete your ``Apple_Models``
@@ -191,7 +195,11 @@ Putting it all together
 
 Let's see what this looks like when we run our model training code and navigate to the MLflow UI.
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/logging-first-model.gif
-   :width: 1024px
-   :align: center
-   :alt: Log the model to MLflow
+.. raw:: html
+
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/tutorials/introductory/logging-first-model/logging-first-model.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>

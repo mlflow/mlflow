@@ -195,7 +195,8 @@ class MlflowClient:
             A single :py:class:`mlflow.entities.Run` object, if the parent run exists. Otherwise,
             returns None.
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Example
 
             import mlflow
@@ -1584,7 +1585,8 @@ class MlflowClient:
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the table is saved (e.g. "dir/file.json").
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Dictionary Example
 
             import mlflow
@@ -1601,7 +1603,8 @@ class MlflowClient:
                 run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
             )
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Pandas DF Example
 
             import mlflow
@@ -1651,7 +1654,7 @@ class MlflowClient:
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             try:
-                data.to_json(artifact_path, orient="split", index=False)
+                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
             except Exception as e:
                 raise MlflowException(
                     f"Failed to save {data} as table as the data is not JSON serializable. "
@@ -1697,7 +1700,8 @@ class MlflowClient:
             pandas.DataFrame containing the loaded table if the artifact exists
             or else throw a MlflowException.
 
-         .. testcode:: python
+         .. code-block:: python
+            :test:
             :caption: Example with passing run_ids
 
             import mlflow
@@ -1723,7 +1727,8 @@ class MlflowClient:
                 extra_columns=["run_id"],
             )
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Example with passing no run_ids
 
             # Loads the table with the specified name for all runs in the given
@@ -3320,9 +3325,7 @@ class MlflowClient:
         )
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
-    def get_model_version_stages(
-        self, name: str, version: str
-    ) -> List[str]:  # pylint: disable=unused-argument
+    def get_model_version_stages(self, name: str, version: str) -> List[str]:  # pylint: disable=unused-argument
         """
         This is a docstring. Here is info.
 

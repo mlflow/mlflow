@@ -140,7 +140,8 @@ def autolog(
 ):
     # pylint: disable=unused-argument
     # pylint: disable=no-name-in-module
-    """Enable autologging for Keras.
+    """
+    Enable autologging for Keras.
 
     This method configures the autologging for Keras workflow. Only Keras > 3 is supported. For
     usage of lower Keras version (also known as tf-keras), please refer to `mlflow.tensorflow`
@@ -154,36 +155,29 @@ def autolog(
     Please note that autologging works only when you are using `model.fit()` for training. If you
     are writing a custom training loop, then you need to use manual logging.
 
-
-    :param log_every_epoch: bool, defaults to True. If True, training metrics will be logged at the
-        end of each epoch.
-    :param log_every_n_steps: int, defaults to None. If set, training metrics will be logged every
-        `n` training steps. `log_every_n_steps` must be `None` when `log_every_epoch=True`.
-    :param log_models: bool, defaults to True. If True, the Keras model will be logged to MLflow at
-        the end of `model.fit()`.
-    :param log_model_signatures: bool, defaults to True. If True, model signature will be
-        automatically captured and logged.
-    :param save_exported_model: bool, defaults to False. If True, model will be saved as the
-        exported format (compiled graph), which is suitable for serving and deployment. If False,
-        model will be saved in `.keras` format, which contains model architecture and weights.
-    :param log_datasets: bool, defaults to True. If True, the dataset metadata will be logged to
-        MLflow.
-    :param log_input_examples: bool, defaults to False. If True, input examples will be logged.
-    :param disable: bool, defaults to False. If `True`, disables the Keras autologging.
-    :param exclusive: bool, defaults to False. If `True`, autologged content is not logged to
-        user-created fluent runs. If `False`, autologged content is logged to the active fluent
-        run, which may be user-created.
-    :param disable_for_unsupported_versions: bool, defaults to False. If `True`, disable autologging
-        for incompatible Keras versions.
-    :param silent: bool, defaults to False. If `True`, suppress all event logs and warnings from
-        MLflow during Keras autologging. If `True`, show all events and warnings during Keras
-        autologging.
-    :param registered_model_name: string, defaults to None. If set, each time a model is trained,
-        it is registered as a new model version of the registered model with this name. The
-        registered model is created if it does not already exist.
-    :param save_model_kwargs: extra kwargs passed to `keras.Model.save()`.
-    :param extra_tags: dict, defaults to None. A dictionary of extra tags to set on each managed run
-        created by autologging.
+    Args:
+        log_every_epoch: If True, training metrics will be logged at the end of each epoch.
+        log_every_n_steps: If set, training metrics will be logged every `n` training steps.
+            `log_every_n_steps` must be `None` when `log_every_epoch=True`.
+        log_models: If True, the Keras model will be logged to MLflow at the end of `model.fit()`.
+        log_model_signatures: If True, model signature will be automatically captured and logged.
+        save_exported_model: If True, model will be saved as the exported format (compiled graph),
+            which is suitable for serving and deployment. If False, model will be saved in `.keras`
+            format, which contains model architecture and weights.
+        log_datasets: If True, the dataset metadata will be logged to MLflow.
+        log_input_examples: If True, input examples will be logged.
+        disable: If `True`, disables the Keras autologging.
+        exclusive: If `True`, autologged content is not logged to user-created fluent runs. If
+            `False`, autologged content is logged to the active fluent run, which may be
+            user-created.  disable_for_unsupported_versions: If `True`, disable autologging for
+            incompatible Keras versions.
+        silent: If `True`, suppress all event logs and warnings from MLflow during Keras
+            autologging.  If `True`, show all events and warnings during Keras autologging.
+        registered_model_name: If set, each time a model is trained, it is registered as a new model
+            version of the registered model with this name. The registered model is created if it
+            does not already exist.
+        save_model_kwargs: Extra kwargs passed to `keras.Model.save()`.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example

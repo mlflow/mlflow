@@ -67,7 +67,7 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
     ],
 )
 def test_uc_models_artifact_repo_with_stage_uri_raises(model_uri, expected_error_msg):
-    with mock.patch("databricks_cli.configure.provider.get_config"), pytest.raises(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), pytest.raises(
         MlflowException,
         match=expected_error_msg,
     ):
@@ -107,7 +107,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
         }
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
@@ -144,7 +144,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
@@ -181,7 +181,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "google.cloud.storage.Client"
@@ -242,7 +242,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"

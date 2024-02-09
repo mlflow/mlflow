@@ -337,7 +337,9 @@ class _StatsmodelsModelWrapper:
         self.statsmodels_model = statsmodels_model
 
     def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        dataframe,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Args:

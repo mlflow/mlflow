@@ -51,7 +51,8 @@ def _init(cmd, env_manager):
     """
     Initialize the container and execute command.
 
-    :param cmd: Command param passed by Sagemaker. Can be  "serve" or "train" (unimplemented).
+    Args:
+        cmd: Command param passed by Sagemaker. Can be "serve" or "train" (unimplemented).
     """
     if cmd == "serve":
         _serve(env_manager)

@@ -312,10 +312,12 @@ class Model:
         (i.e. the model was saved without example). Raises FileNotFoundError if there is model
         metadata but the example file is missing.
 
-        :param path: Path to the model directory.
+        Args:
+            path: Path to the model directory.
 
-        :return: Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
-                 pandas DataFrame, dict) or None if the model has no example.
+        Returns:
+            Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
+            pandas DataFrame, dict) or None if the model has no example.
         """
 
         # Just-in-time import to only load example-parsing libraries (e.g. numpy, pandas, etc.) if
@@ -326,12 +328,14 @@ class Model:
 
     def load_input_example_params(self, path: str):
         """
-        Load the params of input example saved along a model. Returns None if there is no params in
+        Load the params of input example saved along a model. Returns None if there are no params in
         the input_example.
 
-        :param path: Path to the model directory.
+        Args:
+            path: Path to the model directory.
 
-        :return: params (dict) or None if the model has no params.
+        Returns:
+            params (dict) or None if the model has no params.
         """
         from mlflow.models.utils import _read_example_params
 
@@ -352,13 +356,13 @@ class Model:
         :setter: Sets a dictionary of custom keys and values to be included with the model instance
         :type: Optional[Dict[str, Any]]
 
-        :return: A Dictionary of user-defined metadata iff defined.
+        Returns:
+            A Dictionary of user-defined metadata iff defined.
 
         .. code-block:: python
             :caption: Example
 
             # Create and log a model with metadata to the Model Registry
-
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
@@ -383,8 +387,8 @@ class Model:
             # Load the model and access the custom metadata
             model = mlflow.pyfunc.load_model(model_uri=model_uri)
             assert model.metadata.metadata["metadata_key"] == "metadata_value"
-
         """
+
         return self._metadata
 
     @experimental
@@ -502,11 +506,13 @@ class Model:
         """
         Load a model from its YAML representation.
 
-        :param path: A local filesystem path or URI referring to the MLmodel YAML file
-                     representation of the :py:class:`Model` object or to the directory containing
-                     the MLmodel YAML file representation.
-        :return: An instance of :py:class:`Model`.
+        Args:
+            path: A local filesystem path or URI referring to the MLmodel YAML file
+                representation of the Model object or to the directory containing
+                the MLmodel YAML file representation.
 
+        Returns:
+            An instance of Model.
 
         .. code-block:: python
             :caption: example
@@ -558,54 +564,53 @@ class Model:
         Log model using supplied flavor module. If no run is active, this method will create a new
         active run.
 
-        :param artifact_path: Run relative path identifying the model.
-        :param flavor: Flavor module to save the model with. The module must have
-                       the ``save_model`` function that will persist the model as a valid
-                       MLflow model.
-        :param registered_model_name: If given, create a model version under
-                                      ``registered_model_name``, also creating a registered model if
-                                      one with the given name does not exist.
-        :param signature: :py:class:`ModelSignature` describes model input
-                          and output :py:class:`Schema <mlflow.types.Schema>`. The model signature
-                          can be :py:func:`inferred <infer_signature>` from datasets representing
-                          valid model input (e.g. the training dataset) and valid model output
-                          (e.g. model predictions generated on the training dataset), for example:
+        Args:
+            artifact_path: Run relative path identifying the model.
+            flavor: Flavor module to save the model with. The module must have
+                the ``save_model`` function that will persist the model as a valid
+                MLflow model.
+            registered_model_name: If given, create a model version under
+                ``registered_model_name``, also creating a registered model if
+                one with the given name does not exist.
+            signature: :py:class:`ModelSignature` describes model input
+                and output :py:class:`Schema <mlflow.types.Schema>`. The model signature
+                can be :py:func:`inferred <infer_signature>` from datasets representing
+                valid model input (e.g. the training dataset) and valid model output
+                (e.g. model predictions generated on the training dataset), for example:
 
-                          .. code-block:: python
+                .. code-block:: python
 
-                            from mlflow.models import infer_signature
+                    from mlflow.models import infer_signature
 
-                            train = df.drop_column("target_label")
-                            signature = infer_signature(train, model.predict(train))
+                    train = df.drop_column("target_label")
+                    signature = infer_signature(train, model.predict(train))
 
-        :param input_example: one or several instances of valid model input. The input example is
-                            used as a hint of what data to feed the model. It will be converted to
-                            a Pandas DataFrame and then serialized to json using the Pandas
-                            split-oriented format, or a numpy array where the example will be
-                            serialized to json by converting it to a list. If input example is a
-                            tuple, then the first element must be a valid model input, and the
-                            second element must be a valid params dictionary that can optionally
-                            be used during model inference. Bytes are base64-encoded. When the
-                            ``signature`` parameter is ``None``, the input example is used to infer
-                            a model's signature. If an input example containing params is provided,
-                            and signature is inferred from the input example, then params will be
-                            used as default params during model inference if no extra params are
-                            passed at inference time.
+            input_example: one or several instances of valid model input. The input example is
+                used as a hint of what data to feed the model. It will be converted to
+                a Pandas DataFrame and then serialized to json using the Pandas
+                split-oriented format, or a numpy array where the example will be
+                serialized to json by converting it to a list. If input example is a
+                tuple, then the first element must be a valid model input, and the
+                second element must be a valid params dictionary that can optionally
+                be used during model inference. Bytes are base64-encoded. When the
+                ``signature`` parameter is ``None``, the input example is used to infer
+                a model's signature. If an input example containing params is provided,
+                and signature is inferred from the input example, then params will be
+                used as default params during model inference if no extra params are
+                passed at inference time.
+            await_registration_for: Number of seconds to wait for the model version to finish
+                being created and is in ``READY`` status. By default, the
+                function waits for five minutes. Specify 0 or None to skip
+                waiting.
+            metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-        :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
+                .. Note:: Experimental: This parameter may change or be removed in a
+                                        future release without warning.
+            kwargs: Extra args passed to the model flavor.
 
-        :param metadata: Custom metadata dictionary passed to the model and stored in
-                         the MLmodel file.
-
-                         .. Note:: Experimental: This parameter may change or be removed in a
-                                                 future release without warning.
-
-        :param kwargs: Extra args passed to the model flavor.
-
-        :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-                 metadata of the logged model.
+        Returns:
+            A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+            metadata of the logged model.
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
@@ -642,44 +647,46 @@ def get_model_info(model_uri: str) -> ModelInfo:
     """
     Get metadata for the specified model, such as its input/output signature.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-                      - ``mlflow-artifacts:/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
+            - ``mlflow-artifacts:/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
 
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-            metadata of the logged model.
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
-            :caption: Example usage of get_model_info
+        :caption: Example usage of get_model_info
 
-            import mlflow.models
-            import mlflow.sklearn
-            from sklearn.ensemble import RandomForestRegressor
+        import mlflow.models
+        import mlflow.sklearn
+        from sklearn.ensemble import RandomForestRegressor
 
-            with mlflow.start_run() as run:
-                params = {"n_estimators": 3, "random_state": 42}
-                X, y = [[0, 1]], [1]
-                signature = mlflow.models.infer_signature(X, y)
-                rfr = RandomForestRegressor(**params).fit(X, y)
-                mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+        with mlflow.start_run() as run:
+            params = {"n_estimators": 3, "random_state": 42}
+            X, y = [[0, 1]], [1]
+            signature = mlflow.models.infer_signature(X, y)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            mlflow.log_params(params)
+            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-            model_uri = f"runs:/{run.info.run_id}/sklearn-model"
-            # Get model info with model_uri
-            model_info = mlflow.models.get_model_info(model_uri)
-            # Get model signature directly
-            model_signature = model_info.signature
-            assert model_signature == signature
+        model_uri = f"runs:/{run.info.run_id}/sklearn-model"
+        # Get model info with model_uri
+        model_info = mlflow.models.get_model_info(model_uri)
+        # Get model signature directly
+        model_signature = model_info.signature
+        assert model_signature == signature
     """
     from mlflow.pyfunc import _download_artifact_from_uri
 
