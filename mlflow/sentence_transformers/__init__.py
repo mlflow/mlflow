@@ -418,13 +418,15 @@ class _SentenceTransformerModelWrapper:
         # When the input is a single string or a dictionary, it is transformed into a DataFrame
         # with one column and row, but the encode function does not accept DataFrame input
         convert_output_to_llm_v1_format = False
+        print(sentences)
         if type(sentences) == pd.DataFrame:
             # Wrap the output to OpenAI format only when the input is dict `{"input": ... }`
             if self.task and list(sentences.columns)[0] == _LLM_V1_EMBEDDING_INPUT_KEY:
                 convert_output_to_llm_v1_format = True
-            sentences = sentences.iloc[0, 0]
-            if type(sentences) == str:
-                sentences = [sentences]
+            sentences = sentences[0]
+            if type(sentences[0]) == list:
+                sentences = sentences[0]
+        print(sentences)
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode
