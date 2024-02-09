@@ -850,11 +850,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 - ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
-<<<<<<< HEAD
-- ``stream`` (supported by OpenAI and Anyscale)
-=======
-- ``stream`` (supported by OpenAI, Cohere)
->>>>>>> origin/master
+- ``stream`` (supported by OpenAI, Cohere and Anyscale)
 
 Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
