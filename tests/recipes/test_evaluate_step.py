@@ -103,6 +103,7 @@ def weighted_mean_squared_error_func(eval_df, builtin_metrics):
     assert model_validation_status_path.read_text() == expected_status
 
 
+@pytest.mark.classification
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 def test_evaluate_produces_expected_step_card(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
