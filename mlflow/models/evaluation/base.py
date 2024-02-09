@@ -416,9 +416,32 @@ def _hash_uint64_ndarray_as_bytes(array):
 
 
 def _hash_ndarray_as_bytes(nd_array):
+    if not isinstance(nd_array, np.ndarray):
+        nd_array = np.array(nd_array)
     return _hash_uint64_ndarray_as_bytes(
         pd.util.hash_array(nd_array.flatten(order="C"))
     ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
+
+
+def _hash_data_as_bytes(data):
+    if isinstance(data, (list, np.ndarray)):
+        return _hash_ndarray_as_bytes(data)
+    if isinstance(data, dict):
+        return _hash_dict_as_bytes(data)
+    if np.isscalar(data):
+        return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
+    raise MlflowException(f"Unsupported data type for hashing: `{type(data)}`")
+
+
+def _hash_dict_as_bytes(data_dict):
+    result = _hash_ndarray_as_bytes(list(data_dict.keys()))
+    try:
+        result += _hash_ndarray_as_bytes(list(data_dict.values()))
+    # If the values containing non-hashable objects, we will hash the values recursively.
+    except Exception:
+        for value in data_dict.values():
+            result += _hash_data_as_bytes(value)
+    return result
 
 
 def _hash_array_like_obj_as_bytes(data):
@@ -438,10 +461,8 @@ def _hash_array_like_obj_as_bytes(data):
             if spark_vector_type is not None:
                 if isinstance(v, spark_vector_type):
                     return _hash_ndarray_as_bytes(v.toArray())
-            if isinstance(v, np.ndarray):
-                return _hash_ndarray_as_bytes(v)
-            if isinstance(v, list):
-                return _hash_ndarray_as_bytes(np.array(v))
+            if isinstance(v, (dict, list, np.ndarray)):
+                return _hash_data_as_bytes(v)
             return v
 
         data = data.applymap(_hash_array_like_element_as_bytes)
