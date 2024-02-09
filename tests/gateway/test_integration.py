@@ -11,6 +11,7 @@ from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_ur
 from mlflow.gateway.config import Route
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.anyscale import AnyscaleProvider
 from mlflow.gateway.providers.bedrock import AWSBedrockProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
@@ -142,6 +143,18 @@ def basic_config_dict():
                 },
             },
             {
+                "name": "chat-anyscale",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "anyscale",
+                    "name": "meta-llama/Llama-2-7b-chat-hf",
+                    "config": {
+                        "anyscale_api_key": "$ANYSCALE_API_KEY",
+                        "anyscale_api_base": "$ANYSCALE_API_BASE",
+                    },
+                },
+            },
+            {
                 "name": "embeddings-cohere",
                 "route_type": "llm/v1/embeddings",
                 "model": {
@@ -171,6 +184,18 @@ def basic_config_dict():
                     "name": "embedding-gecko-001",
                     "config": {
                         "palm_api_key": "$PALM_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "embeddings-anyscale",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "anyscale",
+                    "name": "BAAI/bge-large-en-v1.5",
+                    "config": {
+                        "anyscale_api_key": "$ANYSCALE_API_KEY",
+                        "anyscale_api_base": "$ANYSCALE_API_BASE",
                     },
                 },
             },
@@ -244,6 +269,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
     monkeypatch.setenv("PALM_API_KEY", "test_palm_key")
+    monkeypatch.setenv("ANYSCALE_API_KEY", "test_anyscale_key")
 
 
 @pytest.fixture
@@ -267,7 +293,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 18
+    assert len(routes) == 20
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -497,6 +523,41 @@ def test_mosaicml_chat(gateway):
     assert response == expected_output
 
 
+def test_anyscale_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-anyscale")
+    expected_output = expected_output = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nThis is a test!",
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    with patch.object(AnyscaleProvider, "chat", mock_chat):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
 def test_palm_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-palm")
@@ -646,6 +707,36 @@ def test_palm_embeddings(gateway):
         return expected_output
 
     with patch.object(PaLMProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_anyscale_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-anyscale")
+    expected_output = {
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "embedding-gecko-001",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
+    }
+
+    data = {"input": "mock me and my test"}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(AnyscaleProvider, "embeddings", mock_embeddings):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 

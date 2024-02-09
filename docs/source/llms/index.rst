@@ -118,6 +118,11 @@ with your favorite provider!
                     <img src="../_static/images/logos/huggingface-logo.svg" alt="Hugging Face Logo"/>
                 </div>
             </a>
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/README.md">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/anyscale.png" alt="Anyscale Logo"/>
+                </div>
+            </a>
         </div>
     </section>
 

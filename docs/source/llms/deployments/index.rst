@@ -224,41 +224,52 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 ``N/A`` means that either the provider or the MLflow Deployments Server implementation currently doesn't support the endpoint type.
 
 
-+--------------------------+--------------------------+--------------------------+--------------------------+
-|  Provider                | Endpoints                                                                      |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-|                          | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings        |
-+==========================+==========================+==========================+==========================+
-| OpenAI §                 | - gpt-3.5-turbo-instruct | - gpt-3.5-turbo          | - text-embedding-ada-002 |
-|                          | - davinci-002            | - gpt-4                  |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| MosaicML                 | - mpt-7b-instruct        | - llama2-70b-chat†       | - instructor-large       |
-|                          | - mpt-30b-instruct       |                          | - instructor-xl          |
-|                          | - llama2-70b-chat†       |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Anthropic                | - claude-1               | N/A                      | N/A                      |
-|                          | - claude-1.3-100k        |                          |                          |
-|                          | - claude-2               |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Cohere                   | - command                | N/A                      | - embed-english-v2.0     |
-|                          | - command-light-nightly  |                          | - embed-multilingual-v2.0|
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| Azure OpenAI             | - text-davinci-003       | - gpt-35-turbo           | - text-embedding-ada-002 |
-|                          | - gpt-35-turbo           | - gpt-4                  |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| PaLM                     | - text-bison-001         | - chat-bison-001         | - embedding-gecko-001    |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| MLflow                   | - MLflow served models*  | - MLflow served models*  | - MLflow served models** |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| HuggingFace TGI          | N/A                      | - HF TGI Models          | N/A                      |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| AI21 Labs                | - j2-ultra               | N/A                      | N/A                      |
-|                          | - j2-mid                 |                          |                          |
-|                          | - j2-light               |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
-| AWS Bedrock              | - Amazon Titan           | N/A                      | N/A                      |
-|                          | - Third-party providers  |                          |                          |
-+--------------------------+--------------------------+--------------------------+--------------------------+
++-----------------+--------------------------+--------------------------+---------------------------+
+| Provider        | Endpoints                |                          |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
+|                 | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings         |
++=================+==========================+==========================+===========================+
+| OpenAI §        | - gpt-3.5-turbo-instruct | - gpt-3.5-turbo          | - text-embedding-ada-002  |
+|                 | - davinci-002            | - gpt-4                  |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
+| MosaicML        | - mpt-7b-instruct        | - llama2-70b-chat†       | - instructor-large        |
+|                 | - mpt-30b-instruct       |                          | - instructor-xl           |
+|                 | - llama2-70b-chat†       |                          |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
+| Anthropic       | - claude-1               | N/A                      | N/A                       |
+|                 | - claude-1.3-100k        |                          |                           |
+|                 | - claude-2               |                          |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
+| Cohere          | - command                | N/A                      | - embed-english-v2.0      |
+|                 | - command-light-nightly  |                          | - embed-multilingual-v2.0 |
++-----------------+--------------------------+--------------------------+---------------------------+
+| Azure OpenAI    | - text-davinci-003       | - gpt-35-turbo           | - text-embedding-ada-002  |
+|                 | - gpt-35-turbo           | - gpt-4                  |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
+| PaLM            | - text-bison-001         | - chat-bison-001         | - embedding-gecko-001     |
++-----------------+--------------------------+--------------------------+---------------------------+
+| MLflow          | - MLflow served models*  | - MLflow served models*  | - MLflow served models**  |
++-----------------+--------------------------+--------------------------+---------------------------+
+| HuggingFace TGI | N/A                      | - HF TGI Models          | N/A                       |
++-----------------+--------------------------+--------------------------+---------------------------+
+| AI21 Labs       | - j2-ultra               | N/A                      | N/A                       |
+|                 | - j2-mid                 |                          |                           |
+|                 | - j2-light               |                          |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
+| Anyscale        |                          | - Llama-2-7b             | - gte-large               |
+|                 |                          | - Llama-2-13b            |                           |
+|                 |                          | - Llama-2-70b            |                           |
+|                 |                          | - CodeLlama              |                           |
+|                 |                          | - Mistral-7b             |                           |
+|                 |                          | - Mixtral-8x7B           |                           |
+|                 |                          | - LlamaGuard-7b          |                           |
+|                 |                          | - Mixtral-8x7B           |                           |
+|                 |                          | - zephyr-7b              |                           |
+|                 |                          | - Other available models |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
+| AWS Bedrock     | - Amazon Titan           | N/A                      | N/A                       |
+|                 | - Third-party providers  |                          |                           |
++-----------------+--------------------------+--------------------------+---------------------------+
 
 § For full compatibility references for ``OpenAI``, see the `OpenAI Model Compatibility Matrix <https://platform.openai.com/docs/models/model-endpoint-compatibility>`_.
 
@@ -303,6 +314,7 @@ As of now, the MLflow Deployments Server supports the following providers:
 * **palm**: This is used for models offered by `PaLM <https://developers.generativeai.google/api/rest/generativelanguage/models/>`_.
 * **huggingface text generation inference**: This is used for models deployed using `Huggingface Text Generation Inference <https://huggingface.co/docs/text-generation-inference/index>`_.
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
+* **anyscale**: This is used for models offered by `Anyscale <https://docs.endpoints.anyscale.com/>`_.
 * **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
@@ -511,6 +523,7 @@ Each endpoint has the following configuration parameters:
     - "mlflow-model-serving"
     - "huggingface-text-generation-inference"
     - "ai21labs"
+    - "anyscale"
     - "bedrock"
 
   - **name**: This is an optional field to specify the name of the model.
@@ -597,6 +610,18 @@ Anthropic
 +=========================+==========+==========================+=======================================================+
 | **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
+
+Anyscale
++++++++++
+
++-------------------------+----------+---------------------------------------+-----------------------------------------------+
+| Configuration Parameter | Required |                Default                |                  Description                  |
++=========================+==========+=======================================+===============================================+
+| **anyscale_api_key**    | Yes      | N/A                                   | This is the API key for the Anyscale service. |
++-------------------------+----------+---------------------------------------+-----------------------------------------------+
+| **anyscale_api_base**   | No       | https://api.endpoints.anyscale.com/v1 | This is the base URL for Anyscale endpoint.   |
++-------------------------+----------+---------------------------------------+-----------------------------------------------+
+
 
 AWS Bedrock
 +++++++++++
@@ -825,7 +850,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 - ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
-- ``stream`` (supported by OpenAI)
+- ``stream`` (supported by OpenAI and Anyscale)
 
 Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
