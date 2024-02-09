@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -784,53 +785,39 @@ def _remove_requirements_from_file(
 def _get_requirements_from_file(
     file_path: str,
 ) -> List[Requirement]:
-    file_name = os.path.basename(file_path)
-    if file_name == _CONDA_ENV_FILE_NAME:
-        with open(file_path) as file:
-            conda_env = yaml.safe_load(file)
-
-        return [Requirement(s) for s in _get_pip_deps(conda_env)]
-    elif file_name == _REQUIREMENTS_FILE_NAME:
-        with open(file_path) as file:
-            reqs = file.readlines()
-
-        return [Requirement(req) for req in reqs]
+    path = pathlib.Path(file_path)
+    data = path.read_text()
+    if path.name == _CONDA_ENV_FILE_NAME:
+        conda_env = yaml.safe_load(data)
+        reqs = _get_pip_deps(conda_env)
     else:
-        raise MlflowException.invalid_parameter_value(
-            "Invalid file path provided to _get_requirements_from_file! "
-            "Must be a path to either a `conda.yaml` or `requirements.txt` file. "
-            f"Received file path: {file_path}"
-        )
+        reqs = data.splitlines()
+    return [Requirement(req) for req in reqs]
 
 
 def _write_requirements_to_file(
     file_path: str,
     new_reqs: List[str],
 ) -> None:
-    file_name = os.path.basename(file_path)
-    if file_name == _CONDA_ENV_FILE_NAME:
-        with open(file_path) as file:
-            conda_env = yaml.safe_load(file)
+    path = pathlib.Path(file_path)
+    if path.name == _CONDA_ENV_FILE_NAME:
+        conda_env = yaml.safe_load(path.read_text())
         conda_env = _overwrite_pip_deps(conda_env, new_reqs)
-        with open(file_path, "w") as file:
+        with path.open("w") as file:
             yaml.dump(conda_env, file)
-    elif file_name == _REQUIREMENTS_FILE_NAME:
-        with open(file_path, "w") as file:
-            file.write("\n".join(new_reqs))
     else:
-        raise MlflowException.invalid_parameter_value(
-            "Invalid file path provided to _write_requirements_to_file! "
-            "Must be a path to either a `conda.yaml` or `requirements.txt` file. "
-            f"Received file path: {file_path}"
-        )
+        path.write_text("\n".join(new_reqs))
 
 
 def _add_or_overwrite_requirements(
     new_reqs: List[Requirement],
     old_reqs: List[Requirement],
 ) -> List[str]:
+    deduped_new_reqs = _deduplicate_requirements([str(req) for req in new_reqs])
+    deduped_new_reqs = [Requirement(req) for req in deduped_new_reqs]
+
     old_reqs_dict = {req.name: str(req) for req in old_reqs}
-    new_reqs_dict = {req.name: str(req) for req in new_reqs}
+    new_reqs_dict = {req.name: str(req) for req in deduped_new_reqs}
     old_reqs_dict.update(new_reqs_dict)
     return list(old_reqs_dict.values())
 
