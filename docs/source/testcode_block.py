@@ -5,6 +5,7 @@ import functools
 import re
 from pathlib import Path
 
+from docutils.parsers.rst import directives
 from sphinx.directives.code import CodeBlock
 
 
@@ -39,7 +40,8 @@ def _func():           # <- obj_line
 
     Docstring            <- obj_line + offset + extra_offset
 
-    .. testcode:: <- obj_line + offset + extra_offset + lineno_in_docstring
+    .. code-block::      <- obj_line + offset + extra_offset + lineno_in_docstring
+        :test:
         ...
     """
     pass
@@ -56,6 +58,22 @@ def get_code_block_location(obj_path, lineno_in_docstring, repo_root):
 
 
 class TestCodeBlockDirective(CodeBlock):
+    """
+    Overrides the `code-block` directive to dump code blocks marked with the `:test:` option
+    to files for testing.
+
+    ```
+    .. code-block:: python
+        :test:
+
+        print("Hello, world!")
+    ```
+    """
+    option_spec = {
+        **CodeBlock.option_spec,
+        "test": directives.flag
+    }
+
     def _dump_code_block(self):
         docs_dir = Path.cwd()
         repo_root = docs_dir.parent
@@ -87,12 +105,13 @@ class TestCodeBlockDirective(CodeBlock):
         directory.joinpath(filename).write_text(code)
 
     def run(self):
-        self._dump_code_block()
+        if "test" in self.options:
+            self._dump_code_block()
         return super().run()
 
 
 def setup(app):
-    app.add_directive("testcode", TestCodeBlockDirective)
+    app.add_directive("code-block", TestCodeBlockDirective, override=True)
     return {
         "version": "builtin",
         "parallel_read_safe": False,
