@@ -13,6 +13,7 @@ repos:
         language: system
         types_or: [python, jupyter]
         stages: [commit]
+        require_serial: true
 
       - id: format
         name: format
@@ -20,6 +21,7 @@ repos:
         language: system
         types_or: [python, jupyter]
         stages: [commit]
+        require_serial: true
 
       - id: blacken-docs
         name: blacken-docs
@@ -27,6 +29,7 @@ repos:
         language: system
         types_or: [rst, markdown]
         stages: [commit]
+        require_serial: true
 
       - id: pylint
         name: pylint
@@ -35,6 +38,7 @@ repos:
         types: [python]
         args: ["--rcfile=pylintrc"]
         stages: [commit]
+        require_serial: true
 
       - id: disallow-rule-ids
         name: disallow-rule-ids
@@ -42,6 +46,7 @@ repos:
         language: system
         types: [python]
         stages: [commit]
+        require_serial: true
 
       - id: rstcheck
         name: rstcheck
@@ -49,15 +54,18 @@ repos:
         language: system
         files: README.rst
         stages: [commit]
+        require_serial: true
 
       - id: must-have-signoff
         name: must-have-signoff
         entry: 'grep "Signed-off-by:"'
         language: system
         stages: [prepare-commit-msg]
+        require_serial: true
 
       - id: mlflow-typo
         name: mlflow-typo
         entry: dev/mlflow-typo.sh
         language: system
         stages: [commit]
+        require_serial: true
