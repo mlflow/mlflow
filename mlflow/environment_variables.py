@@ -225,6 +225,16 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT", int, None
 )
 
+#: Specifies the timeout for model inference with input example(s) when logging/saving a model.
+#: MLflow runs a few inference requests against the model to infer model signature and pip
+#: requirements. Sometimes the prediction hangs for a long time, especially for a large model.
+#: This timeout limits the allowable time for performing a prediction for signature inference
+#: and will abort the prediction, falling back to the default signature and pip requirements.
+MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT", int, 180
+)
+
+
 #: Specifies the device intended for use in the predict function - can be used
 #: to override behavior where the GPU is used by default when available by
 #: setting this environment variable to be ``cpu``. Currently, this
@@ -266,20 +276,8 @@ MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE = _EnvironmentVariable(
     "MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE", str, "500MB"
 )
 
-#: Specifies whether or not to allow using a file URI as a model version source.
-#: Please be aware that setting this environment variable to True is potentially risky
-#: because it can allow access to arbitrary files on the specified filesystem
-#: (default: ``False``).
-MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
-    "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE", False
-)
-
-
 #: Specifies the name of the Databricks secret scope to use for storing OpenAI API keys.
 MLFLOW_OPENAI_SECRET_SCOPE = _EnvironmentVariable("MLFLOW_OPENAI_SECRET_SCOPE", str, None)
-
-#: Specifier whether or not to retry OpenAI API calls.
-MLFLOW_OPENAI_RETRIES_ENABLED = _BooleanEnvironmentVariable("MLFLOW_OPENAI_RETRIES_ENABLED", True)
 
 #: (Experimental, may be changed or removed)
 #: Specifies the download options to be used by pip wheel when `add_libraries_to_model` is used to
@@ -499,3 +497,12 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: encounters a redirect response.
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
+
+# Specifies the timeout for deployment client APIs to declare a request has timed out
+MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
+)
+
+MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
+)

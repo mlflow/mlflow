@@ -40,9 +40,7 @@ describe('unit tests', () => {
 
   beforeEach(() => {
     const location = {
-      search:
-        '?runs=["runUuid1","runUuid2"]&experiments=["1"]' +
-        '&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
+      search: '?runs=["runUuid1","runUuid2"]&experiments=["1"]&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
     };
 
     navigate = jest.fn((to: string) => {
@@ -189,12 +187,12 @@ describe('unit tests', () => {
   });
 
   test('predictChartType()', () => {
-    expect(
-      MetricsPlotPanel.predictChartType(minimalPropsForLineChart.metricsWithRunInfoAndHistory),
-    ).toBe(CHART_TYPE_LINE);
-    expect(
-      MetricsPlotPanel.predictChartType(minimalPropsForBarChart.metricsWithRunInfoAndHistory),
-    ).toBe(CHART_TYPE_BAR);
+    expect(MetricsPlotPanel.predictChartType(minimalPropsForLineChart.metricsWithRunInfoAndHistory)).toBe(
+      CHART_TYPE_LINE,
+    );
+    expect(MetricsPlotPanel.predictChartType(minimalPropsForBarChart.metricsWithRunInfoAndHistory)).toBe(
+      CHART_TYPE_BAR,
+    );
   });
 
   test('isComparing()', () => {

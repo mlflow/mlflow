@@ -59652,7 +59652,7 @@ public final class Service {
       "SourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PRO" +
       "JECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunSt" +
       "atus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINI" +
-      "SHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\370\027\n\rMlflo" +
+      "SHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\374\027\n\rMlflo" +
       "wService\022\246\001\n\023getExperimentByName\022\033.mlflo" +
       "w.GetExperimentByName\032$.mlflow.GetExperi" +
       "mentByName.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflo" +
@@ -59708,29 +59708,29 @@ public final class Service {
       "Set Tag\022u\n\tdeleteTag\022\021.mlflow.DeleteTag\032" +
       "\032.mlflow.DeleteTag.Response\"9\362\206\0315\n%\n\004POS" +
       "T\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDele" +
-      "te Tag\022a\n\006getRun\022\016.mlflow.GetRun\032\027.mlflo" +
-      "w.GetRun.Response\".\362\206\031*\n\035\n\003GET\022\020/mlflow/" +
-      "runs/get\032\004\010\002\020\000\020\001*\007Get Run\022u\n\nsearchRuns\022" +
-      "\022.mlflow.SearchRuns\032\033.mlflow.SearchRuns." +
-      "Response\"6\362\206\0312\n!\n\004POST\022\023/mlflow/runs/sea" +
-      "rch\032\004\010\002\020\000\020\001*\013Search Runs\022\203\001\n\rlistArtifac" +
-      "ts\022\025.mlflow.ListArtifacts\032\036.mlflow.ListA" +
-      "rtifacts.Response\";\362\206\0317\n#\n\003GET\022\026/mlflow/" +
-      "artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\225" +
-      "\001\n\020getMetricHistory\022\030.mlflow.GetMetricHi" +
-      "story\032!.mlflow.GetMetricHistory.Response" +
-      "\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metrics/get-histo" +
-      "ry\032\004\010\002\020\000\020\001*\022Get Metric History\022p\n\010logBat" +
-      "ch\022\020.mlflow.LogBatch\032\031.mlflow.LogBatch.R" +
-      "esponse\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-" +
-      "batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010logModel\022\020.m" +
-      "lflow.LogModel\032\031.mlflow.LogModel.Respons" +
-      "e\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-model\032" +
-      "\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogInputs\022\021.mlflow" +
-      ".LogInputs\032\032.mlflow.LogInputs.Response\"9" +
-      "\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-inputs\032\004\010" +
-      "\002\020\000\020\001*\nLog InputsB\036\n\024org.mlflow.api.prot" +
-      "o\220\001\001\342?\002\020\001"
+      "te Tag\022e\n\006getRun\022\016.mlflow.GetRun\032\027.mlflo" +
+      "w.GetRun.Response\"2\362\206\031*\n\035\n\003GET\022\020/mlflow/" +
+      "runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022u\n\nsearchR" +
+      "uns\022\022.mlflow.SearchRuns\032\033.mlflow.SearchR" +
+      "uns.Response\"6\362\206\0312\n!\n\004POST\022\023/mlflow/runs" +
+      "/search\032\004\010\002\020\000\020\001*\013Search Runs\022\203\001\n\rlistArt" +
+      "ifacts\022\025.mlflow.ListArtifacts\032\036.mlflow.L" +
+      "istArtifacts.Response\";\362\206\0317\n#\n\003GET\022\026/mlf" +
+      "low/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifac" +
+      "ts\022\225\001\n\020getMetricHistory\022\030.mlflow.GetMetr" +
+      "icHistory\032!.mlflow.GetMetricHistory.Resp" +
+      "onse\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metrics/get-h" +
+      "istory\032\004\010\002\020\000\020\001*\022Get Metric History\022p\n\010lo" +
+      "gBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogBat" +
+      "ch.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/" +
+      "log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010logModel" +
+      "\022\020.mlflow.LogModel\032\031.mlflow.LogModel.Res" +
+      "ponse\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-mo" +
+      "del\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogInputs\022\021.ml" +
+      "flow.LogInputs\032\032.mlflow.LogInputs.Respon" +
+      "se\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-input" +
+      "s\032\004\010\002\020\000\020\001*\nLog InputsB\036\n\024org.mlflow.api." +
+      "proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -60094,6 +60094,7 @@ public final class Service {
         new java.lang.String[] { "Experiment", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
+    registry.add(com.databricks.api.proto.databricks.Databricks.graphql);
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);

@@ -38,24 +38,27 @@ def _exec_cmd(
     stream_output=False,
     **kwargs,
 ):
-    """
-    A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
+    """A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
 
-    :param cmd: The command to run, as a string or a list of strings
-    :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
-    :param extra_env: Extra environment variables to be defined when running the child process.
-                      If this argument is specified, `kwargs` cannot contain `env`.
-    :param capture_output: If True, stdout and stderr will be captured and included in an exception
-                           message on failure; if False, these streams won't be captured.
-    :param synchronous: If True, wait for the command to complete and return a CompletedProcess
-                        instance, If False, does not wait for the command to complete and return
-                        a Popen instance, and ignore the `throw_on_error` argument.
-    :param stream_output: If True, stream the command's stdout and stderr to `sys.stdout`
-                          as a unified stream during execution.
-                          If False, do not stream the command's stdout and stderr to `sys.stdout`.
-    :param kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
-    :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
-              otherwise return a Popen instance.
+    Args:
+        cmd: The command to run, as a string or a list of strings.
+        throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
+        extra_env: Extra environment variables to be defined when running the child process.
+            If this argument is specified, `kwargs` cannot contain `env`.
+        capture_output: If True, stdout and stderr will be captured and included in an exception
+            message on failure; if False, these streams won't be captured.
+        synchronous: If True, wait for the command to complete and return a CompletedProcess
+            instance, If False, does not wait for the command to complete and return
+            a Popen instance, and ignore the `throw_on_error` argument.
+        stream_output: If True, stream the command's stdout and stderr to `sys.stdout`
+            as a unified stream during execution.
+            If False, do not stream the command's stdout and stderr to `sys.stdout`.
+        kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
+
+    Returns:
+        If synchronous is True, return a `subprocess.CompletedProcess` instance,
+        otherwise return a Popen instance.
+
     """
     illegal_kwargs = set(kwargs.keys()).intersection({"text"})
     if illegal_kwargs:

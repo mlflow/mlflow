@@ -33,8 +33,8 @@ To use MLflow deployment, you must first create a model.
 Container
 ~~~~~~~~~
 Container plays a critical role for simplifying and standardizing the model deployment process. MLflow uses Docker containers to package models with their dependencies,
-enabling deployment to various destinations without environment compatibility issues.
-If you're new to Docker, you can learn more at `"What is a Container" <https://www.docker.com/resources/what-container//>`_.
+enabling deployment to various destinations without environment compatibility issues. See :ref:`Building a Docker Image for MLflow Model <build-docker-for-deployment>` for more details on how to deploy your model as a container.
+If you're new to Docker, you can start learning at `"What is a Container" <https://www.docker.com/resources/what-container//>`_.
 
 Deployment Target
 ~~~~~~~~~~~~~~~~~
@@ -169,3 +169,5 @@ Almost all functionalities available in MLflow deployment can also be accessed v
 
 FAQ
 ---
+If you encounter any dependency issues during model deployment, please refer to :ref:`Model Dependencies FAQ <model-dependencies-troubleshooting>`
+for guidance on how to troubleshoot and validate fixes.

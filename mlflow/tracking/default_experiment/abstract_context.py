@@ -22,21 +22,24 @@ class DefaultExperimentProvider:
 
     @abstractmethod
     def in_context(self):
-        """
-        Determine if the MLflow client is running in a context where this provider can
+        """Determine if the MLflow client is running in a context where this provider can
         identify an associated MLflow Experiment ID.
 
-        :return: ``True`` if the MLflow client is running in a context where the provider
-                can identify an associated MLflow Experiment ID. ``False`` otherwise.
+        Returns:
+            True if the MLflow client is running in a context where the provider
+            can identify an associated MLflow Experiment ID. False otherwise.
+
         """
         pass
 
     @abstractmethod
     def get_experiment_id(self):
-        """
-        Provide the MLflow Experiment ID for the current MLflow client context.
+        """Provide the MLflow Experiment ID for the current MLflow client context.
+
         Assumes that ``in_context()`` is ``True``.
 
-        :return: The ID of the MLflow Experiment associated with the current context.
+        Returns:
+            The ID of the MLflow Experiment associated with the current context.
+
         """
         pass

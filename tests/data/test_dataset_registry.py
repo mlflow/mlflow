@@ -94,9 +94,7 @@ def test_register_constructor_function_performs_validation():
         registry.register_constructor(from_no_return_type_fn)
 
 
-def test_register_constructor_from_entrypoints_and_call(
-    dataset_registry, tmp_path
-):  # pylint: disable=unused-argument
+def test_register_constructor_from_entrypoints_and_call(dataset_registry, tmp_path):  # pylint: disable=unused-argument
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.dummy_dataset import DummyDataset
@@ -117,9 +115,7 @@ def test_register_constructor_from_entrypoints_and_call(
     assert dataset.digest == "foo"
 
 
-def test_register_constructor_and_call(
-    dataset_registry, dataset_source_registry, tmp_path
-):  # pylint: disable=unused-argument
+def test_register_constructor_and_call(dataset_registry, dataset_source_registry, tmp_path):  # pylint: disable=unused-argument
     dataset_source_registry.register(TestDatasetSource)
 
     def from_test(data_list, source, name=None, digest=None) -> TestDataset:

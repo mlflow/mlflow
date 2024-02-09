@@ -43,6 +43,101 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 - **APIs**: Interact with the tracking system programmatically, integrating deep learning workflows seamlessly.
 
 
+.. |chart-comparison| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Easier DL Model Comparison with Charts</h4>
+                <p>Use charts to compare deep learning (DL) model training convergence easily. Quickly identify superior 
+                configuration sets across training iterations.</p>
+            </div>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-run-selection.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+.. |chart-customization| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Chart Customization for DL Models</h4>
+                <p>Easily customize charts for DL training run comparisons. Adjust visualizations to pinpoint optimal parameter 
+                settings, displaying optimization metrics across iterations in a unified view.</p>
+            </div>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-run-navigation.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+.. |run-comparison| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Enhanced Parameter and Metric Comparison</h4>
+                <p>Analyze parameter relationships from a unified interface to refine tuning parameters, optimizing your DL models efficiently.</p>
+            </div>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-run-comparison.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+.. |parameter-evaluation| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Statistical Evaluation of Categorical Parameters</h4>
+                <p>Leverage boxplot visualizations for categorical parameter evaluation. Quickly discern the most effective 
+                settings for hyperparameter tuning.</p>
+            </div>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-boxplot.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+.. |realtime-tracking| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Real-Time Training Tracking</h4>
+                <p>Automatically monitor DL training progress over epochs with the MLflow UI. Instantly track results to validate 
+                your hypotheses, eliminating constant manual updates.</p>
+            </div>
+            <video controls autoplay muted loop>
+                <source src="../_static/images/deep-learning/dl-tracking.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+
+.. container:: tracking-responsive-tabs
+
+    .. tabs::
+
+        .. tab:: Chart Comparison
+
+            |chart-comparison|
+        
+        .. tab:: Chart Customization
+
+            |chart-customization|
+
+        .. tab:: Run Comparison
+
+            |run-comparison|
+ 
+        .. tab:: Statistical Evaluation
+
+            |parameter-evaluation|
+
+        .. tab:: Realtime Tracking
+            
+            |realtime-tracking|
+        
+
 Model Registry
 ^^^^^^^^^^^^^^
 A centralized repository for your deep learning models:
@@ -63,41 +158,8 @@ Transition deep learning models from training to real-world applications:
 Native Library Support
 ----------------------
 MLflow has native integrations with common deep learning libraries, such as PyTorch, Keras and Tensorflow, so you can plug
-MLflow into your workflow easily. The officially supported integrations for deep learning libraries in MLflow encompass:
+MLflow into your workflow easily to elevate your deep learning projects.
 
-.. raw:: html
-
-    <section>
-        <div class="logo-grid">
-            <a href="../models.html#pytorch-pytorch">
-                <div class="logo-card">
-                    <img src="../_static/images/logos/pytorch-logo.svg" alt="pytorch Logo"/>
-                </div>
-            </a>
-            <a href="../models.html#keras-keras">
-                <div class="logo-card">
-                    <img src="../_static/images/logos/keras-logo.svg" alt="keras Logo"/>
-                </div>
-            </a>
-            <a href="../models.html#tensorflow-tensorflow">
-                <div class="logo-card">
-                    <img src="../_static/images/logos/TensorFlow-logo.svg" alt="TensorFlow Logo"/>
-                </div>
-            </a>
-            <a href="../models.html#spacy-spacy">
-                <div class="logo-card">
-                    <img src="../_static/images/logos/spacy-logo.svg" alt="spaCy Logo"/>
-                </div>
-            </a>
-            <a href="../models.html#fastai-fastai">
-                <div class="logo-card">
-                    <img src="../_static/images/logos/fastai-logo.png" alt="fast.ai Logo"/>
-                </div>
-            </a>
-        </div>
-    </section>
-
-Harness the power of these integrations and elevate your deep learning projects with MLflow's comprehensive support.
 For detailed guide on how to integrate MLflow with these libraries, refer to the following pages:
 
 .. raw:: html
@@ -106,8 +168,8 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
         <article class="simple-grid">
             <div class="simple-card">
                 <a href="tensorflow/index.html">
-                    <div class="header">
-                        Tensorflow
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/TensorFlow-logo.svg" alt="TensorFlow Logo"/>
                     </div>
                     <p>
                         Learn about MLflow's native integration with the Tensorflow library and see example notebooks that leverage
@@ -117,8 +179,8 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
             </div>
             <div class="simple-card">
                 <a href="pytorch/index.html">
-                    <div class="header">
-                        Pytorch
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/pytorch-logo.svg" alt="Pytorch Logo" style="width: 90%"/>
                     </div>
                     <p>
                         Learn about MLflow's native integration with the PyTorch library and see example notebooks that leverage
@@ -126,15 +188,34 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
                     </p>
                 </a>
             </div>
-
             <div class="simple-card">
                 <a href="keras/index.html">
-                    <div class="header">
-                        Keras
+                   <div class="header-with-image">
+                        <img src="../_static/images/logos/keras-logo.svg" alt="Keras Logo" style="width: 20%"/>
                     </div>
                     <p>
                         Learn about MLflow's native integration with the Keras library and see example notebooks that leverage
                         MLflow and Keras to build deep learning workflows.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="../models.html#spacy-spacy">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/spacy-logo.svg" alt="spaCy Logo" style="width: 60%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Spacy library and see example code.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="../models.html#fastai-fastai">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/fastai-logo.png" alt="fast.ai Logo"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the FastAI library and see example code.
                     </p>
                 </a>
             </div>

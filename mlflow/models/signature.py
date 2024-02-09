@@ -86,7 +86,8 @@ class ModelSignature:
         Input and output schema are represented as json strings. This is so that the
         representation is compact when embedded in an MLmodel yaml file.
 
-        :return: dictionary representation with input and output schema represented as json strings.
+        Returns:
+            dictionary representation with input and output schema represented as json strings.
         """
 
         return {
@@ -100,13 +101,15 @@ class ModelSignature:
         """
         Deserialize from dictionary representation.
 
-        :param signature_dict: Dictionary representation of model signature.
-                               Expected dictionary format:
-                               `{'inputs': <json string>,
-                               'outputs': <json string>,
-                               'params': <json string>" }`
+        Args:
+            signature_dict: Dictionary representation of model signature.
+                Expected dictionary format:
+                `{'inputs': <json string>,
+                'outputs': <json string>,
+                'params': <json string>" }`
 
-        :return: ModelSignature populated with the data form the dictionary.
+        Returns:
+            ModelSignature populated with the data form the dictionary.
         """
         inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
         outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
@@ -164,51 +167,53 @@ def infer_signature(
     as type :py:data:`datetime <mlflow.types.DataType.datetime>`, which is coerced to
     TimestampType at inference.
 
-    :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
-    :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
-                         dataset.
-    :param params: Valid parameters for inference. It should be a dictionary of parameters
-                   that can be set on the model during inference by passing `params` to pyfunc
-                   `predict` method.
+    Args:
+      model_input: Valid input to the model. E.g. (a subset of) the training dataset.
+      model_output: Valid model output. E.g. Model predictions for the (subset of) training
+                    dataset.
+      params: Valid parameters for inference. It should be a dictionary of parameters
+              that can be set on the model during inference by passing `params` to pyfunc
+              `predict` method.
 
-                   An example of valid parameters:
+              An example of valid parameters:
 
-                   .. code-block:: python
+              .. code-block:: python
 
-                        from mlflow.models import infer_signature
-                        from mlflow.transformers import generate_signature_output
+                    from mlflow.models import infer_signature
+                    from mlflow.transformers import generate_signature_output
 
-                        # Define parameters for inference
-                        params = {
-                            "num_beams": 5,
-                            "max_length": 30,
-                            "do_sample": True,
-                            "remove_invalid_values": True,
-                        }
+                    # Define parameters for inference
+                    params = {
+                        "num_beams": 5,
+                        "max_length": 30,
+                        "do_sample": True,
+                        "remove_invalid_values": True,
+                    }
 
-                        # Infer the signature including parameters
-                        signature = infer_signature(
-                            data,
-                            generate_signature_output(model, data),
-                            params=params,
-                        )
+                    # Infer the signature including parameters
+                    signature = infer_signature(
+                        data,
+                        generate_signature_output(model, data),
+                        params=params,
+                    )
 
-                        # Saving model with model signature
-                        mlflow.transformers.save_model(
-                            model,
-                            path=model_path,
-                            signature=signature,
-                        )
+                    # Saving model with model signature
+                    mlflow.transformers.save_model(
+                        model,
+                        path=model_path,
+                        signature=signature,
+                    )
 
-                        pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+                    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-                        # Passing params to `predict` function directly
-                        result = pyfunc_loaded.predict(data, params=params)
+                    # Passing params to `predict` function directly
+                    result = pyfunc_loaded.predict(data, params=params)
 
-                   .. Note:: Experimental: This parameter may change or be removed in a future
-                                           release without warning.
+              .. Note:: Experimental: This parameter may change or be removed in a future
+                                     release without warning.
 
-    :return: ModelSignature
+    Returns:
+      ModelSignature
     """
     inputs = _infer_schema(model_input) if model_input is not None else None
     outputs = _infer_schema(model_output) if model_output is not None else None
@@ -259,9 +264,12 @@ def _extract_type_hints(f, input_arg_index):
     """
     Extract type hints from a function.
 
-    :param f: Function to extract type hints from.
-    :param input_arg_index: Index of the function argument that corresponds to the model input.
-    :return: A `_TypeHints` object containing the input and output type hints.
+    Args:
+        f: Function to extract type hints from.
+        input_arg_index: Index of the function argument that corresponds to the model input.
+
+    Returns:
+        A `_TypeHints` object containing the input and output type hints.
     """
     if not hasattr(f, "__annotations__") and hasattr(f, "__call__"):
         return _extract_type_hints(f.__call__, input_arg_index)
@@ -339,9 +347,12 @@ def _infer_signature_from_input_example(
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
 
-    :param input_example: An instance representing a typical input to the model.
-    :param wrapped_model: A PyFunc wrapped model which has a `predict` method.
-    :return: A `ModelSignature` object containing the inferred schema of both the model's inputs
+    Args:
+        input_example: An instance representing a typical input to the model.
+        wrapped_model: A PyFunc wrapped model which has a `predict` method.
+
+    Returns:
+        A `ModelSignature` object containing the inferred schema of both the model's inputs
         based on the `input_example` and the model's outputs based on the prediction from the
         `wrapped_model`.
     """
@@ -393,21 +404,22 @@ def set_signature(
     information about setting signatures on model versions, see
     `this doc section <https://www.mlflow.org/docs/latest/models.html#set-signature-on-mv>`_.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``mlflow-artifacts:/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``mlflow-artifacts:/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
 
-                      Please note that model URIs with the ``models:/`` scheme are not supported.
+            Please note that model URIs with the ``models:/`` scheme are not supported.
 
-    :param signature: ModelSignature to set on the model.
+        signature: ModelSignature to set on the model.
 
     .. code-block:: python
         :caption: Example

@@ -32,14 +32,15 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         digest: Optional[str] = None,
     ):
         """
-        :param features: A numpy array or dictionary of numpy arrays containing dataset features.
-        :param source: The source of the numpy dataset.
-        :param targets: A numpy array or dictionary of numpy arrays containing dataset targets.
-                        Optional.
-        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
-                     automatically generated.
-        :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
-                       is automatically computed.
+        Args:
+            features: A numpy array or dictionary of numpy arrays containing dataset features.
+            source: The source of the numpy dataset.
+            targets: A numpy array or dictionary of numpy arrays containing dataset targets.
+                Optional.
+            name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                automatically generated.
+            digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
+                is automatically computed.
         """
         self._features = features
         self._targets = targets
@@ -54,12 +55,14 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
-        :param base_dict: A string dictionary of base information about the
-                          dataset, including: name, digest, source, and source
-                          type.
-        :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), profile
-                 (optional).
+        Args:
+            base_dict: A string dictionary of base information about the
+                dataset, including: name, digest, source, and source type.
+
+        Returns:
+            A string dictionary containing the following fields: name,
+            digest, source, source type, schema (optional), profile
+            (optional).
         """
         return {
             **base_dict,
@@ -165,23 +168,21 @@ def from_numpy(
     construct a DatasetSource object from the source path. Otherwise, the source is assumed to
     be a DatasetSource object.
 
-    :param features: NumPy features, represented as an np.ndarray or dictionary of named
-                     np.ndarrays.
-    :param source: The source from which the numpy data was derived, e.g. a filesystem
-                   path, an S3 URI, an HTTPS URL, a delta table name with version, or
-                   spark table etc. ``source`` may be specified as a URI, a path-like string,
-                   or an instance of
-                   :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
-                   If unspecified, the source is assumed to be the code location
-                   (e.g. notebook cell, script, etc.) where
-                   :py:func:`from_numpy <mlflow.data.from_numpy>` is being called.
-    :param targets: Optional NumPy targets, represented as an np.ndarray or dictionary of named
-                    np.ndarrays.
-    :param name: The name of the dataset. If unspecified, a name is generated.
-    :param digest: The dataset digest (hash). If unspecified, a digest is computed
-                   automatically.
+    Args:
+        features: NumPy features, represented as an np.ndarray or dictionary of named np.ndarrays.
+        source: The source from which the numpy data was derived, e.g. a filesystem path, an S3 URI,
+            an HTTPS URL, a delta table name with version, or spark table etc. ``source`` may be
+            specified as a URI, a path-like string, or an instance of
+            :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`. If unspecified,
+            the source is assumed to be the code location (e.g. notebook cell, script, etc.) where
+            :py:func:`from_numpy <mlflow.data.from_numpy>` is being called.
+        targets: Optional NumPy targets, represented as an np.ndarray or dictionary of named
+            np.ndarrays.
+        name: The name of the dataset. If unspecified, a name is generated.
+        digest: The dataset digest (hash). If unspecified, a digest is computed automatically.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Basic Example
 
         import mlflow
@@ -191,7 +192,8 @@ def from_numpy(
         y = np.random.randint(2, size=[2])
         dataset = mlflow.data.from_numpy(x, targets=y)
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Dict Example
 
         import mlflow

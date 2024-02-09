@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import { queryHelpers, waitFor, within } from '@testing-library/react';
 import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
 
@@ -194,10 +194,25 @@ async function getAllOptions(select) {
   return options;
 }
 
+/**
+ * Creates a new option for a Select with `mode="tags"` by typing it into the input,
+ * clicking on the option in the options list, and then closing the menu.
+ */
+async function createNewOption(select, option) {
+  select = getRootElement(select);
+  const selectInput = within(select).getByRole('combobox');
+  await userEvent.type(selectInput, option);
+  const optionsList = getOptionsList(select);
+  const optionItem = within(optionsList).getByTitle(option);
+  await userEvent.click(optionItem);
+  await closeMenu(select);
+}
+
 var selectEvent = /*#__PURE__*/Object.freeze({
   __proto__: null,
   clearAll: clearAll,
   closeMenu: closeMenu,
+  createNewOption: createNewOption,
   getAllOptions: getAllOptions,
   getLabelText: getLabelText,
   multiSelect: multiSelect,

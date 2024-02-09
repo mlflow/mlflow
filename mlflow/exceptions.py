@@ -1,4 +1,5 @@
 import json
+import logging
 
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
@@ -54,6 +55,8 @@ HTTP_STATUS_TO_ERROR_CODE[400] = ErrorCode.Name(BAD_REQUEST)
 HTTP_STATUS_TO_ERROR_CODE[404] = ErrorCode.Name(ENDPOINT_NOT_FOUND)
 HTTP_STATUS_TO_ERROR_CODE[500] = ErrorCode.Name(INTERNAL_ERROR)
 
+_logger = logging.getLogger(__name__)
+
 
 def get_error_code(http_status):
     return ErrorCode.Value(
@@ -71,13 +74,14 @@ class MlflowException(Exception):
 
     def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
         """
-        :param message: The message or exception describing the error that occurred. This will be
-                        included in the exception's serialized JSON representation.
-        :param error_code: An appropriate error code for the error that occurred; it will be
-                           included in the exception's serialized JSON representation. This should
-                           be one of the codes listed in the `mlflow.protos.databricks_pb2` proto.
-        :param kwargs: Additional key-value pairs to include in the serialized JSON representation
-                       of the MlflowException.
+        Args:
+            message: The message or exception describing the error that occurred. This will be
+                included in the exception's serialized JSON representation.
+            error_code: An appropriate error code for the error that occurred; it will be
+                included in the exception's serialized JSON representation. This should
+                be one of the codes listed in the `mlflow.protos.databricks_pb2` proto.
+            kwargs: Additional key-value pairs to include in the serialized JSON representation
+                of the MlflowException.
         """
         try:
             self.error_code = ErrorCode.Name(error_code)
@@ -98,13 +102,13 @@ class MlflowException(Exception):
 
     @classmethod
     def invalid_parameter_value(cls, message, **kwargs):
-        """
-        Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
+        """Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
 
-        :param message: The message describing the error that occurred. This will be included in the
-                        exception's serialized JSON representation.
-        :param kwargs: Additional key-value pairs to include in the serialized JSON representation
-                       of the MlflowException.
+        Args:
+            message: The message describing the error that occurred. This will be included in the
+                exception's serialized JSON representation.
+            kwargs: Additional key-value pairs to include in the serialized JSON representation
+                of the MlflowException.
         """
         return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
 
@@ -113,13 +117,35 @@ class RestException(MlflowException):
     """Exception thrown on non 200-level responses from the REST API"""
 
     def __init__(self, json):
+        self.json = json
+
         error_code = json.get("error_code", ErrorCode.Name(INTERNAL_ERROR))
         message = "{}: {}".format(
             error_code,
             json["message"] if "message" in json else "Response: " + str(json),
         )
-        super().__init__(message, error_code=ErrorCode.Value(error_code))
-        self.json = json
+
+        try:
+            super().__init__(message, error_code=ErrorCode.Value(error_code))
+        except ValueError:
+            try:
+                # The `error_code` can be an http error code, in which case we convert it to the
+                # corresponding `ErrorCode`.
+                error_code = HTTP_STATUS_TO_ERROR_CODE[int(error_code)]
+                super().__init__(message, error_code=ErrorCode.Value(error_code))
+            except ValueError or KeyError:
+                _logger.warning(
+                    f"Received error code not recognized by MLflow: {error_code}, this may "
+                    "indicate your request encountered an error before reaching MLflow server, "
+                    "e.g., within a proxy server or authentication / authorization service."
+                )
+                super().__init__(message)
+
+    def __reduce__(self):
+        """
+        Overriding `__reduce__` to make `RestException` instance pickle-able.
+        """
+        return RestException, (self.json,)
 
 
 class ExecutionException(MlflowException):

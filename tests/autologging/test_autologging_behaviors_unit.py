@@ -81,7 +81,7 @@ def test_autologging_warnings_are_redirected_as_expected(
     stream = StringIO()
     sys.stderr = stream
 
-    with pytest.warns(None) as warnings_record:
+    with warnings.catch_warnings(record=True) as warnings_record:
         autolog_function(silent=False)
         patch_destination.fn()
 
@@ -121,7 +121,7 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
     stream = StringIO()
     sys.stderr = stream
 
-    with pytest.warns(None) as silent_warnings_record:
+    with warnings.catch_warnings(record=True) as silent_warnings_record:
         autolog_function(silent=True)
         patch_destination.fn()
 
@@ -137,7 +137,7 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
 
     stream.truncate(0)
 
-    with pytest.warns(None) as noisy_warnings_record:
+    with warnings.catch_warnings(record=True) as noisy_warnings_record:
         autolog_function(silent=False)
         patch_destination.fn()
 
@@ -177,7 +177,8 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
         return True
 
     executions = []
-    with pytest.warns(None) as warnings_record:
+    with warnings.catch_warnings(record=True) as warnings_record:
+        warnings.simplefilter("always")
         with ThreadPoolExecutor(max_workers=50) as executor:
             for _ in range(100):
                 executions.append(executor.submit(parallel_fn))
@@ -228,7 +229,8 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
     with pytest.raises(Exception, match="enablement error"):
         test_autolog(silent=True)
 
-    with pytest.warns(None):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         with ThreadPoolExecutor(max_workers=50) as executor:
             for _ in range(100):
                 executor.submit(parallel_fn)
@@ -265,7 +267,7 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         logger.info("event_autolog2")
         safe_patch("integration2", patch_destination, "fn2", patch_impl2)
 
-    with pytest.warns(None) as warnings_record:
+    with warnings.catch_warnings(record=True) as warnings_record:
         autolog1(silent=True)
         autolog2(silent=False)
 

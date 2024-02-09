@@ -7,7 +7,7 @@ describe('ErrorView', () => {
   test('should render 400', () => {
     const wrapper = mountWithIntl(
       <MemoryRouter>
-        <ErrorView statusCode={400} fallbackHomePageReactRoute={'/path/to'} />
+        <ErrorView statusCode={400} fallbackHomePageReactRoute="/path/to" />
       </MemoryRouter>,
     );
     const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
@@ -28,7 +28,7 @@ describe('ErrorView', () => {
   it('should render 404', () => {
     const wrapper = mountWithIntl(
       <MemoryRouter>
-        <ErrorView statusCode={404} fallbackHomePageReactRoute={'/path/to'} />
+        <ErrorView statusCode={404} fallbackHomePageReactRoute="/path/to" />
       </MemoryRouter>,
     );
     const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
@@ -49,11 +49,7 @@ describe('ErrorView', () => {
   test('should render 404 with sub message', () => {
     const wrapper = mountWithIntl(
       <MemoryRouter>
-        <ErrorView
-          statusCode={404}
-          fallbackHomePageReactRoute={'/path/to'}
-          subMessage={'sub message'}
-        />
+        <ErrorView statusCode={404} fallbackHomePageReactRoute="/path/to" subMessage="sub message" />
       </MemoryRouter>,
     );
     const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
