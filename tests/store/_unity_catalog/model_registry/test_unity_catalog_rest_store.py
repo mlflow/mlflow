@@ -86,7 +86,7 @@ from tests.store._unity_catalog.conftest import (
 
 @pytest.fixture
 def store(mock_databricks_uc_host_creds):
-    with mock.patch("databricks_cli.configure.provider.get_config"):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
@@ -490,7 +490,7 @@ def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, r
 def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
     mock_databricks_uc_host_creds, tmp_path
 ):
-    with mock.patch("databricks_cli.configure.provider.get_config"):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
         store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
         mock_response = mock.MagicMock(autospec=Response)
         mock_response.status_code = 200
