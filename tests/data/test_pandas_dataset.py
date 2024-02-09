@@ -15,7 +15,7 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
-from tests.resources.data.dataset_source import TestDatasetSource
+from tests.resources.data.dataset_source import SampleDatasetSource
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +36,7 @@ def spark_session():
 
 def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
 
     dataset = PandasDataset(
         df=pd.DataFrame([1, 2, 3], columns=["Numbers"]),
@@ -59,7 +59,7 @@ def test_conversion_to_json():
 
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = PandasDataset(
         df=pd.DataFrame([1, 2, 3], columns=["Numbers"]),
         source=source,
@@ -71,7 +71,7 @@ def test_digest_property_has_expected_value():
 
 def test_df_property():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
     dataset = PandasDataset(
         df=df,
@@ -83,7 +83,7 @@ def test_df_property():
 
 def test_targets_property():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df_no_targets = pd.DataFrame([1, 2, 3], columns=["Numbers"])
     dataset_no_targets = PandasDataset(
         df=df_no_targets,
@@ -103,7 +103,7 @@ def test_targets_property():
 
 def test_with_invalid_targets():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     with pytest.raises(
         MlflowException,
@@ -119,7 +119,7 @@ def test_with_invalid_targets():
 
 def test_to_pyfunc():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
     dataset = PandasDataset(
         df=df,
@@ -131,7 +131,7 @@ def test_to_pyfunc():
 
 def test_to_pyfunc_with_outputs():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     dataset = PandasDataset(
         df=df,
@@ -227,7 +227,7 @@ def test_to_evaluation_dataset():
     import numpy as np
 
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     dataset = PandasDataset(
         df=df,
@@ -243,7 +243,7 @@ def test_to_evaluation_dataset():
 
 def test_df_hashing_with_strings():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
 
     dataset1 = PandasDataset(
         df=pd.DataFrame([["a", 2, 3], ["a", 2, 3]], columns=["text_column", "b", "c"]),
@@ -262,7 +262,7 @@ def test_df_hashing_with_strings():
 
 def test_df_hashing_with_dicts():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
 
     df = pd.DataFrame(
         [

@@ -13,7 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
 
-from tests.resources.data.dataset_source import TestDatasetSource
+from tests.resources.data.dataset_source import SampleDatasetSource
 
 
 def test_dataset_construction_validates_features_and_targets():
@@ -80,7 +80,7 @@ def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
 
     dataset_json = dataset.to_json()
@@ -145,7 +145,7 @@ def test_conversion_to_json():
 )
 def test_conversion_to_json_with_multi_tensor_datasets(features, targets):
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=features, targets=targets, source=source, name="testname")
 
     dataset_json = dataset.to_json()
@@ -175,7 +175,7 @@ def test_schema_and_profile_with_multi_tensor_tuple_datasets():
         )
     )
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(
         features=features_dataset, targets=targets_dataset, source=source, name="testname"
     )
@@ -209,7 +209,7 @@ def test_schema_and_profile_with_multi_tensor_dict_datasets():
         {"c": np.random.sample((100, 1)), "d": np.random.sample((100,))}
     )
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(
         features=features_dataset, targets=targets_dataset, source=source, name="testname"
     )
@@ -239,7 +239,7 @@ def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()
     assert dataset.digest == "666a9820"
@@ -249,7 +249,7 @@ def test_data_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.data == tf_dataset
 
@@ -258,7 +258,7 @@ def test_source_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.source == source
 
@@ -267,7 +267,7 @@ def test_profile_property_has_expected_value_dataset():
     source_uri = "test:/my/test/uri"
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.profile == {
         "features_cardinality": tf_dataset.cardinality().numpy(),
@@ -278,7 +278,7 @@ def test_profile_property_has_expected_value_tensors():
     source_uri = "test:/my/test/uri"
     x = [[1, 2, 3], [4, 5, 6]]
     tf_tensor = tf.convert_to_tensor(x)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=tf_tensor, source=source, name="testname")
     assert dataset.profile == {
         "features_cardinality": tf.size(tf_tensor).numpy(),
@@ -289,7 +289,7 @@ def test_to_pyfunc():
     source_uri = "test:/my/test/uri"
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
 
@@ -300,7 +300,7 @@ def test_to_evaluation_dataset():
     y = np.random.sample((2, 1))
     x_tensors = tf.convert_to_tensor(x)
     y_tensors = tf.convert_to_tensor(y)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(
         features=x_tensors, source=source, targets=y_tensors, name="testname"
     )
@@ -316,7 +316,7 @@ def test_to_evaluation_dataset_with_tensorflow_dataset_data():
     y = np.random.sample((2, 1))
     x_tf_data = tf.data.Dataset.from_tensors(x)
     y_tf_data = tf.data.Dataset.from_tensors(y)
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(
         features=x_tf_data, source=source, targets=y_tf_data, name="testname"
     )
