@@ -645,7 +645,7 @@ Top-level model configuration for AWS Bedrock routes must be one of the followin
 
 
 Mistral
-++++++
++++++++
 
 +--------------------------+----------+--------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                  | Description                                           |
