@@ -149,9 +149,8 @@ def test_system_metrics_monitor_with_multi_node():
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
 
-    mlflow_run = mlflow.start_run()
-    run_id = mlflow_run.info.run_id
-    mlflow.end_run()
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
 
     node_ids = ["0", "1", "2", "3"]
     for node_id in node_ids:
