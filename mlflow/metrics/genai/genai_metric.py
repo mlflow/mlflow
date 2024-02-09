@@ -126,9 +126,9 @@ def make_genai_metric(
         greater_is_better: (Optional) Whether the metric is better when it is greater.
         max_workers: (Optional) The maximum number of workers to use for judge scoring.
             Defaults to 10 workers.
-        grading_system_prompt_template: (Optional) The grading system prompt template for the GenAI metric. Other
-            parameters such as name, definition, grading_prompt and examples will be passed to it, and can be included
-            in the prompt template with {}.
+        grading_system_prompt_template: (Optional) The grading system prompt template for the GenAI
+            metric. Other parameters such as name, definition, grading_prompt and examples will be
+            passed to it, and can be included in the prompt template with {}.
     Returns:
         A metric object.
 

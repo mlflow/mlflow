@@ -1058,7 +1058,7 @@ Custom text defined by the user.
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[],
-        grading_system_prompt_template=custom_system_prompt_template
+        grading_system_prompt_template=custom_system_prompt_template,
     )
 
     # pylint: disable=line-too-long

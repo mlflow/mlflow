@@ -273,34 +273,34 @@ def test_custom_grading_system_prompt_template_output():
             """
             Task:
             Custom task defined by the user""",
-                    """
-            
+            """
+
             Input:
             {input}""",
-                    """
-            
+            """
+
             Output:
             {output}
-            
+
             {grading_context_columns}
-            
+
             Metric definition:
             {definition}
-            
+
             Grading rubric:
             {grading_prompt}
-            
+
             {examples}
-            
+
             Custom text defined by the user.
             """,
         ]
     )
     model = EvaluationModel(
-        name = "correctness",
-        definition = "definition",
-        grading_prompt = "grading prompt",
-        examples = [
+        name="correctness",
+        definition="definition",
+        grading_prompt="grading prompt",
+        examples=[
             EvaluationExample(
                 input="This is an input",
                 output="This is an output",
@@ -309,16 +309,16 @@ def test_custom_grading_system_prompt_template_output():
                 grading_context={"ground_truth": "This is an output"},
             ),
         ],
-        grading_system_prompt_template = grading_system_prompt_template
+        grading_system_prompt_template=grading_system_prompt_template,
     ).to_dict()
     args_string = ""
     expected_prompt2 = """
         Task:
         Custom task defined by the user
-        
+
         Input:
         This is an input
-        
+
         Output:
         This is an output
 
@@ -327,26 +327,25 @@ def test_custom_grading_system_prompt_template_output():
 
         Grading rubric:
         grading prompt
-        
+
         Examples:
             Example Input:
             This is an input
-    
+
             Example Output:
             This is an output
-    
+
             Additional information used by the model:
             key: ground_truth
             value:
             This is an output
-    
+
             Example score: 4
             Example justification: This is a justification
-            
+
         Custom text defined by the user.
     """
     prompt2 = model["eval_prompt"].format(
         input="This is an input", output="This is an output", grading_context_columns=args_string
     )
     assert re.sub(r"\s+", "", prompt2) == re.sub(r"\s+", "", expected_prompt2)
-
