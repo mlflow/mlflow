@@ -97,6 +97,7 @@ from mlflow.projects import run
 from mlflow.system_metrics import (
     disable_system_metrics_logging,
     enable_system_metrics_logging,
+    set_system_metrics_node_id,
     set_system_metrics_samples_before_logging,
     set_system_metrics_sampling_interval,
 )
@@ -203,6 +204,7 @@ __all__ = [
     "set_experiment_tag",
     "set_experiment_tags",
     "set_registry_uri",
+    "set_system_metrics_node_id",
     "set_system_metrics_samples_before_logging",
     "set_system_metrics_sampling_interval",
     "set_tag",
