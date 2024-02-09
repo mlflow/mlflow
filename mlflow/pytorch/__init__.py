@@ -957,7 +957,8 @@ def autolog(
             created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example
 
         import os
