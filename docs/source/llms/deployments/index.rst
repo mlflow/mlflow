@@ -259,6 +259,9 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 | AWS Bedrock              | - Amazon Titan           | N/A                      | N/A                      |
 |                          | - Third-party providers  |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
+| Mistral                  | - mistral-tiny           | N/A                      |  - mistral-embed         |
+|                          | - mistral-small          |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
 
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
@@ -303,6 +306,7 @@ As of now, the MLflow Deployments Server supports the following providers:
 * **huggingface text generation inference**: This is used for models deployed using `Huggingface Text Generation Inference <https://huggingface.co/docs/text-generation-inference/index>`_.
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
 * **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
+* **mistral**: This is used for models offered by `Mistral <https://docs.mistral.ai/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
@@ -511,6 +515,7 @@ Each endpoint has the following configuration parameters:
     - "huggingface-text-generation-inference"
     - "ai21labs"
     - "bedrock"
+    - "mistral"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -680,6 +685,16 @@ To match your user's interaction and security access requirements, adjust the ``
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
 | **openai_organization**    | No       |         | This is an optional field to specify the organization in OpenAI.                              |
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
+
+
+Mistral
+++++++
+
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                  | Description                                           |
++==========================+==========+==========================+=======================================================+
+| **mistral_api_key**       | Yes      | N/A                      | This is the API key for the Mistral service.         |
++--------------------------+----------+--------------------------+-------------------------------------------------------+
 
 
 An example configuration for Azure OpenAI is:
