@@ -2,11 +2,11 @@ from unittest import mock
 
 import pandas as pd
 
+from mlflow.deployments import set_deployments_target
 from mlflow.entities.param import Param
-from mlflow.gateway import set_gateway_uri
 from mlflow.promptlab import _PromptlabModel
 
-set_gateway_uri("http://localhost:5000")
+set_deployments_target("http://localhost:5000")
 
 
 def construct_model(route):
