@@ -111,27 +111,29 @@ def save_model(
     save_model_kwargs=None,
     metadata=None,
 ):
-    """Save a Keras model along with metadata.
+    """
+    Save a Keras model along with metadata.
 
     This method saves a Keras model along with metadata such as model signature and conda
     environments to local file system. This method is called inside `mlflow.keras.log_model()`.
 
-    :param model: an instance of `keras.Model`. The Keras model to be saved.
-    :param path: string, local path where the MLflow model is to be saved.
-    :param save_exported_model: bool, defaults to False. If True, save Keras model in exported model
-        format, otherwise save in `.keras` format. For more information, please
-        refer to https://keras.io/guides/serialization_and_saving/.
-    :param conda_env: {{ conda_env }}
-    :param mlflow_model: an instance of `mlflow.models.Model`, defaults to None. MLflow model
-        configuration to which to add the Keras model metadata. If None, a blank instance will
-        be created.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param save_model_kwargs: dict, defaults to None. A dict of kwargs to pass to `keras.Model.save`
-        method.
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        model: an instance of `keras.Model`. The Keras model to be saved.
+        path: local path where the MLflow model is to be saved.
+        save_exported_model: If True, save Keras model in exported model
+            format, otherwise save in `.keras` format. For more information, please
+            refer to https://keras.io/guides/serialization_and_saving/.
+        conda_env: {{ conda_env }}
+        mlflow_model: an instance of `mlflow.models.Model`, defaults to None. MLflow model
+            configuration to which to add the Keras model metadata. If None, a blank instance will
+            be created.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        save_model_kwargs: A dict of kwargs to pass to `keras.Model.save`
+            method.
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
     .. code-block:: python
         :caption: Example
@@ -149,6 +151,7 @@ def save_model(
         with mlflow.start_run() as run:
             mlflow.keras.save_model(model, "./model")
     """
+
     import keras
 
     if signature is None:
@@ -284,33 +287,35 @@ def log_model(
     save_model_kwargs=None,
     metadata=None,
 ):
-    """Log a Keras model along with metadata to MLflow.
+    """
+    Log a Keras model along with metadata to MLflow.
 
     This method saves a Keras model along with metadata such as model signature and conda
     environments to MLflow.
 
-    :param model: an instance of `keras.Model`. The Keras model to be saved.
-    :param artifact_path: string, the run-relative path to which to log model artifacts.
-    :param save_exported_model: bool, defaults to False. If True, save Keras model in exported
-        model format, otherwise save in `.keras` format. For more information, please
-        refer to [Keras doc](https://keras.io/guides/serialization_and_saving/).
-    :param conda_env: {{ conda_env }}
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param registered_model_name: string, defaults to None. If set, create a model version under
-        `registered_model_name`, also create a registered model if one with the given name does
-        not exist.
-    :param await_registration_for: int, defaults to
-        `mlflow.tracking._model_registry.DEFAULT_AWAIT_MAX_SLEEP_SECONDS`. Number of
-        seconds to wait for the model version to finish being created and is in ``READY``
-        status. By default, the function waits for five minutes. Specify 0 or None to skip
-        waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param save_model_kwargs: dict, defaults to None. A dict of kwargs to pass to
-        `keras.Model.save` method.
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
-        file.
+    Args:
+        model: an instance of `keras.Model`. The Keras model to be saved.
+        artifact_path: the run-relative path to which to log model artifacts.
+        save_exported_model: defaults to False. If True, save Keras model in exported
+            model format, otherwise save in `.keras` format. For more information, please
+            refer to [Keras doc](https://keras.io/guides/serialization_and_saving/).
+        conda_env: {{ conda_env }}
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        registered_model_name: defaults to None. If set, create a model version under
+            `registered_model_name`, also create a registered model if one with the given name does
+            not exist.
+        await_registration_for: defaults to
+            `mlflow.tracking._model_registry.DEFAULT_AWAIT_MAX_SLEEP_SECONDS`. Number of
+            seconds to wait for the model version to finish being created and is in ``READY``
+            status. By default, the function waits for five minutes. Specify 0 or None to skip
+            waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        save_model_kwargs: defaults to None. A dict of kwargs to pass to
+            `keras.Model.save` method.
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
+            file.
 
     .. code-block:: python
         :caption: Example

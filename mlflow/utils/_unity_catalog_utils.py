@@ -87,8 +87,10 @@ def get_artifact_repo_from_storage_info(
     """
     Get an ArtifactRepository instance capable of reading/writing to a UC model version's
     file storage location
-    :param storage_location: Storage location of the model version
-    :param scoped_token: Protobuf scoped token to use to authenticate to blob storage
+
+    Args:
+        storage_location: Storage location of the model version
+        scoped_token: Protobuf scoped token to use to authenticate to blob storage
     """
     try:
         return _get_artifact_repo_from_storage_info(
@@ -163,8 +165,10 @@ def get_full_name_from_sc(name, spark) -> str:
     """
     Constructs the full name of a registered model using the active catalog and schema in a spark
     session / context.
-    :param name: the model name provided by the user
-    :param spark: the active spark session
+
+    Args:
+        name: The model name provided by the user.
+        spark: The active spark session.
     """
     num_levels = len(name.split("."))
     if num_levels >= 3 or spark is None:

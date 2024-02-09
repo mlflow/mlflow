@@ -195,7 +195,8 @@ class MlflowClient:
             A single :py:class:`mlflow.entities.Run` object, if the parent run exists. Otherwise,
             returns None.
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Example
 
             import mlflow
@@ -1584,7 +1585,8 @@ class MlflowClient:
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the table is saved (e.g. "dir/file.json").
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Dictionary Example
 
             import mlflow
@@ -1601,7 +1603,8 @@ class MlflowClient:
                 run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
             )
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Pandas DF Example
 
             import mlflow
@@ -1697,7 +1700,8 @@ class MlflowClient:
             pandas.DataFrame containing the loaded table if the artifact exists
             or else throw a MlflowException.
 
-         .. testcode:: python
+         .. code-block:: python
+            :test:
             :caption: Example with passing run_ids
 
             import mlflow
@@ -1723,7 +1727,8 @@ class MlflowClient:
                 extra_columns=["run_id"],
             )
 
-        .. testcode:: python
+        .. code-block:: python
+            :test:
             :caption: Example with passing no run_ids
 
             # Loads the table with the specified name for all runs in the given
@@ -2575,10 +2580,12 @@ class MlflowClient:
             import mlflow
             from mlflow import MlflowClient
 
+
             def print_model_info(rm):
                 print("--")
                 print("name: {}".format(rm.name))
                 print("tags: {}".format(rm.tags))
+
 
             name = "SocialMediaTextAnalyzer"
             tags = {"nlp.framework1": "Spark NLP"}
@@ -3567,16 +3574,19 @@ class MlflowClient:
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_info(rm):
                 print("--Model--")
                 print("name: {}".format(rm.name))
                 print("aliases: {}".format(rm.aliases))
+
 
             def print_model_version_info(mv):
                 print("--Model Version--")
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Aliases: {}".format(mv.aliases))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -3649,16 +3659,19 @@ class MlflowClient:
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_info(rm):
                 print("--Model--")
                 print("name: {}".format(rm.name))
                 print("aliases: {}".format(rm.aliases))
+
 
             def print_model_version_info(mv):
                 print("--Model Version--")
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Aliases: {}".format(mv.aliases))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -3744,15 +3757,21 @@ class MlflowClient:
             from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
+
+
             def print_model_info(rm):
                 print("--Model--")
                 print("name: {}".format(rm.name))
                 print("aliases: {}".format(rm.aliases))
+
+
             def print_model_version_info(mv):
                 print("--Model Version--")
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Aliases: {}".format(mv.aliases))
+
+
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"

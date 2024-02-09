@@ -70,26 +70,69 @@ def mock_file_client(mock_directory_client):
 
 
 @pytest.mark.parametrize(
-    ("uri", "filesystem", "account", "path"),
+    ("uri", "filesystem", "account", "region_suffix", "path"),
     [
-        ("abfss://filesystem@acct.dfs.core.windows.net/path", "filesystem", "acct", "path"),
-        ("abfss://filesystem@acct.dfs.core.windows.net", "filesystem", "acct", ""),
-        ("abfss://filesystem@acct.dfs.core.windows.net/", "filesystem", "acct", ""),
-        ("abfss://filesystem@acct.dfs.core.windows.net/a/b", "filesystem", "acct", "a/b"),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/path",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "path",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/a/b",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "a/b",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.chinacloudapi.cn/a/b",
+            "filesystem",
+            "acct",
+            "dfs.core.chinacloudapi.cn",
+            "a/b",
+        ),
+        (
+            "abfss://filesystem@acct.privatelink.dfs.core.windows.net/a/b",
+            "filesystem",
+            "acct",
+            "privatelink.dfs.core.windows.net",
+            "a/b",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.usgovcloudapi.net/a/b",
+            "filesystem",
+            "acct",
+            "dfs.core.usgovcloudapi.net",
+            "a/b",
+        ),
     ],
 )
-def test_parse_valid_abfss_uri(uri, filesystem, account, path):
-    assert _parse_abfss_uri(uri) == (filesystem, account, path)
+def test_parse_valid_abfss_uri(uri, filesystem, account, region_suffix, path):
+    assert _parse_abfss_uri(uri) == (filesystem, account, region_suffix, path)
 
 
 @pytest.mark.parametrize(
     "uri",
     [
-        "abfss://filesystem@acct.dfs.core.evil.net/path",
         "abfss://filesystem@acct/path",
         "abfss://acct.dfs.core.windows.net/path",
         "abfss://@acct.dfs.core.windows.net/path",
-        "abfss://filesystem@acctxdfs.core.windows.net/path",
     ],
 )
 def test_parse_invalid_abfss_uri(uri):

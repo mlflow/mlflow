@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -26,6 +27,10 @@ from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
+)
+from mlflow.langchain.databricks_dependencies import (
+    _DATABRICKS_DEPENDENCY_KEY,
+    _detect_databricks_dependencies,
 )
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
@@ -270,6 +275,11 @@ def save_model(
         _MODEL_TYPE_KEY: lc_model.__class__.__name__,
         **model_data_kwargs,
     }
+
+    if Version(langchain.__version__) >= Version("0.0.311"):
+        if databricks_dependency := _detect_databricks_dependencies(lc_model):
+            flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
@@ -701,43 +711,44 @@ def autolog(
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
 
-    :param log_input_examples: If ``True``, input examples from inference data are collected and
-                               logged along with Langchain model artifacts during inference. If
-                               ``False``, input examples are not logged.
-                               Note: Input examples are MLflow model attributes
-                               and are only collected if ``log_models`` is also ``True``.
-    :param log_model_signatures: If ``True``,
-                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-                                 describing model inputs and outputs are collected and logged along
-                                 with Langchain model artifacts during inference. If ``False``,
-                                 signatures are not logged.
-                                 Note: Model signatures are MLflow model attributes
-                                 and are only collected if ``log_models`` is also ``True``.
-    :param log_models: If ``True``, langchain models are logged as MLflow model artifacts.
-                       If ``False``, langchain models are not logged.
-                       Input examples and model signatures, which are attributes of MLflow models,
-                       are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking
-                         if applicable. If ``False``, dataset information is not logged.
-    :param log_inputs_outputs: If ``True``, inference data and results are combined into a single
-                                  pandas DataFrame and logged to MLflow Tracking as an artifact.
-                                  If ``False``, inference data and results are not logged.
-                                  Default to ``True``.
-    :param disable: If ``True``, disables the Langchain autologging integration. If ``False``,
-                    enables the Langchain autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      langchain that have not been tested against this version of the MLflow
-                      client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Langchain
-                   autologging. If ``False``, show all events and warnings during Langchain
-                   autologging.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    Args:
+        log_input_examples: If ``True``, input examples from inference data are collected and
+            logged along with Langchain model artifacts during inference. If
+            ``False``, input examples are not logged.
+            Note: Input examples are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with Langchain model artifacts during inference. If ``False``,
+            signatures are not logged.
+            Note: Model signatures are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_models: If ``True``, langchain models are logged as MLflow model artifacts.
+            If ``False``, langchain models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
+            if applicable. If ``False``, dataset information is not logged.
+        log_inputs_outputs: If ``True``, inference data and results are combined into a single
+            pandas DataFrame and logged to MLflow Tracking as an artifact.
+            If ``False``, inference data and results are not logged.
+            Default to ``True``.
+        disable: If ``True``, disables the Langchain autologging integration. If ``False``,
+            enables the Langchain autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            langchain that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during Langchain
+            autologging. If ``False``, show all events and warnings during Langchain
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
 
     with contextlib.suppress(ImportError):

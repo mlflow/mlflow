@@ -175,9 +175,10 @@ def _get_artifact_repo_mlflow_artifacts():
 
 def _is_serving_proxied_artifacts():
     """
-    :return: ``True`` if the MLflow server is serving proxied artifacts (i.e. acting as a proxy for
-             artifact upload / download / list operations), as would be enabled by specifying the
-             ``--serve-artifacts`` configuration option. ``False`` otherwise.
+    Returns:
+        True if the MLflow server is serving proxied artifacts (i.e. acting as a proxy for
+        artifact upload / download / list operations), as would be enabled by specifying the
+        --serve-artifacts configuration option. False otherwise.
     """
     from mlflow.server import SERVE_ARTIFACTS_ENV_VAR
 
@@ -195,10 +196,13 @@ def _is_servable_proxied_run_artifact_root(run_artifact_root):
       corresponding to the proxied artifact root, allowing it to fulfill artifact list and
       download requests by using this storage location directly.
 
-    :param run_artifact_root: The Run artifact root location (URI).
-    :return: ``True`` if the specified Run artifact root refers to proxied artifacts that can be
-             served by this MLflow server (i.e. the server has access to the destination and
-             can respond to list and download requests for the artifact). ``False`` otherwise.
+    Args:
+        run_artifact_root: The Run artifact root location (URI).
+
+    Returns:
+        True if the specified Run artifact root refers to proxied artifacts that can be
+        served by this MLflow server (i.e. the server has access to the destination and
+        can respond to list and download requests for the artifact). False otherwise.
     """
     parsed_run_artifact_root = urllib.parse.urlparse(run_artifact_root)
     # NB: If the run artifact root is a proxied artifact root (has scheme `http`, `https`, or
@@ -227,13 +231,16 @@ def _get_proxied_run_artifact_destination_path(proxied_artifact_root, relative_p
     """
     Resolves the specified proxied artifact location within a Run to a concrete storage location.
 
-    :param proxied_artifact_root: The Run artifact root location (URI) with scheme ``http``,
-                                  ``https``, or `mlflow-artifacts` that can be resolved by the
-                                  MLflow server to a concrete storage location.
-    :param relative_path: The relative path of the destination within the specified
-                          ``proxied_artifact_root``. If ``None``, the destination is assumed to be
-                          the resolved ``proxied_artifact_root``.
-    :return: The storage location of the specified artifact.
+    Args:
+        proxied_artifact_root: The Run artifact root location (URI) with scheme ``http``,
+            ``https``, or `mlflow-artifacts` that can be resolved by the MLflow server to a
+            concrete storage location.
+        relative_path: The relative path of the destination within the specified
+            ``proxied_artifact_root``. If ``None``, the destination is assumed to be
+            the resolved ``proxied_artifact_root``.
+
+    Returns:
+        The storage location of the specified artifact.
     """
     parsed_proxied_artifact_root = urllib.parse.urlparse(proxied_artifact_root)
     assert parsed_proxied_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
@@ -357,22 +364,20 @@ _TYPE_VALIDATORS = {
 
 def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded=False):
     """
-    Attempts to validate a single parameter against a specified schema.
-    Examples of the elements of the schema are type assertions and checks for required parameters.
-    Returns None on validation success. Otherwise, raises an MLFlowException if an assertion fails.
-    This method is intended to be called for side effects.
+    Attempts to validate a single parameter against a specified schema. Examples of the elements of
+    the schema are type assertions and checks for required parameters. Returns None on validation
+    success.  Otherwise, raises an MLFlowException if an assertion fails. This method is intended
+    to be called for side effects.
 
-            Parameters:
-    :param schema: A list of functions to validate the parameter against.
-    :param param: The string name of the parameter being validated.
-    :param value: The corresponding value of the `param` being validated.
-    :param proto_parsing_succeeded: A boolean value indicating whether proto parsing succeeded.
-                                    If the proto was successfully parsed, we assume all of the types
-                                    of the parameters in the request body were correctly specified,
-                                    and thus we skip validating types. If proto parsing failed,
-                                    then we validate types in addition to the rest of the schema.
-                                    For details, see https://github.com/mlflow/mlflow/pull/
-                                    5458#issuecomment-1080880870.
+    Args:
+        schema: A list of functions to validate the parameter against.
+        param: The string name of the parameter being validated.
+        value: The corresponding value of the `param` being validated.
+        proto_parsing_succeeded: A boolean value indicating whether proto parsing succeeded.
+            If the proto was successfully parsed, we assume all of the types of the parameters in
+            the request body were correctly specified, and thus we skip validating types. If proto
+            parsing failed, then we validate types in addition to the rest of the schema. For
+            details, see https://github.com/mlflow/mlflow/pull/5458#issuecomment-1080880870.
     """
 
     for f in schema:
@@ -970,12 +975,13 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
     Lists artifacts from the specified ``relative_path`` within the specified proxied Run artifact
     root (i.e. a Run artifact root with scheme ``http``, ``https``, or ``mlflow-artifacts``).
 
-    :param proxied_artifact_root: The Run artifact root location (URI) with scheme ``http``,
-                                  ``https``, or ``mlflow-artifacts`` that can be resolved by the
-                                  MLflow server to a concrete storage location.
-    :param relative_path: The relative path within the specified ``proxied_artifact_root`` under
-                          which to list artifact contents. If ``None``, artifacts are listed from
-                          the ``proxied_artifact_root`` directory.
+    Args:
+        proxied_artifact_root: The Run artifact root location (URI) with scheme ``http``,
+                               ``https``, or ``mlflow-artifacts`` that can be resolved by the
+                               MLflow server to a concrete storage location.
+        relative_path: The relative path within the specified ``proxied_artifact_root`` under
+                       which to list artifact contents. If ``None``, artifacts are listed from
+                       the ``proxied_artifact_root`` directory.
     """
     parsed_proxied_artifact_root = urllib.parse.urlparse(proxied_artifact_root)
     assert parsed_proxied_artifact_root.scheme in ["http", "https", "mlflow-artifacts"]
@@ -2108,8 +2114,8 @@ def _get_paths(base_path):
 
 def get_handler(request_class):
     """
-    :param request_class: The type of protobuf message
-    :return:
+    Args:
+        request_class: The type of protobuf message
     """
     return HANDLERS.get(request_class, _not_implemented)
 
@@ -2127,7 +2133,8 @@ def get_service_endpoints(service, get_handler):
 
 def get_endpoints(get_handler=get_handler):
     """
-    :return: List of tuples (path, handler, methods)
+    Returns:
+        List of tuples (path, handler, methods)
     """
     return (
         get_service_endpoints(MlflowService, get_handler)
