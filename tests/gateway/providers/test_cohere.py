@@ -107,6 +107,41 @@ async def test_chat():
         )
 
 
+@pytest.mark.asyncio
+async def test_chat_with_system_messages():
+    resp = chat_response()
+    config = chat_config()
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = CohereProvider(RouteConfig(**config))
+        payload = {
+            "messages": [
+                {"role": "system", "content": "System Message 1"},
+                {"role": "user", "content": "Message 1"},
+                {"role": "assistant", "content": "Message 2"},
+                {"role": "system", "content": "System Message 2"},
+                {"role": "user", "content": "Message 3"},
+            ],
+            "temperature": 0.5,
+        }
+        await provider.chat(chat.RequestPayload(**payload))
+        mock_post.assert_called_once_with(
+            "https://api.cohere.ai/v1/chat",
+            json={
+                "model": "command",
+                "chat_history": [
+                    {"role": "USER", "message": "Message 1"},
+                    {"role": "CHATBOT", "message": "Message 2"},
+                ],
+                "message": "Message 3",
+                "preamble_override": "System Message 1\nSystem Message 2",
+                "temperature": 1.25,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
 @pytest.mark.parametrize(
     "params",
     [{"n": 2}, {"stop": ["test"]}],

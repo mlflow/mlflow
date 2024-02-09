@@ -205,10 +205,10 @@ class CohereAdapter(ProviderAdapter):
         payload["message"] = last_message["content"]
 
         # Cohere uses `preamble_override` to set the system message
-        # we only pass the first system message to Cohere
-        system_message = [m for m in messages if m["role"] == "system"]
-        if len(system_message) > 0:
-            payload["preamble_override"] = system_message[0]["content"]
+        # we concatenate all system messages from the user with a newline
+        system_messages = [m for m in messages if m["role"] == "system"]
+        if len(system_messages) > 0:
+            payload["preamble_override"] = "\n".join(m["content"] for m in system_messages)
 
         # remaining messages are chat history
         # we want to include only user and assistant messages
