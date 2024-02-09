@@ -714,6 +714,8 @@ def get_model_info(model_uri: str) -> ModelInfo:
 
 
 def get_model_requirements_files(resolved_uri: str) -> Dict[str, str]:
+    requirements_txt_file = None
+    conda_yaml_file = None
     try:
         requirements_txt_file = _download_artifact_from_uri(
             artifact_uri=append_to_uri_path(resolved_uri, _REQUIREMENTS_FILE_NAME)
@@ -722,8 +724,11 @@ def get_model_requirements_files(resolved_uri: str) -> Dict[str, str]:
             artifact_uri=append_to_uri_path(resolved_uri, _CONDA_ENV_FILE_NAME)
         )
     except Exception as ex:
+        file_name = (
+            _REQUIREMENTS_FILE_NAME if requirements_txt_file is None else _CONDA_ENV_FILE_NAME
+        )
         raise MlflowException(
-            f'Failed to download a model file from "{resolved_uri}"',
+            f'Failed to download "{file_name}" from "{resolved_uri}"',
             RESOURCE_DOES_NOT_EXIST,
         ) from ex
 
