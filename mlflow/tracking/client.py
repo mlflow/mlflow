@@ -2580,10 +2580,12 @@ class MlflowClient:
             import mlflow
             from mlflow import MlflowClient
 
+
             def print_model_info(rm):
                 print("--")
                 print("name: {}".format(rm.name))
                 print("tags: {}".format(rm.tags))
+
 
             name = "SocialMediaTextAnalyzer"
             tags = {"nlp.framework1": "Spark NLP"}
@@ -3572,16 +3574,19 @@ class MlflowClient:
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_info(rm):
                 print("--Model--")
                 print("name: {}".format(rm.name))
                 print("aliases: {}".format(rm.aliases))
+
 
             def print_model_version_info(mv):
                 print("--Model Version--")
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Aliases: {}".format(mv.aliases))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -3654,16 +3659,19 @@ class MlflowClient:
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_info(rm):
                 print("--Model--")
                 print("name: {}".format(rm.name))
                 print("aliases: {}".format(rm.aliases))
+
 
             def print_model_version_info(mv):
                 print("--Model Version--")
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Aliases: {}".format(mv.aliases))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -3749,15 +3757,21 @@ class MlflowClient:
             from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
+
+
             def print_model_info(rm):
                 print("--Model--")
                 print("name: {}".format(rm.name))
                 print("aliases: {}".format(rm.aliases))
+
+
             def print_model_version_info(mv):
                 print("--Model Version--")
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Aliases: {}".format(mv.aliases))
+
+
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"

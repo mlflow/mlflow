@@ -27,6 +27,10 @@ extend-exclude = [
   "tests/protos",
 ]
 
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 88
+
 [tool.ruff.lint]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
