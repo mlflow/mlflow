@@ -6,6 +6,7 @@ import os
 import pathlib
 import re
 import textwrap
+from pathlib import Path
 from unittest import mock
 
 import huggingface_hub
@@ -3608,3 +3609,33 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
         if callable(input_example):
             input_example = input_example()
         mlflow.pyfunc.load_model(model_path).predict(input_example)
+
+
+def test_persist_pretrained_model(small_seq2seq_pipeline):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=small_seq2seq_pipeline,
+            artifact_path="model",
+            save_pretrained=False,
+            pip_requirements=["mlflow"],  # For speed up logging
+        )
+
+    artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
+    model_path = artifact_path / "model"
+    tokenizer_path = artifact_path / "components" / "tokenizer"
+
+    original_config = Model.load(artifact_path).flavors["transformers"]
+    assert "model_binary" not in original_config
+    assert "source_model_revision" in original_config
+    assert not os.path.exists(model_path)
+    assert not os.path.exists(tokenizer_path)
+
+    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+
+    updated_config = Model.load(model_info.model_uri).flavors["transformers"]
+    assert "model_binary" in updated_config
+    assert "source_model_revision" not in updated_config
+    assert os.path.exists(model_path)
+    assert os.path.exists(model_path / "tf_model.h5")
+    assert os.path.exists(tokenizer_path)
+    assert os.path.exists(tokenizer_path / "tokenizer.json")
