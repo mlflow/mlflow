@@ -330,10 +330,9 @@ class TrainStep(BaseStep):
 
             X_train = train_df.drop(columns=[self.target_col])
 
-            is_array = train_df[self.target_col].apply(lambda x: isinstance(x, np.ndarray))
-            if is_array.all():
-                array_lengths = train_df[self.target_col].apply(lambda x: x.shape)
-                if len(set(array_lengths)) != 1:
+            if train_df[self.target_col].map(type).eq(np.ndarray).all():
+                unique_shapes = train_df[self.target_col].map(np.shape).unique()
+                if len(unique_shapes) > 1:
                     raise ValueError("All arrays must have the same dimension")
                 y_train = np.vstack(train_df[self.target_col].values)
             else:
