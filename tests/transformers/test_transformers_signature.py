@@ -4,7 +4,6 @@ from unittest import mock
 
 import pytest
 
-from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.transformers.signature import (
     _TEXT2TEXT_SIGNATURE,
