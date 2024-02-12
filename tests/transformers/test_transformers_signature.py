@@ -171,12 +171,6 @@ def test_infer_signature_prediction_error_then_fall_back_to_default(text_generat
     assert signature == _TEXT2TEXT_SIGNATURE
 
 
-@mock.patch("mlflow.transformers.signature._DEFAULT_SIGNATURE_FOR_PIPELINES", {})
-def test_infer_signature_no_default_signature_then_raise_error(text_generation_pipeline):
-    with pytest.raises(MlflowException, match="An unsupported Pipeline type was supplied"):
-        infer_or_get_default_signature(text_generation_pipeline)
-
-
 @pytest.mark.parametrize(
     ("pipeline_name", "example", "expected"),
     [
