@@ -277,15 +277,15 @@ def build_docker(**kwargs):
 @commands.command("update-pip-requirements")
 @cli_args.MODEL_URI
 @click.argument("operation", type=click.Choice(["add", "remove"]))
-@click.argument("requirement_string", type=str)
-def update_pip_requirements(model_uri, operation, requirement_string):
+@click.argument("requirement_strings", type=str, nargs=-1)
+def update_pip_requirements(model_uri, operation, requirement_strings):
     """
     Add or remove requirements from a model's conda.yaml and requirements.txt files.
     If using a remote tracking server, please make sure to set the MLFLOW_TRACKING_URI
     environment variable to the URL of the desired server.
 
-    REQUIREMENT_STRING is a comma-separated string of pip requirements,
-    e.g. "pandas==1.0.0, scikit-learn".
+    REQUIREMENT_STRINGS is a list of pip requirements specifiers.
+    See below for examples.
 
     Sample usage:
 
@@ -294,12 +294,12 @@ def update_pip_requirements(model_uri, operation, requirement_string):
         # Add requirements using the model's "runs:/" URI
 
         mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> \\
-            add "pandas==1.0.0, scikit-learn"
+            add "pandas==1.0.0" "scikit-learn" "mlflow >= 2.8, != 2.9.0"
 
         # Remove requirements from a local model
 
         mlflow models update-pip-requirements -m /path/to/local/model \\
-            remove "torchvision, pydantic"
+            remove "torchvision" "pydantic"
 
     Note that model registry URIs (i.e. URIs in the form ``models:/``) are not
     supported, as artifacts in the model registry are intended to be read-only.
@@ -313,7 +313,7 @@ def update_pip_requirements(model_uri, operation, requirement_string):
     found in the existing files will be ignored.
     """
     try:
-        requirements = [Requirement(s.strip().lower()) for s in requirement_string.split(",")]
+        requirements = [Requirement(s.strip().lower()) for s in requirement_strings]
     except InvalidRequirement as e:
         raise click.BadArgumentUsage(f"Invalid requirement: {e}")
 

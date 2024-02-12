@@ -792,7 +792,7 @@ def _get_requirements_from_file(
         reqs = _get_pip_deps(conda_env)
     else:
         reqs = data.splitlines()
-    return [Requirement(req) for req in reqs]
+    return [Requirement(req) for req in reqs if req]
 
 
 def _write_requirements_to_file(
@@ -829,7 +829,7 @@ def _remove_requirements(
     old_reqs_dict = {req.name: str(req) for req in old_reqs}
     for req in reqs_to_remove:
         if req.name in old_reqs_dict:
-            _logger.info(f'"{req.name}" not found in requirements, ignoring')
+            _logger.warning(f'"{req.name}" not found in requirements, ignoring')
         old_reqs_dict.pop(req.name, None)
     return list(old_reqs_dict.values())
 
