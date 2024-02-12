@@ -891,7 +891,7 @@ def test_update_requirements_cli_adds_reqs_successfully():
 
     CliRunner().invoke(
         models_cli.update_pip_requirements,
-        ["-m", f"{model_uri}", "add", "mlflow>=2.9, !=2.9.0" "coolpackage[extra]==8.8.8"],
+        ["-m", f"{model_uri}", "add", "mlflow>=2.9, !=2.9.0", "coolpackage[extra]==8.8.8"],
         catch_exceptions=False,
     )
 
