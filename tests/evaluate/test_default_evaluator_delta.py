@@ -42,9 +42,7 @@ def spark_session_with_delta():
             "spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0"
         ).config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension").config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        ).config(
-            "spark.sql.warehouse.dir", tmpdir
-        ).getOrCreate() as spark:
+        ).config("spark.sql.warehouse.dir", tmpdir).getOrCreate() as spark:
             yield spark, tmpdir
 
 

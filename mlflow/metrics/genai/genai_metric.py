@@ -97,35 +97,39 @@ def make_genai_metric(
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
     prompt is stored in the metric_details field of the ``EvaluationMetric`` object.
 
-    :param name: Name of the metric.
-    :param definition: Definition of the metric.
-    :param grading_prompt: Grading criteria of the metric.
-    :param examples: (Optional) Examples of the metric.
-    :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
-        format of "openai:/gpt-4", "gateway:/my-route", "endpoints:/databricks-llama-2-70b-chat".
-        Defaults to "openai:/gpt-4". If using
-        Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
-        Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and
-        governed by the LLM service's terms of use.
-    :param grading_context_columns: (Optional) The name of the grading context column, or a list of
-        grading context column names, required to compute the metric. The
-        ``grading_context_columns`` are used by the LLM as a judge as additional information to
-        compute the metric. The columns are extracted from the input dataset or output predictions
-        based on ``col_mapping`` in the ``evaluator_config`` passed to :py:func:`mlflow.evaluate()`.
-    :param include_input: (Optional) Whether to include the input when computing the metric.
-    :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
-        set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
-        setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
-    :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
-        options are: min, max, mean, median, variance, p90.
-    :param greater_is_better: (Optional) Whether the metric is better when it is greater.
-    :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
-        Defaults to 10 workers.
+    Args:
+        name: Name of the metric.
+        definition: Definition of the metric.
+        grading_prompt: Grading criteria of the metric.
+        examples: (Optional) Examples of the metric.
+        version: (Optional) Version of the metric. Currently supported versions are: v1.
+        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
+            format of "openai:/gpt-4", "gateway:/my-route",
+            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
+            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
+            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
+            and governed by the LLM service's terms of use.
+        grading_context_columns: (Optional) The name of the grading context column, or a list of
+            grading context column names, required to compute the metric. The
+            ``grading_context_columns`` are used by the LLM as a judge as additional information to
+            compute the metric. The columns are extracted from the input dataset or output
+            predictions based on ``col_mapping`` in the ``evaluator_config`` passed to
+            :py:func:`mlflow.evaluate()`.  include_input: (Optional) Whether to include the input
+            when computing the metric.
+        parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
+            set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
+            setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
+        aggregations: (Optional) The list of options to aggregate the scores. Currently supported
+            options are: min, max, mean, median, variance, p90.
+        greater_is_better: (Optional) Whether the metric is better when it is greater.
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
-    :return: A metric object.
+    Returns:
+        A metric object.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example for creating a genai metric
 
         from mlflow.metrics.genai import EvaluationExample, make_genai_metric
@@ -153,7 +157,6 @@ def make_genai_metric(
                 )
             },
         )
-
         metric = make_genai_metric(
             name="answer_correctness",
             definition=(

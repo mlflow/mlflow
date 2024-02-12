@@ -14,9 +14,9 @@ repos:
         types_or: [python, jupyter]
         stages: [commit]
 
-      - id: black
-        name: black
-        entry: python dev/black.py
+      - id: format
+        name: format
+        entry: python dev/format.py
         language: system
         types_or: [python, jupyter]
         stages: [commit]
@@ -25,7 +25,7 @@ repos:
         name: blacken-docs
         entry: blacken-docs
         language: system
-        types_or: [python, rst, markdown]
+        types_or: [rst, markdown]
         stages: [commit]
 
       - id: pylint

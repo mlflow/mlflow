@@ -4,9 +4,8 @@
 
 click<9,>=7.0
 cloudpickle<4
-databricks-cli<1,>=0.8.7
 entrypoints<1
-gitpython<4,>=2.1.0
+gitpython<4,>=3.1.9
 pyyaml<7,>=5.1
 protobuf<5,>=3.12.0
 pytz<2024

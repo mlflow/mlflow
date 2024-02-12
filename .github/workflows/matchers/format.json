@@ -1,0 +1,15 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "black",
+      "severity": "error",
+      "pattern": [
+        {
+          "regexp": "^([^:]+): (Unformatted file\\. .+)$",
+          "file": 1,
+          "message": 2
+        }
+      ]
+    }
+  ]
+}

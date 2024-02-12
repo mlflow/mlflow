@@ -28,10 +28,10 @@ runs:
             # GitHub Actions does not have a Python 3.8.12 binary for Windows as of Oct. 27 2022
             python_version="3.8.10"
           else
-            python_version="3.8.12"
+            python_version="3.8.18"
           fi
         elif [[ "$python_version" == "3.9" ]]; then
-          python_version="3.9.13"
+          python_version="3.9.18"
         else
           echo "Invalid python version: '$python_version'. Must be '3.8'"
           exit 1

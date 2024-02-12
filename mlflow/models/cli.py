@@ -246,6 +246,13 @@ def build_docker(**kwargs):
         # Mount the model stored in '/local/path/to/artifacts/model' and serve it
         docker run --rm -p 5001:8080 -v /local/path/to/artifacts/model:/opt/ml/model "my-image-name"
 
+    .. important::
+
+        Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
+        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        that uses SparkML, please specify the ``--install-java`` flag to enforce Java installation.
+
     .. warning::
 
         The image built without ``--model-uri`` doesn't support serving models with RFunc / Java

@@ -66,12 +66,14 @@ class LocalArtifactRepository(ArtifactRepository):
         If ``dst_path`` is ``None``, the absolute filesystem path of the specified artifact is
         returned. If ``dst_path`` is not ``None``, the local artifact is copied to ``dst_path``.
 
-        :param artifact_path: Relative source path to the desired artifacts.
-        :param dst_path: Absolute path of the local filesystem destination directory to which to
-                         download the specified artifacts. This directory must already exist. If
-                         unspecified, the absolute path of the local artifact will be returned.
+        Args:
+            artifact_path: Relative source path to the desired artifacts.
+            dst_path: Absolute path of the local filesystem destination directory to which to
+                download the specified artifacts. This directory must already exist. If
+                unspecified, the absolute path of the local artifact will be returned.
 
-        :return: Absolute path of the local filesystem location containing the desired artifacts.
+        Returns:
+            Absolute path of the local filesystem location containing the desired artifacts.
         """
         if dst_path:
             return super().download_artifacts(artifact_path, dst_path)

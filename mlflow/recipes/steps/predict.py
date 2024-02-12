@@ -225,9 +225,7 @@ class PredictStep(BaseStep):
                     "delta.minReaderVersion", "2"
                 ).property("delta.minWriterVersion", "5").property(
                     "delta.columnMapping.mode", "name"
-                ).tableName(
-                    output_location
-                ).execute()
+                ).tableName(output_location).execute()
                 # We are overriding the save_mode to append for the create case, since the table
                 # is already created above, so adding any record to the empty table can be
                 # appended to the table

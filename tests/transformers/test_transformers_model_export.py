@@ -26,7 +26,6 @@ from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
@@ -72,6 +71,7 @@ from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
 
 transformers_version = Version(transformers.__version__)
 _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
+_IS_PIPELINE_DTYPE_SUPPORTED_VERSION = Version(transformers.__version__) >= Version("4.26.1")
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
 # default runner containers specs of 7GB RAM. Due to this inability to run the suite without
@@ -927,6 +927,8 @@ def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expec
     pip_requirements = _get_deps_from_requirement_file(model_uri)
     assert "tensorflow" in pip_requirements
     assert "torch" not in pip_requirements
+    # Accelerate installs Pytorch along with it, so it should not be present in the requirements
+    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -1040,13 +1042,12 @@ def test_invalid_task_inference_raises_error(model_path):
     )
     dummy_pipeline = PairClassificationPipeline(model=model)
 
-    with mock.patch.dict("sys.modules", {"huggingface_hub": None}):
-        with pytest.raises(
-            MlflowException, match="The task provided is invalid. '' is not a supported"
-        ):
-            mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
-        dummy_pipeline.task = "text-classification"
+    with pytest.raises(
+        MlflowException, match="The task provided is invalid. '' is not a supported"
+    ):
         mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
+    dummy_pipeline.task = "text-classification"
+    mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
 
 
 def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi_modal):
@@ -1745,106 +1746,6 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
     fourth_response = loaded_again_pyfunc.predict("Can I use it to go to the moon?")
 
     assert fourth_response == "Sure."
-
-
-@pytest.mark.parametrize(
-    ("pipeline_name", "example", "in_signature", "out_signature"),
-    [
-        (
-            "fill_mask_pipeline",
-            ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of cherries"],
-            [{"type": "string", "required": True}],
-            [{"type": "string", "required": True}],
-        ),
-        (
-            "zero_shot_pipeline",
-            {
-                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
-                "candidate_labels": ["happy", "sad"],
-                "hypothesis_template": "This example talks about how the dog is {}",
-            },
-            [
-                # in transformers, we internally convert values of candidate_labels
-                # to string for zero_shot_pipeline
-                {
-                    "name": "sequences",
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "required": True,
-                },
-                {"name": "candidate_labels", "type": "string", "required": True},
-                {"name": "hypothesis_template", "type": "string", "required": True},
-            ],
-            [
-                {"name": "sequence", "type": "string", "required": True},
-                {"name": "labels", "type": "string", "required": True},
-                {"name": "scores", "type": "double", "required": True},
-            ],
-        ),
-    ],
-)
-@pytest.mark.skipcacheclean
-def test_infer_signature_from_input_example_only(
-    pipeline_name, model_path, example, request, in_signature, out_signature
-):
-    pipeline = request.getfixturevalue(pipeline_name)
-    mlflow.transformers.save_model(pipeline, model_path, input_example=example)
-
-    model = Model.load(model_path)
-
-    assert model.signature.inputs.to_dict() == in_signature
-    assert model.signature.outputs.to_dict() == out_signature
-
-    saved_example = _read_example(model, model_path)
-    # saved example is the same as input example if it is list of scalars
-    if isinstance(example, list):
-        assert (saved_example == example).all()
-        assert model.saved_input_example_info["type"] == "ndarray"
-    elif isinstance(example, dict):
-        saved_example = saved_example.to_dict(orient="records")
-        assert set(saved_example[0].keys()).intersection(example.keys()) == set(
-            saved_example[0].keys()
-        )
-        assert model.saved_input_example_info["type"] == "dataframe"
-        assert model.saved_input_example_info["pandas_orient"] == "split"
-
-
-@pytest.mark.parametrize(
-    ("pipeline_name", "in_signature", "out_signature"),
-    [
-        (
-            "fill_mask_pipeline",
-            [{"required": True, "type": "string"}],
-            [{"required": True, "type": "string"}],
-        ),
-        (
-            "zero_shot_pipeline",
-            [
-                {"name": "sequences", "type": "string", "required": True},
-                {"name": "candidate_labels", "type": "string", "required": True},
-                {"name": "hypothesis_template", "type": "string", "required": True},
-            ],
-            [
-                {"name": "sequence", "type": "string", "required": True},
-                {"name": "labels", "type": "string", "required": True},
-                {"name": "scores", "type": "double", "required": True},
-            ],
-        ),
-    ],
-)
-@pytest.mark.skipcacheclean
-def test_get_default_pipeline_signature(
-    pipeline_name, model_path, request, in_signature, out_signature
-):
-    pipeline = request.getfixturevalue(pipeline_name)
-    mlflow.transformers.save_model(pipeline, model_path)
-
-    model = Model.load(model_path)
-
-    assert model.signature.inputs.to_dict() == in_signature
-    assert model.signature.outputs.to_dict() == out_signature
-
-    assert model.saved_input_example_info is None
 
 
 def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
@@ -2682,145 +2583,10 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
 
 @pytest.mark.parametrize(
-    ("pipeline_name", "data", "result"),
-    [
-        (
-            "small_qa_pipeline",
-            {"question": "Who's house?", "context": "The house is owned by Run."},
-            {
-                "inputs": '[{"type": "string", "name": "question", "required": true}, '
-                '{"type": "string", "name": "context", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "zero_shot_pipeline",
-            {
-                "sequences": "These pipelines are super cool!",
-                "candidate_labels": ["interesting", "uninteresting"],
-                "hypothesis_template": "This example talks about how pipelines are {}",
-            },
-            {
-                "inputs": '[{"type": "string", "name": "sequences", "required": true}, '
-                '{"type": "string", "name": "candidate_labels", "required": true}, '
-                '{"type": "string", "name": "hypothesis_template", "required": true}]',
-                "outputs": '[{"type": "string", "name": "sequence", "required": true}, '
-                '{"type": "string", "name": "labels", "required": true}, '
-                '{"type": "double", "name": "scores", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "text_classification_pipeline",
-            "We're just going to have to agree to disagree, then.",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "name": "label", "required": true}, '
-                '{"type": "double", "name": "score", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "table_question_answering_pipeline",
-            {
-                "query": "how many widgets?",
-                "table": json.dumps({"units": ["100", "200"], "widgets": ["500", "500"]}),
-            },
-            {
-                "inputs": '[{"type": "string", "name": "query", "required": true}, '
-                '{"type": "string", "name": "table", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "summarizer_pipeline",
-            "If you write enough tests, you can be sure that your code isn't broken.",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "translation_pipeline",
-            "No, I am your father.",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "text_generation_pipeline",
-            ["models are", "apples are"],
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "text2text_generation_pipeline",
-            ["man apple pie", "dog pizza eat"],
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "fill_mask_pipeline",
-            "Juggling <mask> is remarkably dangerous",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "conversational_pipeline",
-            "What's shaking, my robot homie?",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-        (
-            "ner_pipeline",
-            "Blue apples are not a thing",
-            {
-                "inputs": '[{"type": "string", "required": true}]',
-                "outputs": '[{"type": "string", "required": true}]',
-                "params": None,
-            },
-        ),
-    ],
-)
-@pytest.mark.skipcacheclean
-def test_signature_inference(pipeline_name, data, result, request):
-    pipeline = request.getfixturevalue(pipeline_name)
-
-    default_signature = mlflow.transformers._get_default_pipeline_signature(pipeline)
-
-    assert default_signature.to_dict() == result
-
-    signature_from_input_example = mlflow.transformers._get_default_pipeline_signature(
-        pipeline, data
-    )
-
-    assert signature_from_input_example.to_dict() == result
-
-
-@pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
 )
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_torch_dtype_from_pipeline(dtype):
     pipe = transformers.pipeline(
@@ -2833,16 +2599,85 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
 
     parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
 
-    assert parsed == str(dtype)
+    assert parsed == dtype
+
+
+@pytest.mark.skipcacheclean
+@flaky()
+def test_extraction_of_torch_dtype_from_model():
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        "t5-small", torch_dtype=torch.float16
+    )
+    tokenizer = transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100)
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=model,
+        tokenizer=tokenizer,
+        framework="pt",
+    )
+
+    # Pipeline doesn't inherit model's dtype (or doesn't have dtype attribute prior to 4.26.1)
+    if _IS_PIPELINE_DTYPE_SUPPORTED_VERSION:
+        assert pipe.torch_dtype is None
+
+    # If Pytorch is not installed, return None
+    with mock.patch.dict("sys.modules", {"torch": None}):
+        parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+        assert parsed is None
+
+    # Extract it from model config if available
+    model.config.torch_dtype = torch.bfloat16
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+    assert parsed == torch.bfloat16
+
+    # Extract it from param if model config is not available
+    model.config.torch_dtype = None
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+    assert parsed == torch.float16
+
+
+@pytest.mark.skipcacheclean
+@flaky()
+def test_extraction_of_torch_dtype_returns_none_if_default():
+    model = transformers.T5ForConditionalGeneration.from_pretrained("t5-small")
+    assert model.dtype == torch.float32
+    assert model.config.torch_dtype is None
+
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=model,
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+    )
+
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+    assert parsed is None
+
+
+@pytest.mark.skipcacheclean
+@flaky()
+def test_extraction_of_torch_dtype_return_none_when_pytorch_is_not_installed():
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        "t5-small", torch_dtype=torch.float16
+    )
+    tokenizer = transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100)
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=model,
+        tokenizer=tokenizer,
+        framework="pt",
+    )
+
+    with mock.patch.dict("sys.modules", {"torch": None}):
+        parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+        assert parsed is None
 
 
 @pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
 )
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 def test_extraction_of_torch_dtype_from_components(dtype, model_path):
     components = {
         "model": transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
@@ -2859,24 +2694,59 @@ def test_extraction_of_torch_dtype_from_components(dtype, model_path):
 
 
 @pytest.mark.parametrize(
-    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
+    ("dtype", "expected"),
+    [
+        ("torch.float16", torch.float16),
+        ("torch.bfloat16", torch.bfloat16),
+        ("torch.float32", torch.float32),
+        ("torch.float64", torch.float64),
+        ("torch.int32", torch.int32),
+        ("torch.int64", torch.int64),
+        ("float16", torch.float16),
+        ("bfloat16", torch.bfloat16),
+        ("float32", torch.float32),
+        ("float64", torch.float64),
+        ("int32", torch.int32),
+        ("int64", torch.int64),
+        ("float", torch.float32),
+        ("double", torch.float64),
+        ("int", torch.int32),
+    ],
 )
 @pytest.mark.skipcacheclean
-def test_deserialization_of_configuration_torch_dtype_entry(dtype):
-    flavor_config = {"torch_dtype": str(dtype), "framework": "pt"}
-
-    parsed = mlflow.transformers._deserialize_torch_dtype_if_exists(flavor_config)
+def test_deserialize_torch_dtype(dtype, expected):
+    parsed = mlflow.transformers._deserialize_torch_dtype(dtype)
     assert isinstance(parsed, torch.dtype)
-    assert parsed == dtype
+    assert parsed == expected
+
+
+@pytest.mark.skipcacheclean
+@mock.patch.dict("sys.modules", {"torch": None})
+def test_deserialize_torch_dtype_torch_not_installed_raise():
+    with pytest.raises(MlflowException, match="Unable to determine if the value"):
+        mlflow.transformers._deserialize_torch_dtype("torch.float16")
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        "torch.float128",
+        "torch.",
+        "numpy.float32",
+        "string",
+    ],
+)
+@pytest.mark.skipcacheclean
+def test_deserialize_torch_dtype_invalid_value(dtype):
+    with pytest.raises(MlflowException, match="The value '"):
+        mlflow.transformers._deserialize_torch_dtype(dtype)
 
 
 @pytest.mark.parametrize(
     "dtype", [torch.bfloat16, torch.float16, torch.float64, torch.float, torch.cfloat]
 )
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_base_flavor_config(dtype):
     task = "translation_en_to_fr"
@@ -2911,9 +2781,7 @@ def test_extraction_of_base_flavor_config(dtype):
 
 
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     task = "translation_en_to_fr"
@@ -2951,9 +2819,7 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
     task = "translation_en_to_fr"
@@ -3965,3 +3831,38 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     assert output_dict["text"] is not None
     assert output_dict["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
+
+
+def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipeline):
+    # max_length and max_new_tokens cannot be used together in Transformers earlier than 4.27
+    validate_max_new_tokens = Version(transformers.__version__) > Version("4.26.1")
+
+    model_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+    }
+    if validate_max_new_tokens:
+        model_config["max_new_tokens"] = 500
+
+    # Params will be used to override the values of model_config but should not mutate it
+    params = {
+        "top_k": 30,
+        "max_length": 500,
+    }
+    if validate_max_new_tokens:
+        params["max_new_tokens"] = 5
+
+    pyfunc_model = _TransformersWrapper(text2text_generation_pipeline, model_config=model_config)
+    assert pyfunc_model.model_config["top_k"] == 2
+
+    prediction_output = pyfunc_model.predict(
+        "rocket moon ship astronaut space gravity", params=params
+    )
+
+    assert pyfunc_model.model_config["top_k"] == 2
+    assert pyfunc_model.model_config["num_beams"] == 5
+    assert pyfunc_model.model_config["max_length"] == 30
+    if validate_max_new_tokens:
+        assert pyfunc_model.model_config["max_new_tokens"] == 500
+        assert len(prediction_output[0].split(" ")) <= 5
