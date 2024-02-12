@@ -1,3 +1,4 @@
+from mlflow.store import _unity_catalog  # noqa: F401
 from mlflow.store.artifact import artifact_repo
 from mlflow.store.tracking import abstract_store
 

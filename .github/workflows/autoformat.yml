@@ -30,10 +30,10 @@ jobs:
       base_repo: ${{ fromJSON(steps.judge.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: judge
         id: judge
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -62,7 +62,7 @@ jobs:
     outputs:
       reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
@@ -74,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
-          protos=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
+          protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           python=$([[ -z $(echo "$changed_files" | grep '\.py$\|^pyproject\.toml$') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
@@ -115,8 +115,8 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.python == 'true'
         run: |
-          ruff --fix .
-          black .
+          ruff check --fix .
+          ruff format .
           blacken-docs $(git ls-files '*.py' '*.rst' '*.md') || true
       # ************************************************************************
       # js
@@ -155,7 +155,7 @@ jobs:
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
       - name: Upload patch
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
@@ -166,7 +166,7 @@ jobs:
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
@@ -183,7 +183,7 @@ jobs:
           git merge base/${{ needs.check-comment.outputs.base_ref }}
 
       - name: Download patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ github.run_id }}.diff
           path: /tmp
@@ -202,9 +202,9 @@ jobs:
     permissions:
       statuses: write # autoformat.updateStatus
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Update status
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

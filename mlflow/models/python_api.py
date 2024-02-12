@@ -19,6 +19,7 @@ def build_docker(
     name="mlflow-pyfunc",
     env_manager=_EnvManager.VIRTUALENV,
     mlflow_home=None,
+    install_java=False,
     install_mlflow=False,
     enable_mlserver=False,
 ):
@@ -27,6 +28,15 @@ def build_docker(
     python_function flavor. The container serves the model referenced by ``model_uri``, if
     specified. If ``model_uri`` is not specified, an MLflow Model directory must be mounted as a
     volume into the /opt/ml/model directory in the container.
+
+    .. important::
+
+        Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
+        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        that uses SparkML, please specify ``install-java=True`` to enforce Java installation.
+        For earlier versions, Java is always installed to the image.
+
 
     .. warning::
 
@@ -43,11 +53,34 @@ def build_docker(
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
+
+    Args:
+        model_uri: URI to the model. A local path, a 'runs:/' URI, or a remote storage URI (e.g.,
+            an 's3://' URI). For more information about supported remote URIs for model artifacts,
+            see https://mlflow.org/docs/latest/tracking.html#artifact-stores"
+        name: Name of the Docker image to build. Defaults to 'mlflow-pyfunc'.
+        install_java: If specified, install Java in the image. Default is False in order to
+            reduce both the image size and the build time. Model flavors requiring Java will enable
+            this setting automatically, such as the Spark flavor. (This argument is only available
+            in MLflow 2.10.1 and later. In earlier versions, Java is always installed to the image.)
+
+        enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.
+        env_manager: If specified, create an environment for MLmodel using the specified environment
+            manager. The following values are supported: (1) virtualenv (default): use virtualenv
+            and pyenv for Python version management (2) conda: use conda (3) local: use the local
+            environment without creating a new one.
+
+        install_mlflow: If specified and there is a conda or virtualenv environment to be activated
+            mlflow will be installed into the environment after it has been activated.
+            The version of installed mlflow will be the same as the one used to invoke this command.
+
+        mlflow_home: Path to local clone of MLflow project. Use for development only.
     """
     get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
         name,
         mlflow_home=mlflow_home,
+        install_java=install_java,
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )
@@ -72,23 +105,24 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
-    :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
-    :param input_data: Input data for prediction. Must be valid input for the PyFunc model.
-    :param input_path: Path to a file containing input data. If provided, 'input_data' must be None.
-    :param content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
-    :param output_path: File to output results to as json. If not provided, output to stdout.
-    :param env_manager: Specify a way to create an environment for MLmodel inference:
+    Args:
+        model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
+        input_data: Input data for prediction. Must be valid input for the PyFunc model.
+        input_path: Path to a file containing input data. If provided, 'input_data' must be None.
+        content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
+        output_path: File to output results to as json. If not provided, output to stdout.
+        env_manager: Specify a way to create an environment for MLmodel inference:
 
-        - virtualenv (default): use virtualenv (and pyenv for Python version management)
-        - local: use the local environment
-        - conda: use conda
+            - virtualenv (default): use virtualenv (and pyenv for Python version management)
+            - local: use the local environment
+            - conda: use conda
 
-    :param install_mlflow: If specified and there is a conda or virtualenv environment to be
-        activated mlflow will be installed into the environment after it has been activated.
-        The version of installed mlflow will be the same as the one used to invoke this command.
-    :param pip_requirements_override: If specified, install the specified python dependencies to
-        the model inference environment. This is particularly useful when you want to add extra
-        dependencies or try different versions of the dependencies defined in the logged model.
+        install_mlflow: If specified and there is a conda or virtualenv environment to be activated
+            mlflow will be installed into the environment after it has been activated. The version
+            of installed mlflow will be the same as the one used to invoke this command.
+        pip_requirements_override: If specified, install the specified python dependencies to the
+            model inference environment. This is particularly useful when you want to add extra
+            dependencies or try different versions of the dependencies defined in the logged model.
 
     Code example:
 
@@ -202,10 +236,10 @@ def _serialize_input_data(input_data, content_type):
 
 def _serialize_to_json(input_data):
     # imported inside function to avoid circular import
-    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS, SUPPORTED_LLM_FORMAT
+    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS, SUPPORTED_LLM_FORMATS
 
     if isinstance(input_data, dict) and any(
-        key in input_data for key in SUPPORTED_FORMATS | {SUPPORTED_LLM_FORMAT}
+        key in input_data for key in SUPPORTED_FORMATS | SUPPORTED_LLM_FORMATS
     ):
         return json.dumps(input_data)
     else:

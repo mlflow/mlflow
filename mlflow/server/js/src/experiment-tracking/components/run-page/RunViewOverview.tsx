@@ -5,21 +5,12 @@ import { CollapsibleSection } from '../../../common/components/CollapsibleSectio
 import { Descriptions } from '../../../common/components/Descriptions';
 import { EditableNote } from '../../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../../common/components/EditableTagsTableView';
-import {
-  shouldEnableDeepLearningUI,
-  shouldEnableExperimentDatasetTracking,
-} from '../../../common/utils/FeatureUtils';
+import { shouldEnableDeepLearningUI, shouldEnableExperimentDatasetTracking } from '../../../common/utils/FeatureUtils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { capitalizeFirstLetter } from '../../../common/utils/StringUtils';
 import Utils from '../../../common/utils/Utils';
 import Routes from '../../routes';
-import type {
-  ExperimentEntity,
-  KeyValueEntity,
-  MetricEntity,
-  RunDatasetWithTags,
-  RunInfoEntity,
-} from '../../types';
+import type { ExperimentEntity, KeyValueEntity, MetricEntity, RunDatasetWithTags, RunInfoEntity } from '../../types';
 import { NOTE_CONTENT_TAG, NoteInfo } from '../../utils/NoteUtils';
 import ArtifactPage from '../ArtifactPage';
 import { HtmlTableView } from '../HtmlTableView';
@@ -66,9 +57,7 @@ export const RunViewOverview = ({
 }: RunViewOverviewProps) => {
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType | null>(
-    null,
-  );
+  const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType | null>(null);
   const [isTagsRequestPending, setIsTagsRequestPending] = useState(false);
 
   const handleCancelEditNote = () => {
@@ -90,12 +79,7 @@ export const RunViewOverview = ({
   const renderLifecycleLink = () => {
     const lifecycleStage = run.getLifecycleStage();
     return (
-      <Link
-        to={Routes.searchRunsByLifecycleStage(
-          experiment.experiment_id,
-          capitalizeFirstLetter(lifecycleStage),
-        )}
-      >
+      <Link to={Routes.searchRunsByLifecycleStage(experiment.experiment_id, capitalizeFirstLetter(lifecycleStage))}>
         {lifecycleStage}
       </Link>
     );
@@ -174,7 +158,7 @@ export const RunViewOverview = ({
             'Label for the collapsible area to display the artifacts page',
         })}
         onChange={handleCollapseChange('artifacts')}
-        data-test-id='run-artifacts-section'
+        data-test-id="run-artifacts-section"
       >
         <ArtifactPage runUuid={runUuid} runTags={tags} />
       </CollapsibleSection>
@@ -210,7 +194,7 @@ export const RunViewOverview = ({
     <>
       {/* Metadata List */}
       {/* @ts-expect-error TS(2322): Type '{ children: (Element | null)[]; className: s... Remove this comment to see the full error message */}
-      <Descriptions className='metadata-list'>
+      <Descriptions className="metadata-list">
         <Descriptions.Item
           label={intl.formatMessage({
             defaultMessage: 'Run ID',
@@ -302,8 +286,7 @@ export const RunViewOverview = ({
           <Descriptions.Item
             label={intl.formatMessage({
               defaultMessage: 'Parent Run',
-              description:
-                'Label for displaying a link to the parent experiment run if any present',
+              description: 'Label for displaying a link to the parent experiment run if any present',
             })}
           >
             <Link to={Routes.getRunPageRoute(experimentId, tags['mlflow.parentRunId'].value)}>
@@ -320,21 +303,15 @@ export const RunViewOverview = ({
           >
             {/* Reported during ESLint upgrade */}
             {/* eslint-disable-next-line react/jsx-no-target-blank */}
-            <a
-              href={Utils.setQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)}
-              target='_blank'
-            >
-              <FormattedMessage
-                defaultMessage='Logs'
-                description='Link to the logs for the job output'
-              />
+            <a href={Utils.setQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)} target="_blank">
+              <FormattedMessage defaultMessage="Logs" description="Link to the logs for the job output" />
             </a>
           </Descriptions.Item>
         ) : null}
       </Descriptions>
 
       {/* Page Sections */}
-      <div className='RunView-info'>
+      <div className="RunView-info">
         {runCommand ? (
           <CollapsibleSection
             title={intl.formatMessage({
@@ -344,7 +321,7 @@ export const RunViewOverview = ({
                 'Label for the collapsible area to display the run command used for the experiment run',
             })}
             onChange={handleCollapseChange('runCommand')}
-            data-test-id='run-command-section'
+            data-test-id="run-command-section"
           >
             <textarea
               css={styles.runCommandArea}
@@ -356,23 +333,19 @@ export const RunViewOverview = ({
         ) : null}
         <CollapsibleSection
           title={
-            <span className='RunView-editDescriptionHeader'>
+            <span className="RunView-editDescriptionHeader">
               <FormattedMessage
-                defaultMessage='Description'
-                description='Label for the notes editable content for the experiment run'
+                defaultMessage="Description"
+                description="Label for the notes editable content for the experiment run"
               />
               {!showNoteEditor && (
                 <>
                   {' '}
-                  <Button
-                    type='link'
-                    onClick={startEditingDescription}
-                    data-test-id='edit-description-button'
-                  >
+                  <Button type="link" onClick={startEditingDescription} data-test-id="edit-description-button">
                     <FormattedMessage
-                      defaultMessage='Edit'
+                      defaultMessage="Edit"
                       // eslint-disable-next-line max-len
-                      description='Text for the edit button next to the description section title on the run view'
+                      description="Text for the edit button next to the description section title on the run view"
                     />
                   </Button>
                 </>
@@ -382,10 +355,9 @@ export const RunViewOverview = ({
           forceOpen={showNoteEditor}
           defaultCollapsed={!noteContent}
           onChange={handleCollapseChange('notes')}
-          data-test-id='run-notes-section'
+          data-test-id="run-notes-section"
         >
           <EditableNote
-            // @ts-expect-error TS(2322): Type '{ defaultMarkdown: any; onSubmit: (note: any... Remove this comment to see the full error message
             defaultMarkdown={noteContent}
             onSubmit={handleSubmitEditNote}
             onCancel={handleCancelEditNote}
@@ -405,7 +377,7 @@ export const RunViewOverview = ({
               datasets ? datasets.length : 0,
             )}
             onChange={handleCollapseChange('parameters')}
-            data-test-id='run-parameters-section'
+            data-test-id="run-parameters-section"
           >
             <div css={{ marginLeft: '16px' }}>
               {datasets &&
@@ -419,7 +391,7 @@ export const RunViewOverview = ({
                     }}
                   >
                     <Button
-                      type='link'
+                      type="link"
                       css={{
                         textAlign: 'left',
                       }}
@@ -437,10 +409,7 @@ export const RunViewOverview = ({
                         setIsDrawerOpen(true);
                       }}
                     >
-                      <ExperimentViewDatasetWithContext
-                        datasetWithTags={dataset}
-                        displayTextAsLink
-                      />
+                      <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink />
                     </Button>
                   </div>
                 ))}
@@ -459,10 +428,10 @@ export const RunViewOverview = ({
             getParamValues(params).length,
           )}
           onChange={handleCollapseChange('parameters')}
-          data-test-id='run-parameters-section'
+          data-test-id="run-parameters-section"
         >
           <HtmlTableView
-            testId='params-table'
+            testId="params-table"
             columns={[
               {
                 title: intl.formatMessage({
@@ -498,10 +467,10 @@ export const RunViewOverview = ({
             getMetricValues(latestMetrics, getMetricPagePath, plotTitle).length,
           )}
           onChange={handleCollapseChange('metrics')}
-          data-test-id='run-metrics-section'
+          data-test-id="run-metrics-section"
         >
           <HtmlTableView
-            testId='metrics-table'
+            testId="metrics-table"
             columns={[
               {
                 title: intl.formatMessage({
@@ -525,19 +494,18 @@ export const RunViewOverview = ({
             values={getMetricValues(latestMetrics, getMetricPagePath, plotTitle)}
           />
         </CollapsibleSection>
-        <div data-test-id='tags-section'>
+        <div data-test-id="tags-section">
           <CollapsibleSection
             title={renderSectionTitle(
               intl.formatMessage({
                 defaultMessage: 'Tags',
-                description:
-                  'Label for the collapsible area to display the tags for the experiment run',
+                description: 'Label for the collapsible area to display the tags for the experiment run',
               }),
               Utils.getVisibleTagValues(tags).length,
             )}
             defaultCollapsed
             onChange={handleCollapseChange('tags')}
-            data-test-id='run-tags-section'
+            data-test-id="run-tags-section"
           >
             <EditableTagsTableView
               // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
@@ -604,7 +572,7 @@ const getMetricValues = (latestMetrics: any, getMetricPagePath: any, plotTitle: 
           name: (
             <Link to={getMetricPagePath(key)} title={plotTitle}>
               {key}
-              <i className='fas fa-line-chart' style={{ paddingLeft: '6px' }} />
+              <i className="fas fa-line-chart" style={{ paddingLeft: '6px' }} />
             </Link>
           ),
           value: <span title={value}>{value}</span>,

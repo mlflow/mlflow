@@ -1,28 +1,24 @@
-import {
-  Button,
-  ChevronDownIcon,
-  Dropdown,
-  Input,
-  ColumnsIcon,
-  SearchIcon,
-  Tree,
-} from '@databricks/design-system';
+import { Button, ChevronDownIcon, ColumnsIcon, Dropdown, Input, SearchIcon, Tree } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
+import {
+  shouldEnableExperimentDatasetTracking,
+  shouldEnableShareExperimentViewByTags,
+} from '../../../../../common/utils/FeatureUtils';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { UpdateExperimentSearchFacetsFn } from '../../../../types';
+import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
 import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
+import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
 import {
   extractCanonicalSortKey,
   isCanonicalSortKeyOfType,
   makeCanonicalSortKey,
 } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
-import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
 
 /**
  * We need to recreate antd's tree check callback signature since it's not importable
@@ -97,6 +93,7 @@ export interface ExperimentViewRunsColumnSelectorProps {
   runsData: ExperimentRunsSelectorResult;
   columnSelectorVisible: boolean;
   onChangeColumnSelectorVisible: (value: boolean) => void;
+  selectedColumns: string[];
 }
 
 /**
@@ -107,11 +104,13 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
     runsData,
     columnSelectorVisible,
     onChangeColumnSelectorVisible,
-    updateSearchFacets,
+    updateUIState,
     selectedColumns,
   }: ExperimentViewRunsColumnSelectorProps & {
-    updateSearchFacets: UpdateExperimentSearchFacetsFn;
-    selectedColumns: SearchExperimentRunsFacetsState['selectedColumns'];
+    updateUIState:
+      | UpdateExperimentSearchFacetsFn
+      | ((setter: (state: ExperimentPageUIStateV2) => ExperimentPageUIStateV2) => void);
+    selectedColumns: string[];
   }) => {
     const experimentIds = useExperimentIds();
     const [filter, setFilter] = useState('');
@@ -121,19 +120,16 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     // Extract all attribute columns
-    const attributeColumnNames = useMemo(
-      () => getAttributeColumns(experimentIds.length > 1),
-      [experimentIds.length],
-    );
+    const attributeColumnNames = useMemo(() => getAttributeColumns(experimentIds.length > 1), [experimentIds.length]);
 
     const setCheckedColumns = useCallback(
       (updateFn: (existingCheckedColumns: string[]) => string[]) =>
-        updateSearchFacets((facets) => {
+        updateUIState((facets: ExperimentPageUIStateV2) => {
           const newColumns = updateFn(facets.selectedColumns);
           const uniqueNewColumns = Array.from(new Set(newColumns));
           return { ...facets, selectedColumns: uniqueNewColumns };
         }),
-      [updateSearchFacets],
+      [updateUIState],
     );
 
     // Extract unique list of tags
@@ -145,12 +141,8 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
         [COLUMN_TYPES.ATTRIBUTES]: attributeColumnNames.map((key) =>
           makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, key),
         ),
-        [COLUMN_TYPES.PARAMS]: runsData.paramKeyList.map((key) =>
-          makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key),
-        ),
-        [COLUMN_TYPES.METRICS]: runsData.metricKeyList.map((key) =>
-          makeCanonicalSortKey(COLUMN_TYPES.METRICS, key),
-        ),
+        [COLUMN_TYPES.PARAMS]: runsData.paramKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
+        [COLUMN_TYPES.METRICS]: runsData.metricKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
         [COLUMN_TYPES.TAGS]: tagsKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
       }),
       [runsData, attributeColumnNames, tagsKeyList],
@@ -288,7 +280,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
           <Input
             value={filter}
             prefix={<SearchIcon />}
-            placeholder='Search columns'
+            placeholder="Search columns"
             allowClear
             ref={searchInputRef}
             onChange={(e) => {
@@ -299,18 +291,13 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
         </div>
         <div ref={scrollableContainerRef} css={styles.scrollableContainer}>
           <Tree
-            data-testid='column-selector-tree'
-            mode='checkable'
+            data-testid="column-selector-tree"
+            mode="checkable"
             dangerouslySetAntdProps={{
               checkedKeys: selectedColumns,
               onCheck,
             }}
-            defaultExpandedKeys={[
-              GROUP_KEY_ATTRIBUTES,
-              GROUP_KEY_PARAMS,
-              GROUP_KEY_METRICS,
-              GROUP_KEY_TAGS,
-            ]}
+            defaultExpandedKeys={[GROUP_KEY_ATTRIBUTES, GROUP_KEY_PARAMS, GROUP_KEY_METRICS, GROUP_KEY_TAGS]}
             treeData={treeData}
           />
         </div>
@@ -320,7 +307,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
     return (
       <Dropdown
         overlay={dropdownContent}
-        placement='bottomLeft'
+        placement="bottomLeft"
         trigger={['click']}
         visible={columnSelectorVisible}
         onVisibleChange={onChangeColumnSelectorVisible}
@@ -328,12 +315,12 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
         <Button
           ref={buttonRef}
           style={{ display: 'flex', alignItems: 'center' }}
-          data-testid='column-selection-dropdown'
+          data-testid="column-selection-dropdown"
           icon={<ColumnsIcon />}
         >
           <FormattedMessage
-            defaultMessage='Columns'
-            description='Dropdown text to display columns names that could to be rendered for the experiment runs table'
+            defaultMessage="Columns"
+            description="Dropdown text to display columns names that could to be rendered for the experiment runs table"
           />{' '}
           <ChevronDownIcon />
         </Button>
@@ -347,12 +334,25 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
  * This is a thin layer wrapping the implementation to optimize search state rerenders.
  */
 export const ExperimentViewRunsColumnSelector = (props: ExperimentViewRunsColumnSelectorProps) => {
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+  if (usingNewViewStateModel) {
+    const updateUIState = useUpdateExperimentViewUIState();
+    return (
+      <ExperimentViewRunsColumnSelectorImpl
+        {...props}
+        selectedColumns={props.selectedColumns}
+        updateUIState={updateUIState}
+      />
+    );
+  }
+  // TODO(ML-35962): UI state from props/context, remove updateSearchFacets after migration to new view state model
   const { updateSearchFacets, searchFacetsState } = useFetchExperimentRuns();
   return (
     <ExperimentViewRunsColumnSelectorImpl
       {...props}
       selectedColumns={searchFacetsState.selectedColumns}
-      updateSearchFacets={updateSearchFacets}
+      updateUIState={updateSearchFacets}
     />
   );
 };

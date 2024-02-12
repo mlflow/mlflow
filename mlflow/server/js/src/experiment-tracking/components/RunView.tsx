@@ -7,13 +7,7 @@
 
 import React, { Component } from 'react';
 import { IntlShape, injectIntl } from 'react-intl';
-import {
-  getExperiment,
-  getParams,
-  getRunInfo,
-  getRunTags,
-  getRunDatasets,
-} from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo, getRunTags, getRunDatasets } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './RunView.css';
 import { getLatestMetrics } from '../reducers/MetricReducer';
@@ -21,13 +15,11 @@ import Utils from '../../common/utils/Utils';
 import { RenameRunModal } from './modals/RenameRunModal';
 import { NotificationInstance, withNotifications } from '@databricks/design-system';
 import { setTagApi, deleteTagApi } from '../actions';
-import { RunViewMetricCharts } from './run-page/RunViewMetricCharts';
 import { RunViewHeader } from './run-page/RunViewHeader';
 import { RunViewOverview } from './run-page/RunViewOverview';
-import { RunViewArtifactTab } from './run-page/RunViewArtifactTab';
 import { RunPageTabName } from '../constants';
-import { shouldEnableDeepLearningUI } from '../../common/utils/FeatureUtils';
 import { useRunViewActiveTab } from './run-page/useRunViewActiveTab';
+import { RunViewOverviewV2 } from './run-page/RunViewOverviewV2';
 
 type RunViewImplProps = {
   activeTab: RunPageTabName;
@@ -47,6 +39,7 @@ type RunViewImplProps = {
   handleSetRunTag: (...args: any[]) => any;
   setTagApi: (...args: any[]) => any;
   deleteTagApi: (...args: any[]) => any;
+  onRunDataUpdated: () => void | Promise<void>;
   intl: IntlShape;
   notificationContextHolder: React.ReactElement;
   notificationAPI: NotificationInstance;
@@ -76,26 +69,6 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
     this.setState({ showRunRenameModal: false });
   };
 
-  renderActiveTab = () => {
-    const { tags, activeTab, run, runUuid, latestMetrics } = this.props;
-
-    if (!shouldEnableDeepLearningUI()) {
-      return <RunViewOverview {...this.props} />;
-    }
-
-    if (activeTab === RunPageTabName.CHARTS) {
-      return (
-        <RunViewMetricCharts metricKeys={Object.keys(this.props.latestMetrics)} runInfo={run} />
-      );
-    }
-
-    if (activeTab === RunPageTabName.ARTIFACTS) {
-      return <RunViewArtifactTab runUuid={runUuid} runTags={tags} />;
-    }
-
-    return <RunViewOverview {...this.props} />;
-  };
-
   render() {
     const { runUuid, activeTab } = this.props;
 
@@ -105,7 +78,7 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
 
     return (
       <div
-        className='RunView'
+        className="RunView"
         css={{
           flex: '1',
           display: 'flex',
@@ -114,7 +87,6 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
         }}
       >
         <RenameRunModal
-          // @ts-expect-error TS(2322): Type '{ runUuid: string; onClose: () => void; runN... Remove this comment to see the full error message
           runUuid={runUuid}
           onClose={this.hideRenameRunModal}
           runName={this.props.runName}
@@ -125,10 +97,11 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
           experiment={this.props.experiment}
           handleRenameRunClick={this.handleRenameRunClick}
           hasComparedExperimentsBefore={this.props.hasComparedExperimentsBefore}
-          runUuid={this.props.runUuid}
+          runTags={this.props.tags}
           runDisplayName={this.props.runDisplayName}
+          runUuid={runUuid}
         />
-        {this.renderActiveTab()}
+        <RunViewOverview {...this.props} />
       </div>
     );
   }

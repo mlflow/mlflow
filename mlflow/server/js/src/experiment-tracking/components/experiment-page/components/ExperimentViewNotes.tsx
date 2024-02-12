@@ -1,14 +1,14 @@
 import { Button } from '@databricks/design-system';
 import React, { useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { CollapsibleSection } from '../../../../common/components/CollapsibleSection';
 import { EditableNote } from '../../../../common/components/EditableNote';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { ExperimentEntity, KeyValueEntity } from '../../../types';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { useAsyncDispatch } from '../hooks/useAsyncDispatch';
 import { useFetchExperiments } from '../hooks/useFetchExperiments';
+import { ThunkDispatch } from '../../../../redux-types';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.getKey() === NOTE_CONTENT_TAG)?.value || undefined;
@@ -35,7 +35,7 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
     actions: { setExperimentTagApi },
   } = useFetchExperiments();
 
-  const dispatch = useAsyncDispatch();
+  const dispatch = useDispatch<ThunkDispatch>();
 
   const handleSubmitEditNote = useCallback(
     (updatedNote: any) => {
@@ -50,15 +50,15 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
       title={
         <span css={styles.collapsibleSectionHeader}>
           <FormattedMessage
-            defaultMessage='Description'
-            description='Header for displaying notes for the experiment table'
+            defaultMessage="Description"
+            description="Header for displaying notes for the experiment table"
           />{' '}
           {!showNotesEditor && (
-            <Button type='link' onClick={() => setShowNotesEditor(true)}>
+            <Button type="link" onClick={() => setShowNotesEditor(true)}>
               <FormattedMessage
-                defaultMessage='Edit'
+                defaultMessage="Edit"
                 // eslint-disable-next-line max-len
-                description='Text for the edit button next to the description section title on the experiment view page'
+                description="Text for the edit button next to the description section title on the experiment view page"
               />
             </Button>
           )}
@@ -66,10 +66,9 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
       }
       forceOpen={showNotesEditor}
       defaultCollapsed={!storedNote}
-      data-test-id='experiment-notes-section'
+      data-test-id="experiment-notes-section"
     >
       <EditableNote
-        // @ts-expect-error TS(2322): Type '{ defaultMarkdown: string | undefined; onSub... Remove this comment to see the full error message
         defaultMarkdown={storedNote}
         onSubmit={handleSubmitEditNote}
         onCancel={() => setShowNotesEditor(false)}

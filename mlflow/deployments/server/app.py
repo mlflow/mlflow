@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -6,6 +5,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from mlflow.deployments.server.config import Endpoint
 from mlflow.deployments.server.constants import (
@@ -16,7 +18,10 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE,
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
-from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENTS_CONFIG,
+    MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import SetLimitsModel
 from mlflow.gateway.config import (
@@ -40,29 +45,29 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
 from mlflow.version import VERSION
 
-_logger = logging.getLogger(__name__)
-
 
 class GatewayAPI(FastAPI):
-    def __init__(self, config: GatewayConfig, *args: Any, **kwargs: Any):
+    def __init__(self, config: GatewayConfig, limiter: Limiter, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
+        self.state.limiter = limiter
+        self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
         self.dynamic_routes: Dict[str, Route] = {}
-        self.set_dynamic_routes(config)
+        self.set_dynamic_routes(config, limiter)
 
-    def set_dynamic_routes(self, config: GatewayConfig) -> None:
+    def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
         self.dynamic_routes.clear()
         for route in config.routes:
             self.add_api_route(
                 path=(
                     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + route.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
                 ),
-                endpoint=_route_type_to_endpoint(route),
+                endpoint=_route_type_to_endpoint(route, limiter, "deployments"),
                 methods=["POST"],
             )
             # TODO: Remove Gateway server URLs after deprecation window elapses
             self.add_api_route(
                 path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
-                endpoint=_route_type_to_endpoint(route),
+                endpoint=_route_type_to_endpoint(route, limiter, "gateway"),
                 methods=["POST"],
                 include_in_schema=False,
             )
@@ -75,8 +80,9 @@ class GatewayAPI(FastAPI):
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
+    # https://slowapi.readthedocs.io/en/latest/#limitations-and-known-issues
     async def _chat(
-        payload: chat.RequestPayload,
+        request: Request, payload: chat.RequestPayload
     ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
@@ -90,7 +96,7 @@ def _create_completions_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
     async def _completions(
-        payload: completions.RequestPayload,
+        request: Request, payload: completions.RequestPayload
     ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
@@ -103,7 +109,9 @@ def _create_completions_endpoint(config: RouteConfig):
 def _create_embeddings_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _embeddings(payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(
+        request: Request, payload: embeddings.RequestPayload
+    ) -> embeddings.ResponsePayload:
         return await prov.embeddings(payload)
 
     return _embeddings
@@ -113,14 +121,20 @@ async def _custom(request: Request):
     return request.json()
 
 
-def _route_type_to_endpoint(config: RouteConfig):
+def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter, key: str):
     provider_to_factory = {
         RouteType.LLM_V1_CHAT: _create_chat_endpoint,
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
     if factory := provider_to_factory.get(config.route_type):
-        return factory(config)
+        handler = factory(config)
+        if limit := config.limit:
+            limit_value = f"{limit.calls}/{limit.renewal_period}"
+            handler.__name__ = f"{handler.__name__}_{config.name}_{key}"
+            return limiter.limit(limit_value)(handler)
+        else:
+            return handler
 
     raise HTTPException(
         status_code=404,
@@ -147,6 +161,7 @@ class ListEndpointsResponse(BaseModel):
                             "name": "gpt-3.5-turbo",
                             "provider": "openai",
                         },
+                        "limit": {"calls": 1, "key": None, "renewal_period": "minute"},
                     },
                     {
                         "name": "anthropic-completions",
@@ -212,8 +227,12 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     """
     Create the GatewayAPI app from the gateway configuration.
     """
+    limiter = Limiter(
+        key_func=get_remote_address, storage_uri=MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI.get()
+    )
     app = GatewayAPI(
         config=config,
+        limiter=limiter,
         title="MLflow Deployments Server",
         description="The core deployments API for reverse proxy interface using remote inference "
         "endpoints within MLflow",

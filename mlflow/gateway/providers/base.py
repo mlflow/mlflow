@@ -1,4 +1,4 @@
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 from typing import AsyncIterable, Tuple
 
 from fastapi import HTTPException
@@ -73,19 +73,47 @@ class BaseProvider(ABC):
 class ProviderAdapter(ABC):
     """ """
 
-    @abstractclassmethod
+    @classmethod
+    @abstractmethod
     def model_to_embeddings(cls, resp, config):
         raise NotImplementedError
 
-    @abstractclassmethod
+    @classmethod
+    @abstractmethod
     def model_to_completions(cls, resp, config):
         raise NotImplementedError
 
-    @abstractclassmethod
+    @classmethod
+    def model_to_completions_streaming(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
     def completions_to_model(cls, payload, config):
         raise NotImplementedError
 
-    @abstractclassmethod
+    @classmethod
+    def completions_streaming_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_chat(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_chat_streaming(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def chat_streaming_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
     def embeddings_to_model(cls, payload, config):
         raise NotImplementedError
 

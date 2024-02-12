@@ -9,6 +9,7 @@ from mlflow.utils.file_utils import (
     mkdir,
     relative_path_to_artifact_path,
 )
+from mlflow.utils.uri import validate_path_is_safe
 
 
 class LocalArtifactRepository(ArtifactRepository):
@@ -65,17 +66,20 @@ class LocalArtifactRepository(ArtifactRepository):
         If ``dst_path`` is ``None``, the absolute filesystem path of the specified artifact is
         returned. If ``dst_path`` is not ``None``, the local artifact is copied to ``dst_path``.
 
-        :param artifact_path: Relative source path to the desired artifacts.
-        :param dst_path: Absolute path of the local filesystem destination directory to which to
-                         download the specified artifacts. This directory must already exist. If
-                         unspecified, the absolute path of the local artifact will be returned.
+        Args:
+            artifact_path: Relative source path to the desired artifacts.
+            dst_path: Absolute path of the local filesystem destination directory to which to
+                download the specified artifacts. This directory must already exist. If
+                unspecified, the absolute path of the local artifact will be returned.
 
-        :return: Absolute path of the local filesystem location containing the desired artifacts.
+        Returns:
+            Absolute path of the local filesystem location containing the desired artifacts.
         """
         if dst_path:
             return super().download_artifacts(artifact_path, dst_path)
-        # NOTE: The artifact_path is expected to be in posix format.
+        # NOTE: The artifact_path is expected to be a relative path in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
+        artifact_path = validate_path_is_safe(artifact_path)
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         if not os.path.exists(local_artifact_path):
             raise OSError(f"No such file or directory: '{local_artifact_path}'")
@@ -100,8 +104,9 @@ class LocalArtifactRepository(ArtifactRepository):
             return []
 
     def _download_file(self, remote_file_path, local_path):
-        # NOTE: The remote_file_path is expected to be in posix format.
+        # NOTE: The remote_file_path is expected to be a relative path in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
+        remote_file_path = validate_path_is_safe(remote_file_path)
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         shutil.copy2(remote_file_path, local_path)
 

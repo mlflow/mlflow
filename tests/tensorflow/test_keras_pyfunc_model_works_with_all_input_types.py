@@ -30,6 +30,7 @@ from tests.helper_functions import (
     expect_status_code,
     pyfunc_serve_and_score_model,
 )
+from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 IS_TENSORFLOW_AVAILABLE = _is_available_on_pypi("tensorflow")
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-manager", "local"]
@@ -49,14 +50,6 @@ def data():
     y = data["target"]
     x = data.drop("target", axis=1)
     return x, y
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    from pyspark.sql import SparkSession
-
-    with SparkSession.builder.master("local[2]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")

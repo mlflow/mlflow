@@ -110,9 +110,7 @@ log_test_args = [
 
 
 @pytest.mark.parametrize(("args", "kwargs", "expected"), log_test_args)
-def test_log_fn_args_as_params(
-    args, kwargs, expected, start_run
-):  # pylint: disable=unused-argument
+def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=unused-argument
     log_fn_args_as_params(dummy_fn, args, kwargs)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params

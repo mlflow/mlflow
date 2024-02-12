@@ -668,9 +668,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(
-    model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
-):  # pylint: disable=unused-argument
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):  # pylint: disable=unused-argument
     """
     Load the Johnsnowlabs MLflow model from the path.
 

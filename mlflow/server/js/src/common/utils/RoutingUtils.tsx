@@ -28,6 +28,7 @@ import {
   useNavigate as useNavigateDirect,
   useLocation as useLocationDirect,
   useParams as useParamsDirect,
+  useSearchParams as useSearchParamsDirect,
   Routes,
   type To,
   type NavigateOptions,
@@ -44,6 +45,8 @@ import { shouldUsePathRouting } from './FeatureUtils';
 import React, { ComponentProps } from 'react';
 
 const useLocation = useLocationDirect;
+
+const useSearchParams = useSearchParamsDirect;
 
 const useParams = useParamsDirect;
 
@@ -67,6 +70,7 @@ export {
   useNavigate,
   useLocation,
   useParams,
+  useSearchParams,
   generatePath,
   matchPath,
   Navigate,
@@ -86,7 +90,6 @@ export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
   componentLoader: () => Promise<{ default: React.ComponentType<any> }>,
 ) => React.createElement(React.lazy(componentLoader));
-export const createRouteElement = (component: React.ComponentType<any>) =>
-  React.createElement(component);
+export const createRouteElement = (component: React.ComponentType<any>) => React.createElement(component);
 
 export type { Location, NavigateFunction, Params, To, NavigateOptions };

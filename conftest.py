@@ -176,7 +176,6 @@ def pytest_ignore_collect(path, config):
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
-            "tests/promptflow",
             "tests/prophet",
             "tests/pyfunc",
             "tests/pytorch",
@@ -228,9 +227,7 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_terminal_summary(
-    terminalreporter, exitstatus, config
-):  # pylint: disable=unused-argument
+def pytest_terminal_summary(terminalreporter, exitstatus, config):  # pylint: disable=unused-argument
     yield
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
