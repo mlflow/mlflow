@@ -942,6 +942,6 @@ def test_update_requirements_cli_throws_on_incompatible_input():
     ):
         CliRunner().invoke(
             models_cli.update_pip_requirements,
-            ["-m", f"{model_uri}", "add", "mlflow<2.6, mlflow>2.7"],
+            ["-m", f"{model_uri}", "add", "mlflow<2.6", "mlflow>2.7"],
             catch_exceptions=False,
         )
