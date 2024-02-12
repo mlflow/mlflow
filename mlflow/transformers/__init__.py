@@ -46,7 +46,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.transformers.flavor_config import FlavorKey, build_flavor_config
+from mlflow.transformers.flavor_config import (
+    FlavorKey,
+    build_flavor_config,
+)
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
 from mlflow.transformers.model_io import (
     _COMPONENTS_BINARY_DIR_NAME,
@@ -54,6 +57,7 @@ from mlflow.transformers.model_io import (
     load_model_and_components_from_local,
     save_pipeline_pretrained_weights,
 )
+from mlflow.transformers.peft import get_model_with_peft_adapter, is_peft_model, save_peft_adaptor
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
@@ -193,15 +197,6 @@ def get_default_pip_requirements(model) -> List[str]:
         ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()`
         produce a pip environment that contain these requirements at a minimum.
     """
-
-    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
-
-    if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
-        raise MlflowException(
-            "The supplied model type is unsupported. The model must be one of: "
-            "PreTrainedModel, TFPreTrainedModel, or FlaxPreTrainedModel",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
     try:
         base_reqs = ["transformers", *_model_packages(model)]
         return [_get_pinned_requirement(module) for module in base_reqs]
@@ -537,6 +532,14 @@ def save_model(
             mlflow_model.metadata[FlavorKey.PROMPT_TEMPLATE] = prompt_template
         else:
             mlflow_model.metadata = {FlavorKey.PROMPT_TEMPLATE: prompt_template}
+
+    if is_peft_model(built_pipeline.model):
+        _logger.info(
+            "TBA. Overriding save_pretrained to False for PEFT models,",
+            "following the Transformers behavior.",
+        )
+        save_peft_adaptor(path, built_pipeline.model)
+        save_pretrained = False
 
     if not save_pretrained and not is_valid_hf_repo_id(built_pipeline.model.name_or_path):
         _logger.warning(
@@ -1075,6 +1078,13 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     else:
         model_and_components = load_model_and_components_from_huggingface_hub(
             flavor_conf=flavor_config, accelerate_conf=accelerate_model_conf, device=device
+        )
+
+    # Load and apply PEFT adaptor if saved
+    if peft_adapter_dir := flavor_config.get(FlavorKey.PEFT, None):
+        model_and_components[FlavorKey.MODEL] = get_model_with_peft_adapter(
+            base_model=model_and_components[FlavorKey.MODEL],
+            peft_adapter_path=os.path.join(path, peft_adapter_dir),
         )
 
     conf = {**conf, **model_and_components}

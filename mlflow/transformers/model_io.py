@@ -6,7 +6,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
-from mlflow.transformers.flavor_config import FlavorKey
+from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
 
 _logger = logging.getLogger(__name__)
 
@@ -26,7 +26,9 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
         flavor_config: The flavor configuration constructed for the pipeline
         processor: Optional processor instance to save alongside the pipeline
     """
-    pipeline.model.save_pretrained(
+    model = get_peft_base_model(pipeline.model) if is_peft_model(pipeline.model) else pipeline.model
+
+    model.save_pretrained(
         save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
         max_shard_size=MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE.get(),
     )

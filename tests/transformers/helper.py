@@ -257,6 +257,33 @@ def load_feature_extraction_pipeline():
     return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
 
 
+@prefetch
+@flaky()
+def load_peft_pipeline():
+    try:
+        import torch
+        from peft import PeftConfig, PeftModel
+    except ImportError:
+        # Do nothing if PEFT/Pytorch is not installed
+        return
+
+    peft_model_id = "ybelkada/opt-350m-lora"
+    config = PeftConfig.from_pretrained(peft_model_id)
+
+    base_model = transformers.AutoModelForCausalLM.from_pretrained(
+        config.base_model_name_or_path,
+        low_cpu_mem_usage=True,
+        # NB: This test model runs with float16 by default, but some operations like
+        # LayerNorm are not supported with float16 on CPU. As we don't have GPU test
+        # environment, we set the torch dtype to float32 to avoid the error.
+        torch_dtype=torch.float32,
+    )
+    peft_model = PeftModel.from_pretrained(base_model, peft_model_id)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(config.base_model_name_or_path)
+
+    return transformers.pipeline(task="text-generation", model=peft_model, tokenizer=tokenizer)
+
+
 def prefetch_models():
     """
     Prefetches models used in the test suite to avoid downloading them during the test run.
