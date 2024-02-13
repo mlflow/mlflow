@@ -1158,11 +1158,10 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow import MlflowClient
+            import tempfile
+            from pathlib import Path
 
-            features = "rooms, zipcode, median_price, school_rating, transport"
-            with open("features.txt", "w") as f:
-                f.write(features)
+            from mlflow import MlflowClient
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -1170,7 +1169,11 @@ class MlflowClient:
             run = client.create_run(experiment_id)
 
             # log and fetch the artifact
-            client.log_artifact(run.info.run_id, "features.txt")
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                path = Path(tmp_dir, "features.txt")
+                path.write_text(features)
+                client.log_artifact(run.info.run_id, path)
+
             artifacts = client.list_artifacts(run.info.run_id)
             for artifact in artifacts:
                 print(f"artifact: {artifact.path}")
@@ -1198,26 +1201,27 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            import os
             import json
+            import tempfile
+            from pathlib import Path
 
             # Create some artifacts data to preserve
             features = "rooms, zipcode, median_price, school_rating, transport"
             data = {"state": "TX", "Available": 25, "Type": "Detached"}
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_dir = Path(tmp_dir)
+                with (tmp_dir / "data.json").open("w") as f:
+                    json.dump(data, f, indent=2)
+                with (tmp_dir / "features.json").open("w") as f:
+                    f.write(features)
 
-            # Create couple of artifact files under the local directory "data"
-            os.makedirs("data", exist_ok=True)
-            with open("data/data.json", "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-            with open("data/features.txt", "w") as f:
-                f.write(features)
+                # Create a run under the default experiment (whose id is '0'), and log
+                # all files in "data" to root artifact_uri/states
+                client = MlflowClient()
+                experiment_id = "0"
+                run = client.create_run(experiment_id)
+                client.log_artifacts(run.info.run_id, tmp_dir, artifact_path="states")
 
-            # Create a run under the default experiment (whose id is '0'), and log
-            # all files in "data" to root artifact_uri/states
-            client = MlflowClient()
-            experiment_id = "0"
-            run = client.create_run(experiment_id)
-            client.log_artifacts(run.info.run_id, "data", artifact_path="states")
             artifacts = client.list_artifacts(run.info.run_id)
             for artifact in artifacts:
                 print(f"artifact: {artifact.path}")
