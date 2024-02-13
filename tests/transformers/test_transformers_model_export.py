@@ -3909,3 +3909,42 @@ def test_text_generation_task_chat_predict(text_generation_pipeline, model_path)
         inference[0]["choices"][0]["finish_reason"] == "stop"
         and inference[0]["usage"]["completion_tokens"] < 10
     )
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
+)
+def test_text_generation_task_chat_serve(text_generation_pipeline):
+    data = {
+        "messages": [
+            {"role": "user", "content": "How to learn Python in 3 weeks?"},
+        ],
+        "max_tokens": 10,
+    }
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=text_generation_pipeline,
+            artifact_path="model",
+            task="llm/v1/chat",
+        )
+
+    inference_payload = json.dumps(data)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    output_dict = values.to_dict("records")[0]
+    assert output_dict["choices"][0]["message"] is not None
+    assert (
+        output_dict["choices"][0]["finish_reason"] == "length"
+        and output_dict["choices"][0]["usage"]["completion_tokens"] == 10
+    ) or (
+        output_dict["choices"][0]["finish_reason"] == "stop"
+        and output_dict["choices"][0]["usage"]["completion_tokens"] < 10
+    )
+    assert output_dict["usage"]["prompt_tokens"] < 20
