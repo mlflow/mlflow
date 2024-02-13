@@ -3929,7 +3929,7 @@ def test_text_generation_task_chat_serve(text_generation_pipeline):
             task="llm/v1/chat",
         )
 
-    inference_payload = json.dumps({"inputs": data})
+    inference_payload = json.dumps(data)
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -3937,14 +3937,14 @@ def test_text_generation_task_chat_serve(text_generation_pipeline):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-    output_dict = values.to_dict("records")[0]
+
+    output_dict = json.load(response.content)
     assert output_dict["choices"][0]["message"] is not None
     assert (
         output_dict["choices"][0]["finish_reason"] == "length"
-        and output_dict["choices"][0]["usage"]["completion_tokens"] == 10
+        and output_dict["usage"]["completion_tokens"] == 10
     ) or (
         output_dict["choices"][0]["finish_reason"] == "stop"
-        and output_dict["choices"][0]["usage"]["completion_tokens"] < 10
+        and output_dict["usage"]["completion_tokens"] < 10
     )
     assert output_dict["usage"]["prompt_tokens"] < 20
