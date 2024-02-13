@@ -3938,7 +3938,7 @@ def test_text_generation_task_chat_serve(text_generation_pipeline):
         extra_args=["--env-manager", "local"],
     )
 
-    output_dict = json.load(response.content)
+    output_dict = json.loads(response.content)
     assert output_dict["choices"][0]["message"] is not None
     assert (
         output_dict["choices"][0]["finish_reason"] == "length"
