@@ -34,58 +34,58 @@ docstring-code-line-length = 88
 [tool.ruff.lint]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
-  "B006",
-  "B015",
-  "E",
-  "F",
-  "C4",
-  "I",
-  "PLR0402",
-  "PT001",
-  "PT002",
-  "PT003",
-  "PT006",
-  "PT007",
-  "PT009",
-  "PT010",
-  "PT011",
-  "PT012",
-  "PT013",
-  "PT014",
-  "PT018",
-  "PT022",
-  "PT023",
-  "PT026",
-  "PT027",
-  "RUF010",
-  "RUF013",
-  "S307",
-  "S324",
-  "UP004",
-  "UP008",
-  "UP011",
-  "UP012",
-  "UP015",
-  "UP030",
-  "UP031",
-  "UP032",
-  "UP034",
-  "SIM101",
-  "SIM103",
-  "SIM114",
-  "SIM115",
-  "SIM108",
-  "SIM210",
-  "SIM910",
-  "T20",
-  "TID252",
-  "TID251",
-  "W",
+  "B006",    # multiple-argument-default
+  "B015",    # useless-comparison
+  "E",       # error
+  "F",       # Pyflakes
+  "C4",      # flake8-comprehensions
+  "I",       # isort
+  "PLR0402", # manual-from-import
+  "PT001",   # pytest-fixture-incorrect-parentheses-style
+  "PT002",   # pytest-fixture-positional-args
+  "PT003",   # pytest-extraneous-scope-function
+  "PT006",   # pytest-parameterize-names-wrong-type
+  "PT007",   # pytest-parameterize-values-wrong-type
+  "PT009",   # pytest-unittest-assertion
+  "PT010",   # pytest-raises-without-exception
+  "PT011",   # pytest-raises-too-broad
+  "PT012",   # pytest-raises-with-multiple-statements
+  "PT013",   # pytest-incorrect-pytest-import
+  "PT014",   # pytest-duplicate-parametrize-test-cases
+  "PT018",   # pytest-composite-assertion
+  "PT022",   # pytest-useless-yield-fixture
+  "PT023",   # pytest-incorrect-mark-parentheses-style
+  "PT026",   # pytest-use-fixtures-without-parameters
+  "PT027",   # pytest-unittest-raises-assertion
+  "RUF010",  # explicit-f-string-type-conversion
+  "RUF013",  # implicit-optional
+  "S307",    # suspicious-eval-usage
+  "S324",    # hashlib-insecure-hash-function
+  "SIM101",  # duplicate-isinstance-call
+  "SIM103",  # needless-bool
+  "SIM108",  # if-else-block-instead-of-if-exp
+  "SIM114",  # if-with-same-arms
+  "SIM115",  # open-file-with-context-handler
+  "SIM210",  # if-expr-with-true-false
+  "SIM910",  # dict-get-with-none-default
+  "T20",     # flake8-print
+  "TID251",  # banned-api
+  "TID252",  # relative-improt
+  "UP004",   # useless-object-inheritance
+  "UP008",   # super-call-with-parameters
+  "UP011",   # lru-cache-without-parameters
+  "UP012",   # unecessary-encode-utf8
+  "UP015",   # redundant-open-modes
+  "UP030",   # format-literals
+  "UP031",   # printf-string-format
+  "UP032",   # f-string
+  "UP034",   # extraneous-parenthesis
+  "W",       # warning
 ]
 ignore = [
-  "E721",  # type-comparison
   "E402",  # module-import-not-at-top-of-file
   "E501",  # line-too-long
+  "E721",  # type-comparison
   "E741",  # ambiguous-variable-name
   "F811",  # redefined-while-unused
 ]
