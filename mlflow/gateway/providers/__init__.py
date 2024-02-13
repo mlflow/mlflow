@@ -15,6 +15,7 @@ def get_provider(provider: Provider) -> Type[BaseProvider]:
     from mlflow.gateway.providers.mosaicml import MosaicMLProvider
     from mlflow.gateway.providers.openai import OpenAIProvider
     from mlflow.gateway.providers.palm import PaLMProvider
+    from mlflow.gateway.providers.anyscale import AnyscaleProvider
 
     provider_to_class = {
         Provider.OPENAI: OpenAIProvider,
@@ -26,6 +27,7 @@ def get_provider(provider: Provider) -> Type[BaseProvider]:
         Provider.MLFLOW_MODEL_SERVING: MlflowModelServingProvider,
         Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HFTextGenerationInferenceServerProvider,
         Provider.BEDROCK: AWSBedrockProvider,
+        Provider.ANYSCALE: AnyscaleProvider
     }
     if prov := provider_to_class.get(provider):
         return prov

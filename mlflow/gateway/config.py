@@ -46,6 +46,7 @@ class Provider(str, Enum):
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
+    ANYSCALE = "anyscale"
 
     @classmethod
     def values(cls):
@@ -165,6 +166,22 @@ class OpenAIConfig(ConfigModel):
             return cls._validate_field_compatibility(config)
 
 
+class AnyscaleConfig(ConfigModel):
+    anyscale_api_key: str
+    anyscale_api_base: Optional[str] = None
+
+    @validator("anyscale_api_key", pre=True)
+    def validate_anyscale_api_key(cls, value):  # pylint: disable=no-self-argument
+        return _resolve_api_key_from_input(value)
+
+    @validator("anyscale_api_base", pre=True)
+    def validate_anyscale_api_base(cls, value):  # pylint: disable=no-self-argument
+        try:
+            return _resolve_api_key_from_input(value)
+        except MlflowException:
+            return "https://api.endpoints.anyscale.com/v1"
+
+
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
@@ -226,6 +243,7 @@ config_types = {
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
+    Provider.ANYSCALE: AnyscaleConfig,
 }
 
 
@@ -285,6 +303,7 @@ class Model(ConfigModel):
             MlflowModelServingConfig,
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
+            AnyscaleConfig,
         ]
     ] = None
 

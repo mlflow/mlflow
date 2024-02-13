@@ -1,0 +1,22 @@
+endpoints:
+  - name: codellama
+    endpoint_type: llm/v1/chat
+    model:
+      provider: anyscale
+      name: meta-llama/Llama-2-70b-chat-hf
+      config:
+        anyscale_api_key: $ANYSCALE_API_KEY
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: anyscale
+      name: BAAI/bge-large-en-v1.5
+      config:
+        anyscale_api_key: $ANYSCALE_API_KEY
+  - name: llama
+    endpoint_type: llm/v1/chat
+    model:
+      provider: anyscale
+      name: codellama/CodeLlama-34b-Instruct-hf
+      config:
+        anyscale_api_key: $ANYSCALE_API_KEY
