@@ -417,7 +417,7 @@ def save_model(
         # it only supports saving model in .h5 or .keras format
         if save_format == "h5":
             file_extension = ".h5"
-        elif Version(tf.__version__).release >= (2, 15):
+        elif Version(tf.__version__).release >= (2, 16):
             file_extension = ".keras"
         else:
             file_extension = ""
@@ -1185,9 +1185,7 @@ def autolog(
         def __init__(self):
             self.log_dir = None
 
-        def _patch_implementation(
-            self, original, inst, *args, **kwargs
-        ):  # pylint: disable=arguments-differ
+        def _patch_implementation(self, original, inst, *args, **kwargs):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
