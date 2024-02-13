@@ -1185,7 +1185,9 @@ def autolog(
         def __init__(self):
             self.log_dir = None
 
-        def _patch_implementation(self, original, inst, *args, **kwargs):  # pylint: disable=arguments-differ
+        def _patch_implementation(
+            self, original, inst, *args, **kwargs
+        ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
@@ -1228,7 +1230,6 @@ def autolog(
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = mlflow.active_run().info.run_id
             # Check if the 'callback' argument of fit() is set positionally
             if len(args) >= 6:
                 # Convert the positional training function arguments to a list in order to
