@@ -542,7 +542,8 @@ transformers:
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
     run: |
-      pytest tests/transformers/test_transformers_model_export.py
+      # Run all Transformers tests except autologging
+      pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
       pip uninstall -y accelerate
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
