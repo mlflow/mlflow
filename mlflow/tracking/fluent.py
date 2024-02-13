@@ -1030,13 +1030,12 @@ def log_artifact(
         # Create a features.txt artifact file
         features = "rooms, zipcode, median_price, school_rating, transport"
         with tempfile.TemporaryDirectory() as tmp_dir:
-            with Path(tmp_dir, "features.txt").open("w") as f:
-                f.write(features)
-
+            path = Path(tmp_dir, "features.txt")
+            path.write_text(features)
             # With artifact_path=None write features.txt under
             # root artifact_uri/artifacts directory
             with mlflow.start_run():
-                mlflow.log_artifact("features.txt")
+                mlflow.log_artifact(path)
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
@@ -1058,7 +1057,8 @@ def log_artifacts(
         :caption: Example
 
         import json
-        import os
+        import tempfile
+        from pathlib import Path
         import mlflow
 
         # Create some files to preserve as artifacts
@@ -1066,13 +1066,15 @@ def log_artifacts(
         data = {"state": "TX", "Available": 25, "Type": "Detached"}
         # Create couple of artifact files under the directory "data"
         os.makedirs("data", exist_ok=True)
-        with open("data/data.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        with open("data/features.txt", "w") as f:
-            f.write(features)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_dir = Path(tmp_dir)
+            with (tmp_dir / "data.json").open("w") as f:
+                json.dump(data, f, indent=2)
+            with (tmpdir / "features.json").open("w") as f:
+                f.write(features)
         # Write all files in "data" to root artifact_uri/states
         with mlflow.start_run():
-            mlflow.log_artifacts("data", artifact_path="states")
+            mlflow.log_artifacts(path, artifact_path="states")
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
