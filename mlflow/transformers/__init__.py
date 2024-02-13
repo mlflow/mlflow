@@ -519,12 +519,6 @@ def save_model(
     if task and task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         llm_inference_task = task
         _validate_llm_inference_task_type(llm_inference_task, built_pipeline)
-
-        flavor_conf.update({_LLM_INFERENCE_TASK_KEY: task})
-        if mlflow_model.metadata:
-            mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY] = task
-        else:
-            mlflow_model.metadata = {_METADATA_LLM_INFERENCE_TASK_KEY: task}
     else:
         llm_inference_task = None
 
@@ -563,6 +557,13 @@ def save_model(
 
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
+
+    if llm_inference_task:
+        flavor_conf.update({_LLM_INFERENCE_TASK_KEY: task})
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY] = task
+        else:
+            mlflow_model.metadata = {_METADATA_LLM_INFERENCE_TASK_KEY: task}
 
     # Save the model object
     built_pipeline.model.save_pretrained(
@@ -1266,6 +1267,7 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
 
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         from transformers.pipelines import get_task
+
         task = get_task(model_dict[_MODEL_KEY].name_or_path)
 
     try:

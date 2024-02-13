@@ -223,10 +223,8 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
 
 
 def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
-    generated = _build_pipeline_from_model_input({
-        "model": small_qa_pipeline.model,
-        "tokenizer": small_qa_pipeline.tokenizer
-        },
+    generated = _build_pipeline_from_model_input(
+        {"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer},
         "question-answering",
     )
     assert isinstance(generated, type(small_qa_pipeline))
