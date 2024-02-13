@@ -78,7 +78,7 @@ def get_default_conda_env():
 
 
 @experimental
-def _veryfy_task_and_update_metadata(
+def _verify_task_and_update_metadata(
     task: str, metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
@@ -182,7 +182,7 @@ def save_model(
         mlflow_model.metadata = metadata
     model_config = None
     if task is not None:
-        mlflow_model.metadata = _veryfy_task_and_update_metadata(task, mlflow_model.metadata)
+        mlflow_model.metadata = _verify_task_and_update_metadata(task, mlflow_model.metadata)
         model_config = {"task": _LLM_INFERENCE_TASK_EMBEDDING}
 
     model.save(str(model_data_path))
@@ -317,7 +317,7 @@ def log_model(
 
     """
     if task is not None:
-        metadata = _veryfy_task_and_update_metadata(task, metadata)
+        metadata = _verify_task_and_update_metadata(task, metadata)
 
     return Model.log(
         artifact_path=artifact_path,
@@ -346,7 +346,8 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     import sentence_transformers
 
     model = sentence_transformers.SentenceTransformer.load(path)
-    task = model_config["task"] if model_config else None
+    model_config = model_config or {}
+    task = model_config.get("task", None)
     return _SentenceTransformerModelWrapper(model, task)
 
 
@@ -423,15 +424,13 @@ class _SentenceTransformerModelWrapper:
         # When the input is a single string or a dictionary, it is transformed into a DataFrame
         # with one column and row, but the encode function does not accept DataFrame input
         convert_output_to_llm_v1_format = False
-        print(sentences)
         if type(sentences) == pd.DataFrame:
             # Wrap the output to OpenAI format only when the input is dict `{"input": ... }`
             if self.task and list(sentences.columns)[0] == _LLM_V1_EMBEDDING_INPUT_KEY:
                 convert_output_to_llm_v1_format = True
-            sentences = sentences[0]
+            sentences = sentences.iloc[:, 0]
             if type(sentences[0]) == list:
                 sentences = sentences[0]
-        print(sentences)
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode

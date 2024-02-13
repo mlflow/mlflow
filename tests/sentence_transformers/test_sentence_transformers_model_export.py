@@ -482,12 +482,12 @@ def test_model_log_with_signature_inference(basic_model):
     assert model_info.signature == SIGNATURE
 
 
-def test_veryfy_task_and_update_metadata():
+def test_verify_task_and_update_metadata():
     # Update embedding task with empty metadata
-    metadata = mlflow.sentence_transformers._veryfy_task_and_update_metadata("llm/v1/embeddings")
+    metadata = mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/embeddings")
     assert metadata == {"task": "llm/v1/embeddings"}
     # Update embedding task with metadata containing task
-    metadata = mlflow.sentence_transformers._veryfy_task_and_update_metadata(
+    metadata = mlflow.sentence_transformers._verify_task_and_update_metadata(
         "llm/v1/embeddings", metadata
     )
     assert metadata == {"task": "llm/v1/embeddings"}
@@ -497,11 +497,11 @@ def test_veryfy_task_and_update_metadata():
     with pytest.raises(
         MlflowException, match=r"Task type is inconsistent with the task value from metadata"
     ):
-        mlflow.sentence_transformers._veryfy_task_and_update_metadata("llm/v1/embeddings", metadata)
+        mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/embeddings", metadata)
 
     # Invalid task type
     with pytest.raises(MlflowException, match=r"Task type could only be llm/v1/embeddings"):
-        mlflow.sentence_transformers._veryfy_task_and_update_metadata("llm/v1/completions")
+        mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/completions")
 
 
 def test_model_pyfunc_with_dict_input(basic_model, model_path):
