@@ -1,3 +1,5 @@
+from ast import List
+from functools import partial
 import json
 import keyword
 import logging
@@ -14,6 +16,7 @@ from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
+import requests
 from types import FunctionType
 from typing import Any, Dict
 
@@ -1266,6 +1269,9 @@ def evaluate(
     env_manager="local",
     model_config=None,
     baseline_config=None,
+    endpoint_type=None,
+    inference_params=None,
+    headers=None,
 ):
     '''
     Evaluate the model performance on given data and selected metrics.
@@ -1493,6 +1499,7 @@ def evaluate(
 
             - A pyfunc model instance
             - A URI referring to a pyfunc model
+            - A URI referring to a REST API endpoint of a served ML model
             - A callable function: This function should be able to take in model input and
               return predictions. It should follow the signature of the
               :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
@@ -1769,6 +1776,18 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
+    # Some arguments are currently only supported for passing a REST API endpoint as the model.
+    is_model_endpoint_url = isinstance(model, str) and (model.startswith("http://") or model.startswith("https://"))
+    if not is_model_endpoint_url:
+        params_only_supported_for_endpoint_model = ["endpoint_type", "inference_params", "headers"]
+        for param in params_only_supported_for_endpoint_model:
+            if locals()[param] is not None:
+                raise MlflowException(
+                    message=f"The {param} argument can only be specified when the model "
+                    "is a string URI referring to a REST API endpoint of a served ML model.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
     if evaluator_config is not None:
         col_mapping = evaluator_config.get("col_mapping", {})
 
@@ -1843,7 +1862,11 @@ def evaluate(
             )
 
     if isinstance(model, str):
-        model = _load_model_or_server(model, env_manager, model_config)
+        if model.startswith("http://") or model.startswith("https://"):
+            from mlflow.models.evaluation.llm_utils import get_model_from_llm_endpoint_url
+            model = get_model_from_llm_endpoint_url(model, endpoint_type, inference_params, headers)
+        else:
+            model = _load_model_or_server(model, env_manager, model_config)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model when a "
@@ -1892,8 +1915,8 @@ def evaluate(
         model = _get_model_from_function(model)
     else:
         raise MlflowException(
-            message="The model argument must be a string URI referring to an MLflow model, "
-            "an instance of `mlflow.pyfunc.PyFuncModel`, a function, or None.",
+            message="The model argument must be a string URI referring to an MLflow model or MLflow "
+            "Deployment Server, an instance of `mlflow.pyfunc.PyFuncModel`, a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
