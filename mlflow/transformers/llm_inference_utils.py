@@ -20,8 +20,10 @@ _LLM_INFERENCE_TASK_KEY = "inference_task"
 # future Databricks Provisioned Throughput support of more model architectures for inference.
 _METADATA_LLM_INFERENCE_TASK_KEY = "task"
 
-_LLM_INFERENCE_TASK_COMPLETIONS = "llm/v1/completions"
-_LLM_INFERENCE_TASK_CHAT = "llm/v1/chat"
+_LLM_INFERENCE_TASK_PREFIX = "llm/v1"
+_LLM_INFERENCE_TASK_COMPLETIONS = f"{_LLM_INFERENCE_TASK_PREFIX}/completions"
+_LLM_INFERENCE_TASK_CHAT = f"{_LLM_INFERENCE_TASK_PREFIX}/chat"
+
 
 _LLM_INFERENCE_OBJECT_NAME = {
     _LLM_INFERENCE_TASK_COMPLETIONS: "text_completion",
