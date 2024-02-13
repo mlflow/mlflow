@@ -3929,7 +3929,7 @@ def test_text_generation_task_chat_serve(text_generation_pipeline):
             task="llm/v1/chat",
         )
 
-    inference_payload = json.dumps(data)
+    inference_payload = json.dumps({"inputs": data})
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
