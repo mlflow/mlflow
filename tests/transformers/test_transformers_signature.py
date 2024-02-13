@@ -136,7 +136,6 @@ from mlflow.types.schema import ColSpec, DataType, Schema
         ),
     ],
 )
-@pytest.mark.skipcacheclean
 def test_signature_inference(pipeline_name, example, expected_signature, request):
     pipeline = request.getfixturevalue(pipeline_name)
 
@@ -194,7 +193,6 @@ def test_infer_signature_prediction_error_then_fall_back_to_default(text_generat
         ),
     ],
 )
-@pytest.mark.skipcacheclean
 def test_format_input_example_for_special_cases(request, pipeline_name, example, expected):
     pipeline = request.getfixturevalue(pipeline_name)
     formatted_example = format_input_example_for_special_cases(example, pipeline)
