@@ -1,12 +1,18 @@
 from unittest import mock
 
 import pandas as pd
+import pytest
 
 from mlflow.deployments import set_deployments_target
 from mlflow.entities.param import Param
 from mlflow.promptlab import _PromptlabModel
 
-set_deployments_target("http://localhost:5000")
+
+@pytest.fixture(autouse=True, scope="module")
+def set_target():
+    set_deployments_target("http://localhost:5000")
+    yield
+    set_deployments_target(None)
 
 
 def construct_model(route):
