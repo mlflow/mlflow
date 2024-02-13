@@ -46,6 +46,7 @@ class Provider(str, Enum):
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
+    MISTRAL = "mistral"
 
     @classmethod
     def values(cls):
@@ -216,6 +217,15 @@ class AWSBedrockConfig(ConfigModel):
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
 
+class MistralConfig(ConfigModel):
+    mistral_api_key: str
+
+    # pylint: disable=no-self-argument
+    @validator("mistral_api_key", pre=True)
+    def validate_mistral_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
@@ -226,6 +236,7 @@ config_types = {
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
+    Provider.MISTRAL: MistralConfig,
 }
 
 
@@ -285,6 +296,7 @@ class Model(ConfigModel):
             MlflowModelServingConfig,
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
+            MistralConfig,
         ]
     ] = None
 
