@@ -926,9 +926,7 @@ def test_update_requirements_cli_removes_reqs_successfully():
 
     # the tool should remove mlflow and leave cloudpickle alone
     reqs = _get_requirements_from_file(local_paths.requirements)
-    assert len(reqs) == 1
-    assert Requirement(f"mlflow=={mlflow.__version__}") not in reqs
-    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+    assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
 
     reqs = _get_requirements_from_file(local_paths.conda)
     assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
