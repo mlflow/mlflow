@@ -1069,7 +1069,7 @@ def log_artifacts(
             tmp_dir = Path(tmp_dir)
             with (tmp_dir / "data.json").open("w") as f:
                 json.dump(data, f, indent=2)
-            with (tmpdir / "features.json").open("w") as f:
+            with (tmp_dir / "features.json").open("w") as f:
                 f.write(features)
         # Write all files in "data" to root artifact_uri/states
         with mlflow.start_run():

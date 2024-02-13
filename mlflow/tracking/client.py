@@ -1212,7 +1212,7 @@ class MlflowClient:
                 tmp_dir = Path(tmp_dir)
                 with (tmp_dir / "data.json").open("w") as f:
                     json.dump(data, f, indent=2)
-                with (tmpdir / "features.json").open("w") as f:
+                with (tmp_dir / "features.json").open("w") as f:
                     f.write(features)
 
                 # Create a run under the default experiment (whose id is '0'), and log
