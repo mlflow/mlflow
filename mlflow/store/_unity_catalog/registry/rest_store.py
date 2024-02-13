@@ -169,11 +169,11 @@ def get_model_version_dependencies(model_dir):
     dependencies = List()
     index_name = _fetch_langchain_dependency_from_model_info(model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY)
     if index_name:
-        dependencies.append({"vector_index": {"name": index_name}})
+        dependencies.append({"kind": "vector_index", "source": index_name})
     for key in (_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY, _DATABRICKS_LLM_ENDPOINT_NAME_KEY, _DATABRICKS_CHAT_ENDPOINT_NAME_KEY):
         endpoint_name =  _fetch_langchain_dependency_from_model_info(model_info, key)
         if endpoint_name:
-            dependencies.append({"model_endpoint": {"name": endpoint_name}})
+            dependencies.append({"kind": "endpoint", "source": endpoint_name})
     return dependencies
     
 
