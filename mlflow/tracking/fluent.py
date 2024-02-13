@@ -1022,8 +1022,8 @@ def log_artifact(
         :test:
         :caption: Example
 
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         import mlflow
 
@@ -1059,13 +1059,12 @@ def log_artifacts(
         import json
         import tempfile
         from pathlib import Path
+
         import mlflow
 
         # Create some files to preserve as artifacts
         features = "rooms, zipcode, median_price, school_rating, transport"
         data = {"state": "TX", "Available": 25, "Type": "Detached"}
-        # Create couple of artifact files under the directory "data"
-        os.makedirs("data", exist_ok=True)
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir = Path(tmp_dir)
             with (tmp_dir / "data.json").open("w") as f:
