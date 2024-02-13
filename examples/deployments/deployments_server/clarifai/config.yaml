@@ -1,0 +1,20 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: clarifai
+      name: mistral-7B-Instruct
+      config:
+        clarifai_pat: $clarifai_pat
+        user_id: mistralai
+        app_id: completion
+
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: clarifai
+      name: multimodal-clip-embed
+      config:
+        clarifai_pat: $clarifai_pat
+        user_id: clarifai
+        app_id: main

@@ -43,6 +43,7 @@ class Provider(str, Enum):
     HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
     BEDROCK = "bedrock"
+    CLARIFAI = "clarifai"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -216,6 +217,18 @@ class AWSBedrockConfig(ConfigModel):
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
 
+class ClarifaiConfig(ConfigModel):
+    clarifai_pat: str
+    user_id: str
+    app_id: str
+    model_version_id: Optional[str] = None
+
+    # pylint: disable=no-self-argument
+    @validator("clarifai_pat", pre=True)
+    def validate_clarifai_pat(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
@@ -226,6 +239,7 @@ config_types = {
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
+    Provider.CLARIFAI: ClarifaiConfig,
 }
 
 
@@ -285,6 +299,7 @@ class Model(ConfigModel):
             MlflowModelServingConfig,
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
+            ClarifaiConfig,
         ]
     ] = None
 
