@@ -1,4 +1,5 @@
 import { MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
+import { ModelGatewayRouteType } from '../../sdk/ModelGatewayService';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import {
   extractRunRowParam,
@@ -16,6 +17,7 @@ export const PROMPTLAB_METADATA_COLUMN_LATENCY = 'MLFLOW_latency';
 export const PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS = 'MLFLOW_total_tokens';
 
 const PARAM_MODEL_ROUTE = 'model_route';
+const PARAM_ROUTE_TYPE = 'route_type';
 const PARAM_PROMPT_TEMPLATE = 'prompt_template';
 const PARAM_MAX_TOKENS = 'max_tokens';
 const PARAM_TEMPERATURE = 'temperature';
@@ -39,10 +41,7 @@ export const getPromptInputVariableNameViolations = (promptTemplate: string) => 
   return { namesWithSpaces };
 };
 
-export const compilePromptInputText = (
-  inputTemplate: string,
-  inputValues: Record<string, string>,
-) =>
+export const compilePromptInputText = (inputTemplate: string, inputValues: Record<string, string>) =>
   Object.entries(inputValues).reduce(
     (current, [key, value]) => current.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'gi'), value),
     inputTemplate,
@@ -65,6 +64,7 @@ export const extractRequiredInputParamsForRun = (run: RunRowType) => {
  */
 export const extractEvaluationPrerequisitesForRun = (run: RunRowType) => {
   const routeName = extractRunRowParam(run, PARAM_MODEL_ROUTE);
+  const routeType = extractRunRowParam(run, PARAM_ROUTE_TYPE) as ModelGatewayRouteType;
   const promptTemplate = extractRunRowParam(run, PARAM_PROMPT_TEMPLATE);
   const max_tokens = extractRunRowParamInteger(run, PARAM_MAX_TOKENS);
 
@@ -77,7 +77,7 @@ export const extractEvaluationPrerequisitesForRun = (run: RunRowType) => {
     // Remove empty entries
     .filter(Boolean);
 
-  return { routeName, promptTemplate, parameters: { max_tokens, temperature, stop } };
+  return { routeName, routeType, promptTemplate, parameters: { max_tokens, temperature, stop } };
 };
 
 /**
@@ -85,4 +85,4 @@ export const extractEvaluationPrerequisitesForRun = (run: RunRowType) => {
  * thus contains necessary data for the evaluation of new values.
  */
 export const canEvaluateOnRun = (run?: RunRowType) =>
-  run?.tags[MLFLOW_RUN_SOURCE_TYPE_TAG]?.value === MLflowRunSourceType.PROMPT_ENGINEERING;
+  run?.tags?.[MLFLOW_RUN_SOURCE_TYPE_TAG]?.value === MLflowRunSourceType.PROMPT_ENGINEERING;

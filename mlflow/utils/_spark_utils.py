@@ -155,13 +155,13 @@ class _SparkDirectoryDistributor:
 
 @contextlib.contextmanager
 def modified_environ(update):
-    """
-    Temporarily updates the ``os.environ`` dictionary in-place.
+    """Temporarily updates the ``os.environ`` dictionary in-place.
 
     The ``os.environ`` dictionary is updated in-place so that the modification
     is sure to work in all situations.
 
-    :param update: Dictionary of environment variables and values to add/update.
+    Args:
+        update: Dictionary of environment variables and values to add/update.
     """
     update = update or {}
     original_env = {k: os.environ.get(k) for k in update}

@@ -200,3 +200,8 @@ def test_delete_artifacts(local_artifact_repo):
 
 def test_delete_artifacts_with_nonexistent_path_succeeds(local_artifact_repo):
     local_artifact_repo.delete_artifacts("nonexistent")
+
+
+def test_download_artifacts_invalid_remote_file_path(local_artifact_repo):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        local_artifact_repo.download_artifacts("/absolute/path/to/file")

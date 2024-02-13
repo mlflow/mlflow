@@ -27,16 +27,19 @@ def answer_similarity(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
-        "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-        evaluation may be subject to and governed by the LLM service's terms of use.
-    :param metric_version: (Optional) The version of the answer similarity metric to use.
-        Defaults to the latest version.
-    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        answer similarity. It is highly recommended to add examples to be used as a reference to
-        evaluate the new results.
-    :return: A metric object
+    Args:
+        model: (Optional) Model uri of an openai or gateway judge model in the format of
+            "openai:/gpt-4" or "gateway:/my-route". Defaults to
+            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+            evaluation may be subject to and governed by the LLM service's terms of use.
+        metric_version: (Optional) The version of the answer similarity metric to use.
+            Defaults to the latest version.
+        examples: (Optional) Provide a list of examples to help the judge model evaluate the
+            answer similarity. It is highly recommended to add examples to be used as a reference to
+            evaluate the new results.
+
+    Returns:
+        A metric object
     """
     if metric_version is None:
         metric_version = _get_latest_metric_version()
@@ -92,16 +95,19 @@ def answer_correctness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
-        "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-        evaluation may be subject to and governed by the LLM service's terms of use.
-    :param metric_version: (Optional) The version of the answer correctness metric to use.
-        Defaults to the latest version.
-    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        answer correctness. It is highly recommended to add examples to be used as a reference to
-        evaluate the new results.
-    :return: A metric object
+    Args:
+        model: Model uri of an openai or gateway judge model in the format of
+            "openai:/gpt-4" or "gateway:/my-route". Defaults to
+            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+            evaluation may be subject to and governed by the LLM service's terms of use.
+        metric_version: The version of the answer correctness metric to use.
+            Defaults to the latest version.
+        examples: Provide a list of examples to help the judge model evaluate the
+            answer correctness. It is highly recommended to add examples to be used as a reference
+            to evaluate the new results.
+
+    Returns:
+        A metric object
     """
     if metric_version is None:
         metric_version = _get_latest_metric_version()
@@ -156,16 +162,19 @@ def faithfulness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
-        "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-        evaluation may be subject to and governed by the LLM service's terms of use.
-    :param metric_version: (Optional) The version of the faithfulness metric to use.
-        Defaults to the latest version.
-    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        faithfulness. It is highly recommended to add examples to be used as a reference to evaluate
-        the new results.
-    :return: A metric object
+    Args:
+        model: Model uri of an openai or gateway judge model in the format of
+            "openai:/gpt-4" or "gateway:/my-route". Defaults to
+            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+            evaluation may be subject to and governed by the LLM service's terms of use.
+        metric_version: The version of the faithfulness metric to use.
+            Defaults to the latest version.
+        examples: Provide a list of examples to help the judge model evaluate the
+            faithfulness. It is highly recommended to add examples to be used as a reference to
+            evaluate the new results.
+
+    Returns:
+        A metric object
     """
     class_name = f"mlflow.metrics.genai.prompts.{metric_version}.FaithfulnessMetric"
     try:
@@ -215,16 +224,19 @@ def answer_relevance(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
-        "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-        evaluation may be subject to and governed by the LLM service's terms of use.
-    :param metric_version: (Optional) The version of the answer relevance metric to use.
-        Defaults to the latest version.
-    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        answer relevance. It is highly recommended to add examples to be used as a reference to
-        evaluate the new results.
-    :return: A metric object
+    Args:
+        model: Model uri of an openai or gateway judge model in the format of
+            "openai:/gpt-4" or "gateway:/my-route". Defaults to
+            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+            evaluation may be subject to and governed by the LLM service's terms of use.
+        metric_version: The version of the answer relevance metric to use.
+            Defaults to the latest version.
+        examples: Provide a list of examples to help the judge model evaluate the
+            answer relevance. It is highly recommended to add examples to be used as a reference to
+            evaluate the new results.
+
+    Returns:
+        A metric object
     """
     class_name = f"mlflow.metrics.genai.prompts.{metric_version}.AnswerRelevanceMetric"
     try:
@@ -275,16 +287,19 @@ def relevance(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
-        "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-        evaluation may be subject to and governed by the LLM service's terms of use.
-    :param metric_version: (Optional) The version of the relevance metric to use.
-        Defaults to the latest version.
-    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        relevance. It is highly recommended to add examples to be used as a reference to evaluate
-        the new results.
-    :return: A metric object
+    Args:
+        model: (Optional) Model uri of an openai or gateway judge model in the format of
+            "openai:/gpt-4" or "gateway:/my-route". Defaults to
+            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+            evaluation may be subject to and governed by the LLM service's terms of use.
+        metric_version: (Optional) The version of the relevance metric to use.
+            Defaults to the latest version.
+        examples: (Optional) Provide a list of examples to help the judge model evaluate the
+            relevance. It is highly recommended to add examples to be used as a reference to
+            evaluate the new results.
+
+    Returns:
+        A metric object
     """
     if metric_version is None:
         metric_version = _get_latest_metric_version()

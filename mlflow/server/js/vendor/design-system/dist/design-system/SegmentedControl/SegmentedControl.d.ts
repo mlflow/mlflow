@@ -8,6 +8,7 @@ export interface SegmentedControlButtonProps extends Omit<RadioButtonProps, 'opt
 export declare const SegmentedControlButton: import("react").ForwardRefExoticComponent<SegmentedControlButtonProps & import("react").RefAttributes<HTMLButtonElement>>;
 export interface SegmentedControlGroupProps extends Omit<RadioGroupProps, 'size'>, DangerouslySetAntdProps<RadioGroupProps>, HTMLDataAttributes {
     size?: ButtonSize;
+    spaced?: boolean;
 }
 export declare const SegmentedControlGroup: import("react").ForwardRefExoticComponent<SegmentedControlGroupProps & import("react").RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=SegmentedControl.d.ts.map

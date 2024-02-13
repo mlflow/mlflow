@@ -7,9 +7,11 @@ import ArtifactPage from '../ArtifactPage';
  */
 export const RunViewArtifactTab = ({
   runTags,
+  experimentId,
   runUuid,
 }: {
   runUuid: string;
+  experimentId: string;
   runTags: Record<string, KeyValueEntity>;
 }) => {
   const { theme } = useDesignSystemTheme();

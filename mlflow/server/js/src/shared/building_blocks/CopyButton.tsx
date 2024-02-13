@@ -1,21 +1,13 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React, { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Button, Tooltip } from '@databricks/design-system';
+import { Button, type ButtonProps, Tooltip } from '@databricks/design-system';
 
-type Props = {
+interface CopyButtonProps extends Partial<ButtonProps> {
   copyText: string;
   showLabel?: React.ReactNode;
-  icon?: React.ReactNode;
-};
+}
 
-export const CopyButton = ({ copyText, showLabel = true, icon }: Props) => {
+export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = () => {
@@ -33,26 +25,23 @@ export const CopyButton = ({ copyText, showLabel = true, icon }: Props) => {
   return (
     <Tooltip
       title={
-        <FormattedMessage
-          defaultMessage='Copied'
-          description='Tooltip text shown when copy operation completes'
-        />
+        <FormattedMessage defaultMessage="Copied" description="Tooltip text shown when copy operation completes" />
       }
       dangerouslySetAntdProps={{
         visible: showTooltip,
       }}
     >
       <Button
-        type='primary'
+        type="primary"
         onClick={handleClick}
         onMouseLeave={handleMouseLeave}
-        icon={icon}
         css={{ 'z-index': 1 }}
-      >
-        {showLabel && (
-          <FormattedMessage defaultMessage='Copy' description='Button text for copy button' />
-        )}
-      </Button>
+        // Define children as a explicit prop so it can be easily overrideable
+        children={
+          showLabel ? <FormattedMessage defaultMessage="Copy" description="Button text for copy button" /> : undefined
+        }
+        {...buttonProps}
+      />
     </Tooltip>
   );
 };

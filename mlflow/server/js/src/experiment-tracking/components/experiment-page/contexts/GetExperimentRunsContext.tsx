@@ -8,17 +8,15 @@ import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsF
 import Utils from '../../../../common/utils/Utils';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { RunEntity, UpdateExperimentSearchFacetsFn } from '../../../types';
-import { useAsyncDispatch } from '../hooks/useAsyncDispatch';
 import {
   createSearchRunsParams,
   fetchModelVersionsForRuns,
   shouldRefetchRuns,
 } from '../utils/experimentPage.fetch-utils';
-import {
-  persistExperimentSearchFacetsState,
-  restoreExperimentSearchFacetsState,
-} from '../utils/persistSearchFacets';
+import { persistExperimentSearchFacetsState, restoreExperimentSearchFacetsState } from '../utils/persistSearchFacets';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+import { useDispatch } from 'react-redux';
+import { ThunkDispatch } from '../../../../redux-types';
 
 export interface GetExperimentRunsContextActions {
   searchRunsApi: typeof searchRunsApi;
@@ -102,7 +100,7 @@ export const GetExperimentRunsContextProvider = ({
 }>) => {
   const navigate = useNavigate();
   const experimentIds = useExperimentIds();
-  const dispatch = useAsyncDispatch();
+  const dispatch = useDispatch<ThunkDispatch>();
   const location = useLocation();
 
   const [searchRunsRequestId, setSearchRunsRequestId] = useState<string>('');
@@ -173,9 +171,7 @@ export const GetExperimentRunsContextProvider = ({
 
           // If this request is the current one (meaning found in the active requests list), set loading flag to false
           if (
-            activeRequests.current.some(
-              (activeRequest) => activeRequest.id === action.meta.id && !activeRequest.active,
-            )
+            activeRequests.current.some((activeRequest) => activeRequest.id === action.meta.id && !activeRequest.active)
           ) {
             setIsLoadingRuns(false);
           }
@@ -265,17 +261,11 @@ export const GetExperimentRunsContextProvider = ({
    */
   const updateSearchFacets = useCallback<UpdateExperimentSearchFacetsFn>(
     (newFilterModel, updateOptions = {}) => {
-      const {
-        forceRefresh = false,
-        preservePristine = false,
-        replaceHistory = false,
-      } = updateOptions;
+      const { forceRefresh = false, preservePristine = false, replaceHistory = false } = updateOptions;
       // While dispatching new state, append new filter model
       // and fetch new runs using it
       setSearchFacetsState((oldModel) => {
-        const newModel = isFunction(newFilterModel)
-          ? newFilterModel(oldModel)
-          : { ...oldModel, ...newFilterModel };
+        const newModel = isFunction(newFilterModel) ? newFilterModel(oldModel) : { ...oldModel, ...newFilterModel };
         if (forceRefresh || shouldRefetchRuns(oldModel, newModel)) {
           internalFetchExperimentRuns(newModel, experimentIds);
         }

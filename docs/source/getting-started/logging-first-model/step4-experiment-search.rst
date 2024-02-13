@@ -13,12 +13,14 @@ Seeing our new Experiment in the UI
 As before, we're going to connect to our running MLflow Tracking server to view the MLflow UI. If you've closed the browser
 window that was running it, simply navigate to ``http://127.0.0.1:8080`` in a new browser window.
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/first-experiment-ui.gif
-   :width: 1024px
-   :align: center
-   :alt: View our new experiment in the UI
+.. raw:: html
 
-   The "Apple_Models" Experiment in the MLflow UI
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/tutorials/introductory/logging-first-model/first-experiment-ui.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 Important components to be aware of in the UI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -85,12 +87,14 @@ condition is wrapped in single quotes.
 Executing the Search
 --------------------
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/creating-experiment.gif
-   :width: 1024px
-   :align: center
-   :alt: Creating a new Experiment
+.. raw:: html
 
-   Creating a new Experiment and searching based on an Experiment tag
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/tutorials/introductory/logging-first-model/creating-experiment.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 In the next section, we'll begin to use this experiment to log training data to runs that are associated with this experiment, introducing
 another aspect of both the MLflow APIs (the fluent API) and another part of the MLflow UI (the run information page).

@@ -25,13 +25,13 @@ _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
-    """
-    Returns true if the specified URI is a local file path (/foo or file:/foo).
+    """Returns true if the specified URI is a local file path (/foo or file:/foo).
 
-    :param uri: The URI.
-    :param is_tracking_uri: Whether or not the specified URI is an MLflow Tracking or MLflow
-                            Model Registry URI. Examples of other URIs are MLflow artifact URIs,
-                            filesystem paths, etc.
+    Args:
+        uri: The URI.
+        is_tracking_uri: Whether or not the specified URI is an MLflow Tracking or MLflow
+            Model Registry URI. Examples of other URIs are MLflow artifact URIs,
+            filesystem paths, etc.
     """
     if uri == "databricks" and is_tracking_or_registry_uri:
         return False
@@ -45,15 +45,22 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
     if scheme == "":
         return True
 
-    if parsed_uri.hostname and not (
+    is_remote_hostname = parsed_uri.hostname and not (
         parsed_uri.hostname == "."
         or parsed_uri.hostname.startswith("localhost")
         or parsed_uri.hostname.startswith("127.0.0.1")
-    ):
-        return False
-
+    )
     if scheme == "file":
+        if is_remote_hostname:
+            raise MlflowException(
+                f"{uri} is not a valid remote uri. For remote access "
+                "on windows, please consider using a different scheme "
+                "such as SMB (e.g. smb://<hostname>/<path>)."
+            )
         return True
+
+    if is_remote_hostname:
+        return False
 
     if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
         return True
@@ -62,7 +69,8 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
 
 
 def is_file_uri(uri):
-    return urllib.parse.urlparse(uri).scheme == "file"
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "file"
 
 
 def is_http_uri(uri):
@@ -244,20 +252,23 @@ def extract_and_normalize_path(uri):
 
 
 def append_to_uri_path(uri, *paths):
-    """
-    Appends the specified POSIX `paths` to the path component of the specified `uri`.
+    """Appends the specified POSIX `paths` to the path component of the specified `uri`.
 
-    :param uri: The input URI, represented as a string.
-    :param paths: The POSIX paths to append to the specified `uri`'s path component.
-    :return: A new URI with a path component consisting of the specified `paths` appended to
-             the path component of the specified `uri`.
+    Args:
+        uri: The input URI, represented as a string.
+        paths: The POSIX paths to append to the specified `uri`'s path component.
 
-    >>> uri1 = "s3://root/base/path?param=value"
-    >>> uri1 = append_to_uri_path(uri1, "some/subpath", "/anotherpath")
-    >>> assert uri1 == "s3://root/base/path/some/subpath/anotherpath?param=value"
-    >>> uri2 = "a/posix/path"
-    >>> uri2 = append_to_uri_path(uri2, "/some", "subpath")
-    >>> assert uri2 == "a/posixpath/some/subpath"
+    Returns:
+        A new URI with a path component consisting of the specified `paths` appended to
+        the path component of the specified `uri`.
+
+        .. code-block:: python
+          uri1 = "s3://root/base/path?param=value"
+          uri1 = append_to_uri_path(uri1, "some/subpath", "/anotherpath")
+          assert uri1 == "s3://root/base/path/some/subpath/anotherpath?param=value"
+          uri2 = "a/posix/path"
+          uri2 = append_to_uri_path(uri2, "/some", "subpath")
+          assert uri2 == "a/posixpath/some/subpath"
     """
     path = ""
     for subpath in paths:
@@ -289,12 +300,12 @@ def append_to_uri_path(uri, *paths):
 
 
 def append_to_uri_query_params(uri, *query_params: Tuple[str, Any]) -> str:
-    """
-    Appends the specified query parameters to an existing URI.
+    """Appends the specified query parameters to an existing URI.
 
-    :param uri: The URI to which to append query parameters.
-    :param query_params: Query parameters to append. Each parameter should
-                         be a 2-element tuple. For example, ``("key", "value")``.
+    Args:
+        uri: The URI to which to append query parameters.
+        query_params: Query parameters to append. Each parameter should
+            be a 2-element tuple. For example, ``("key", "value")``.
     """
     parsed_uri = urllib.parse.urlparse(uri)
     parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
@@ -315,7 +326,9 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     >>> assert result2 == "relpath/absolutepath"
     >>> result3 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath", "relpath")
     >>> assert result3 == "/absolutepath/relpath"
-    >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
+    >>> result4 = _join_posixpaths_and_append_absolute_suffixes(
+    ...     "/absolutepath1", "/absolutepath2"
+    ... )
     >>> assert result4 == "/absolutepath1/absolutepath2"
     """
     if len(prefix_path) == 0:
@@ -352,12 +365,16 @@ def is_valid_dbfs_uri(uri):
 
 
 def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
-    """
-    Converts the provided DBFS URI into a DBFS FUSE path
-    :param dbfs_uri: A DBFS URI like "dbfs:/my-directory". Can also be a scheme-less URI like
-                     "/my-directory" if running in an environment where the default HDFS filesystem
-                     is "dbfs:/" (e.g. Databricks)
-    :return A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+    """Converts the provided DBFS URI into a DBFS FUSE path
+
+    Args:
+        dbfs_uri: A DBFS URI like "dbfs:/my-directory". Can also be a scheme-less URI like
+            "/my-directory" if running in an environment where the default HDFS filesystem
+            is "dbfs:/" (e.g. Databricks)
+
+    Returns:
+        A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+
     """
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
         # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
@@ -376,9 +393,11 @@ def resolve_uri_if_local(local_uri):
     if `local_uri` is passed in as a relative local path, this function
     resolves it to absolute path relative to current working directory.
 
-    :param local_uri: Relative or absolute path or local file uri
+    Args:
+        local_uri: Relative or absolute path or local file uri
 
-    :return: a fully-formed absolute uri path or an absolute filesystem path
+    Returns:
+        a fully-formed absolute uri path or an absolute filesystem path
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 

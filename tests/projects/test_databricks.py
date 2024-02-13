@@ -4,15 +4,14 @@ import os
 import shutil
 from unittest import mock
 
-import databricks_cli
 import pytest
-from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient, cli
 from mlflow.entities import RunStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
+from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.projects import ExecutionException, databricks
 from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
@@ -437,9 +436,9 @@ class MockProfileConfigProvider:
 
 
 @mock.patch("requests.Session.request")
-@mock.patch("databricks_cli.configure.provider.get_config")
+@mock.patch("mlflow.utils.databricks_utils.get_config")
 @mock.patch.object(
-    databricks_cli.configure.provider, "ProfileConfigProvider", MockProfileConfigProvider
+    mlflow.utils.databricks_utils, "ProfileConfigProvider", MockProfileConfigProvider
 )
 def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""

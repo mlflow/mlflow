@@ -41,7 +41,7 @@ describe('CreateModelButton', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
-          <CreateModelButton buttonType={'link'} />
+          <CreateModelButton buttonType="link" />
         </MemoryRouter>
       </Provider>,
     );

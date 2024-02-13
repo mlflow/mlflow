@@ -42,8 +42,13 @@ message GetTable {
 
   // Optional. Whether to omit the storage credential name of tables from the response or not.
   optional bool omit_storage_credential_name = 12;
+}
 
-  message Response {
-    optional TableInfo table_info = 1 [(json_inline) = true];
-  }
+message GetTableResponse {
+  // Output-only fields (modified to include only what mlflow needs):
+
+  // [Create,Update:IGN BROWSABLE] Full name of Table, in form of <catalog_name>.<schema_name>.<table_name>
+  optional string full_name = 15;
+  // [Create,Update:IGN] Id of the table.
+  optional string table_id = 22;
 }

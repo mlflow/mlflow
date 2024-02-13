@@ -11,17 +11,12 @@ export type ErrorBoundaryProps = {
 function ErrorFallback() {
   return (
     <Empty
-      data-testid='fallback'
-      title={
-        <FormattedMessage
-          defaultMessage='Error'
-          description='Title of editor error fallback component'
-        />
-      }
+      data-testid="fallback"
+      title={<FormattedMessage defaultMessage="Error" description="Title of editor error fallback component" />}
       description={
         <FormattedMessage
-          defaultMessage='An error occurred while rendering this component.'
-          description='Description of error fallback component'
+          defaultMessage="An error occurred while rendering this component."
+          description="Description of error fallback component"
         />
       }
       image={<DangerIcon />}
