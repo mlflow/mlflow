@@ -104,3 +104,42 @@ Another line\n    Another indented line""",
 
     assert f.__doc__ == expected
     assert f.__name__ == "f"
+
+
+def test_param_docs_format_not_google():
+    @format_docstring(
+        {
+            "multi_line": """Single line
+Another line\n    Another indented line""",
+            "single_line": "hi",
+        }
+    )
+    # fmt: off
+    def f():
+        """
+        asdf
+
+        :param p1: asdf
+        :param p2: {{ multi_line }}
+        :param p3: {{ single_line }}
+        :param p4:
+                {{ multi_line }}
+        """
+
+    expected = """
+        asdf
+
+        :param p1: asdf
+        :param p2: Single line
+                   Another line
+                       Another indented line
+        :param p3: hi
+        :param p4:
+                Single line
+                Another line
+                    Another indented line
+        """
+    # fmt: on
+
+    assert f.__doc__ == expected
+    assert f.__name__ == "f"
