@@ -1022,16 +1022,21 @@ def log_artifact(
         :test:
         :caption: Example
 
+        from pathlib import Path
+        import tempfile
+
         import mlflow
 
         # Create a features.txt artifact file
         features = "rooms, zipcode, median_price, school_rating, transport"
-        with open("features.txt", "w") as f:
-            f.write(features)
-        # With artifact_path=None write features.txt under
-        # root artifact_uri/artifacts directory
-        with mlflow.start_run():
-            mlflow.log_artifact("features.txt")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with Path(tmp_dir, "features.txt").open("w") as f:
+                f.write(features)
+
+            # With artifact_path=None write features.txt under
+            # root artifact_uri/artifacts directory
+            with mlflow.start_run():
+                mlflow.log_artifact("features.txt")
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
