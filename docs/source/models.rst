@@ -2473,6 +2473,50 @@ However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`
         evaluator_config=config,
     )
 
+You can also add the name of other metrics as an argument to the extra metric function, which will pass in the ``MetricValue`` calculated for that metric.
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, retrieved_context):
+        scores = (predictions == targets) + retrieved_context
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)},
+        )
+
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
+
+
+    def eval_fn_2(predictions, targets, mymetric):
+        scores = ["true" if score else "false" for score in mymetric.scores]
+        return MetricValue(
+            scores=list(scores),
+        )
+
+
+    mymetric2 = make_metric(eval_fn=eval_fn_2, greater_is_better=False, name="mymetric2")
+
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"] + 1, "answer": x["inputs"]})
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    result = mlflow.evaluate(
+        model,
+        eval_dataset,
+        predictions="answer",
+        targets="targets",
+        extra_metrics=[mymetric, mymetric2],
+    )
+
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
 uses :py:func:`mlflow.evaluate()` with an extra metric function to evaluate the performance of a regressor on the
