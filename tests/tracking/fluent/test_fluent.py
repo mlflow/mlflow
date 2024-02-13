@@ -1156,9 +1156,6 @@ def test_paginate_gt_maxresults_onepage():
 def test_delete_tag():
     """
     Confirm that fluent API delete tags actually works.
-
-    Returns:
-        None.
     """
     mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)

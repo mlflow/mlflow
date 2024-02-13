@@ -38,8 +38,10 @@ def metric_threshold_class_test_spec(request):
     Test specification for MetricThreshold class:
 
     Returns:
-        class_params: A dictionary mapping MetricThreshold class parameter names to values.
-        expected_failure_message: Expected failure message.
+        A tuple containing the following elements:
+
+        - class_params: A dictionary mapping MetricThreshold class parameter names to values.
+        - expected_failure_message: Expected failure message.
     """
     class_params = {
         "threshold": 1,
@@ -114,10 +116,12 @@ def faulty_baseline_model_param_test_spec(request):
     Test specification for faulty `baseline_model` parameter tests:
 
     Returns:
-        validation_thresholds: A dictionary mapping scalar metric names to
-            MetricThreshold(threshold=0.2, greater_is_better=True).
-        baseline_model: Value for the `baseline_model` param passed into mlflow.evaluate().
-        expected_failure_message: Expected failure message.
+        A dict containing the following elements:
+
+        - validation_thresholds: A dictionary mapping scalar metric names to
+          MetricThreshold(threshold=0.2, greater_is_better=True).
+        - baseline_model: Value for the `baseline_model` param passed into mlflow.evaluate().
+        - expected_failure_message: Expected failure message.
     """
     if request.param == "min_relative_change_present":
         return (
@@ -228,13 +232,13 @@ def value_threshold_test_spec(request):
     Test specification for value threshold tests:
 
     Returns:
-        tuple: A tuple containing the following elements:
+        A dict containing the following elements:
 
-            - metrics: A dictionary mapping scalar metric names to scalar metric values.
-            - validation_thresholds: A dictionary mapping scalar metric names to
-              MetricThreshold(threshold=0.2, greater_is_better=True).
-            - expected_validation_results: A dictionary mapping scalar metric names
-              to _MetricValidationResult.
+        - metrics: A dictionary mapping scalar metric names to scalar metric values.
+        - validation_thresholds: A dictionary mapping scalar metric names to
+          MetricThreshold(threshold=0.2, greater_is_better=True).
+        - expected_validation_results: A dictionary mapping scalar metric names
+          to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(threshold=0.9, greater_is_better=True)
     acc_validation_result = _MetricValidationResult("accuracy", 0.8, acc_threshold, None)
@@ -410,12 +414,14 @@ def min_absolute_change_threshold_test_spec(request):
     Test specification for min_absolute_change threshold tests:
 
     Returns:
-        metrics: A dictionary mapping scalar metric names to scalar metric values.
-        baseline_model_metrics: A dictionary mapping scalar metric names
+        A dict containing the following elements:
+
+        - metrics: A dictionary mapping scalar metric names to scalar metric values.
+        - baseline_model_metrics: A dictionary mapping scalar metric names
             to scalar metric values of baseline_model.
-        validation_thresholds: A dictonary mapping scalar metric names
+        - validation_thresholds: A dictonary mapping scalar metric names
             to MetricThreshold(threshold=0.2, greater_is_better=True).
-        expected_validation_results: A dictonary mapping scalar metric names
+        - expected_validation_results: A dictonary mapping scalar metric names
             to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(min_absolute_change=0.1, greater_is_better=True)
@@ -620,12 +626,14 @@ def min_relative_change_threshold_test_spec(request):
     Test specification for min_relative_change threshold tests:
 
     Returns:
-        metrics: A dictionary mapping scalar metric names to scalar metric values.
-        baseline_model_metrics: A dictionary mapping scalar metric names
+        A dict with the following elements:
+
+        - metrics: A dictionary mapping scalar metric names to scalar metric values.
+        - baseline_model_metrics: A dictionary mapping scalar metric names
             to scalar metric values of baseline_model.
-        validation_thresholds: A dictionary mapping scalar metric names
+        - validation_thresholds: A dictionary mapping scalar metric names
             to MetricThreshold(threshold=0.2, greater_is_better=True).
-        expected_validation_results: A dictionary mapping scalar metric names
+        - expected_validation_results: A dictionary mapping scalar metric names
             to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(min_relative_change=0.1, greater_is_better=True)
@@ -852,12 +860,14 @@ def multi_thresholds_test_spec(request):
     Test specification for multi-thresholds tests:
 
     Returns:
-        metrics: A dictionary mapping scalar metric names to scalar metric values.
-        baseline_model_metrics: A dictionary mapping scalar metric names
+        A dict with the following elements:
+
+        - metrics: A dictionary mapping scalar metric names to scalar metric values.
+        - baseline_model_metrics: A dictionary mapping scalar metric names
             to scalar metric values of baseline_model.
-        validation_thresholds: A dictonary mapping scalar metric names
+        - validation_thresholds: A dictonary mapping scalar metric names
             to MetricThreshold(threshold=0.2, greater_is_better=True).
-        expected_validation_results: A dictonary mapping scalar metric names
+        - expected_validation_results: A dictonary mapping scalar metric names
             to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(

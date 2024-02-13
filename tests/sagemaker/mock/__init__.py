@@ -316,7 +316,8 @@ class SageMakerBackend(BaseBackend):
 
     def _get_base_arn(self, region_name):
         """
-        A SageMaker ARN prefix that can be prepended to a resource name.
+        Returns:
+            A SageMaker ARN prefix that can be prepended to a resource name.
         """
         return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
             region_name=region_name, account_id=DEFAULT_ACCOUNT_ID
