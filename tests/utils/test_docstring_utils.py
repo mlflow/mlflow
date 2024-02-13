@@ -117,13 +117,11 @@ Another line\n    Another indented line""",
     # fmt: off
     def f():
         """
-        asdf
-
-        :param p1: asdf
-        :param p2: {{ multi_line }}
-        :param p3: {{ single_line }}
-        :param p4:
-                {{ multi_line }}
+        Args:
+            p1: asdf
+            p2: multi_line
+            p3: single_line
+            p4: multi_line
         """
 
     expected = """
