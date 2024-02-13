@@ -828,7 +828,7 @@ def _remove_requirements(
 ) -> List[str]:
     old_reqs_dict = {req.name: str(req) for req in old_reqs}
     for req in reqs_to_remove:
-        if req.name in old_reqs_dict:
+        if req.name not in old_reqs_dict:
             _logger.warning(f'"{req.name}" not found in requirements, ignoring')
         old_reqs_dict.pop(req.name, None)
     return list(old_reqs_dict.values())
