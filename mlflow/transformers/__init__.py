@@ -48,12 +48,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.transformers.llm_inference_utils import (
-    _LLM_INFERENCE_TASK_KEY,
-    _METADATA_LLM_INFERENCE_TASK_KEY,
-    _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
-    postprocess_output_for_llm_inference_task,
-)
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -93,6 +87,16 @@ IS_TRANSFORMERS_AVAILABLE = importlib.util.find_spec("transformers") is not None
 
 # The following modules depend on transformers and only imported when it is available
 if IS_TRANSFORMERS_AVAILABLE:
+    from mlflow.transformers.llm_inference_utils import (
+        _LLM_INFERENCE_TASK_CHAT,
+        _LLM_INFERENCE_TASK_KEY,
+        _METADATA_LLM_INFERENCE_TASK_KEY,
+        _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
+        convert_data_messages_with_chat_template,
+        infer_signature_from_llm_inference_task,
+        postprocess_output_for_llm_inference_task,
+        preprocess_llm_inference_params,
+    )
     from mlflow.transformers.signature import (
         _generate_signature_output,
         format_input_example_for_special_cases,
@@ -508,8 +512,14 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    if signature is not None:
+
+    if llm_inference_task:
+        mlflow_model.signature = infer_signature_from_llm_inference_task(
+            llm_inference_task, signature
+        )
+    elif signature is not None:
         mlflow_model.signature = signature
+
     if input_example is not None:
         input_example = format_input_example_for_special_cases(input_example, built_pipeline)
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
@@ -1807,6 +1817,14 @@ class _TransformersWrapper:
 
         if return_tensors:
             model_config["return_tensors"] = True
+            if model_config.get("return_full_text", None) is not None:
+                _logger.warning(
+                    "The `return_full_text` parameter is mutually exclusive with the "
+                    "`return_tensors` parameter set when a MLflow inference task is provided. "
+                    "The `return_full_text` parameter will be ignored."
+                )
+                # `return_full_text` is mutually exclusive with `return_tensors`
+                model_config["return_full_text"] = None
 
         try:
             if isinstance(data, dict):
@@ -1850,6 +1868,12 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
+        if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
+            convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
+
+        if self.llm_inference_task:
+            data, params = preprocess_llm_inference_params(data, self.flavor_config)
+
         # NB: This `predict` method updates the model_config several times. To make the predict
         # call idempotent, we keep the original self.model_config immutable and creates a deep
         # copy of it at every predict call.
@@ -1998,7 +2022,12 @@ class _TransformersWrapper:
 
             if self.llm_inference_task:
                 output = postprocess_output_for_llm_inference_task(
-                    data, output, self.pipeline, model_config, self.llm_inference_task
+                    data,
+                    output,
+                    self.pipeline,
+                    self.flavor_config,
+                    model_config,
+                    self.llm_inference_task,
                 )
 
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
