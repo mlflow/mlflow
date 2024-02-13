@@ -14,9 +14,6 @@ permissions:
 jobs:
   warn:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Post warning if file is edited
