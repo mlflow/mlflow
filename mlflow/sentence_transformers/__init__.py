@@ -15,6 +15,10 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types.llm import (
+    EMBEDDING_MODEL_INPUT_SCHEMA,
+    EMBEDDING_MODEL_OUTPUT_SCHEMA,
+)
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import (
@@ -164,7 +168,11 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    if signature is None and input_example is not None:
+    if task is not None:
+        signature = ModelSignature(
+            inputs=EMBEDDING_MODEL_INPUT_SCHEMA,
+            outputs=EMBEDDING_MODEL_OUTPUT_SCHEMA)
+    elif signature is None and input_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
     elif signature is None:
