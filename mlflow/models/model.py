@@ -529,6 +529,7 @@ class Model:
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
         with open(path) as f:
+            print("yaml.safe_load(f.read())", yaml.safe_load(f.read()))
             return cls.from_dict(yaml.safe_load(f.read()))
 
     @classmethod
@@ -691,6 +692,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
     from mlflow.pyfunc import _download_artifact_from_uri
 
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
+    print("local_path", local_path)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
     return ModelInfo(
         artifact_path=model_meta.artifact_path,
