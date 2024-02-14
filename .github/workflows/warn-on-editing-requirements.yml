@@ -1,7 +1,7 @@
 name: Maintainer approval for requirement edits
 
 on:
-  pull_request:
+  pull_request_review:
     paths:
       - setup.py
       - requirements/skinny-requirements.yaml
@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   warn:
+    if: context.
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,6 +21,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            console.log(JSON.stringify(context.payload.pull_request, null, 2))
+
             const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
             const reason = (
               "Editing requirements files can cause conflicts in downstream processes " +
