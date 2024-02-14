@@ -88,7 +88,7 @@ def create_test_runs_and_expected_data(experiment_id=None):
     for the same experiment.
 
     Returns:
-        A tuple containing a list and a dictionary.
+        A tuple of a list and a dictionary
     """
     start_times = [get_current_time_millis(), get_current_time_millis()]
     end_times = [get_current_time_millis(), get_current_time_millis()]
