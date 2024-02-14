@@ -3604,7 +3604,7 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
         assert HF_COMMIT_HASH_PATTERN.match(flavor_conf[f"{c}_revision"])
 
     # Validate pyfunc load and prediction (if pyfunc supported)
-    if "python_function" in mlmodel["flavors"]:
+    if "python_function" in mlmodel.flavors:
         if callable(input_example):
             input_example = input_example()
         mlflow.pyfunc.load_model(model_path).predict(input_example)

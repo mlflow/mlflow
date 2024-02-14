@@ -1,6 +1,8 @@
 import importlib
 
 import pytest
+import transformers
+from packaging.version import Version
 
 import mlflow
 from mlflow.models import Model
@@ -12,8 +14,11 @@ from tests.transformers.test_transformers_model_export import (
 )
 
 peft_not_installed_cond = {
-    "condition": importlib.util.find_spec("peft") is None,
-    "reason": "PEFT is not installed",
+    "condition": (
+        importlib.util.find_spec("peft") is None
+        or Version(transformers.__version__) <= Version("4.25.1")
+    ),
+    "reason": "PEFT is not installed or Transformer version is too old",
 }
 
 
