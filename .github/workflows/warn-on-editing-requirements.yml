@@ -1,7 +1,7 @@
 name: Warn on editing requirements
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - setup.py
       - requirements/skinny-requirements.yaml
