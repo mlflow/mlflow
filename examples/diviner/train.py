@@ -16,12 +16,15 @@ def generate_data(location_data, start_dt) -> pd.DataFrame:
     Here we are taking a list of tuples as location data [(country, city)] and applying
     a random factor to each copy of the underlying series to generate data at different scales.
 
-    :param location_data: List[Tuple("country", "city")] for synthetic key grouping columns
-                          generation.
-    :param start_dt: String datetime value in the form of `YYYY-mm-dd HH:MM:SS`
-    :return: A Pandas DataFrame that is a concatenation of each entry of the location_data tuple
-             values with a datetime column added via hourly intervals for the duration of each
-             series. The original data is in hourly electrical consumption values.
+    Args:
+        location_data: List[Tuple("country", "city")] for synthetic key grouping columns
+            generation.
+        start_dt: String datetime value in the form of `YYYY-mm-dd HH:MM:SS`
+
+    Returns:
+        A Pandas DataFrame that is a concatenation of each entry of the location_data tuple
+        values with a datetime column added via hourly intervals for the duration of each
+        series. The original data is in hourly electrical consumption values.
     """
     raw_data = datasets.load_taylor(as_series=True)
     start = datetime.strptime(start_dt, "%Y-%m-%d %H:%M:%S")

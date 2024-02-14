@@ -316,7 +316,8 @@ class SageMakerBackend(BaseBackend):
 
     def _get_base_arn(self, region_name):
         """
-        :return: A SageMaker ARN prefix that can be prepended to a resource name.
+        Returns:
+            A SageMaker ARN prefix that can be prepended to a resource name.
         """
         return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
             region_name=region_name, account_id=DEFAULT_ACCOUNT_ID
@@ -690,11 +691,12 @@ class Endpoint(TimestampedResource):
 
     def __init__(self, endpoint_name, config_name, tags, latest_operation):
         """
-        :param endpoint_name: The name of the Endpoint.
-        :param config_name: The name of the EndpointConfiguration to associate with the Endpoint.
-        :param tags: Arbitrary tags to associate with the endpoint.
-        :param latest_operation: The most recent operation that was invoked on the endpoint,
-                                 represented as an EndpointOperation object.
+        Args:
+            endpoint_name: The name of the Endpoint.
+            config_name: The name of the EndpointConfiguration to associate with the Endpoint.
+            tags: Arbitrary tags to associate with the endpoint.
+            latest_operation: The most recent operation that was invoked on the endpoint,
+                represented as an EndpointOperation object.
         """
         super().__init__()
         self.endpoint_name = endpoint_name
@@ -736,17 +738,18 @@ class TransformJob(TimestampedResource):
         latest_operation,
     ):
         """
-        :param job_name: The name of the TransformJob.
-        :param model_name: The name of the model to associate with the TransformJob.
-        :param transform_input: The input data source and the way transform job consumes it.
-        :param transform_output: The output results of the transform job.
-        :param transform_resources: The ML instance types and instance count to use for the
-                                    transform job.
-        :param data_processing: The data structure to specify the inference data and associate data
-                                to the prediction results.
-        :param tags: Arbitrary tags to associate with the transform job.
-        :param latest_operation: The most recent operation that was invoked on the transform job,
-                                 represented as an TransformJobOperation object.
+        Args:
+            job_name: The name of the TransformJob.
+            model_name: The name of the model to associate with the TransformJob.
+            transform_input: The input data source and the way transform job consumes it.
+            transform_output: The output results of the transform job.
+            transform_resources: The ML instance types and instance count to use for the
+                transform job.
+            data_processing: The data structure to specify the inference data and associate data
+                to the prediction results.
+            tags: Arbitrary tags to associate with the transform job.
+            latest_operation: The most recent operation that was invoked on the transform job,
+                represented as an TransformJobOperation object.
         """
         super().__init__()
         self.job_name = job_name
@@ -775,14 +778,15 @@ class EndpointOperation:
 
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
-        :param latency: The latency of the operation, in seconds. Before the time window specified
-                        by this latency elapses, the operation will have the status specified by
-                        ``pending_status``. After the time window elapses, the operation will
-                        have the status  specified by ``completed_status``.
-        :param pending_status: The status that the operation should reflect *before* the latency
-                               window has elapsed.
-        :param completed_status: The status that the operation should reflect *after* the latency
-                                 window has elapsed.
+        Args:
+            latency: The latency of the operation, in seconds. Before the time window specified
+                by this latency elapses, the operation will have the status specified by
+                ``pending_status``. After the time window elapses, the operation will
+                have the status  specified by ``completed_status``.
+            pending_status: The status that the operation should reflect *before* the latency
+                window has elapsed.
+            completed_status: The status that the operation should reflect *after* the latency
+                window has elapsed.
         """
         self.latency_seconds = latency_seconds
         self.pending_status = pending_status
@@ -836,14 +840,15 @@ class TransformJobOperation:
 
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
-        :param latency_seconds: The latency of the operation, in seconds. Before the time window
-                        specified by this latency elapses, the operation will have the status
-                        specified by ``pending_status``. After the time window elapses, the
-                        operation will have the status  specified by ``completed_status``.
-        :param pending_status: The status that the operation should reflect *before* the latency
-                               window has elapsed.
-        :param completed_status: The status that the operation should reflect *after* the latency
-                                 window has elapsed.
+        Args:
+            latency_seconds: The latency of the operation, in seconds. Before the time window
+                specified by this latency elapses, the operation will have the status
+                specified by ``pending_status``. After the time window elapses, the
+                operation will have the status specified by ``completed_status``.
+            pending_status: The status that the operation should reflect *before* the latency
+                window has elapsed.
+            completed_status: The status that the operation should reflect *after* the latency
+                window has elapsed.
         """
         self.latency_seconds = latency_seconds
         self.pending_status = pending_status
