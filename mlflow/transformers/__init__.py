@@ -151,8 +151,6 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
     "`model_config` dict with `return_full_text` set to `True` when saving the model."
 )
 
-#
-_MLFLOW_VERSION_SAVE_PRETRAINED_PARAM_ADDED = Version("2.11.0")
 
 _logger = logging.getLogger(__name__)
 
@@ -1200,7 +1198,7 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         from transformers.pipelines import get_task
 
-        task = get_task(model_dict[_MODEL_KEY].name_or_path)
+        task = get_task(model_dict[FlavorKey.MODEL].name_or_path)
 
     try:
         return pipeline(task=task, **model_dict)

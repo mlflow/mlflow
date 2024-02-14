@@ -3548,7 +3548,7 @@ def test_text_generation_task_chat_serve(text_generation_pipeline):
     assert output_dict["usage"]["prompt_tokens"] < 20
 
 
-HF_COMMIT_HASH_PATTERN = re.compile(r"[a-z0-9]{40}")
+HF_COMMIT_HASH_PATTERN = re.compile(r"^[a-z0-9]{40}$")
 
 
 @pytest.mark.parametrize(
