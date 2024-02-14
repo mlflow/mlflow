@@ -34,16 +34,17 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         predictions: Optional[str] = None,
     ):
         """
-        :param df: A pandas DataFrame.
-        :param source: The source of the pandas DataFrame.
-        :param targets: The name of the target column. Optional.
-        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
-                     automatically generated.
-        :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
-                       is automatically computed.
-        :param predictions: Optional. The name of the column containing model predictions,
-                            if the dataset contains model predictions. If specified, this column
-                            must be present in the dataframe (``df``).
+        Args:
+            df: A pandas DataFrame.
+            source: The source of the pandas DataFrame.
+            targets: The name of the target column. Optional.
+            name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                automatically generated.
+            digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
+                is automatically computed.
+            predictions: Optional. The name of the column containing model predictions,
+                if the dataset contains model predictions. If specified, this column
+                must be present in the dataframe (``df``).
         """
         if targets is not None and targets not in df.columns:
             raise MlflowException(
@@ -71,12 +72,14 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
-        :param base_dict: A string dictionary of base information about the
-                          dataset, including: name, digest, source, and source
-                          type.
-        :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), profile
-                 (optional).
+        Args:
+            base_dict: A string dictionary of base information about the
+                dataset, including: name, digest, source, and source type.
+
+        Returns:
+            A string dictionary containing the following fields: name,
+            digest, source, source type, schema (optional), profile
+            (optional).
         """
         return {
             **base_dict,
@@ -175,25 +178,26 @@ def from_pandas(
     Constructs a :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` instance from
     a Pandas DataFrame, optional targets, optional predictions, and source.
 
-    :param df: A Pandas DataFrame.
-    :param source: The source from which the DataFrame was derived, e.g. a filesystem
-                   path, an S3 URI, an HTTPS URL, a delta table name with version, or
-                   spark table etc. ``source`` may be specified as a URI, a path-like string,
-                   or an instance of
-                   :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
-                   If unspecified, the source is assumed to be the code location
-                   (e.g. notebook cell, script, etc.) where
-                   :py:func:`from_pandas <mlflow.data.from_pandas>` is being called.
-    :param targets: An optional target column name for supervised training. This column
-                    must be present in the dataframe (``df``).
-    :param name: The name of the dataset. If unspecified, a name is generated.
-    :param digest: The dataset digest (hash). If unspecified, a digest is computed
-                   automatically.
-    :param predictions: An optional predictions column name for model evaluation. This column
-                        must be present in the dataframe (``df``).
+    Args:
+        df: A Pandas DataFrame.
+        source: The source from which the DataFrame was derived, e.g. a filesystem
+            path, an S3 URI, an HTTPS URL, a delta table name with version, or
+            spark table etc. ``source`` may be specified as a URI, a path-like string,
+            or an instance of
+            :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
+            If unspecified, the source is assumed to be the code location
+            (e.g. notebook cell, script, etc.) where
+            :py:func:`from_pandas <mlflow.data.from_pandas>` is being called.
+        targets: An optional target column name for supervised training. This column
+            must be present in the dataframe (``df``).
+        name: The name of the dataset. If unspecified, a name is generated.
+        digest: The dataset digest (hash). If unspecified, a digest is computed
+            automatically.
+        predictions: An optional predictions column name for model evaluation. This column
+            must be present in the dataframe (``df``).
 
-
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example
 
         import mlflow
@@ -205,6 +209,7 @@ def from_pandas(
         )
         dataset = mlflow.data.from_pandas(x, targets="Label", predictions="ModelOutput")
     """
+
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
     from mlflow.tracking.context import registry

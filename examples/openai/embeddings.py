@@ -21,7 +21,7 @@ print(
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
         model="text-embedding-ada-002",
-        task=openai.Embedding,
+        task=openai.embeddings,
         artifact_path="model",
     )
 
@@ -40,7 +40,7 @@ print(
 with mlflow.start_run():
     mlflow.openai.log_model(
         model="text-embedding-ada-002",
-        task=openai.Embedding,
+        task=openai.embeddings,
         artifact_path="model",
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),

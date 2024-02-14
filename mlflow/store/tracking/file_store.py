@@ -411,8 +411,11 @@ class FileStore(AbstractStore):
         Fetch the experiment.
         Note: This API will search for active as well as deleted experiments.
 
-        :param experiment_id: Integer id for the experiment
-        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        Args:
+            experiment_id: Integer id for the experiment
+
+        Returns:
+            A single Experiment object if it exists, otherwise raises an Exception.
         """
         experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self._get_experiment(experiment_id)
@@ -776,16 +779,19 @@ class FileStore(AbstractStore):
         """
         Return all logged values for a given metric.
 
-        :param run_id: Unique identifier for run
-        :param metric_key: Metric name within the run
-        :param max_results: An indicator for paginated results. This functionality is not
-            implemented for FileStore and is unused in this store's implementation.
-        :param page_token: An indicator for paginated results. This functionality is not
-            implemented for FileStore and if the value is overridden with a value other than
-            ``None``, an MlflowException will be thrown.
+        Args:
+            run_id: Unique identifier for run.
+            metric_key: Metric name within the run.
+            max_results: An indicator for paginated results. This functionality is not
+                implemented for FileStore and is unused in this store's implementation.
+            page_token: An indicator for paginated results. This functionality is not
+                implemented for FileStore and if the value is overridden with a value other than
+                ``None``, an MlflowException will be thrown.
 
-        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+        Returns:
+            A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
             have been logged to the ``run_id``, else an empty list.
+
         """
         # NB: The FileStore does not currently support pagination for this API.
         # Raise if `page_token` is specified, as the functionality to support paged queries
@@ -980,8 +986,9 @@ class FileStore(AbstractStore):
         """
         Set a tag for the specified experiment
 
-        :param experiment_id: String ID of the experiment
-        :param tag: ExperimentRunTag instance to log
+        Args:
+            experiment_id: String ID of the experiment
+            tag: ExperimentRunTag instance to log
         """
         _validate_tag_name(tag.key)
         experiment = self.get_experiment(experiment_id)
@@ -1014,8 +1021,10 @@ class FileStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run. This is irreversible.
-        :param run_id: String ID of the run
-        :param key: Name of the tag
+
+        Args:
+            run_id: String ID of the run.
+            key: Name of the tag.
         """
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
@@ -1086,11 +1095,13 @@ class FileStore(AbstractStore):
         """
         Log inputs, such as datasets, to the specified run.
 
-        :param run_id: String id for the run
-        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
-                         as inputs to the run.
+        Args:
+            run_id: String id for the run
+            datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
 
-        :return: None.
+        Returns:
+            None.
         """
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
@@ -1212,9 +1223,12 @@ class FileStore(AbstractStore):
         """
         Return all dataset summaries associated to the given experiments.
 
-        :param experiment_ids List of experiment ids to scope the search
+        Args:
+            experiment_ids: List of experiment ids to scope the search
 
-        :return A List of :py:class:`mlflow.entities.DatasetSummary` entities.
+        Returns:
+            A List of :py:class:`mlflow.entities.DatasetSummary` entities.
+
         """
 
         @dataclass(frozen=True)
@@ -1286,10 +1300,13 @@ class FileStore(AbstractStore):
         a specified number of times if the file contents are unexpectedly
         empty due to a concurrent write.
 
-        :param root: Directory name.
-        :param file_name: File name. Expects to have '.yaml' extension.
-        :param retries: The number of times to retry for unexpected empty content.
-        :return: Data in yaml file as dictionary
+        Args:
+            root: Directory name.
+            file_name: File name. Expects to have '.yaml' extension.
+            retries: The number of times to retry for unexpected empty content.
+
+        Returns:
+            Data in yaml file as dictionary.
         """
 
         def _read_helper(root, file_name, attempts_remaining=2):

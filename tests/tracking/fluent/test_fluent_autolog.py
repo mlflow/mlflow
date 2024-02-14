@@ -4,6 +4,7 @@ from io import StringIO
 from unittest import mock
 
 import fastai
+import keras
 import lightgbm
 import pyspark
 import pyspark.ml
@@ -31,6 +32,7 @@ from tests.autologging.fixtures import (
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
+    keras: mlflow.keras,
     fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,

@@ -99,15 +99,19 @@ class ParamDocs(dict):
 
         Examples
         --------
-        >>> pd = ParamDocs(p1="doc1", p2="doc2\ndoc2 second line")
+        >>> pd = ParamDocs(p1="doc1", p2="doc2
+        doc2 second line")
         >>> docstring = '''
         ... :param p1: {{ p1 }}
         ... :param p2: {{ p2 }}
         ... '''.strip()
         >>> print(pd.format_docstring(docstring))
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
+
+        Args:
+            p1:
+                {{ p1 }}
+            p2:
+                {{ p2 }}
         """
         if docstring is None:
             return None
@@ -131,20 +135,20 @@ def format_docstring(param_docs):
     Returns:
         A decorator to apply the formatting.
 
-    Examples
-    --------
-    >>> param_docs = {"p1": "doc1", "p2": "doc2\ndoc2 second line"}
-    >>> @format_docstring(param_docs)
-    ... def func(p1, p2):
-    ...     '''
-    ...     :param p1: {{ p1 }}
-    ...     :param p2: {{ p2 }}
-    ...     '''
-    >>> import textwrap
-    >>> print(textwrap.dedent(func.__doc__).strip())
-    :param p1: doc1
-    :param p2: doc2
-               doc2 second line
+    Examples:
+        >>> param_docs = {"p1": "doc1", "p2": "doc2
+        doc2 second line"}
+        >>> @format_docstring(param_docs)
+        ... def func(p1, p2):
+        ...     '''
+        ...     :param p1: {{ p1 }}
+        ...     :param p2: {{ p2 }}
+        ...     '''
+        >>> import textwrap
+        >>> print(textwrap.dedent(func.__doc__).strip())
+        :param p1: doc1
+        :param p2: doc2
+                   doc2 second line
     """
     param_docs = ParamDocs(param_docs)
 
@@ -249,6 +253,20 @@ by converting it to a list. Bytes are base64-encoded. When the ``signature`` par
 format when saving. This is useful when the model expects a non-DataFrame input and the
 input example could be passed directly to the model. Defaults to ``False`` for backwards
 compatibility.
+"""
+        ),
+        "prompt_template": (
+            """A string that, if provided, will be used to format the user's input prior
+to inference. The string should contain a single placeholder, ``{prompt}``, which will be
+replaced with the user's input. For example: ``"Answer the following question. Q: {prompt} A:"``.
+
+Currently, only the following pipeline types are supported:
+
+- `feature-extraction <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline>`_
+- `fill-mask <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline>`_
+- `summarization <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline>`_
+- `text2text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline>`_
+- `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
 """
         ),
     }

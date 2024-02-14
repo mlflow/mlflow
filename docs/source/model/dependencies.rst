@@ -12,6 +12,12 @@ worry about managing dependencies in MLflow Model.
 However, in some cases, you may need to add or modify some dependencies. This page provides a high-level description of how MLflow manages
 dependencies and guidance for how to customize dependencies for your use case.
 
+.. tip::
+
+    One tip for improving MLflow's dependency inference accuracy is to add an ``input_example`` when saving your model. This enables MLflow to 
+    perform a model prediction before saving the model, thereby capturing the dependencies used during the prediction.
+    Please refer to :ref:`Model Input Example <input-example>` for additional, detailed usage of this parameter.
+
 .. contents:: Table of Contents
   :local:
   :depth: 1
@@ -109,6 +115,7 @@ when logging the model. For example,
             python_model=CustomModel(),
             artifact_path="model",
             extra_pip_requirements=["pandas==2.0.3"],
+            input_example=input_data,
         )
 
 The extra dependencies will be added to ``requirements.txt`` as follows (and similarly to ``conda.yaml``):
@@ -202,6 +209,7 @@ To do so, specify **code_path** when logging the model. For example, if you have
         mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="model",
+            input_example=input_data,
             code_paths=["utils.py"],
         )
 
@@ -248,6 +256,7 @@ Then the following model code does **not** work:
         mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="model",
+            input_example=input_data,
             code_paths=[
                 "src/utils.py"
             ],  # the file will be saved at code/utils.py not code/src/utils.py
@@ -277,6 +286,7 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
         mlflow.pyfunc.log_model(
             python_model=model,
             artifact_path="model",
+            input_example=input_data,
             code_paths=["src"],  # the whole /src directory will be saved at code/src
         )
 
@@ -397,6 +407,13 @@ model dependencies and save them as part of the MLflow Model metadata. However, 
 for certain libraries. This can cause errors when serving your model, such as "ModuleNotFoundError" or "ImportError". Below are some steps that can help to diagnose
 and fix missing dependency errors.
 
+.. hint::
+
+    To reduce the possibility of dependency errors, you can add ``input_example`` when saving your model. This enables MLflow to 
+    perform a model prediction before saving the model, thereby capturing the dependencies used during the prediction.
+    Please refer to :ref:`Model Input Example <input-example>` for additional, detailed usage of this parameter.
+
+
 1. Check the missing dependencies
 *********************************
 The missing dependencies are listed in the error message. For example, if you see the following error message:
@@ -440,7 +457,7 @@ defined in the model metadata. Since this doesn't mutate the model, you can iter
 
     The ``pip-requirements-override`` option is available since MLflow 2.10.0.
 
-1. Update the model metadata
+3. Update the model metadata
 ****************************
 Once you find the correct dependencies, you can create a new model with the correct dependencies.
 To do so, specify the ``extra_pip_requirements`` option when logging the model.
@@ -453,6 +470,7 @@ To do so, specify the ``extra_pip_requirements`` option when logging the model.
         artifact_path="model",
         python_model=python_model,
         extra_pip_requirements=["opencv-python==4.8.0"],
+        input_example=input_data,
     )
 
 

@@ -88,7 +88,4 @@ const CreateModelModalWithRouter = withRouterNext(
   connect(undefined, mapDispatchToProps)(injectIntl<'intl', Props>(CreateModelModalImpl)),
 );
 
-export const CreateModelModal = withErrorBoundary(
-  ErrorUtils.mlflowServices.MODEL_REGISTRY,
-  CreateModelModalWithRouter,
-);
+export const CreateModelModal = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, CreateModelModalWithRouter);

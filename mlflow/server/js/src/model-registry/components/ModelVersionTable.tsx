@@ -23,11 +23,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import {
-  KeyValueEntity,
-  ModelEntity,
-  ModelVersionInfoEntity,
-} from '../../experiment-tracking/types';
+import { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../experiment-tracking/types';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteringModelDocUrl } from '../../common/constants';
@@ -99,8 +95,7 @@ export const ModelVersionTable = ({
   const intl = useIntl();
 
   const allTagsKeys = useMemo(() => {
-    const allTagsList: KeyValueEntity[] =
-      versions?.map((modelVersion) => modelVersion?.tags || []).flat() || [];
+    const allTagsList: KeyValueEntity[] = versions?.map((modelVersion) => modelVersion?.tags || []).flat() || [];
 
     // Extract keys, remove duplicates and sort the
     return Array.from(new Set(allTagsList.map(({ key }) => key))).sort();
@@ -162,15 +157,11 @@ export const ModelVersionTable = ({
         accessorKey: 'version',
         cell: ({ getValue }) => (
           <FormattedMessage
-            defaultMessage='<link>Version {versionNumber}</link>'
-            description='Link to model version in the model version table'
+            defaultMessage="<link>Version {versionNumber}</link>"
+            description="Link to model version in the model version table"
             values={{
               link: (chunks) => (
-                <Link
-                  to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}
-                >
-                  {chunks}
-                </Link>
+                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}>{chunks}</Link>
               ),
               versionNumber: getValue(),
             }}
@@ -277,9 +268,7 @@ export const ModelVersionTable = ({
     return columns;
   }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI]);
 
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: COLUMN_IDS.CREATION_TIMESTAMP, desc: true },
-  ]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: COLUMN_IDS.CREATION_TIMESTAMP, desc: true }]);
 
   const table = useReactTable<ModelVersionInfoEntity>({
     data: versions || [],
@@ -321,12 +310,12 @@ export const ModelVersionTable = ({
     <Empty
       description={
         <FormattedMessage
-          defaultMessage='No models versions are registered yet. <link>Learn more</link> about how to
-          register a model version.'
-          description='Message text when no model versions are registered'
+          defaultMessage="No models versions are registered yet. <link>Learn more</link> about how to
+          register a model version."
+          description="Message text when no model versions are registered"
           values={{
             link: (chunks) => (
-              <Typography.Link target='_blank' href={getLearnMoreLinkUrl()}>
+              <Typography.Link target="_blank" href={getLearnMoreLinkUrl()}>
                 {chunks}
               </Typography.Link>
             ),
@@ -340,7 +329,7 @@ export const ModelVersionTable = ({
   return (
     <>
       <Table
-        data-testid='model-list-table'
+        data-testid="model-list-table"
         pagination={paginationComponent}
         scrollable
         empty={isEmpty() ? emptyComponent : undefined}
@@ -374,10 +363,7 @@ export const ModelVersionTable = ({
               },
             }}
           >
-            <TableRowSelectCell
-              checked={row.getIsSelected()}
-              onChange={row.getToggleSelectedHandler()}
-            />
+            <TableRowSelectCell checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
             {row.getAllCells().map((cell) => (
               <TableCell
                 className={(cell.column.columnDef as ModelVersionColumnDef).meta?.className}

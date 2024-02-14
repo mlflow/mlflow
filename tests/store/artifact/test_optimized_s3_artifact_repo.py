@@ -17,6 +17,7 @@ from tests.helper_functions import set_boto_credentials  # noqa: F401
 
 S3_REPOSITORY_MODULE = "mlflow.store.artifact.optimized_s3_artifact_repo"
 S3_ARTIFACT_REPOSITORY = f"{S3_REPOSITORY_MODULE}.OptimizedS3ArtifactRepository"
+DEFAULT_REGION_NAME = "us_random_region"
 
 
 @pytest.fixture
@@ -84,6 +85,13 @@ def test_get_s3_client_verify_param_set_correctly(
 ):
     monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls_env)
     with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": DEFAULT_REGION_NAME},
+            }
+        }
+        mock_get_s3_client.return_value = s3_client_mock
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
         repo._get_s3_client()
         mock_get_s3_client.assert_called_with(
@@ -135,6 +143,31 @@ def test_get_s3_client_region_name_set_correctly(s3_artifact_root, client_throws
         )
 
 
+def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_artifact_root):
+    region_name = "us_random_region_42"
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": region_name},
+            }
+        }
+        repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+        repo._get_s3_client()
+
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            region_name=region_name,
+        )
+
+
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
@@ -143,6 +176,13 @@ def test_s3_client_config_set_correctly(s3_artifact_root):
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
     with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": DEFAULT_REGION_NAME},
+            }
+        }
+        mock_get_s3_client.return_value = s3_client_mock
         repo = OptimizedS3ArtifactRepository(
             s3_artifact_root,
             access_key_id="my-id",

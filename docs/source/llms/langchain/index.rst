@@ -165,7 +165,7 @@ I can't save my chain, agent, or retriever with MLflow.
 
     Some objects, especially those with intricate internal states or dependencies on external system resources, are not inherently pickleable. This limitation 
     arises because serialization essentially requires converting an object to a byte stream, which can be complex for objects tightly coupled with system states 
-    or those having external I/O operations.
+    or those having external I/O operations. Try upgrading PyDantic to 2.x version to resolve this issue.
 
 - **Verifying Native Serialization Support**: Ensure that the langchain object (chain, agent, or retriever) is serializable natively using langchain APIs if saving or logging with MLflow doesn't work. 
 
@@ -192,3 +192,17 @@ I'm getting an AttributeError when saving my model
     dependencies. The model flavor contains two options for declaring these dependencies: ``extra_pip_requirements`` and ``pip_requirements``. While specifying 
     ``pip_requirements`` is entirely valid, we recommend using ``extra_pip_requirements`` as it does not rely on defining all of the core dependent packages that 
     are required to use the langchain model for inference (the other core dependencies will be inferred automatically).
+
+I can't load the model logged by mlflow langchain autologging
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Model contains langchain retrievers**: LangChain retrievers are not supported by MLflow autologging. 
+
+    If your model contains a retriever, you will need to manually log the model using the ``mlflow.langchain.log_model`` API.
+    As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in 
+    `retriever_chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_
+
+- **Can't pickle certain objects**: Try manually log the model.
+
+    For certain models that langchain does not support native saving/loading, we pickle the object and save it, while it requires cloudpickle version to be 
+    consistent when saving/loading the model, as well as PyDantic version to be 2.x. Try manually log the model with ``mlflow.langchain.log_model`` API.

@@ -6,7 +6,7 @@ import shutil
 import types
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import Any, List, NamedTuple, Optional
+from typing import NamedTuple
 
 import cloudpickle
 import yaml
@@ -95,6 +95,7 @@ def picklable_runnable_types():
         pass
 
     try:
+        # TODO: fix this, RunnableAssign is not picklable
         from langchain.schema.runnable.passthrough import RunnableAssign
 
         types += (RunnableAssign,)
@@ -470,59 +471,3 @@ def _load_base_lcs(
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
-
-
-# This is an internal function that is used to generate
-# a fake chat model for testing purposes.
-# cloudpickle can not pickle a pydantic model defined
-# within the same scope, so put it here.
-def _fake_simple_chat_model():
-    from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.messages import BaseMessage
-
-    class FakeChatModel(SimpleChatModel):
-        """Fake Chat Model wrapper for testing purposes."""
-
-        def _call(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> str:
-            return "Databricks"
-
-        @property
-        def _llm_type(self) -> str:
-            return "fake chat model"
-
-    return FakeChatModel
-
-
-def _fake_mlflow_question_classifier():
-    from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.messages import BaseMessage
-
-    class FakeMLflowClassifier(SimpleChatModel):
-        """Fake Chat Model wrapper for testing purposes."""
-
-        def _call(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> str:
-            if "MLflow" in messages[0].content.split(":")[1]:
-                return "yes"
-            if "cat" in messages[0].content.split(":")[1]:
-                return "no"
-            return "unknown"
-
-        @property
-        def _llm_type(self) -> str:
-            return "fake mlflow classifier"
-
-    return FakeMLflowClassifier

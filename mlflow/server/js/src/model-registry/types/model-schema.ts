@@ -1,12 +1,4 @@
-export type DataType =
-  | 'binary'
-  | 'datetime'
-  | 'boolean'
-  | 'double'
-  | 'float'
-  | 'integer'
-  | 'long'
-  | 'string';
+export type DataType = 'binary' | 'datetime' | 'boolean' | 'double' | 'float' | 'integer' | 'long' | 'string';
 
 export type ColumnType = ScalarType | ArrayType | ObjectType;
 export type ScalarType = {

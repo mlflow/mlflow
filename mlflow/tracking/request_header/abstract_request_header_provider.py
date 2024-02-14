@@ -20,18 +20,19 @@ class RequestHeaderProvider:
 
     @abstractmethod
     def in_context(self):
-        """
-        Determine if MLflow is running in this context.
+        """Determine if MLflow is running in this context.
 
-        :return: bool indicating if in this context
+        Returns:
+            bool indicating if in this context.
+
         """
         pass
 
     @abstractmethod
     def request_headers(self):
-        """
-        Generate context-specific request headers.
+        """Generate context-specific request headers.
 
-        :return: dict of request headers
+        Returns:
+            dict of request headers.
         """
         pass

@@ -10,14 +10,14 @@ from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils import insecure_hash
 
-from tests.resources.data.dataset_source import TestDatasetSource
+from tests.resources.data.dataset_source import SampleDatasetSource
 
 
-class TestDataset(Dataset):
+class SampleDataset(Dataset):
     def __init__(
         self,
         data_list: List[int],
-        source: TestDatasetSource,
+        source: SampleDatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
@@ -54,7 +54,7 @@ class TestDataset(Dataset):
         return self._data_list
 
     @property
-    def source(self) -> TestDatasetSource:
+    def source(self) -> SampleDatasetSource:
         return self._source
 
     @property

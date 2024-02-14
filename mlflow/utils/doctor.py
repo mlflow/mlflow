@@ -11,12 +11,12 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 
 
 def doctor(mask_envs=False):
-    """
-    Prints out useful information for debugging issues with MLflow.
+    """Prints out useful information for debugging issues with MLflow.
 
-    :param mask_envs: If True, mask the MLflow environment variable values
-                      (e.g. `"MLFLOW_ENV_VAR": "***"`) in the output to prevent leaking sensitive
-                      information.
+    Args:
+        mask_envs: If True, mask the MLflow environment variable values
+            (e.g. `"MLFLOW_ENV_VAR": "***"`) in the output to prevent leaking sensitive
+            information.
 
     .. warning::
 
