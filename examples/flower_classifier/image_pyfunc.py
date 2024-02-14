@@ -25,9 +25,12 @@ def decode_and_resize_image(raw_bytes, size):
     """
     Read, decode and resize raw image bytes (e.g. raw content of a jpeg file).
 
-    :param raw_bytes: Image bits, e.g. jpeg image.
-    :param size: requested output dimensions
-    :return: Multidimensional numpy array representing the resized image.
+    Args:
+        raw_bytes: Image bits, e.g. jpeg image.
+        size: Requested output dimensions.
+
+    Returns:
+        Multidimensional numpy array representing the resized image.
     """
     return np.asarray(Image.open(BytesIO(raw_bytes)).resize(size), dtype=np.float32)
 
@@ -63,20 +66,22 @@ class KerasImageClassifierPyfunc:
         """
         Generate predictions for the data.
 
-        :param input: pandas.DataFrame with one column containing images to be scored. The image
-                     column must contain base64 encoded binary content of the image files. The image
-                     format must be supported by PIL (e.g. jpeg or png).
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            input: pandas.DataFrame with one column containing images to be scored. The image
+                column must contain base64 encoded binary content of the image files. The image
+                format must be supported by PIL (e.g. jpeg or png).
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
-        :return: pandas.DataFrame containing predictions with the following schema:
-                     Predicted class: string,
-                     Predicted class index: int,
-                     Probability(class==0): float,
-                     ...,
-                     Probability(class==N): float,
+        Returns:
+            pandas.DataFrame containing predictions with the following schema:
+                Predicted class: string,
+                Predicted class index: int,
+                Probability(class==0): float,
+                ...,
+                Probability(class==N): float,
         """
 
         # decode image bytes from base64 encoding
@@ -96,8 +101,12 @@ class KerasImageClassifierPyfunc:
     def _predict_images(self, images):
         """
         Generate predictions for input images.
-        :param images: binary image data
-        :return: predicted probabilities for each class
+
+        Args:
+            images: Binary image data.
+
+        Returns:
+            Predicted probabilities for each class.
         """
 
         def preprocess_f(z):
@@ -113,10 +122,11 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
     """
     Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 
-    :param keras_model: Keras model to be saved.
-    :param artifact_path: Run-relative artifact path this model is to be saved to.
-    :param image_dims: Image dimensions the Keras model expects.
-    :param domain: Labels for the classes this model can predict.
+    Args:
+        keras_model: Keras model to be saved.
+        artifact_path: Run-relative artifact path this model is to be saved to.
+        image_dims: Image dimensions the Keras model expects.
+        domain: Labels for the classes this model can predict.
     """
 
     with TempDir() as tmp:

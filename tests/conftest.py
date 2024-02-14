@@ -116,7 +116,8 @@ def mock_s3_bucket():
     """
     Creates a mock S3 bucket using moto
 
-    :return: The name of the mock bucket
+    Returns:
+        The name of the mock bucket.
     """
     import boto3
     import moto
