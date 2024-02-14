@@ -18,13 +18,12 @@ jobs:
           script: |
             const prNumber = context.payload.pull_request.number;
             const repo = context.repo;
-            const files = await github.rest.pulls.listFiles({
+            const { data: files } = await github.rest.pulls.listFiles({
               owner: repo.owner,
               repo: repo.repo,
               pull_number: prNumber,
             });
 
-            console.log(files)
             const editedPaths = files.map(file => file.filename);
             const protectedPaths = new Set([
               "setup.py",
