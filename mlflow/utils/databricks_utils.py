@@ -22,6 +22,7 @@ from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
+DEPENDENCY_OAUTH_ENV_VAR = "DEPENDENCY_OAUTH_TOKEN"
 
 def _use_repl_context_if_available(name):
     """Creates a decorator to insert a short circuit that returns the specified REPL context
@@ -160,6 +161,9 @@ def is_in_databricks_job():
         return get_job_id() is not None and get_job_run_id() is not None
     except Exception:
         return False
+
+def is_in_databricks_serving_environment():
+    return "DATABRICKS_MODEL_SERVING" in os.environ
 
 
 def is_in_databricks_repo():
@@ -441,32 +445,38 @@ def get_databricks_host_creds(server_uri=None):
     """
     profile, path = get_db_info_from_uri(server_uri)
     config = ProfileConfigProvider(profile).get_config() if profile else get_config()
-    # if a path is specified, that implies a Databricks tracking URI of the form:
-    # databricks://profile-name/path-specifier
-    if (not config or not config.host) and path:
-        dbutils = _get_dbutils()
-        if dbutils:
-            # Prefix differentiates users and is provided as path information in the URI
-            key_prefix = path
-            host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
-            token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
-            if host and token:
-                config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
-    if not config or not config.host:
+    if is_in_databricks_serving_environment():
+        try:
+            return MlflowHostCreds(config.host, token=os.environ[DEPENDENCY_OAUTH_ENV_VAR], ignore_tls_verification=insecure)
+        except Exception:
+            _fail_malformed_databricks_auth(profile)
+    else:
+        # if a path is specified, that implies a Databricks tracking URI of the form:
+        # databricks://profile-name/path-specifier
+        if (not config or not config.host) and path:
+            dbutils = _get_dbutils()
+            if dbutils:
+                # Prefix differentiates users and is provided as path information in the URI
+                key_prefix = path
+                host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
+                token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
+                if host and token:
+                    config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
+        if not config or not config.host:
+            _fail_malformed_databricks_auth(profile)
+
+        insecure = hasattr(config, "insecure") and config.insecure
+
+        if config.username is not None and config.password is not None:
+            return MlflowHostCreds(
+                config.host,
+                username=config.username,
+                password=config.password,
+                ignore_tls_verification=insecure,
+            )
+        elif config.token:
+            return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
         _fail_malformed_databricks_auth(profile)
-
-    insecure = hasattr(config, "insecure") and config.insecure
-
-    if config.username is not None and config.password is not None:
-        return MlflowHostCreds(
-            config.host,
-            username=config.username,
-            password=config.password,
-            ignore_tls_verification=insecure,
-        )
-    elif config.token:
-        return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
-    _fail_malformed_databricks_auth(profile)
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
