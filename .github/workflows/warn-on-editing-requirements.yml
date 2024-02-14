@@ -24,6 +24,7 @@ jobs:
               pull_number: prNumber,
             });
 
+            console.log(files)
             const editedPaths = files.map(file => file.filename);
             const protectedPaths = new Set([
               "setup.py",
