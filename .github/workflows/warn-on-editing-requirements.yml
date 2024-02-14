@@ -1,13 +1,15 @@
 name: Maintainer approval for requirement edits
 
 on:
-  pull_request:
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   pull-requests: write
 
 jobs:
-  warn:
+  check:
+    if: github.event.review.state == 'APPROVED'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
