@@ -2171,7 +2171,7 @@ def log_model(
 
 
                 with mlflow.start_run():
-                    model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+                    model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())  # noqa
 
 
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
