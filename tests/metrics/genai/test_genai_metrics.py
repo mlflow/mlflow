@@ -769,6 +769,14 @@ def test_faithfulness_metric():
             examples=[mlflow_example],
         )
 
+    faithfulness_metric.eval_fn(
+        # Inputs with different indices
+        pd.Series([mlflow_prediction], index=[0]),
+        {},
+        pd.Series([input], index=[1]),
+        pd.Series([mlflow_ground_truth], index=[2]),
+    )
+
 
 def test_answer_correctness_metric():
     answer_correctness_metric = answer_correctness()

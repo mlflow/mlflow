@@ -28,10 +28,16 @@ _logger = logging.getLogger(__name__)
 
 
 def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
+    import pandas as pd
+
     args_dict = {}
     for arg in grading_context_columns:
         if arg in eval_values:
-            args_dict[arg] = eval_values[arg][indx]
+            args_dict[arg] = (
+                eval_values[arg].iloc[indx]
+                if isinstance(eval_values[arg], pd.Series)
+                else eval_values[arg][indx]
+            )
         else:
             raise MlflowException(
                 f"{arg} does not exist in the eval function {list(eval_values.keys())}."
