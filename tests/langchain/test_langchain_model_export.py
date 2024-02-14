@@ -1986,3 +1986,4 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
                 "text": TEST_CONTENT,
             }
         ]
+
