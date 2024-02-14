@@ -22,7 +22,7 @@ from mlflow.server.handlers import (
     search_datasets_handler,
     upload_artifact_handler,
 )
-from mlflow.utils.os import is_windows
+from mlflow.utils.os import get_entry_points, is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 
@@ -142,7 +142,7 @@ def serve():
 
 
 def _find_app(app_name: str) -> str:
-    apps = importlib.metadata.entry_points().get("mlflow.app", [])
+    apps = get_entry_points("mlflow.app")
     for app in apps:
         if app.name == app_name:
             return app.value
@@ -177,7 +177,7 @@ def get_app_client(app_name: str, *args, **kwargs):
     Returns:
         An app client instance.
     """
-    clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
+    clients = get_entry_points("mlflow.app.client")
     for client in clients:
         if client.name == app_name:
             cls = client.load()

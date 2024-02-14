@@ -1,5 +1,4 @@
 import contextlib
-import importlib.metadata
 import json
 import logging
 import os
@@ -27,7 +26,7 @@ from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.os import is_windows
+from mlflow.utils.os import get_entry_points, is_windows
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
@@ -353,7 +352,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option(
     "--app-name",
     default=None,
-    type=click.Choice([e.name for e in importlib.metadata.entry_points().get("mlflow.app", [])]),
+    type=click.Choice([e.name for e in get_entry_points("mlflow.app")]),
     show_default=True,
     help=(
         "Application name to be used for the tracking server. "
