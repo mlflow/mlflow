@@ -93,7 +93,9 @@ def update_and_persist_config(profile, databricks_config):
     Takes a DatabricksConfig and adds the in memory contents to the persisted version of the
     config. This will overwrite any other config that was persisted to the file system under the
     same profile.
-    :param databricks_config: DatabricksConfig
+
+    Args:
+        databricks_config: DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
     raw_config = _fetch_from_fs()
@@ -145,7 +147,8 @@ def get_config_for_profile(profile):
 
     This method is maintained for backwards-compatibility. It may be removed in future versions.
 
-    :return: DatabricksConfig
+    Returns:
+        DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
     config = EnvironmentVariableConfigProvider().get_config()

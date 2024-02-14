@@ -17,8 +17,11 @@ def load_data(fpath):
     """
     Simple helper function for loading data to be used by CPU/GPU models.
 
-    :param fpath: Path to the data to be ingested
-    :return: DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
+    Args:
+        fpath: Path to the data to be ingested
+
+    Returns:
+        DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
     """
     import cudf
 
@@ -31,10 +34,13 @@ def load_data(fpath):
 
 def _train(params, fpath, hyperopt=False):
     """
-    :param params: hyperparameters. Its structure is consistent with how search space is defined. See below.
-    :param fpath: Path or URL for the training data used with the model.
-    :param hyperopt: Use hyperopt for hyperparameter search during training.
-    :return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
+    Args:
+        params: Hyperparameters. Its structure is consistent with how search space is defined.
+        fpath: Path or URL for the training data used with the model.
+        hyperopt: Use hyperopt for hyperparameter search during training.
+
+    Returns:
+        dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run).
     """
     max_depth, max_features, n_estimators = params
     max_depth, max_features, n_estimators = (int(max_depth), float(max_features), int(n_estimators))
@@ -72,10 +78,15 @@ def _train(params, fpath, hyperopt=False):
 def train(params, fpath, hyperopt=False):
     """
     Proxy function used to call _train
-    :param params: hyperparameters. Its structure is consistent with how search space is defined. See below.
-    :param fpath: Path or URL for the training data used with the model.
-    :param hyperopt: Use hyperopt for hyperparameter search during training.
-    :return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
+
+    Args:
+        params: Hyperparameters. Its structure is consistent with how search space is defined.
+        fpath: Path or URL for the training data used with the model.
+        hyperopt: Use hyperopt for hyperparameter search during training.
+
+    Returns:
+        dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
+
     """
     with mlflow.start_run(nested=True):
         return _train(params, fpath, hyperopt)
