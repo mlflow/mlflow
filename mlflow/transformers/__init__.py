@@ -106,7 +106,11 @@ if IS_TRANSFORMERS_AVAILABLE:
 
 # The following import is only used for type hinting
 if TYPE_CHECKING:
-    import torch
+    try:
+        import torch
+    except ImportError:
+        pass
+
     from transformers import Pipeline
 
 

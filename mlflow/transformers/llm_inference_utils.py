@@ -17,7 +17,10 @@ from mlflow.types.llm import (
 )
 
 if TYPE_CHECKING:
-    import torch
+    try:
+        import torch
+    except ImportError:
+        pass
 
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
