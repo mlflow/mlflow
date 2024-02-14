@@ -1,8 +1,8 @@
-import textwrap
+import functools
 import importlib
 import inspect
-import functools
 import re
+import textwrap
 from pathlib import Path
 
 from docutils.parsers.rst import directives
@@ -69,10 +69,8 @@ class TestCodeBlockDirective(CodeBlock):
         print("Hello, world!")
     ```
     """
-    option_spec = {
-        **CodeBlock.option_spec,
-        "test": directives.flag
-    }
+
+    option_spec = {**CodeBlock.option_spec, "test": directives.flag}
 
     def _dump_code_block(self):
         docs_dir = Path.cwd()
@@ -82,8 +80,8 @@ class TestCodeBlockDirective(CodeBlock):
         source, lineno_in_docstring = self.get_source_info()
         obj_path = source.split(":docstring of ")[1]
         code_block_location = get_code_block_location(obj_path, lineno_in_docstring, repo_root)
-        name = re.sub("[\._]+", "_", obj_path).strip("")
-        filename = "test_{}_{}.py".format(name, lineno_in_docstring)
+        name = re.sub(r"[\._]+", "_", obj_path).strip("")
+        filename = f"test_{name}_{lineno_in_docstring}.py"
         content = textwrap.indent("\n".join(self.content), " " * 4)
         code = "\n".join(
             [
