@@ -1,4 +1,4 @@
-name: Warn on editing requirements
+name: Require core maintainer approval when editing requirements
 
 on:
   pull_request:
@@ -13,14 +13,10 @@ jobs:
   warn:
     runs-on: ubuntu-latest
     steps:
-      - name: Post warning if file is edited
+      - name: Fail without core maintainer approval
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: "⚠️ Warning: It looks like you're editing requirements for MLflow. Please ensure that this doesn't cause any dependency conflicts with downstream tasks that depend on MLflow (e.g. image building).",
-            });
+            script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
+            await script({ context, github, core });
