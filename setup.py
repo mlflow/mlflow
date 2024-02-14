@@ -170,7 +170,7 @@ setup(
             "azure-storage-file-datalake>12",
             "google-cloud-storage>=1.30.0",
             "boto3>1",
-            "botocore>1.34",
+            "botocore",
         ],
         "gateway": GATEWAY_REQUIREMENTS,
         "genai": GATEWAY_REQUIREMENTS,
