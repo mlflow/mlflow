@@ -1,4 +1,4 @@
-name: Require core maintainer approval when editing requirements
+name: Maintainer approval for requirement edits
 
 on:
   pull_request:
@@ -19,5 +19,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
-            await script({ context, github, core });
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
+            const reason = (
+              "Editing requirements files can cause conflicts in downstream processes " +
+              "that depend on MLflow. Please ensure that one of the MLflow Core Maintainers " +
+              "has a chance to review this PR."
+            );
+            await script({ context, github, core, reason });

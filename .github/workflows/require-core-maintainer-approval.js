@@ -7,7 +7,7 @@ const CORE_MAINTAINERS = new Set([
   "WeichenXu123",
 ]);
 
-module.exports = async ({ github, context, core }) => {
+module.exports = async ({ github, context, core, reason }) => {
   const { data: reviews } = await github.rest.pulls.listReviews({
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -19,6 +19,6 @@ module.exports = async ({ github, context, core }) => {
   );
 
   if (maintainerApprovals.length === 0) {
-    core.setFailed("No core maintainers have approved this pull request");
+    core.setFailed(`This PR requires an approval from a core maintainer. Reason: ${reason}`);
   }
 };
