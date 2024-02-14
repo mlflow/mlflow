@@ -2,9 +2,6 @@ name: Maintainer approval for requirement edits
 
 on:
   pull_request:
-    paths:
-      - setup.py
-      - requirements/skinny-requirements.yaml
 
 permissions:
   pull-requests: write
@@ -19,12 +16,26 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log(JSON.stringify(context.payload.pull_request, null, 2))
+            const prNumber = context.payload.pull_request.number;
+            const repo = context.repo;
+            const files = await github.rest.pulls.listFiles({
+              owner: repo.owner,
+              repo: repo.repo,
+              pull_number: prNumber,
+            });
 
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
-            const reason = (
-              "Editing requirements files can cause conflicts in downstream processes " +
-              "that depend on MLflow. Please ensure that one of the MLflow Core Maintainers " +
-              "has a chance to review this PR."
-            );
-            await script({ context, github, core, reason });
+            const editedPaths = files.map(file => file.filename);
+            const protectedPaths = new Set([
+              "setup.py",
+              "requirements/skinny-requirements.yaml",
+            ]);
+
+            if (editedPaths.some(path => protectedPaths.has(path))) {
+              const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
+              const reason = (
+                "Editing requirements files can cause conflicts in downstream processes " +
+                "that depend on MLflow. Please ensure that one of the MLflow Core Maintainers " +
+                "has a chance to review this PR."
+              );
+              await script({ context, github, core, reason });
+            }
