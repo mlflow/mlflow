@@ -1,7 +1,7 @@
 name: Maintainer approval for requirement edits
 
 on:
-  pull_request_review:
+  pull_request:
     paths:
       - setup.py
       - requirements/skinny-requirements.yaml
@@ -11,8 +11,6 @@ permissions:
 
 jobs:
   warn:
-    if: context.
-
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
