@@ -1,7 +1,11 @@
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.transformers import _build_pipeline_from_model_input
-from mlflow.transformers.flavor_config import build_flavor_config
+from mlflow.transformers.flavor_config import (
+    build_flavor_config,
+    update_flavor_conf_to_persist_pretrained_model,
+)
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
 
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API
