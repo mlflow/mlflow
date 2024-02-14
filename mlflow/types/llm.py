@@ -292,7 +292,7 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "n": 1,
     "stream": False,
 }
-          
+
 COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(name="prompt", type=DataType.string),

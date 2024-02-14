@@ -170,8 +170,8 @@ def save_model(
 
     if task is not None:
         signature = ModelSignature(
-            inputs=EMBEDDING_MODEL_INPUT_SCHEMA,
-            outputs=EMBEDDING_MODEL_OUTPUT_SCHEMA)
+            inputs=EMBEDDING_MODEL_INPUT_SCHEMA, outputs=EMBEDDING_MODEL_OUTPUT_SCHEMA
+        )
     elif signature is None and input_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
