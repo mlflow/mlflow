@@ -480,3 +480,51 @@ def test_model_log_with_signature_inference(basic_model):
 
     model_info = Model.load(model_uri)
     assert model_info.signature == SIGNATURE
+
+
+def test_verify_task_and_update_metadata():
+    # Update embedding task with empty metadata
+    metadata = mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/embeddings")
+    assert metadata == {"task": "llm/v1/embeddings"}
+    # Update embedding task with metadata containing task
+    metadata = mlflow.sentence_transformers._verify_task_and_update_metadata(
+        "llm/v1/embeddings", metadata
+    )
+    assert metadata == {"task": "llm/v1/embeddings"}
+
+    # Update embedding task with metadata containing different task
+    metadata = {"task": "llm/v1/completions"}
+    with pytest.raises(
+        MlflowException, match=r"Task type is inconsistent with the task value from metadata"
+    ):
+        mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/embeddings", metadata)
+
+    # Invalid task type
+    with pytest.raises(MlflowException, match=r"Task type could only be llm/v1/embeddings"):
+        mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/completions")
+
+
+def test_model_pyfunc_with_dict_input(basic_model, model_path):
+    mlflow.sentence_transformers.save_model(basic_model, model_path, task="llm/v1/embeddings")
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    sentence = "hello world and hello mlflow"
+    sentences = [sentence, "goodbye my friends", "i am a sentence"]
+    embedding_dim = basic_model.get_sentence_embedding_dimension()
+
+    single_input = {"input": sentence}
+    emb_single_input = loaded_pyfunc.predict(single_input)
+
+    assert isinstance(emb_single_input, dict)
+    assert len(emb_single_input["data"]) == 1
+    assert isinstance(emb_single_input["data"][0], dict)
+    assert emb_single_input["data"][0]["embedding"].shape == (embedding_dim,)
+    assert emb_single_input["usage"]["prompt_tokens"] == 8
+
+    multiple_input = {"input": sentences}
+    emb_multiple_input = loaded_pyfunc.predict(multiple_input)
+
+    assert isinstance(emb_multiple_input, dict)
+    assert len(emb_multiple_input["data"]) == 3
+    assert emb_multiple_input["data"][0]["embedding"].shape == (embedding_dim,)
+    assert emb_multiple_input["usage"]["prompt_tokens"] == 19

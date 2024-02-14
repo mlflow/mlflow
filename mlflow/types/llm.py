@@ -337,3 +337,36 @@ COMPLETIONS_MODEL_OUTPUT_SCHEMA = Schema(
         ),
     ]
 )
+
+EMBEDDING_MODEL_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(name="input", type=DataType.string),
+    ]
+)
+
+EMBEDDING_MODEL_OUTPUT_SCHEMA = Schema(
+    [
+        ColSpec(name="object", type=DataType.string),
+        ColSpec(
+            name="data",
+            type=Array(
+                Object(
+                    [
+                        Property("index", DataType.long),
+                        Property("object", DataType.string),
+                        Property("embedding", Array(DataType.double)),
+                    ]
+                )
+            ),
+        ),
+        ColSpec(
+            name="usage",
+            type=Object(
+                [
+                    Property("prompt_tokens", DataType.long),
+                    Property("total_tokens", DataType.long),
+                ]
+            ),
+        ),
+    ]
+)
