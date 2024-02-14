@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
-import torch
 from transformers import AutoTokenizer, StoppingCriteria
 
 from mlflow.exceptions import MlflowException
@@ -14,6 +15,9 @@ from mlflow.types.llm import (
     COMPLETIONS_MODEL_INPUT_SCHEMA,
     COMPLETIONS_MODEL_OUTPUT_SCHEMA,
 )
+
+if TYPE_CHECKING:
+    import torch
 
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
