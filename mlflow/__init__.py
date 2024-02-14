@@ -151,6 +151,7 @@ from mlflow.tracking.fluent import (
     set_tags,
     start_run,
 )
+from mlflow.utils.async_logging import enable_async_logging
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
 from mlflow.utils.credentials import login
 from mlflow.utils.doctor import doctor
@@ -167,6 +168,7 @@ __all__ = [
     "delete_tag",
     "disable_system_metrics_logging",
     "doctor",
+    "enable_async_logging",
     "enable_system_metrics_logging",
     "end_run",
     "evaluate",

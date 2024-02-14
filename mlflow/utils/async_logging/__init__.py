@@ -1,7 +1,5 @@
-from mlflow.utils.async_logging import run_operations  # noqa: F401
-
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
-from mlflow.utils.annotations import experimental
+from mlflow.utils.async_logging import run_operations  # noqa: F401
 
 
 def enable_async_logging(enable=True):
