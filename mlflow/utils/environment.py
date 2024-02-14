@@ -5,7 +5,6 @@ import re
 import subprocess
 import sys
 import tempfile
-from pprint import pformat
 from typing import List
 
 import yaml
@@ -732,62 +731,11 @@ def _get_pip_install_mlflow():
         return f"pip install mlflow=={VERSION} 1>&2"
 
 
-def _add_requirements_to_file(
-    new_reqs: List[Requirement],
-    file_path: str,
-) -> None:
-    """
-    Adds new requirements to the given requirements file (either `conda.yaml`
-    or `requirements.txt`). If any of the new requirements overlap with the
-    requirements in the file, the new requirements will overwrite the old ones.
-
-    Args:
-        new_reqs (List[`Requirement`]): List of new requirements to add to the file.
-        file_path (str): Path to the locally-saved requirements file. Must point to
-            either a `conda.yaml` or `requirements.txt` file.
-    """
-    old_reqs = _get_requirements_from_file(file_path)
-    updated_reqs = _add_or_overwrite_requirements(new_reqs, old_reqs)
-    _write_requirements_to_file(file_path, updated_reqs)
-    _logger.info(
-        "Done adding requirements!\n\n"
-        f"Old requirements:\n{pformat([str(req) for req in old_reqs])}\n\n"
-        f"Updated requirements:\n{pformat(updated_reqs)}\n"
-    )
-
-
-def _remove_requirements_from_file(
-    reqs_to_remove: List[Requirement],
-    file_path: str,
-) -> None:
-    """
-    Removes requirements from the given requirements file (either `conda.yaml`
-    or `requirements.txt`). If any of the provided requirements are not present
-    in the file, they will be ignored. This function also ignores version specifiers.
-    For example, if the file contains "pandas==1.2.3", and the provided requirement
-    is "pandas", the function will remove "pandas==1.2.3" from the file.
-
-    Args:
-        reqs_to_remove (List[`Requirement`]): List of requirements to remove from the file
-        file_path (str): Path to the locally-saved requirements file. Must point to
-            either a `conda.yaml` or `requirements.txt` file.
-    """
-    old_reqs = _get_requirements_from_file(file_path)
-    updated_reqs = _remove_requirements(reqs_to_remove, old_reqs)
-    _write_requirements_to_file(file_path, updated_reqs)
-    _logger.info(
-        "Done removing requirements!\n\n"
-        f"Old requirements:\n{pformat([str(req) for req in old_reqs])}\n\n"
-        f"Updated requirements:\n{pformat(updated_reqs)}\n"
-    )
-
-
 def _get_requirements_from_file(
-    file_path: str,
+    file_path: pathlib.Path,
 ) -> List[Requirement]:
-    path = pathlib.Path(file_path)
-    data = path.read_text()
-    if path.name == _CONDA_ENV_FILE_NAME:
+    data = file_path.read_text()
+    if file_path.name == _CONDA_ENV_FILE_NAME:
         conda_env = yaml.safe_load(data)
         reqs = _get_pip_deps(conda_env)
     else:
@@ -796,17 +744,16 @@ def _get_requirements_from_file(
 
 
 def _write_requirements_to_file(
-    file_path: str,
+    file_path: pathlib.Path,
     new_reqs: List[str],
 ) -> None:
-    path = pathlib.Path(file_path)
-    if path.name == _CONDA_ENV_FILE_NAME:
-        conda_env = yaml.safe_load(path.read_text())
+    if file_path.name == _CONDA_ENV_FILE_NAME:
+        conda_env = yaml.safe_load(file_path.read_text())
         conda_env = _overwrite_pip_deps(conda_env, new_reqs)
-        with path.open("w") as file:
+        with file_path.open("w") as file:
             yaml.dump(conda_env, file)
     else:
-        path.write_text("\n".join(new_reqs))
+        file_path.write_text("\n".join(new_reqs))
 
 
 def _add_or_overwrite_requirements(

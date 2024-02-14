@@ -3,9 +3,10 @@ import logging
 import os
 import uuid
 import warnings
-from collections import namedtuple
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from pathlib import Path
+from pprint import pformat
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
 
 import yaml
 
@@ -23,8 +24,10 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
-    _add_requirements_to_file,
-    _remove_requirements_from_file,
+    _add_or_overwrite_requirements,
+    _get_requirements_from_file,
+    _remove_requirements,
+    _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import (
@@ -714,9 +717,12 @@ def get_model_info(model_uri: str) -> ModelInfo:
     )
 
 
-def get_model_requirements_files(resolved_uri: str) -> Dict[str, str]:
-    requirements_txt_file = None
-    conda_yaml_file = None
+class Files(NamedTuple):
+    requirements: Path
+    conda: Path
+
+
+def get_model_requirements_files(resolved_uri: str) -> Files:
     requirements_txt_file = _download_artifact_from_uri(
         artifact_uri=append_to_uri_path(resolved_uri, _REQUIREMENTS_FILE_NAME)
     )
@@ -724,8 +730,10 @@ def get_model_requirements_files(resolved_uri: str) -> Dict[str, str]:
         artifact_uri=append_to_uri_path(resolved_uri, _CONDA_ENV_FILE_NAME)
     )
 
-    Files = namedtuple("Files", ["requirements", "conda"])
-    return Files(requirements_txt_file, conda_yaml_file)
+    return Files(
+        Path(requirements_txt_file),
+        Path(conda_yaml_file),
+    )
 
 
 def update_model_requirements(
@@ -784,20 +792,32 @@ def update_model_requirements(
 
     _logger.info(f"Retrieving model requirements files from {resolved_uri}...")
     local_paths = get_model_requirements_files(resolved_uri)
-    conda_yaml_file = local_paths.conda
-    requirements_txt_file = local_paths.requirements
+    conda_yaml_path = local_paths.conda
+    requirements_txt_path = local_paths.requirements
+
+    old_conda_reqs = _get_requirements_from_file(conda_yaml_path)
+    old_requirements_reqs = _get_requirements_from_file(requirements_txt_path)
 
     if operation == "add":
-        _logger.info(f"Adding requirements to {_CONDA_ENV_FILE_NAME}...")
-        _add_requirements_to_file(requirement_list, conda_yaml_file)
-        _logger.info(f"Adding requirements to {_REQUIREMENTS_FILE_NAME}...")
-        _add_requirements_to_file(requirement_list, requirements_txt_file)
+        updated_conda_reqs = _add_or_overwrite_requirements(requirement_list, old_conda_reqs)
+        updated_requirements_reqs = _add_or_overwrite_requirements(
+            requirement_list, old_requirements_reqs
+        )
     else:
-        _logger.info(f"Removing requirements from {_CONDA_ENV_FILE_NAME}...")
-        _remove_requirements_from_file(requirement_list, conda_yaml_file)
-        _logger.info(f"Removing requirements from {_REQUIREMENTS_FILE_NAME}...")
-        _remove_requirements_from_file(requirement_list, requirements_txt_file)
+        updated_conda_reqs = _remove_requirements(requirement_list, old_conda_reqs)
+        updated_requirements_reqs = _remove_requirements(requirement_list, old_requirements_reqs)
+
+    _write_requirements_to_file(conda_yaml_path, updated_conda_reqs)
+    _write_requirements_to_file(requirements_txt_path, updated_requirements_reqs)
+
+    # just print conda reqs here to avoid log spam
+    # it should be the same as requirements.txt anyway
+    _logger.info(
+        "Done updating requirements!\n\n"
+        f"Old requirements:\n{pformat([str(req) for req in old_conda_reqs])}\n\n"
+        f"Updated requirements:\n{pformat(updated_conda_reqs)}\n"
+    )
 
     _logger.info(f"Uploading updated requirements files to {resolved_uri}...")
-    _upload_artifact_to_uri(conda_yaml_file, resolved_uri)
-    _upload_artifact_to_uri(requirements_txt_file, resolved_uri)
+    _upload_artifact_to_uri(conda_yaml_path, resolved_uri)
+    _upload_artifact_to_uri(requirements_txt_path, resolved_uri)
