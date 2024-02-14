@@ -1,5 +1,5 @@
+
 import pytest
-from unittest import mock
 import pytorch_lightning as pl
 import torch
 from iris import (
@@ -16,7 +16,6 @@ import mlflow
 import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.pytorch import MlflowModelCheckpointCallback
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 from mlflow.utils.file_utils import TempDir
 
@@ -622,10 +621,10 @@ def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
         checkpoint_save_weights_only=False,
         checkpoint_save_freq="epoch",
     )
-    
+
     class CustomIrisClassification(IrisClassification):
         def validation_step(self, batch, batch_idx):
-            super(CustomIrisClassification, self).validation_step(batch, batch_idx)
+            super().validation_step(batch, batch_idx)
             if self.current_epoch == 0:
                 self.log("custom_metric", 0.8)
             elif self.current_epoch == 1:
@@ -694,7 +693,7 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
 
     class CustomIrisClassification(IrisClassification):
         def validation_step(self, batch, batch_idx):
-            super(CustomIrisClassification, self).validation_step(batch, batch_idx)
+            super().validation_step(batch, batch_idx)
             if self.current_epoch == 0:
                 self.log("custom_metric", 0.8)
             elif self.current_epoch == 1:
