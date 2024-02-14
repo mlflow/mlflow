@@ -431,7 +431,7 @@ prophet:
       pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
-    minimum: "1.1.0"
+    minimum: "1.1.1"
     maximum: "1.1.5"
     requirements:
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
