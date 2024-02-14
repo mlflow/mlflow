@@ -71,6 +71,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         )
         try:
             head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
+            raise Exception("kjc9 test exception")
             print(f"_get_region_name::resp = {head_bucket_resp}")
             # A normal response will have the region in the Bucket_Region field of the response
             if _BUCKET_REGION in head_bucket_resp:
