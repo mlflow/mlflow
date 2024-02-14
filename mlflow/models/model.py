@@ -529,8 +529,9 @@ class Model:
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
         with open(path) as f:
-            print("yaml.safe_load(f.read())", yaml.safe_load(f.read()))
-            return cls.from_dict(yaml.safe_load(f.read()))
+            yaml_content = yaml.safe_load(f.read())
+            print("yaml_content:", yaml_content)
+            return cls.from_dict(yaml_content)
 
     @classmethod
     def from_dict(cls, model_dict):
