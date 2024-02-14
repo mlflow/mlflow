@@ -17,7 +17,6 @@ force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
   "setup.py",
-  "docs/source",
   "examples/recipes",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
@@ -93,7 +92,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
 "examples/*" = ["T20"]
-"docs/broken_links.py" = ["T20"]
+"docs/*" = ["T20"]
 "mlflow/*" = ["PT018"]
 
 [tool.ruff.lint.flake8-pytest-style]
