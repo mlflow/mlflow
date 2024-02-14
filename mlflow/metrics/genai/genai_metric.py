@@ -28,6 +28,8 @@ _logger = logging.getLogger(__name__)
 
 
 def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
+    import pandas as pd
+
     args_dict = {}
     for arg in grading_context_columns:
         if arg in eval_values:
