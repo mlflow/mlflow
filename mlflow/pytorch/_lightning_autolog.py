@@ -403,13 +403,13 @@ class MlflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
         self.client.set_tag(
             self.run_id,
             LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
-            os.path.join(checkpoint_artifact_dir, checkpoint_model_filename),
+            f"{checkpoint_artifact_dir}/{checkpoint_model_filename}",
         )
 
         self.client.log_dict(
             self.run_id,
             {**metric_dict, "epoch": current_epoch, "global_step": trainer.global_step},
-            os.path.join(checkpoint_artifact_dir, checkpoint_metrics_filename),
+            f"{checkpoint_artifact_dir}/{checkpoint_metrics_filename}",
         )
 
         tmp_dir = create_tmp_dir()
