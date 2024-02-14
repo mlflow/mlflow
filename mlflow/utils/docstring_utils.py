@@ -290,6 +290,13 @@ it to MLflow without modifying the model weights. In such case, specifying this 
         model_uri = "YOUR_MODEL_URI_LOGGED_WITH_SAVE_PRETRAINED_FALSE"
         model = mlflow.transformers.download_pretrained_model(model_uri)
         mlflow.register_model(model_uri, "model_name")
+
+.. important::
+
+    When you save the `PEFT <https://huggingface.co/docs/peft/en/index>` model, MLflow will
+    overrides the `save_pretrained` flag to `False` and only the PEFT adapter weights. The
+    base model weights are not saved but the reference to the HuggingFace repository and
+    its commit hash are logged instead.
 """
         ),
     }
