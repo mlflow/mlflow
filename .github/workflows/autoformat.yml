@@ -74,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
-          protos=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
+          protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           python=$([[ -z $(echo "$changed_files" | grep '\.py$\|^pyproject\.toml$') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
@@ -155,7 +155,7 @@ jobs:
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
       - name: Upload patch
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
@@ -183,7 +183,7 @@ jobs:
           git merge base/${{ needs.check-comment.outputs.base_ref }}
 
       - name: Download patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ github.run_id }}.diff
           path: /tmp

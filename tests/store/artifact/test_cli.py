@@ -84,8 +84,11 @@ def test_download_from_uri():
 
 def _run_download_artifact_command(args) -> pathlib.Path:
     """
-    :param command: An `mlflow artifacts` command list.
-    :return: Path to the downloaded artifact.
+    Args:
+        command: An `mlflow artifacts` command list.
+
+    Returns:
+        Path to the downloaded artifact.
     """
     runner = CliRunner()
     resp = runner.invoke(download_artifacts, args=args, catch_exceptions=False)

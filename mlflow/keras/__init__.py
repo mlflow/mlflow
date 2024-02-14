@@ -21,7 +21,7 @@ if Version(keras.__version__) < Version("3.0.0"):
         "log_model",
     ]
 else:
-    from mlflow.keras.autolog import autolog
+    from mlflow.keras.autologging import autolog
     from mlflow.keras.callback import MLflowCallback
     from mlflow.keras.load import _load_pyfunc, load_model
     from mlflow.keras.save import (

@@ -1202,18 +1202,19 @@ class DefaultEvaluator(ModelEvaluator):
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
 
-        :param metric_tuple: The metric tuple containing a user provided function and its index
-            in the ``extra_metrics`` parameter of ``mlflow.evaluate``
+        Args:
+            metric_tuple: The metric tuple containing a user provided function and its index
+                in the ``extra_metrics`` parameter of ``mlflow.evaluate``.
+            eval_df: The evaluation dataframe containing the prediction and target columns.
 
-        :param eval_df: The evaluation dataframe containing the prediction and target columns.
-
-        :return: tuple: A tuple of (bool, list) where the bool indicates if the given metric can
-        be calculated with the given eval_df, metrics, and input_df.
-            - If the user is missing "targets" or "predictions" parameters when needed, or we
-            cannot find a column or metric for a parameter to the metric, return
-                (False, list of missing parameters)
-            - If all arguments to the metric function were found, return
-                (True, list of arguments).
+        Returns:
+            tuple: A tuple of (bool, list) where the bool indicates if the given metric can
+            be calculated with the given eval_df, metrics, and input_df.
+                - If the user is missing "targets" or "predictions" parameters when needed, or we
+                cannot find a column or metric for a parameter to the metric, return
+                    (False, list of missing parameters)
+                - If all arguments to the metric function were found, return
+                    (True, list of arguments).
         """
         # deepcopying eval_df and builtin_metrics for each custom metric function call,
         # in case the user modifies them inside their function(s).

@@ -25,34 +25,38 @@ from mlflow.store.artifact.cloud_artifact_repo import (
 def _parse_abfss_uri(uri):
     """
     Parse an ABFSS URI in the format
-    "abfss://<file_system>@<account_name>.dbfs.core.windows.net/<path>",
-    returning a tuple consisting of the filesystem, account name, and path
+    "abfss://<file_system>@<account_name>.<domain_suffix>/<path>",
+    returning a tuple consisting of the filesystem, account name, domain suffix, and path
 
     See more details about ABFSS URIs at
-    https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data
-
+    https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data.
+    Also, see different domain suffixes for:
+    * Azure China: https://learn.microsoft.com/en-us/azure/china/resources-developer-guide
+    * Azure Government: https://learn.microsoft.com/en-us/azure/azure-government/compare-azure-government-global-azure#guidance-for-developers
+    * Azure Private Link: https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns#government
     Args:
         uri: ABFSS URI to parse
 
     Returns:
-        A tuple containing the name of the filesystem, account name, and path
+        A tuple containing the name of the filesystem, account name, domain suffix, and path
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
         raise MlflowException(f"Not an ABFSS URI: {uri}")
 
-    match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.windows\.net", parsed.netloc)
+    match = re.match(r"([^@]+)@([^.]+)\.(.*)", parsed.netloc)
 
     if match is None:
         raise MlflowException(
-            "ABFSS URI must be of the form abfss://<filesystem>@<account>.dfs.core.windows.net"
+            "ABFSS URI must be of the form abfss://<filesystem>@<account>.<domain_suffix>"
         )
     filesystem = match.group(1)
     account_name = match.group(2)
+    domain_suffix = match.group(3)
     path = parsed.path
     if path.startswith("/"):
         path = path[1:]
-    return filesystem, account_name, path
+    return filesystem, account_name, domain_suffix, path
 
 
 def _get_data_lake_client(account_url, credential):
@@ -78,13 +82,11 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         self.credential = credential
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
-        (filesystem, account_name, path) = _parse_abfss_uri(artifact_uri)
-
-        # TODO: investigate setting the account URL based on whether the abfss URI is associated
-        # with an Azure account in standard Azure, govcloud, mooncake, etc
-        account_url = f"https://{account_name}.dfs.core.windows.net"
+        (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(artifact_uri)
+        account_url = f"https://{account_name}.{domain_suffix}"
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
+        self.domain_suffix = domain_suffix
         self.base_data_lake_directory = path
         self.account_name = account_name
         self.container = filesystem
@@ -231,7 +233,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         """
         sas_token = self.credential.signature
         return (
-            f"https://{self.account_name}.dfs.core.windows.net/{self.container}/"
+            f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
             f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
         )
 

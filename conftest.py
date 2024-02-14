@@ -52,10 +52,17 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    # Register markers to suppress `PytestUnknownMarkWarning`
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
+    config.addinivalue_line(
+        "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
+    )
+    config.addinivalue_line("markers", "classification")
+
+    labels = fetch_pr_labels() or []
+    if "fail-fast" in labels:
+        config.option.maxfail = 1
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -113,12 +120,6 @@ def fetch_pr_labels():
     with open(os.environ["GITHUB_EVENT_PATH"]) as f:
         pr_data = json.load(f)
         return [label["name"] for label in pr_data["pull_request"]["labels"]]
-
-
-def pytest_configure(config):
-    labels = fetch_pr_labels() or []
-    if "fail-fast" in labels:
-        config.option.maxfail = 1
 
 
 @pytest.hookimpl(hookwrapper=True)

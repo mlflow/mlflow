@@ -39,17 +39,12 @@ from mlflow.transformers import (
     _build_pipeline_from_model_input,
     _fetch_model_card,
     _generate_base_flavor_configuration,
-    _get_base_model_architecture,
     _get_instance_type,
-    _get_or_infer_task_type,
-    _infer_transformers_task_type,
     _is_model_distributed_in_memory,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
-    _TransformersModel,
     _TransformersWrapper,
     _validate_llm_inference_task_type,
-    _validate_transformers_task_type,
     _write_card_data,
     _write_license_information,
     get_default_conda_env,
@@ -169,36 +164,16 @@ def test_dependencies_tensorflow(small_seq2seq_pipeline):
     assert pip_in_conda.intersection(expected_conda) == expected_conda
 
 
-def test_task_inference(small_seq2seq_pipeline):
-    expected_task = "text-classification"
-    assert _infer_transformers_task_type(small_seq2seq_pipeline) == expected_task
-
-    assert (
-        _infer_transformers_task_type(
-            _TransformersModel.from_dict(**{"model": small_seq2seq_pipeline.model})
-        )
-        == expected_task
-    )
-    with pytest.raises(MlflowException, match="The provided model type"):
-        _infer_transformers_task_type(small_seq2seq_pipeline.tokenizer)
-
-
-def test_transformers_task_validation():
-    with pytest.raises(MlflowException, match="The task provided is invalid. 'fake-task' is not"):
-        _validate_transformers_task_type("fake-task")
-    _validate_transformers_task_type("image-classification")
-
-
-def test_inference_task_validation():
+def test_inference_task_validation(small_seq2seq_pipeline, text_generation_pipeline):
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/invalid' is not"
     ):
-        _validate_llm_inference_task_type("llm/v1/invalid", "text-generation")
+        _validate_llm_inference_task_type("llm/v1/invalid", text_generation_pipeline)
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/completions' is not"
     ):
-        _validate_llm_inference_task_type("llm/v1/completions", "text-classification")
-    _validate_llm_inference_task_type("llm/v1/completions", "text-generation")
+        _validate_llm_inference_task_type("llm/v1/completions", small_seq2seq_pipeline)
+    _validate_llm_inference_task_type("llm/v1/completions", text_generation_pipeline)
 
 
 def test_instance_extraction(small_qa_pipeline):
@@ -221,19 +196,9 @@ def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
 
 
 def test_component_multi_modal_model_ineligible_for_pyfunc(component_multi_modal):
-    components = _TransformersModel.from_dict(**component_multi_modal)
-    task = _infer_transformers_task_type(components)
-
-    pipeline = _build_pipeline_from_model_input(components, task=task)
+    task = transformers.pipelines.get_task(component_multi_modal["model"].name_or_path)
+    pipeline = _build_pipeline_from_model_input(component_multi_modal, task)
     assert not _should_add_pyfunc_to_model(pipeline)
-
-
-def test_model_architecture_extraction(small_seq2seq_pipeline):
-    assert _get_base_model_architecture(small_seq2seq_pipeline) == "lordtt13/emo-mobilebert"
-    assert (
-        _get_base_model_architecture({"model": small_seq2seq_pipeline.model})
-        == "lordtt13/emo-mobilebert"
-    )
 
 
 def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_pipeline):
@@ -251,31 +216,15 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
         _FRAMEWORK_KEY: "pt",
     }
-    seq_conf_infer_task = _generate_base_flavor_configuration(
-        small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)[0]
-    )
-    assert seq_conf_infer_task == expected_seq_pipeline_conf
-    seq_conf_specify_task = _generate_base_flavor_configuration(
-        small_seq2seq_pipeline, "text-classification"
-    )
-    assert seq_conf_specify_task == expected_seq_pipeline_conf
-    qa_conf_infer_task = _generate_base_flavor_configuration(
-        small_qa_pipeline, _get_or_infer_task_type(small_qa_pipeline)[0]
-    )
-    assert qa_conf_infer_task == expected_qa_pipeline_conf
-    qa_conf_specify_task = _generate_base_flavor_configuration(
-        small_qa_pipeline, "question-answering"
-    )
-    assert qa_conf_specify_task == expected_qa_pipeline_conf
-    with pytest.raises(MlflowException, match="The task provided is invalid. 'magic' is not"):
-        _generate_base_flavor_configuration(small_qa_pipeline, "magic")
+    conf = _generate_base_flavor_configuration(small_seq2seq_pipeline)
+    assert conf == expected_seq_pipeline_conf
+    conf = _generate_base_flavor_configuration(small_qa_pipeline)
+    assert conf == expected_qa_pipeline_conf
 
 
 def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
     generated = _build_pipeline_from_model_input(
-        _TransformersModel.from_dict(
-            **{"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer}
-        ),
+        {"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer},
         "question-answering",
     )
     assert isinstance(generated, type(small_qa_pipeline))
@@ -288,10 +237,7 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
         model.update({"image_processor": small_vision_model.feature_extractor})
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
-    generated = _build_pipeline_from_model_input(
-        _TransformersModel.from_dict(**model),
-        "image-classification",
-    )
+    generated = _build_pipeline_from_model_input(model, task="image-classification")
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
     if IS_NEW_FEATURE_EXTRACTION_API:
@@ -299,14 +245,6 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
     else:
         compare_type = generated.feature_extractor
     assert isinstance(compare_type, transformers.MobileNetV2ImageProcessor)
-
-
-def test_pipeline_construction_fails_with_invalid_type(small_vision_model):
-    with pytest.raises(
-        MlflowException,
-        match="The model type submitted is not compatible with the transformers flavor: ",
-    ):
-        _TransformersModel.from_dict(**{"model": small_vision_model.feature_extractor})
 
 
 def test_saving_with_invalid_dict_as_model(model_path):
@@ -1002,54 +940,6 @@ def test_invalid_model_type_without_registered_name_does_not_save(model_path):
         mlflow.transformers.save_model(transformers_model=invalid_pipeline, path=model_path)
 
 
-@flaky()
-def test_invalid_task_inference_raises_error(model_path):
-    from transformers import Pipeline
-
-    def softmax(outputs):
-        maxes = np.max(outputs, axis=-1, keepdims=True)
-        shifted_exp = np.exp(outputs - maxes)
-        return shifted_exp / shifted_exp.sum(axis=-1, keepdims=True)
-
-    class PairClassificationPipeline(Pipeline):
-        def _sanitize_parameters(self, **kwargs):
-            preprocess_kwargs = {}
-            if "second_text" in kwargs:
-                preprocess_kwargs["second_text"] = kwargs["second_text"]
-            return preprocess_kwargs, {}, {}
-
-        # pylint: disable=arguments-renamed,arguments-differ
-        def preprocess(self, text, second_text=None):
-            return self.tokenizer(text, text_pair=second_text, return_tensors=self.framework)
-
-        # pylint: disable=arguments-differ,arguments-renamed
-        def _forward(self, model_inputs):
-            return self.model(**model_inputs)
-
-        # pylint: disable=arguments-differ
-        def postprocess(self, model_outputs):
-            logits = model_outputs.logits[0].numpy()
-            probabilities = softmax(logits)
-
-            best_class = np.argmax(probabilities)
-            label = self.model.config.id2label[best_class]
-            score = probabilities[best_class].item()
-            logits = logits.tolist()
-            return {"label": label, "score": score, "logits": logits}
-
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(
-        "sgugger/finetuned-bert-mrpc"
-    )
-    dummy_pipeline = PairClassificationPipeline(model=model)
-
-    with pytest.raises(
-        MlflowException, match="The task provided is invalid. '' is not a supported"
-    ):
-        mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
-    dummy_pipeline.task = "text-classification"
-    mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
-
-
 def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi_modal):
     with pytest.raises(MlflowException, match="The pipeline type submitted is not a valid"):
         mlflow.transformers.generate_signature_output(component_multi_modal["model"], "bogus")
@@ -1698,7 +1588,6 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     ],
 )
 @pytest.mark.parametrize("pipeline_name", ["ner_pipeline", "ner_pipeline_aggregation"])
-@pytest.mark.skipcacheclean
 def test_ner_pipeline(pipeline_name, model_path, data, result, request):
     pipeline = request.getfixturevalue(pipeline_name)
 
@@ -2517,7 +2406,6 @@ def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
-@pytest.mark.skipcacheclean
 def test_instructional_pipeline_no_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2539,7 +2427,6 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
-@pytest.mark.skipcacheclean
 def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2561,7 +2448,6 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
-@pytest.mark.skipcacheclean
 def test_instructional_pipeline_with_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2585,7 +2471,6 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 @pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
 )
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_torch_dtype_from_pipeline(dtype):
@@ -2602,7 +2487,6 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
     assert parsed == dtype
 
 
-@pytest.mark.skipcacheclean
 @flaky()
 def test_extraction_of_torch_dtype_from_model():
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -2636,7 +2520,6 @@ def test_extraction_of_torch_dtype_from_model():
     assert parsed == torch.float16
 
 
-@pytest.mark.skipcacheclean
 @flaky()
 def test_extraction_of_torch_dtype_returns_none_if_default():
     model = transformers.T5ForConditionalGeneration.from_pretrained("t5-small")
@@ -2654,7 +2537,6 @@ def test_extraction_of_torch_dtype_returns_none_if_default():
     assert parsed is None
 
 
-@pytest.mark.skipcacheclean
 @flaky()
 def test_extraction_of_torch_dtype_return_none_when_pytorch_is_not_installed():
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -2676,7 +2558,6 @@ def test_extraction_of_torch_dtype_return_none_when_pytorch_is_not_installed():
 @pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
 )
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 def test_extraction_of_torch_dtype_from_components(dtype, model_path):
     components = {
@@ -2713,14 +2594,12 @@ def test_extraction_of_torch_dtype_from_components(dtype, model_path):
         ("int", torch.int32),
     ],
 )
-@pytest.mark.skipcacheclean
 def test_deserialize_torch_dtype(dtype, expected):
     parsed = mlflow.transformers._deserialize_torch_dtype(dtype)
     assert isinstance(parsed, torch.dtype)
     assert parsed == expected
 
 
-@pytest.mark.skipcacheclean
 @mock.patch.dict("sys.modules", {"torch": None})
 def test_deserialize_torch_dtype_torch_not_installed_raise():
     with pytest.raises(MlflowException, match="Unable to determine if the value"):
@@ -2736,7 +2615,6 @@ def test_deserialize_torch_dtype_torch_not_installed_raise():
         "string",
     ],
 )
-@pytest.mark.skipcacheclean
 def test_deserialize_torch_dtype_invalid_value(dtype):
     with pytest.raises(MlflowException, match="The value '"):
         mlflow.transformers._deserialize_torch_dtype(dtype)
@@ -2745,7 +2623,6 @@ def test_deserialize_torch_dtype_invalid_value(dtype):
 @pytest.mark.parametrize(
     "dtype", [torch.bfloat16, torch.float16, torch.float64, torch.float, torch.cfloat]
 )
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_base_flavor_config(dtype):
@@ -2768,7 +2645,7 @@ def test_extraction_of_base_flavor_config(dtype):
         use_fast=True,
     )
 
-    parsed = mlflow.transformers._generate_base_flavor_configuration(full_config_pipeline, task)
+    parsed = mlflow.transformers._generate_base_flavor_configuration(full_config_pipeline)
 
     assert parsed == {
         "task": "translation_en_to_fr",
@@ -2780,7 +2657,6 @@ def test_extraction_of_base_flavor_config(dtype):
     }
 
 
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
@@ -2892,7 +2768,6 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test):
     signature = infer_signature(
         sound_file_for_test,
@@ -2914,7 +2789,6 @@ def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test
     assert signature == complex_signature
 
 
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline, raw_audio_file):
     artifact_path = "whisper"
 
@@ -2937,7 +2811,6 @@ def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline,
     assert values.loc[0, 0].startswith("30")
 
 
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
     artifact_path = "whisper"
     signature = infer_signature(
@@ -3001,7 +2874,6 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_audio_file):
     artifact_path = "whisper_timestamps"
     signature = infer_signature(
@@ -3106,7 +2978,6 @@ def test_audio_classification_with_default_schema(audio_classification_pipeline,
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_with_url(whisper_pipeline):
     artifact_path = "whisper_url"
 
@@ -3147,7 +3018,6 @@ def test_whisper_model_with_url(whisper_pipeline):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_pyfunc_with_invalid_uri_input(whisper_pipeline):
     artifact_path = "whisper_url"
 
@@ -3184,7 +3054,6 @@ def test_whisper_model_pyfunc_with_invalid_uri_input(whisper_pipeline):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline):
     artifact_path = "whisper_url"
 
@@ -3217,7 +3086,6 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
     assert "Failed to process the input audio data. Either" in response_data["message"]
 
 
-@pytest.mark.skipcacheclean
 def test_whisper_model_with_malformed_audio(whisper_pipeline):
     artifact_path = "whisper"
 
@@ -3377,7 +3245,6 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     whisper_pipeline, raw_audio_file
 ):
@@ -3426,7 +3293,6 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_input_example_with_params(
     whisper_pipeline, raw_audio_file
 ):
@@ -3772,50 +3638,61 @@ def test_text_generation_save_model_with_invalid_inference_task(
         )
 
 
-def test_text_generation_task_completions_predict_with_hf_params(
+def test_text_generation_task_completions_predict_with_max_tokens(
     text_generation_pipeline, model_path
 ):
-    data = "How to learn Python in 3 weeks?"
-
-    signature_with_params = infer_signature(
-        data,
-        mlflow.transformers.generate_signature_output(text_generation_pipeline, data),
-        params={"max_new_tokens": 50},
-    )
-
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
-        signature=signature_with_params,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(
-        {"prompt": "How to learn Python in 3 weeks?"},
-        params={"max_new_tokens": 10},
+        {"prompt": "How to learn Python in 3 weeks?", "max_tokens": 10},
     )
 
     assert isinstance(inference[0], dict)
+    assert inference[0]["model"] == "distilgpt2"
+    assert inference[0]["object"] == "text_completion"
     assert (
-        inference[0]["finish_reason"] == "length"
+        inference[0]["choices"][0]["finish_reason"] == "length"
         and inference[0]["usage"]["completion_tokens"] == 10
     ) or (
-        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 10
+    )
+
+
+def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/completions",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
+    )
+
+    assert inference[0]["choices"][0]["finish_reason"] == "stop"
+    assert (
+        inference[0]["choices"][0]["text"].endswith("Python")
+        or "Python" not in inference[0]["choices"][0]["text"]
     )
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
     data = {"prompt": "How to learn Python in 3 weeks?"}
-    output = {"text": "Start with"}
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=text_generation_pipeline,
             artifact_path="model",
             task="llm/v1/completions",
-            signature=infer_signature(data, output),
         )
 
     inference_payload = json.dumps({"inputs": data})
@@ -3828,8 +3705,8 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
     output_dict = values.to_dict("records")[0]
-    assert output_dict["text"] is not None
-    assert output_dict["finish_reason"] == "stop"
+    assert output_dict["choices"][0]["text"] is not None
+    assert output_dict["choices"][0]["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
 
 
@@ -3866,3 +3743,74 @@ def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipel
     if validate_max_new_tokens:
         assert pyfunc_model.model_config["max_new_tokens"] == 500
         assert len(prediction_output[0].split(" ")) <= 5
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
+)
+def test_text_generation_task_chat_predict(text_generation_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/chat",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {
+            "messages": [
+                {"role": "system", "content": "Hello, how can I help you today?"},
+                {"role": "user", "content": "How to learn Python in 3 weeks?"},
+            ],
+            "max_tokens": 10,
+        }
+    )
+
+    assert inference[0]["choices"][0]["message"]["role"] == "assistant"
+    assert (
+        inference[0]["choices"][0]["finish_reason"] == "length"
+        and inference[0]["usage"]["completion_tokens"] == 10
+    ) or (
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 10
+    )
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
+)
+def test_text_generation_task_chat_serve(text_generation_pipeline):
+    data = {
+        "messages": [
+            {"role": "user", "content": "How to learn Python in 3 weeks?"},
+        ],
+        "max_tokens": 10,
+    }
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=text_generation_pipeline,
+            artifact_path="model",
+            task="llm/v1/chat",
+        )
+
+    inference_payload = json.dumps(data)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    output_dict = json.loads(response.content)[0]
+    assert output_dict["choices"][0]["message"] is not None
+    assert (
+        output_dict["choices"][0]["finish_reason"] == "length"
+        and output_dict["usage"]["completion_tokens"] == 10
+    ) or (
+        output_dict["choices"][0]["finish_reason"] == "stop"
+        and output_dict["usage"]["completion_tokens"] < 10
+    )
+    assert output_dict["usage"]["prompt_tokens"] < 20

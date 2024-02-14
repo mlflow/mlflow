@@ -104,7 +104,7 @@ jobs:
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Store wheel
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: github.event_name == 'push'
         with:
           name: ${{ steps.build-dist.outputs.wheel-name }}

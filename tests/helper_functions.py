@@ -79,14 +79,15 @@ def score_model_in_sagemaker_docker_container(
     activity_polling_timeout_seconds=500,
 ):
     """
-    :param model_uri: URI to the model to be served.
-    :param data: The data to send to the docker container for testing. This is either a
-                 Pandas dataframe or string of the format specified by `content_type`.
-    :param content_type: The type of the data to send to the docker container for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
-    :param flavor: Model flavor to be deployed.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
+    Args:
+        model_uri: URI to the model to be served.
+        data: The data to send to the docker container for testing. This is either a
+            Pandas dataframe or string of the format specified by `content_type`.
+        content_type: The type of the data to send to the docker container for testing. This is
+            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+        flavor: Model flavor to be deployed.
+        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+            declaring the scoring process to have failed.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -107,9 +108,11 @@ def score_model_in_sagemaker_docker_container(
 def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
     """
     Builds a dockerfile for the specified model.
-    :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
-    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
-    :param output_directory: Output directory to generate Dockerfile and model artifacts
+
+    Args:
+        model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
+        extra_args: List of extra args to pass to `mlflow models build-docker` command
+        output_directory: Output directory to generate Dockerfile and model artifacts
     """
     cmd = [
         "mlflow",
@@ -130,8 +133,10 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
 def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
-    :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
-    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
+
+    Args:
+        model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
+        extra_args: List of extra args to pass to `mlflow models build-docker` command
     """
     name = uuid.uuid4().hex
     cmd = [
@@ -198,17 +203,18 @@ def pyfunc_serve_and_score_model(
     stdout=sys.stdout,
 ):
     """
-    :param model_uri: URI to the model to be served.
-    :param data: The data to send to the pyfunc server for testing. This is either a
-                 Pandas dataframe or string of the format specified by `content_type`.
-    :param content_type: The type of the data to send to the pyfunc server for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
-                       ``--env-manager local`` flag to the scoring server to ensure that conda
-                       environment activation is skipped.
+    Args:
+        model_uri: URI to the model to be served.
+        data: The data to send to the pyfunc server for testing. This is either a
+            Pandas dataframe or string of the format specified by `content_type`.
+        content_type: The type of the data to send to the pyfunc server for testing. This is
+            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+            declaring the scoring process to have failed.
+        extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
+            example, passing ``extra_args=["--env-manager", "local"]`` will pass the
+            ``--env-manager local`` flag to the scoring server to ensure that conda
+            environment activation is skipped.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -237,7 +243,8 @@ def pyfunc_serve_and_score_model(
 
 def _get_mlflow_home():
     """
-    :return: The path to the MLflow installation root directory
+    Returns:
+        The path to the MLflow installation root directory.
     """
     mlflow_module_path = os.path.dirname(os.path.abspath(mlflow.__file__))
     # The MLflow root directory is one level about the mlflow module location
@@ -338,8 +345,9 @@ def _evaluate_scoring_proc(
     proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
 ):
     """
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
+    Args:
+        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+            declaring the scoring process to have failed.
     """
     with RestEndpoint(
         proc, port, activity_polling_timeout_seconds, validate_version=validate_version
@@ -373,9 +381,12 @@ def create_mock_response(status_code, text):
     """
     Create a mock response object with the status_code and text
 
-    :param: status_code int HTTP status code
-    :param: text message from the response
-    :return: mock HTTP Response
+    Args:
+        status_code: HTTP status code.
+        text: Message from the response.
+
+    Returns:
+        Mock HTTP Response.
     """
     response = mock.MagicMock()
     response.status_code = status_code
@@ -465,11 +476,12 @@ def _is_available_on_pypi(package, version=None, module=None):
     """
     Returns True if the specified package version is available on PyPI.
 
-    :param package: The name of the package.
-    :param version: The version of the package. If None, defaults to the installed version.
-    :param module: The name of the top-level module provided by the package . For example,
-                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
-                   to `package`.
+    Args:
+        package: The name of the package.
+        version: The version of the package. If None, defaults to the installed version.
+        module: The name of the top-level module provided by the package. For example,
+            if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+            to `package`.
     """
     from mlflow.utils.requirements_utils import _get_installed_version
 
