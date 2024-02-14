@@ -412,3 +412,4 @@ def test_scoring_server_successfully_on_multi_multidim_input_model(
             extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
         )
         expect_status_code(response_records_content_type, 200)
+
