@@ -57,7 +57,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._addressing_style = addressing_style
         self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
+        print("in s3 artifact repo")
         self._region_name = self._get_region_name()
+        print(f"region name = {self._region_name}")
+
 
     def _get_region_name(self):
         from botocore.exceptions import ClientError
