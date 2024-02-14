@@ -271,6 +271,29 @@ Currently, only the following pipeline types are supported:
 - `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
 """
         ),
+        "save_pretrained": (
+            """If set to ``False``, MLflow will not save the Transformer model weight files,
+instead only saving the reference to the HuggingFace Hub model repository and its commit hash.
+This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
+it to MLflow without modifying the model weights. In such case, specifying this flag to
+``False`` will save the storage space and reduce time to save the model.
+
+.. warning::
+
+    If the model is saved with ``save_pretrained`` set to ``False``, the model cannot be
+    registered to the MLflow Model Registry. In order to convert the model to the one that
+    can be registered, you can use mlflow.transformers.download_pretrained_model() to download
+    the model weights from the HuggingFace Hub and save it in the existing model artifacts.
+
+    .. code-block:: python
+
+        import mlflow.transformers
+
+        model_uri = "YOUR_MODEL_URI_LOGGED_WITH_SAVE_PRETRAINED_FALSE"
+        model = mlflow.transformers.download_pretrained_model(model_uri)
+        mlflow.register_model(model_uri, "model_name")
+"""
+        ),
     }
 )
 
