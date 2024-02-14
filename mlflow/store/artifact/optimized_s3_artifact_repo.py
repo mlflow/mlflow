@@ -73,6 +73,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
             # A normal response will have the region in the Bucket_Region field of the response
             if _BUCKET_REGION in head_bucket_resp:
+                _logger.info(f"returning region {head_bucket_resp[_BUCKET_REGION]}")
                 return head_bucket_resp[_BUCKET_REGION]
             # If the bucket exists but the caller does not have permissions, the http headers
             # are passed back as part of the metadata of a normal, non-throwing response.  In
@@ -84,6 +85,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 and _HTTP_HEADER_BUCKET_REGION
                 in head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS]
             ):
+                _logger.info(f"returning region from metadata {head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]}")
                 return head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][
                     _HTTP_HEADER_BUCKET_REGION
                 ]
