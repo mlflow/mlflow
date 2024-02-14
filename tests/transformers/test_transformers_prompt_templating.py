@@ -206,3 +206,31 @@ def test_prompt_used_in_predict(task, pipeline_fixture, output_key, request, tmp
         )
     else:
         model._model_impl.pipeline.assert_called_once_with([formatted_prompt])
+
+
+def test_prompt_and_llm_inference_task(tmp_path, request):
+    pipeline = request.getfixturevalue("text_generation_pipeline")
+
+    model_path = tmp_path / "model"
+    mlflow.transformers.save_model(
+        transformers_model=pipeline,
+        path=model_path,
+        prompt_template=TEST_PROMPT_TEMPLATE,
+        task="llm/v1/completions",
+    )
+
+    model = mlflow.pyfunc.load_model(model_path)
+
+    prompt = "What is MLflow?"
+    formatted_prompt = TEST_PROMPT_TEMPLATE.format(prompt=prompt)
+    mock_return = [[{"generated_token_ids": [1, 2, 3]}]]
+
+    model._model_impl.pipeline = MagicMock(
+        spec=model._model_impl.pipeline, task="text-generation", return_value=mock_return
+    )
+
+    model.predict({"prompt": prompt})
+
+    model._model_impl.pipeline.assert_called_once_with(
+        [formatted_prompt], return_full_text=None, return_tensors=True
+    )

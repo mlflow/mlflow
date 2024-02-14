@@ -1698,7 +1698,6 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     ],
 )
 @pytest.mark.parametrize("pipeline_name", ["ner_pipeline", "ner_pipeline_aggregation"])
-@pytest.mark.skipcacheclean
 def test_ner_pipeline(pipeline_name, model_path, data, result, request):
     pipeline = request.getfixturevalue(pipeline_name)
 
@@ -2517,7 +2516,6 @@ def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
-@pytest.mark.skipcacheclean
 def test_instructional_pipeline_no_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2539,7 +2537,6 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
-@pytest.mark.skipcacheclean
 def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2561,7 +2558,6 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
-@pytest.mark.skipcacheclean
 def test_instructional_pipeline_with_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
@@ -2585,7 +2581,6 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 @pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
 )
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_torch_dtype_from_pipeline(dtype):
@@ -2602,7 +2597,6 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
     assert parsed == dtype
 
 
-@pytest.mark.skipcacheclean
 @flaky()
 def test_extraction_of_torch_dtype_from_model():
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -2636,7 +2630,6 @@ def test_extraction_of_torch_dtype_from_model():
     assert parsed == torch.float16
 
 
-@pytest.mark.skipcacheclean
 @flaky()
 def test_extraction_of_torch_dtype_returns_none_if_default():
     model = transformers.T5ForConditionalGeneration.from_pretrained("t5-small")
@@ -2654,7 +2647,6 @@ def test_extraction_of_torch_dtype_returns_none_if_default():
     assert parsed is None
 
 
-@pytest.mark.skipcacheclean
 @flaky()
 def test_extraction_of_torch_dtype_return_none_when_pytorch_is_not_installed():
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -2676,7 +2668,6 @@ def test_extraction_of_torch_dtype_return_none_when_pytorch_is_not_installed():
 @pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
 )
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 def test_extraction_of_torch_dtype_from_components(dtype, model_path):
     components = {
@@ -2713,14 +2704,12 @@ def test_extraction_of_torch_dtype_from_components(dtype, model_path):
         ("int", torch.int32),
     ],
 )
-@pytest.mark.skipcacheclean
 def test_deserialize_torch_dtype(dtype, expected):
     parsed = mlflow.transformers._deserialize_torch_dtype(dtype)
     assert isinstance(parsed, torch.dtype)
     assert parsed == expected
 
 
-@pytest.mark.skipcacheclean
 @mock.patch.dict("sys.modules", {"torch": None})
 def test_deserialize_torch_dtype_torch_not_installed_raise():
     with pytest.raises(MlflowException, match="Unable to determine if the value"):
@@ -2736,7 +2725,6 @@ def test_deserialize_torch_dtype_torch_not_installed_raise():
         "string",
     ],
 )
-@pytest.mark.skipcacheclean
 def test_deserialize_torch_dtype_invalid_value(dtype):
     with pytest.raises(MlflowException, match="The value '"):
         mlflow.transformers._deserialize_torch_dtype(dtype)
@@ -2745,7 +2733,6 @@ def test_deserialize_torch_dtype_invalid_value(dtype):
 @pytest.mark.parametrize(
     "dtype", [torch.bfloat16, torch.float16, torch.float64, torch.float, torch.cfloat]
 )
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_base_flavor_config(dtype):
@@ -2780,7 +2767,6 @@ def test_extraction_of_base_flavor_config(dtype):
     }
 
 
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
@@ -2892,7 +2878,6 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test):
     signature = infer_signature(
         sound_file_for_test,
@@ -2914,7 +2899,6 @@ def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test
     assert signature == complex_signature
 
 
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline, raw_audio_file):
     artifact_path = "whisper"
 
@@ -2937,7 +2921,6 @@ def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline,
     assert values.loc[0, 0].startswith("30")
 
 
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
     artifact_path = "whisper"
     signature = infer_signature(
@@ -3001,7 +2984,6 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_audio_file):
     artifact_path = "whisper_timestamps"
     signature = infer_signature(
@@ -3106,7 +3088,6 @@ def test_audio_classification_with_default_schema(audio_classification_pipeline,
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_with_url(whisper_pipeline):
     artifact_path = "whisper_url"
 
@@ -3147,7 +3128,6 @@ def test_whisper_model_with_url(whisper_pipeline):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_pyfunc_with_invalid_uri_input(whisper_pipeline):
     artifact_path = "whisper_url"
 
@@ -3184,7 +3164,6 @@ def test_whisper_model_pyfunc_with_invalid_uri_input(whisper_pipeline):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline):
     artifact_path = "whisper_url"
 
@@ -3217,7 +3196,6 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
     assert "Failed to process the input audio data. Either" in response_data["message"]
 
 
-@pytest.mark.skipcacheclean
 def test_whisper_model_with_malformed_audio(whisper_pipeline):
     artifact_path = "whisper"
 
@@ -3377,7 +3355,6 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     whisper_pipeline, raw_audio_file
 ):
@@ -3426,7 +3403,6 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_input_example_with_params(
     whisper_pipeline, raw_audio_file
 ):
@@ -3772,50 +3748,61 @@ def test_text_generation_save_model_with_invalid_inference_task(
         )
 
 
-def test_text_generation_task_completions_predict_with_hf_params(
+def test_text_generation_task_completions_predict_with_max_tokens(
     text_generation_pipeline, model_path
 ):
-    data = "How to learn Python in 3 weeks?"
-
-    signature_with_params = infer_signature(
-        data,
-        mlflow.transformers.generate_signature_output(text_generation_pipeline, data),
-        params={"max_new_tokens": 50},
-    )
-
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
-        signature=signature_with_params,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(
-        {"prompt": "How to learn Python in 3 weeks?"},
-        params={"max_new_tokens": 10},
+        {"prompt": "How to learn Python in 3 weeks?", "max_tokens": 10},
     )
 
     assert isinstance(inference[0], dict)
+    assert inference[0]["model"] == "distilgpt2"
+    assert inference[0]["object"] == "text_completion"
     assert (
-        inference[0]["finish_reason"] == "length"
+        inference[0]["choices"][0]["finish_reason"] == "length"
         and inference[0]["usage"]["completion_tokens"] == 10
     ) or (
-        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 10
+    )
+
+
+def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/completions",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
+    )
+
+    assert inference[0]["choices"][0]["finish_reason"] == "stop"
+    assert (
+        inference[0]["choices"][0]["text"].endswith("Python")
+        or "Python" not in inference[0]["choices"][0]["text"]
     )
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
     data = {"prompt": "How to learn Python in 3 weeks?"}
-    output = {"text": "Start with"}
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=text_generation_pipeline,
             artifact_path="model",
             task="llm/v1/completions",
-            signature=infer_signature(data, output),
         )
 
     inference_payload = json.dumps({"inputs": data})
@@ -3828,8 +3815,8 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
     output_dict = values.to_dict("records")[0]
-    assert output_dict["text"] is not None
-    assert output_dict["finish_reason"] == "stop"
+    assert output_dict["choices"][0]["text"] is not None
+    assert output_dict["choices"][0]["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
 
 
@@ -3866,3 +3853,74 @@ def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipel
     if validate_max_new_tokens:
         assert pyfunc_model.model_config["max_new_tokens"] == 500
         assert len(prediction_output[0].split(" ")) <= 5
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
+)
+def test_text_generation_task_chat_predict(text_generation_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/chat",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {
+            "messages": [
+                {"role": "system", "content": "Hello, how can I help you today?"},
+                {"role": "user", "content": "How to learn Python in 3 weeks?"},
+            ],
+            "max_tokens": 10,
+        }
+    )
+
+    assert inference[0]["choices"][0]["message"]["role"] == "assistant"
+    assert (
+        inference[0]["choices"][0]["finish_reason"] == "length"
+        and inference[0]["usage"]["completion_tokens"] == 10
+    ) or (
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 10
+    )
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
+)
+def test_text_generation_task_chat_serve(text_generation_pipeline):
+    data = {
+        "messages": [
+            {"role": "user", "content": "How to learn Python in 3 weeks?"},
+        ],
+        "max_tokens": 10,
+    }
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=text_generation_pipeline,
+            artifact_path="model",
+            task="llm/v1/chat",
+        )
+
+    inference_payload = json.dumps(data)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    output_dict = json.loads(response.content)[0]
+    assert output_dict["choices"][0]["message"] is not None
+    assert (
+        output_dict["choices"][0]["finish_reason"] == "length"
+        and output_dict["usage"]["completion_tokens"] == 10
+    ) or (
+        output_dict["choices"][0]["finish_reason"] == "stop"
+        and output_dict["usage"]["completion_tokens"] < 10
+    )
+    assert output_dict["usage"]["prompt_tokens"] < 20

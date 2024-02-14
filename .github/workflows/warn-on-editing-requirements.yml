@@ -7,7 +7,7 @@ on:
       - requirements/skinny-requirements.yaml
 
 permissions:
-  contents: read
+  pull-requests: write
 
 jobs:
   warn:
