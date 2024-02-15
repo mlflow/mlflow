@@ -35,7 +35,7 @@ jobs:
               const reason = (
                 "Editing requirements files can cause conflicts in downstream processes " +
                 "that depend on MLflow. Please ensure that one of the MLflow Core Maintainers " +
-                "has a chance to review this PR."
+                "has a chance to review this PR, and rerun this workflow once approved."
               );
               await script({ context, github, core, reason });
             }
