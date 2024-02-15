@@ -261,6 +261,26 @@ def load_feature_extraction_pipeline():
     return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
 
 
+@prefetch
+@flaky()
+def load_peft_pipeline():
+    try:
+        from peft import LoraConfig, TaskType, get_peft_model
+    except ImportError:
+        # Do nothing if PEFT is not installed
+        return
+
+    base_model_id = "Elron/bleurt-tiny-512"
+    base_model = transformers.AutoModelForSequenceClassification.from_pretrained(base_model_id)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(base_model_id)
+
+    peft_config = LoraConfig(
+        task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+    )
+    peft_model = get_peft_model(base_model, peft_config)
+    return transformers.pipeline(task="text-classification", model=peft_model, tokenizer=tokenizer)
+
+
 def prefetch_models():
     """
     Prefetches models used in the test suite to avoid downloading them during the test run.

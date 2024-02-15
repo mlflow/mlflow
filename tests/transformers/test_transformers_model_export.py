@@ -3602,8 +3602,8 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
     assert not model_path.joinpath("components").exists()
 
     # Validate the contents of MLModel file
-    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
-    flavor_conf = mlmodel["flavors"]["transformers"]
+    mlmodel = Model.load(str(model_path.joinpath("MLmodel")))
+    flavor_conf = mlmodel.flavors["transformers"]
     assert "model_binary" not in flavor_conf
     assert flavor_conf["source_model_name"] == model.name_or_path
     assert HF_COMMIT_HASH_PATTERN.match(flavor_conf["source_model_revision"])
@@ -3614,7 +3614,7 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
         assert HF_COMMIT_HASH_PATTERN.match(flavor_conf[f"{c}_revision"])
 
     # Validate pyfunc load and prediction (if pyfunc supported)
-    if "python_function" in mlmodel["flavors"]:
+    if "python_function" in mlmodel.flavors:
         if callable(input_example):
             input_example = input_example()
         mlflow.pyfunc.load_model(model_path).predict(input_example)
