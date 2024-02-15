@@ -104,9 +104,9 @@ def mock_predict():
     return "hello"
 
 
-def test_chat_model_with_context_saves_successfully(tmp_path_factory):
-    model_path = tmp_path_factory.mktemp("model")
-    predict_path = tmp_path_factory.mktemp("predict") / "predict.pkl"
+def test_chat_model_with_context_saves_successfully(tmp_path):
+    model_path = tmp_path / "model"
+    predict_path = tmp_path / "predict.pkl"
     predict_path.write_bytes(pickle.dumps(mock_predict))
 
     model = ChatModelWithContext()
