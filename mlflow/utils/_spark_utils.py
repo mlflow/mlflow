@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import zipfile
+
 from packaging.version import Version
 
 
@@ -43,8 +44,9 @@ def _get_spark_scala_version_from_spark_session(spark):
 
 
 def _get_spark_scala_version():
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime
     from pyspark.sql import SparkSession
+
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     if is_in_databricks_runtime():
         return os.environ["SPARK_SCALA_VERSION"]
