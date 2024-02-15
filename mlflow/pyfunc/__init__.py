@@ -2063,6 +2063,11 @@ def save_model(
             # output is not coercable to ChatResponse
             messages = [ChatMessage(**m) for m in input_example["messages"]]
             params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+
+            # call load_context() first, as predict may depend on it
+            _logger.info("Predicting on input example to validate output")
+            context = PythonModelContext(artifacts, model_config)
+            python_model.load_context(context)
             output = python_model.predict(None, messages, params)
             if not isinstance(output, ChatResponse):
                 raise MlflowException(
