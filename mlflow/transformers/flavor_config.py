@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict
 
 from mlflow.transformers.hub_utils import get_latest_commit_for_repo
+from mlflow.transformers.peft import _PEFT_ADAPTOR_DIR_NAME, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _extract_torch_dtype_if_set
 
 if TYPE_CHECKING:
@@ -21,6 +22,8 @@ class FlavorKey:
     MODEL_BINARY = "model_binary"
     MODEL_NAME = "source_model_name"
     MODEL_REVISION = "source_model_revision"
+
+    PEFT = "peft_adaptor"
 
     COMPONENTS = "components"
     COMPONENT_NAME = "{}_name"  # e.g. tokenizer_name
@@ -56,15 +59,20 @@ def build_flavor_config(
         i.e. the configurations stored in "transformers" key in the MLModel YAML file.
     """
     flavor_conf = _generate_base_config(pipeline)
-    flavor_conf.update(_get_model_config(pipeline.model, save_pretrained))
+
+    if is_peft_model(pipeline.model):
+        flavor_conf[FlavorKey.PEFT] = _PEFT_ADAPTOR_DIR_NAME
+        model = get_peft_base_model(pipeline.model)
+    else:
+        model = pipeline.model
+
+    flavor_conf.update(_get_model_config(model, save_pretrained))
 
     components = _get_components_from_pipeline(pipeline, processor)
     for key, instance in components.items():
         # Some components don't have name_or_path, then we fallback to the one from the model.
         flavor_conf.update(
-            _get_component_config(
-                instance, key, save_pretrained, default_repo=pipeline.model.name_or_path
-            )
+            _get_component_config(instance, key, save_pretrained, default_repo=model.name_or_path)
         )
 
     # "components" field doesn't include processor
