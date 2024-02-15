@@ -20,7 +20,6 @@ def main():
         "mleap",
         "onnx",
         "pytorch_lightning",
-        "pyspark",
         "pyspark.ml",
         "shap",
         "sklearn",
