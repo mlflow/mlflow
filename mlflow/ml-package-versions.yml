@@ -431,14 +431,13 @@ prophet:
       pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
-    minimum: "1.0.1"
+    minimum: "1.1.1"
     maximum: "1.1.5"
     requirements:
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
       "<= 1.1.3": ["holidays<=0.24"]
-      "< 1.1": ["pandas<2"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
