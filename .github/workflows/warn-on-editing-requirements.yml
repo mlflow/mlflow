@@ -1,10 +1,7 @@
 name: Maintainer approval for requirement edits
 
 on:
-  pull_request_target:
-    paths:
-      - setup.py
-      - requirements/skinny-requirements.yaml
+  pull_request:
   pull_request_review:
     types: [submitted]
 
@@ -13,9 +10,7 @@ permissions:
 
 jobs:
   check:
-    if: |
-      github.event_name == 'pull_request_target'
-      || github.event.review.state == 'APPROVED'
+    if: github.event_name == 'pull_request' || github.event.review.state == 'APPROVED'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
