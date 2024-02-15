@@ -534,6 +534,7 @@ transformers:
           "torch",
           "torchvision",
           "tensorflow",
+          "peft", # optimized fine-tuning library developed by Hugging Face
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
