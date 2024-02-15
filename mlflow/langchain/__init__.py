@@ -82,6 +82,8 @@ FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
 
 
+_DUMMY = "haha"
+
 def get_default_pip_requirements():
     """
     Returns:
