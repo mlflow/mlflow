@@ -864,7 +864,7 @@ def try_update_session(spark):
             spark._jvm.scala.Option.apply(None)
         )
     except Exception as e:
-        print(f"Error updating session: {e}")
+        _logger.info(f"Error updating session: {e}")
 
 
 class _PyFuncModelWrapper:
