@@ -1,6 +1,10 @@
 name: Maintainer approval for requirement edits
 
 on:
+  pull_request:
+    paths:
+      - setup.py
+      - requirements/skinny-requirements.yaml
   pull_request_review:
     types: [submitted]
 
