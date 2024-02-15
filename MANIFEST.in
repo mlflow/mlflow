@@ -10,3 +10,4 @@ include README_SKINNY.rst
 include requirements/skinny-requirements.txt
 include requirements/core-requirements.txt
 include requirements/gateway-requirements.txt
+include requirements/python-version.txt

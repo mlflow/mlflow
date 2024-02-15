@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages, Command
 
@@ -96,22 +97,7 @@ class ListDependencies(Command):
         print("\n".join(dependencies))
 
 
-MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
-
-
-class MinPythonVersion(Command):
-    description = "Print out the minimum supported Python version"
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        print(MINIMUM_SUPPORTED_PYTHON_VERSION)
-
+MINIMUM_SUPPORTED_PYTHON_VERSION = Path("requirements", "python-version.txt").read_text().strip()
 
 skinny_package_data = [
     # include alembic files to enable usage of the skinny client with SQL databases
@@ -196,7 +182,6 @@ setup(
     """,
     cmdclass={
         "dependencies": ListDependencies,
-        "min_python_version": MinPythonVersion,
     },
     zip_safe=False,
     author="Databricks",
