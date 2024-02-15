@@ -630,9 +630,7 @@ def autolog(
                 # Add the new callback
                 self.add_cb(mlflowFastaiCallback)
 
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     def fit(original, self, *args, **kwargs):
         unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]

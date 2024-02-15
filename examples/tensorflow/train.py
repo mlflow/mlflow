@@ -55,8 +55,7 @@ class ExportModule(tf.Module):
         # Run the ExportModule for new data points
         x = self.norm_x.norm(x)
         y = self.model(x)
-        y = self.norm_y.unnorm(y)
-        return y
+        return self.norm_y.unnorm(y)
 
 
 def mse_loss(y_pred, y):

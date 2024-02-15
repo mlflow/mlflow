@@ -61,6 +61,7 @@ select = [
   "PT023",   # pytest-incorrect-mark-parentheses-style
   "PT026",   # pytest-use-fixtures-without-parameters
   "PT027",   # pytest-unittest-raises-assertion
+  "RET504",  # unnecessary-assign
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
   "S307",    # suspicious-eval-usage

@@ -508,8 +508,7 @@ def _save_model(model, path):
 
 def _load_model(path):
     with open(path, "rb") as pickled_model:
-        model = pickle.load(pickled_model)
-    return model
+        return pickle.load(pickled_model)
 
 
 def _load_pyfunc(path):

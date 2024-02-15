@@ -23,8 +23,7 @@ class IrisClassifier(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.dropout(x, 0.2)
-        x = self.fc3(x)
-        return x
+        return self.fc3(x)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

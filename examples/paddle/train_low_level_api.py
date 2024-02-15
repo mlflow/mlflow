@@ -33,8 +33,7 @@ class Regressor(paddle.nn.Layer):
 
     @paddle.jit.to_static
     def forward(self, inputs):
-        x = self.fc(inputs)
-        return x
+        return self.fc(inputs)
 
 
 if __name__ == "__main__":
