@@ -2,6 +2,7 @@ import inspect
 import os
 import shutil
 import subprocess
+import uuid
 from unittest import mock
 
 import pytest
@@ -17,7 +18,7 @@ from tests.autologging.fixtures import enable_test_mode
 @pytest.fixture(autouse=True)
 def tracking_uri_mock(tmp_path, request):
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(os.path.join(tmp_path, "mlruns.sqlite"))
+        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
         with _use_tracking_uri(tracking_uri):
             yield tracking_uri
     else:
