@@ -308,7 +308,7 @@ def test_log_artifact_adls_gen2(
 
 @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
 def test_log_artifact_adls_gen2_with_headers(
-    databricks_artifact_repo, test_file, artifact_path, expected_location
+    databricks_artifact_repo, test_file, artifact_path, expected_location, monkeypatch
 ):
     mock_azure_headers = {
         "x-ms-content-type": "test-type",
@@ -330,15 +330,13 @@ def test_log_artifact_adls_gen2_with_headers(
             for header_name, header_value in mock_azure_headers.items()
         ],
     )
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", "5")
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
     ) as get_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
-    ) as request_mock, mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE",
-        5,
-    ):
+    ) as request_mock:
         databricks_artifact_repo.log_artifact(test_file, artifact_path)
         get_credential_infos_mock.assert_called_with(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
@@ -992,7 +990,7 @@ def test_databricks_download_file_with_relative_path(remote_file_path, local_pat
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_databricks_download_file_in_parallel_when_necessary(
     databricks_artifact_repo, file_size, is_parallel_download
@@ -1025,9 +1023,7 @@ def test_databricks_download_file_get_request_fail(databricks_artifact_repo, tes
         return_value=[mock_credential_info],
     ) as read_credential_infos_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts", return_value=[]
-    ), mock.patch(
-        "requests.Session.request", side_effect=MlflowException("MOCK ERROR")
-    ):
+    ), mock.patch("requests.Session.request", side_effect=MlflowException("MOCK ERROR")):
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
             databricks_artifact_repo.download_artifacts(test_file)
         read_credential_infos_mock.assert_called_with(test_file)
@@ -1155,9 +1151,7 @@ def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path)
         ],
     ) as mock_get_write_creds, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._upload_to_cloud"
-    ), mock.patch(
-        f"{CLOUD_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2
-    ):
+    ), mock.patch(f"{CLOUD_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2):
         databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
 
         assert mock_get_write_creds.call_count == 5
@@ -1241,13 +1235,11 @@ def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmp_path)
 
 
 @pytest.fixture
-def mock_chunk_size():
+def mock_chunk_size(monkeypatch):
     # Use a smaller chunk size for faster comparison
     chunk_size = 10
-    with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", chunk_size
-    ):
-        yield chunk_size
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", str(chunk_size))
+    return chunk_size
 
 
 @pytest.fixture

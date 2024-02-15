@@ -415,11 +415,13 @@ def load_model(model_uri, dst_path=None):
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``mlflow-artifacts:/path/to/model``
+
             For more information about supported URI schemes, see
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
             artifact-locations>`_.
@@ -521,9 +523,7 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:  # pylint: disable=unused-argument
         """
         Args:
             dataframe: Model input data.

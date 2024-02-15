@@ -7,6 +7,8 @@ import { ViewType } from '../../../sdk/MlflowEnums';
 import { KeyValueEntity, LIFECYCLE_FILTER } from '../../../types';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
+import { ThunkDispatch } from '../../../../redux-types';
+import type { ExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
 
 const START_TIME_COLUMN_OFFSET = {
   ALL: null,
@@ -37,7 +39,7 @@ export const shouldRefetchRuns = (
 /**
  * Creates "order by" SQL expression
  */
-const createOrderByExpression = ({ orderByKey, orderByAsc }: SearchExperimentRunsFacetsState) => {
+const createOrderByExpression = ({ orderByKey, orderByAsc }: ExperimentPageSearchFacetsStateV2) => {
   if (orderByKey) {
     return orderByAsc ? [orderByKey + ' ASC'] : [orderByKey + ' DESC'];
   }
@@ -47,10 +49,7 @@ const createOrderByExpression = ({ orderByKey, orderByAsc }: SearchExperimentRun
 /**
  * Creates SQL expression for filtering by run start time
  */
-const createStartTimeExpression = (
-  { startTime }: SearchExperimentRunsFacetsState,
-  referenceTime: number,
-) => {
+const createStartTimeExpression = ({ startTime }: ExperimentPageSearchFacetsStateV2, referenceTime: number) => {
   const offset = START_TIME_COLUMN_OFFSET[startTime as keyof typeof START_TIME_COLUMN_OFFSET];
   if (!startTime || !offset || startTime === 'ALL') {
     return null;
@@ -63,7 +62,7 @@ const createStartTimeExpression = (
 /**
  * Creates SQL expression for filtering by selected datasets
  */
-const createDatasetsFilterExpression = ({ datasetsFilter }: SearchExperimentRunsFacetsState) => {
+const createDatasetsFilterExpression = ({ datasetsFilter }: ExperimentPageSearchFacetsStateV2) => {
   if (datasetsFilter.length === 0) {
     return null;
   }
@@ -77,7 +76,7 @@ const createDatasetsFilterExpression = ({ datasetsFilter }: SearchExperimentRuns
  * Combines search filter and start time SQL expressions
  */
 const createFilterExpression = (
-  { searchFilter }: SearchExperimentRunsFacetsState,
+  { searchFilter }: ExperimentPageSearchFacetsStateV2,
   startTimeExpression: string | null,
   datasetsFilterExpression: string | null,
 ) => {
@@ -96,10 +95,7 @@ const createFilterExpression = (
  * not nest children or fetch any additional parents. Will always return true if the orderByKey is
  * 'attributes.start_time'
  */
-const shouldNestChildrenAndFetchParents = ({
-  orderByKey,
-  searchFilter,
-}: SearchExperimentRunsFacetsState) =>
+const shouldNestChildrenAndFetchParents = ({ orderByKey, searchFilter }: ExperimentPageSearchFacetsStateV2) =>
   (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
 
 /**
@@ -111,26 +107,20 @@ const shouldNestChildrenAndFetchParents = ({
  * @param pageToken next page token if fetching the next page
  */
 export const createSearchRunsParams = (
-  experimentIds: (number | string)[],
-  searchFacetsState: SearchExperimentRunsFacetsState,
+  experimentIds: string[],
+  searchFacetsState: ExperimentPageSearchFacetsStateV2 & { runsPinned: string[] },
   referenceTime: number,
   pageToken?: string,
 ) => {
   const runViewType =
-    searchFacetsState.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE
-      ? ViewType.ACTIVE_ONLY
-      : ViewType.DELETED_ONLY;
+    searchFacetsState.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? ViewType.ACTIVE_ONLY : ViewType.DELETED_ONLY;
 
   const { runsPinned = undefined } = searchFacetsState;
 
   const orderBy = createOrderByExpression(searchFacetsState);
   const startTimeExpression = createStartTimeExpression(searchFacetsState, referenceTime);
   const datasetsFilterExpression = createDatasetsFilterExpression(searchFacetsState);
-  const filter = createFilterExpression(
-    searchFacetsState,
-    startTimeExpression,
-    datasetsFilterExpression,
-  );
+  const filter = createFilterExpression(searchFacetsState, startTimeExpression, datasetsFilterExpression);
   const shouldFetchParents = shouldNestChildrenAndFetchParents(searchFacetsState);
 
   return {
@@ -166,7 +156,7 @@ export const fetchModelVersionsForRuns = (
     };
   }[],
   actionCreator: typeof searchModelVersionsApi,
-  dispatch: (action: AnyAction) => Promise<AnyAction>,
+  dispatch: ThunkDispatch,
 ) => {
   const runsWithLogModelHistory = runsPayload.filter((run) =>
     run.data.tags.some((t) => t.key === EXPERIMENT_LOG_MODEL_HISTORY_TAG),

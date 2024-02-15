@@ -11,8 +11,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
+import sys
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -20,11 +20,11 @@ import os
 sys.path.insert(0, os.path.abspath("../.."))
 sys.path.insert(0, os.path.abspath("."))
 
+import languagesections
 from docutils.nodes import Text
 from sphinx.addnodes import pending_xref
 
 import mlflow
-import languagesections
 
 # -- General configuration ------------------------------------------------
 
@@ -42,7 +42,15 @@ extensions = [
     "sphinx_tabs.tabs",
     "testcode_block",
     "nbsphinx",
+    "sphinx_reredirects",
 ]
+
+# Redirects definition in the form of ``("source", "target")``.
+# Note that the target is relative to the path of the source and that the
+# target must define the final url (i.e. no trailing slash).
+redirects = {
+    "registry": "model-registry.html",
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -344,10 +352,12 @@ nitpick_ignore = [
     ("py:class", "PIL.Image.Image"),
     ("py:class", "mlflow.deployments.base.BaseDeploymentClient"),
     ("py:class", "mlflow.deployments.server.config.Endpoint"),
+    ("py:class", "mlflow.types.schema.Array"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),
     ("py:class", "mlflow.types.schema.Schema"),
+    ("py:class", "mlflow.types.schema.Object"),
     ("py:class", "mlflow.types.schema.ParamSchema"),
     ("py:class", "mlflow.types.schema.ParamSpec"),
     ("py:class", "mlflow.models.model.Model"),
@@ -357,6 +367,7 @@ nitpick_ignore = [
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "csr_matrix"),
     ("py:class", "csc_matrix"),
+    ("py:class", "datetime.datetime"),
     ("py:class", "scipy.sparse.csr.csr_matrix"),
     ("py:class", "scipy.sparse.csc.csc_matrix"),
     ("py:class", "scipy.sparse._csr.csr_matrix"),
@@ -365,7 +376,14 @@ nitpick_ignore = [
     ("py:class", "pydantic.main.BaseModel"),
     ("py:class", "ConfigDict"),
     ("py:class", "FieldInfo"),
-    ("py:class", "keras_core.src.callbacks.callback.Callback"),
+    ("py:class", "ComputedFieldInfo"),
+    ("py:class", "keras.src.callbacks.callback.Callback"),
+    ("py:class", "keras.callbacks.Callback"),
+    ("py:class", "keras.src.callbacks.Callback"),
+    ("py:class", "pytorch_lightning.callbacks.callback.Callback"),
+    ("py:class", "pytorch_lightning.trainer.trainer.Trainer"),
+    ("py:class", "pytorch_lightning.core.module.LightningModule"),
+    ("py:class", "pytorch_lightning.core.LightningModule"),
 ]
 
 
@@ -398,14 +416,14 @@ def _get_reference_map():
     for entity_name in mlflow.entities.__all__:
         entity_cls = getattr(mlflow.entities, entity_name)
         invalid_ref = entity_cls.__module__ + "." + entity_name
-        valid_ref = "mlflow.entities.{}".format(entity_name)
+        valid_ref = f"mlflow.entities.{entity_name}"
         ref_map[invalid_ref] = valid_ref
 
     # Model registry entities
     for entity_name in mlflow.entities.model_registry.__all__:
         entity_cls = getattr(mlflow.entities.model_registry, entity_name)
         invalid_ref = entity_cls.__module__ + "." + entity_name
-        valid_ref = "mlflow.entities.model_registry.{}".format(entity_name)
+        valid_ref = f"mlflow.entities.model_registry.{entity_name}"
         ref_map[invalid_ref] = valid_ref
 
     return ref_map

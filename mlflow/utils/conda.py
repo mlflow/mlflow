@@ -81,10 +81,11 @@ def _get_conda_executable_for_create_env():
 
 
 def _list_conda_environments(extra_env=None):
-    """
-    Return a list of names of conda environments.
+    """Return a list of names of conda environments.
 
-    :param extra_env: extra environment variables for running "conda env list" command.
+    Args:
+        extra_env: Extra environment variables for running "conda env list" command.
+
     """
     prc = process._exec_cmd(
         [get_conda_bin_executable("conda"), "env", "list", "--json"], extra_env=extra_env
@@ -200,19 +201,32 @@ def _get_conda_extra_env_vars(env_root_dir=None):
     }
 
 
-def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, env_root_dir=None):
-    """
-    Given a `Project`, creates a conda environment containing the project's dependencies if such a
-    conda environment doesn't already exist. Returns the name of the conda environment.
-    :param conda_env_path: Path to a conda yaml file.
-    :param env_id: Optional string that is added to the contents of the yaml file before
-                   calculating the hash. It can be used to distinguish environments that have the
-                   same conda dependencies but are supposed to be different based on the context.
-                   For example, when serving the model we may install additional dependencies to the
-                   environment after the environment has been activated.
-    :param capture_output: Specify the capture_output argument while executing the
-                           "conda env create" command.
-    :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
+def get_or_create_conda_env(
+    conda_env_path,
+    env_id=None,
+    capture_output=False,
+    env_root_dir=None,
+    pip_requirements_override=None,
+):
+    """Given a `Project`, creates a conda environment containing the project's dependencies if such
+    a conda environment doesn't already exist. Returns the name of the conda environment.
+
+    Args:
+        conda_env_path: Path to a conda yaml file.
+        env_id: Optional string that is added to the contents of the yaml file before
+            calculating the hash. It can be used to distinguish environments that have the
+            same conda dependencies but are supposed to be different based on the context.
+            For example, when serving the model we may install additional dependencies to the
+            environment after the environment has been activated.
+        capture_output: Specify the capture_output argument while executing the
+            "conda env create" command.
+        env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
+        pip_requirements_override: If specified, install the specified python dependencies to
+            the environment (upgrade if already installed).
+
+    Returns:
+        The name of the conda environment.
+
     """
 
     conda_path = get_conda_bin_executable("conda")
@@ -262,17 +276,34 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     try:
         _create_conda_env_func = (
             # Retry conda env creation in a pytest session to avoid flaky test failures
-            _create_conda_env_retry
-            if "PYTEST_CURRENT_TEST" in os.environ
-            else _create_conda_env
+            _create_conda_env_retry if "PYTEST_CURRENT_TEST" in os.environ else _create_conda_env
         )
-        return _create_conda_env_func(
+        conda_env = _create_conda_env_func(
             conda_env_path,
             conda_env_create_path,
             project_env_name,
             conda_extra_env_vars,
             capture_output,
         )
+
+        if pip_requirements_override:
+            _logger.info(
+                "Installing additional dependencies specified"
+                f"by pip_requirements_override: {pip_requirements_override}"
+            )
+            cmd = [
+                conda_path,
+                "install",
+                "-n",
+                project_env_name,
+                "--yes",
+                "--quiet",
+                *pip_requirements_override,
+            ]
+            process._exec_cmd(cmd, extra_env=conda_extra_env_vars, capture_output=capture_output)
+
+        return conda_env
+
     except Exception:
         try:
             if project_env_name in _list_conda_environments(conda_extra_env_vars):
@@ -303,10 +334,10 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
 
 def _get_conda_dependencies(conda_yaml_path):
-    """
-    Extracts conda dependencies from a conda yaml file.
+    """Extracts conda dependencies from a conda yaml file.
 
-    :param conda_yaml_path: Conda yaml file path.
+    Args:
+        conda_yaml_path: Conda yaml file path.
     """
     with open(conda_yaml_path) as f:
         conda_yaml = yaml.safe_load(f)

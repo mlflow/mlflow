@@ -103,9 +103,7 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         expected_params["verbose_eval"] = (
             # The default value of `verbose_eval` in `lightgbm.train` has been changed to 'warn'
             # in this PR: https://github.com/microsoft/LightGBM/pull/4577
-            "warn"
-            if Version(lgb.__version__) > Version("3.2.1")
-            else True
+            "warn" if Version(lgb.__version__) > Version("3.2.1") else True
         )
     expected_params.update(bst_params)
 
@@ -655,8 +653,8 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
 
     assert "inputs" in signature
     assert json.loads(signature["inputs"]) == [
-        {"name": "sepal length (cm)", "type": "double"},
-        {"name": "sepal width (cm)", "type": "double"},
+        {"name": "sepal length (cm)", "type": "double", "required": True},
+        {"name": "sepal width (cm)", "type": "double", "required": True},
     ]
 
     assert "outputs" in signature

@@ -28,16 +28,8 @@ describe('CompareRunBox', () => {
   test('should render with minimal props without exploding', () => {
     const props = {
       ...commonProps,
-      paramLists: [
-        [{ key: 'param', value: 1 }],
-        [{ key: 'param', value: 2 }],
-        [{ key: 'param', value: 3 }],
-      ],
-      metricLists: [
-        [{ key: 'metric', value: 4 }],
-        [{ key: 'metric', value: 5 }],
-        [{ key: 'metric', value: 6 }],
-      ],
+      paramLists: [[{ key: 'param', value: 1 }], [{ key: 'param', value: 2 }], [{ key: 'param', value: 3 }]],
+      metricLists: [[{ key: 'metric', value: 4 }], [{ key: 'metric', value: 5 }], [{ key: 'metric', value: 6 }]],
     };
     wrapper = mountWithIntl(<CompareRunBox {...props} />);
     expect(wrapper.find(LazyPlot).isEmpty()).toBe(true);

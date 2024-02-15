@@ -133,3 +133,16 @@ def test_mlflow_login(tmp_path, monkeypatch):
 
     # Assert that the tracking URI is set to the databricks.
     assert get_tracking_uri() == "databricks"
+
+
+def test_mlflow_login_noninteractive():
+    # Forces mlflow.utils.credentials._validate_databricks_auth to raise `MlflowException()`
+    with patch(
+        "mlflow.utils.credentials._validate_databricks_auth",
+        side_effect=MlflowException("Failed to validate databricks credentials."),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="No valid Databricks credentials found while running in non-interactive mode",
+        ):
+            login(backend="databricks", interactive=False)

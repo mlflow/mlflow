@@ -1,9 +1,11 @@
 import logging
 
 import click
+from packaging.requirements import InvalidRequirement, Requirement
 
-from mlflow.models import build_docker as build_docker_api
+from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.model import update_model_requirements
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager
 
@@ -97,7 +99,7 @@ def serve(
         }'
 
     """
-    env_manager = _EnvManager.LOCAL if no_conda else env_manager or _EnvManager.VIRTUALENV
+    env_manager = _EnvManager.LOCAL if no_conda else env_manager
 
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
@@ -125,28 +127,20 @@ def serve(
 )
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
-def predict(
-    model_uri,
-    input_path,
-    output_path,
-    content_type,
-    env_manager,
-    install_mlflow,
-):
+@click.option(
+    "--pip-requirements-override",
+    "-r",
+    default=None,
+    help="Specify packages and versions to override the dependencies defined "
+    "in the model. Must be a comma-separated string like x==y,z==a.",
+)
+def predict(**kwargs):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    env_manager = env_manager or _EnvManager.VIRTUALENV
-    return get_flavor_backend(
-        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
-    ).predict(
-        model_uri=model_uri,
-        input_path=input_path,
-        output_path=output_path,
-        content_type=content_type,
-    )
+    return python_api.predict(**kwargs)
 
 
 @commands.command("prepare-env")
@@ -163,7 +157,6 @@ def prepare_env(
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
-    env_manager = env_manager or _EnvManager.VIRTUALENV
     return get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
@@ -179,10 +172,17 @@ def prepare_env(
 )
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
+@cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
 def generate_dockerfile(
-    model_uri, output_directory, env_manager, mlflow_home, install_mlflow, enable_mlserver
+    model_uri,
+    output_directory,
+    env_manager,
+    mlflow_home,
+    install_java,
+    install_mlflow,
+    enable_mlserver,
 ):
     """
     Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
@@ -194,13 +194,13 @@ def generate_dockerfile(
         _logger.info("Generating Dockerfile for model %s", model_uri)
     else:
         _logger.info("Generating Dockerfile")
-    env_manager = env_manager or _EnvManager.VIRTUALENV
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
     if backend.can_build_image():
         backend.generate_dockerfile(
             model_uri,
             output_directory,
             mlflow_home=mlflow_home,
+            install_java=install_java,
             install_mlflow=install_mlflow,
             enable_mlserver=enable_mlserver,
         )
@@ -218,9 +218,10 @@ def generate_dockerfile(
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
+@cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
-def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
+def build_docker(**kwargs):
     """
     Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
     python_function flavor. The container serves the model referenced by ``--model-uri``, if
@@ -247,6 +248,13 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
         # Mount the model stored in '/local/path/to/artifacts/model' and serve it
         docker run --rm -p 5001:8080 -v /local/path/to/artifacts/model:/opt/ml/model "my-image-name"
 
+    .. important::
+
+        Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
+        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        that uses SparkML, please specify the ``--install-java`` flag to enforce Java installation.
+
     .. warning::
 
         The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
@@ -263,12 +271,52 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
     """
-    env_manager = env_manager or _EnvManager.VIRTUALENV
-    build_docker_api(
-        model_uri,
-        name,
-        env_manager=env_manager,
-        mlflow_home=mlflow_home,
-        install_mlflow=install_mlflow,
-        enable_mlserver=enable_mlserver,
-    )
+    python_api.build_docker(**kwargs)
+
+
+@commands.command("update-pip-requirements")
+@cli_args.MODEL_URI
+@click.argument("operation", type=click.Choice(["add", "remove"]))
+@click.argument("requirement_strings", type=str, nargs=-1)
+def update_pip_requirements(model_uri, operation, requirement_strings):
+    """
+    Add or remove requirements from a model's conda.yaml and requirements.txt files.
+    If using a remote tracking server, please make sure to set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+
+    REQUIREMENT_STRINGS is a list of pip requirements specifiers.
+    See below for examples.
+
+    Sample usage:
+
+    .. code::
+
+        # Add requirements using the model's "runs:/" URI
+
+        mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> \\
+            add "pandas==1.0.0" "scikit-learn" "mlflow >= 2.8, != 2.9.0"
+
+        # Remove requirements from a local model
+
+        mlflow models update-pip-requirements -m /path/to/local/model \\
+            remove "torchvision" "pydantic"
+
+    Note that model registry URIs (i.e. URIs in the form ``models:/``) are not
+    supported, as artifacts in the model registry are intended to be read-only.
+    Editing requirements is read-only artifact repositories is also not supported.
+
+    If adding requirements, the function will overwrite any existing requirements
+    that overlap, or else append the new requirements to the existing list.
+
+    If removing requirements, the function will ignore any version specifiers,
+    and remove all the specified package names. Any requirements that are not
+    found in the existing files will be ignored.
+    """
+    try:
+        requirements = [Requirement(s.strip().lower()) for s in requirement_strings]
+    except InvalidRequirement as e:
+        raise click.BadArgumentUsage(f"Invalid requirement: {e}")
+
+    update_model_requirements(model_uri, operation, requirements)
+
+    _logger.info(f"Successfully updated the requirements for the model at {model_uri}!")

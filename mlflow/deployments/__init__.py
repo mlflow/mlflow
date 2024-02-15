@@ -19,6 +19,7 @@ import json
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.databricks import DatabricksDeploymentClient, DatabricksEndpoint
 from mlflow.deployments.interface import get_deploy_client, run_local
+from mlflow.deployments.openai import OpenAIDeploymentClient
 from mlflow.deployments.utils import get_deployments_target, set_deployments_target
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -36,15 +37,20 @@ class PredictionsResponse(dict):
     """
 
     def get_predictions(self, predictions_format="dataframe", dtype=None):
-        """
-        Get the predictions returned from the MLflow Model Server in the specified format.
+        """Get the predictions returned from the MLflow Model Server in the specified format.
 
-        :param predictions_format: The format in which to return the predictions. Either
-                                   ``"dataframe"`` or ``"ndarray"``.
-        :param dtype: The NumPy datatype to which to coerce the predictions. Only used when
-                      the ``"ndarray"`` ``predictions_format`` is specified.
-        :throws: Exception if the predictions cannot be represented in the specified format.
-        :return: The predictions, represented in the specified format.
+        Args:
+            predictions_format: The format in which to return the predictions. Either
+                ``"dataframe"`` or ``"ndarray"``.
+            dtype: The NumPy datatype to which to coerce the predictions. Only used when
+                the "ndarray" predictions_format is specified.
+
+        Raises:
+            Exception: If the predictions cannot be represented in the specified format.
+
+        Returns:
+            The predictions, represented in the specified format.
+
         """
         import numpy as np
         import pandas as pd
@@ -68,12 +74,15 @@ class PredictionsResponse(dict):
             )
 
     def to_json(self, path=None):
-        """
-        Get the JSON representation of the MLflow Predictions Response.
+        """Get the JSON representation of the MLflow Predictions Response.
 
-        :param path: If specified, the JSON representation is written to this file path.
-        :return: If ``path`` is unspecified, the JSON representation of the MLflow Predictions
-                 Response. Else, None.
+        Args:
+            path: If specified, the JSON representation is written to this file path.
+
+        Returns:
+            If ``path`` is unspecified, the JSON representation of the MLflow Predictions
+            Response. Else, None.
+
         """
         if path is not None:
             with open(path, "w") as f:
@@ -100,6 +109,7 @@ __all__ = [
     "run_local",
     "BaseDeploymentClient",
     "DatabricksDeploymentClient",
+    "OpenAIDeploymentClient",
     "DatabricksEndpoint",
     "MlflowDeploymentClient",
     "PredictionsResponse",

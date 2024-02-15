@@ -46,7 +46,8 @@ class MNISTDataModule(L.LightningDataModule):
         """
         Downloads the data, parse it and split the data into train, test, validation data
 
-        :param stage: Stage - training or testing
+        Args:
+            stage: Stage - training or testing
         """
 
         self.df_train = datasets.MNIST(
@@ -61,27 +62,32 @@ class MNISTDataModule(L.LightningDataModule):
         """
         Generic data loader function
 
-        :param df: Input tensor
+        Args:
+            df: Input tensor
 
-        :return: Returns the constructed dataloader
+        Returns:
+            Returns the constructed dataloader
         """
         return DataLoader(df, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def train_dataloader(self):
         """
-        :return: output - Train data loader for the given input
+        Returns:
+            output: Train data loader for the given input.
         """
         return self.create_data_loader(self.df_train)
 
     def val_dataloader(self):
         """
-        :return: output - Validation data loader for the given input
+        Returns:
+            output: Validation data loader for the given input.
         """
         return self.create_data_loader(self.df_val)
 
     def test_dataloader(self):
         """
-        :return: output - Test data loader for the given input
+        Returns:
+            output: Test data loader for the given input.
         """
         return self.create_data_loader(self.df_test)
 
@@ -105,9 +111,11 @@ class LightningMNISTClassifier(L.LightningModule):
 
     def forward(self, x):
         """
-        :param x: Input data
+        Args:
+            x: Input data
 
-        :return: output - mnist digit label for the input image
+        Returns:
+            output - mnist digit label for the input image
         """
         batch_size = x.size()[0]
 
@@ -134,7 +142,8 @@ class LightningMNISTClassifier(L.LightningModule):
         """
         Initializes the loss function
 
-        :return: output - Initialized cross entropy loss function
+        Returns:
+            output: Initialized cross entropy loss function.
         """
         return F.nll_loss(logits, labels)
 
@@ -142,10 +151,12 @@ class LightningMNISTClassifier(L.LightningModule):
         """
         Training the data as batches and returns training loss on each batch
 
-        :param train_batch: Batch data
-        :param batch_idx: Batch indices
+        Args:
+            train_batch: Batch data
+            batch_idx: Batch indices
 
-        :return: output - Training loss
+        Returns:
+            output - Training loss
         """
         x, y = train_batch
         logits = self.forward(x)
@@ -156,10 +167,12 @@ class LightningMNISTClassifier(L.LightningModule):
         """
         Performs validation of data in batches
 
-        :param val_batch: Batch data
-        :param batch_idx: Batch indices
+        Args:
+            val_batch: Batch data
+            batch_idx: Batch indices
 
-        :return: output - valid step loss
+        Returns:
+            output: valid step loss
         """
         x, y = val_batch
         logits = self.forward(x)
@@ -179,10 +192,12 @@ class LightningMNISTClassifier(L.LightningModule):
         """
         Performs test and computes the accuracy of the model
 
-        :param test_batch: Batch data
-        :param batch_idx: Batch indices
+        Args:
+            test_batch: Batch data
+            batch_idx: Batch indices
 
-        :return: output - Testing accuracy
+        Returns:
+            output: Testing accuracy
         """
         x, y = test_batch
         output = self.forward(x)
@@ -203,7 +218,8 @@ class LightningMNISTClassifier(L.LightningModule):
         """
         Initializes the optimizer and learning rate scheduler
 
-        :return: output - Initialized optimizer and scheduler
+        Returns:
+            output: Initialized optimizer and scheduler
         """
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         self.scheduler = {

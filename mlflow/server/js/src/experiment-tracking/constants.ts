@@ -39,12 +39,16 @@ export const COLUMN_SORT_BY_ASC = 'ASCENDING';
 export const COLUMN_SORT_BY_DESC = 'DESCENDING';
 export const SORT_DELIMITER_SYMBOL = '***';
 
-export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
-export const MODEL_VERSION_FILTER = {
-  WITH_MODEL_VERSIONS: 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS: 'Without Model Versions',
-  ALL_RUNS: 'All Runs',
-};
+export enum LIFECYCLE_FILTER {
+  ACTIVE = 'Active',
+  DELETED = 'Deleted',
+}
+
+export enum MODEL_VERSION_FILTER {
+  WITH_MODEL_VERSIONS = 'With Model Versions',
+  WTIHOUT_MODEL_VERSIONS = 'Without Model Versions',
+  ALL_RUNS = 'All Runs',
+}
 
 export const DEFAULT_ORDER_BY_KEY = ATTRIBUTE_COLUMN_SORT_KEY.DATE;
 export const DEFAULT_ORDER_BY_ASC = false;
@@ -73,8 +77,7 @@ export const AUTOML_TAG_PREFIX = '_databricks_automl';
 export const AUTOML_EVALUATION_METRIC_TAG = `${AUTOML_TAG_PREFIX}.evaluation_metric`;
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
-export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER =
-  'mlflow.experiment.primaryMetric.greaterIsBetter';
+export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = 'mlflow.experiment.primaryMetric.greaterIsBetter';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
@@ -91,7 +94,18 @@ export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json'
 
 export enum RunPageTabName {
   OVERVIEW = 'overview',
-  CHARTS = 'charts',
+  MODEL_METRIC_CHARTS = 'model-metrics',
+  SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',
 }
+
 export const MLFLOW_SYSTEM_METRIC_PREFIX = 'system/';
+
+export const MLFLOW_SYSTEM_METRIC_NAME = 'System metrics';
+
+export const MLFLOW_MODEL_METRIC_PREFIX = '';
+
+export const MLFLOW_MODEL_METRIC_NAME = 'Model metrics';
+
+export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY = 'viewStateShareKey';
+export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX = 'mlflow.sharedViewState.';

@@ -164,22 +164,6 @@ def save_model(
                          required by MLeap for data schema inference.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset) and valid
-                      model output (e.g. model predictions generated on the training dataset),
-                      for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        signature = infer_signature(train, model.predict(train))
-    :param input_example: {{ input_example }}
-
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`

@@ -575,3 +575,26 @@ def test_augmented_raise_for_status():
     assert e.value.response == response
     assert e.value.request == response.request
     assert response.text in str(e.value)
+
+
+def test_provide_redirect_kwarg():
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = http_request(
+            MlflowHostCreds("http://my-host"),
+            "/my/endpoint",
+            "GET",
+            allow_redirects=False,
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=False,
+            headers=mock.ANY,
+            verify=mock.ANY,
+            timeout=120,
+        )

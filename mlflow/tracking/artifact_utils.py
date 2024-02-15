@@ -19,23 +19,26 @@ from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, append
 
 
 def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
-    """
-    Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,
-    the artifact root URI of the specified run will be returned; calls to ``log_artifact``
+    """Get the absolute URI of the specified artifact in the specified run. If `path` is not
+    specified the artifact root URI of the specified run will be returned; calls to ``log_artifact``
     and ``log_artifacts`` write artifact(s) to subdirectories of the artifact root URI.
 
-    :param run_id: The ID of the run for which to obtain an absolute artifact URI.
-    :param artifact_path: The run-relative artifact path. For example,
-                          ``path/to/artifact``. If unspecified, the artifact root URI for the
-                          specified run will be returned.
-    :param tracking_uri: The tracking URI from which to get the run and its artifact location. If
-                         not given, the current default tracking URI is used.
-    :return: An *absolute* URI referring to the specified artifact or the specified run's artifact
-             root. For example, if an artifact path is provided and the specified run uses an
-             S3-backed  store, this may be a uri of the form
-             ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
-             is not provided and the specified run uses an S3-backed store, this may be a URI of
-             the form ``s3://<bucket_name>/path/to/artifact/root``.
+    Args:
+        run_id: The ID of the run for which to obtain an absolute artifact URI.
+        artifact_path: The run-relative artifact path. For example,
+            ``path/to/artifact``. If unspecified, the artifact root URI for the
+            specified run will be returned.
+        tracking_uri: The tracking URI from which to get the run and its artifact location. If
+            not given, the current default tracking URI is used.
+
+    Returns:
+        An *absolute* URI referring to the specified artifact or the specified run's artifact
+        root. For example, if an artifact path is provided and the specified run uses an
+        S3-backed  store, this may be a uri of the form
+        ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
+        is not provided and the specified run uses an S3-backed store, this may be a URI of
+        the form ``s3://<bucket_name>/path/to/artifact/root``.
+
     """
     if not run_id:
         raise MlflowException(
@@ -56,9 +59,10 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
 # TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path
 # or no path.
 def _get_root_uri_and_artifact_path(artifact_uri):
-    """
-    Parse the artifact_uri to get the root_uri and artifact_path.
-    :param artifact_uri: The *absolute* URI of the artifact.
+    """Parse the artifact_uri to get the root_uri and artifact_path.
+
+    Args:
+        artifact_uri: The *absolute* URI of the artifact.
     """
     if os.path.exists(artifact_uri):
         if os.name != "nt":
@@ -92,9 +96,10 @@ def _get_root_uri_and_artifact_path(artifact_uri):
 
 def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
-    :param artifact_uri: The *absolute* URI of the artifact to download.
-    :param output_path: The local filesystem path to which to download the artifact. If unspecified,
-                        a local output path will be created.
+    Args:
+        artifact_uri: The *absolute* URI of the artifact to download.
+        output_path: The local filesystem path to which to download the artifact. If unspecified,
+            a local output path will be created.
     """
     root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
@@ -103,11 +108,12 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
 
 
 def _upload_artifact_to_uri(local_path, artifact_uri):
-    """
-    Uploads a local artifact (file) to a specified URI.
+    """Uploads a local artifact (file) to a specified URI.
 
-    :param local_path: The local path of the file to upload.
-    :param artifact_uri: The *absolute* URI of the path to upload the artifact to.
+    Args:
+        local_path: The local path of the file to upload.
+        artifact_uri: The *absolute* URI of the path to upload the artifact to.
+
     """
     root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
     get_artifact_repository(artifact_uri=root_uri).log_artifact(local_path, artifact_path)
@@ -116,16 +122,19 @@ def _upload_artifact_to_uri(local_path, artifact_uri):
 def _upload_artifacts_to_databricks(
     source, run_id, source_host_uri=None, target_databricks_profile_uri=None
 ):
-    """
-    Copy the artifacts from ``source`` to the destination Databricks workspace (DBFS) given by
+    """Copy the artifacts from ``source`` to the destination Databricks workspace (DBFS) given by
     ``databricks_profile_uri`` or the current tracking URI.
-    :param source: Source location for the artifacts to copy.
-    :param run_id: Run ID to associate the artifacts with.
-    :param source_host_uri: Specifies the source artifact's host URI (e.g. Databricks tracking URI)
-        if applicable. If not given, defaults to the current tracking URI.
-    :param target_databricks_profile_uri: Specifies the destination Databricks host. If not given,
-        defaults to the current tracking URI.
-    :return: The DBFS location in the target Databricks workspace the model files have been
+
+    Args:
+        source: Source location for the artifacts to copy.
+        run_id: Run ID to associate the artifacts with.
+        source_host_uri: Specifies the source artifact's host URI (e.g. Databricks tracking URI)
+            if applicable. If not given, defaults to the current tracking URI.
+        target_databricks_profile_uri: Specifies the destination Databricks host. If not given,
+            defaults to the current tracking URI.
+
+    Returns:
+        The DBFS location in the target Databricks workspace the model files have been
         uploaded to.
     """
 

@@ -282,6 +282,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Get Run",
     };
+    option (graphql) = {};
   }
 
   // Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and

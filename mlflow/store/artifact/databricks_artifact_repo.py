@@ -15,6 +15,10 @@ from mlflow.azure.client import (
     put_block_list,
 )
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialType,
@@ -32,8 +36,6 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
 from mlflow.store.artifact.cloud_artifact_repo import (
-    _DOWNLOAD_CHUNK_SIZE,
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
@@ -130,7 +132,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         Hence the run_id is the 4th element of the normalized path.
 
-        :return: run_id extracted from the artifact_uri
+        Returns:
+            run_id extracted from the artifact_uri.
         """
         artifact_path = extract_and_normalize_path(artifact_uri)
         return artifact_path.split("/")[3]
@@ -153,8 +156,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         by `run_id`. The type of access credentials, read or write, is specified by
         `request_message_class`.
 
-        :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
-                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        Args:
+            paths: The specified run-relative artifact paths within the MLflow Run.
+            run_id: The specified MLflow Run.
+            request_message_class: Specifies the type of access credentials, read or write.
+
+        Returns:
+            A list of `ArtifactCredentialInfo` objects providing read access to the specified
+            run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         credential_infos = []
 
@@ -176,8 +185,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _get_write_credential_infos(self, remote_file_paths):
         """
-        :return: A list of `ArtifactCredentialInfo` objects providing write access to the specified
-                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        A list of `ArtifactCredentialInfo` objects providing write access to the specified
+        run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         run_relative_remote_paths = [
             posixpath.join(self.run_relative_artifact_repo_root_path, p or "")
@@ -189,8 +198,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
-        :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
-                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        Returns:
+            A list of `ArtifactCredentialInfo` objects providing read access to the specified
+            run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         if type(remote_file_paths) == str:
             remote_file_paths = [remote_file_paths]
@@ -207,7 +217,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _extract_headers_from_credentials(self, headers):
         """
-        :return: A python dictionary of http headers converted from the protobuf credentials
+        Returns:
+            A python dictionary of http headers converted from the protobuf credentials.
         """
         return {header.name: header.value for header in headers}
 
@@ -246,9 +257,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
             futures = {}
-            num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+            num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             for index in range(num_chunks):
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     self._azure_upload_chunk,
                     credentials=credentials,
@@ -256,7 +267,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     local_file=local_file,
                     artifact_file_path=artifact_file_path,
                     start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                 )
                 futures[future] = index
 
@@ -319,10 +330,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             # next try to append the file
             futures = {}
             file_size = os.path.getsize(local_file)
-            num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+            num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             use_single_part_upload = num_chunks == 1
             for index in range(num_chunks):
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
@@ -330,7 +341,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     sas_url=credentials.signed_uri,
                     local_file=local_file,
                     start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                     position=start_byte,
                     headers=headers,
                     is_single=use_single_part_upload,
@@ -379,11 +390,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         Upload a local file to the cloud. Note that in this artifact repository, files are uploaded
         to run-relative artifact file paths in the artifact repository.
 
-        :param cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
-        :param src_file_path: Local source file path for the upload.
-        :param artifact_file_path: Path in the artifact repository, relative to the run root path,
-                                   where the artifact will be logged.
-        :return:
+        Args:
+            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+            src_file_path: Local source file path for the upload.
+            artifact_file_path: Path in the artifact repository, relative to the run root path,
+                where the artifact will be logged.
+
         """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
             self._azure_upload_file(cloud_credential_info, src_file_path, artifact_file_path)
@@ -392,7 +404,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 cloud_credential_info, src_file_path, artifact_file_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            if os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE:
+            if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get():
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:
                 self._signed_url_upload_file(cloud_credential_info, src_file_path)
@@ -407,10 +419,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         """
         Download a file from the input `remote_file_path` and save it to `local_path`.
 
-        :param remote_file_path: Path relative to the run root path to file in remote artifact
-                                 repository.
-        :param local_path: Local path to download file to.
-        :return:
+        Args:
+            remote_file_path: Path relative to the run root path to file in remote artifact
+                repository.
+            local_path: Local path to download file to.
+
         """
         read_credentials = self._get_read_credential_infos(remote_file_path)
         # Read credentials for only one file were requested. So we expected only one value in
@@ -431,7 +444,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             download_file_using_http_uri(
                 cloud_credential_info.signed_uri,
                 local_path,
-                _DOWNLOAD_CHUNK_SIZE,
+                MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
                 self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
         except Exception as err:
@@ -486,7 +499,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         futures = {}
         for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
             part_number = index + 1
-            start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+            start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
             future = self.chunk_thread_pool.submit(
                 self._upload_part_retry,
                 cred_info=cred_info,
@@ -494,7 +507,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 part_number=part_number,
                 local_file=local_file,
                 start_byte=start_byte,
-                size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
             )
             futures[future] = part_number
 
@@ -535,7 +548,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         run_relative_artifact_path = posixpath.join(
             self.run_relative_artifact_repo_root_path, artifact_file_path or ""
         )
-        num_parts = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+        num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
         create_mpu_resp = self._create_multipart_upload(
             self.run_id, run_relative_artifact_path, num_parts
         )

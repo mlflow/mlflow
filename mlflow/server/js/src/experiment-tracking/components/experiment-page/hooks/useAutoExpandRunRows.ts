@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import type { UpdateExperimentSearchFacetsFn } from '../../../types';
 import type { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import type { RunRowType } from '../utils/experimentPage.row-types';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_EVALUATION } from '../../../constants';
 import { SingleRunData } from '../utils/experimentPage.row-utils';
-import { EXPERIMENT_PARENT_ID_TAG } from '../utils/experimentPage.common-utils';
+import { shouldEnableShareExperimentViewByTags } from '../../../../common/utils/FeatureUtils';
 
 type RunsExpandedType = SearchExperimentRunsFacetsState['runsExpanded'];
 
@@ -26,19 +26,21 @@ export const useAutoExpandRunRows = (
   runsExpanded: RunsExpandedType,
 ) => {
   useEffect(() => {
+    if (shouldEnableShareExperimentViewByTags()) {
+      return;
+    }
+
     if (!isPristine()) {
       return;
     }
-    const evaluationRunIds = allRunsData
-      .filter(isEvaluationRun)
-      .map(({ runInfo }) => runInfo.run_uuid);
+    const evaluationRunIds = allRunsData.filter(isEvaluationRun).map(({ runInfo }) => runInfo.run_uuid);
 
     const runsIdsToExpand: string[] = visibleRows
       .filter(
         ({ runDateAndNestInfo, runUuid }) =>
-          runDateAndNestInfo.hasExpander &&
+          runDateAndNestInfo?.hasExpander &&
           typeof runsExpanded[runUuid] === 'undefined' &&
-          runDateAndNestInfo.childrenIds?.some((id) => evaluationRunIds.includes(id)),
+          runDateAndNestInfo?.childrenIds?.some((id) => evaluationRunIds.includes(id)),
       )
       .map(({ runUuid }) => runUuid);
 

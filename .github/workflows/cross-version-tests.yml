@@ -2,6 +2,11 @@ name: Cross version tests
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   workflow_dispatch:
     inputs:
       repository:
@@ -55,7 +60,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
@@ -67,7 +72,7 @@ jobs:
           pip install -r dev/requirements.txt
           pip install pytest pytest-cov
       - name: Check labels
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         id: check-labels
         with:
           script: |
@@ -89,7 +94,7 @@ jobs:
             };
       - name: Test set_matrix.py
         run: |
-          python -m pytest --noconftest tests/dev/test_set_matrix.py
+          python -m pytest --noconftest dev/tests
       - id: set-matrix
         name: Set matrix
         env:
@@ -121,7 +126,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
@@ -131,11 +136,7 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if [ "${{ matrix.package }}" = "tensorflow" ] && [ "${{ matrix.version }}" = "dev" ]; then
-            python_version=3.9
-          else
-            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
-          fi
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
           echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:
@@ -198,6 +199,10 @@ jobs:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
+      - name: Prefetch Transformer models
+        if: matrix.package == 'transformers' && matrix.category == 'models'
+        run: |
+          python tests/transformers/helper.py
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
@@ -205,5 +210,6 @@ jobs:
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |
           ${{ matrix.run }}

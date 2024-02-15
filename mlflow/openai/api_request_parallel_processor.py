@@ -32,8 +32,8 @@ import requests
 import tiktoken
 
 import mlflow
-from mlflow.openai.utils import _OAITokenHolder
 from mlflow.protos.databricks_pb2 import UNAUTHENTICATED
+from mlflow.utils.openai_utils import _OAITokenHolder
 
 _logger = logging.getLogger(__name__)
 

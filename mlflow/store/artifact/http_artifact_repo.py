@@ -89,9 +89,9 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
-            validate_path_is_safe(f["path"])
+            validated_path = validate_path_is_safe(f["path"])
             file_info = FileInfo(
-                posixpath.join(path, f["path"]) if path else f["path"],
+                posixpath.join(path, validated_path) if path else validated_path,
                 f["is_dir"],
                 int(f["file_size"]) if ("file_size" in f) else None,
             )

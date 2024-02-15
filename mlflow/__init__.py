@@ -58,7 +58,7 @@ fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
-keras_core = LazyLoader("mlflow.keras_core", globals(), "mlflow.keras_core")
+keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
@@ -69,6 +69,7 @@ openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
+promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
@@ -89,7 +90,6 @@ xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-from mlflow._doctor import doctor
 from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
@@ -97,6 +97,7 @@ from mlflow.projects import run
 from mlflow.system_metrics import (
     disable_system_metrics_logging,
     enable_system_metrics_logging,
+    set_system_metrics_node_id,
     set_system_metrics_samples_before_logging,
     set_system_metrics_sampling_interval,
 )
@@ -121,6 +122,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     delete_tag,
     end_run,
+    flush_async_logging,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
@@ -151,6 +153,7 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
 from mlflow.utils.credentials import login
+from mlflow.utils.doctor import doctor
 
 __all__ = [
     "ActiveRun",
@@ -167,6 +170,7 @@ __all__ = [
     "enable_system_metrics_logging",
     "end_run",
     "evaluate",
+    "flush_async_logging",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",
@@ -200,6 +204,7 @@ __all__ = [
     "set_experiment_tag",
     "set_experiment_tags",
     "set_registry_uri",
+    "set_system_metrics_node_id",
     "set_system_metrics_samples_before_logging",
     "set_system_metrics_sampling_interval",
     "set_tag",

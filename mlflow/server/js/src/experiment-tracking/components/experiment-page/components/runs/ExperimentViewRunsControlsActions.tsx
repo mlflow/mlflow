@@ -1,10 +1,4 @@
-import {
-  Button,
-  Checkbox,
-  FullscreenExitIcon,
-  FullscreenIcon,
-  SidebarIcon,
-} from '@databricks/design-system';
+import { Button, Checkbox, FullscreenExitIcon, FullscreenIcon, SidebarIcon } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -32,12 +26,13 @@ export type ExperimentViewRunsControlsActionsProps = {
   viewState: SearchExperimentRunsViewState;
   searchFacetsState: SearchExperimentRunsFacetsState;
   runsData: ExperimentRunsSelectorResult;
+  refreshRuns: () => void;
 };
 
 const CompareRunsButtonWrapper: React.FC = ({ children }) => <>{children}</>;
 
 export const ExperimentViewRunsControlsActions = React.memo(
-  ({ viewState, runsData, searchFacetsState }: ExperimentViewRunsControlsActionsProps) => {
+  ({ viewState, runsData, searchFacetsState, refreshRuns }: ExperimentViewRunsControlsActionsProps) => {
     const { runsSelected } = viewState;
     const { runInfos } = runsData;
     const { lifecycleFilter } = searchFacetsState;
@@ -82,54 +77,37 @@ export const ExperimentViewRunsControlsActions = React.memo(
     return (
       <>
         <div css={styles.controlBar}>
-          <Button
-            data-testid='run-rename-button'
-            onClick={renameButtonClicked}
-            disabled={!canRenameRuns}
-          >
+          <Button data-testid="run-rename-button" onClick={renameButtonClicked} disabled={!canRenameRuns}>
             <FormattedMessage
-              defaultMessage='Rename'
-              description='Label for the rename run button above the experiment runs table'
+              defaultMessage="Rename"
+              description="Label for the rename run button above the experiment runs table"
             />
           </Button>
           {lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
-            <Button
-              data-testid='runs-delete-button'
-              disabled={!canRestoreRuns}
-              onClick={onDeleteRun}
-              danger
-            >
+            <Button data-testid="runs-delete-button" disabled={!canRestoreRuns} onClick={onDeleteRun} danger>
               <FormattedMessage
-                defaultMessage='Delete'
+                defaultMessage="Delete"
                 // eslint-disable-next-line max-len
-                description='String for the delete button to delete a particular experiment run'
+                description="String for the delete button to delete a particular experiment run"
               />
             </Button>
           ) : null}
           {lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
-            <Button
-              data-testid='runs-restore-button'
-              disabled={!canRestoreRuns}
-              onClick={onRestoreRun}
-            >
+            <Button data-testid="runs-restore-button" disabled={!canRestoreRuns} onClick={onRestoreRun}>
               <FormattedMessage
-                defaultMessage='Restore'
+                defaultMessage="Restore"
                 // eslint-disable-next-line max-len
-                description='String for the restore button to undo the experiments that were deleted'
+                description="String for the restore button to undo the experiments that were deleted"
               />
             </Button>
           ) : null}
           <div css={styles.buttonSeparator} />
           <CompareRunsButtonWrapper>
-            <Button
-              data-testid='runs-compare-button'
-              disabled={!canCompareRuns}
-              onClick={compareButtonClicked}
-            >
+            <Button data-testid="runs-compare-button" disabled={!canCompareRuns} onClick={compareButtonClicked}>
               <FormattedMessage
-                defaultMessage='Compare'
+                defaultMessage="Compare"
                 // eslint-disable-next-line max-len
-                description='String for the compare button to compare experiment runs to find an ideal model'
+                description="String for the compare button to compare experiment runs to find an ideal model"
               />
             </Button>
           </CompareRunsButtonWrapper>
@@ -143,6 +121,7 @@ export const ExperimentViewRunsControlsActions = React.memo(
           showRestoreRunModal={showRestoreRunModal}
           showRenameRunModal={showRenameRunModal}
           renamedRunName={renamedRunName}
+          refreshRuns={refreshRuns}
         />
       </>
     );
