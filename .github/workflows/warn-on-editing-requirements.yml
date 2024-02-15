@@ -15,7 +15,7 @@ jobs:
   check:
     if: |
       github.event_name == 'pull_request'
-      || github.event.review?.state == 'APPROVED'
+      || github.event.review.state == 'APPROVED'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
