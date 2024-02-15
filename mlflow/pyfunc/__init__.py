@@ -25,8 +25,8 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 
   predict(
     model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc.csc_matrix | csr.csr_matrix),
-    List[Any], Dict[str, Any]]
-  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
+    List[Any], Dict[str, Any], pyspark.sql.DataFrame]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | pyspark.sql.DataFrame]
 
 All PyFunc models will support `pandas.DataFrame` as input and PyFunc deep learning models will
 also support tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and
@@ -72,8 +72,9 @@ following parameters:
 
           predict(
             model_input: [pandas.DataFrame, numpy.ndarray,
-            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]]
-          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
+            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]],
+            pyspark.sql.DataFrame
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | pyspark.sql.DataFrame]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -317,6 +318,12 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 
+try:
+    from pyspark.sql import DataFrame as SparkDataFrame
+
+    HAS_PYSPARK = True
+except ImportError:
+    HAS_PYSPARK = False
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
 CODE = "code"
@@ -469,7 +476,9 @@ class PyFuncModel:
                 contains a signature with tensor spec inputs, the corresponding column values
                 in the pandas DataFrame will be reshaped to the required shape with 'C' order
                 (i.e. read / write the elements using C-like index order), and DataFrame
-                column values will be cast as the required tensor spec type.
+                column values will be cast as the required tensor spec type. For Pyspark
+                DataFrame inputs, MLflow will only enforce the schema on a subset
+                of the data rows.
             params: Additional parameters to pass to the model for inference.
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
@@ -479,9 +488,10 @@ class PyFuncModel:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
+        flavor = self.loader_module
         if input_schema is not None:
             try:
-                data = _enforce_schema(data, input_schema)
+                data = _enforce_schema(data, input_schema, flavor)
             except Exception as e:
                 # Include error in message for backwards compatibility
                 raise MlflowException.invalid_parameter_value(
@@ -495,6 +505,11 @@ class PyFuncModel:
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
         _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if HAS_PYSPARK and isinstance(data, SparkDataFrame):
+            _logger.warning(
+                "Input data is a Spark DataFrame. Note that behaviour for "
+                "Spark DataFrames is model dependent."
+            )
         return self._predict_fn(data)
 
     @experimental
@@ -569,6 +584,14 @@ class PyFuncModel:
     def model_config(self):
         """Model's flavor configuration"""
         return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
+
+    @experimental
+    @property
+    def loader_module(self):
+        """Model's flavor configuration"""
+        if self._model_meta.flavors.get(FLAVOR_NAME) is None:
+            return None
+        return self._model_meta.flavors[FLAVOR_NAME].get(MAIN)
 
     def __repr__(self):
         info = {}

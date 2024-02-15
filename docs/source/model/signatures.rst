@@ -402,6 +402,8 @@ MLflow enforces input types as defined in the model's signature. For column-base
 performs safe type conversions where necessary, allowing only lossless conversions. For example, converting int to long or int to double is 
 permissible, but converting long to double is not. In cases where types cannot be made compatible, MLflow will raise an error.
 
+For Pyspark DataFrame inputs, MLflow casts a sample of the PySpark DataFrame into a Pandas DataFrame. MLflow will only enforce the schema on a subset of the data rows.
+
 For tensor-based signature models, type checking is more stringent. An exception is thrown if the input type does not align with the schema-specified type.
 
 Params Type and Shape Enforcement
