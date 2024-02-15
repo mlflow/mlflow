@@ -110,7 +110,7 @@ def model_path(tmp_path):
     ],
 )
 def test_build_image_and_serve(flavor, request):
-    model_path = request.getfixturevalue(f"{flavor}_model")
+    model_path = str(request.getfixturevalue(f"{flavor}_model"))
     flavor = flavor.split("_")[0]  # Remove _pt or _tf from the flavor name
 
     # Build an image
