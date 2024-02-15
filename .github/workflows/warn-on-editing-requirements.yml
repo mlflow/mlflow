@@ -1,15 +1,13 @@
 name: Maintainer approval for requirement edits
 
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request:
 
 permissions:
   pull-requests: read
 
 jobs:
   check:
-    if: github.event.review.state == 'APPROVED'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +35,7 @@ jobs:
               const reason = (
                 "Editing requirements files can cause conflicts in downstream processes " +
                 "that depend on MLflow. Please ensure that one of the MLflow Core Maintainers " +
-                "has a chance to review this PR."
+                "has a chance to review this PR, and rerun this workflow once approved."
               );
               await script({ context, github, core, reason });
             }
