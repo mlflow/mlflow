@@ -188,13 +188,6 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-          # temp workaround before langchain_community release the following PR in a new version
-          # https://github.com/langchain-ai/langchain/pull/15691
-          if [ "${{ matrix.package }}/${{ matrix.category }}" = "langchain/autologging" ]
-          then
-            pip uninstall -y langchain_community
-            pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/community
-          fi
       - name: Install pydantic no-binary for langchain
         if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
         run: |
