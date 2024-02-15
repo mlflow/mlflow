@@ -1750,3 +1750,20 @@ def test_graphql_handler(mlflow_client):
         headers={"content-type": "application/json; charset=utf-8"},
     )
     assert response.status_code == 200
+
+
+def test_get_experiment_graphql(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("GraphqlTest")
+    response = requests.request(
+        "post",
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": 'query testQuery {mlflowGetExperiment(input: {experimentId: "'
+            + experiment_id
+            + '"}) { experiment { name } }}',
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    assert "GraphqlTest" in response.text
