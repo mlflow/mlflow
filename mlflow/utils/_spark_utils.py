@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import zipfile
+from packaging.version import Version
 
 
 def _get_active_spark_session():
@@ -36,6 +37,30 @@ def _prepare_subprocess_environ_for_creating_local_spark_session():
     os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
 
 
+def _get_spark_scala_version_from_spark_session(spark):
+    version = Version(spark._jvm.scala.util.Properties.versionNumberString())
+    return f"{version.major}.{version.minor}"
+
+
+def _get_spark_scala_version():
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
+    from pyspark.sql import SparkSession
+
+    if is_in_databricks_runtime():
+        return os.environ["SPARK_SCALA_VERSION"]
+
+    spark = _get_active_spark_session()
+    if spark is not None:
+        return _get_spark_scala_version_from_spark_session(spark)
+
+    try:
+        spark = SparkSession.builder.master("local[1]").getOrCreate()
+        return _get_spark_scala_version_from_spark_session(spark)
+    finally:
+        if spark is not None:
+            spark.stop()
+
+
 def _create_local_spark_session_for_recipes():
     """Create a sparksession to be used within an recipe step run in a subprocess locally."""
 
@@ -45,9 +70,10 @@ def _create_local_spark_session_for_recipes():
         # Return None if user doesn't have PySpark installed
         return None
     _prepare_subprocess_environ_for_creating_local_spark_session()
+    spark_scala_version = _get_spark_scala_version()
     return (
         SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
+        .config("spark.jars.packages", f"io.delta:delta-spark_{spark_scala_version}:3.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
