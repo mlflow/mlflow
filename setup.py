@@ -10,6 +10,7 @@ version = (
     SourceFileLoader("mlflow.version", os.path.join("mlflow", "version.py")).load_module().VERSION
 )
 
+
 # Get a list of all files in the directory to include in our module
 def package_files(directory):
     """
