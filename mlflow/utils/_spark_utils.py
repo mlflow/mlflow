@@ -51,8 +51,7 @@ def _get_spark_scala_version():
     if is_in_databricks_runtime():
         return os.environ["SPARK_SCALA_VERSION"]
 
-    spark = _get_active_spark_session()
-    if spark is not None:
+    if spark := _get_active_spark_session():
         return _get_spark_scala_version_from_spark_session(spark)
 
     try:
@@ -72,7 +71,11 @@ def _create_local_spark_session_for_recipes():
         # Return None if user doesn't have PySpark installed
         return None
     _prepare_subprocess_environ_for_creating_local_spark_session()
-    spark_scala_version = _get_spark_scala_version()
+
+    try:
+        spark_scala_version = _get_spark_scala_version()
+    except Exception as e:
+        raise RuntimeError("Getting spark scala version failed.") from e
     return (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", f"io.delta:delta-spark_{spark_scala_version}:3.0.0")
