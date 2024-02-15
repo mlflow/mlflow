@@ -72,7 +72,7 @@ requires OpenAI API key, if you don't have an OpenAI key, you can set it up [her
         # Wrap "gpt-4" as an MLflow model.
         logged_model_info = mlflow.openai.log_model(
             model="gpt-4",
-            task=openai.ChatCompletion,
+            task=openai.chat.completions,
             artifact_path="model",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -408,7 +408,7 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
             # Wrap "gpt-3.5-turbo" as an MLflow model.
             logged_model_info = mlflow.openai.log_model(
                 model="gpt-3.5-turbo",
-                task=openai.ChatCompletion,
+                task=openai.chat.completions,
                 artifact_path="model",
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -454,7 +454,7 @@ up OpenAI authentication to run the code below.
         answers = []
         system_prompt = "Please answer the following question in formal language."
         for index, row in inputs.iterrows():
-            completion = openai.ChatCompletion.create(
+            completion = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": system_prompt},
