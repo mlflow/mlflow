@@ -109,7 +109,6 @@ if TYPE_CHECKING:
     import torch
     from transformers import Pipeline
 
-
 FLAVOR_NAME = "transformers"
 
 _CARD_TEXT_FILE_NAME = "model_card.md"
