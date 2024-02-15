@@ -1196,7 +1196,7 @@ class DefaultEvaluator(ModelEvaluator):
                 return metric_value
 
     def _get_args_for_metrics(
-        self, metric_tuple, eval_df
+        self, metric_tuple, eval_df, input_df
     ) -> Tuple[bool, List[Union[str, pd.DataFrame]]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
@@ -1206,6 +1206,7 @@ class DefaultEvaluator(ModelEvaluator):
             metric_tuple: The metric tuple containing a user provided function and its index
                 in the ``extra_metrics`` parameter of ``mlflow.evaluate``.
             eval_df: The evaluation dataframe containing the prediction and target columns.
+            input_df: The input dataframe containing the features used to make predictions.
 
         Returns:
             tuple: A tuple of (bool, list) where the bool indicates if the given metric can
@@ -1219,7 +1220,6 @@ class DefaultEvaluator(ModelEvaluator):
         # deepcopying eval_df and builtin_metrics for each custom metric function call,
         # in case the user modifies them inside their function(s).
         eval_df_copy = eval_df.copy()
-        input_df = self.X.copy_to_avoid_mutation()
         parameters = inspect.signature(metric_tuple.function).parameters
         eval_fn_args = []
         params_not_found = []
@@ -1580,13 +1580,16 @@ class DefaultEvaluator(ModelEvaluator):
     # and raise an exception in the latter case
     def _order_extra_metrics(self, eval_df):
         remaining_metrics = self.extra_metrics
+        input_df = self.X.copy_to_avoid_mutation()
 
         while len(remaining_metrics) > 0:
             pending_metrics = []
             failed_results = []
             did_append_metric = False
             for metric_tuple in remaining_metrics:
-                can_calculate, eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df)
+                can_calculate, eval_fn_args = self._get_args_for_metrics(
+                    metric_tuple, eval_df, input_df
+                )
                 if can_calculate:
                     self.ordered_metrics.append(metric_tuple)
                     did_append_metric = True
@@ -1605,9 +1608,12 @@ class DefaultEvaluator(ModelEvaluator):
         _logger.info("Testing metrics on first row...")
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
+        first_row_input_df = self.X.copy_to_avoid_mutation().iloc[[0]]
         for metric_tuple in self.ordered_metrics:
             try:
-                _, eval_fn_args = self._get_args_for_metrics(metric_tuple, first_row_df)
+                _, eval_fn_args = self._get_args_for_metrics(
+                    metric_tuple, first_row_df, first_row_input_df
+                )
                 metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
                 if metric_value:
                     name = (
@@ -1640,8 +1646,9 @@ class DefaultEvaluator(ModelEvaluator):
         self._test_first_row(eval_df)
 
         # calculate metrics for the full eval_df
+        input_df = self.X.copy_to_avoid_mutation()
         for metric_tuple in self.ordered_metrics:
-            _, eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df)
+            _, eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df, input_df)
             metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
 
             if metric_value:
