@@ -261,27 +261,20 @@ def load_feature_extraction_pipeline():
 @flaky()
 def load_peft_pipeline():
     try:
-        import torch
-        from peft import PeftConfig, PeftModel
+        from peft import LoraConfig, TaskType, get_peft_model
     except ImportError:
-        # Do nothing if PEFT/Pytorch is not installed
+        # Do nothing if PEFT is not installed
         return
 
-    peft_model_id = "ybelkada/opt-350m-lora"
-    config = PeftConfig.from_pretrained(peft_model_id)
+    base_model_id = "Elron/bleurt-tiny-512"
+    base_model = transformers.AutoModelForSequenceClassification.from_pretrained(base_model_id)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(base_model_id)
 
-    base_model = transformers.AutoModelForCausalLM.from_pretrained(
-        config.base_model_name_or_path,
-        low_cpu_mem_usage=True,
-        # NB: This test model runs with float16 by default, but some operations like
-        # LayerNorm are not supported with float16 on CPU. As we don't have GPU test
-        # environment, we set the torch dtype to float32 to avoid the error.
-        torch_dtype=torch.float32,
+    peft_config = LoraConfig(
+        task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
     )
-    peft_model = PeftModel.from_pretrained(base_model, peft_model_id)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-
-    return transformers.pipeline(task="text-generation", model=peft_model, tokenizer=tokenizer)
+    peft_model = get_peft_model(base_model, peft_config)
+    return transformers.pipeline(task="text-classification", model=peft_model, tokenizer=tokenizer)
 
 
 def prefetch_models():

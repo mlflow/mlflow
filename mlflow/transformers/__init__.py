@@ -57,7 +57,12 @@ from mlflow.transformers.model_io import (
     load_model_and_components_from_local,
     save_pipeline_pretrained_weights,
 )
-from mlflow.transformers.peft import get_model_with_peft_adapter, is_peft_model, save_peft_adaptor
+from mlflow.transformers.peft import (
+    _PEFT_ADAPTOR_DIR_NAME,
+    get_model_with_peft_adapter,
+    get_peft_base_model,
+    is_peft_model,
+)
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
@@ -535,10 +540,12 @@ def save_model(
 
     if is_peft_model(built_pipeline.model):
         _logger.info(
-            "TBA. Overriding save_pretrained to False for PEFT models,",
-            "following the Transformers behavior.",
+            "Overriding save_pretrained to False for PEFT models, following the Transformers "
+            "behavior. The PEFT adaptor and config will be saved, but the base model weights "
+            "will not and reference to the HuggingFace Hub repository will be logged instead."
         )
-        save_peft_adaptor(path, built_pipeline.model)
+        # This will only save PEFT adaptor weights and config, not the base model weights
+        built_pipeline.model.save_pretrained(path.joinpath(_PEFT_ADAPTOR_DIR_NAME))
         save_pretrained = False
 
     if not save_pretrained and not is_valid_hf_repo_id(built_pipeline.model.name_or_path):
@@ -1203,7 +1210,19 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
     specified, use the transformers library pipeline component validation to force raising an
     exception. The underlying Exception thrown in transformers is verbose enough for diagnosis.
     """
-    from transformers import pipeline
+    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel, pipeline
+
+    model = model_dict[FlavorKey.MODEL]
+
+    if not (
+        isinstance(model, (TFPreTrainedModel, PreTrainedModel, FlaxPreTrainedModel))
+        or is_peft_model(model)
+    ):
+        raise MlflowException(
+            "The supplied model type is unsupported. The model must be one of: "
+            "PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, or PeftModel",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         from transformers.pipelines import get_task
@@ -1244,6 +1263,9 @@ def _get_engine_type(model):
     """
     from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
 
+    if is_peft_model(model):
+        model = get_peft_base_model(model)
+
     for cls in model.__class__.__mro__:
         if issubclass(cls, TFPreTrainedModel):
             return "tensorflow"
@@ -1251,14 +1273,6 @@ def _get_engine_type(model):
             return "torch"
         elif issubclass(cls, FlaxPreTrainedModel):
             return "flax"
-
-
-def _get_instance_type(obj):
-    """
-    Utility for extracting the saved object type or, if the `base` argument is set to `True`,
-    the base ABC type of the model.
-    """
-    return obj.__class__.__name__
 
 
 def _should_add_pyfunc_to_model(pipeline) -> bool:

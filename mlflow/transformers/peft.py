@@ -19,25 +19,17 @@ def is_peft_model(model) -> bool:
 
 def get_peft_base_model(model):
     """Extract the base model from a PEFT model."""
-    peft_config_map = model.peft_config or {}
+    peft_config = model.peft_config.get(model.active_adapter) if model.peft_config else None
 
     # PEFT usually wraps the base model with two additional classes, one is PeftModel class
     # and the other is the adaptor specific class, like LoraModel class, so the class hierarchy
     # looks like PeftModel -> LoraModel -> BaseModel
     # However, when the PEFT config is the one for "prompt learning", there is not adaptor class
     # and the PeftModel class directly wraps the base model.
-    if peft_config := peft_config_map.get(model.active_adapter):
-        if not peft_config.is_prompt_learning:
-            return model.base_model.model
+    if peft_config and not peft_config.is_prompt_learning:
+        return model.base_model.model
 
     return model.base_model
-
-
-def save_peft_adaptor(path, model):
-    if not is_peft_model(model):
-        raise ValueError("The provided model is not a PEFT model.")
-
-    model.save_pretrained(path.joinpath(_PEFT_ADAPTOR_DIR_NAME))
 
 
 def get_model_with_peft_adapter(base_model, peft_adapter_path):
