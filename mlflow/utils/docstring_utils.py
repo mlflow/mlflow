@@ -293,8 +293,8 @@ it to MLflow without modifying the model weights. In such case, specifying this 
 
 .. important::
 
-    When you save the `PEFT <https://huggingface.co/docs/peft/en/index>` model, MLflow will
-    overrides the `save_pretrained` flag to `False` and only the PEFT adapter weights. The
+    When you save the `PEFT <https://huggingface.co/docs/peft/en/index>`_ model, MLflow will
+    override the `save_pretrained` flag to `False` and only store the PEFT adapter weights. The
     base model weights are not saved but the reference to the HuggingFace repository and
     its commit hash are logged instead.
 """
