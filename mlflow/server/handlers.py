@@ -609,12 +609,17 @@ def _get_experiment():
     request_message = _get_request_message(
         GetExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
-    response_message = GetExperiment.Response()
-    experiment = _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
-    response_message.experiment.MergeFrom(experiment)
+    response_message = get_experiment_impl(request_message)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+def get_experiment_impl(request_message):
+    response_message = GetExperiment.Response()
+    experiment = _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
+    response_message.experiment.MergeFrom(experiment)
+    return response_message
 
 
 @catch_mlflow_exception
