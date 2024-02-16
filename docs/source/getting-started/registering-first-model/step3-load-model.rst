@@ -63,9 +63,10 @@ model registration, they decouple model versions from the code that uses them.
 
 For instance, let's say we have a model version alias called ``production_model``, corresponding to 
 a production model. When our team builds a better model that is ready for deployment, we don't have 
-to change our serving workload code. Instead, in MLflow we simply delete the ``production_model`` 
-alias from the old model version and create a new ``production_model`` version alias for the new 
-model version. It's that simple!
+to change our serving workload code. Instead, in MLflow we simply reassign the ``production_model``
+alias from the old model version to the new one. This can be done simply in the UI. In the API, 
+we run `client.set_registered_model_alias` with the same model name, alias name, and **new** model 
+version ID. It's that easy!
 
 In the prior page, we added a model version alias to our model, but here's a programmatic example.
 
