@@ -21,6 +21,7 @@ def function():
     """
     return 1
 
+
 @keyword_only
 @deprecated(since="0.0.0")
 def deprecated_and_keyword_only_first():
@@ -33,6 +34,7 @@ def deprecated_and_keyword_only_first():
         y
     """
     return 1
+
 
 @deprecated(since="0.0.0")
 @keyword_only
@@ -48,6 +50,7 @@ def deprecated_and_keyword_only_second():
     """
     return 1
 
+
 def test_deprecated_method():
     msg = "``tests.utils.test_annotations.MyClass.method`` is deprecated"
     with pytest.warns(FutureWarning, match=re.escape(msg)):
@@ -61,19 +64,21 @@ def test_deprecated_function():
         assert function() == 1
     assert msg in function.__doc__
 
+
 def test_empty_docstring():
     docstring = ""
     expected_indent = ""
     assert _get_min_indent_of_docstring(docstring) == expected_indent
+
 
 def test_single_line_docstring():
     docstring = """Single line with indent."""
     expected_indent = ""
     assert _get_min_indent_of_docstring(docstring) == expected_indent
 
+
 def test_multi_line_docstring_first_line():
-    first_line_docstring = (
-    """Description
+    first_line_docstring = """Description
 
     Args:
         x: x
@@ -81,13 +86,12 @@ def test_multi_line_docstring_first_line():
     Returns:
         y
     """
-    )
     expected_indent = "    "
     assert _get_min_indent_of_docstring(first_line_docstring) == expected_indent
 
+
 def test_multi_line_docstring_second_line():
-    second_line_docstring = (
-    """
+    second_line_docstring = """
     Description
 
     Args:
@@ -95,12 +99,14 @@ def test_multi_line_docstring_second_line():
 
     Returns:
         y
-    """)
+    """
     expected_indent = "    "
     assert _get_min_indent_of_docstring(second_line_docstring) == expected_indent
 
+
 def test_deprecated_and_keyword_first():
     docstring = deprecated_and_keyword_only_first.__doc__
+    # pylint: disable=line-too-long
     assert docstring.rstrip() == (
         """    .. note:: This method requires all argument be specified by keyword.
     .. Warning:: ``tests.utils.test_annotations.deprecated_and_keyword_only_first`` is deprecated since 0.0.0. This method will be removed in a future release.
@@ -110,10 +116,13 @@ Description
         x: x
 
     Returns:
-        y""")
+        y"""
+    )
+
 
 def test_deprecated_and_keyword_second():
     docstring = deprecated_and_keyword_only_second.__doc__
+    # pylint: disable=line-too-long
     assert docstring.rstrip() == (
         """    .. Warning:: ``tests.utils.test_annotations.deprecated_and_keyword_only_second`` is deprecated since 0.0.0. This method will be removed in a future release.
     .. note:: This method requires all argument be specified by keyword.
@@ -124,6 +133,5 @@ def test_deprecated_and_keyword_second():
         x: x
 
     Returns:
-        y""")
-
-
+        y"""
+    )
