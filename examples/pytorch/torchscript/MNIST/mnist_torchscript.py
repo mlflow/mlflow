@@ -35,6 +35,7 @@ class Net(nn.Module):
         x = self.dropout2(x)
         x = self.fc2(x)
         x = F.log_softmax(x, dim=1)
+        return x
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
