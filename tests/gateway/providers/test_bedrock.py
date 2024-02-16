@@ -10,7 +10,7 @@ from mlflow.gateway.config import (
     AWSRole,
     RouteConfig,
 )
-from mlflow.gateway.providers.bedrock import AmazonBedrockProvider, AWSBedrockModelProvider
+from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import completions
 
 from tests.gateway.providers.test_anthropic import (
@@ -107,7 +107,7 @@ def ai21_parsed_completion_response(mdl):
 
 bedrock_model_provider_fixtures = [
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -126,7 +126,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -145,7 +145,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -164,7 +164,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.AMAZON,
+        "provider": AmazonBedrockModelProvider.AMAZON,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -214,7 +214,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.AI21,
+        "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -231,7 +231,7 @@ bedrock_model_provider_fixtures = [
         "model_request": {"prompt": "This is a test"},
     },
     {
-        "provider": AWSBedrockModelProvider.AI21,
+        "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -251,7 +251,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.COHERE,
+        "provider": AmazonBedrockModelProvider.COHERE,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -373,7 +373,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
             fix["expected"],
             fix["model_request"],
             marks=[]
-            if fix["provider"] is not AWSBedrockModelProvider.COHERE
+            if fix["provider"] is not AmazonBedrockModelProvider.COHERE
             else pytest.mark.skip("Cohere isn't available on Amazon Bedrock yet"),
         )
         for fix in bedrock_model_provider_fixtures

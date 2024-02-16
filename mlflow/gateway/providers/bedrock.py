@@ -22,7 +22,7 @@ from mlflow.gateway.schemas import completions
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
 
-class AWSBedrockAnthropicAdapter(AnthropicAdapter):
+class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
     @classmethod
     def completions_to_model(cls, payload, config):
         payload = super().completions_to_model(payload, config)
@@ -136,7 +136,7 @@ class AI21Adapter(ProviderAdapter):
         raise NotImplementedError
 
 
-class AWSBedrockModelProvider(Enum):
+class AmazonBedrockModelProvider(Enum):
     AMAZON = "amazon"
     COHERE = "cohere"
     AI21 = "ai21"
@@ -156,10 +156,10 @@ class AWSBedrockModelProvider(Enum):
 
 
 AWS_MODEL_PROVIDER_TO_ADAPTER = {
-    AWSBedrockModelProvider.COHERE: CohereAdapter,
-    AWSBedrockModelProvider.ANTHROPIC: AWSBedrockAnthropicAdapter,
-    AWSBedrockModelProvider.AMAZON: AWSTitanAdapter,
-    AWSBedrockModelProvider.AI21: AI21Adapter,
+    AmazonBedrockModelProvider.COHERE: CohereAdapter,
+    AmazonBedrockModelProvider.ANTHROPIC: AmazonBedrockAnthropicAdapter,
+    AmazonBedrockModelProvider.AMAZON: AWSTitanAdapter,
+    AmazonBedrockModelProvider.AI21: AI21Adapter,
 }
 
 
@@ -242,7 +242,7 @@ class AmazonBedrockProvider(BaseProvider):
         if (not self.config.model.name) or "." not in self.config.model.name:
             return None
         provider = self.config.model.name.split(".")[0]
-        return AWSBedrockModelProvider.of_str(provider)
+        return AmazonBedrockModelProvider.of_str(provider)
 
     @property
     def underlying_provider_adapter(self) -> ProviderAdapter:
