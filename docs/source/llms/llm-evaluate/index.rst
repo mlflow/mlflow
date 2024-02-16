@@ -349,7 +349,7 @@ Create heuristic-based LLM Evaluation Metrics (Category 2)
 This is very similar to creating custom traditional metrics, with the exception of returning a :py:func:`mlflow.metrics.MetricValue` instance.
 Basically you need to:
 
-1. Implement a ``eval_fn`` to define your scoring logic, it must take in 3 args ``predictions``, ``targets`` and ``metrics``.
+1. Implement a ``eval_fn`` to define your scoring logic, it must take in 2 args ``predictions`` and ``targets``.
    ``eval_fn`` must return a :py:func:`mlflow.metrics.MetricValue` instance.
 2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
 
@@ -358,7 +358,7 @@ the score is "yes" otherwise "no".
 
 .. code-block:: python
 
-    def eval_fn(predictions, targets, metrics):
+    def eval_fn(predictions, targets):
         scores = []
         for i in range(len(predictions)):
             if len(predictions[i]) > 10:
@@ -376,6 +376,27 @@ the score is "yes" otherwise "no".
         eval_fn=eval_fn, greater_is_better=False, name="over_10_chars"
     )
 
+To create a custom metric that is dependent on other metrics, include those other metrics' names as an argument after ``predictions`` and ``targets``. This can be the name of a builtin metric or another custom metric.
+Ensure that you do not accidentally have any circular dependencies in your metrics, or the evaluation will fail.
+
+The following code creates a dummy per-row metric called ``"toxic_or_over_10_chars"``: if the model output is greater than 10 or the toxicity score is greater than 0.5, the score is "yes" otherwise "no".
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, toxicity, over_10_chars):
+        scores = []
+        for i in range(len(predictions)):
+            if toxicity.scores[i] > 0.5 or over_10_chars.scores[i]:
+                scores.append("yes")
+            else:
+                scores.append("no")
+        return MetricValue(scores=scores)
+
+
+    # Create an EvaluationMetric object.
+    toxic_and_over_10_chars_metric = make_metric(
+        eval_fn=eval_fn, greater_is_better=False, name="toxic_or_over_10_chars"
+    )
 
 Prepare Your LLM for Evaluating
 -------------------------------

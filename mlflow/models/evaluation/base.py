@@ -100,9 +100,9 @@ class EvaluationMetric:
                             behavior section for what metrics will be returned based on the type of
                             model (i.e. classifier or regressor).
                         kwargs: Includes a list of args that are used to compute the metric. These
-                            args could information coming from input data, model outputs or
-                            parameters specified in the `evaluator_config` argument of the
-                            `mlflow.evaluate` API.
+                            args could be information coming from input data, model outputs,
+                            other metrics, or parameters specified in the `evaluator_config`
+                            argument of the `mlflow.evaluate` API.
 
                     Returns: MetricValue with per-row scores, per-row justifications, and aggregate
                         results.
@@ -118,7 +118,13 @@ class EvaluationMetric:
     '''
 
     def __init__(
-        self, eval_fn, name, greater_is_better, long_name=None, version=None, metric_details=None
+        self,
+        eval_fn,
+        name,
+        greater_is_better,
+        long_name=None,
+        version=None,
+        metric_details=None,
     ):
         self.eval_fn = eval_fn
         self.name = name
@@ -178,6 +184,10 @@ def make_metric(
                             that are used to compute the metric. These args could information coming
                             from input data, model outputs or parameters specified in the
                             `evaluator_config` argument of the `mlflow.evaluate` API.
+                        kwargs: Includes a list of args that are used to compute the metric. These
+                            args could be information coming from input data, model outputs,
+                            other metrics, or parameters specified in the `evaluator_config`
+                            argument of the `mlflow.evaluate` API.
 
                     Returns: MetricValue with per-row scores, per-row justifications, and aggregate
                         results.
@@ -509,7 +519,14 @@ class EvaluationDataset:
     SPARK_DATAFRAME_LIMIT = 10000
 
     def __init__(
-        self, data, *, targets=None, name=None, path=None, feature_names=None, predictions=None
+        self,
+        data,
+        *,
+        targets=None,
+        name=None,
+        path=None,
+        feature_names=None,
+        predictions=None,
     ):
         """
         The values of the constructor arguments comes from the `evaluate` call.
@@ -1758,7 +1775,8 @@ def evaluate(
 
     if data is None:
         raise MlflowException(
-            message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
+            message="The data argument cannot be None.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     _EnvManager.validate(env_manager)
