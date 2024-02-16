@@ -247,9 +247,7 @@ def make_metric(
             "name to enable creation of derived metrics that use the given metric."
         )
 
-    return EvaluationMetric(
-        eval_fn, name, greater_is_better, long_name, version, metric_details
-    )
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, metric_details)
 
 
 @developer_stable
@@ -320,17 +318,11 @@ class EvaluationResult:
     def __init__(self, metrics, artifacts, baseline_model_metrics=None, run_id=None):
         self._metrics = metrics
         self._artifacts = artifacts
-        self._baseline_model_metrics = (
-            baseline_model_metrics if baseline_model_metrics else {}
-        )
+        self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else {}
         self._run_id = (
             run_id
             if run_id is not None
-            else (
-                mlflow.active_run().info.run_id
-                if mlflow.active_run() is not None
-                else None
-            )
+            else (mlflow.active_run().info.run_id if mlflow.active_run() is not None else None)
         )
 
     @classmethod
@@ -410,18 +402,14 @@ class EvaluationResult:
         """
         eval_tables = {}
         if self._run_id is None:
-            _logger.warning(
-                "Cannot load eval_results_table because run_id is not specified."
-            )
+            _logger.warning("Cannot load eval_results_table because run_id is not specified.")
             return eval_tables
 
         for table_name, table_path in self._artifacts.items():
             path = urllib.parse.urlparse(table_path.uri).path
             table_fileName = os.path.basename(path)
             try:
-                eval_tables[table_name] = mlflow.load_table(
-                    table_fileName, run_ids=[self._run_id]
-                )
+                eval_tables[table_name] = mlflow.load_table(table_fileName, run_ids=[self._run_id])
             except Exception:
                 pass  # Swallow the exception since we assume its not a table.
 
@@ -577,9 +565,7 @@ class EvaluationDataset:
         except ImportError:
             pass
 
-        if feature_names is not None and len(set(feature_names)) < len(
-            list(feature_names)
-        ):
+        if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
             raise MlflowException(
                 message="`feature_names` argument must be a list containing unique feature names.",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -682,14 +668,11 @@ class EvaluationDataset:
                     features_data = features_data.drop(targets, axis=1, inplace=False)
 
                 if self._has_predictions:
-                    features_data = features_data.drop(
-                        predictions, axis=1, inplace=False
-                    )
+                    features_data = features_data.drop(predictions, axis=1, inplace=False)
 
                 self._features_data = features_data
                 self._feature_names = [
-                    generate_feature_name_if_not_string(c)
-                    for c in self._features_data.columns
+                    generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
         else:
             raise MlflowException(
@@ -768,11 +751,7 @@ class EvaluationDataset:
         Dataset name, which is specified dataset name or the dataset hash if user don't specify
         name.
         """
-        return (
-            self._user_specified_name
-            if self._user_specified_name is not None
-            else self.hash
-        )
+        return self._user_specified_name if self._user_specified_name is not None else self.hash
 
     @property
     def path(self):
@@ -835,9 +814,7 @@ class EvaluationDataset:
             return False
 
         if isinstance(self._features_data, np.ndarray):
-            is_features_data_equal = np.array_equal(
-                self._features_data, other._features_data
-            )
+            is_features_data_equal = np.array_equal(self._features_data, other._features_data)
         else:
             is_features_data_equal = self._features_data.equals(other._features_data)
 
@@ -1028,8 +1005,7 @@ def _model_validation_contains_model_comparison(validation_thresholds):
         return False
     thresholds = validation_thresholds.values()
     return any(
-        threshold.min_relative_change or threshold.min_absolute_change
-        for threshold in thresholds
+        threshold.min_relative_change or threshold.min_absolute_change for threshold in thresholds
     )
 
 
@@ -1086,12 +1062,8 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
 
         # If metric is higher is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparsion
-        comparator_fn = (
-            operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
-        )
-        operator_fn = (
-            operator.add if metric_threshold.greater_is_better else operator.sub
-        )
+        comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
+        operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
 
         if metric_threshold.threshold is not None:
             # metric threshold fails
@@ -1113,11 +1085,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             # - if not (metric_value <= baseline - min_absolute_change) for lower is better
             validation_result.min_absolute_change_failed = not comparator_fn(
                 Decimal(candidate_metric_value),
-                Decimal(
-                    operator_fn(
-                        baseline_metric_value, metric_threshold.min_absolute_change
-                    )
-                ),
+                Decimal(operator_fn(baseline_metric_value, metric_threshold.min_absolute_change)),
             )
 
         if metric_threshold.min_relative_change is not None:
@@ -1171,9 +1139,7 @@ def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     elif isinstance(data, np.ndarray):
         return mlflow.data.from_numpy(data, targets=targets)
     elif isinstance(data, pd.DataFrame):
-        return mlflow.data.from_pandas(
-            df=data, targets=targets, predictions=predictions
-        )
+        return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
     elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
         return mlflow.data.from_spark(df=data, targets=targets)
     else:
@@ -1260,9 +1226,7 @@ def _evaluate(
         merged_eval_result.metrics.update(eval_result.metrics)
         merged_eval_result.artifacts.update(eval_result.artifacts)
         if baseline_model and eval_result.baseline_model_metrics:
-            merged_eval_result.baseline_model_metrics.update(
-                eval_result.baseline_model_metrics
-            )
+            merged_eval_result.baseline_model_metrics.update(eval_result.baseline_model_metrics)
 
     return merged_eval_result
 
@@ -1977,22 +1941,14 @@ def evaluate(
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
-        if isinstance(data, Dataset) and issubclass(
-            data.__class__, PyFuncConvertibleDatasetMixin
-        ):
+        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
             dataset = data.to_evaluation_dataset(dataset_path, feature_names)
-            if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get(
-                "default", None
-            ):
-                context = evaluator_name_to_conf_map["default"].get(
-                    "metric_prefix", None
-                )
+            if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
+                context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
             else:
                 context = None
             client = MlflowClient()
-            tags = (
-                [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
-            )
+            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
             dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
             client.log_inputs(run_id, [dataset_input])
         else:
@@ -2002,9 +1958,7 @@ def evaluate(
                 path=dataset_path,
                 feature_names=feature_names,
             )
-        predictions_expected_in_model_output = (
-            predictions if model is not None else None
-        )
+        predictions_expected_in_model_output = predictions if model is not None else None
 
         try:
             evaluate_result = _evaluate(
