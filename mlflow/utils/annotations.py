@@ -25,7 +25,7 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
     if not docstring_str or "\n" not in docstring_str:
         return ""
 
-    return re.match(r"^\s*", docstring_str.split("\n")[-1]).group()
+    return re.match(r"^\s*", docstring_str.rsplit("\n", 1)[-1]).group()
 
 
 def experimental(api_or_type: Union[C, str]) -> C:
