@@ -20,7 +20,6 @@ target-version = "py38"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
-  "setup.py",
   "examples/recipes",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",

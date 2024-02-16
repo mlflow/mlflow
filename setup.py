@@ -1,8 +1,9 @@
-import os
 import logging
-from pathlib import Path
+import os
 from importlib.machinery import SourceFileLoader
-from setuptools import setup, find_packages, Command
+from pathlib import Path
+
+from setuptools import find_packages, setup
 
 _MLFLOW_SKINNY_ENV_VAR = "MLFLOW_SKINNY"
 
@@ -74,7 +75,7 @@ with open(os.path.join("requirements", "gateway-requirements.txt")) as f:
     GATEWAY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
-logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
+logging.debug(f"{_MLFLOW_SKINNY_ENV_VAR} env var is set: {_is_mlflow_skinny}")
 
 MINIMUM_SUPPORTED_PYTHON_VERSION = Path("requirements", "python-version.txt").read_text().strip()
 
@@ -86,6 +87,12 @@ skinny_package_data = [
     *recipes_template_files,
     *recipes_files,
 ]
+
+with open("README_SKINNY.rst") as f:
+    README_SKINNY = f.read()
+
+with open("README.rst") as f:
+    README = f.read()
 
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
@@ -162,9 +169,7 @@ setup(
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
-    long_description=open("README.rst").read()
-    if not _is_mlflow_skinny
-    else open("README_SKINNY.rst").read() + open("README.rst").read(),
+    long_description=README if not _is_mlflow_skinny else README_SKINNY + README,
     long_description_content_type="text/x-rst",
     license="Apache License 2.0",
     classifiers=[
