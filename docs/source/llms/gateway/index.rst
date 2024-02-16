@@ -632,7 +632,7 @@ Anthropic
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 Amazon Bedrock
-+++++++++++
+++++++++++++++
 
 Top-level model configuration for Amazon Bedrock routes must be one of the following two supported authentication modes: `key-based` or `role-based`.
 
