@@ -481,6 +481,6 @@ def test_save_load_input_example_without_conversion(tmp_path):
     assert loaded_example == input_example
 
 
-def test_model_saved_by_save_model_can_be_loaded(tmp_path):
-    mlflow.sklearn.save_model("model", tmp_path)
+def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
+    mlflow.sklearn.save_model(sklearn_knn_model, tmp_path)
     Model.load(tmp_path).get_model_info()
