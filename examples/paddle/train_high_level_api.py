@@ -13,7 +13,8 @@ class UCIHousing(paddle.nn.Layer):
         self.fc_ = paddle.nn.Linear(13, 1, None)
 
     def forward(self, inputs):
-        return self.fc_(inputs)
+        pred self.fc_(inputs)
+        return pred
 
 
 model = paddle.Model(UCIHousing())
