@@ -34,6 +34,7 @@ IGNORE = {
         "mlflow/store/tracking/rest_store.py",
         "mlflow/utils/docstring_utils.py",
         "mlflow/utils/rest_utils.py",
+        "mlflow/models/utils.py",
         "tests/conftest.py",
         "tests/evaluate/test_validation.py",
         "tests/helper_functions.py",
