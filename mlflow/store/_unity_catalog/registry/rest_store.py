@@ -164,21 +164,25 @@ def get_feature_dependencies(model_dir):
     return ""
 
 def get_model_version_dependencies(model_dir):
+    """
+    Gets the specified dependencies for a particular model version and formats them
+    to be passed into CreateModelVersion.
+    """
     model = _load_model(model_dir)
     model_info = model.get_model_info()
     dependencies = List()
-    index_name = _fetch_langchain_dependency_from_model_info(model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY)
-    if index_name:
-        dependencies.append({"kind": "vector_index", "source": index_name})
+    index_names = _fetch_langchain_dependency_from_model_info(model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY)
+    for index_name in index_names:
+        dependencies.append({"type": "VECTOR_INDEX", "name": index_name})
     for key in (_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY, _DATABRICKS_LLM_ENDPOINT_NAME_KEY, _DATABRICKS_CHAT_ENDPOINT_NAME_KEY):
-        endpoint_name =  _fetch_langchain_dependency_from_model_info(model_info, key)
-        if endpoint_name:
-            dependencies.append({"kind": "endpoint", "source": endpoint_name})
+        endpoint_names =  _fetch_langchain_dependency_from_model_info(model_info, key)
+        for endpoint_name in endpoint_names:
+            dependencies.append({"type": "MODEL_ENDPOINT", "name": endpoint_name})
     return dependencies
     
 
 def _fetch_langchain_dependency_from_model_info(model_info, key):
-    return model_info.flavors.get("langchain", {}).get(_DATABRICKS_DEPENDENCY_KEY, {}).get(key, None)  
+    return model_info.flavors.get("langchain", {}).get(_DATABRICKS_DEPENDENCY_KEY, {}).get(key, [])  
    
 @experimental
 class UcModelRegistryStore(BaseRestStore):
