@@ -40,6 +40,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",    # multiple-argument-default
   "B015",    # useless-comparison
+  "D209",    # new-line-after-last-paragraph
   "E",       # error
   "F",       # Pyflakes
   "C4",      # flake8-comprehensions
