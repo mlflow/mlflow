@@ -22,15 +22,10 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
         Whitespace corresponding to the indent of a docstring.
     """
 
-    if docstring_str is None:
+    if not docstring_str or "\n" not in docstring_str:
         return ""
 
-    lines = docstring_str.split("\n")
-
-    if len(lines) <= 1:
-        return ""
-    else:
-        return re.match(r"^\s*", lines[-1]).group()
+    return re.match(r"^\s*", docstring_str.split("\n")[-1]).group()
 
 
 def experimental(api_or_type: Union[C, str]) -> C:
