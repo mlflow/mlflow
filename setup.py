@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages, Command
 
@@ -75,43 +76,7 @@ with open(os.path.join("requirements", "gateway-requirements.txt")) as f:
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
 
-
-class ListDependencies(Command):
-    # `python setup.py <command name>` prints out "running <command name>" by default.
-    # This logging message must be hidden by specifying `--quiet` (or `-q`) when piping the output
-    # of this command to `pip install`.
-    description = "List mlflow dependencies"
-    user_options = [
-        ("skinny", None, "List mlflow-skinny dependencies"),
-    ]
-
-    def initialize_options(self):
-        self.skinny = False
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        dependencies = SKINNY_REQUIREMENTS if self.skinny else CORE_REQUIREMENTS
-        print("\n".join(dependencies))
-
-
-MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
-
-
-class MinPythonVersion(Command):
-    description = "Print out the minimum supported Python version"
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        print(MINIMUM_SUPPORTED_PYTHON_VERSION)
-
+MINIMUM_SUPPORTED_PYTHON_VERSION = Path("requirements", "python-version.txt").read_text().strip()
 
 skinny_package_data = [
     # include alembic files to enable usage of the skinny client with SQL databases
@@ -194,10 +159,6 @@ setup(
         https=mlflow.deployments.mlflow
         openai=mlflow.deployments.openai
     """,
-    cmdclass={
-        "dependencies": ListDependencies,
-        "min_python_version": MinPythonVersion,
-    },
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",

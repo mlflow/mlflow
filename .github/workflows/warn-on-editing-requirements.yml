@@ -1,0 +1,41 @@
+name: Maintainer approval for requirement edits
+
+on:
+  pull_request:
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail without core maintainer approval
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const repo = context.repo;
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: repo.owner,
+              repo: repo.repo,
+              pull_number: prNumber,
+            });
+
+            const editedPaths = files.map(file => file.filename);
+            const protectedPaths = new Set([
+              "setup.py",
+              "requirements/skinny-requirements.yaml",
+            ]);
+
+            if (editedPaths.some(path => protectedPaths.has(path))) {
+              const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
+              const reason = (
+                "Editing requirements files can cause conflicts in downstream processes " +
+                "that depend on MLflow. Please ensure that one of the MLflow Core Maintainers " +
+                "has a chance to review this PR, and rerun this workflow once approved."
+              );
+              await script({ context, github, core, reason });
+            }

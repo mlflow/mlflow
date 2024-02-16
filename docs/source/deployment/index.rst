@@ -15,7 +15,7 @@ This process can be complex, but MLflow simplifies it by offering an easy toolse
 
 By using MLflow deployment toolset, you can enjoy the following benefits:
 
-- **Effortless Deployment**: MLflow provides a simple interface for deploying models to various targets, eliminating the need to write boilorplate code.
+- **Effortless Deployment**: MLflow provides a simple interface for deploying models to various targets, eliminating the need to write boilerplate code.
 - **Dependency and Environment Management**: MLflow ensures that the deployment environment mirrors the training environment, capturing all dependencies. This guarantees that models run consistently, regardless of where they're deployed.
 - **Packaging Models and Code**: With MLflow, not just the model, but any supplementary code and configurations are packaged along with the deployment container. This ensures that the model can be executed seamlessly without any missing components.
 - **Avoid Vendor Lock-in**: MLflow provides a standard format for packaging models and unified APIs for deployment. You can easily switch between deployment targets without having to rewrite your code.

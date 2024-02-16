@@ -33,7 +33,7 @@ Single variable
         model_info = mlflow.openai.log_model(
             artifact_path="model",
             model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            task=openai.chat.completions,
             messages=[
                 {
                     "role": "user",
@@ -95,7 +95,7 @@ Multiple variables
         model_info = mlflow.openai.log_model(
             artifact_path="model",
             model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            task=openai.chat.completions,
             messages=[
                 {
                     "role": "user",
@@ -156,7 +156,7 @@ with ``role = user``.
         model_info = mlflow.openai.log_model(
             artifact_path="model",
             model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            task=openai.chat.completions,
             messages=[
                 {
                     "role": "system",
@@ -216,7 +216,7 @@ sent to the OpenAI chat completion API as-is with ``role = user``.
         model_info = mlflow.openai.log_model(
             artifact_path="model",
             model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            task=openai.chat.completions,
         )
 
     model = mlflow.pyfunc.load_model(model_info.model_uri)
