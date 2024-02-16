@@ -3889,6 +3889,48 @@ def test_target_prediction_col_mapping():
             }
 
 
+def test_precanned_metrics_work():
+    metric = mlflow.metrics.rouge1()
+    with mlflow.start_run():
+        eval_df = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                    "What is Python?",
+                ],
+                "ground_truth": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+                "prediction": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+            }
+        )
+
+        results = mlflow.evaluate(
+            data=eval_df,
+            evaluators="default",
+            predictions="prediction",
+            extra_metrics=[metric],
+            evaluator_config={
+                "col_mapping": {
+                    "targets": "ground_truth",
+                }
+            },
+        )
+
+        assert results.metrics == {
+            "rouge1/v1/mean": 1.0,
+            "rouge1/v1/variance": 0.0,
+            "rouge1/v1/p90": 1.0,
+        }
+
+
 def test_evaluate_custom_metric_with_string_type():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
