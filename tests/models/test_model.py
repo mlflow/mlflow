@@ -479,3 +479,8 @@ def test_save_load_input_example_without_conversion(tmp_path):
     assert loaded_model.saved_input_example_info["type"] == "json_object"
     loaded_example = loaded_model.load_input_example(local_path)
     assert loaded_example == input_example
+
+
+def test_model_saved_by_save_model_can_be_loaded(tmp_path):
+    mlflow.sklearn.save_model("model", tmp_path)
+    Model.load(tmp_path).get_model_info()
