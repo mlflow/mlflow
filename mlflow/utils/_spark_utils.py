@@ -68,8 +68,7 @@ def _get_spark_scala_version():
     # after terminating the temporal spark session, creating another spark session
     # with "spark.jars.packages" configuration doesn't work.
     proc = multiprocessing.Process(
-        target=_get_spark_scala_version_child_proc_target,
-        args=(result_queue,)
+        target=_get_spark_scala_version_child_proc_target, args=(result_queue,)
     )
     proc.start()
     proc.join()
