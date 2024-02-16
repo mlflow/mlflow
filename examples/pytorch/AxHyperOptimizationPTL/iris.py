@@ -34,7 +34,8 @@ class IrisClassification(pl.LightningModule):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return F.relu(self.fc3(x))
+        x = F.relu(self.fc3(x))
+        return x
 
     def configure_optimizers(self):
         return torch.optim.SGD(
