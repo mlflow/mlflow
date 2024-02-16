@@ -1,5 +1,5 @@
-import re
 import inspect
+import re
 import types
 import warnings
 from functools import wraps
@@ -8,21 +8,21 @@ from typing import Any, Callable, TypeVar, Union
 C = TypeVar("C", bound=Callable[..., Any])
 
 def _get_min_indent_of_docstring(docstring_str: str) -> str:
-    """Get indent str of a docstring.
+    """
+    Get indent str of a docstring.
 
-    Based on ruff rule D209, the closing triple quote must be on a new line. 
+    Based on ruff rule D209, the closing triple quote must be on a new line.
 
     Args:
-        docstring_str: string with docstring 
+        docstring_str: string with docstring
 
     Returns:
         Whitespace corresponding to the indent of a docstring.
-    
     """
 
     lines = docstring_str.split('\n')
 
-    if len(lines) <= 1: 
+    if len(lines) <= 1:
         return ''
     else:
         return re.match(r'^\s*', lines[-1]).group()
@@ -57,7 +57,7 @@ def experimental(api_or_type: Union[C, str]) -> C:
 def _experimental(api: C, api_type: str) -> C:
     indent = _get_min_indent_of_docstring(api.__doc__)
     notice = (
-        indent + 
+        indent +
         f".. Note:: Experimental: This {api_type} may change or "
         + "be removed in a future release without warning.\n\n"
     )
@@ -138,9 +138,7 @@ def deprecated(alternative=None, since=None, impact=None):
 
 
 def keyword_only(func):
-    """
-    A decorator that forces keyword arguments in the wrapped method.
-    """
+    """A decorator that forces keyword arguments in the wrapped method."""
 
     @wraps(func)
     def wrapper(*args, **kwargs):

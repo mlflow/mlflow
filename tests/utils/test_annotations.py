@@ -1,7 +1,8 @@
 import re
+
 import pytest
 
-from mlflow.utils.annotations import deprecated, _get_min_indent_of_docstring, keyword_only
+from mlflow.utils.annotations import _get_min_indent_of_docstring, deprecated, keyword_only
 
 
 class MyClass:
@@ -79,7 +80,7 @@ def test_multi_line_docstring_first_line():
 
     Returns:
         y
-    """ 
+    """
     )
     expected_indent = "    "
     assert _get_min_indent_of_docstring(first_line_docstring) == expected_indent
@@ -100,7 +101,6 @@ def test_multi_line_docstring_second_line():
 
 def test_deprecated_and_keyword_first():
     docstring = deprecated_and_keyword_only_first.__doc__
-    print(docstring)
     assert docstring.rstrip() == (
         """    .. note:: This method requires all argument be specified by keyword.
     .. Warning:: ``tests.utils.test_annotations.deprecated_and_keyword_only_first`` is deprecated since 0.0.0. This method will be removed in a future release.
@@ -114,7 +114,6 @@ Description
 
 def test_deprecated_and_keyword_second():
     docstring = deprecated_and_keyword_only_second.__doc__
-    print(docstring)
     assert docstring.rstrip() == (
         """    .. Warning:: ``tests.utils.test_annotations.deprecated_and_keyword_only_second`` is deprecated since 0.0.0. This method will be removed in a future release.
     .. note:: This method requires all argument be specified by keyword.
