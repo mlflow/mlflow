@@ -376,7 +376,7 @@ the score is "yes" otherwise "no".
         eval_fn=eval_fn, greater_is_better=False, name="over_10_chars"
     )
 
-If we want to create a custom metric that is dependent on other metrics, we can include those other metrics' names as an argument after ``predictions`` and ``targets``. This can be the name of a builtin metric or another custom metric.
+To create a custom metric that is dependent on other metrics, include those other metrics' names as an argument after ``predictions`` and ``targets``. This can be the name of a builtin metric or another custom metric.
 Ensure that you do not accidentally have any circular dependencies in your metrics, or the evaluation will fail.
 
 The following code creates a dummy per-row metric called ``"toxic_or_over_10_chars"``: if the model output is greater than 10 or the toxicity score is greater than 0.5, the score is "yes" otherwise "no".
