@@ -16,8 +16,7 @@ def train_evaluate(params, max_epochs):
     mlflow.pytorch.autolog()
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
-    test_accuracy = trainer.callback_metrics.get("test_acc")
-    return test_accuracy
+    return trainer.callback_metrics.get("test_acc")
 
 
 def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
