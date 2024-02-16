@@ -11,7 +11,8 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
     """
     Get indent str of a docstring.
 
-    Based on ruff rule D209, the closing triple quote must be on a new line.
+    Based on ruff rule D209, the closing triple quote for multiline comments 
+    must be on a new line.
 
     Args:
         docstring_str: string with docstring
@@ -19,6 +20,9 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
     Returns:
         Whitespace corresponding to the indent of a docstring.
     """
+
+    if docstring_str is None:
+        return ''
 
     lines = docstring_str.split('\n')
 
