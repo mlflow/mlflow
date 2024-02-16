@@ -447,8 +447,6 @@ def autolog(
                 kwargs["event_handlers"] += [mlflowGluonCallback]
             else:
                 kwargs["event_handlers"] = [mlflowGluonCallback]
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     safe_patch(FLAVOR_NAME, Estimator, "fit", fit, manage_run=True)

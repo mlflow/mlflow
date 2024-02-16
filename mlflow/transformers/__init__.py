@@ -7,7 +7,6 @@ import binascii
 import contextlib
 import copy
 import functools
-import importlib
 import json
 import logging
 import os
@@ -48,6 +47,21 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_CHAT,
+    _LLM_INFERENCE_TASK_KEY,
+    _LLM_INFERENCE_TASK_PREFIX,
+    _METADATA_LLM_INFERENCE_TASK_KEY,
+    _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
+    convert_data_messages_with_chat_template,
+    infer_signature_from_llm_inference_task,
+    postprocess_output_for_llm_inference_task,
+    preprocess_llm_inference_params,
+)
+from mlflow.transformers.signature import (
+    format_input_example_for_special_cases,
+    infer_or_get_default_signature,
+)
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -82,27 +96,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-
-IS_TRANSFORMERS_AVAILABLE = importlib.util.find_spec("transformers") is not None
-
-# The following modules depend on transformers and only imported when it is available
-if IS_TRANSFORMERS_AVAILABLE:
-    from mlflow.transformers.llm_inference_utils import (
-        _LLM_INFERENCE_TASK_CHAT,
-        _LLM_INFERENCE_TASK_KEY,
-        _LLM_INFERENCE_TASK_PREFIX,
-        _METADATA_LLM_INFERENCE_TASK_KEY,
-        _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
-        convert_data_messages_with_chat_template,
-        infer_signature_from_llm_inference_task,
-        postprocess_output_for_llm_inference_task,
-        preprocess_llm_inference_params,
-    )
-    from mlflow.transformers.signature import (
-        _generate_signature_output,
-        format_input_example_for_special_cases,
-        infer_or_get_default_signature,
-    )
 
 # The following import is only used for type hinting
 if TYPE_CHECKING:
@@ -1543,6 +1536,8 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
     """
     import transformers
 
+    from mlflow.transformers import signature
+
     if not isinstance(pipeline, transformers.Pipeline):
         raise MlflowException(
             f"The pipeline type submitted is not a valid transformers Pipeline. "
@@ -1550,7 +1545,7 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _generate_signature_output(pipeline, data, model_config, params)
+    return signature.generate_signature_output(pipeline, data, model_config, params)
 
 
 class _TransformersWrapper:
