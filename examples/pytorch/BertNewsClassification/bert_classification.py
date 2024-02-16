@@ -264,7 +264,8 @@ class BertNewsClassifier(L.LightningModule):
         output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
         output = F.relu(self.fc1(output.pooler_output))
         output = self.drop(output)
-        return self.out(output)
+        output = self.out(output)
+        return output
 
     def training_step(self, train_batch, batch_idx):
         """
