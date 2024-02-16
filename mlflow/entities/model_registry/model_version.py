@@ -65,7 +65,8 @@ class ModelVersion(_ModelRegistryEntity):
     @property
     def last_updated_timestamp(self):
         """Integer. Timestamp of last update for this model version (milliseconds since the Unix
-        epoch)."""
+        epoch).
+        """
         return self._last_updated_timestamp
 
     @last_updated_timestamp.setter
