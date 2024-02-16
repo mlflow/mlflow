@@ -159,7 +159,7 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
-                        AWS Bedrock added as an MLflow Gateway provider 
+                        Amazon Bedrock added as an MLflow Gateway provider 
                     </div>
                     <img class="card-image" src="../_static/images/logos/aws-logo.svg" alt="MLflow"></img>
                     <div class="body">
