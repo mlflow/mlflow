@@ -301,7 +301,7 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
             },
             False,
         ),
-        # persist_pretrained_model should be NOT called if model weights are saved locally
+        # persist_pretrained_model should NOT be called if model weights are saved locally
         (
             {
                 "transformers": {
@@ -332,7 +332,7 @@ def test_download_model_weights_if_not_saved(
         "flavors": flavor_config,
         "signature": _TEST_SIGNATURE.to_dict(),
     }
-    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+    with tmp_path.joinpath(MLMODEL_FILE_NAME).open("w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
 
     if model_binary_path := flavor_config.get("transformers", {}).get("model_binary"):

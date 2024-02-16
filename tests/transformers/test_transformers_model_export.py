@@ -3611,7 +3611,9 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
         mlflow.pyfunc.load_model(model_path).predict(input_example)
 
 
-def test_persist_pretrained_model(small_seq2seq_pipeline):
+# Patch tempdir just to verify the invocation
+@mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
+def test_persist_pretrained_model(mock_tmpdir, small_seq2seq_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=small_seq2seq_pipeline,
@@ -3627,15 +3629,21 @@ def test_persist_pretrained_model(small_seq2seq_pipeline):
     original_config = Model.load(artifact_path).flavors["transformers"]
     assert "model_binary" not in original_config
     assert "source_model_revision" in original_config
-    assert not os.path.exists(model_path)
-    assert not os.path.exists(tokenizer_path)
+    assert not model_path.exists()
+    assert not tokenizer_path.exists()
 
     mlflow.transformers.persist_pretrained_model(model_info.model_uri)
 
+    mock_tmpdir.assert_called_once()
     updated_config = Model.load(model_info.model_uri).flavors["transformers"]
     assert "model_binary" in updated_config
     assert "source_model_revision" not in updated_config
-    assert os.path.exists(model_path)
-    assert os.path.exists(model_path / "tf_model.h5")
-    assert os.path.exists(tokenizer_path)
-    assert os.path.exists(tokenizer_path / "tokenizer.json")
+    assert model_path.exists()
+    assert (model_path / "tf_model.h5").exists()
+    assert tokenizer_path.exists()
+    assert (tokenizer_path / "tokenizer.json").exists()
+
+    # Repeat persisting the model will no-op
+    mock_tmpdir.reset_mock()
+    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+    mock_tmpdir.assert_not_called()

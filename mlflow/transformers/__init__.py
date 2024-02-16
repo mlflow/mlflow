@@ -16,7 +16,6 @@ import re
 import shutil
 import string
 import sys
-import tempfile
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
@@ -46,8 +45,9 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
     FlavorKey,
     build_flavor_config,
@@ -92,7 +92,7 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
     infer_pip_requirements_with_timeout,
 )
-from mlflow.utils.file_utils import get_total_file_size, write_to
+from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
@@ -1002,13 +1002,14 @@ def load_model(
 
 def persist_pretrained_model(model_uri: str) -> None:
     """
-    Persist Transformers pretrained model weights to the artifacts of the specified model_uri.
-    This API is primary for updating an MLflow Model that was logged or saved with setting
-    save_pretrained=False. Such model cannot be registered to the Model Registry, due to the
-    lack of actual pretrained model weights in the artifacts but only the reference to the
-    HuggingFace Hub repository. This API will download the model weights from the HuggingFace
-    Hub repository and save them in the artifacts of the given model_uri, so that the model
-    can be registered to the Model Registry.
+    Persist Transformers pretrained model weights to the artifacts directory of the specified
+    model_uri. This API is primary used for updating an MLflow Model that was logged or saved
+    with setting save_pretrained=False. Such models cannot be registered to Databricks Workspace
+    Model Registry, due to the full pretrained model weights being absent in the artifacts.
+    Transformers models saved in this mode store only the reference to the HuggingFace Hub
+    repository. This API will download the model weights from the HuggingFace Hub repository
+    and save them in the artifacts of the given model_uri so that the model can be registered
+    to Databricks Workspace Model Registry.
 
     Args:
         model_uri: The URI of the existing MLflow Model of the Transformers flavor.
@@ -1039,8 +1040,20 @@ def persist_pretrained_model(model_uri: str) -> None:
         # Now the model can be registered to the Model Registry
         mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
     """
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=tmp_dir)
+    # Check if the model weight already exists in the model artifact before downloading
+    root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
+    artifact_repo = get_artifact_repository(root_uri)
+
+    file_names = [os.path.basename(f.path) for f in artifact_repo.list_artifacts(artifact_path)]
+    if MLMODEL_FILE_NAME in file_names and _MODEL_BINARY_FILE_NAME in file_names:
+        _logger.info(
+            "The full pretrained model weight already exists in the artifact directory of the "
+            f"specified model_uri: {model_uri}. No action is needed."
+        )
+        return
+
+    with TempDir() as tmp_dir:
+        local_model_path = artifact_repo.download_artifacts(artifact_path, dst_path=tmp_dir.path())
         pipeline = load_model(local_model_path, return_type="pipeline")
 
         # Update MLModel flavor config
@@ -1058,28 +1071,22 @@ def persist_pretrained_model(model_uri: str) -> None:
         )
 
         # Upload updated local artifacts to MLflow
-        mlflow_client = MlflowClient()
-        run_id = model_conf.run_id
         for dir_to_upload in (_MODEL_BINARY_FILE_NAME, _COMPONENTS_BINARY_DIR_NAME):
             local_dir = os.path.join(local_model_path, dir_to_upload)
             if not os.path.isdir(local_dir):
                 continue
 
             try:
-                mlflow_client.log_artifacts(
-                    run_id=model_conf.run_id,
-                    local_dir=local_dir,
-                    artifact_path=os.path.join(model_conf.artifact_path, dir_to_upload),
-                )
+                artifact_repo.log_artifacts(local_dir, os.path.join(artifact_path, dir_to_upload))
             except Exception as e:
                 # NB: log_artifacts method doesn't support rollback for partial uploads,
                 raise MlflowException(
                     f"Failed to upload {local_dir} to the existing model_uri due to {e}."
                     "Some other files may have been uploaded."
-                )
+                ) from e
 
         # Upload MLModel file
-        mlflow_client.log_artifact(run_id, mlmodel_path, artifact_path=model_conf.artifact_path)
+        artifact_repo.log_artifact(mlmodel_path, artifact_path)
 
     _logger.info(f"The pretrained model has been successfully persisted in {model_uri}.")
 

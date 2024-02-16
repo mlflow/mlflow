@@ -576,10 +576,9 @@ class UcModelRegistryStore(BaseRestStore):
             return
 
         _logger.info(
-            "It appears that the specified Transformers model was saved without the base model "
-            "weights, but such model cannot be directly registered in the Unity Catalog. "
-            "Attempting to download the model weights from the HuggingFace hub and save them to "
-            "the model directory for enabling model registration."
+            "You are attempting to register a transformers model that does not have persisted "
+            "model weights. Attempting to fetch the weights so that the model can be registered "
+            "within Unity Catalog."
         )
         try:
             mlflow.transformers.persist_pretrained_model(local_model_path)
@@ -587,7 +586,8 @@ class UcModelRegistryStore(BaseRestStore):
             raise MlflowException(
                 "Failed to download the model weights from the HuggingFace hub and cannot register "
                 "the model in the Unity Catalog. Please ensure that the model was saved with the "
-                "correct reference to the HuggingFace hub repository and you have access to it.",
+                "correct reference to the HuggingFace hub repository and that you have access to "
+                "fetch model weights from the defined repository.",
                 error_code=INTERNAL_ERROR,
             ) from e
 
