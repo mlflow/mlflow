@@ -195,6 +195,38 @@ your MLflow experiments.
 
     tracking-server-overview/index
 
+
+Model Registry Quickstart
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This quickstart tutorial walks through registering a model in the MLflow model registry and how to
+retrieve registered models. 
+
+.. raw:: html
+
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="registering-first-model/index.html" >
+                    <div class="header">
+                        5 Minute Model Registry Overview
+                    </div>
+                </a>
+                <p>
+                    Learn how to log MLflow models to the model registry
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    registering-first-model/index
+
 Further Learning - What's Next?
 -------------------------------
 
