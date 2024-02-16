@@ -56,6 +56,7 @@ class ExportModule(tf.Module):
         x = self.norm_x.norm(x)
         y = self.model(x)
         y = self.norm_y.unnorm(y)
+        return y
 
 
 def mse_loss(y_pred, y):
