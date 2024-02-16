@@ -1,3 +1,4 @@
+import re
 import inspect
 import types
 import warnings
@@ -5,6 +6,26 @@ from functools import wraps
 from typing import Any, Callable, TypeVar, Union
 
 C = TypeVar("C", bound=Callable[..., Any])
+
+def _get_min_indent_of_docstring(docstring_str: str) -> str:
+    """Get indent str of a docstring.
+
+    Based on ruff rule D209, the closing triple quote must be on a new line. 
+
+    Args:
+        docstring_str: string with docstring 
+
+    Returns:
+        Whitespace corresponding to the indent of a docstring.
+    
+    """
+
+    lines = docstring_str.split('\n')
+
+    if len(lines) <= 1: 
+        return ''
+    else:
+        return re.match(r'^\s*', lines[-1]).group()
 
 
 def experimental(api_or_type: Union[C, str]) -> C:
@@ -106,7 +127,12 @@ def deprecated(alternative=None, since=None, impact=None):
             return func(*args, **kwargs)
 
         if func.__doc__ is not None:
-            deprecated_func.__doc__ = ".. Warning:: " + notice + "\n" + func.__doc__
+            indent = _get_min_indent_of_docstring(deprecated_func.__doc__)
+            print('----------------------')
+            print('"'+indent+'"')
+            print('----------------------')
+            deprecated_func.__doc__ = indent + ".. Warning:: " + notice + "\n" + func.__doc__
+            print(deprecated_func.__doc__)
 
         return deprecated_func
 
@@ -124,6 +150,8 @@ def keyword_only(func):
             raise TypeError(f"Method {func.__name__} only takes keyword arguments.")
         return func(**kwargs)
 
-    notice = ".. Note:: This method requires all argument be specified by keyword.\n"
+    indent = _get_min_indent_of_docstring(wrapper.__doc__)
+    notice = indent + ".. note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
+
     return wrapper
