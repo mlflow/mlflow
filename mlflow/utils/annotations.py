@@ -10,10 +10,10 @@ C = TypeVar("C", bound=Callable[..., Any])
 
 def _get_min_indent_of_docstring(docstring_str: str) -> str:
     """
-    Get indent str of a docstring.
-
-    Based on ruff rule D209, the closing triple quote for multiline comments
-    must be on a new line.
+    Get the minimum indentation string of a docstring, based on the assumption
+    that the closing triple quote for multiline comments must be on a new line.
+    Note that based on ruff rule D209, the closing triple quote for multiline
+    comments must be on a new line.
 
     Args:
         docstring_str: string with docstring
