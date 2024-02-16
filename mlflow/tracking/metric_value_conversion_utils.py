@@ -18,7 +18,7 @@ def _try_get_item(x):
 
 
 def _converter_requires(module_name: str):
-    """Wrapper function that checks if specified `module_name` is already imported before 
+    """Wrapper function that checks if specified `module_name` is already imported before
     invoking wrapped function.
     """
 

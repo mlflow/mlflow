@@ -7,11 +7,12 @@ from typing import Any, Callable, TypeVar, Union
 
 C = TypeVar("C", bound=Callable[..., Any])
 
+
 def _get_min_indent_of_docstring(docstring_str: str) -> str:
     """
     Get indent str of a docstring.
 
-    Based on ruff rule D209, the closing triple quote for multiline comments 
+    Based on ruff rule D209, the closing triple quote for multiline comments
     must be on a new line.
 
     Args:
@@ -22,14 +23,14 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
     """
 
     if docstring_str is None:
-        return ''
+        return ""
 
-    lines = docstring_str.split('\n')
+    lines = docstring_str.split("\n")
 
     if len(lines) <= 1:
-        return ''
+        return ""
     else:
-        return re.match(r'^\s*', lines[-1]).group()
+        return re.match(r"^\s*", lines[-1]).group()
 
 
 def experimental(api_or_type: Union[C, str]) -> C:
@@ -61,8 +62,8 @@ def experimental(api_or_type: Union[C, str]) -> C:
 def _experimental(api: C, api_type: str) -> C:
     indent = _get_min_indent_of_docstring(api.__doc__)
     notice = (
-        indent +
-        f".. Note:: Experimental: This {api_type} may change or "
+        indent
+        + f".. Note:: Experimental: This {api_type} may change or "
         + "be removed in a future release without warning.\n\n"
     )
     if api_type == "property":
