@@ -2275,14 +2275,13 @@ Evaluating with Extra Metrics
 If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
 
-To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions``, ``targets``,
-and ``metrics`` as inputs and outputs a ``MetricValue`` object. ``predictions`` and ``targets`` are ``pandas.Series``
+To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions`` and ``targets`` as arguments 
+and outputs a ``MetricValue`` object. ``predictions`` and ``targets`` are ``pandas.Series``
 objects. If ``predictions`` or ``targets`` specified in ``mlflow.evaluate()`` is either ``numpy.array`` or ``List``,
 they will be converted to ``pandas.Series``.
 
-``metrics`` is a dictionary mapping a metric name ``string`` to a ``MetricValue`` object. It contains the values
-from built-in metrics and can be used to compute your custom metric. The built-in metrics are available when
-``model_type`` is defined for ``mlflow.evaluate(... model_type="classifier")``.
+To use values from other metrics to compute your custom metric, include the name of the metric as an argument to ``eval_fn``.
+This argument will contain a ``MetricValue`` object which contains the values calculated from the specified metric and can be used to compute your custom metric.
 
 .. code-block:: python
 
@@ -2305,7 +2304,7 @@ The code block below demonstrates how to define a custom metric evaluation funct
     from mlflow.metrics import MetricValue
 
 
-    def my_metric_eval_fn(predictions, targets, metrics):
+    def my_metric_eval_fn(predictions, targets):
         scores = np.abs(predictions - targets)
         return MetricValue(
             scores=list(scores),
@@ -2374,7 +2373,7 @@ column, and ``retrieved_context`` column will be accessible as the ``context`` p
 
 .. code-block:: python
 
-    def eval_fn(predictions, targets, metrics, context):
+    def eval_fn(predictions, targets, context):
         scores = (predictions == targets) + context
         return MetricValue(
             scores=list(scores),
@@ -2411,7 +2410,7 @@ However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`
 
 .. code-block:: python
 
-    def eval_fn(predictions, targets, metrics, retrieved_context):
+    def eval_fn(predictions, targets, retrieved_context):
         scores = (predictions == targets) + retrieved_context
         return MetricValue(
             scores=list(scores),
@@ -2445,7 +2444,7 @@ However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`
 
 .. code-block:: python
 
-    def eval_fn(predictions, targets, metrics, k):
+    def eval_fn(predictions, targets, k):
         scores = k * (predictions == targets)
         return MetricValue(scores=list(scores), aggregate_results={"mean": np.mean(scores)})
 
@@ -2471,6 +2470,50 @@ However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`
         targets="targets",
         extra_metrics=[weighted_mymetric],
         evaluator_config=config,
+    )
+
+You can also add the name of other metrics as an argument to the extra metric function, which will pass in the ``MetricValue`` calculated for that metric.
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, retrieved_context):
+        scores = (predictions == targets) + retrieved_context
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)},
+        )
+
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
+
+
+    def eval_fn_2(predictions, targets, mymetric):
+        scores = ["true" if score else "false" for score in mymetric.scores]
+        return MetricValue(
+            scores=list(scores),
+        )
+
+
+    mymetric2 = make_metric(eval_fn=eval_fn_2, greater_is_better=False, name="mymetric2")
+
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"] + 1, "answer": x["inputs"]})
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    result = mlflow.evaluate(
+        model,
+        eval_dataset,
+        predictions="answer",
+        targets="targets",
+        extra_metrics=[mymetric, mymetric2],
     )
 
 The following `short example from the MLflow GitHub Repository

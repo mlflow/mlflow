@@ -751,7 +751,10 @@ def _load_model_or_server(
     Returns:
         A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient, StdinScoringServerClient
+    from mlflow.pyfunc.scoring_server.client import (
+        ScoringServerClient,
+        StdinScoringServerClient,
+    )
 
     if env_manager == _EnvManager.LOCAL:
         return load_model(model_uri, model_config=model_config)
@@ -2079,7 +2082,8 @@ def save_model(
             elif input_example is not None:
                 try:
                     mlflow_model.signature = _infer_signature_from_input_example(
-                        input_example, _PythonModelPyfuncWrapper(python_model, None, None)
+                        input_example,
+                        _PythonModelPyfuncWrapper(python_model, None, None),
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
