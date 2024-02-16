@@ -97,8 +97,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
-"examples/*" = ["T20"]
-"docs/*" = ["T20"]
+"examples/*" = ["T20", "RET504"]
+"docs/*" = ["T20", "RET504"]
 "mlflow/*" = ["PT018"]
 
 [tool.ruff.lint.flake8-pytest-style]
