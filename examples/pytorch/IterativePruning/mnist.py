@@ -128,7 +128,9 @@ class LightningMNISTClassifier(L.LightningModule):
         x = self.layer_3(x)
 
         # probability distribution over labels
-        return torch.log_softmax(x, dim=1)
+        x = torch.log_softmax(x, dim=1)
+
+        return x
 
     def cross_entropy_loss(self, logits, labels):
         """
