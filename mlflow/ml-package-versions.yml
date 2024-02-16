@@ -625,6 +625,7 @@ langchain:
         ]
     run: |
       # For MlflowCallback text analysis
+      python - c 'from langchain.document_loaders import TextLoader'
       python -m spacy download en_core_web_sm
       pytest tests/langchain/test_langchain_autolog.py
 
