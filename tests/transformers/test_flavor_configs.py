@@ -1,7 +1,11 @@
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.transformers import _build_pipeline_from_model_input
-from mlflow.transformers.flavor_config import build_flavor_config
+from mlflow.transformers.flavor_config import (
+    build_flavor_config,
+    update_flavor_conf_to_persist_pretrained_model,
+)
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
 
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API
@@ -105,3 +109,65 @@ def test_is_valid_hf_repo_id(tmp_path):
     assert is_valid_hf_repo_id(str(tmp_path)) is False
     assert is_valid_hf_repo_id("invalid/repo/name") is False
     assert is_valid_hf_repo_id("google-t5/t5-small") is True
+
+
+_COMMON_CONF = {
+    "task": "text-classification",
+    "instance_type": "TextClassificationPipeline",
+    "pipeline_model_type": "TFMobileBertForSequenceClassification",
+    "source_model_name": "lordtt13/emo-mobilebert",
+    "framework": "tf",
+    "components": ["tokenizer"],
+    "tokenizer_type": "MobileBertTokenizerFast",
+    "transformers_version": "4.37.1",
+}
+_COMMIT_HASH = "26d8fcb41762ae83cc9fa03005cb63cde06ef340"
+
+
+def test_update_flavor_conf_to_persist_pretrained_model():
+    flavor_conf = {
+        **_COMMON_CONF,
+        "components": ["tokenizer"],
+        "source_model_revision": _COMMIT_HASH,
+        "tokenizer_name": "lordtt13/emo-mobilebert",
+        "tokenizer_revision": _COMMIT_HASH,
+    }
+    updated_flavor_conf = update_flavor_conf_to_persist_pretrained_model(flavor_conf)
+
+    assert updated_flavor_conf["model_binary"] == "model"
+    assert "source_model_revision" not in updated_flavor_conf
+    assert "tokenizer_revision" not in updated_flavor_conf
+    assert "tokenizer_name" not in updated_flavor_conf
+
+
+def test_update_flavor_conf_to_persist_pretrained_model_multi_modal():
+    flavor_conf = {
+        **_COMMON_CONF,
+        "components": ["tokenizer", "image_processor"],
+        "source_model_revision": _COMMIT_HASH,
+        "tokznier_revision": _COMMIT_HASH,
+        "image-processor_type": "ViltImageProcessor",
+        "image_processor_name": "dandelin/vilt-b32-finetuned-vqa",
+        "image_processor_revision": _COMMIT_HASH,
+        "processor_type": "ViltImageProcessor",
+        "processor_name": "dandelin/vilt-b32-finetuned-vqa",
+        "processor_revision": _COMMIT_HASH,
+    }
+    updated_flavor_conf = update_flavor_conf_to_persist_pretrained_model(flavor_conf)
+
+    assert updated_flavor_conf["model_binary"] == "model"
+    assert "source_model_revision" not in updated_flavor_conf
+    for component in ["tokenizer", "image_processor", "processor"]:
+        assert f"{component}_revision" not in updated_flavor_conf
+        assert f"{component}_name" not in updated_flavor_conf
+
+
+def test_update_flavor_conf_to_persist_pretrained_model_raise_if_already_persisted():
+    flavor_conf = {
+        **_COMMON_CONF,
+        "components": ["tokenizer"],
+        "model_binary": "model",
+    }
+
+    with pytest.raises(MlflowException, match="It appears that the pretrained model weight"):
+        update_flavor_conf_to_persist_pretrained_model(flavor_conf)
