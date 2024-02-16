@@ -153,7 +153,7 @@ def save_model(
     Save a Spark MLlib PipelineModel in MLeap format at a local path.
     The saved model will have the MLeap flavor.
 
-    NOTE:
+    .. note::
 
         You cannot load the MLeap model flavor in Python; you must download it using the
         Java API method ``downloadArtifacts(String runId)`` and load the model
