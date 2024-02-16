@@ -139,7 +139,7 @@ def log_model(
 
 
 @deprecated(alternative="mlflow.onnx", since="2.6.0")
-# @keyword_only
+@keyword_only
 def save_model(
     spark_model,
     sample_input,
@@ -202,7 +202,7 @@ def save_model(
 
 
 @deprecated(alternative="mlflow.onnx", since="2.6.0")
-# @keyword_only
+@keyword_only
 def add_to_model(mlflow_model, path, spark_model, sample_input):
     """
     Add the MLeap flavor to an existing MLflow model.
