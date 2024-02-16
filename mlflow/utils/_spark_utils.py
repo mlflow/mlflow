@@ -38,13 +38,20 @@ def _prepare_subprocess_environ_for_creating_local_spark_session():
 
 
 def _get_spark_scala_version_from_spark_session(spark):
-    version = spark._jvm.scala.util.Properties.versionNumberString().split(".")
+    version = spark._jvm.scala.util.Properties.versionNumberString().split(".", 2)
     return f"{version[0]}.{version[1]}"
 
 
-def _get_spark_scala_version():
+def _get_spark_scala_version_child_proc_target(result_queue):
     from pyspark.sql import SparkSession
 
+    _prepare_subprocess_environ_for_creating_local_spark_session()
+    with SparkSession.builder.master("local[1]").getOrCreate() as spark_session:
+        scala_version = _get_spark_scala_version_from_spark_session(spark_session)
+        result_queue.put(scala_version)
+
+
+def _get_spark_scala_version():
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     if is_in_databricks_runtime() and "SPARK_SCALA_VERSION" in os.environ:
@@ -55,18 +62,15 @@ def _get_spark_scala_version():
 
     result_queue = multiprocessing.Queue()
 
-    def child_proc_target():
-        _prepare_subprocess_environ_for_creating_local_spark_session()
-        with SparkSession.builder.master("local[1]").getOrCreate() as spark_session:
-            scala_version = _get_spark_scala_version_from_spark_session(spark_session)
-            result_queue.put(scala_version)
-
     # If we need to create a new spark local session for reading scala version,
     # we have to create the temporal spark session in a child process,
     # if we create the temporal spark session in current process,
     # after terminating the temporal spark session, creating another spark session
     # with "spark.jars.packages" configuration doesn't work.
-    proc = multiprocessing.Process(target=child_proc_target)
+    proc = multiprocessing.Process(
+        target=_get_spark_scala_version_child_proc_target,
+        args=(result_queue,)
+    )
     proc.start()
     proc.join()
     if proc.exitcode != 0:
@@ -87,7 +91,7 @@ def _create_local_spark_session_for_recipes():
     try:
         spark_scala_version = _get_spark_scala_version()
     except Exception as e:
-        raise RuntimeError("Getting spark scala version failed.") from e
+        raise RuntimeError("Failed to get spark scala version.") from e
 
     _prepare_subprocess_environ_for_creating_local_spark_session()
     return (
