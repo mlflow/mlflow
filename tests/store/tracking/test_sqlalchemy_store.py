@@ -212,7 +212,7 @@ def _get_run_configs(experiment_id=None, tags=None, start_time=None):
     return {
         "experiment_id": experiment_id,
         "user_id": "Anderson",
-        "start_time": start_time or get_current_time_millis(),
+        "start_time": get_current_time_millis() if start_time is None else start_time,
         "tags": tags,
         "run_name": "name",
     }
@@ -1679,6 +1679,554 @@ def test_search_params(store: SqlAlchemyStore):
     assert _search_runs(store, experiment_id, filter_string) == [r2]
 
 
+def test_search_tags(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "search_tags")
+    r1 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+    r2 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+
+    store.set_tag(r1, entities.RunTag("generic_tag", "p_val"))
+    store.set_tag(r2, entities.RunTag("generic_tag", "p_val"))
+
+    store.set_tag(r1, entities.RunTag("generic_2", "some value"))
+    store.set_tag(r2, entities.RunTag("generic_2", "another value"))
+
+    store.set_tag(r1, entities.RunTag("p_a", "abc"))
+    store.set_tag(r2, entities.RunTag("p_b", "ABC"))
+
+    # test search returns both runs
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string="tags.generic_tag = 'p_val'"))
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_tag = 'P_VAL'") == []
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string="tags.generic_tag != 'P_VAL'"))
+    # test search returns appropriate run (same key different values per run)
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 = 'some value'") == [r1]
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 = 'another value'") == [
+        r2
+    ]
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_tag = 'wrong_val'") == []
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_tag != 'p_val'") == []
+    assert sorted(
+        [r1, r2],
+    ) == sorted(
+        _search_runs(store, experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
+    )
+    assert sorted(
+        [r1, r2],
+    ) == sorted(
+        _search_runs(store, experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
+    )
+    assert _search_runs(store, experiment_id, filter_string="tags.p_a = 'abc'") == [r1]
+    assert _search_runs(store, experiment_id, filter_string="tags.p_b = 'ABC'") == [r2]
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 LIKE '%other%'") == [r2]
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 LIKE '%Other%'") == []
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 LIKE 'other%'") == []
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 LIKE '%other'") == []
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 LIKE 'other'") == []
+    assert _search_runs(store, experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'") == [
+        r2
+    ]
+    assert _search_runs(
+        store,
+        experiment_id,
+        filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag = 'p_val'",
+    ) == [r2]
+    assert _search_runs(
+        store,
+        experiment_id,
+        filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag ILIKE 'p_val'",
+    ) == [r2]
+
+
+def test_search_metrics(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "search_metric")
+    r1 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+    r2 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+
+    store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
+    store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
+
+    store.log_metric(r1, entities.Metric("measure_a", 1.0, 1, 0))
+    store.log_metric(r2, entities.Metric("measure_a", 200.0, 2, 0))
+    store.log_metric(r2, entities.Metric("measure_a", 400.0, 3, 0))
+
+    store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
+    store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
+    store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))  # this is last timestamp
+    store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
+
+    filter_string = "metrics.common = 1.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.common > 0.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.common >= 0.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.common < 4.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.common <= 4.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.common != 1.0"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "metrics.common >= 3.0"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "metrics.common <= 0.75"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    # tests for same metric name across runs with different values and timestamps
+    filter_string = "metrics.measure_a > 0.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.measure_a < 50.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = "metrics.measure_a < 1000.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.measure_a != -12.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "metrics.measure_a > 50.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    filter_string = "metrics.measure_a = 1.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = "metrics.measure_a = 400.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    # test search with unique metric keys
+    filter_string = "metrics.m_a > 1.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = "metrics.m_b > 1.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    # there is a recorded metric this threshold but not last timestamp
+    filter_string = "metrics.m_b > 5.0"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    # metrics matches last reported timestamp for 'm_b'
+    filter_string = "metrics.m_b = 4.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+
+def test_search_attrs(store: SqlAlchemyStore, tmp_path):
+    e1 = _create_experiments(store, "search_attributes_1")
+    r1 = _run_factory(store, _get_run_configs(experiment_id=e1)).info.run_id
+
+    e2 = _create_experiments(store, "search_attrs_2")
+    r2 = _run_factory(store, _get_run_configs(experiment_id=e2)).info.run_id
+
+    filter_string = ""
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, [e1, e2], filter_string))
+
+    filter_string = "attribute.status != 'blah'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, [e1, e2], filter_string))
+
+    filter_string = f"attribute.status = '{RunStatus.to_string(RunStatus.RUNNING)}'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, [e1, e2], filter_string))
+
+    # change status for one of the runs
+    store.update_run_info(r2, RunStatus.FAILED, 300, None)
+
+    filter_string = "attribute.status = 'RUNNING'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    filter_string = "attribute.status = 'FAILED'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r2]
+
+    filter_string = "attribute.status != 'SCHEDULED'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, [e1, e2], filter_string))
+
+    filter_string = "attribute.status = 'SCHEDULED'"
+    assert _search_runs(store, [e1, e2], filter_string) == []
+
+    filter_string = "attribute.status = 'KILLED'"
+    assert _search_runs(store, [e1, e2], filter_string) == []
+
+    expected_artifact_uri = (
+        pathlib.Path.cwd().joinpath(tmp_path, "artifacts", e1, r1, "artifacts").as_uri()
+    )
+    filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    filter_string = (
+        f"attr.artifact_uri = '{tmp_path}/artifacts/{e1.upper()}/{r1.upper()}/artifacts'"
+    )
+    assert _search_runs(store, [e1, e2], filter_string) == []
+
+    filter_string = (
+        f"attr.artifact_uri != '{tmp_path}/artifacts/{e1.upper()}/{r1.upper()}/artifacts'"
+    )
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, [e1, e2], filter_string))
+
+    filter_string = f"attr.artifact_uri = '{tmp_path}/artifacts/{e2}/{r1}/artifacts'"
+    assert _search_runs(store, [e1, e2], filter_string) == []
+
+    filter_string = "attribute.artifact_uri = 'random_artifact_path'"
+    assert _search_runs(store, [e1, e2], filter_string) == []
+
+    filter_string = "attribute.artifact_uri != 'random_artifact_path'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, [e1, e2], filter_string))
+
+    filter_string = f"attribute.artifact_uri LIKE '%{r1}%'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    filter_string = f"attribute.artifact_uri LIKE '%{r1[:16]}%'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    filter_string = f"attribute.artifact_uri LIKE '%{r1[-16:]}%'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    filter_string = f"attribute.artifact_uri LIKE '%{r1.upper()}%'"
+    assert _search_runs(store, [e1, e2], filter_string) == []
+
+    filter_string = f"attribute.artifact_uri ILIKE '%{r1.upper()}%'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    filter_string = f"attribute.artifact_uri ILIKE '%{r1[:16].upper()}%'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    filter_string = f"attribute.artifact_uri ILIKE '%{r1[-16:].upper()}%'"
+    assert _search_runs(store, [e1, e2], filter_string) == [r1]
+
+    for k, v in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
+        with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
+            _search_runs(store, [e1, e2], f"attribute.{k} = '{v}'")
+
+
+def test_search_full(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "search_params")
+    r1 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+    r2 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+
+    store.log_param(r1, entities.Param("generic_param", "p_val"))
+    store.log_param(r2, entities.Param("generic_param", "p_val"))
+
+    store.log_param(r1, entities.Param("p_a", "abc"))
+    store.log_param(r2, entities.Param("p_b", "ABC"))
+
+    store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
+    store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
+
+    store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
+    store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
+    store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
+    store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
+
+    filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    # all params and metrics match
+    filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = (
+        "params.generic_param = 'p_val' and metrics.common = 1.0 "
+        "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'"
+    )
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = (
+        "params.generic_param = 'p_val' and metrics.common = 1.0 "
+        "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'"
+    )
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = (
+        "params.generic_param = 'p_val' and metrics.common = 1.0 "
+        "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'"
+    )
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    # test with mismatch param
+    filter_string = (
+        "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
+    )
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    # test with mismatch metric
+    filter_string = (
+        "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
+    )
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+
+def test_search_with_max_results(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "search_with_max_results")
+    runs = [
+        _run_factory(store, _get_run_configs(exp, start_time=r)).info.run_id for r in range(1200)
+    ]
+    # reverse the ordering, since we created in increasing order of start_time
+    runs.reverse()
+
+    assert runs[:1000] == _search_runs(store, exp)
+    for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
+        if n == 0 and store._get_dialect() == MSSQL:
+            # In SQL server, `max_results = 0` results in the following error:
+            # The number of rows provided for a FETCH clause must be greater then zero.
+            continue
+        assert runs[: min(1200, n)] == _search_runs(store, exp, max_results=n)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for request parameter max_results"):
+        _search_runs(store, exp, max_results=int(1e10))
+
+
+def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_with_deterministic_max_results")
+    # Create 10 runs with the same start_time.
+    # Sort based on run_id
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
+    )
+    for n in [0, 1, 2, 4, 8, 10, 20]:
+        if n == 0 and store._get_dialect() == MSSQL:
+            # In SQL server, `max_results = 0` results in the following error:
+            # The number of rows provided for a FETCH clause must be greater then zero.
+            continue
+        assert runs[: min(10, n)] == _search_runs(store, exp, max_results=n)
+
+
+def test_search_runs_pagination(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_runs_pagination")
+    # test returned token behavior
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
+    )
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
+    assert [r.info.run_id for r in result] == runs[0:4]
+    assert result.token is not None
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[4:8]
+    assert result.token is not None
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[8:]
+    assert result.token is None
+
+
+def test_search_runs_run_name(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_search_runs_pagination")
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), run_name="run_name1"))
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), run_name="run_name2"))
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.run_name = 'run_name1'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run1.info.run_id]
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.`Run name` = 'run_name1'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run1.info.run_id]
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.`run name` = 'run_name2'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run2.info.run_id]
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.`Run Name` = 'run_name2'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run2.info.run_id]
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.`mlflow.runName` = 'run_name2'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run2.info.run_id]
+
+    store.update_run_info(
+        run1.info.run_id,
+        RunStatus.FINISHED,
+        end_time=run1.info.end_time,
+        run_name="new_run_name1",
+    )
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.run_name = 'new_run_name1'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+    # TODO: Test attribute-based search after set_tag
+
+    # Test run name filter works for runs logged in MLflow <= 1.29.0
+    with store.ManagedSessionMaker() as session:
+        sql_run1 = session.query(SqlRun).filter(SqlRun.run_uuid == run1.info.run_id).one()
+        sql_run1.name = ""
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.run_name = 'new_run_name1'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.`mlflow.runName` = 'new_run_name1'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+
+def test_search_runs_run_id(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_search_runs_run_id")
+    # Set start_time to ensure the search result is deterministic
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
+    run_id1 = run1.info.run_id
+    run_id2 = run2.info.run_id
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string=f"attributes.run_id = '{run_id1}'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run_id1]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string=f"attributes.run_id != '{run_id1}'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run_id2]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string=f"attributes.run_id IN ('{run_id1}')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run_id1]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string=f"run_name = '{run1.info.run_name}' AND run_id IN ('{run_id1}')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run_id1]
+
+    for filter_string in [
+        f"attributes.run_id IN ('{run_id1}','{run_id2}')",
+        f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+        f"attributes.run_id IN ('{run_id1}',  '{run_id2}')",
+    ]:
+        result = store.search_runs(
+            [exp_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert result == []
+
+
+def test_search_runs_start_time_alias(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_search_runs_start_time_alias")
+    # Set start_time to ensure the search result is deterministic
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
+    run_id1 = run1.info.run_id
+    run_id2 = run2.info.run_id
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.run_name = 'name'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        order_by=["attributes.start_time DESC"],
+    )
+    assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.run_name = 'name'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        order_by=["attributes.created ASC"],
+    )
+    assert [r.info.run_id for r in result] == [run_id1, run_id2]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.run_name = 'name'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        order_by=["attributes.Created DESC"],
+    )
+    assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.start_time > 0",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.created > 1",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run_id2]
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="attributes.Created > 2",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert result == []
+
+
 # This unit test class is under refactoring. Please use pytest for new unit tests: #10042
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
@@ -1776,20 +2324,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         return self.store.create_run(**config)
 
-    # Tests for Search API
-    def _search(
-        self,
-        experiment_id,
-        filter_string=None,
-        run_view_type=ViewType.ALL,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-    ):
-        exps = [experiment_id] if isinstance(experiment_id, str) else experiment_id
-        return [
-            r.info.run_id
-            for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)
-        ]
-
     def get_ordered_runs(self, order_clauses, experiment_id):
         return [
             r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
@@ -1800,555 +2334,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 order_by=order_clauses,
             )
         ]
-
-    def test_search_tags(self):
-        experiment_id = self._experiment_factory("search_tags")
-        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-
-        self.store.set_tag(r1, entities.RunTag("generic_tag", "p_val"))
-        self.store.set_tag(r2, entities.RunTag("generic_tag", "p_val"))
-
-        self.store.set_tag(r1, entities.RunTag("generic_2", "some value"))
-        self.store.set_tag(r2, entities.RunTag("generic_2", "another value"))
-
-        self.store.set_tag(r1, entities.RunTag("p_a", "abc"))
-        self.store.set_tag(r2, entities.RunTag("p_b", "ABC"))
-
-        # test search returns both runs
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'"))
-        assert self._search(experiment_id, filter_string="tags.generic_tag = 'P_VAL'") == []
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string="tags.generic_tag != 'P_VAL'"))
-        # test search returns appropriate run (same key different values per run)
-        assert self._search(experiment_id, filter_string="tags.generic_2 = 'some value'") == [r1]
-        assert self._search(experiment_id, filter_string="tags.generic_2 = 'another value'") == [r2]
-        assert self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'") == []
-        assert self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'") == []
-        assert sorted(
-            [r1, r2],
-        ) == sorted(
-            self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
-        )
-        assert sorted(
-            [r1, r2],
-        ) == sorted(
-            self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
-        )
-        assert self._search(experiment_id, filter_string="tags.p_a = 'abc'") == [r1]
-        assert self._search(experiment_id, filter_string="tags.p_b = 'ABC'") == [r2]
-        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'") == [r2]
-        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'") == []
-        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'") == []
-        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'") == []
-        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'") == []
-        assert self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'") == [r2]
-        assert self._search(
-            experiment_id,
-            filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag = 'p_val'",
-        ) == [r2]
-        assert self._search(
-            experiment_id,
-            filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag ILIKE 'p_val'",
-        ) == [r2]
-
-    def test_search_metrics(self):
-        experiment_id = self._experiment_factory("search_metric")
-        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-
-        self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
-        self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
-
-        self.store.log_metric(r1, entities.Metric("measure_a", 1.0, 1, 0))
-        self.store.log_metric(r2, entities.Metric("measure_a", 200.0, 2, 0))
-        self.store.log_metric(r2, entities.Metric("measure_a", 400.0, 3, 0))
-
-        self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
-        self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
-        self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))  # this is last timestamp
-        self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
-
-        filter_string = "metrics.common = 1.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.common > 0.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.common >= 0.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.common < 4.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.common <= 4.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.common != 1.0"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "metrics.common >= 3.0"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "metrics.common <= 0.75"
-        assert self._search(experiment_id, filter_string) == []
-
-        # tests for same metric name across runs with different values and timestamps
-        filter_string = "metrics.measure_a > 0.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.measure_a < 50.0"
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = "metrics.measure_a < 1000.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.measure_a != -12.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "metrics.measure_a > 50.0"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        filter_string = "metrics.measure_a = 1.0"
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = "metrics.measure_a = 400.0"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        # test search with unique metric keys
-        filter_string = "metrics.m_a > 1.0"
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = "metrics.m_b > 1.0"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        # there is a recorded metric this threshold but not last timestamp
-        filter_string = "metrics.m_b > 5.0"
-        assert self._search(experiment_id, filter_string) == []
-
-        # metrics matches last reported timestamp for 'm_b'
-        filter_string = "metrics.m_b = 4.0"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-    def test_search_attrs(self):
-        e1 = self._experiment_factory("search_attributes_1")
-        r1 = self._run_factory(self._get_run_configs(experiment_id=e1)).info.run_id
-
-        e2 = self._experiment_factory("search_attrs_2")
-        r2 = self._run_factory(self._get_run_configs(experiment_id=e2)).info.run_id
-
-        filter_string = ""
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.status != 'blah'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search([e1, e2], filter_string))
-
-        filter_string = f"attribute.status = '{RunStatus.to_string(RunStatus.RUNNING)}'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search([e1, e2], filter_string))
-
-        # change status for one of the runs
-        self.store.update_run_info(r2, RunStatus.FAILED, 300, None)
-
-        filter_string = "attribute.status = 'RUNNING'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        filter_string = "attribute.status = 'FAILED'"
-        assert self._search([e1, e2], filter_string) == [r2]
-
-        filter_string = "attribute.status != 'SCHEDULED'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.status = 'SCHEDULED'"
-        assert self._search([e1, e2], filter_string) == []
-
-        filter_string = "attribute.status = 'KILLED'"
-        assert self._search([e1, e2], filter_string) == []
-
-        if is_windows():
-            expected_artifact_uri = (
-                pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_uri()
-            )
-            filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
-        else:
-            expected_artifact_uri = (
-                pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_posix()
-            )
-            filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
-        assert self._search([e1, e2], filter_string) == []
-
-        filter_string = f"attr.artifact_uri != '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search([e1, e2], filter_string))
-
-        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e2}/{r1}/artifacts'"
-        assert self._search([e1, e2], filter_string) == []
-
-        filter_string = "attribute.artifact_uri = 'random_artifact_path'"
-        assert self._search([e1, e2], filter_string) == []
-
-        filter_string = "attribute.artifact_uri != 'random_artifact_path'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search([e1, e2], filter_string))
-
-        filter_string = f"attribute.artifact_uri LIKE '%{r1}%'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        filter_string = f"attribute.artifact_uri LIKE '%{r1[:16]}%'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        filter_string = f"attribute.artifact_uri LIKE '%{r1[-16:]}%'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        filter_string = f"attribute.artifact_uri LIKE '%{r1.upper()}%'"
-        assert self._search([e1, e2], filter_string) == []
-
-        filter_string = f"attribute.artifact_uri ILIKE '%{r1.upper()}%'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        filter_string = f"attribute.artifact_uri ILIKE '%{r1[:16].upper()}%'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        filter_string = f"attribute.artifact_uri ILIKE '%{r1[-16:].upper()}%'"
-        assert self._search([e1, e2], filter_string) == [r1]
-
-        for k, v in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
-            with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
-                self._search([e1, e2], f"attribute.{k} = '{v}'")
-
-    def test_search_full(self):
-        experiment_id = self._experiment_factory("search_params")
-        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-
-        self.store.log_param(r1, entities.Param("generic_param", "p_val"))
-        self.store.log_param(r2, entities.Param("generic_param", "p_val"))
-
-        self.store.log_param(r1, entities.Param("p_a", "abc"))
-        self.store.log_param(r2, entities.Param("p_b", "ABC"))
-
-        self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
-        self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
-
-        self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
-        self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
-        self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
-        self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
-
-        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        # all params and metrics match
-        filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
-        )
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 "
-            "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'"
-        )
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 "
-            "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'"
-        )
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 "
-            "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'"
-        )
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        # test with mismatch param
-        filter_string = (
-            "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
-        )
-        assert self._search(experiment_id, filter_string) == []
-
-        # test with mismatch metric
-        filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
-        )
-        assert self._search(experiment_id, filter_string) == []
-
-    def test_search_with_max_results(self):
-        exp = self._experiment_factory("search_with_max_results")
-        runs = [
-            self._run_factory(self._get_run_configs(exp, start_time=r)).info.run_id
-            for r in range(1200)
-        ]
-        # reverse the ordering, since we created in increasing order of start_time
-        runs.reverse()
-
-        assert runs[:1000] == self._search(exp)
-        for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
-            if n == 0 and self.store._get_dialect() == MSSQL:
-                # In SQL server, `max_results = 0` results in the following error:
-                # The number of rows provided for a FETCH clause must be greater then zero.
-                continue
-            assert runs[: min(1200, n)] == self._search(exp, max_results=n)
-
-        with pytest.raises(
-            MlflowException, match=r"Invalid value for request parameter max_results"
-        ):
-            self._search(exp, max_results=int(1e10))
-
-    def test_search_with_deterministic_max_results(self):
-        exp = self._experiment_factory("test_search_with_deterministic_max_results")
-        # Create 10 runs with the same start_time.
-        # Sort based on run_id
-        runs = sorted(
-            [
-                self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
-                for r in range(10)
-            ]
-        )
-        for n in [0, 1, 2, 4, 8, 10, 20]:
-            if n == 0 and self.store._get_dialect() == MSSQL:
-                # In SQL server, `max_results = 0` results in the following error:
-                # The number of rows provided for a FETCH clause must be greater then zero.
-                continue
-            assert runs[: min(10, n)] == self._search(exp, max_results=n)
-
-    def test_search_runs_pagination(self):
-        exp = self._experiment_factory("test_search_runs_pagination")
-        # test returned token behavior
-        runs = sorted(
-            [
-                self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
-                for r in range(10)
-            ]
-        )
-        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4)
-        assert [r.info.run_id for r in result] == runs[0:4]
-        assert result.token is not None
-        result = self.store.search_runs(
-            [exp], None, ViewType.ALL, max_results=4, page_token=result.token
-        )
-        assert [r.info.run_id for r in result] == runs[4:8]
-        assert result.token is not None
-        result = self.store.search_runs(
-            [exp], None, ViewType.ALL, max_results=4, page_token=result.token
-        )
-        assert [r.info.run_id for r in result] == runs[8:]
-        assert result.token is None
-
-    def test_search_runs_run_name(self):
-        exp_id = self._experiment_factory("test_search_runs_pagination")
-        run1 = self._run_factory(dict(self._get_run_configs(exp_id), run_name="run_name1"))
-        run2 = self._run_factory(dict(self._get_run_configs(exp_id), run_name="run_name2"))
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.run_name = 'run_name1'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run1.info.run_id]
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.`Run name` = 'run_name1'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run1.info.run_id]
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.`run name` = 'run_name2'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run2.info.run_id]
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.`Run Name` = 'run_name2'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run2.info.run_id]
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="tags.`mlflow.runName` = 'run_name2'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run2.info.run_id]
-
-        self.store.update_run_info(
-            run1.info.run_id,
-            RunStatus.FINISHED,
-            end_time=run1.info.end_time,
-            run_name="new_run_name1",
-        )
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.run_name = 'new_run_name1'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run1.info.run_id]
-
-        # TODO: Test attribute-based search after set_tag
-
-        # Test run name filter works for runs logged in MLflow <= 1.29.0
-        with self.store.ManagedSessionMaker() as session:
-            sql_run1 = session.query(SqlRun).filter(SqlRun.run_uuid == run1.info.run_id).one()
-            sql_run1.name = ""
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.run_name = 'new_run_name1'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run1.info.run_id]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run1.info.run_id]
-
-    def test_search_runs_run_id(self):
-        exp_id = self._experiment_factory("test_search_runs_run_id")
-        # Set start_time to ensure the search result is deterministic
-        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
-        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
-        run_id1 = run1.info.run_id
-        run_id2 = run2.info.run_id
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string=f"attributes.run_id = '{run_id1}'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run_id1]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string=f"attributes.run_id != '{run_id1}'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run_id2]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string=f"attributes.run_id IN ('{run_id1}')",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run_id1]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string=f"run_name = '{run1.info.run_name}' AND run_id IN ('{run_id1}')",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run_id1]
-
-        for filter_string in [
-            f"attributes.run_id IN ('{run_id1}','{run_id2}')",
-            f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
-            f"attributes.run_id IN ('{run_id1}',  '{run_id2}')",
-        ]:
-            result = self.store.search_runs(
-                [exp_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY
-            )
-            assert [r.info.run_id for r in result] == [run_id2, run_id1]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert result == []
-
-    def test_search_runs_start_time_alias(self):
-        exp_id = self._experiment_factory("test_search_runs_start_time_alias")
-        # Set start_time to ensure the search result is deterministic
-        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
-        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
-        run_id1 = run1.info.run_id
-        run_id2 = run2.info.run_id
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.run_name = 'name'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-            order_by=["attributes.start_time DESC"],
-        )
-        assert [r.info.run_id for r in result] == [run_id2, run_id1]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.run_name = 'name'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-            order_by=["attributes.created ASC"],
-        )
-        assert [r.info.run_id for r in result] == [run_id1, run_id2]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.run_name = 'name'",
-            run_view_type=ViewType.ACTIVE_ONLY,
-            order_by=["attributes.Created DESC"],
-        )
-        assert [r.info.run_id for r in result] == [run_id2, run_id1]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.start_time > 0",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert {r.info.run_id for r in result} == {run_id1, run_id2}
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.created > 1",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert [r.info.run_id for r in result] == [run_id2]
-
-        result = self.store.search_runs(
-            [exp_id],
-            filter_string="attributes.Created > 2",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-        assert result == []
 
     def test_search_runs_datasets(self):
         exp_id = self._experiment_factory("test_search_runs_datasets")
