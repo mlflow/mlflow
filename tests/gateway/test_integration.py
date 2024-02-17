@@ -11,7 +11,7 @@ from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_ur
 from mlflow.gateway.config import Route
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.providers.bedrock import AWSBedrockProvider
+from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.providers.mistral import MistralProvider
@@ -980,7 +980,7 @@ def test_bedrock_completions(gateway):
     async def mock_completions(self, payload):
         return expected_output
 
-    with patch.object(AWSBedrockProvider, "completions", mock_completions):
+    with patch.object(AmazonBedrockProvider, "completions", mock_completions):
         response = query(route=route.name, data=data)
 
     assert response == expected_output
