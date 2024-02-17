@@ -239,9 +239,7 @@ def get_linear_regressor_model_uri():
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(reg, "reg_model")
-        linear_regressor_model_uri = get_artifact_uri(run.info.run_id, "reg_model")
-
-    return linear_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, "reg_model")
 
 
 @pytest.fixture
@@ -256,9 +254,7 @@ def get_spark_linear_regressor_model_uri():
 
     with mlflow.start_run() as run:
         mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
-        spark_linear_regressor_model_uri = get_artifact_uri(run.info.run_id, "spark_reg_model")
-
-    return spark_linear_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, "spark_reg_model")
 
 
 @pytest.fixture
@@ -278,11 +274,7 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
-        multiclass_logistic_regressor_model_uri = get_artifact_uri(
-            run.info.run_id, f"clf_model_{max_iter}_iters"
-        )
-
-    return multiclass_logistic_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, f"clf_model_{max_iter}_iters")
 
 
 @pytest.fixture
@@ -297,9 +289,7 @@ def get_binary_logistic_regressor_model_uri():
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, "bin_clf_model")
-        binary_logistic_regressor_model_uri = get_artifact_uri(run.info.run_id, "bin_clf_model")
-
-    return binary_logistic_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, "bin_clf_model")
 
 
 @pytest.fixture
@@ -314,9 +304,7 @@ def get_svm_model_url():
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, "svm_model")
-        svm_model_uri = get_artifact_uri(run.info.run_id, "svm_model")
-
-    return svm_model_uri
+        return get_artifact_uri(run.info.run_id, "svm_model")
 
 
 @pytest.fixture
@@ -1196,9 +1184,7 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
         {"test_evaluator1": FakeEvauator1},
     ), mock.patch.object(FakeEvauator1, "can_evaluate", return_value=True), mock.patch.object(
         FakeEvauator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
-    ), mock.patch(
-        "mlflow.pyfunc._load_model_or_server"
-    ) as server_loader, mock.patch(
+    ), mock.patch("mlflow.pyfunc._load_model_or_server") as server_loader, mock.patch(
         "os.kill"
     ) as os_mock:
         server_loader.side_effect = [served_model_1, served_model_2]

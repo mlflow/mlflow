@@ -12,7 +12,6 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_TOKEN,
     MLFLOW_TRACKING_USERNAME,
 )
-from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
@@ -54,19 +53,16 @@ _registry_uri = None
 
 
 def set_registry_uri(uri: str) -> None:
-    """
-    Set the registry server URI. This method is especially useful if you have a registry server
+    """Set the registry server URI. This method is especially useful if you have a registry server
     that's different from the tracking server.
 
-    :param uri:
-
-                - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
-                  locally at the provided file (or ``./mlruns`` if empty).
-                - An HTTP URI like ``https://my-tracking-server:5000``.
-                - A Databricks workspace, provided as the string "databricks" or, to use a
-                  Databricks CLI
-                  `profile <https://github.com/databricks/databricks-cli#installation>`_,
-                  "databricks://<profileName>".
+    Args:
+        uri: An empty string, or a local file path, prefixed with ``file:/``. Data is stored
+            locally at the provided file (or ``./mlruns`` if empty). An HTTP URI like
+            ``https://my-tracking-server:5000``. A Databricks workspace, provided as the string
+            "databricks" or, to use a Databricks CLI
+            `profile <https://github.com/databricks/databricks-cli#installation>`_,
+            "databricks://<profileName>".
 
     .. code-block:: python
         :caption: Example
@@ -89,6 +85,7 @@ def set_registry_uri(uri: str) -> None:
 
         Current registry uri: sqlite:////tmp/registry.db
         Current tracking uri: file:///.../mlruns
+
     """
     global _registry_uri
     _registry_uri = uri
@@ -111,13 +108,12 @@ def _get_registry_uri_from_context():
 
 
 def get_registry_uri() -> str:
-    """
-    Get the current registry URI. If none has been specified, defaults to the tracking URI.
+    """Get the current registry URI. If none has been specified, defaults to the tracking URI.
 
-    :return: The registry URI.
+    Returns:
+        The registry URI.
 
     .. code-block:: python
-        :caption: Example
 
         # Get the current model registry uri
         mr_uri = mlflow.get_registry_uri()
@@ -131,10 +127,10 @@ def get_registry_uri() -> str:
         assert mr_uri == tracking_uri
 
     .. code-block:: text
-        :caption: Output
 
         Current model registry uri: file:///.../mlruns
         Current tracking uri: file:///.../mlruns
+
     """
     return _get_registry_uri_from_context() or get_tracking_uri()
 
@@ -183,6 +179,8 @@ def _get_file_store(store_uri, **_):
 
 def _get_store_registry():
     global _model_registry_store_registry
+    from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+
     if _model_registry_store_registry is not None:
         return _model_registry_store_registry
 

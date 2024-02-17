@@ -24,14 +24,17 @@ class TrackingStoreRegistry(StoreRegistry):
     def get_store(self, store_uri=None, artifact_uri=None):
         """Get a store from the registry based on the scheme of store_uri
 
-        :param store_uri: The store URI. If None, it will be inferred from the environment. This URI
-                          is used to select which tracking store implementation to instantiate and
-                          is passed to the constructor of the implementation.
-        :param artifact_uri: Artifact repository URI. Passed through to the tracking store
-                             implementation.
+        Args:
+            store_uri: The store URI. If None, it will be inferred from the environment. This URI
+                is used to select which tracking store implementation to instantiate and
+                is passed to the constructor of the implementation.
+            artifact_uri: Artifact repository URI. Passed through to the tracking store
+                implementation.
 
-        :return: An instance of `mlflow.store.tracking.AbstractStore` that fulfills the store URI
-                 requirements.
+        Returns:
+            An instance of `mlflow.store.tracking.AbstractStore` that fulfills the store URI
+            requirements.
+
         """
         from mlflow.tracking._tracking_service import utils
 

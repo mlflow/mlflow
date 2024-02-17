@@ -10,7 +10,6 @@ moto>=4.2.0,<5,!=4.2.5
 azure-storage-blob>=12.0.0
 azure-storage-file-datalake>=12.9.1
 azure-identity>=1.6.1
-databricks-cli@git+https://github.com/databricks/databricks-cli.git
 pillow
 plotly
 kaleido
@@ -48,3 +47,5 @@ psutil
 typing_extensions>=4.6.0
 # Required for importing boto3 ClientError directly for testing
 botocore>=1.34
+pyspark
+

@@ -28,10 +28,7 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
 )
 
-from tests.protos.test_message_pb2 import TestMessage
-
-# Prevent pytest from trying to collect TestMessage as a test class:
-TestMessage.__test__ = False
+from tests.protos.test_message_pb2 import SampleMessage
 
 
 def test_message_to_json():
@@ -154,7 +151,7 @@ def test_message_to_json():
                               field_inner_repeated_int64: 83
                               field_inner_string: "str2"}}]
     """,
-        TestMessage(),
+        SampleMessage(),
     )
     json_out = message_to_json(test_message)
     json_dict = json.loads(json_out)
@@ -197,7 +194,7 @@ def test_message_to_json():
         },
         "[mlflow.ExtensionMessage.field_extended_int64]": "100",
     }
-    new_test_message = TestMessage()
+    new_test_message = SampleMessage()
     parse_dict(json_dict, new_test_message)
     assert new_test_message == test_message
 

@@ -4,6 +4,7 @@ import logging
 import threading
 
 from mlflow.environment_variables import (
+    MLFLOW_SYSTEM_METRICS_NODE_ID,
     MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
 )
@@ -40,6 +41,11 @@ class SystemMetricsMonitor:
         resume_logging: bool, default to False. If True, we will resume the system metrics logging
             from the `run_id`, and the first step to log will be the last step of `run_id` + 1, if
             False, system metrics logging will start from step 0.
+        node_id: string, default to None. The node ID of the machine where the metrics are
+            collected. Will be overridden by `MLFLOW_SYSTEM_METRICS_NODE_ID`
+            evnironment variable. This is useful in multi-node training to distinguish the metrics
+            from different nodes. For example, if you set node_id to "node_0", the system metrics
+            getting logged will be of format "system/node_0/cpu_utilization_percentage".
     """
 
     def __init__(
@@ -48,6 +54,7 @@ class SystemMetricsMonitor:
         sampling_interval=10,
         samples_before_logging=1,
         resume_logging=False,
+        node_id=None,
     ):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
@@ -71,6 +78,7 @@ class SystemMetricsMonitor:
         self._shutdown_event = threading.Event()
         self._process = None
         self._metrics_prefix = "system/"
+        self.node_id = MLFLOW_SYSTEM_METRICS_NODE_ID.get() or node_id
         self._logging_step = self._get_next_logging_step(run_id) if resume_logging else 0
 
     def _get_next_logging_step(self, run_id):
@@ -150,8 +158,10 @@ class SystemMetricsMonitor:
 
     def publish_metrics(self, metrics):
         """Log collected metrics to MLflow."""
-        # Add prefix "system/" to the metrics name for grouping.
-        metrics = {self._metrics_prefix + k: v for k, v in metrics.items()}
+        # Add prefix "system/" to the metrics name for grouping. If `self.node_id` is not None, also
+        # add it to the metrics name.
+        prefix = self._metrics_prefix + (self.node_id + "/" if self.node_id else "")
+        metrics = {prefix + k: v for k, v in metrics.items()}
 
         self.mlflow_logger.record_metrics(metrics, self._logging_step)
         self._logging_step += 1

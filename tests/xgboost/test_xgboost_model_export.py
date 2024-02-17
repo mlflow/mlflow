@@ -48,7 +48,8 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "in
 def xgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
-        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
+        iris.data[:, :2],
+        columns=iris.feature_names[:2],  # we only take the first two features.
     )
     y = iris.target
     dtrain = xgb.DMatrix(X, y)

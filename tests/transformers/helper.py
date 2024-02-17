@@ -17,8 +17,12 @@ def flaky(max_tries=3):
     """
     Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
     if it fails after max_tries attempts.
-    :param max_tries: Maximum number of times to retry the function.
-    :return: Decorated function.
+
+    Args:
+        max_tries: Maximum number of times to retry the function.
+
+    Returns:
+        Decorated function.
     """
 
     def flaky_test_func(test_func):
@@ -222,7 +226,9 @@ def load_ner_pipeline_aggregation():
 @prefetch
 @flaky()
 def load_conversational_pipeline():
-    return transformers.pipeline(model="AVeryRealHuman/DialoGPT-small-TonyStark")
+    return transformers.pipeline(
+        model="AVeryRealHuman/DialoGPT-small-TonyStark", task="conversational"
+    )
 
 
 @prefetch

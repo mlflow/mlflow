@@ -16,6 +16,7 @@ _DEV_PACKAGES_PYTHON_VERSIONS = {
     "tensorflow": ">=3.9",
     "scikit-learn": ">=3.9",
     "statsmodels": ">=3.9",
+    "keras": ">=3.9",
 }
 
 

@@ -86,9 +86,7 @@ def get_model(data):
     kwargs = (
         # `lr` was renamed to `learning_rate` in keras 2.3.0:
         # https://github.com/keras-team/keras/releases/tag/2.3.0
-        {"lr": lr}
-        if Version(tf.__version__) < Version("2.3.0")
-        else {"learning_rate": lr}
+        {"lr": lr} if Version(tf.__version__) < Version("2.3.0") else {"learning_rate": lr}
     )
     model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
     model.fit(x, y)

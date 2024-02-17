@@ -37,55 +37,58 @@ class AbstractStore:
         """
         Search for experiments that match the specified search query.
 
-        :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
-                          defined in :py:class:`mlflow.entities.ViewType`.
-        :param max_results: Maximum number of experiments desired. Certain server backend may apply
-                            its own limit.
-        :param filter_string:
-            Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-            experiments. The following identifiers, comparators, and logical operators are
-            supported.
+        Args:
+            view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+                defined in :py:class:`mlflow.entities.ViewType`.
+            max_results: Maximum number of experiments desired. Certain server backend may apply
+                its own limit.
+            filter_string: Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to
+                searching for all experiments. The following identifiers, comparators, and logical
+                operators are supported.
 
-            Identifiers
-              - ``name``: Experiment name
-              - ``creation_time``: Experiment creation time
-              - ``last_update_time``: Experiment last update time
-              - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
-                spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+                Identifiers
+                  - ``name``: Experiment name
+                  - ``creation_time``: Experiment creation time
+                  - ``last_update_time``: Experiment last update time
+                  - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+                    spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators for string attributes and tags
-              - ``=``: Equal to
-              - ``!=``: Not equal to
-              - ``LIKE``: Case-sensitive pattern match
-              - ``ILIKE``: Case-insensitive pattern match
+                Comparators for string attributes and tags
+                  - ``=``: Equal to
+                  - ``!=``: Not equal to
+                  - ``LIKE``: Case-sensitive pattern match
+                  - ``ILIKE``: Case-insensitive pattern match
 
-            Comparators for numeric attributes
-              - ``=``: Equal to
-              - ``!=``: Not equal to
-              - ``<``: Less than
-              - ``<=``: Less than or equal to
-              - ``>``: Greater than
-              - ``>=``: Greater than or equal to
+                Comparators for numeric attributes
+                  - ``=``: Equal to
+                  - ``!=``: Not equal to
+                  - ``<``: Less than
+                  - ``<=``: Less than or equal to
+                  - ``>``: Greater than
+                  - ``>=``: Greater than or equal to
 
-            Logical operators
-              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+                Logical operators
+                  - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-        :param order_by:
-            List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-            ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
-            equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
-            which lists experiments updated most recently first. The following fields are supported:
+            order_by: List of columns to order by. The ``order_by`` column can contain an optional
+                ``DESC`` or ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``,
+                so ``"name"`` is equivalent to ``"name ASC"``. If unspecified, defaults to
+                ``["last_update_time DESC"]``, which lists experiments updated most recently first.
+                The following fields are supported:
 
-            - ``experiment_id``: Experiment ID
-            - ``name``: Experiment name
-            - ``creation_time``: Experiment creation time
-            - ``last_update_time``: Experiment last update time
+                - ``experiment_id``: Experiment ID
+                - ``name``: Experiment name
+                - ``creation_time``: Experiment creation time
+                - ``last_update_time``: Experiment last update time
 
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a ``search_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_experiments`` call.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+            for the next page can be obtained via the ``token`` attribute of the object.
+
         """
         pass
 
@@ -95,11 +98,14 @@ class AbstractStore:
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
-        :param name: Desired name for an experiment
-        :param artifact_location: Base location for artifacts in runs. May be None.
-        :param tags: Experiment tags to set upon experiment creation
+        Args:
+            name: Desired name for an experiment
+            artifact_location: Base location for artifacts in runs. May be None.
+            tags: Experiment tags to set upon experiment creation
 
-        :return: experiment_id (string) for the newly created experiment if successful, else None.
+        Returns:
+            experiment_id (string) for the newly created experiment if successful, else None.
+
         """
         pass
 
@@ -108,11 +114,12 @@ class AbstractStore:
         """
         Fetch the experiment by ID from the backend store.
 
-        :param experiment_id: String id for the experiment
+        Args:
+            experiment_id: String id for the experiment
 
-        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
+        Returns:
+            A single :py:class:`mlflow.entities.Experiment` object if it exists,
             otherwise raises an exception.
-
         """
         pass
 
@@ -120,9 +127,11 @@ class AbstractStore:
         """
         Fetch the experiment by name from the backend store.
 
-        :param experiment_name: Name of experiment
+        Args:
+            experiment_name: Name of experiment
 
-        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists.
+        Returns:
+            A single :py:class:`mlflow.entities.Experiment` object if it exists.
         """
         pass
 
@@ -132,7 +141,8 @@ class AbstractStore:
         Delete the experiment from the backend store. Deleted experiments can be restored until
         permanently deleted.
 
-        :param experiment_id: String id for the experiment
+        Args:
+            experiment_id: String id for the experiment.
         """
         pass
 
@@ -141,7 +151,8 @@ class AbstractStore:
         """
         Restore deleted experiment unless it is permanently deleted.
 
-        :param experiment_id: String id for the experiment
+        Args:
+            experiment_id: String id for the experiment
         """
         pass
 
@@ -150,7 +161,8 @@ class AbstractStore:
         """
         Update an experiment's name. The new name must be unique.
 
-        :param experiment_id: String id for the experiment
+        Args:
+            experiment_id: String id for the experiment
         """
         pass
 
@@ -165,10 +177,12 @@ class AbstractStore:
         the value at the latest timestamp for each metric. If there are multiple values with the
         latest timestamp for a given metric, the maximum of these values is returned.
 
-        :param run_id: Unique identifier for the run.
+        Args:
+            run_id: Unique identifier for the run.
 
-        :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
-                 raises an exception.
+        Returns:
+            A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
+            raises an exception.
         """
         pass
 
@@ -177,7 +191,8 @@ class AbstractStore:
         """
         Update the metadata of the specified run.
 
-        :return: :py:class:`mlflow.entities.RunInfo` describing the updated run.
+        Returns:
+            mlflow.entities.RunInfo: Describing the updated run.
         """
         pass
 
@@ -187,10 +202,12 @@ class AbstractStore:
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
-        :param experiment_id: String id of the experiment for this run
-        :param user_id: ID of the user launching this run
+        Args:
+            experiment_id: String id of the experiment for this run
+            user_id: ID of the user launching this run
 
-        :return: The created Run object
+        Returns:
+            The created Run object
         """
         pass
 
@@ -199,7 +216,9 @@ class AbstractStore:
         """
         Delete a run.
 
-        :param run_id
+        Args:
+            run_id: Description of run_id.
+
         """
         pass
 
@@ -208,7 +227,9 @@ class AbstractStore:
         """
         Restore a run.
 
-        :param run_id
+        Args:
+            run_id:
+
         """
         pass
 
@@ -216,8 +237,9 @@ class AbstractStore:
         """
         Log a metric for the specified run
 
-        :param run_id: String id for the run
-        :param metric: :py:class:`mlflow.entities.Metric` instance to log
+        Args:
+            run_id: String id for the run
+            metric: `mlflow.entities.Metric` instance to log
         """
         self.log_batch(run_id, metrics=[metric], params=[], tags=[])
 
@@ -225,8 +247,9 @@ class AbstractStore:
         """
         Log a metric for the specified run in async fashion.
 
-        :param run_id: String id for the run
-        :param metric: :py:class:`mlflow.entities.Metric` instance to log
+        Args:
+            run_id: String id for the run
+            metric: `mlflow.entities.Metric` instance to log
         """
         return self.log_batch_async(run_id, metrics=[metric], params=[], tags=[])
 
@@ -234,8 +257,9 @@ class AbstractStore:
         """
         Log a param for the specified run
 
-        :param run_id: String id for the run
-        :param param: :py:class:`mlflow.entities.Param` instance to log
+        Args:
+            run_id: String id for the run
+            param: :py:class:`mlflow.entities.Param` instance to log
         """
         self.log_batch(run_id, metrics=[], params=[param], tags=[])
 
@@ -243,8 +267,9 @@ class AbstractStore:
         """
         Log a param for the specified run in async fashion.
 
-        :param run_id: String id for the run
-        :param param: :py:class:`mlflow.entities.Param` instance to log
+        Args:
+            run_id: String id for the run
+            param: :py:class:`mlflow.entities.Param` instance to log
         """
         return self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
 
@@ -252,8 +277,9 @@ class AbstractStore:
         """
         Set a tag for the specified experiment
 
-        :param experiment_id: String id for the experiment
-        :param tag: :py:class:`mlflow.entities.ExperimentTag` instance to set
+        Args:
+            experiment_id: String id for the experiment
+            tag: :py:class:`mlflow.entities.ExperimentTag` instance to set
         """
         pass
 
@@ -261,8 +287,9 @@ class AbstractStore:
         """
         Set a tag for the specified run
 
-        :param run_id: String id for the run
-        :param tag: :py:class:`mlflow.entities.RunTag` instance to set
+        Args:
+            run_id: String id for the run
+            tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
@@ -270,8 +297,9 @@ class AbstractStore:
         """
         Set a tag for the specified run in async fashion.
 
-        :param run_id: String id for the run
-        :param tag: :py:class:`mlflow.entities.RunTag` instance to set
+        Args:
+            run_id: String id for the run
+            tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
         return self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
@@ -281,14 +309,16 @@ class AbstractStore:
         Return a list of metric objects corresponding to all values logged for a given metric
         within a run.
 
-        :param run_id: Unique identifier for run
-        :param metric_key: Metric name within the run
-        :param max_results: Maximum number of metric history events (steps) to return per paged
-            query.
-        :param page_token: A Token specifying the next paginated set of results of metric history.
-            This value is obtained as a return value from a paginated call to GetMetricHistory.
+        Args:
+            run_id: Unique identifier for run.
+            metric_key: Metric name within the run.
+            max_results: Maximum number of metric history events (steps) to return per paged
+                query.
+            page_token: A Token specifying the next paginated set of results of metric history.
+                This value is obtained as a return value from a paginated call to GetMetricHistory.
 
-        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+        Returns:
+            A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list.
         """
 
         # NB: Pagination for this API is not supported in FileStore or SQLAlchemyStore. The
@@ -309,15 +339,17 @@ class AbstractStore:
         """
         Return runs that match the given list of search expressions within the experiments.
 
-        :param experiment_ids: List of experiment ids to scope the search
-        :param filter_string: A search filter string.
-        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-        :param max_results: Maximum number of runs desired.
-        :param order_by: List of order_by clauses.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-            a ``search_runs`` call.
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs.
+            max_results: Maximum number of runs desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_runs`` call.
 
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
             If the underlying tracking store supports pagination, the token for the next page may
             be obtained via the ``token`` attribute of the returned object; however, some store
@@ -352,7 +384,8 @@ class AbstractStore:
 
         See ``search_runs`` for parameter descriptions.
 
-        :return: A tuple of ``runs`` and ``token`` where ``runs`` is a list of
+        Returns:
+            A tuple of ``runs`` and ``token`` where ``runs`` is a list of
             :py:class:`mlflow.entities.Run` objects that satisfy the search expressions,
             and ``token`` is the pagination token for the next page of results.
         """
@@ -363,12 +396,14 @@ class AbstractStore:
         """
         Log multiple metrics, params, and tags for the specified run
 
-        :param run_id: String id for the run
-        :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
-        :param params: List of :py:class:`mlflow.entities.Param` instances to log
-        :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
+        Args:
+            run_id: String id for the run
+            metrics: List of :py:class:`mlflow.entities.Metric` instances to log
+            params: List of :py:class:`mlflow.entities.Param` instances to log
+            tags: List of :py:class:`mlflow.entities.RunTag` instances to log
 
-        :return: None.
+        Returns:
+            None.
         """
         pass
 
@@ -379,12 +414,14 @@ class AbstractStore:
         data is accepted but not persisted/processed by back end. Data would be processed
         in near real time fashion.
 
-        :param run_id: String id for the run
-        :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
-        :param params: List of :py:class:`mlflow.entities.Param` instances to log
-        :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
+        Args:
+            run_id: String id for the run.
+            metrics: List of :py:class:`mlflow.entities.Metric` instances to log.
+            params: List of :py:class:`mlflow.entities.Param` instances to log.
+            tags: List of :py:class:`mlflow.entities.RunTag` instances to log.
 
-        :return: an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance
+        Returns:
+            An :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance
             that represents future for logging operation.
         """
         if not self._async_logging_queue.is_active():
@@ -409,12 +446,14 @@ class AbstractStore:
 
         Note: The actual models are logged as artifacts via artifact repository.
 
-        :param run_id: String id for the run
-        :param mlflow_model: Model object to be recorded.
+        Args:
+            run_id: String id for the run.
+            mlflow_model: Model object to be recorded.
 
         The default implementation is a no-op.
 
-        :return: None.
+        Returns:
+            None.
         """
         pass
 
@@ -424,10 +463,12 @@ class AbstractStore:
         """
         Log inputs, such as datasets, to the specified run.
 
-        :param run_id: String id for the run
-        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
-                         as inputs to the run.
+        Args:
+            run_id: String id for the run
+            datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
 
-        :return: None.
+        Returns:
+            None.
         """
         pass

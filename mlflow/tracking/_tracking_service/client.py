@@ -42,7 +42,8 @@ class TrackingServiceClient:
 
     def __init__(self, tracking_uri):
         """
-        :param tracking_uri: Address of local or remote tracking server.
+        Args:
+            tracking_uri: Address of local or remote tracking server.
         """
         self.tracking_uri = tracking_uri
         # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
@@ -56,30 +57,33 @@ class TrackingServiceClient:
         return utils._get_store(self.tracking_uri)
 
     def get_run(self, run_id):
-        """
-        Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
+        """Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
         as well as a collection of run parameters, tags, and metrics --
         :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
         same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
         the most recently logged value at the largest step for each metric.
 
-        :param run_id: Unique identifier for the run.
+        Args:
+            run_id: Unique identifier for the run.
 
-        :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
-                 raises an exception.
+        Returns:
+            A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
+            raises an exception.
+
         """
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
     def get_metric_history(self, run_id, key):
-        """
-        Return a list of metric objects corresponding to all values logged for a given metric.
+        """Return a list of metric objects corresponding to all values logged for a given metric.
 
-        :param run_id: Unique identifier for run
-        :param key: Metric name within the run
+        Args:
+            run_id: Unique identifier for run.
+            key: Metric name within the run.
 
-        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+        Returns:
+            A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list.
         """
 
         # NB: Paginated query support is currently only available for the RestStore backend.
@@ -107,19 +111,22 @@ class TrackingServiceClient:
         return history
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
-        """
-        Create a :py:class:`mlflow.entities.Run` object that can be associated with
+        """Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
         Unlike :py:func:`mlflow.projects.run`, creates objects but does not run code.
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
         :py:func:`mlflow.log_param`.
 
-        :param experiment_id: The ID of the experiment to create a run in.
-        :param start_time: If not provided, use the current timestamp.
-        :param tags: A dictionary of key-value pairs that are converted into
-                     :py:class:`mlflow.entities.RunTag` objects.
-        :param run_name: The name of this run.
-        :return: :py:class:`mlflow.entities.Run` that was created.
+        Args:
+            experiment_id: The ID of the experiment to create a run in.
+            start_time: If not provided, use the current timestamp.
+            tags: A dictionary of key-value pairs that are converted into
+                :py:class:`mlflow.entities.RunTag` objects.
+            run_name: The name of this run.
+
+        Returns:
+            :py:class:`mlflow.entities.Run` that was created.
+
         """
 
         tags = tags if tags else {}
@@ -145,58 +152,60 @@ class TrackingServiceClient:
         order_by=None,
         page_token=None,
     ):
-        """
-        Search for experiments that match the specified search query.
+        """Search for experiments that match the specified search query.
 
-        :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
-                          defined in :py:class:`mlflow.entities.ViewType`.
-        :param max_results: Maximum number of experiments desired. Certain server backend may apply
-                            its own limit.
-        :param filter_string:
-            Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-            experiments. The following identifiers, comparators, and logical operators are
-            supported.
+        Args:
+            view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+                defined in :py:class:`mlflow.entities.ViewType`.
+            max_results: Maximum number of experiments desired. Certain server backend may apply
+                its own limit.
+            filter_string: Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to
+                searching for all experiments. The following identifiers, comparators, and logical
+                operators are supported.
 
-            Identifiers
-              - ``name``: Experiment name
-              - ``creation_time``: Experiment creation time
-              - ``last_update_time``: Experiment last update time
-              - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
-                spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+                Identifiers
+                  - ``name``: Experiment name
+                  - ``creation_time``: Experiment creation time
+                  - ``last_update_time``: Experiment last update time
+                  - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+                    spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators for string attributes and tags
-              - ``=``: Equal to
-              - ``!=``: Not equal to
-              - ``LIKE``: Case-sensitive pattern match
-              - ``ILIKE``: Case-insensitive pattern match
+                Comparators for string attributes and tags
+                  - ``=``: Equal to
+                  - ``!=``: Not equal to
+                  - ``LIKE``: Case-sensitive pattern match
+                  - ``ILIKE``: Case-insensitive pattern match
 
-            Comparators for numeric attributes
-              - ``=``: Equal to
-              - ``!=``: Not equal to
-              - ``<``: Less than
-              - ``<=``: Less than or equal to
-              - ``>``: Greater than
-              - ``>=``: Greater than or equal to
+                Comparators for numeric attributes
+                  - ``=``: Equal to
+                  - ``!=``: Not equal to
+                  - ``<``: Less than
+                  - ``<=``: Less than or equal to
+                  - ``>``: Greater than
+                  - ``>=``: Greater than or equal to
 
-            Logical operators
-              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+                Logical operators
+                  - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-        :param order_by:
-            List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-            ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
-            equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
-            which lists experiments updated most recently first. The following fields are supported:
+            order_by: List of columns to order by. The ``order_by`` column can contain an optional
+                ``DESC`` or ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``,
+                so ``"name"`` is equivalent to ``"name ASC"``. If unspecified, defaults to
+                ``["last_update_time DESC"]``, which lists experiments updated most recently first.
+                The following fields are supported:
 
-            - ``experiment_id``: Experiment ID
-            - ``name``: Experiment name
-            - ``creation_time``: Experiment creation time
-            - ``last_update_time``: Experiment last update time
+                - ``experiment_id``: Experiment ID
+                - ``name``: Experiment name
+                - ``creation_time``: Experiment creation time
+                - ``last_update_time``: Experiment last update time
 
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a ``search_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_experiments`` call.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+            for the next page can be obtained via the ``token`` attribute of the object.
+
         """
         return self.store.search_experiments(
             view_type=view_type,
@@ -208,27 +217,37 @@ class TrackingServiceClient:
 
     def get_experiment(self, experiment_id):
         """
-        :param experiment_id: The experiment ID returned from ``create_experiment``.
-        :return: :py:class:`mlflow.entities.Experiment`
+        Args:
+            experiment_id: The experiment ID returned from ``create_experiment``.
+
+        Returns:
+            :py:class:`mlflow.entities.Experiment`
         """
         return self.store.get_experiment(experiment_id)
 
     def get_experiment_by_name(self, name):
         """
-        :param name: The experiment name.
-        :return: :py:class:`mlflow.entities.Experiment`
+        Args:
+            name: The experiment name.
+
+        Returns:
+            :py:class:`mlflow.entities.Experiment`
         """
         return self.store.get_experiment_by_name(name)
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
-        :param name: The experiment name. Must be unique.
-        :param artifact_location: The location to store run artifacts.
-                                  If not provided, the server picks an appropriate default.
-        :param tags: A dictionary of key-value pairs that are converted into
-                                  :py:class:`mlflow.entities.ExperimentTag` objects.
-        :return: Integer ID of the created experiment.
+        Args:
+            name: The experiment name. Must be unique.
+            artifact_location: The location to store run artifacts. If not provided, the server
+                picks an appropriate default.
+            tags: A dictionary of key-value pairs that are converted into
+                :py:class:`mlflow.entities.ExperimentTag` objects.
+
+        Returns:
+            Integer ID of the created experiment.
+
         """
         _validate_experiment_artifact_location(artifact_location)
 
@@ -239,55 +258,55 @@ class TrackingServiceClient:
         )
 
     def delete_experiment(self, experiment_id):
-        """
-        Delete an experiment from the backend store.
+        """Delete an experiment from the backend store.
 
-        :param experiment_id: The experiment ID returned from ``create_experiment``.
+        Args:
+            experiment_id: The experiment ID returned from ``create_experiment``.
+
         """
         self.store.delete_experiment(experiment_id)
 
     def restore_experiment(self, experiment_id):
-        """
-        Restore a deleted experiment unless permanently deleted.
+        """Restore a deleted experiment unless permanently deleted.
 
-        :param experiment_id: The experiment ID returned from ``create_experiment``.
+        Args:
+            experiment_id: The experiment ID returned from ``create_experiment``.
+
         """
         self.store.restore_experiment(experiment_id)
 
     def rename_experiment(self, experiment_id, new_name):
-        """
-        Update an experiment's name. The new name must be unique.
+        """Update an experiment's name. The new name must be unique.
 
-        :param experiment_id: The experiment ID returned from ``create_experiment``.
+        Args:
+            experiment_id: The experiment ID returned from ``create_experiment``.
+
         """
         self.store.rename_experiment(experiment_id, new_name)
 
     def log_metric(
         self, run_id, key, value, timestamp=None, step=None, synchronous=True
     ) -> Optional[RunOperations]:
-        """
-        Log a metric against the run ID.
+        """Log a metric against the run ID.
 
-        :param run_id: The run id to which the metric should be logged.
-        :param key: Metric name (string). This string may only contain alphanumerics,
-                    underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may
-                    support larger keys.
-        :param value: Metric value (float) or single-item ndarray / tensor.
-                      Note that some special values such
-                      as +/- Infinity may be replaced by other values depending on the store. For
-                      example, the SQLAlchemy store replaces +/- Inf with max / min float values.
-                      All backend stores will support values up to length 5000, but some
-                      may support larger values.
-        :param timestamp: Time when this metric was calculated. Defaults to the current system time.
-        :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
-        :param synchronous: *Experimental* If True, blocks until the metric is logged
-                            successfully. If False, logs the metric asynchronously and
-                            returns a future representing the logging operation.
+        Args:
+            run_id: The run id to which the metric should be logged.
+            key: Metric name. This string may only contain alphanumerics, underscores (_),
+                dashes (-), periods (.), spaces ( ), and slashes (/). All backend stores will
+                support keys up to length 250, but some may support larger keys.
+            value: Metric value or single-item ndarray / tensor. Note that some special values such
+                as +/- Infinity may be replaced by other values depending on the store. For example,
+                the SQLAlchemy store replaces +/- Inf with max / min float values. All backend
+                stores will support values up to length 5000, but some may support larger values.
+            timestamp: Time when this metric was calculated. Defaults to the current system time.
+            step: Training step (iteration) at which was the metric calculated. Defaults to 0.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully. If
+                False, logs the metric asynchronously and returns a future representing the logging
+                operation.
 
-        :return: When synchronous=True, returns None.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that represents
-                 future for logging operation.
+        Returns:
+            When synchronous=True, returns None. When synchronous=False, returns
+            :py:class:`mlflow.RunOperations` that represents future for logging operation.
 
         """
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
@@ -300,20 +319,22 @@ class TrackingServiceClient:
             return self.store.log_metric_async(run_id, metric)
 
     def log_param(self, run_id, key, value, synchronous=True):
-        """
-        Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
+        """Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
 
-        :param run_id: ID of the run to log the parameter against.
-        :param key: Name of the parameter.
-        :param value: Value of the parameter.
-        :param synchronous: *Experimental* If True, blocks until the parameters are logged
-                            successfully. If False, logs the parameters asynchronously and
-                            returns a future representing the logging operation.
+        Args:
+            run_id: ID of the run to log the parameter against.
+            key: Name of the parameter.
+            value: Value of the parameter.
+            synchronous: *Experimental* If True, blocks until the parameters are logged
+                successfully. If False, logs the parameters asynchronously and
+                returns a future representing the logging operation.
 
-        :return: When synchronous=True, returns parameter value.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
-                 represents future for logging operation.
+        Returns:
+            When synchronous=True, returns parameter value.
+            When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+            represents future for logging operation.
+
         """
         param = Param(key, str(value))
         try:
@@ -330,35 +351,36 @@ class TrackingServiceClient:
                 raise e
 
     def set_experiment_tag(self, experiment_id, key, value):
-        """
-        Set a tag on the experiment with the specified ID. Value is converted to a string.
+        """Set a tag on the experiment with the specified ID. Value is converted to a string.
 
-        :param experiment_id: String ID of the experiment.
-        :param key: Name of the tag.
-        :param value: Tag value (converted to a string).
+        Args:
+            experiment_id: String ID of the experiment.
+            key: Name of the tag.
+            value: Tag value (converted to a string).
         """
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
     def set_tag(self, run_id, key, value, synchronous=True) -> Optional[RunOperations]:
-        """
-        Set a tag on the run with the specified ID. Value is converted to a string.
+        """Set a tag on the run with the specified ID. Value is converted to a string.
 
-        :param run_id: String ID of the run.
-        :param key: Tag name (string). This string may only contain alphanumerics, underscores
-                    (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may
-                    support larger keys.
-        :param value: Tag value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000, but some
-                      may support larger values.
-        :param synchronous: *Experimental* If True, blocks until the tag is logged
-                            successfully. If False, logs the tag asynchronously and
-                            returns a future representing the logging operation.
+        Args:
+            run_id: String ID of the run.
+            key: Tag name. This string may only contain alphanumerics, underscores
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
+            value: Tag value, but will be string-ified if not.
+                All backend stores will support values up to length 5000, but some
+                may support larger values.
+            synchronous: *Experimental* If True, blocks until the tag is logged
+                successfully. If False, logs the tag asynchronously and
+                returns a future representing the logging operation.
 
-        :return: When synchronous=True, returns None.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` object
-                 that represents future for logging operation.
+        Returns:
+            When synchronous=True, returns None.
+            When synchronous=False, returns :py:class:`mlflow.RunOperations` object
+            that represents future for logging operation.
 
         """
         tag = RunTag(key, str(value))
@@ -368,23 +390,25 @@ class TrackingServiceClient:
             return self.store.set_tag_async(run_id, tag)
 
     def delete_tag(self, run_id, key):
-        """
-        Delete a tag from a run. This is irreversible.
+        """Delete a tag from a run. This is irreversible.
 
-        :param run_id: String ID of the run
-        :param key: Name of the tag
+        Args:
+            run_id: String ID of the run
+            key: Name of the tag
+
         """
         self.store.delete_tag(run_id, key)
 
     def update_run(self, run_id, status=None, name=None):
-        """
-        Update a run with the specified ID to a new status or name.
+        """Update a run with the specified ID to a new status or name.
 
-        :param run_id: The ID of the Run to update.
-        :param status: The new status of the run to set, if specified.
-                       At least one of ``status`` or ``name`` should be specified.
-        :param name: The new name of the run to set, if specified.
-                     At least one of ``name`` or ``status`` should be specified.
+        Args:
+            run_id: The ID of the Run to update.
+            status: The new status of the run to set, if specified. At least one of ``status`` or
+                ``name`` should be specified.
+            name: The new name of the run to set, if specified. At least one of ``name`` or
+                ``status`` should be specified.
+
         """
         # Exit early
         if status is None and name is None:
@@ -402,22 +426,25 @@ class TrackingServiceClient:
     def log_batch(
         self, run_id, metrics=(), params=(), tags=(), synchronous=True
     ) -> Optional[RunOperations]:
-        """
-        Log multiple metrics, params, and/or tags.
+        """Log multiple metrics, params, and/or tags.
 
-        :param run_id: String ID of the run
-        :param metrics: If provided, List of Metric(key, value, timestamp) instances.
-        :param params: If provided, List of Param(key, value) instances.
-        :param tags: If provided, List of RunTag(key, value) instances.
-        :param synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
-                            successfully. If False, logs the metrics/tags/params asynchronously
-                            and returns a future representing the logging operation.
+        Args:
+            run_id: String ID of the run.
+            metrics: If provided, List of Metric(key, value, timestamp) instances.
+            params: If provided, List of Param(key, value) instances.
+            tags: If provided, List of RunTag(key, value) instances.
+            synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
+                successfully. If False, logs the metrics/tags/params asynchronously
+                and returns a future representing the logging operation.
 
-        Raises an MlflowException if any errors occur.
+        Raises:
+            MlflowException: If any errors occur.
 
-        :return: When synchronous=True, returns None.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
-                 represents future for logging operation.
+        Returns:
+            When synchronous=True, returns None.
+            When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+            represents future for logging operation.
+
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
@@ -469,14 +496,17 @@ class TrackingServiceClient:
             return get_combined_run_operations(run_operations_list)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
-        """
-        Log one or more dataset inputs to a run.
+        """Log one or more dataset inputs to a run.
 
-        :param run_id: String ID of the run
-        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+        Args:
+            run_id: String ID of the run
+            datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
 
-        Raises an MlflowException if any errors occur.
-        :return: None
+        Raises:
+            MlflowException: If any errors occur.
+
+        Returns:
+            None
         """
         if datasets is None or len(datasets) == 0:
             return
@@ -515,8 +545,9 @@ class TrackingServiceClient:
         """
         Write a local file or directory to the remote ``artifact_uri``.
 
-        :param local_path: Path to the file or directory to write.
-        :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        Args:
+            local_path: Path to the file or directory to write.
+            artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         artifact_repo = self._get_artifact_repo(run_id)
         if os.path.isdir(local_path):
@@ -529,47 +560,55 @@ class TrackingServiceClient:
             artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
-        """
-        Write a directory of files to the remote ``artifact_uri``.
+        """Write a directory of files to the remote ``artifact_uri``.
 
-        :param local_dir: Path to the directory of files to write.
-        :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+        Args:
+            local_dir: Path to the directory of files to write.
+            artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
         """
         self._get_artifact_repo(run_id).log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
-        """
-        List the artifacts for a run.
+        """List the artifacts for a run.
 
-        :param run_id: The run to list artifacts from.
-        :param path: The run's relative artifact path to list from. By default it is set to None
-                     or the root artifact path.
-        :return: List of :py:class:`mlflow.entities.FileInfo`
+        Args:
+            run_id: The run to list artifacts from.
+            path: The run's relative artifact path to list from. By default it is set to None
+                or the root artifact path.
+
+        Returns:
+            List of :py:class:`mlflow.entities.FileInfo`
+
         """
         return self._get_artifact_repo(run_id).list_artifacts(path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
-        """
-        Download an artifact file or directory from a run to a local directory if applicable,
+        """Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
 
-        :param run_id: The run to download artifacts from.
-        :param path: Relative source path to the desired artifact.
-        :param dst_path: Absolute path of the local filesystem destination directory to which to
-                         download the specified artifacts. This directory must already exist.
-                         If unspecified, the artifacts will either be downloaded to a new
-                         uniquely-named directory on the local filesystem or will be returned
-                         directly in the case of the LocalArtifactRepository.
-        :return: Local path of desired artifact.
+        Args:
+            run_id: The run to download artifacts from.
+            path: Relative source path to the desired artifact.
+            dst_path: Absolute path of the local filesystem destination directory to which to
+                download the specified artifacts. This directory must already exist.
+                If unspecified, the artifacts will either be downloaded to a new
+                uniquely-named directory on the local filesystem or will be returned
+                directly in the case of the LocalArtifactRepository.
+
+        Returns:
+            Local path of desired artifact.
+
         """
         return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
 
-        :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
-                       Defaults to "FINISHED".
-        :param end_time: If not provided, defaults to the current time."""
+        Args:
+            status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
+            end_time: If not provided, defaults to the current time.
+        """
         end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(
@@ -600,24 +639,26 @@ class TrackingServiceClient:
         order_by=None,
         page_token=None,
     ):
-        """
-        Search experiments that fit the search criteria.
+        """Search experiments that fit the search criteria.
 
-        :param experiment_ids: List of experiment IDs, or a single int or string id.
-        :param filter_string: Filter query string, defaults to searching all runs.
-        :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-                              defined in :py:class:`mlflow.entities.ViewType`.
-        :param max_results: Maximum number of runs desired.
-        :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
-                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
-                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-            a ``search_runs`` call.
+        Args:
+            experiment_ids: List of experiment IDs, or a single int or string id.
+            filter_string: Filter query string, defaults to searching all runs.
+            run_view_type: One of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+                defined in :py:class:`mlflow.entities.ViewType`.
+            max_results: Maximum number of runs desired.
+            order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+                can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+                The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_runs`` call.
 
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
             If the underlying tracking store supports pagination, the token for the next page may
             be obtained via the ``token`` attribute of the returned object.
+
         """
         if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]

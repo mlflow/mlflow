@@ -59,9 +59,10 @@ class ArtifactRepository:
         within the run's artifacts. Run artifacts can be organized into directories, so you can
         place the artifact in a directory this way.
 
-        :param local_file: Path to artifact to log
-        :param artifact_path: Directory within the run's artifact directory in which to log the
-                              artifact.
+        Args:
+            local_file: Path to artifact to log.
+            artifact_path: Directory within the run's artifact directory in which to log the
+                artifact.
         """
         pass
 
@@ -71,9 +72,10 @@ class ArtifactRepository:
         Log the files in the specified local directory as artifacts, optionally taking
         an ``artifact_path`` to place them in within the run's artifacts.
 
-        :param local_dir: Directory of local artifacts to log
-        :param artifact_path: Directory within the run's artifact directory in which to log the
-                              artifacts
+        Args:
+            local_dir: Directory of local artifacts to log.
+            artifact_path: Directory within the run's artifact directory in which to log the
+                artifacts.
         """
         pass
 
@@ -83,9 +85,11 @@ class ArtifactRepository:
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
 
-        :param path: Relative source path that contains desired artifacts
+        Args:
+            path: Relative source path that contains desired artifacts.
 
-        :return: List of artifacts as FileInfo listed directly under path.
+        Returns:
+            List of artifacts as FileInfo listed directly under path.
         """
         pass
 
@@ -102,16 +106,18 @@ class ArtifactRepository:
         resulting destination path is `<dst_local_dir_path>/dir1/file1.txt`. Local directories are
         created for the resulting destination location if they do not exist.
 
-        :param src_artifact_path: A relative, POSIX-style path referring to an artifact stored
-                                  within the repository's artifact root location.
-                                  `src_artifact_path` should be specified relative to the
-                                  repository's artifact root location.
-        :param dst_local_dir_path: The absolute path to a local filesystem directory in which the
-                                   local destination path will be contained. The local destination
-                                   path may be contained in a subdirectory of `dst_root_dir` if
-                                   `src_artifact_path` contains subdirectories.
-        :return: The absolute path to a local filesystem location to be used as a destination
-                 for downloading the artifact specified by `src_artifact_path`.
+        Args:
+            src_artifact_path: A relative, POSIX-style path referring to an artifact stored
+                within the repository's artifact root location. `src_artifact_path` should be
+                specified relative to the repository's artifact root location.
+            dst_local_dir_path: The absolute path to a local filesystem directory in which the
+                local destination path will be contained. The local destination path may be
+                contained in a subdirectory of `dst_root_dir` if `src_artifact_path` contains
+                subdirectories.
+
+        Returns:
+            The absolute path to a local filesystem location to be used as a destination
+            for downloading the artifact specified by `src_artifact_path`.
         """
         src_artifact_path = src_artifact_path.rstrip("/")  # Ensure correct dirname for trailing '/'
         dirpath = posixpath.dirname(src_artifact_path)
@@ -145,14 +151,16 @@ class ArtifactRepository:
         local path for it.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
-        :param artifact_path: Relative source path to the desired artifacts.
-        :param dst_path: Absolute path of the local filesystem destination directory to which to
-                         download the specified artifacts. This directory must already exist.
-                         If unspecified, the artifacts will either be downloaded to a new
-                         uniquely-named directory on the local filesystem or will be returned
-                         directly in the case of the LocalArtifactRepository.
+        Args:
+            artifact_path: Relative source path to the desired artifacts.
+            dst_path: Absolute path of the local filesystem destination directory to which to
+                download the specified artifacts. This directory must already exist.
+                If unspecified, the artifacts will either be downloaded to a new
+                uniquely-named directory on the local filesystem or will be returned
+                directly in the case of the LocalArtifactRepository.
 
-        :return: Absolute path of the local filesystem location containing the desired artifacts.
+        Returns:
+            Absolute path of the local filesystem location containing the desired artifacts.
         """
         if dst_path:
             dst_path = os.path.abspath(dst_path)
@@ -234,9 +242,10 @@ class ArtifactRepository:
         Download the file at the specified relative remote path and saves
         it at the specified local path.
 
-        :param remote_file_path: Source path to the remote file, relative to the root
-                                 directory of the artifact repository.
-        :param local_path: The path to which to save the downloaded file.
+        Args:
+            remote_file_path: Source path to the remote file, relative to the root
+                directory of the artifact repository.
+            local_path: The path to which to save the downloaded file.
         """
         pass
 
@@ -245,7 +254,9 @@ class ArtifactRepository:
         Delete the artifacts at the specified location.
         Supports the deletion of a single file or of a directory. Deletion of a directory
         is recursive.
-        :param artifact_path: Path of the artifact to delete
+
+        Args:
+            artifact_path: Path of the artifact to delete.
         """
         pass
 
@@ -264,10 +275,12 @@ class MultipartUploadMixin(ABC):
         """
         Initiate a multipart upload and retrieve the pre-signed upload URLS and upload id.
 
-        :param local_file: Path of artifact to upload
-        :param num_parts: Number of parts to upload. Only required by S3 and GCS.
-        :param artifact_path: Directory within the run's artifact directory in which to upload the
-                              artifact.
+        Args:
+            local_file: Path of artifact to upload.
+            num_parts: Number of parts to upload. Only required by S3 and GCS.
+            artifact_path: Directory within the run's artifact directory in which to upload the
+                artifact.
+
         """
         pass
 
@@ -282,11 +295,13 @@ class MultipartUploadMixin(ABC):
         """
         Complete a multipart upload.
 
-        :param local_file: Path of artifact to upload
-        :param upload_id: The upload ID. Only required by S3 and GCS.
-        :param parts: A list containing the metadata of each part that has been uploaded.
-        :param artifact_path: Directory within the run's artifact directory in which to upload the
-                              artifact.
+        Args:
+            local_file: Path of artifact to upload.
+            upload_id: The upload ID. Only required by S3 and GCS.
+            parts: A list containing the metadata of each part that has been uploaded.
+            artifact_path: Directory within the run's artifact directory in which to upload the
+                artifact.
+
         """
         pass
 
@@ -300,10 +315,12 @@ class MultipartUploadMixin(ABC):
         """
         Abort a multipart upload.
 
-        :param local_file: Path of artifact to upload
-        :param upload_id: The upload ID. Only required by S3 and GCS.
-        :param artifact_path: Directory within the run's artifact directory in which to upload the
-                              artifact.
+        Args:
+            local_file: Path of artifact to upload.
+            upload_id: The upload ID. Only required by S3 and GCS.
+            artifact_path: Directory within the run's artifact directory in which to upload the
+                artifact.
+
         """
         pass
 

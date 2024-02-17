@@ -45,36 +45,37 @@ configuration file that is defined at server start, permitting dynamic route cre
 
         endpoints:
         - name: completions
-            endpoint_type: llm/v1/completions
-            model:
-                provider: openai
-                name: gpt-3.5-turbo
-                config:
-                    openai_api_key: $OPENAI_API_KEY
+          endpoint_type: llm/v1/completions
+          model:
+              provider: openai
+              name: gpt-3.5-turbo
+              config:
+                  openai_api_key: $OPENAI_API_KEY
 
         - name: chat
-            endpoint_type: llm/v1/chat
-            model:
-                provider: openai
-                name: gpt-4
-                config:
-                    openai_api_key: $OPENAI_API_KEY
+          endpoint_type: llm/v1/chat
+          model:
+              provider: openai
+              name: gpt-4
+              config:
+                  openai_api_key: $OPENAI_API_KEY
 
         - name: chat_3.5
-            endpoint_type: llm/v1/chat
-            model:
-                provider: openai
-                name: gpt-3.5-turbo
-                config:
-                    openai_api_key: $OPENAI_API_KEY
+          endpoint_type: llm/v1/chat
+          model:
+              provider: openai
+              name: gpt-3.5-turbo
+              config:
+                  openai_api_key: $OPENAI_API_KEY
 
         - name: embeddings
-            endpoint_type: llm/v1/embeddings
-            model:
-                provider: openai
-                name: text-embedding-ada-002
-                config:
-                    openai_api_key: $OPENAI_API_KEY
+          endpoint_type: llm/v1/embeddings
+          model:
+              provider: openai
+              name: text-embedding-ada-002
+              config:
+                  openai_api_key: $OPENAI_API_KEY
+
 
 
 Step 4: Start the Server

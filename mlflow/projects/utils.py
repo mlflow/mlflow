@@ -308,11 +308,13 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
 def get_entry_point_command(project, entry_point, parameters, storage_dir):
     """
     Returns the shell command to execute in order to run the specified entry point.
-    :param project: Project containing the target entry point
-    :param entry_point: Entry point to run
-    :param parameters: Parameters (dictionary) for the entry point command
-    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
-                        arguments of type 'path'. If None, a temporary base directory is used.
+
+    Args:
+        project: Project containing the target entry point.
+        entry_point: Entry point to run.
+        parameters: Parameters (dictionary) for the entry point command.
+        storage_dir: Base local directory to use for downloading remote artifacts passed to
+            arguments of type 'path'. If None, a temporary base directory is used.
     """
     storage_dir_for_run = _get_storage_dir(storage_dir)
     _logger.info(

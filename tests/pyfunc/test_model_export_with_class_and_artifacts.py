@@ -1461,7 +1461,8 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
             code_path=[__file__],
         )
     with pytest.raises(
-        MlflowException, match="mlflow.pyfunc.load_model is not supported for Feature Store models"
+        MlflowException,
+        match="Note: mlflow.pyfunc.load_model is not supported for Feature Store models",
     ):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
 

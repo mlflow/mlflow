@@ -22,9 +22,7 @@ def test_databricks_notebook_default_experiment_id():
     ), mock.patch(
         "mlflow.utils.databricks_utils.get_notebook_path",
         return_value="path",
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_notebook_id"
-    ) as patch_notebook_id:
+    ), mock.patch("mlflow.utils.databricks_utils.get_notebook_id") as patch_notebook_id:
         assert (
             DatabricksNotebookExperimentProvider().get_experiment_id()
             == patch_notebook_id.return_value
@@ -55,9 +53,7 @@ def test_databricks_repo_notebook_default_experiment_uses_fallback_notebook_id()
     ), mock.patch(
         "mlflow.utils.databricks_utils.get_notebook_path",
         return_value="/Repos/path",
-    ), mock.patch.object(
-        MlflowClient, "create_experiment"
-    ) as create_experiment_mock:
+    ), mock.patch.object(MlflowClient, "create_experiment") as create_experiment_mock:
         DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id = None
         create_experiment_mock.side_effect = MlflowException(
             message="not enabled", error_code=INVALID_PARAMETER_VALUE

@@ -83,10 +83,12 @@ def create_run(
 
 
 def create_test_runs_and_expected_data(experiment_id=None):
-    """Create a pair of runs and a corresponding data to expect when runs are searched
-    for the same experiment
+    """
+    Create a pair of runs and a corresponding data to expect when runs are searched
+    for the same experiment.
 
-    :return: (list, dict)
+    Returns:
+        A tuple of a list and a dictionary
     """
     start_times = [get_current_time_millis(), get_current_time_millis()]
     end_times = [get_current_time_millis(), get_current_time_millis()]
@@ -761,9 +763,7 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
         MlflowClient.get_run.assert_called_with(run_id)
 
 
-def test_start_run_existing_run_from_environment(
-    empty_active_run_stack, monkeypatch
-):  # pylint: disable=unused-argument
+def test_start_run_existing_run_from_environment(empty_active_run_stack, monkeypatch):  # pylint: disable=unused-argument
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
@@ -1155,8 +1155,7 @@ def test_paginate_gt_maxresults_onepage():
 
 def test_delete_tag():
     """
-    Confirm that fluent API delete tags actually works
-    :return:
+    Confirm that fluent API delete tags actually works.
     """
     mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)

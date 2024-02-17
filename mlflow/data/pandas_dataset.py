@@ -196,7 +196,8 @@ def from_pandas(
         predictions: An optional predictions column name for model evaluation. This column
             must be present in the dataframe (``df``).
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example
 
         import mlflow

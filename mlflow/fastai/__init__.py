@@ -351,7 +351,9 @@ class _FastaiModelWrapper:
         self.learner = learner
 
     def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        dataframe,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Args:
@@ -628,9 +630,7 @@ def autolog(
                 # Add the new callback
                 self.add_cb(mlflowFastaiCallback)
 
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     def fit(original, self, *args, **kwargs):
         unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]

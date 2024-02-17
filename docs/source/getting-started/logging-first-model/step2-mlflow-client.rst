@@ -113,12 +113,14 @@ query and extract these attributes into a dict.
 Running it
 ----------
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/default-experiment.gif
-   :width: 1024px
-   :align: center
-   :alt: Exploring the Default Experiment
+.. raw:: html
 
-   Using the MLflow Client's search_experiments() API to view the Default Experiment
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/tutorials/introductory/logging-first-model/default-experiment.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 In the next step, we'll create our first experiment and dive into the options that are available for
 providing metadata information that helps to keep track of related experiments and organize our

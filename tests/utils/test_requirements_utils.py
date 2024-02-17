@@ -292,9 +292,7 @@ def test_infer_requirements_prints_warning_for_unrecognized_packages():
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
         _PyPIPackageIndex(date="2022-01-01", package_names=set()),
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._logger.warning"
-    ) as mock_warning:
+    ), mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         _infer_requirements("path/to/model", "sklearn")
 
         mock_warning.assert_called_once()
@@ -312,9 +310,7 @@ def test_infer_requirements_does_not_print_warning_for_recognized_packages():
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
         _PyPIPackageIndex(date="2022-01-01", package_names={"scikit-learn"}),
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._logger.warning"
-    ) as mock_warning:
+    ), mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         _infer_requirements("path/to/model", "sklearn")
         mock_warning.assert_not_called()
 
@@ -579,7 +575,5 @@ Detected one or more mismatches between the model's dependencies and the current
  - cloudpickle (current: 999.99.22, required: cloudpickle=={cloudpickle_version})
 To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` to fetch the \
 model's environment and install dependencies using the resulting environment file.
-""".strip().format(
-                    cloudpickle_version=cloudpickle.__version__
-                )
+""".strip().format(cloudpickle_version=cloudpickle.__version__)
             )

@@ -34,6 +34,26 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
+try:
+    from pyspark.sql import DataFrame as SparkDataFrame
+    from pyspark.sql import Row
+    from pyspark.sql.types import (
+        ArrayType,
+        BinaryType,
+        DateType,
+        FloatType,
+        IntegerType,
+        ShortType,
+        StructType,
+        TimestampType,
+    )
+
+    HAS_PYSPARK = True
+except ImportError:
+    SparkDataFrame = None
+    HAS_PYSPARK = False
+
+
 INPUT_EXAMPLE_PATH = "artifact_path"
 EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
@@ -60,7 +80,13 @@ PyFuncInput = Union[
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
 
+if HAS_PYSPARK:
+    PyFuncInput = Union[PyFuncInput, SparkDataFrame]
+    PyFuncOutput = Union[PyFuncOutput, SparkDataFrame]
+
 _logger = logging.getLogger(__name__)
+
+_FEATURE_STORE_FLAVOR = "databricks.feature_store.mlflow_model"
 
 
 class _Example:
@@ -324,7 +350,7 @@ def _save_example(
     mlflow_model: Model, input_example: ModelInputExample, path: str, no_conversion=False
 ):
     """
-    Save example to a file on the given path and updates passed Model with example metadata.
+    Saves example to a file on the given path and updates passed Model with example metadata.
 
     The metadata is a dictionary with the following fields:
       - 'artifact_path': example path relative to the model directory.
@@ -335,8 +361,10 @@ def _save_example(
             - 'format: Used to store tensors. Determines the standard used to store a tensor input
                        example. MLflow uses a JSON-formatted string representation of TF serving
                        input.
-    :param mlflow_model: Model metadata that will get updated with the example metadata.
-    :param path: Where to store the example file. Should be model the model directory.
+
+    Args:
+        mlflow_model: Model metadata that will get updated with the example metadata.
+        path: Where to store the example file. Should be model the model directory.
     """
     if no_conversion:
         example_info = {
@@ -361,11 +389,12 @@ def _save_example(
 
 def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
     """
-    Read input_example dictionary from the model artifact path. Returns None if there is no
-    example metadata.
-    :param mlflow_model: Model metadata.
-    :param path: Path to the model directory.
-    :return: Input example or None if the model has no example.
+    Args:
+        mlflow_model: Model metadata.
+        path: Path to the model directory.
+
+    Returns:
+        Input example or None if the model has no example.
     """
     if mlflow_model.saved_input_example_info is None:
         return None
@@ -389,9 +418,12 @@ def _read_example(mlflow_model: Model, path: str):
     model was saved without example). Raises FileNotFoundError if there is model metadata but the
     example file is missing.
 
-    :param mlflow_model: Model metadata.
-    :param path: Path to the model directory.
-    :return: Input example data or None if the model has no example.
+    Args:
+        mlflow_model: Model metadata.
+        path: Path to the model directory.
+
+    Returns:
+        Input example data or None if the model has no example.
     """
     input_example = _get_mlflow_model_input_example_dict(mlflow_model, path)
     if input_example is None:
@@ -536,6 +568,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
 
     Any other type mismatch will raise error.
     """
+
     if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
@@ -563,7 +596,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # ignore precision when matching datetime columns.
         return values.astype(np.dtype("datetime64[ns]"))
 
-    if t == DataType.datetime and values.dtype == object:
+    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
@@ -824,7 +857,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -834,6 +867,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     For column-based signatures, we make sure the types of the input match the type specified in
     the schema or if it can be safely converted to match the input schema.
 
+    For Pyspark DataFrame inputs, MLflow casts a sample of the PySpark DataFrame into a Pandas
+    DataFrame. MLflow will only enforce the schema on a subset of the data rows.
+
     For tensor-based signatures, we make sure the shape and type of the input matches the shape
     and type specified in model's input schema.
     """
@@ -841,6 +877,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     def _is_scalar(x):
         return np.isscalar(x) or x is None
 
+    original_pf_input = pf_input
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
@@ -906,7 +943,13 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     )
         elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
-
+        elif HAS_PYSPARK and isinstance(pf_input, SparkDataFrame):
+            pf_input = pf_input.limit(10).toPandas()
+            for field in original_pf_input.schema.fields:
+                if isinstance(field.dataType, (StructType, ArrayType)):
+                    pf_input[field.name] = pf_input[field.name].apply(
+                        lambda row: convert_complex_types_pyspark_to_pandas(row, field.dataType)
+                    )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
                 f"Expected input to be DataFrame. Found: {type(pf_input).__name__}"
@@ -950,10 +993,64 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
+    elif HAS_PYSPARK and isinstance(original_pf_input, SparkDataFrame):
+        return _enforce_pyspark_dataframe_schema(
+            original_pf_input, pf_input, input_schema, flavor=flavor
+        )
     elif input_schema.has_input_names():
         return _enforce_named_col_schema(pf_input, input_schema)
     else:
         return _enforce_unnamed_col_schema(pf_input, input_schema)
+
+
+def _enforce_pyspark_dataframe_schema(
+    original_pf_input: SparkDataFrame,
+    pf_input_as_pandas,
+    input_schema: Schema,
+    flavor: Optional[str] = None,
+):
+    """
+    Enforce that the input PySpark DataFrame conforms to the model's input schema.
+
+    This function creates a new DataFrame that only includes the columns from the original
+    DataFrame that are declared in the model's input schema. Any extra columns in the original
+    DataFrame are dropped.Note that this function does not modify the original DataFrame.
+
+    :param original_pf_input: Original input PySpark DataFrame.
+    :param pf_input_as_pandas: Input DataFrame converted to pandas.
+    :param input_schema: Expected schema of the input DataFrame.
+    :param flavor: Optional model flavor. If specified, it is used to handle specific behaviors
+                   for different model flavors. Currently, only the '_FEATURE_STORE_FLAVOR' is
+                   handled specially.
+    :return: New PySpark DataFrame that conforms to the model's input schema.
+    """
+    if not HAS_PYSPARK:
+        raise MlflowException("PySpark is not installed. Cannot handle a PySpark DataFrame.")
+    new_pf_input = original_pf_input.alias("pf_input_copy")
+    if input_schema.has_input_names():
+        _enforce_named_col_schema(pf_input_as_pandas, input_schema)
+        input_names = input_schema.input_names()
+
+    else:
+        _enforce_unnamed_col_schema(pf_input_as_pandas, input_schema)
+        input_names = pf_input_as_pandas.columns[: len(input_schema.inputs)]
+    columns_to_drop = []
+    columns_not_dropped_for_feature_store_model = []
+    for col, dtype in new_pf_input.dtypes:
+        if col not in input_names:
+            # to support backwards compatability with feature store models
+            if any(x in dtype for x in ["array", "map", "struct"]):
+                if flavor == _FEATURE_STORE_FLAVOR:
+                    columns_not_dropped_for_feature_store_model.append(col)
+                    continue
+            columns_to_drop.append(col)
+    if columns_not_dropped_for_feature_store_model:
+        _logger.warning(
+            "The following columns are not in the model signature but "
+            "are not dropped for feature store model: %s",
+            ", ".join(columns_not_dropped_for_feature_store_model),
+        )
+    return new_pf_input.drop(*columns_to_drop)
 
 
 def _enforce_datatype(data: Any, dtype: DataType):
@@ -1013,6 +1110,8 @@ def _enforce_property(data: Any, property: Property):
 def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
     if not required and data is None:
         return None
+    if HAS_PYSPARK and isinstance(data, Row):
+        data = data.asDict(True)
     if not isinstance(data, dict):
         raise MlflowException(
             f"Failed to enforce schema of '{data}' with type '{obj}'. "
@@ -1048,19 +1147,22 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
     """
     Validate that the input data has the expected schema.
 
-    :param data: Input data to be validated. Supported types are:
+    Args:
+        data: Input data to be validated. Supported types are:
 
-                 - pandas.DataFrame
-                 - pandas.Series
-                 - numpy.ndarray
-                 - scipy.sparse.csc_matrix
-                 - scipy.sparse.csr_matrix
-                 - List[Any]
-                 - Dict[str, Any]
-                 - str
-    :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
-    :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
-             not match the schema.
+            - pandas.DataFrame
+            - pandas.Series
+            - numpy.ndarray
+            - scipy.sparse.csc_matrix
+            - scipy.sparse.csr_matrix
+            - List[Any]
+            - Dict[str, Any]
+            - str
+
+        expected_schema: Expected Schema of the input data.
+
+    Raises:
+        mlflow.exceptions.MlflowException: when the input data does not match the schema.
 
     .. code-block:: python
         :caption: Example usage of validate_schema
@@ -1074,6 +1176,7 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
         # validate schema
         mlflow.models.validate_schema(input_data, model_signature.inputs)
     """
+
     _enforce_schema(data, expected_schema)
 
 
@@ -1090,15 +1193,16 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     by ``model_uri``. This behavior can be overridden by specifying the ``registered_model_name``
     argument.
 
-    :param model_uri: A registered model uri in the Model Registry of the form
-                      models:/<model_name>/<model_version/stage/latest>
-    :param run_id: The ID of the run to which the model with libraries is logged. If None, the model
-                   with libraries is logged to the source run corresponding to model version
-                   specified by ``model_uri``; if the model version does not have a source run, a
-                   new run created.
-    :param registered_model_name: The new model version (model with its libraries) is
-                                  registered under the inputted registered_model_name. If None, a
-                                  new version is logged to the existing model in the Model Registry.
+    Args:
+        model_uri: A registered model uri in the Model Registry of the form
+            models:/<model_name>/<model_version/stage/latest>
+        run_id: The ID of the run to which the model with libraries is logged. If None, the model
+            with libraries is logged to the source run corresponding to model version
+            specified by ``model_uri``; if the model version does not have a source run, a
+            new run created.
+        registered_model_name: The new model version (model with its libraries) is
+            registered under the inputted registered_model_name. If None, a
+            new version is logged to the existing model in the Model Registry.
 
     .. note::
         This utility only operates on a model that has been registered to the Model Registry.
@@ -1111,7 +1215,6 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         :caption: Example
 
         # Create and log a model to the Model Registry
-
         import pandas as pd
         from sklearn import datasets
         from sklearn.ensemble import RandomForestClassifier
@@ -1150,6 +1253,7 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         with mlflow.start_run():
             add_libraries_to_model(model_uri, registered_model_name="new-model")
     """
+
     import mlflow
     from mlflow.models.wheeled_model import WheeledModel
 
@@ -1238,3 +1342,31 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
         )
 
     return params
+
+
+def convert_complex_types_pyspark_to_pandas(value, dataType):
+    # This function is needed because the default `asDict` function in PySpark
+    # converts the data to Python types, which is not compatible with the schema enforcement.
+    type_mapping = {
+        IntegerType: lambda v: np.int32(v),
+        ShortType: lambda v: np.int16(v),
+        FloatType: lambda v: np.float32(v),
+        DateType: lambda v: v.strftime("%Y-%m-%d"),
+        TimestampType: lambda v: v.strftime("%Y-%m-%d %H:%M:%S.%f"),
+        BinaryType: lambda v: np.bytes_(v),
+    }
+    if value is None:
+        return None
+    if isinstance(dataType, StructType):
+        return {
+            field.name: convert_complex_types_pyspark_to_pandas(value[field.name], field.dataType)
+            for field in dataType.fields
+        }
+    elif isinstance(dataType, ArrayType):
+        return [
+            convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
+        ]
+    converter = type_mapping.get(type(dataType))
+    if converter:
+        return converter(value)
+    return value

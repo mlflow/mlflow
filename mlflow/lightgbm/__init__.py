@@ -481,9 +481,7 @@ class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):  # pylint: disable=unused-argument
         """
         Args:
             dataframe: Model input data.

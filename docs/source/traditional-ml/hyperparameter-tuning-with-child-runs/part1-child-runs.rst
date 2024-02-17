@@ -151,12 +151,14 @@ If we were to use each iteration as its own MLflow run, our code might look some
 After executing this, we can navigate to the MLflow UI to see the results of the iterations and compare each run's
 error metrics to the parameters that were selected.
 
-.. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/no-child-first.gif
-    :width: 1024px
-    :align: center
-    :alt: Hyperparameter tuning no child runs
+.. raw:: html
 
-    Initial Hyperparameter tuning execution
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/no-child-first.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 What happens when we need to run this again with some slight modifications?
 
@@ -184,12 +186,14 @@ This may become a serious problem for analysis if we:
 
 Let's take a look at the UI and see if it is clear which iteration a particular run is a member of.
 
-.. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/no-child-more.gif
-   :width: 1024px
-   :align: center
-   :alt: Adding more runs
+.. raw:: html
 
-   Challenges with iterative tuning without child run encapsulation
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/no-child-more.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 It's not too hard to imagine how complicated this can become if there are thousands of runs in this experiment.
 
@@ -309,12 +313,14 @@ with different conditions of hyperparameter selection criteria.
 
 Once we execute these three tuning run tests, we can view the results in the UI:
 
-.. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/child-runs.gif
-   :width: 860px
-   :align: center
-   :alt: Using child runs
+.. raw:: html
 
-   Encapsulating tests with child runs
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/child-runs.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 In the above video, you can see that we purposefully avoided including the parent run in the run comparison.
 This is due to the fact that no metrics or parameters were actually written to these parent runs; rather, they
@@ -341,12 +347,14 @@ recommended to develop your own implementation that fulfills the following requi
 
 The results in the UI for this challenge are shown below.
 
-.. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/parent-child-challenge.gif
-   :width: 860px
-   :align: center
-   :alt: Challenge
+.. raw:: html
 
-   Adding best child run data to parent run
+    <div>
+        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
+            <source src="../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/parent-child-challenge.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
 Conclusion
 ----------

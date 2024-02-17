@@ -121,7 +121,7 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class StreamResponsePayload(ResponseModel):
-    id: str
+    id: Optional[str] = None
     object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
     created: int
     model: str

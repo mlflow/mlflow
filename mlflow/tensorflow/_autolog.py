@@ -63,7 +63,7 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
 
 
 def _extract_input_example_from_tensor_or_ndarray(
-    input_features: Union[tensorflow.Tensor, np.ndarray]
+    input_features: Union[tensorflow.Tensor, np.ndarray],
 ) -> np.ndarray:
     """
     Extracts first `INPUT_EXAMPLE_SAMPLE_ROWS` from the next_input, which can either be of
@@ -99,7 +99,7 @@ def _extract_input_example_from_tensor_or_ndarray(
 
 
 def _extract_sample_numpy_dict(
-    input_numpy_features_dict: Dict[str, np.ndarray]
+    input_numpy_features_dict: Dict[str, np.ndarray],
 ) -> Union[Dict[str, np.ndarray], np.ndarray]:
     """
     Extracts `INPUT_EXAMPLE_SAMPLE_ROWS` sample from next_input
@@ -148,11 +148,16 @@ def _extract_input_example_from_batched_tf_dataset(
     Examples
     --------
     >>> input_dataset = tensorflow.data.Dataset.from_tensor_slices(
-    ...                 ({'SepalLength': np.array(list(range(0, 20))),
-    ...                 'SepalWidth': np.array(list(range(0, 20))),
-    ...                 'PetalLength': np.array(list(range(0, 20))),
-    ...                 'PetalWidth': np.array(list(range(0, 20)))},
-    ...                 np.array(list(range(0, 20))))).batch(10)
+    ...     (
+    ...         {
+    ...             "SepalLength": np.array(list(range(0, 20))),
+    ...             "SepalWidth": np.array(list(range(0, 20))),
+    ...             "PetalLength": np.array(list(range(0, 20))),
+    ...             "PetalWidth": np.array(list(range(0, 20))),
+    ...         },
+    ...         np.array(list(range(0, 20))),
+    ...     )
+    ... ).batch(10)
     >>> _extract_input_example_from_batched_tf_dataset(input_dataset)
     {'SepalLength': array([0, 1, 2, 3, 4]),
     'SepalWidth': array([0, 1, 2, 3, 4]),

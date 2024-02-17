@@ -229,8 +229,8 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 +--------------------------+--------------------------+--------------------------+--------------------------+
 |                          | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings        |
 +==========================+==========================+==========================+==========================+
-| OpenAI                   | - gpt-3.5-turbo          | - gpt-3.5-turbo          | - text-embedding-ada-002 |
-|                          | - gpt-4                  | - gpt-4                  |                          |
+| OpenAI §                 | - gpt-3.5-turbo-instruct | - gpt-3.5-turbo          | - text-embedding-ada-002 |
+|                          | - davinci-002            | - gpt-4                  |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
 | MosaicML                 | - mpt-7b-instruct        | - llama2-70b-chat†       | - instructor-large       |
 |                          | - mpt-30b-instruct       |                          | - instructor-xl          |
@@ -240,8 +240,8 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 |                          | - claude-1.3-100k        |                          |                          |
 |                          | - claude-2               |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
-| Cohere                   | - command                | N/A                      | - embed-english-v2.0     |
-|                          | - command-light-nightly  |                          | - embed-multilingual-v2.0|
+| Cohere                   | - command                | - command                | - embed-english-v2.0     |
+|                          | - command-light          | - command-light          | - embed-multilingual-v2.0|
 +--------------------------+--------------------------+--------------------------+--------------------------+
 | Azure OpenAI             | - text-davinci-003       | - gpt-35-turbo           | - text-embedding-ada-002 |
 |                          | - gpt-35-turbo           | - gpt-4                  |                          |
@@ -259,7 +259,11 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 | AWS Bedrock              | - Amazon Titan           | N/A                      | N/A                      |
 |                          | - Third-party providers  |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
+| Mistral                  | - mistral-tiny           | N/A                      |  - mistral-embed         |
+|                          | - mistral-small          |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
 
+§ For full compatibility references for ``OpenAI``, see the `OpenAI Model Compatibility Matrix <https://platform.openai.com/docs/models/model-endpoint-compatibility>`_.
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
@@ -303,6 +307,7 @@ As of now, the MLflow Deployments Server supports the following providers:
 * **huggingface text generation inference**: This is used for models deployed using `Huggingface Text Generation Inference <https://huggingface.co/docs/text-generation-inference/index>`_.
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
 * **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
+* **mistral**: This is used for models offered by `Mistral <https://docs.mistral.ai/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
@@ -511,6 +516,7 @@ Each endpoint has the following configuration parameters:
     - "huggingface-text-generation-inference"
     - "ai21labs"
     - "bedrock"
+    - "mistral"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -682,6 +688,16 @@ To match your user's interaction and security access requirements, adjust the ``
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
 
 
+Mistral
++++++++
+
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                  | Description                                           |
++==========================+==========+==========================+=======================================================+
+| **mistral_api_key**       | Yes      | N/A                      | This is the API key for the Mistral service.         |
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+
+
 An example configuration for Azure OpenAI is:
 
 .. code-block:: yaml
@@ -824,7 +840,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 - ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
-- ``stream`` (supported by OpenAI)
+- ``stream`` (supported by OpenAI, Cohere)
 
 Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
@@ -885,7 +901,7 @@ generated before receiving it. Streaming responses are supported by the followin
 +============+=====================+==============+
 | OpenAI     | ✓                   | ✓            |
 +------------+---------------------+--------------+
-| Cohere     | ✓                   | ✘            |
+| Cohere     | ✓                   | ✓            |
 +------------+---------------------+--------------+
 
 To enable streaming responses, set the ``stream`` parameter to ``true`` in your request. For example:

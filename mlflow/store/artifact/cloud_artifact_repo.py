@@ -165,8 +165,11 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Retrieve write credentials for a batch of remote file paths, including presigned URLs.
 
-        :param remote_file_paths: List of file paths in the remote artifact repository.
-        :return: List of ArtifactCredentialInfo objects corresponding to each file path.
+        Args:
+            remote_file_paths: List of file paths in the remote artifact repository.
+
+        Returns:
+            List of ArtifactCredentialInfo objects corresponding to each file path.
         """
         pass
 
@@ -175,11 +178,11 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Upload a single file to the cloud.
 
-        :param cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
-        :param src_file_path: Local source file path for the upload.
-        :param artifact_file_path: Path in the artifact repository where the artifact will be
-                                   logged.
-        :return:
+        Args:
+            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+            src_file_path: Local source file path for the upload.
+            artifact_file_path: Path in the artifact repository where the artifact will be logged.
+
         """
         pass
 
@@ -187,7 +190,8 @@ class CloudArtifactRepository(ArtifactRepository):
 
     def _extract_headers_from_credentials(self, headers):
         """
-        :return: A python dictionary of http headers converted from the protobuf credentials
+        Returns:
+            A python dictionary of http headers converted from the protobuf credentials.
         """
         return {header.name: header.value for header in headers}
 
@@ -251,8 +255,11 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Retrieve read credentials for a batch of remote file paths, including presigned URLs.
 
-        :param remote_file_paths: List of file paths in the remote artifact repository.
-        :return: List of ArtifactCredentialInfo objects corresponding to each file path.
+        Args:
+            remote_file_paths: List of file paths in the remote artifact repository.
+
+        Returns:
+            List of ArtifactCredentialInfo objects corresponding to each file path.
         """
         pass
 
@@ -261,8 +268,9 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Download a file from the input `remote_file_path` and save it to `local_path`.
 
-        :param remote_file_path: Path to file in the remote artifact repository.
-        :param local_path: Local path to download file to.
-        :return:
+        Args:
+            remote_file_path: Path to file in the remote artifact repository.
+            local_path: Local path to download file to.
+
         """
         pass

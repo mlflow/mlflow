@@ -97,6 +97,22 @@ class ProviderAdapter(ABC):
         raise NotImplementedError
 
     @classmethod
+    def model_to_chat(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_chat_streaming(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def chat_streaming_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
     @abstractmethod
     def embeddings_to_model(cls, payload, config):
         raise NotImplementedError

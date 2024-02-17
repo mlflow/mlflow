@@ -4,19 +4,36 @@ import os
 import uuid
 import warnings
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, Union
+from pathlib import Path
+from pprint import pformat
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
 
 import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _add_or_overwrite_requirements,
+    _get_requirements_from_file,
+    _remove_requirements,
+    _write_requirements_to_file,
+)
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    get_uri_scheme,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -312,10 +329,12 @@ class Model:
         (i.e. the model was saved without example). Raises FileNotFoundError if there is model
         metadata but the example file is missing.
 
-        :param path: Path to the model directory.
+        Args:
+            path: Path to the model directory.
 
-        :return: Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
-                 pandas DataFrame, dict) or None if the model has no example.
+        Returns:
+            Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
+            pandas DataFrame, dict) or None if the model has no example.
         """
 
         # Just-in-time import to only load example-parsing libraries (e.g. numpy, pandas, etc.) if
@@ -326,12 +345,14 @@ class Model:
 
     def load_input_example_params(self, path: str):
         """
-        Load the params of input example saved along a model. Returns None if there is no params in
+        Load the params of input example saved along a model. Returns None if there are no params in
         the input_example.
 
-        :param path: Path to the model directory.
+        Args:
+            path: Path to the model directory.
 
-        :return: params (dict) or None if the model has no params.
+        Returns:
+            params (dict) or None if the model has no params.
         """
         from mlflow.models.utils import _read_example_params
 
@@ -352,13 +373,13 @@ class Model:
         :setter: Sets a dictionary of custom keys and values to be included with the model instance
         :type: Optional[Dict[str, Any]]
 
-        :return: A Dictionary of user-defined metadata iff defined.
+        Returns:
+            A Dictionary of user-defined metadata iff defined.
 
         .. code-block:: python
             :caption: Example
 
             # Create and log a model with metadata to the Model Registry
-
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
@@ -383,8 +404,8 @@ class Model:
             # Load the model and access the custom metadata
             model = mlflow.pyfunc.load_model(model_uri=model_uri)
             assert model.metadata.metadata["metadata_key"] == "metadata_value"
-
         """
+
         return self._metadata
 
     @experimental
@@ -502,11 +523,13 @@ class Model:
         """
         Load a model from its YAML representation.
 
-        :param path: A local filesystem path or URI referring to the MLmodel YAML file
-                     representation of the :py:class:`Model` object or to the directory containing
-                     the MLmodel YAML file representation.
-        :return: An instance of :py:class:`Model`.
+        Args:
+            path: A local filesystem path or URI referring to the MLmodel YAML file
+                representation of the Model object or to the directory containing
+                the MLmodel YAML file representation.
 
+        Returns:
+            An instance of Model.
 
         .. code-block:: python
             :caption: example
@@ -558,54 +581,53 @@ class Model:
         Log model using supplied flavor module. If no run is active, this method will create a new
         active run.
 
-        :param artifact_path: Run relative path identifying the model.
-        :param flavor: Flavor module to save the model with. The module must have
-                       the ``save_model`` function that will persist the model as a valid
-                       MLflow model.
-        :param registered_model_name: If given, create a model version under
-                                      ``registered_model_name``, also creating a registered model if
-                                      one with the given name does not exist.
-        :param signature: :py:class:`ModelSignature` describes model input
-                          and output :py:class:`Schema <mlflow.types.Schema>`. The model signature
-                          can be :py:func:`inferred <infer_signature>` from datasets representing
-                          valid model input (e.g. the training dataset) and valid model output
-                          (e.g. model predictions generated on the training dataset), for example:
+        Args:
+            artifact_path: Run relative path identifying the model.
+            flavor: Flavor module to save the model with. The module must have
+                the ``save_model`` function that will persist the model as a valid
+                MLflow model.
+            registered_model_name: If given, create a model version under
+                ``registered_model_name``, also creating a registered model if
+                one with the given name does not exist.
+            signature: :py:class:`ModelSignature` describes model input
+                and output :py:class:`Schema <mlflow.types.Schema>`. The model signature
+                can be :py:func:`inferred <infer_signature>` from datasets representing
+                valid model input (e.g. the training dataset) and valid model output
+                (e.g. model predictions generated on the training dataset), for example:
 
-                          .. code-block:: python
+                .. code-block:: python
 
-                            from mlflow.models import infer_signature
+                    from mlflow.models import infer_signature
 
-                            train = df.drop_column("target_label")
-                            signature = infer_signature(train, model.predict(train))
+                    train = df.drop_column("target_label")
+                    signature = infer_signature(train, model.predict(train))
 
-        :param input_example: one or several instances of valid model input. The input example is
-                            used as a hint of what data to feed the model. It will be converted to
-                            a Pandas DataFrame and then serialized to json using the Pandas
-                            split-oriented format, or a numpy array where the example will be
-                            serialized to json by converting it to a list. If input example is a
-                            tuple, then the first element must be a valid model input, and the
-                            second element must be a valid params dictionary that can optionally
-                            be used during model inference. Bytes are base64-encoded. When the
-                            ``signature`` parameter is ``None``, the input example is used to infer
-                            a model's signature. If an input example containing params is provided,
-                            and signature is inferred from the input example, then params will be
-                            used as default params during model inference if no extra params are
-                            passed at inference time.
+            input_example: one or several instances of valid model input. The input example is
+                used as a hint of what data to feed the model. It will be converted to
+                a Pandas DataFrame and then serialized to json using the Pandas
+                split-oriented format, or a numpy array where the example will be
+                serialized to json by converting it to a list. If input example is a
+                tuple, then the first element must be a valid model input, and the
+                second element must be a valid params dictionary that can optionally
+                be used during model inference. Bytes are base64-encoded. When the
+                ``signature`` parameter is ``None``, the input example is used to infer
+                a model's signature. If an input example containing params is provided,
+                and signature is inferred from the input example, then params will be
+                used as default params during model inference if no extra params are
+                passed at inference time.
+            await_registration_for: Number of seconds to wait for the model version to finish
+                being created and is in ``READY`` status. By default, the
+                function waits for five minutes. Specify 0 or None to skip
+                waiting.
+            metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-        :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
+                .. Note:: Experimental: This parameter may change or be removed in a
+                                        future release without warning.
+            kwargs: Extra args passed to the model flavor.
 
-        :param metadata: Custom metadata dictionary passed to the model and stored in
-                         the MLmodel file.
-
-                         .. Note:: Experimental: This parameter may change or be removed in a
-                                                 future release without warning.
-
-        :param kwargs: Extra args passed to the model flavor.
-
-        :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-                 metadata of the logged model.
+        Returns:
+            A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+            metadata of the logged model.
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
@@ -642,44 +664,46 @@ def get_model_info(model_uri: str) -> ModelInfo:
     """
     Get metadata for the specified model, such as its input/output signature.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-                      - ``mlflow-artifacts:/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
+            - ``mlflow-artifacts:/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
 
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-            metadata of the logged model.
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
-            :caption: Example usage of get_model_info
+        :caption: Example usage of get_model_info
 
-            import mlflow.models
-            import mlflow.sklearn
-            from sklearn.ensemble import RandomForestRegressor
+        import mlflow.models
+        import mlflow.sklearn
+        from sklearn.ensemble import RandomForestRegressor
 
-            with mlflow.start_run() as run:
-                params = {"n_estimators": 3, "random_state": 42}
-                X, y = [[0, 1]], [1]
-                signature = mlflow.models.infer_signature(X, y)
-                rfr = RandomForestRegressor(**params).fit(X, y)
-                mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+        with mlflow.start_run() as run:
+            params = {"n_estimators": 3, "random_state": 42}
+            X, y = [[0, 1]], [1]
+            signature = mlflow.models.infer_signature(X, y)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            mlflow.log_params(params)
+            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-            model_uri = f"runs:/{run.info.run_id}/sklearn-model"
-            # Get model info with model_uri
-            model_info = mlflow.models.get_model_info(model_uri)
-            # Get model signature directly
-            model_signature = model_info.signature
-            assert model_signature == signature
+        model_uri = f"runs:/{run.info.run_id}/sklearn-model"
+        # Get model info with model_uri
+        model_info = mlflow.models.get_model_info(model_uri)
+        # Get model signature directly
+        model_signature = model_info.signature
+        assert model_signature == signature
     """
     from mlflow.pyfunc import _download_artifact_from_uri
 
@@ -698,3 +722,109 @@ def get_model_info(model_uri: str) -> ModelInfo:
         mlflow_version=model_meta.mlflow_version,
         metadata=model_meta.metadata,
     )
+
+
+class Files(NamedTuple):
+    requirements: Path
+    conda: Path
+
+
+def get_model_requirements_files(resolved_uri: str) -> Files:
+    requirements_txt_file = _download_artifact_from_uri(
+        artifact_uri=append_to_uri_path(resolved_uri, _REQUIREMENTS_FILE_NAME)
+    )
+    conda_yaml_file = _download_artifact_from_uri(
+        artifact_uri=append_to_uri_path(resolved_uri, _CONDA_ENV_FILE_NAME)
+    )
+
+    return Files(
+        Path(requirements_txt_file),
+        Path(conda_yaml_file),
+    )
+
+
+def update_model_requirements(
+    model_uri: str,
+    operation: Literal["add", "remove"],
+    requirement_list: List[str],
+) -> None:
+    """
+    Add or remove requirements from a model's conda.yaml and requirements.txt files.
+
+    The process involves downloading these two files from the model artifacts
+    (if they're non-local), updating them with the specified requirements,
+    and then overwriting the existing files. Should the artifact repository
+    associated with the model artifacts disallow overwriting, this function will
+    fail.
+
+    Note that model registry URIs (i.e. URIs in the form ``models:/``) are not
+    supported, as artifacts in the model registry are intended to be read-only.
+
+    If adding requirements, the function will overwrite any existing requirements
+    that overlap, or else append the new requirements to the existing list.
+
+    If removing requirements, the function will ignore any version specifiers,
+    and remove all the specified package names. Any requirements that are not
+    found in the existing files will be ignored.
+
+    Args:
+        model_uri (str): The location, in URI format, of the MLflow model. For example:
+
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``mlflow-artifacts:/path/to/model``
+
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+
+        operation (Literal["add", "remove]): The operation to perform.
+            Must be one of "add" or "remove".
+
+        requirement_list (List[str]): A list of requirements to add or remove from the model.
+            For example: ["numpy==1.20.3", "pandas>=1.3.3"]
+    """
+    if ModelsArtifactRepository.is_models_uri(model_uri):
+        raise MlflowException(
+            f'Failed to set requirements on "{model_uri}". '
+            + "Model URIs with the `models:/` scheme are not supported.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    resolved_uri = model_uri
+    if RunsArtifactRepository.is_runs_uri(model_uri):
+        resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+
+    _logger.info(f"Retrieving model requirements files from {resolved_uri}...")
+    local_paths = get_model_requirements_files(resolved_uri)
+    conda_yaml_path = local_paths.conda
+    requirements_txt_path = local_paths.requirements
+
+    old_conda_reqs = _get_requirements_from_file(conda_yaml_path)
+    old_requirements_reqs = _get_requirements_from_file(requirements_txt_path)
+
+    if operation == "add":
+        updated_conda_reqs = _add_or_overwrite_requirements(requirement_list, old_conda_reqs)
+        updated_requirements_reqs = _add_or_overwrite_requirements(
+            requirement_list, old_requirements_reqs
+        )
+    else:
+        updated_conda_reqs = _remove_requirements(requirement_list, old_conda_reqs)
+        updated_requirements_reqs = _remove_requirements(requirement_list, old_requirements_reqs)
+
+    _write_requirements_to_file(conda_yaml_path, updated_conda_reqs)
+    _write_requirements_to_file(requirements_txt_path, updated_requirements_reqs)
+
+    # just print conda reqs here to avoid log spam
+    # it should be the same as requirements.txt anyway
+    _logger.info(
+        "Done updating requirements!\n\n"
+        f"Old requirements:\n{pformat([str(req) for req in old_conda_reqs])}\n\n"
+        f"Updated requirements:\n{pformat(updated_conda_reqs)}\n"
+    )
+
+    _logger.info(f"Uploading updated requirements files to {resolved_uri}...")
+    _upload_artifact_to_uri(conda_yaml_path, resolved_uri)
+    _upload_artifact_to_uri(requirements_txt_path, resolved_uri)

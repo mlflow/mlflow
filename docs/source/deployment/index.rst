@@ -15,7 +15,7 @@ This process can be complex, but MLflow simplifies it by offering an easy toolse
 
 By using MLflow deployment toolset, you can enjoy the following benefits:
 
-- **Effortless Deployment**: MLflow provides a simple interface for deploying models to various targets, eliminating the need to write boilorplate code.
+- **Effortless Deployment**: MLflow provides a simple interface for deploying models to various targets, eliminating the need to write boilerplate code.
 - **Dependency and Environment Management**: MLflow ensures that the deployment environment mirrors the training environment, capturing all dependencies. This guarantees that models run consistently, regardless of where they're deployed.
 - **Packaging Models and Code**: With MLflow, not just the model, but any supplementary code and configurations are packaged along with the deployment container. This ensures that the model can be executed seamlessly without any missing components.
 - **Avoid Vendor Lock-in**: MLflow provides a standard format for packaging models and unified APIs for deployment. You can easily switch between deployment targets without having to rewrite your code.
@@ -33,8 +33,8 @@ To use MLflow deployment, you must first create a model.
 Container
 ~~~~~~~~~
 Container plays a critical role for simplifying and standardizing the model deployment process. MLflow uses Docker containers to package models with their dependencies,
-enabling deployment to various destinations without environment compatibility issues.
-If you're new to Docker, you can learn more at `"What is a Container" <https://www.docker.com/resources/what-container//>`_.
+enabling deployment to various destinations without environment compatibility issues. See :ref:`Building a Docker Image for MLflow Model <build-docker-for-deployment>` for more details on how to deploy your model as a container.
+If you're new to Docker, you can start learning at `"What is a Container" <https://www.docker.com/resources/what-container//>`_.
 
 Deployment Target
 ~~~~~~~~~~~~~~~~~

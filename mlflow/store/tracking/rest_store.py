@@ -87,9 +87,11 @@ class RestStore(AbstractStore):
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
-        :param name: Desired name for an experiment
+        Args:
+            name: Desired name for an experiment
 
-        :return: experiment_id (string) for the newly created experiment if successful, else None
+        Returns:
+            experiment_id for the newly created experiment if successful, else None
         """
         tag_protos = [tag.to_proto() for tag in tags] if tags else []
         req_body = message_to_json(
@@ -102,10 +104,12 @@ class RestStore(AbstractStore):
         """
         Fetch the experiment from the backend store.
 
-        :param experiment_id: String id for the experiment
+        Args:
+            experiment_id: String id for the experiment
 
-        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
-        otherwise raises an Exception.
+        Returns:
+            A single :py:class:`mlflow.entities.Experiment` object if it exists,
+            otherwise raises an Exception.
         """
         req_body = message_to_json(GetExperiment(experiment_id=str(experiment_id)))
         response_proto = self._call_endpoint(GetExperiment, req_body)
@@ -129,9 +133,11 @@ class RestStore(AbstractStore):
         """
         Fetch the run from backend store
 
-        :param run_id: Unique identifier for the run
+        Args:
+            run_id: Unique identifier for the run
 
-        :return: A single Run object if it exists, otherwise raises an Exception
+        Returns:
+            A single Run object if it exists, otherwise raises an Exception
         """
         req_body = message_to_json(GetRun(run_uuid=run_id, run_id=run_id))
         response_proto = self._call_endpoint(GetRun, req_body)
@@ -156,13 +162,15 @@ class RestStore(AbstractStore):
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
-        :param experiment_id: ID of the experiment for this run
-        :param user_id: ID of the user launching this run
-        :param start_time: timestamp of the initialization of the run
-        :param tags: tags to apply to this run at initialization
-        :param name: Name of this run.
+        Args:
+            experiment_id: ID of the experiment for this run.
+            user_id: ID of the user launching this run.
+            start_time: timestamp of the initialization of the run.
+            tags: tags to apply to this run at initialization.
+            name: Name of this run.
 
-        :return: The created Run object
+        Returns:
+            The created Run object.
         """
 
         tag_protos = [tag.to_proto() for tag in tags]
@@ -182,8 +190,9 @@ class RestStore(AbstractStore):
         """
         Log a metric for the specified run
 
-        :param run_id: String id for the run
-        :param metric: Metric instance to log
+        Args:
+            run_id: String id for the run
+            metric: Metric instance to log
         """
         req_body = message_to_json(
             LogMetric(
@@ -201,8 +210,9 @@ class RestStore(AbstractStore):
         """
         Log a param for the specified run
 
-        :param run_id: String id for the run
-        :param param: Param instance to log
+        Args:
+            run_id: String id for the run
+            param: Param instance to log
         """
         req_body = message_to_json(
             LogParam(run_uuid=run_id, run_id=run_id, key=param.key, value=param.value)
@@ -213,8 +223,9 @@ class RestStore(AbstractStore):
         """
         Set a tag for the specified experiment
 
-        :param experiment_id: String ID of the experiment
-        :param tag: ExperimentRunTag instance to log
+        Args:
+            experiment_id: String ID of the experiment
+            tag: ExperimentRunTag instance to log
         """
         req_body = message_to_json(
             SetExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value)
@@ -225,8 +236,9 @@ class RestStore(AbstractStore):
         """
         Set a tag for the specified run
 
-        :param run_id: String ID of the run
-        :param tag: RunTag instance to log
+        Args:
+            run_id: String ID of the run
+            tag: RunTag instance to log
         """
         req_body = message_to_json(
             SetTag(run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value)
@@ -236,8 +248,10 @@ class RestStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run. This is irreversible.
-        :param run_id: String ID of the run
-        :param key: Name of the tag
+
+        Args:
+            run_id: String ID of the run.
+            key: Name of the tag.
         """
         req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
         self._call_endpoint(DeleteTag, req_body)
@@ -246,13 +260,15 @@ class RestStore(AbstractStore):
         """
         Return all logged values for a given metric.
 
-        :param run_id: Unique identifier for run
-        :param metric_key: Metric name within the run
-        :param max_results: Maximum number of metric history events (steps) to return per paged
-            query. Only supported in 'databricks' backend.
-        :param page_token: A Token specifying the next paginated set of results of metric history.
+        Args:
+            run_id: Unique identifier for run.
+            metric_key: Metric name within the run.
+            max_results: Maximum number of metric history events (steps) to return per paged
+                query. Only supported in 'databricks' backend.
+            page_token: A Token specifying the next paginated set of results of metric history.
 
-        :return: A PagedList of :py:class:`mlflow.entities.Metric` entities if a paginated request
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.Metric` entities if a paginated request
             is made by setting ``max_results`` to a value other than ``None``, a List of
             :py:class:`mlflow.entities.Metric` entities if ``max_results`` is None, else, if no
             metrics of the ``metric_key`` have been logged to the ``run_id``, an empty list.
@@ -330,11 +346,13 @@ class RestStore(AbstractStore):
         """
         Log inputs, such as datasets, to the specified run.
 
-        :param run_id: String id for the run
-        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
-                         as inputs to the run.
+        Args:
+            run_id: String id for the run
+            datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
 
-        :return: None.
+        Returns:
+            None.
         """
         datasets_protos = [dataset.to_proto() for dataset in datasets]
         req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))

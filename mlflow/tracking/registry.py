@@ -64,12 +64,15 @@ class StoreRegistry:
     def get_store_builder(self, store_uri):
         """Get a store from the registry based on the scheme of store_uri
 
-        :param store_uri: The store URI. If None, it will be inferred from the environment. This
-                          URI is used to select which tracking store implementation to instantiate
-                          and is passed to the constructor of the implementation.
-        :return: A function that returns an instance of
-                 ``mlflow.store.{tracking|model_registry}.AbstractStore`` that fulfills the store
-                  URI requirements.
+        Args:
+            store_uri: The store URI. If None, it will be inferred from the environment. This
+                URI is used to select which tracking store implementation to instantiate
+                and is passed to the constructor of the implementation.
+
+        Returns:
+            A function that returns an instance of
+            ``mlflow.store.{tracking|model_registry}.AbstractStore`` that fulfills the store
+            URI requirements.
         """
         scheme = (
             store_uri if store_uri in {"databricks", "databricks-uc"} else get_uri_scheme(store_uri)

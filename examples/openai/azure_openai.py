@@ -19,14 +19,14 @@ with mlflow.start_run():
     model_info = mlflow.openai.log_model(
         # Your Azure OpenAI model e.g. gpt-3.5-turbo
         model="<YOUR AZURE OPENAI MODEL>",
-        task=openai.ChatCompletion,
+        task=openai.chat.completions,
         artifact_path="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
     )
 
 # Load native OpenAI model
 native_model = mlflow.openai.load_model(model_info.model_uri)
-completion = openai.ChatCompletion.create(
+completion = openai.chat.completions.create(
     deployment_id=native_model["deployment_id"],
     messages=native_model["messages"],
 )

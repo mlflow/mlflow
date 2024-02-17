@@ -776,7 +776,9 @@ class _TF2Wrapper:
         self.infer = infer
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Args:
@@ -830,7 +832,9 @@ class _TF2ModuleWrapper:
         self.signature = signature
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Args:
@@ -864,7 +868,9 @@ class _KerasModelWrapper:
         self.signature = signature
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
         Args:
@@ -1192,9 +1198,7 @@ def autolog(
         def __init__(self):
             self.log_dir = None
 
-        def _patch_implementation(
-            self, original, inst, *args, **kwargs
-        ):  # pylint: disable=arguments-differ
+        def _patch_implementation(self, original, inst, *args, **kwargs):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None

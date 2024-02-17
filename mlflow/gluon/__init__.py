@@ -104,7 +104,9 @@ class _GluonModelWrapper:
         self.gluon_model = gluon_model
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """This is a docstring. Here is more info.
 
@@ -445,8 +447,6 @@ def autolog(
                 kwargs["event_handlers"] += [mlflowGluonCallback]
             else:
                 kwargs["event_handlers"] = [mlflowGluonCallback]
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     safe_patch(FLAVOR_NAME, Estimator, "fit", fit, manage_run=True)

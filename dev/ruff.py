@@ -1,18 +1,10 @@
-import functools
-import json
 import os
 import re
 import subprocess
 import sys
 
-RUFF = [sys.executable, "-m", "ruff"]
+RUFF = [sys.executable, "-m", "ruff", "check"]
 MESSAGE_REGEX = re.compile(r"^.+:\d+:\d+: ([A-Z0-9]+) (\[\*\] )?.+$")
-
-
-@functools.lru_cache
-def get_rule_name(code: str) -> str:
-    out = subprocess.check_output([*RUFF, "rule", "--format", "json", code], text=True).strip()
-    return json.loads(out)["name"]
 
 
 def transform(stdout: str, is_maintainer: bool) -> str:
@@ -27,10 +19,7 @@ def transform(stdout: str, is_maintainer: bool) -> str:
                 )
                 line = f"{line}. Run {command} to fix this error."
             else:
-                name = get_rule_name(m.group(1))
-                line = (
-                    f"{line}. See https://beta.ruff.rs/docs/rules/{name} for how to fix this error."
-                )
+                line = f"{line}. See https://docs.astral.sh/ruff/rules/{m.group(1)} for how to fix this error."
         transformed.append(line)
     return "\n".join(transformed)
 

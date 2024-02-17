@@ -55,14 +55,17 @@ class ArtifactRepositoryRegistry:
                 )
 
     def get_artifact_repository(self, artifact_uri):
-        """Get an artifact repository from the registry based on the scheme of artifact_uri
+        """
+        Get an artifact repository from the registry based on the scheme of artifact_uri
 
-        :param artifact_uri: The artifact store URI. This URI is used to select which artifact
-                             repository implementation to instantiate and is passed to the
-                             constructor of the implementation.
+        Args:
+            artifact_uri: The artifact store URI. This URI is used to select which artifact
+                repository implementation to instantiate and is passed to the constructor of the
+                implementation.
 
-        :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
-                 requirements.
+        Returns:
+            An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
+            requirements.
         """
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
@@ -77,7 +80,8 @@ class ArtifactRepositoryRegistry:
         """
         Get all registered artifact repositories.
 
-        :return: A dictionary mapping string artifact URI schemes to artifact repositories.
+        Returns:
+            A dictionary mapping string artifact URI schemes to artifact repositories.
         """
         return self._registry
 
@@ -105,14 +109,17 @@ _artifact_repository_registry.register_entrypoints()
 
 
 def get_artifact_repository(artifact_uri: str) -> ArtifactRepository:
-    """Get an artifact repository from the registry based on the scheme of artifact_uri
+    """
+    Get an artifact repository from the registry based on the scheme of artifact_uri
 
-    :param artifact_uri: The artifact store URI. This URI is used to select which artifact
-                         repository implementation to instantiate and is passed to the
-                         constructor of the implementation.
+    Args:
+        artifact_uri: The artifact store URI. This URI is used to select which artifact
+            repository implementation to instantiate and is passed to the constructor of the
+            implementation.
 
-    :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
-             requirements.
+    Returns:
+        An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
+        requirements.
     """
     return _artifact_repository_registry.get_artifact_repository(artifact_uri)
 
@@ -121,6 +128,7 @@ def get_registered_artifact_repositories() -> Dict[str, ArtifactRepository]:
     """
     Get all registered artifact repositories.
 
-    :return: A dictionary mapping string artifact URI schemes to artifact repositories.
+    Returns:
+        A dictionary mapping string artifact URI schemes to artifact repositories.
     """
     return _artifact_repository_registry.get_registered_artifact_repositories()

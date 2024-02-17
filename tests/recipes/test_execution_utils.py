@@ -39,9 +39,7 @@ def pandas_df():
 
 
 @pytest.fixture
-def test_recipe(
-    enter_test_recipe_directory, pandas_df, tmp_path
-):  # pylint: disable=unused-argument
+def test_recipe(enter_test_recipe_directory, pandas_df, tmp_path):  # pylint: disable=unused-argument
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
     ingest_step = IngestStep.from_recipe_config(

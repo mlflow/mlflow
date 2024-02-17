@@ -1606,9 +1606,7 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
         params={
             "datetime_param": "2023-06-26 00:00:00",
         },
-    )[
-        "datetime_param"
-    ] == np.datetime64("2023-06-26 00:00:00")
+    )["datetime_param"] == np.datetime64("2023-06-26 00:00:00")
 
 
 def test_schema_enforcement_all_feature_types_pandas():

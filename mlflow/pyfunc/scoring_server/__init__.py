@@ -74,8 +74,11 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
-# TODO: Support other input keys like "prmopt", "input", for other endpoint types like Embedding
-SUPPORTED_LLM_FORMAT = "messages"
+# Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
+LLM_CHAT_KEY = "messages"
+LLM_COMPLETIONS_KEY = "prompt"
+LLM_EMBEDDINGS_KEY = "input"
+SUPPORTED_LLM_FORMATS = {LLM_CHAT_KEY, LLM_COMPLETIONS_KEY, LLM_EMBEDDINGS_KEY}
 
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
@@ -98,9 +101,10 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 @deprecated("infer_and_parse_data", "2.6.0")
 def infer_and_parse_json_input(json_input, schema: Schema = None):
     """
-    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
-                       DataFrame, or a stream containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
+    Args:
+        json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                    DataFrame, or a stream containing such a string representation.
+        schema: Optional schema specification to be used during parsing.
     """
     if isinstance(json_input, dict):
         decoded_input = json_input
@@ -148,9 +152,12 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
 
 def _decode_json_input(json_input):
     """
-    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
-                       DataFrame, or a stream containing such a string representation.
-    :return: A dictionary representation of the JSON input.
+    Args:
+        json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                    DataFrame, or a stream containing such a string representation.
+
+    Returns:
+        A dictionary representation of the JSON input.
     """
     if isinstance(json_input, dict):
         return json_input
@@ -199,9 +206,10 @@ def _split_data_and_params(json_input):
 
 def infer_and_parse_data(data, schema: Schema = None):
     """
-    :param data: A dictionary representation of TF serving input or a Pandas
-                 DataFrame, or a stream containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
+    Args:
+        data: A dictionary representation of TF serving input or a Pandas
+            DataFrame, or a stream containing such a string representation.
+        schema: Optional schema specification to be used during parsing.
     """
 
     format_keys = set(data.keys()).intersection(SUPPORTED_FORMATS)
@@ -224,9 +232,10 @@ def infer_and_parse_data(data, schema: Schema = None):
 
 def parse_csv_input(csv_input, schema: Schema = None):
     """
-    :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
-                      containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
+    Args:
+        csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
+                   containing such a string representation.
+        schema: Optional schema specification to be used during parsing.
     """
     import pandas as pd
 
@@ -267,10 +276,11 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
     handled and reraises it with the specified error message. The exception stack trace
     is also included in the reraised error message.
 
-    :param error_message: A message for the reraised exception.
-    :param error_code: An appropriate error code for the reraised exception. This should be one of
-                       the codes listed in the `mlflow.protos.databricks_pb2` proto.
-    :param include_traceback: Whether to include the current traceback in the returned error.
+    Args:
+        error_message: A message for the reraised exception.
+        error_code: An appropriate error code for the reraised exception. This should be one of
+            the codes listed in the `mlflow.protos.databricks_pb2` proto.
+        include_traceback: Whether to include the current traceback in the returned error.
     """
     if include_traceback:
         traceback_buf = StringIO()
@@ -328,7 +338,7 @@ def invocations(data, content_type, model, input_schema):
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
         json_input = _decode_json_input(data)
-        should_parse_as_unified_llm_input = SUPPORTED_LLM_FORMAT in json_input
+        should_parse_as_unified_llm_input = any(x in json_input for x in SUPPORTED_LLM_FORMATS)
         if should_parse_as_unified_llm_input:
             # Unified LLM input format
             if hasattr(model.metadata, "get_params_schema"):

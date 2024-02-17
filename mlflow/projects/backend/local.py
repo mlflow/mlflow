@@ -260,9 +260,11 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.
-    :param command: Entry point command to run
-    :param work_dir: Working directory in which to run the command
-    :param run_id: MLflow run ID associated with the entry point execution.
+
+    Args:
+        command: Entry point command to run
+        work_dir: Working directory in which to run the command
+        run_id: MLflow run ID associated with the entry point execution.
     """
     env = os.environ.copy()
     env.update(get_run_env_vars(run_id, experiment_id))

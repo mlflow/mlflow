@@ -13,12 +13,12 @@ from mlflow.data.schema import TensorDatasetSchema
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
 
-from tests.resources.data.dataset_source import TestDatasetSource
+from tests.resources.data.dataset_source import SampleDatasetSource
 
 
 def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = NumpyDataset(features=np.array([1, 2, 3]), source=source, name="testname")
 
     dataset_json = dataset.to_json()
@@ -65,7 +65,7 @@ def test_conversion_to_json():
 )
 def test_conversion_to_json_with_multi_tensor_features_and_targets(features, targets):
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = NumpyDataset(features=features, targets=targets, source=source)
 
     dataset_json = dataset.to_json()
@@ -111,7 +111,7 @@ def test_conversion_to_json_with_multi_tensor_features_and_targets(features, tar
 )
 def test_schema_and_profile_with_multi_tensor_features_and_targets(features, targets):
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = NumpyDataset(features=features, targets=targets, source=source)
 
     assert isinstance(dataset.schema, TensorDatasetSchema)
@@ -147,7 +147,7 @@ def test_schema_and_profile_with_multi_tensor_features_and_targets(features, tar
 
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     features = np.array([1, 2, 3])
     targets = np.array([4, 5, 6])
     dataset_with_features = NumpyDataset(features=features, source=source, name="testname")
@@ -165,7 +165,7 @@ def test_digest_property_has_expected_value():
 
 def test_features_property():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     features = np.array([1, 2, 3])
     dataset = NumpyDataset(features=features, source=source, name="testname")
     assert np.array_equal(dataset.features, features)
@@ -173,7 +173,7 @@ def test_features_property():
 
 def test_targets_property():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     features = np.array([1, 2, 3])
     targets = np.array([4, 5, 6])
     dataset_with_targets = NumpyDataset(
@@ -186,7 +186,7 @@ def test_targets_property():
 
 def test_to_pyfunc():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     features = np.array([1, 2, 3])
     dataset = NumpyDataset(features=features, source=source, name="testname")
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
@@ -194,7 +194,7 @@ def test_to_pyfunc():
 
 def test_to_evaluation_dataset():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     features = np.array([[1, 2], [3, 4]])
     targets = np.array([0, 1])
     dataset = NumpyDataset(features=features, targets=targets, source=source, name="testname")

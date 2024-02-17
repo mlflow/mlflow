@@ -225,6 +225,16 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT", int, None
 )
 
+#: Specifies the timeout for model inference with input example(s) when logging/saving a model.
+#: MLflow runs a few inference requests against the model to infer model signature and pip
+#: requirements. Sometimes the prediction hangs for a long time, especially for a large model.
+#: This timeout limits the allowable time for performing a prediction for signature inference
+#: and will abort the prediction, falling back to the default signature and pip requirements.
+MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT", int, 180
+)
+
+
 #: Specifies the device intended for use in the predict function - can be used
 #: to override behavior where the GPU is used by default when available by
 #: setting this environment variable to be ``cpu``. Currently, this
@@ -268,9 +278,6 @@ MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE = _EnvironmentVariable(
 
 #: Specifies the name of the Databricks secret scope to use for storing OpenAI API keys.
 MLFLOW_OPENAI_SECRET_SCOPE = _EnvironmentVariable("MLFLOW_OPENAI_SECRET_SCOPE", str, None)
-
-#: Specifier whether or not to retry OpenAI API calls.
-MLFLOW_OPENAI_RETRIES_ENABLED = _BooleanEnvironmentVariable("MLFLOW_OPENAI_RETRIES_ENABLED", True)
 
 #: (Experimental, may be changed or removed)
 #: Specifies the download options to be used by pip wheel when `add_libraries_to_model` is used to
@@ -456,6 +463,11 @@ MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL = _EnvironmentVariable(
 MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
     "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", int, None
 )
+
+#: Specifies the node id of system metrics logging. This is useful in multi-node (distributed
+#: training) setup.
+MLFLOW_SYSTEM_METRICS_NODE_ID = _EnvironmentVariable("MLFLOW_SYSTEM_METRICS_NODE_ID", str, None)
+
 
 # Private environment variable to specify the number of chunk download retries for multipart
 # download.

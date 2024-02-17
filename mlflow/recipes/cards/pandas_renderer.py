@@ -216,7 +216,7 @@ def convert_to_proto(df: pd.DataFrame) -> facet_feature_statistics_pb2.DatasetFe
 
 
 def convert_to_comparison_proto(
-    dfs: Iterable[Tuple[str, pd.DataFrame]]
+    dfs: Iterable[Tuple[str, pd.DataFrame]],
 ) -> facet_feature_statistics_pb2.DatasetFeatureStatisticsList:
     """
     Converts a collection of named stats DataFrames to a single DatasetFeatureStatisticsList proto.

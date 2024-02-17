@@ -825,9 +825,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
     ), mock.patch(
         "mlflow.utils.databricks_utils._get_dbutils", mock_get_dbutils
-    ), mock.patch.object(
-        spark_model_iris.model, "save"
-    ) as mock_save, mock.patch(
+    ), mock.patch.object(spark_model_iris.model, "save") as mock_save, mock.patch(
         "mlflow.models.infer_pip_requirements", return_value=[]
     ) as mock_infer:
         with mlflow.start_run():
@@ -886,9 +884,7 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     ), mock.patch(
         "mlflow.utils.databricks_utils._get_dbutils",
         mock_get_dbutils,
-    ), mock.patch.object(
-        spark_model_iris.model, "save"
-    ) as mock_save:
+    ), mock.patch.object(spark_model_iris.model, "save") as mock_save:
         with mlflow.start_run():
             monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
             mlflow.spark.log_model(spark_model=spark_model_iris.model, artifact_path="model")

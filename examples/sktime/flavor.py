@@ -470,9 +470,7 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:  # pylint: disable=unused-argument
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

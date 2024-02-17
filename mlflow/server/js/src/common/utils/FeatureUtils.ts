@@ -9,7 +9,7 @@ export const shouldDisableLegacyRunCompareCharts = () => false;
 /**
  * UI feature preview: displays data lineage (datasets used) in experiment runs
  */
-export const shouldEnableExperimentDatasetTracking = () => false;
+export const shouldEnableExperimentDatasetTracking = () => true;
 /**
  * UI feature preview: enables artifact-based ML experiment output data analysis, used for evaluating LLM prediction data
  */

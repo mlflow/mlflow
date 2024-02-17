@@ -255,7 +255,7 @@ Step 6: Testing Model Serving Locally
 -------------------------------------
 
 Before deploying the model, let's first test that the model can be served locally. As outlined in the
-`Deploy MLflow Model Locally <../deploy-model-locally.html>`_, you can run a local inferecen server with just a single command.
+`Deploy MLflow Model Locally <../deploy-model-locally.html>`_, you can run a local inference server with just a single command.
 Remember to use the ``enable-mlserver`` flag, which instructs MLflow to use MLServer as the inference server. This ensures the model runs in the
 same manner as it would in Kubernetes.
 

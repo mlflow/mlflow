@@ -58,7 +58,7 @@ fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
-keras_core = LazyLoader("mlflow.keras_core", globals(), "mlflow.keras_core")
+keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
@@ -97,6 +97,7 @@ from mlflow.projects import run
 from mlflow.system_metrics import (
     disable_system_metrics_logging,
     enable_system_metrics_logging,
+    set_system_metrics_node_id,
     set_system_metrics_samples_before_logging,
     set_system_metrics_sampling_interval,
 )
@@ -203,6 +204,7 @@ __all__ = [
     "set_experiment_tag",
     "set_experiment_tags",
     "set_registry_uri",
+    "set_system_metrics_node_id",
     "set_system_metrics_samples_before_logging",
     "set_system_metrics_sampling_interval",
     "set_tag",

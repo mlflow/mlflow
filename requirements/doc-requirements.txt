@@ -6,7 +6,7 @@ datasets
 nbsphinx==0.8.8
 # ipython 8.7.0 is an incompatible release
 ipython!=8.7.0
-keras-core
+keras
 torch>=1.11.0
 torchvision>=0.12.0
 lightning>=1.8.1

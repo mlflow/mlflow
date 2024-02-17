@@ -270,5 +270,18 @@ _ML_PACKAGE_VERSIONS = {
             "minimum": "4.4.6",
             "maximum": "5.2.2"
         }
+    },
+    "keras": {
+        "package_info": {
+            "pip_release": "keras"
+        },
+        "models": {
+            "minimum": "3.0.2",
+            "maximum": "3.0.2",
+        },
+        "autologging": {
+            "minimum": "3.0.2",
+            "maximum": "3.0.2",
+        }
     }
 }

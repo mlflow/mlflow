@@ -124,13 +124,14 @@ class SqlAlchemyStore(AbstractStore):
         """
         Create a database backed store.
 
-        :param db_uri: The SQLAlchemy database URI string to connect to the database. See
-                       the `SQLAlchemy docs
-                       <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
-                       for format specifications. MLflow supports the dialects ``mysql``,
-                       ``mssql``, ``sqlite``, and ``postgresql``.
-        :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
-                                      store object, DBFS path, or shared NFS file system).
+        Args:
+            db_uri: The SQLAlchemy database URI string to connect to the database. See
+                the `SQLAlchemy docs
+                <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
+                for format specifications. MLflow supports the dialects ``mysql``,
+                ``mssql``, ``sqlite``, and ``postgresql``.
+            default_artifact_root: Path/URI to location suitable for large data (such as a blob
+                store object, DBFS path, or shared NFS file system).
         """
         super().__init__()
         self.db_uri = db_uri
@@ -342,9 +343,10 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
-        :param eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
-                      are not eagerly loaded and will be loaded if/when their corresponding
-                      object properties are accessed from the resulting ``SqlExperiment`` object.
+        Args:
+            eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
+                are not eagerly loaded and will be loaded if/when their corresponding
+                object properties are accessed from the resulting ``SqlExperiment`` object.
         """
         experiment_id = experiment_id or SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
         stages = LifecycleStage.view_type_to_stages(view_type)
@@ -370,8 +372,8 @@ class SqlAlchemyStore(AbstractStore):
     @staticmethod
     def _get_eager_experiment_query_options():
         """
-        :return: A list of SQLAlchemy query options that can be used to eagerly load the following
-                 experiment attributes when fetching an experiment: ``tags``.
+        A list of SQLAlchemy query options that can be used to eagerly load the following
+        experiment attributes when fetching an experiment: ``tags``.
         """
         return [
             # Use a subquery load rather than a joined load in order to minimize the memory overhead
@@ -505,10 +507,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_run(self, session, run_uuid, eager=False):
         """
-        :param eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),
-                      params, and tags when fetching the run. If ``False``, these attributes
-                      are not eagerly loaded and will be loaded when their corresponding
-                      object properties are accessed from the resulting ``SqlRun`` object.
+        Args:
+            eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),
+                params, and tags when fetching the run. If ``False``, these attributes
+                are not eagerly loaded and will be loaded when their corresponding
+                object properties are accessed from the resulting ``SqlRun`` object.
         """
         query_options = self._get_eager_run_query_options() if eager else []
         runs = (
@@ -563,8 +566,8 @@ class SqlAlchemyStore(AbstractStore):
     @staticmethod
     def _get_eager_run_query_options():
         """
-        :return: A list of SQLAlchemy query options that can be used to eagerly load the following
-                 run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
+        A list of SQLAlchemy query options that can be used to eagerly load the following
+        run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
         """
         return [
             # Use a select in load rather than a joined load in order to minimize the memory
@@ -768,8 +771,9 @@ class SqlAlchemyStore(AbstractStore):
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
             """
-            :return: True if ``metric_a`` is strictly more recent than ``metric_b``, as determined
-                     by ``step``, ``timestamp``, and ``value``. False otherwise.
+            Returns:
+                True if ``metric_a`` is strictly more recent than ``metric_b``, as determined
+                by ``step``, ``timestamp``, and ``value``. False otherwise.
             """
             return (metric_a.step, metric_a.timestamp, metric_a.value) > (
                 metric_b.step,
@@ -779,10 +783,11 @@ class SqlAlchemyStore(AbstractStore):
 
         def _overwrite_metric(new_metric, old_metric):
             """
-            writes content of new_metric over old_metric. The content are
-            `value`, `step`, `timestamp`, and `is_nan`.
+            Writes content of new_metric over old_metric. The content are `value`, `step`,
+            `timestamp`, and `is_nan`.
 
-            :return: old_metric with its content updated.
+            Returns:
+                old_metric with its content updated.
             """
             old_metric.value = new_metric.value
             old_metric.step = new_metric.step
@@ -884,16 +889,19 @@ class SqlAlchemyStore(AbstractStore):
         """
         Return all logged values for a given metric.
 
-        :param run_id: Unique identifier for run
-        :param metric_key: Metric name within the run
-        :param max_results: An indicator for paginated results. This functionality is not
-            implemented for SQLAlchemyStore and is unused in this store's implementation.
-        :param page_token: An indicator for paginated results. This functionality is not
-            implemented for SQLAlchemyStore and if the value is overridden with a value other than
-            ``None``, an MlflowException will be thrown.
+        Args:
+            run_id: Unique identifier for run.
+            metric_key: Metric name within the run.
+            max_results: An indicator for paginated results. This functionality is not
+                implemented for SQLAlchemyStore and is unused in this store's implementation.
+            page_token: An indicator for paginated results. This functionality is not
+                implemented for SQLAlchemyStore and if the value is overridden with a value other
+                than ``None``, an MlflowException will be thrown.
 
-        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+        Returns:
+            A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
             have been logged to the ``run_id``, else an empty list.
+
         """
         # NB: The SQLAlchemyStore does not currently support pagination for this API.
         # Raise if `page_token` is specified, as the functionality to support paged queries
@@ -936,15 +944,17 @@ class SqlAlchemyStore(AbstractStore):
         """
         Return all logged values for a given metric.
 
-        :param run_ids: Unique identifiers of the runs from which to fetch the metric histories for
-                        the specified key.
-        :param metric_key: Metric name within the runs.
-        :param max_results: The maximum number of results to return.
+        Args:
+            run_ids: Unique identifiers of the runs from which to fetch the metric histories for
+                the specified key.
+            metric_key: Metric name within the runs.
+            max_results: The maximum number of results to return.
 
-        :return: A List of :py:class:`SqlAlchemyStore.MetricWithRunId` objects if ``metric_key``
-            values have been logged to one or more of the specified ``run_ids``, else an empty
-            list. Results are sorted by run ID in lexicographically ascending order, followed by
-            timestamp, step, and value in numerically ascending order.
+        Returns:
+            A List of SqlAlchemyStore.MetricWithRunId objects if metric_key values have been logged
+            to one or more of the specified run_ids, else an empty list. Results are sorted by run
+            ID in lexicographically ascending order, followed by timestamp, step, and value in
+            numerically ascending order.
         """
         # NB: The SQLAlchemyStore does not currently support pagination for this API.
         # Raise if `page_token` is specified, as the functionality to support paged queries
@@ -977,9 +987,11 @@ class SqlAlchemyStore(AbstractStore):
         """
         Return all dataset summaries associated to the given experiments.
 
-        :param experiment_ids List of experiment ids to scope the search
+        Args:
+            experiment_ids: List of experiment ids to scope the search
 
-        :return A List of :py:class:`SqlAlchemyStore.DatasetSummary` entities.
+        Returns:
+            A List of :py:class:`SqlAlchemyStore.DatasetSummary` entities.
         """
 
         MAX_DATASET_SUMMARIES_RESULTS = 1000
@@ -1104,8 +1116,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         Set a tag for the specified experiment
 
-        :param experiment_id: String ID of the experiment
-        :param tag: ExperimentRunTag instance to log
+        Args:
+            experiment_id: String ID of the experiment
+            tag: ExperimentRunTag instance to log
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
@@ -1121,8 +1134,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         Set a tag on a run.
 
-        :param run_id: String ID of the run
-        :param tag: RunTag instance to log
+        Args:
+            run_id: String ID of the run.
+            tag: RunTag instance to log.
         """
         with self.ManagedSessionMaker() as session:
             _validate_tag(tag.key, tag.value)
@@ -1139,8 +1153,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         Set multiple tags on a run
 
-        :param run_id: String ID of the run
-        :param tags: List of RunTag instances to log
+        Args:
+            run_id: String ID of the run
+            tags: List of RunTag instances to log
         """
         if not tags:
             return
@@ -1214,8 +1229,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         Delete a tag from a run. This is irreversible.
 
-        :param run_id: String ID of the run
-        :param key: Name of the tag
+        Args:
+            run_id: String ID of the run
+            key: Name of the tag
         """
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1354,11 +1370,13 @@ class SqlAlchemyStore(AbstractStore):
         """
         Log inputs, such as datasets, to the specified run.
 
-        :param run_id: String id for the run
-        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
-                         as inputs to the run.
+        Args:
+            run_id: String id for the run
+            datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
 
-        :return: None.
+        Returns:
+            None.
         """
         _validate_run_id(run_id)
         if datasets is not None:

@@ -1,4 +1,5 @@
 import json
+import pickle
 
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
@@ -63,3 +64,11 @@ def test_rest_exception_with_unrecognized_error_code():
     exception = RestException({"error_code": "weird error", "messages": "something important."})
     assert "something important." in str(exception)
     json.loads(exception.serialize_as_json())
+
+
+def test_rest_exception_pickleable():
+    e1 = RestException({"error_code": "INTERNAL_ERROR", "message": "abc"})
+    e2 = pickle.loads(pickle.dumps(e1))
+
+    assert e1.error_code == e2.error_code
+    assert e1.message == e2.message

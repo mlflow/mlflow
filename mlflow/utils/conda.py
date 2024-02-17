@@ -276,9 +276,7 @@ def get_or_create_conda_env(
     try:
         _create_conda_env_func = (
             # Retry conda env creation in a pytest session to avoid flaky test failures
-            _create_conda_env_retry
-            if "PYTEST_CURRENT_TEST" in os.environ
-            else _create_conda_env
+            _create_conda_env_retry if "PYTEST_CURRENT_TEST" in os.environ else _create_conda_env
         )
         conda_env = _create_conda_env_func(
             conda_env_path,

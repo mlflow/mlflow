@@ -18,7 +18,7 @@ def build_and_evalute_model_with_prompt(system_prompt):
     # to MLflow Tracking
     logged_model = mlflow.openai.log_model(
         model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        task=openai.chat.completions,
         artifact_path="model",
         messages=[
             {"role": "system", "content": system_prompt},

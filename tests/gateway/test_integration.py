@@ -14,6 +14,7 @@ from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.bedrock import AWSBedrockProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
+from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
@@ -219,6 +220,28 @@ def basic_config_dict():
                     "config": {"aws_config": {"aws_region": "us-east-1"}},
                 },
             },
+            {
+                "name": "completions-mistral",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "mistral",
+                    "name": "mistral-tiny",
+                    "config": {
+                        "mistral_api_key": "$MISTRAL_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "embeddings-mistral",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "mistral",
+                    "name": "mistral-embed",
+                    "config": {
+                        "mistral_api_key": "$MISTRAL_API_KEY",
+                    },
+                },
+            },
         ]
     }
 
@@ -244,6 +267,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
     monkeypatch.setenv("PALM_API_KEY", "test_palm_key")
+    monkeypatch.setenv("MISTRAL_API_KEY", "test_mistral_key")
 
 
 @pytest.fixture
@@ -267,7 +291,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 18
+    assert len(routes) == 20
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -959,4 +983,62 @@ def test_bedrock_completions(gateway):
     with patch.object(AWSBedrockProvider, "completions", mock_completions):
         response = query(route=route.name, data=data)
 
+    assert response == expected_output
+
+
+def test_mistral_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-mistral")
+    expected_output = {
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "mistral-tiny",
+        "choices": [
+            {
+                "index": 0,
+                "text": "mock using MagicMock please",
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(MistralProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mistral_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-mistral")
+    expected_output = {
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "mistral-embed",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
+    }
+
+    data = {"input": "mock me and my test"}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(MistralProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
     assert response == expected_output

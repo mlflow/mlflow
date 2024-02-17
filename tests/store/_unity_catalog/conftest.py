@@ -33,7 +33,7 @@ def configure_client_for_uc(mock_databricks_uc_host_creds):
     """
     Configure MLflow client to register models to UC
     """
-    with mock.patch("databricks_cli.configure.provider.get_config"):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
         orig_registry_uri = mlflow.get_registry_uri()
         mlflow.set_registry_uri("databricks-uc")
         yield

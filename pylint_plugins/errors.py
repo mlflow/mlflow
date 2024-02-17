@@ -29,3 +29,10 @@ USELESS_ASSIGNMENT = Message(
     message="Useless assignment. Use immediate return instead.",
     reason="For simplicity and readability",
 )
+
+NO_RST = Message(
+    id="W0009",
+    name="no-rst",
+    message="Do not use RST style. Use Google style instead.",
+    reason="For readability",
+)

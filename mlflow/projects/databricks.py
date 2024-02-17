@@ -156,8 +156,9 @@ class DatabricksJobRunner:
         Tars a project directory into an archive in a temp dir and uploads it to DBFS, returning
         the HDFS-style URI of the tarball in DBFS (e.g. dbfs:/path/to/tar).
 
-        :param project_dir: Path to a directory containing an MLflow project to upload to DBFS (e.g.
-                            a directory containing an MLproject file).
+        Args:
+            project_dir: Path to a directory containing an MLflow project to upload to DBFS (e.g.
+                a directory containing an MLproject file).
         """
         with tempfile.TemporaryDirectory() as temp_tarfile_dir:
             temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
@@ -198,19 +199,21 @@ class DatabricksJobRunner:
         """
         Run the specified shell command on a Databricks cluster.
 
-        :param project_uri: URI of the project from which the shell command originates.
-        :param command: Shell command to run.
-        :param env_vars: Environment variables to set in the process running ``command``.
-        :param cluster_spec: Dictionary containing a `Databricks cluster specification
-                             <https://docs.databricks.com/dev-tools/api/latest/jobs.html#clusterspec>`_
-                             or a `Databricks new cluster specification
-                             <https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-                             to use when launching a run. If you specify libraries, this function
-                             will add MLflow to the library list. This function does not support
-                             installation of conda environment libraries on the workers.
-        :return: ID of the Databricks job run. Can be used to query the run's status via the
-                 Databricks
-                 `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
+        Args:
+            project_uri: URI of the project from which the shell command originates.
+            command: Shell command to run.
+            env_vars: Environment variables to set in the process running ``command``.
+            cluster_spec: Dictionary containing a `Databricks cluster specification
+                <https://docs.databricks.com/dev-tools/api/latest/jobs.html#clusterspec>`_
+                or a `Databricks new cluster specification
+                <https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+                to use when launching a run. If you specify libraries, this function
+                will add MLflow to the library list. This function does not support
+                installation of conda environment libraries on the workers.
+
+        Returns:
+            ID of the Databricks job run. Can be used to query the run's status via the
+            Databricks `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         if is_release_version():
             mlflow_lib = {"pypi": {"package": f"mlflow=={VERSION}"}}
@@ -291,10 +294,12 @@ class DatabricksJobRunner:
         """
         Get the run result state (string) of a Databricks job run.
 
-        :param databricks_run_id: Integer Databricks job run ID.
-        :returns `RunResultState
-        <https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
-        the run is still active.
+        Args:
+            databricks_run_id: Integer Databricks job run ID.
+
+        Returns:
+            `RunResultState <https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
+            the run is still active.
         """
         res = self.jobs_runs_get(databricks_run_id)
         return res["state"].get("result_state", None)
