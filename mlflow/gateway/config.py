@@ -43,6 +43,7 @@ class Provider(str, Enum):
     HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
     BEDROCK = "bedrock"
+    AMAZON_BEDROCK = "amazon-bedrock"  # an alias for bedrock
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -212,7 +213,7 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: Optional[str] = None
 
 
-class AWSBedrockConfig(ConfigModel):
+class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
@@ -232,7 +233,8 @@ config_types = {
     Provider.ANTHROPIC: AnthropicConfig,
     Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
-    Provider.BEDROCK: AWSBedrockConfig,
+    Provider.BEDROCK: AmazonBedrockConfig,
+    Provider.AMAZON_BEDROCK: AmazonBedrockConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
@@ -291,7 +293,7 @@ class Model(ConfigModel):
             OpenAIConfig,
             AI21LabsConfig,
             AnthropicConfig,
-            AWSBedrockConfig,
+            AmazonBedrockConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
             HuggingFaceTextGenerationInferenceConfig,
