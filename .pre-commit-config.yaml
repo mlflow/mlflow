@@ -24,9 +24,9 @@ repos:
         stages: [commit]
         require_serial: true
 
-      - id: toml
-        name: toml
-        entry: taplo format
+      - id: taplo
+        name: taplo
+        entry: dev/taplo.sh
         language: system
         types: [toml]
         stages: [commit]
