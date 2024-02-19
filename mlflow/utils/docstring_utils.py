@@ -218,7 +218,7 @@ section of the model's conda environment (``conda.yaml``) file.
     - ``extra_pip_requirements``
 
 `This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
-``pip_requirements`` and ``extra_pip_requirements``."""
+``pip_requirements`` and ``extra_pip_requirements``."""  # noqa: E501
         ),
         "signature": (
             """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
