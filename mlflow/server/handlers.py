@@ -1105,6 +1105,125 @@ def get_metric_history_bulk_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def get_metric_history_bulk_interval_handler():
+    MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
+    MAX_RESULTS_PER_RUN = 2500
+
+    args = request.args
+    run_ids = args.to_dict(flat=False).get("run_ids", [])
+    if not run_ids:
+        raise MlflowException.invalid_parameter_value(
+            "GetMetricHistoryBulkInterval request must specify at least one run_id."
+        )
+    if len(run_ids) > MAX_RUNS_GET_METRIC_HISTORY_BULK:
+        raise MlflowException.invalid_parameter_value(
+            f"GetMetricHistoryBulkInterval request must specify at most "
+            f"{MAX_RUNS_GET_METRIC_HISTORY_BULK} run_ids. Received {len(run_ids)} run_ids."
+        )
+    if max_results := args.get("max_results"):
+        if max_results <= 0 or max_results > MAX_RESULTS_PER_RUN:
+            raise MlflowException.invalid_parameter_value(
+                f"Max results must be between 1 and {MAX_RESULTS_PER_RUN}."
+            )
+    else:
+        max_results = MAX_RESULTS_PER_RUN
+
+    metric_key = request.args.get("metric_key")
+    if metric_key is None:
+        raise MlflowException.invalid_parameter_value(
+            "GetMetricHistoryBulkInterval request must specify a metric_key."
+        )
+
+    store = _get_tracking_store()
+
+    def _get_max_step_for_metric(run_id, metric_key):
+        if hasattr(store, "get_max_step_for_metric"):
+            return store.get_max_step_for_metric(run_id, metric_key)
+        return max(m.step for m in store.get_metric_history(run_id, metric_key))
+
+    def _get_sampled_steps_from_steps(start_step, end_step, max_results):
+        num_steps = end_step - start_step + 1
+        interval = num_steps / max_results
+        steps, intervals = [], [-1]
+        for i in range(start_step, end_step):
+            idx = (i - start_step) // interval
+            if idx != intervals[-1]:
+                intervals.append(idx)
+                steps.append(i)
+        return steps
+
+    def _get_sampled_steps(run_ids, metric_key, max_results):
+        start_step = args.get("start_step")
+        end_step = args.get("end_step")
+        if start_step is None and end_step is None:
+            max_steps_per_run = [_get_max_step_for_metric(run_id, metric_key) for run_id in run_ids]
+            max_steps = max(max_steps_per_run)
+            # Get sampled steps and append the max step for each run.
+            sampled_steps = _get_sampled_steps_from_steps(0, max_steps, max_results)
+            return sorted(set(sampled_steps).union(max_steps_per_run))
+        elif start_step is not None and end_step is not None:
+            if start_step > end_step:
+                raise MlflowException.invalid_parameter_value(
+                    "End step must be greater than start step. "
+                    f"Found startStep={start_step} and endStep={end_step}."
+                )
+            sampled_steps = _get_sampled_steps_from_steps(start_step, end_step, max_results)
+            return sorted(set(sampled_steps).union([end_step]))
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Both start step and end step must be specified."
+            )
+
+    def _default_history_bulk_interval_impl():
+        steps = _get_sampled_steps(run_ids, metric_key, max_results)
+        if hasattr(store, "get_metric_history_bulk_interval_from_steps"):
+            return store.get_metric_history_bulk_interval(
+                run_ids=run_ids,
+                metric_key=metric_key,
+                steps=steps,
+                max_results=max_results,
+            )
+        metrics_with_run_ids = []
+        for run_id in sorted(run_ids):
+            metrics_for_run = sorted(
+                [m for m in store.get_metric_history(run_id, metric_key) if m.step in steps],
+                key=lambda metric: metric.step,
+            )
+            metrics_with_run_ids.extend(
+                [
+                    {
+                        "key": metric.key,
+                        "value": metric.value,
+                        "timestamp": metric.timestamp,
+                        "step": metric.step,
+                        "run_id": run_id,
+                    }
+                    for metric in metrics_for_run
+                ]
+            )
+        return metrics_with_run_ids
+
+    if hasattr(store, "get_metric_history_bulk_interval"):
+        metrics_with_run_ids = [
+            metric.to_dict()
+            for metric in store.get_metric_history_bulk_interval(
+                run_ids=run_ids,
+                metric_key=metric_key,
+                start_step=args.get("start_step"),
+                end_step=args.get("end_step"),
+                max_results=max_results,
+            )
+        ]
+    else:
+        metrics_with_run_ids = _default_history_bulk_interval_impl()
+
+    return {
+        "metrics": metrics_with_run_ids,
+    }
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def search_datasets_handler():
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
     _validate_content_type(request, ["application/json"])

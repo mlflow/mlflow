@@ -10,7 +10,7 @@ from typing import List, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, sql, text
+from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -970,6 +970,43 @@ class SqlAlchemyStore(AbstractStore):
                     SqlMetric.run_uuid,
                     SqlMetric.timestamp,
                     SqlMetric.step,
+                    SqlMetric.value,
+                )
+                .limit(max_results)
+                .all()
+            )
+            return [
+                SqlAlchemyStore.MetricWithRunId(
+                    run_id=metric.run_uuid,
+                    metric=metric.to_mlflow_entity(),
+                )
+                for metric in metrics
+            ]
+
+    def get_max_step_for_metric(self, run_id, metric_key):
+        with self.ManagedSessionMaker() as session:
+            max_step = (
+                session.query(func.max(SqlMetric.step))
+                .filter(SqlMetric.run_uuid == run_id, SqlMetric.key == metric_key)
+                .scalar()
+            )
+            return max_step if max_step is not None else 0
+
+    def get_metric_history_bulk_interval_from_steps(
+        self, run_ids, metric_key, steps, max_results=None
+    ):
+        with self.ManagedSessionMaker() as session:
+            metrics = (
+                session.query(SqlMetric)
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid.in_(run_ids),
+                    SqlMetric.step.in_(steps),
+                )
+                .order_by(
+                    SqlMetric.run_uuid,
+                    SqlMetric.step,
+                    SqlMetric.timestamp,
                     SqlMetric.value,
                 )
                 .limit(max_results)
