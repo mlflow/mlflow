@@ -737,8 +737,8 @@ def _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
             "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
         ),
         (
-            "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
-            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # pylint: disable=line-too-long
+            "mysql+driver://user:pass@host:port/dbname/subpath/#fragment",
+            "mysql+driver://user:pass@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",
         ),
         ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}"),
     ],
