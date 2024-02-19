@@ -106,7 +106,6 @@ def test_multi_line_docstring_second_line():
 
 def test_deprecated_and_keyword_first():
     docstring = deprecated_and_keyword_only_first.__doc__
-    # pylint: disable=line-too-long
     assert docstring.rstrip() == (
         """    .. note:: This method requires all argument be specified by keyword.
     .. Warning:: ``tests.utils.test_annotations.deprecated_and_keyword_only_first`` is deprecated since 0.0.0. This method will be removed in a future release.
@@ -116,7 +115,7 @@ Description
         x: x
 
     Returns:
-        y"""
+        y"""  # noqa: E501
     )
 
 
@@ -133,5 +132,5 @@ def test_deprecated_and_keyword_second():
         x: x
 
     Returns:
-        y"""
+        y"""  # noqa: E501
     )

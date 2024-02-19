@@ -74,7 +74,6 @@ disable=all
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once). See also the "--disable" option for examples.
 enable=signature-differs,
-       line-too-long,
        unused-arguments,
        consider-using-dict-items,
        # Built-in rules
