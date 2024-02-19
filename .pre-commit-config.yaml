@@ -24,6 +24,14 @@ repos:
         stages: [commit]
         require_serial: true
 
+      - id: toml
+        name: toml
+        entry: taplo format
+        language: system
+        types: [toml]
+        stages: [commit]
+        require_serial: true
+
       - id: blacken-docs
         name: blacken-docs
         entry: blacken-docs
