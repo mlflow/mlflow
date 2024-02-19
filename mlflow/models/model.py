@@ -616,7 +616,7 @@ class Model:
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
-            if getattr(mlflow_model, "signature") is None and (
+            if mlflow_model.signature is None and (
                 tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
