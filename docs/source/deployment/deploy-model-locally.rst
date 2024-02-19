@@ -77,7 +77,60 @@ CSV input must be a valid pandas.DataFrame CSV representation. For example:
 JSON Input
 **********
 
-JSON input must be a dictionary with exactly one of the following fields, further specifying the input data's type and encoding:
+You can either pass a flat dictionary corresponding to the desired model payload or wrap the
+payload in a dict with a dict key that specifies your payload format. 
+
+Raw Payload Dict
+^^^^^^^^^^^^^^^^
+
+If your payload is in a format that your mlflow served model will accept and it's in the supported
+models below, you can pass a raw payload dict.
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - Supported Model Type
+      - Description
+      - Example
+    * - OpenAI Chat
+      - `OpenAI chat request payload <https://platform.openai.com/docs/api-reference/chat/create>`_.
+        Note that openai's ``model`` kwarg should not be included because we are querying the
+        mlflow served model. However, any other openai.chat parameter defined in our served model's 
+        signature will be applied.
+      - 
+        .. code-block:: python
+
+          {"messages": [{"role": "user", "content": "Tell a joke!"}], "temperature": 0.0}
+
+.. code-block:: python
+  :caption: Example
+
+  # Prerequisite: serve an OpenAI model on localhost:5678 that defines
+  #   `temperature` and `max_tokens` as parameters in our model signature
+
+  import json
+  import requests
+
+  payload = json.dumps(
+      {
+          "messages": [{"role": "user", "content": "Tell a joke!"}],
+          "temperature": 0.5,
+          "max_tokens": 20,
+      }
+  )
+  requests.post(
+      url=f"http://localhost:5678/invocations",
+      data=payload,
+      headers={"Content-Type": "application/json"},
+  )
+  print(requests.json())
+
+Wrapped Payload Dict
+^^^^^^^^^^^^^^^^^^^^
+If your model format is not supported above or you want to avoid transforming your input data to 
+the required payload format, you can leverage the dict payload structures below.
 
 .. list-table::
     :widths: 20 40 40
@@ -89,16 +142,56 @@ JSON input must be a dictionary with exactly one of the following fields, furthe
       - Example
     * - ``dataframe_split``
       - Pandas DataFrames in the ``split`` orientation.
-      - ``{"dataframe_split": pandas_df.to_dict(orient='split')}``
+      - 
+        .. code-block:: python
+
+          {"dataframe_split": pandas_df.to_dict(orient="split")}
+
     * - ``dataframe_records``
       - Pandas DataFrame in the ``records`` orientation. **We do not recommend using this format because it is not guaranteed to preserve column ordering.**
-      - ``{"dataframe_records": pandas_df.to_dict(orient='records')}``
+      - 
+        .. code-block:: python
+          
+          {"dataframe_records": pandas_df.to_dict(orient="records")}
+
     * - ``instances``
       - Tensor input formatted as described in `TF Serving's API docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs will be cast to Numpy arrays.
-      - ``{"instances": [1.0, 2.0, 5.0]}``
+      - 
+        .. code-block:: python
+
+          {"instances": [1.0, 2.0, 5.0]}
+
     * - ``inputs``
       - Same as ``instances`` but with a different key.
-      - ``{"inputs": [["I", "have", "a",  "pen"], ["I" "have", "an", "apple"]]}``
+      - 
+        .. code-block:: python
+
+          {"inputs": [["Hello!"], ["Cheese", "and", "crackers"]]}
+
+.. code-block:: python
+  :caption: Example
+
+  # Prerequisite: serve an OpenAI model on localhost:5678 that defines
+  #   inputs in the below format and params of `temperature` and `max_tokens`
+
+  import json
+  import requests
+
+  payload = json.dumps(
+      {
+          "inputs": [{"role": "user", "content": "Tell a joke!"}],
+          "params": {
+              "temperature": 0.5,
+              "max_tokens": 20,
+          },
+      }
+  )
+  requests.post(
+      url=f"http://localhost:5678/invocations",
+      data=payload,
+      headers={"Content-Type": "application/json"},
+  )
+  print(requests.json())
 
 The JSON input can also include an optional ``params`` field for passing additional parameters.
 Valid parameter types are ``Union[DataType, List[DataType], None]``, where DataType is
