@@ -2,9 +2,9 @@ import base64
 import gc
 import importlib.util
 import json
-import logging
 import os
 import pathlib
+import shutil
 import textwrap
 from unittest import mock
 
@@ -83,8 +83,6 @@ image_file_path = pathlib.Path(pathlib.Path(__file__).parent.parent, "datasets",
 # - Text2TextGeneration pipeline tests
 # - Conversational pipeline tests
 
-_logger = logging.getLogger(__name__)
-
 
 @pytest.fixture(autouse=True)
 def force_gc():
@@ -98,7 +96,14 @@ def force_gc():
 
 @pytest.fixture
 def model_path(tmp_path):
-    return tmp_path.joinpath("model")
+    model_path = tmp_path.joinpath("model")
+    yield model_path
+
+    # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
+    # by default. This is useful for debugging during local testing, but in CI it just wastes the
+    # disk space.
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        shutil.rmtree(model_path, ignore_errors=True)
 
 
 @pytest.fixture
@@ -1109,7 +1114,7 @@ def test_text2text_generation_pipeline_with_model_configs(
 
 
 def test_text2text_generation_pipeline_with_model_config_and_params(
-    text2text_generation_pipeline, tmp_path
+    text2text_generation_pipeline, model_path
 ):
     data = "muppet keyboard type"
     model_config = {
@@ -1129,7 +1134,6 @@ def test_text2text_generation_pipeline_with_model_config_and_params(
         parameters,
     )
 
-    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
@@ -1151,7 +1155,9 @@ def test_text2text_generation_pipeline_with_model_config_and_params(
     assert res == pyfunc_loaded.predict(data, {"extra_param": "extra_value"})
 
 
-def test_text2text_generation_pipeline_with_params_success(text2text_generation_pipeline, tmp_path):
+def test_text2text_generation_pipeline_with_params_success(
+    text2text_generation_pipeline, model_path
+):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5, "do_sample": True}
     generated_output = mlflow.transformers.generate_signature_output(
@@ -1163,7 +1169,6 @@ def test_text2text_generation_pipeline_with_params_success(text2text_generation_
         parameters,
     )
 
-    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
@@ -1178,7 +1183,7 @@ def test_text2text_generation_pipeline_with_params_success(text2text_generation_
 
 
 def test_text2text_generation_pipeline_with_params_with_errors(
-    text2text_generation_pipeline, tmp_path
+    text2text_generation_pipeline, model_path
 ):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param", "do_sample": True}
@@ -1186,7 +1191,6 @@ def test_text2text_generation_pipeline_with_params_with_errors(
         text2text_generation_pipeline, data
     )
 
-    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
@@ -3536,7 +3540,7 @@ def test_model_on_single_device():
     assert not _is_model_distributed_in_memory(mock_model)
 
 
-def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
+def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path, model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -3555,10 +3559,10 @@ def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
         MlflowException,
         match="The model that is attempting to be saved has been loaded into memory",
     ):
-        mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+        mlflow.transformers.save_model(transformers_model=pipeline, path=model_path)
 
 
-def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
+def test_basic_model_with_accelerate_homogeneous_mapping_works(model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -3572,9 +3576,9 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
     )
     pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
 
-    mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+    mlflow.transformers.save_model(transformers_model=pipeline, path=model_path)
 
-    loaded = mlflow.transformers.load_model(str(tmp_path / "model"))
+    loaded = mlflow.transformers.load_model(model_path)
     text = "Apples are delicious"
     assert loaded(text) == pipeline(text)
 
