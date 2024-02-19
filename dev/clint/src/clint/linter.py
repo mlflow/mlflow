@@ -26,8 +26,7 @@ def ignore_map(code: str) -> dict[str, set[int]]:
     for tok in tokenize.generate_tokens(readline):
         if tok.type != tokenize.COMMENT:
             continue
-        comment = tok.string.strip()
-        if m := DISABLE_COMMENT_REGEX.search(comment):
+        if m := DISABLE_COMMENT_REGEX.search(tok.string):
             mapping.setdefault(m.group(1), set()).add(tok.start[0])
     return mapping
 
@@ -47,7 +46,7 @@ class Violation:
     col_offset: int
 
     def __str__(self):
-        return f"{self.path}:{self.lineno}:{self.col_offset}: {self.rule.message}"
+        return f"{self.path}:{self.lineno}: {self.id}:{self.col_offset}: {self.rule.message}"
 
     def json(self) -> dict[str, str | int]:
         return {
@@ -66,12 +65,12 @@ class Violation:
 
 
 NO_RST = Rule(
-    "C001",
+    "Z001",
     "no-rst",
     "Do not use RST style. Use Google style instead.",
 )
 LAZY_BUILTIN_IMPORT = Rule(
-    "C002",
+    "Z002",
     "lazy-builtin-import",
     "Builtin modules must be imported at the top level.",
 )
@@ -130,7 +129,7 @@ class Linter(ast.NodeVisitor):
         ):
             self._check(nd, NO_RST)
 
-    def _is_in_function(self):
+    def _is_in_function(self) -> bool:
         return bool(self.stack)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
