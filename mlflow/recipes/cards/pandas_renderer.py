@@ -298,7 +298,7 @@ def construct_facets_html(
         <link rel="import" href="https://raw.githubusercontent.com/PAIR-code/facets/1.0.0/facets-dist/facets-jupyter.html" >
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
         </div>
-    """
+    """  # noqa: E501
     return html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
 
 

@@ -88,7 +88,6 @@ select = [
 ]
 ignore = [
   "E402",  # module-import-not-at-top-of-file
-  "E501",  # line-too-long
   "E721",  # type-comparison
   "E741",  # ambiguous-variable-name
   "F811",  # redefined-while-unused
@@ -96,8 +95,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
-"examples/*" = ["T20", "RET504"]
-"docs/*" = ["T20", "RET504"]
+"examples/*" = ["T20", "RET504", "E501"]
+"docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]
 
 [tool.ruff.lint.flake8-pytest-style]
