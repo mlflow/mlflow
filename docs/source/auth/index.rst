@@ -645,7 +645,7 @@ In the case of a multi-node deployment, it is recommended to use a centralized d
 To connect to a centralized database, you can set the ``database_uri`` configuration variable to the database URL.
 
 .. code-block:: ini
-    :caption: /path/to/my_auth_config.ini
+    :caption: Example: ``/path/to/my_auth_config.ini``
 
     [mlflow]
     database_uri = postgresql://username:password@hostname:port/database
