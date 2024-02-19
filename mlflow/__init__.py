@@ -29,6 +29,10 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
 
+from mlflow.version import VERSION
+
+__version__ = VERSION
+
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
@@ -40,7 +44,6 @@ from mlflow import (
 )
 from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
-from mlflow.version import VERSION as __version__  # noqa: F401
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
