@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long
+# ruff: noqa: E501
 
 
 def format_help_string(help_string):
