@@ -19,6 +19,7 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
+from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
@@ -286,7 +287,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
-class MlflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
+class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBase):
     """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
     This callback implementation only supports pytorch-lightning >= 1.6.0.
     """
@@ -323,111 +324,28 @@ class MlflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
                 could reflect as little as 1 batch, since the metrics get reset
                 every epoch). Defaults to `"epoch"`.
         """
-        self.client = client
-        self.run_id = run_id
-        self.monitor = monitor
-        self.mode = mode
-        self.save_best_only = save_best_only
-        self.save_weights_only = save_weights_only
-        self.save_freq = save_freq
-        self.last_monitor_value = None
-
-        if self.save_best_only:
-            if self.monitor is None:
-                raise MlflowException(
-                    "If checkpoint 'save_best_only' config is set to True, you need to set "
-                    "'monitor' config as well."
-                )
-            if self.mode not in ["min", "max"]:
-                raise MlflowException(
-                    "If checkpoint 'save_best_only' config is set to True, you need to set "
-                    "'mode' config and available modes includes 'min' and 'max', but you set "
-                    f"'mode' to '{self.mode}'."
-                )
-
-    def _is_new_checkpoint_better(self, new_monitor_value):
-        if self.last_monitor_value is None:
-            return True
-
-        if self.mode == "min":
-            return new_monitor_value <= self.last_monitor_value
-
-        return new_monitor_value >= self.last_monitor_value
-
-    def _save_checkpoint_rank_zero_only(self, trainer: "pl.Trainer", filepath: str):
-        checkpoint = trainer._checkpoint_connector.dump_checkpoint(self.save_weights_only)
-        trainer.strategy.save_checkpoint(checkpoint, filepath)
-
-    def _check_and_save_checkpoint_if_needed(self, trainer: "pl.Trainer"):
-        current_epoch = trainer.current_epoch
-        metric_dict = {k: float(v) for k, v in trainer.callback_metrics.items()}
-
-        if self.save_best_only:
-            if self.monitor not in metric_dict:
-                _logger.warning(
-                    "Checkpoint logging is skipped, because checkpoint 'save_best_only' config is "
-                    "True, it requires to compare the monitored metric value, but the provided "
-                    "monitored metric value is not available."
-                )
-                return
-
-            new_monitor_value = metric_dict[self.monitor]
-            if not self._is_new_checkpoint_better(new_monitor_value):
-                # Current checkpoint is worse than last saved checkpoint,
-                # so skip checkpointing.
-                self.last_monitor_value = new_monitor_value
-                return
-
-            self.last_monitor_value = new_monitor_value
-
-        if self.save_best_only:
-            if self.save_weights_only:
-                checkpoint_model_filename = "latest_checkpoint.weights.pth"
-            else:
-                checkpoint_model_filename = "latest_checkpoint.pth"
-            checkpoint_metrics_filename = "latest_checkpoint_metrics.json"
-            checkpoint_artifact_dir = "checkpoints"
-        else:
-            if self.save_freq == "epoch":
-                sub_dir_name = f"epoch_{current_epoch}"
-            else:
-                sub_dir_name = f"global_step_{trainer.global_step}"
-
-            if self.save_weights_only:
-                checkpoint_model_filename = "checkpoint.weights.pth"
-            else:
-                checkpoint_model_filename = "checkpoint.pth"
-            checkpoint_metrics_filename = "checkpoint_metrics.json"
-            checkpoint_artifact_dir = f"checkpoints/{sub_dir_name}"
-
-        self.client.set_tag(
-            self.run_id,
-            LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
-            f"{checkpoint_artifact_dir}/{checkpoint_model_filename}",
+        super().__init__(
+            client=client,
+            run_id=run_id,
+            monitor=monitor,
+            mode=mode,
+            save_best_only=save_best_only,
+            save_weights_only=save_weights_only,
+            save_freq=save_freq,
         )
+        self.trainer = None
 
-        self.client.log_dict(
-            self.run_id,
-            {**metric_dict, "epoch": current_epoch, "global_step": trainer.global_step},
-            f"{checkpoint_artifact_dir}/{checkpoint_metrics_filename}",
+    def save_checkpoint(self, filepath: str):
+        # Note: `trainer.save_checkpoint` implementation contains invocation of
+        # `self.strategy.barrier("Trainer.save_checkpoint")`,
+        # in DDP training, this callback is only invoked in rank 0 process,
+        # the `barrier` invocation causes deadlock,
+        # so I implement `save_checkpoint` instead of
+        # calling `trainer.save_checkpoint`.
+        checkpoint = self.trainer._checkpoint_connector.dump_checkpoint(
+            self.save_weights_only
         )
-
-        tmp_dir = create_tmp_dir()
-        try:
-            tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
-            # Note: `trainer.save_checkpoint` implementation contains invocation of
-            # `self.strategy.barrier("Trainer.save_checkpoint")`,
-            # in DDP training, this callback is only invoked in rank 0 process,
-            # the `barrier` invocation causes deadlock,
-            # so I implement `_save_checkpoint_rank_zero_only` instead of
-            # `trainer.save_checkpoint`.
-            self._save_checkpoint_rank_zero_only(
-                trainer,
-                tmp_model_save_path,
-            )
-            self.client.log_artifact(self.run_id, tmp_model_save_path, checkpoint_artifact_dir)
-        finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+        self.trainer.strategy.save_checkpoint(checkpoint, filepath)
 
     @rank_zero_only
     def on_train_batch_end(
@@ -438,15 +356,25 @@ class MlflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
         batch,
         batch_idx,
     ) -> None:
+        self.trainer = trainer
         if isinstance(self.save_freq, int) and (
             trainer.global_step > 0 and trainer.global_step % self.save_freq == 0
         ):
-            self._check_and_save_checkpoint_if_needed(trainer)
+            self.check_and_save_checkpoint_if_needed(
+                current_epoch=trainer.current_epoch,
+                global_step=trainer.global_step,
+                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()}
+            )
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        self.trainer = trainer
         if self.save_freq == "epoch":
-            self._check_and_save_checkpoint_if_needed(trainer)
+            self.check_and_save_checkpoint_if_needed(
+                current_epoch=trainer.current_epoch,
+                global_step=trainer.global_step,
+                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()}
+            )
 
 
 # PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics
