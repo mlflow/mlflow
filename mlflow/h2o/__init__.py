@@ -316,9 +316,9 @@ def _load_model(path, init=False):
             "Please upgrade H2O version to a newer version"
         )
         if "model_format" in params and params["model_format"] == MODEL_FORMAT_MOJO:
-            model = h2o.import_mojo(path=model_path)
+            model = h2o.import_mojo(model_path)
         else:
-            model = h2o.load_model(path=model_path)
+            model = h2o.load_model(model_path)
 
     return model
 
