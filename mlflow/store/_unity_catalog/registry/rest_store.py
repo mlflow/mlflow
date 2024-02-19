@@ -196,7 +196,7 @@ class UcModelRegistryStore(BaseRestStore):
             GetModelVersionRequest: GetModelVersionResponse,
             SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
             GenerateTemporaryModelVersionCredentialsRequest: (
-                GenerateTemporaryModelVersionCredentialsResponse,
+                GenerateTemporaryModelVersionCredentialsResponse
             ),
             GetRun: GetRun.Response,
             SetRegisteredModelAliasRequest: SetRegisteredModelAliasResponse,
