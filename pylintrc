@@ -76,11 +76,6 @@ disable=all
 enable=signature-differs,
        unused-arguments,
        consider-using-dict-items,
-       # Built-in rules
-       # --------------
-       # Custom rules
-       lazy-builtin-import,
-       no-rst,
 
 [REPORTS]
 

@@ -32,12 +32,11 @@ repos:
         stages: [commit]
         require_serial: true
 
-      - id: pylint
-        name: pylint
-        entry: pylint
+      - id: clint
+        name: clint
+        entry: python dev/clint.py
         language: system
         types: [python]
-        args: ["--rcfile=pylintrc"]
         stages: [commit]
         require_serial: true
 
