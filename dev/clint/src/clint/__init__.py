@@ -1,10 +1,10 @@
-"""
-A custom linter to enforce rules that ruff doesn't cover.
-"""
 from __future__ import annotations
 
+import argparse
 import ast
 import itertools
+import json
+import os
 import re
 import sys
 import tokenize
@@ -13,226 +13,11 @@ from dataclasses import dataclass
 
 import tomli
 
+from clint.builtin import BUILTIN_MODULES
+
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
 DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+)")
-
-# https://github.com/PyCQA/isort/blob/b818cec889657cb786beafe94a6641f8fc0f0e64/isort/stdlibs/py311.py
-BUILTIN_MODULES = {
-    "_ast",
-    "_thread",
-    "abc",
-    "aifc",
-    "argparse",
-    "array",
-    "ast",
-    "asynchat",
-    "asyncio",
-    "asyncore",
-    "atexit",
-    "audioop",
-    "base64",
-    "bdb",
-    "binascii",
-    "bisect",
-    "builtins",
-    "bz2",
-    "cProfile",
-    "calendar",
-    "cgi",
-    "cgitb",
-    "chunk",
-    "cmath",
-    "cmd",
-    "code",
-    "codecs",
-    "codeop",
-    "collections",
-    "colorsys",
-    "compileall",
-    "concurrent",
-    "configparser",
-    "contextlib",
-    "contextvars",
-    "copy",
-    "copyreg",
-    "crypt",
-    "csv",
-    "ctypes",
-    "curses",
-    "dataclasses",
-    "datetime",
-    "dbm",
-    "decimal",
-    "difflib",
-    "dis",
-    "distutils",
-    "doctest",
-    "email",
-    "encodings",
-    "ensurepip",
-    "enum",
-    "errno",
-    "faulthandler",
-    "fcntl",
-    "filecmp",
-    "fileinput",
-    "fnmatch",
-    "fractions",
-    "ftplib",
-    "functools",
-    "gc",
-    "getopt",
-    "getpass",
-    "gettext",
-    "glob",
-    "graphlib",
-    "grp",
-    "gzip",
-    "hashlib",
-    "heapq",
-    "hmac",
-    "html",
-    "http",
-    "idlelib",
-    "imaplib",
-    "imghdr",
-    "imp",
-    "importlib",
-    "inspect",
-    "io",
-    "ipaddress",
-    "itertools",
-    "json",
-    "keyword",
-    "lib2to3",
-    "linecache",
-    "locale",
-    "logging",
-    "lzma",
-    "mailbox",
-    "mailcap",
-    "marshal",
-    "math",
-    "mimetypes",
-    "mmap",
-    "modulefinder",
-    "msilib",
-    "msvcrt",
-    "multiprocessing",
-    "netrc",
-    "nis",
-    "nntplib",
-    "ntpath",
-    "numbers",
-    "operator",
-    "optparse",
-    "os",
-    "ossaudiodev",
-    "pathlib",
-    "pdb",
-    "pickle",
-    "pickletools",
-    "pipes",
-    "pkgutil",
-    "platform",
-    "plistlib",
-    "poplib",
-    "posix",
-    "posixpath",
-    "pprint",
-    "profile",
-    "pstats",
-    "pty",
-    "pwd",
-    "py_compile",
-    "pyclbr",
-    "pydoc",
-    "queue",
-    "quopri",
-    "random",
-    "re",
-    "readline",
-    "reprlib",
-    "resource",
-    "rlcompleter",
-    "runpy",
-    "sched",
-    "secrets",
-    "select",
-    "selectors",
-    "shelve",
-    "shlex",
-    "shutil",
-    "signal",
-    "site",
-    "smtpd",
-    "smtplib",
-    "sndhdr",
-    "socket",
-    "socketserver",
-    "spwd",
-    "sqlite3",
-    "sre",
-    "sre_compile",
-    "sre_constants",
-    "sre_parse",
-    "ssl",
-    "stat",
-    "statistics",
-    "string",
-    "stringprep",
-    "struct",
-    "subprocess",
-    "sunau",
-    "symtable",
-    "sys",
-    "sysconfig",
-    "syslog",
-    "tabnanny",
-    "tarfile",
-    "telnetlib",
-    "tempfile",
-    "termios",
-    "test",
-    "textwrap",
-    "threading",
-    "time",
-    "timeit",
-    "tkinter",
-    "token",
-    "tokenize",
-    "tomllib",
-    "trace",
-    "traceback",
-    "tracemalloc",
-    "tty",
-    "turtle",
-    "turtledemo",
-    "types",
-    "typing",
-    "unicodedata",
-    "unittest",
-    "urllib",
-    "uu",
-    "uuid",
-    "venv",
-    "warnings",
-    "wave",
-    "weakref",
-    "webbrowser",
-    "winreg",
-    "winsound",
-    "wsgiref",
-    "xdrlib",
-    "xml",
-    "xmlrpc",
-    "zipapp",
-    "zipfile",
-    "zipimport",
-    "zlib",
-    "zoneinfo",
-}
 
 
 def ignore_map(code: str) -> dict[str, set[int]]:
@@ -245,8 +30,8 @@ def ignore_map(code: str) -> dict[str, set[int]]:
     }
     """
     mapping: dict[str, set[int]] = {}
-    lines = iter(code.splitlines(True))
-    for tok in tokenize.generate_tokens(lambda: next(lines)):
+    readline = iter(code.splitlines(True)).__next__
+    for tok in tokenize.generate_tokens(readline):
         if tok.type != tokenize.COMMENT:
             continue
         comment = tok.string.strip()
@@ -257,6 +42,7 @@ def ignore_map(code: str) -> dict[str, set[int]]:
 
 @dataclass
 class Rule:
+    id: str
     name: str
     message: str
 
@@ -271,10 +57,31 @@ class Violation:
     def __str__(self):
         return f"{self.path}:{self.lineno}:{self.col_offset}: {self.rule.message}"
 
+    def json(self) -> dict[str, str | int]:
+        return {
+            "type": "error",
+            "module": None,
+            "obj": None,
+            "line": self.lineno,
+            "column": self.col_offset,
+            "endLine": self.lineno,
+            "endColumn": self.col_offset,
+            "path": self.path,
+            "symbol": self.rule.name,
+            "message": self.rule.message,
+            "message-id": self.rule.id,
+        }
 
-NO_RST = Rule("no-rst", "Do not use RST style. Use Google style instead.")
+
+NO_RST = Rule(
+    "C001",
+    "no-rst",
+    "Do not use RST style. Use Google style instead.",
+)
 LAZY_BUILTIN_IMPORT = Rule(
-    "lazy-builtin-import", "Builtin modules must be imported at the top level."
+    "C002",
+    "lazy-builtin-import",
+    "Builtin modules must be imported at the top level.",
 )
 
 
@@ -361,7 +168,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
-            self._check(node, LAZY_BUILTIN_IMPORT)
+            self._check(node.module, LAZY_BUILTIN_IMPORT)
         self.generic_visit(node)
 
 
@@ -373,21 +180,48 @@ def lint_file(path: str) -> list[Violation]:
         return linter.violations
 
 
-def _exclude_regex() -> re.Pattern:
-    with open("pyproject.toml", "rb") as f:
-        data = tomli.load(f)
-        exclude = data["tool"]["clint"]["exclude"]
-        return re.compile("|".join(map(re.escape, exclude)))
+@dataclass
+class Config:
+    exclude: list[str]
+
+    @staticmethod
+    def load() -> Config:
+        with open("pyproject.toml", "rb") as f:
+            data = tomli.load(f)
+            exclude = data["tool"]["clint"]["exclude"]
+            return Config(exclude)
+
+
+@dataclass
+class Args:
+    files: list[str]
+    output_format: str
+
+    @classmethod
+    def parse(cls) -> Args:
+        parser = argparse.ArgumentParser(description="Custom linter for enforcing rules.")
+        parser.add_argument("files", nargs="+", help="Files to lint.")
+        parser.add_argument("--output-format", default="text")
+        args, _ = parser.parse_known_args()
+        return cls(files=args.files, output_format=args.output_format)
 
 
 def main():
-    EXCLUDE_REGEX = _exclude_regex()
-    files = sys.argv[1:]
+    config = Config.load()
+    EXCLUDE_REGEX = re.compile("|".join(map(re.escape, config.exclude)))
+    args = Args.parse()
     with ProcessPoolExecutor() as pool:
-        futures = [pool.submit(lint_file, f) for f in files if not EXCLUDE_REGEX.match(f)]
+        futures = [
+            pool.submit(lint_file, f)
+            for f in args.files
+            if not EXCLUDE_REGEX.match(f) and os.path.exists(f)
+        ]
         violations_iter = itertools.chain.from_iterable(f.result() for f in as_completed(futures))
         if violations := list(violations_iter):
-            sys.stderr.write("\n".join(map(str, violations)) + "\n")
+            if args.output_format == "json":
+                sys.stdout.write(json.dumps([v.json() for v in violations]))
+            elif args.output_format == "text":
+                sys.stderr.write("\n".join(map(str, violations)) + "\n")
             sys.exit(1)
 
 

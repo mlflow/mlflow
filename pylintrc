@@ -15,8 +15,7 @@ ignore-patterns=
 
 # Add files or directories matching the regex patterns to the ignore-list.
 # The regex matches against paths.
-ignore-paths=setup.py,
-             docs,
+ignore-paths=docs,
              examples,
              mlflow/protos,
              mlflow/ml_package_versions.py,
@@ -74,7 +73,7 @@ disable=all
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once). See also the "--disable" option for examples.
 enable=signature-differs,
-       unused-arguments,
+       unused-argument,
        consider-using-dict-items,
 
 [REPORTS]
