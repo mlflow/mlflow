@@ -195,8 +195,9 @@ class UcModelRegistryStore(BaseRestStore):
             GetRegisteredModelRequest: GetRegisteredModelResponse,
             GetModelVersionRequest: GetModelVersionResponse,
             SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
-            # pylint: disable=line-too-long
-            GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
+            GenerateTemporaryModelVersionCredentialsRequest: (
+                GenerateTemporaryModelVersionCredentialsResponse
+            ),
             GetRun: GetRun.Response,
             SetRegisteredModelAliasRequest: SetRegisteredModelAliasResponse,
             DeleteRegisteredModelAliasRequest: DeleteRegisteredModelAliasResponse,

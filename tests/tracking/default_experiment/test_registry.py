@@ -62,7 +62,9 @@ def test_default_experiment_provider_registry_register_entrypoints_handles_excep
 def _currently_registered_default_experiment_provider_classes():
     return {
         provider.__class__
-        for provider in mlflow.tracking.default_experiment.registry._default_experiment_provider_registry  # pylint: disable=line-too-long
+        for provider in (
+            mlflow.tracking.default_experiment.registry._default_experiment_provider_registry
+        )
     }
 
 

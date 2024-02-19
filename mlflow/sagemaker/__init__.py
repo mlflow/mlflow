@@ -332,11 +332,11 @@ def _deploy(
                 :caption: Example
                     "AsyncInferenceConfig": {
                         "ClientConfig": {
-                            "MaxConcurrentInvocationsPerInstance": 4  # pylint: disable=line-too-long
+                            "MaxConcurrentInvocationsPerInstance": 4
                         },
                         "OutputConfig": {
-                            "S3OutputPath": "s3://<path-to-output-bucket>",  # pylint: disable=line-too-long
-                            "NotificationConfig": {},  # pylint: disable=line-too-long
+                            "S3OutputPath": "s3://<path-to-output-bucket>",
+                            "NotificationConfig": {},
                         },
                     }
         serverless_config: An optional dictionary specifying the serverless configuration
@@ -1694,7 +1694,7 @@ def _update_sagemaker_endpoint(
         role: SageMaker execution ARN role.
         sage_client: A boto3 client for SageMaker.
         s3_client: A boto3 client for S3.
-        variant_name: The name to assign to the new production variant if it doesn't already exist. # pylint: disable=line-too-long
+        variant_name: The name to assign to the new production variant if it doesn't already exist.
         async_inference_config: A dictionary specifying the async inference configuration to use.
             For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html.
             Defaults to ``None``.
