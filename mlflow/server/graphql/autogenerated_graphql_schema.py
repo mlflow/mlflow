@@ -81,7 +81,7 @@ class MlflowRun(graphene.ObjectType):
 
 
 class MlflowGetRunResponse(graphene.ObjectType):
-    run = graphene.Field(MlflowRun)
+    run = graphene.Field('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension')
 
 
 class MlflowExperimentTag(graphene.ObjectType):
@@ -113,20 +113,20 @@ class MlflowGetExperimentInput(graphene.InputObjectType):
 
 
 class QueryType(graphene.ObjectType):
-    mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
     mlflow_get_experiment = graphene.Field(MlflowGetExperimentResponse, input=MlflowGetExperimentInput())
-
-    def resolve_mlflow_get_run(self, info, input):
-        input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.GetRun()
-        parse_dict(input_dict, request_message)
-        return mlflow.server.handlers.get_run_impl(request_message)
+    mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
 
     def resolve_mlflow_get_experiment(self, info, input):
         input_dict = vars(input)
         request_message = mlflow.protos.service_pb2.GetExperiment()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_experiment_impl(request_message)
+
+    def resolve_mlflow_get_run(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.GetRun()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.get_run_impl(request_message)
 
 
 class MutationType(graphene.ObjectType):

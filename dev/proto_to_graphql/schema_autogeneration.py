@@ -82,7 +82,6 @@ def generate_schema(state):
     schema_builder += "# Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.\n"
     schema_builder += "import graphene\n"
     schema_builder += "import mlflow\n"
-    schema_builder += "from mlflow.server.graphql import graphql_schema_extensions\n"
     schema_builder += "from mlflow.server.graphql.graphql_custom_scalars import LongString\n"
     schema_builder += "from mlflow.utils.proto_json_utils import parse_dict\n"
     schema_builder += "\n"
@@ -149,7 +148,9 @@ def generate_schema(state):
 
 def apply_schema_extension(referenced_class_name):
     if referenced_class_name in EXTENDED_TO_EXTENDING:
-        return f"graphql_schema_extensions.{EXTENDED_TO_EXTENDING[referenced_class_name]}"
+        # Using dotted module path as pointed out in the linked GitHub issue. This is an undocumented feature of Graphene.
+        # https://github.com/graphql-python/graphene/issues/110#issuecomment-1219737639
+        return f"'mlflow.server.graphql.graphql_schema_extensions.{EXTENDED_TO_EXTENDING[referenced_class_name]}'"
     else:
         return referenced_class_name
 
