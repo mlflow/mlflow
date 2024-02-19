@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clint"
-description = "A custom linter to enforce rules that ruff doesn't support."
 version = "0.1.0"
+description = "A custom linter to enforce rules that ruff doesn't support."
+readme = "README.md"
 authors = [{ name = "mlflow", email = "mlflow@mlflow.com" }]
 dependencies = ["tomli"]
 
