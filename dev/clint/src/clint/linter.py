@@ -48,7 +48,7 @@ class Violation:
     def __str__(self):
         return f"{self.path}:{self.lineno}:{self.col_offset}: {self.rule.id}: {self.rule.message}"
 
-    def json(self) -> dict[str, str | int]:
+    def json(self) -> dict[str, str | int | None]:
         return {
             "type": "error",
             "module": None,
