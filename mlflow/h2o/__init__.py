@@ -15,11 +15,12 @@ from typing import Any, Dict, Optional
 import yaml
 
 import mlflow
-from mlflow import pyfunc
+from mlflow import MlflowException, pyfunc
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -49,6 +50,11 @@ FLAVOR_NAME = "h2o"
 
 _logger = logging.getLogger(__name__)
 
+MODEL_FORMAT_BINARY = "binary"
+MODEL_FORMAT_MOJO = "mojo"
+
+SUPPORTED_MODEL_FORMATS = [MODEL_FORMAT_BINARY, MODEL_FORMAT_MOJO]
+
 
 def get_default_pip_requirements():
     """
@@ -69,6 +75,17 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+def _validate_export_format(model_format):
+    if model_format not in SUPPORTED_MODEL_FORMATS:
+        raise MlflowException(
+            message=(
+                f"Unrecognized model export format: {model_format}. Please specify one"
+                f" of the following supported formats: {SUPPORTED_MODEL_FORMATS}."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     h2o_model,
@@ -82,6 +99,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    model_format=MODEL_FORMAT_BINARY,
 ):
     """Save an H2O model to a path on the local file system.
 
@@ -101,11 +119,15 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
+        model_format: The format in which to export the model. This should be one of
+            the formats listed in `mlflow.h2o.SUPPORTED_MODEL_FORMATS`. The mojo
+            format, `mlflow.h2o.MODEL_FORMAT_MOJO`, provides better cross-version
+            compatibility between h2o versions.
     """
     import h2o
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-
+    _validate_export_format(model_format)
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     model_data_subpath = "model.h2o"
@@ -129,14 +151,22 @@ def save_model(
         mlflow_model.metadata = metadata
 
     # Save h2o-model
-    if hasattr(h2o, "download_model"):
-        h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
+    if hasattr(h2o_model, "download_mojo") or hasattr(h2o, "download_model"):
+        # Not all h2o estimators can be exported as mojo models
+        # Refer to h2o mojo documentation for additional information.
+        if model_format == MODEL_FORMAT_MOJO:
+            h2o_save_location = h2o_model.download_mojo(path=model_data_path)
+        else:
+            h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
     else:
         warnings.warn(
             "If your cluster is remote, H2O may not store the model correctly. "
             "Please upgrade H2O version to a newer version"
         )
-        h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
+        if model_format == MODEL_FORMAT_MOJO:
+            h2o_save_location = h2o_model.save_mojo(path=model_data_path, force=True)
+        else:
+            h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
@@ -145,6 +175,9 @@ def save_model(
     settings["full_file"] = h2o_save_location
     settings["model_file"] = model_file
     settings["model_dir"] = model_data_path
+    settings["model_estimator"] = h2o_model.algo
+    settings["model_estimator_class"] = h2o_model.__class__.__name__
+    settings["model_format"] = model_format
     with open(os.path.join(model_data_path, "h2o.yaml"), "w") as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 
@@ -209,6 +242,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    model_format=MODEL_FORMAT_BINARY,
     **kwargs,
 ):
     """Log an H2O model as an MLflow artifact for the current run.
@@ -231,6 +265,10 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
+        model_format: The format in which to export the model. This should be one of
+            the formats listed in `mlflow.h2o.SUPPORTED_MODEL_FORMATS`. The mojo
+            format, `mlflow.h2o.MODEL_FORMAT_MOJO`, provides better cross-version
+            compatibility between h2o versions.
         kwargs: kwargs to pass to ``h2o.save_model`` method.
 
     Returns:
@@ -238,6 +276,7 @@ def log_model(
         metadata of the logged model.
 
     """
+    _validate_export_format(model_format)
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.h2o,
@@ -250,6 +289,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        model_format=model_format,
         **kwargs,
     )
 
@@ -265,14 +305,20 @@ def _load_model(path, init=False):
         h2o.no_progress()
 
     model_path = os.path.join(path, params["model_file"])
-    if hasattr(h2o, "upload_model"):
-        model = h2o.upload_model(model_path)
+    if hasattr(h2o, "upload_mojo") or hasattr(h2o, "upload_model"):
+        if "model_format" in params and params["model_format"] == MODEL_FORMAT_MOJO:
+            model = h2o.upload_mojo(model_path)
+        else:
+            model = h2o.upload_model(model_path)
     else:
         warnings.warn(
             "If your cluster is remote, H2O may not load the model correctly. "
             "Please upgrade H2O version to a newer version"
         )
-        model = h2o.load_model(model_path)
+        if "model_format" in params and params["model_format"] == MODEL_FORMAT_MOJO:
+            model = h2o.import_mojo(path=model_path)
+        else:
+            model = h2o.load_model(path=model_path)
 
     return model
 
