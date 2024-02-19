@@ -46,7 +46,7 @@ class Violation:
     col_offset: int
 
     def __str__(self):
-        return f"{self.path}:{self.lineno}: {self.rule.id}:{self.col_offset}: {self.rule.message}"
+        return f"{self.path}:{self.lineno}:{self.col_offset}: {self.rule.id}: {self.rule.message}"
 
     def json(self) -> dict[str, str | int]:
         return {
