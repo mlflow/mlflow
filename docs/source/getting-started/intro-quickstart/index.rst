@@ -164,7 +164,7 @@ The steps that we will take are:
     .. code-block:: python
         :name: log-model
 
-        # Set our tracking server uri for logging\
+        # Set our tracking server uri for logging
         # Note this depends on the server created in step 2. If you skipped step 2, comment out the below line.
         mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
 
