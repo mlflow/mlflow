@@ -86,7 +86,6 @@ select = [
   "UP034",   # extraneous-parenthesis
   "W",       # warning
 ]
-
 ignore = [
   "E402", # module-import-not-at-top-of-file
   "E721", # type-comparison
