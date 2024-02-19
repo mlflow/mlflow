@@ -1016,7 +1016,7 @@ def test_make_genai_metric_metric_details():
 
     assert custom_metric.__str__() == (
         f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, "
-        f"version=1, metric_details={expected_metric_details})"
+        f"version=v1, metric_details={expected_metric_details})"
     )
 
 
