@@ -34,7 +34,7 @@ repos:
 
       - id: clint
         name: clint
-        entry: python dev/clint.py
+        entry: clint
         language: system
         types: [python]
         stages: [commit]
