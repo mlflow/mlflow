@@ -5,6 +5,7 @@ from autogeneration_utils import (
     INDENT,
     INDENT2,
     SCHEMA_EXTENSION,
+    SCHEMA_EXTENSION_MODULE,
     get_descriptor_full_pascal_name,
     get_method_name,
     method_descriptor_to_generated_pb2_file_name,
@@ -148,9 +149,10 @@ def generate_schema(state):
 
 def apply_schema_extension(referenced_class_name):
     if referenced_class_name in EXTENDED_TO_EXTENDING:
-        # Using dotted module path as pointed out in the linked GitHub issue. This is an undocumented feature of Graphene.
+        # Using dotted module path as pointed out in the linked GitHub issue.r
+        # This is an undocumented feature of Graphene.
         # https://github.com/graphql-python/graphene/issues/110#issuecomment-1219737639
-        return f"'mlflow.server.graphql.graphql_schema_extensions.{EXTENDED_TO_EXTENDING[referenced_class_name]}'"
+        return f"'{SCHEMA_EXTENSION_MODULE}.{EXTENDED_TO_EXTENDING[referenced_class_name]}'"
     else:
         return referenced_class_name
 

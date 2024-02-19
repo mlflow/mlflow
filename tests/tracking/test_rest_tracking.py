@@ -1778,9 +1778,9 @@ def test_get_run_and_experiment_graphql(mlflow_client):
                 query testQuery {{
                     mlflowGetRun(input: {{runId: "{run_id}"}}) {{
                         run {{
-                            experiment {{ 
-                                name 
-                            }} 
+                            experiment {{
+                                name
+                            }}
                         }}
                     }}
                 }}
