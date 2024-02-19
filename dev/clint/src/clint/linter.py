@@ -160,7 +160,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
-            self._check(node.module, LAZY_BUILTIN_IMPORT)
+            self._check(node, LAZY_BUILTIN_IMPORT)
         self.generic_visit(node)
 
 
