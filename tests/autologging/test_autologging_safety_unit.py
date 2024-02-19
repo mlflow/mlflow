@@ -634,7 +634,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
     assert patch_success.exception is original_success.exception is None
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_succeeds(  # pylint: disable=line-too-long
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_and_original_succeeds(
     patch_destination,
     test_autologging_integration,
     mock_event_logger,
@@ -674,7 +674,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         assert patch_error.exception == exc_to_raise
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_throws(  # pylint: disable=line-too-long
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_and_original_throws(
     patch_destination,
     test_autologging_integration,
     mock_event_logger,

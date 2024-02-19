@@ -1014,11 +1014,10 @@ def test_make_genai_metric_metric_details():
 
     assert custom_metric.metric_details == expected_metric_details
 
-    assert (
-        custom_metric.__str__()
-        == f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, version=v1, metric_details={expected_metric_details})"
+    assert custom_metric.__str__() == (
+        f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, "
+        f"version=v1, metric_details={expected_metric_details})"
     )
-    # pylint: enable=line-too-long
 
 
 def test_make_genai_metric_without_example():

@@ -388,7 +388,7 @@ def save_model(
                 sentence_pipeline = pipeline(
                     task=task,
                     tokenizer=AutoTokenizer.from_pretrained(architecture),
-                    model=architecture,  # pylint: disable=line-too-long
+                    model=architecture,
                 )
 
                 # Validate that the overrides function
@@ -794,7 +794,7 @@ def log_model(
                 sentence_pipeline = pipeline(
                     task=task,
                     tokenizer=AutoTokenizer.from_pretrained(architecture),
-                    model=architecture,  # pylint: disable=line-too-long
+                    model=architecture,
                 )
 
                 # Validate that the overrides function

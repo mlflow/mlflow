@@ -259,7 +259,18 @@ def get_facets_polyfills() -> str:
         };
     })();
     """
-    return '!function(){let t=window.URL;window.URL=function(n,e){return"string"==typeof e&&e.startsWith("blob:")?new URL(e):new t(n,e)}}();'  # pylint: disable=line-too-long
+    return """
+!function() {
+  let t = window.URL;
+  window.URL = function(n, e) {
+    if (typeof e === "string" && e.startsWith("blob:")) {
+      return new URL(e);
+    } else {
+      return new t(n, e);
+    }
+  }
+}();
+"""
 
 
 def construct_facets_html(

@@ -115,13 +115,20 @@ The recipe steps are defined as follows:
                 In Databricks, the **predict** step writes the output parquet/delta files to
                 DBFS.
 
-.. |'ingest' step definition in recipe.yaml| replace:: `'ingest' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L30>`__
-.. |'split' step definition in recipe.yaml| replace:: `'split' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L31-L39>`__
-.. |'register' step definition of recipe.yaml| replace:: `'register' step definition of recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L57-L62>`__
-.. |'ingest_scoring' section in recipe.yaml| replace:: `'ingest_scoring' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L63>`__
-.. |'custom_metrics' section of recipe.yaml| replace:: `'custom_metrics' section of recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L69-L73>`__
-.. |'validation_criteria' section of the 'evaluate' step definition in recipe.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L54-L56>`__
-.. |'tuning' section of the 'train' step definition in recipe.yaml| replace:: `'tuning' section of the 'train' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L45>`__
+.. |'ingest' step definition in recipe.yaml|
+    replace:: `'ingest' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L30>`__
+.. |'split' step definition in recipe.yaml|
+    replace:: `'split' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L31-L39>`__
+.. |'register' step definition of recipe.yaml|
+    replace:: `'register' step definition of recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L57-L62>`__
+.. |'ingest_scoring' section in recipe.yaml|
+    replace:: `'ingest_scoring' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L63>`__
+.. |'custom_metrics' section of recipe.yaml|
+    replace:: `'custom_metrics' section of recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L69-L73>`__
+.. |'validation_criteria' section of the 'evaluate' step definition in recipe.yaml|
+    replace:: `'validation_criteria' section of the 'evaluate' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L54-L56>`__
+.. |'tuning' section of the 'train' step definition in recipe.yaml|
+    replace:: `'tuning' section of the 'train' step definition in recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml#L45>`__
 .. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/recipes-regression-template/blob/main/steps/ingest.py>`__
 .. |steps/split.py| replace:: `steps/split.py <https://github.com/mlflow/recipes-regression-template/blob/main/steps/split.py>`__
 .. |steps/train.py| replace:: `steps/train.py <https://github.com/mlflow/recipes-regression-template/blob/main/steps/train.py>`__
