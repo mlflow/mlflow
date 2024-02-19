@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import (
+    MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
@@ -176,7 +177,7 @@ def chat_config():
         "route_type": "llm/v1/chat",
         "model": {
             "provider": "anthropic",
-            "name": "claude-instant-1",
+            "name": "claude-2.1",
             "config": {
                 "anthropic_api_key": "key",
             },
@@ -184,18 +185,79 @@ def chat_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_chat_is_not_supported_for_anthropic():
-    config = chat_config()
-    provider = AnthropicProvider(RouteConfig(**config))
-    payload = {
-        "messages": [{"role": "user", "content": "Claude, can you chat with me? I'm lonely."}]
+def chat_response():
+    # see https://docs.anthropic.com/claude/reference/messages_post
+    return {
+        "content": [{"text": "Response message", "type": "text"}],
+        "id": "test-id",
+        "model": "claude-2.1",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+        "usage": {"input_tokens": 10, "output_tokens": 25},
     }
 
-    with pytest.raises(HTTPException, match=r".*") as e:
-        await provider.chat(chat.RequestPayload(**payload))
-    assert "The chat route is not implemented for Anthropic models" in e.value.detail
-    assert e.value.status_code == 501
+
+def chat_payload(stream: bool = False):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Message 1"},
+            {"role": "assistant", "content": "Message 2"},
+            {"role": "user", "content": "Message 3"},
+        ],
+        "temperature": 0.5,
+    }
+    if stream:
+        payload["stream"] = True
+    return payload
+
+
+@pytest.mark.asyncio
+async def test_chat():
+    resp = chat_response()
+    config = chat_config()
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(RouteConfig(**config))
+        payload = chat_payload()
+        response = await provider.chat(chat.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "id": "test-id",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "claude-2.1",
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Response message",
+                    },
+                    "finish_reason": "stop",
+                    "index": 0,
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 25,
+                "total_tokens": 35,
+            },
+        }
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/messages",
+            json={
+                "model": "claude-2.1",
+                "messages": [
+                    {"role": "user", "content": "Message 1"},
+                    {"role": "assistant", "content": "Message 2"},
+                    {"role": "user", "content": "Message 3"},
+                ],
+                "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+                "temperature": 0.25,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def embedding_config():

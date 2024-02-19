@@ -10,10 +10,89 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
-from mlflow.gateway.schemas import completions
+from mlflow.gateway.schemas import chat, completions
 
 
 class AnthropicAdapter(ProviderAdapter):
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        key_mapping = {"stop": "stop_sequences"}
+        payload = rename_payload_keys(payload, key_mapping)
+
+        if "top_p" in payload and "temperature" in payload:
+            raise HTTPException(
+                status_code=422, detail="Cannot set both 'temperature' and 'top_p' parameters."
+            )
+
+        max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
+        if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid value for max_tokens: cannot exceed "
+                f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
+            )
+        payload["max_tokens"] = max_tokens
+
+        n = payload.pop("n", 1)
+        if n != 1:
+            raise HTTPException(
+                status_code=422,
+                detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
+            )
+
+        # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
+        if "temperature" in payload:
+            payload["temperature"] = 0.5 * payload["temperature"]
+
+        return payload
+
+    @classmethod
+    def model_to_chat(cls, resp, config):
+        """
+        Example response:
+        {
+          "content": [
+            {
+              "text": "Blue is often seen as a calming and soothing color.",
+              "type": "text"
+            }
+          ],
+          "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+          "model": "claude-2.1",
+          "role": "assistant",
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "type": "message",
+          "usage": {
+            "input_tokens": 10,
+            "output_tokens": 25
+          }
+        }
+        """
+        stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+
+        return chat.ResponsePayload(
+            id=resp["id"],
+            created=int(time.time()),
+            object="chat.completion",
+            model=resp["model"],
+            choices=[
+                chat.Choice(
+                    index=0,
+                    message=chat.ResponseMessage(
+                        role="assistant",
+                        content=resp["content"][0]["text"],
+                    ),
+                    finish_reason=stop_reason,
+                ),
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=resp["usage"]["input_tokens"],
+                completion_tokens=resp["usage"]["output_tokens"],
+                total_tokens=resp["usage"]["input_tokens"] + resp["usage"]["output_tokens"],
+            ),
+        )
+
     @classmethod
     def model_to_completions(cls, resp, config):
         stop_reason = "stop" if resp["stop_reason"] == "stop_sequence" else "length"
@@ -109,6 +188,20 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             "anthropic-version": self.anthropic_config.anthropic_version,
         }
         self.base_url = "https://api.anthropic.com/v1/"
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        resp = await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="messages",
+            payload={
+                "model": self.config.model.name,
+                **AnthropicAdapter.chat_to_model(payload, self.config),
+            },
+        )
+        return AnthropicAdapter.model_to_chat(resp, self.config)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
