@@ -29,17 +29,9 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
 
-# Filter annoying Cython warnings that serve no good purpose, and so before
-# importing other modules.
-# See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
-import warnings
+from mlflow.version import VERSION
 
-from mlflow.utils.lazy_load import LazyLoader
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
-from mlflow.version import VERSION as __version__  # noqa: F401
-
-warnings.filterwarnings("ignore", message="numpy.dtype size changed")
-warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
+__version__ = VERSION
 
 from mlflow import (
     artifacts,  # noqa: F401
@@ -50,6 +42,8 @@ from mlflow import (
     projects,  # noqa: F401
     tracking,  # noqa: F401
 )
+from mlflow.utils.lazy_load import LazyLoader
+from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
