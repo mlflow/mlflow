@@ -1,16 +1,15 @@
 {
   "problemMatcher": [
     {
-      "owner": "pylint",
+      "owner": "clint",
       "severity": "error",
       "pattern": [
         {
-          "regexp": "^(.+):(\\d+):(\\d+):\\s(([A-Z]\\d{4}):\\s.+)$",
+          "regexp": "^(.+):(\\d+):(\\d+):\\s(.+)$",
           "file": 1,
           "line": 2,
           "column": 3,
-          "message": 4,
-          "code": 5
+          "message": 4
         }
       ]
     }

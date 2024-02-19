@@ -376,7 +376,8 @@ def lint_file(path: str) -> list[Violation]:
 def _exclude_regex() -> re.Pattern:
     with open("pyproject.toml", "rb") as f:
         data = tomli.load(f)
-        return re.compile("|".join(map(re.escape, data["tool"]["clint"]["exclude"])))
+        exclude = data["tool"]["clint"]["exclude"]
+        return re.compile("|".join(map(re.escape, exclude)))
 
 
 def main():
