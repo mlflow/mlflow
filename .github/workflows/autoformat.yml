@@ -117,7 +117,7 @@ jobs:
         run: |
           ruff check --fix .
           ruff format .
-          blacken-docs $(git ls-files '*.py' '*.rst' '*.md') || true
+          blacken-docs $(git ls-files '*.rst' '*.md') || true
       # ************************************************************************
       # js
       # ************************************************************************
