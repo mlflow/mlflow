@@ -71,6 +71,7 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetExperimentByName,
     GetMetricHistory,
+    GetMetricHistoryBulkInterval,
     GetRun,
     ListArtifacts,
     LogBatch,
@@ -1108,6 +1109,7 @@ def get_metric_history_bulk_handler():
 def get_metric_history_bulk_interval_handler():
     MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
     MAX_RESULTS_PER_RUN = 2500
+    MAX_RESULTS_GET_METRIC_HISTORY = 25000
 
     args = request.args
     run_ids = args.to_dict(flat=False).get("run_ids", [])
@@ -1121,6 +1123,7 @@ def get_metric_history_bulk_interval_handler():
             f"{MAX_RUNS_GET_METRIC_HISTORY_BULK} run_ids. Received {len(run_ids)} run_ids."
         )
     if max_results := args.get("max_results"):
+        max_results = int(max_results)
         if max_results <= 0 or max_results > MAX_RESULTS_PER_RUN:
             raise MlflowException.invalid_parameter_value(
                 f"Max results must be between 1 and {MAX_RESULTS_PER_RUN}."
@@ -1176,31 +1179,38 @@ def get_metric_history_bulk_interval_handler():
 
     def _default_history_bulk_interval_impl():
         steps = _get_sampled_steps(run_ids, metric_key, max_results)
-        if hasattr(store, "get_metric_history_bulk_interval_from_steps"):
-            return store.get_metric_history_bulk_interval(
-                run_ids=run_ids,
-                metric_key=metric_key,
-                steps=steps,
-                max_results=max_results,
-            )
         metrics_with_run_ids = []
-        for run_id in sorted(run_ids):
-            metrics_for_run = sorted(
-                [m for m in store.get_metric_history(run_id, metric_key) if m.step in steps],
-                key=lambda metric: metric.step,
-            )
-            metrics_with_run_ids.extend(
-                [
-                    {
-                        "key": metric.key,
-                        "value": metric.value,
-                        "timestamp": metric.timestamp,
-                        "step": metric.step,
-                        "run_id": run_id,
-                    }
-                    for metric in metrics_for_run
-                ]
-            )
+        if hasattr(store, "get_metric_history_bulk_interval_from_steps"):
+            for run_id in sorted(run_ids):
+                metrics_with_run_ids.extend(
+                    [
+                        metric.to_dict()
+                        for metric in store.get_metric_history_bulk_interval_from_steps(
+                            run_id=run_id,
+                            metric_key=metric_key,
+                            steps=steps,
+                            max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                        )
+                    ]
+                )
+        else:
+            for run_id in sorted(run_ids):
+                metrics_for_run = sorted(
+                    [m for m in store.get_metric_history(run_id, metric_key) if m.step in steps],
+                    key=lambda metric: metric.step,
+                )
+                metrics_with_run_ids.extend(
+                    [
+                        {
+                            "key": metric.key,
+                            "value": metric.value,
+                            "timestamp": metric.timestamp,
+                            "step": metric.step,
+                            "run_id": run_id,
+                        }
+                        for metric in metrics_for_run
+                    ]
+                )
         return metrics_with_run_ids
 
     if hasattr(store, "get_metric_history_bulk_interval"):
@@ -2291,6 +2301,7 @@ HANDLERS = {
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
+    GetMetricHistoryBulkInterval: get_metric_history_bulk_interval_handler,
     SearchExperiments: _search_experiments,
     LogInputs: _log_inputs,
     # Model Registry APIs

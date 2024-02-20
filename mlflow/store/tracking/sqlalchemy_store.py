@@ -993,14 +993,14 @@ class SqlAlchemyStore(AbstractStore):
             return max_step if max_step is not None else 0
 
     def get_metric_history_bulk_interval_from_steps(
-        self, run_ids, metric_key, steps, max_results=None
+        self, run_id, metric_key, steps, max_results=None
     ):
         with self.ManagedSessionMaker() as session:
             metrics = (
                 session.query(SqlMetric)
                 .filter(
                     SqlMetric.key == metric_key,
-                    SqlMetric.run_uuid.in_(run_ids),
+                    SqlMetric.run_uuid == run_id,
                     SqlMetric.step.in_(steps),
                 )
                 .order_by(
