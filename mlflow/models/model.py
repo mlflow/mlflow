@@ -21,6 +21,7 @@ from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
@@ -564,6 +565,7 @@ class Model:
 
         return cls(**model_dict)
 
+    @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
     def log(
         cls,
@@ -587,32 +589,8 @@ class Model:
             registered_model_name: If given, create a model version under
                 ``registered_model_name``, also creating a registered model if
                 one with the given name does not exist.
-            signature: :py:class:`ModelSignature` describes model input
-                and output :py:class:`Schema <mlflow.types.Schema>`. The model signature
-                can be :py:func:`inferred <infer_signature>` from datasets representing
-                valid model input (e.g. the training dataset) and valid model output
-                (e.g. model predictions generated on the training dataset), for example:
-
-                .. code-block:: python
-
-                    from mlflow.models import infer_signature
-
-                    train = df.drop_column("target_label")
-                    signature = infer_signature(train, model.predict(train))
-
-            input_example: one or several instances of valid model input. The input example is
-                used as a hint of what data to feed the model. It will be converted to
-                a Pandas DataFrame and then serialized to json using the Pandas
-                split-oriented format, or a numpy array where the example will be
-                serialized to json by converting it to a list. If input example is a
-                tuple, then the first element must be a valid model input, and the
-                second element must be a valid params dictionary that can optionally
-                be used during model inference. Bytes are base64-encoded. When the
-                ``signature`` parameter is ``None``, the input example is used to infer
-                a model's signature. If an input example containing params is provided,
-                and signature is inferred from the input example, then params will be
-                used as default params during model inference if no extra params are
-                passed at inference time.
+            signature: {{ signature }}
+            input_example: {{ input_example }}
             await_registration_for: Number of seconds to wait for the model version to finish
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
@@ -632,14 +610,14 @@ class Model:
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             tracking_uri = _resolve_tracking_uri()
-            if (
-                (tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks")
-                and kwargs.get("signature") is None
-                and kwargs.get("input_example") is None
+            # We check signature presence here as some flavors have a default signature as a
+            # fallback when not provided by user, which is set during flavor's save_model() call.
+            if mlflow_model.signature is None and (
+                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
