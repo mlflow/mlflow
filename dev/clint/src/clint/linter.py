@@ -104,9 +104,8 @@ class Linter(ast.NodeVisitor):
         self.violations: list[Violation] = []
 
     def _check(self, node: ast.AST, rule: Rule) -> None:
-        if lines := self.ignore.get(rule.name):
-            if node.lineno in lines:
-                return
+        if (lines := self.ignore.get(rule.name)) and node.lineno in lines:
+            return
         self.violations.append(Violation(rule, self.path, node.lineno, node.col_offset))
 
     def _docstring(
