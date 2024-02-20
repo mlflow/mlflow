@@ -65,12 +65,12 @@ class Violation:
 
 
 NO_RST = Rule(
-    "Z001",
+    "Z0001",
     "no-rst",
     "Do not use RST style. Use Google style instead.",
 )
 LAZY_BUILTIN_IMPORT = Rule(
-    "Z002",
+    "Z0002",
     "lazy-builtin-import",
     "Builtin modules must be imported at the top level.",
 )
