@@ -230,8 +230,8 @@ comparators, such as ``=`` and ``!=``.
 
 .. code-block:: sql
 
-    tags."environment" == "notebook"
-    tags."mlflow.user" == "Monkey D Luffy"
+    tags."environment" = "notebook"
+    tags."mlflow.user" = "Monkey D Luffy"
     tags."mlflow.user" != "Monkey C Luffy"
 
 4 - Searching By Dataset Information
@@ -254,7 +254,7 @@ Also note that datasets support set comparators, such as ``IN``.
 
     datasets.name like "custom"
     datasets.digest IN ('s8ds293b', 'jks834s2')
-    datasets.context == "train"
+    datasets.context = "train"
 
 5 - Searching By Run's Metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
