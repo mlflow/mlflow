@@ -636,6 +636,30 @@ the request is authenticated, or a ``Response`` object (typically
 to implement a custom authentication method, see ``tests/server/auth/jwt_auth.py``.
 **NOTE:** This example is not intended for production use.
 
+Connecting to a Centralized Database
+====================================
+
+By default, MLflow Authentication uses a local SQLite database to store user and permission data.
+In the case of a multi-node deployment, it is recommended to use a centralized database to store this data.
+
+To connect to a centralized database, you can set the ``database_uri`` configuration variable to the database URL.
+
+.. code-block:: ini
+    :caption: Example: ``/path/to/my_auth_config.ini``
+
+    [mlflow]
+    database_uri = postgresql://username:password@hostname:port/database
+
+Then, start the MLflow server with the ``MLFLOW_AUTH_CONFIG_PATH`` environment variable
+set to the path of your configuration file.
+
+.. code-block:: bash
+
+    MLFLOW_AUTH_CONFIG_PATH=/path/to/my_auth_config.ini mlflow server --app-name basic-auth
+
+The database must be created before starting the MLflow server. The database schema will be created automatically
+when the server starts.
+
 Custom Authentication
 =====================
 
