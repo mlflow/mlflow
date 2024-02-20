@@ -360,6 +360,7 @@ Python provides powerful ways to build these queries programmatically. Some tips
   print(runs)
 
 The output will be a pandas DataFrame with the runs that match the specified filters, as shown below.
+
 .. code-block:: text
 
                                 run_id  ... tags.mlflow.runName
