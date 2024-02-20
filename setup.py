@@ -97,7 +97,7 @@ with open("README.rst") as f:
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
-    packages=find_packages(exclude=["tests", "tests.*"]),
+    packages=find_packages(exclude=["tests", "tests.*", "pylint_plugins"]),
     package_data=(
         {"mlflow": skinny_package_data}
         if _is_mlflow_skinny
