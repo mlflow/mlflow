@@ -354,11 +354,11 @@ Python provides powerful ways to build these queries programmatically. Some tips
     AND params.model LIKE "GPT%"
   """
 
-  runs = mlflow.search_runs(
+  runs_with_complex_filter = mlflow.search_runs(
       experiment_names=["search-run-guide"],
       filter_string=complex_filter,
   )
-  print(runs)
+  print(runs_with_complex_filter)
 
 The output will be a pandas DataFrame with the runs that match the specified filters, as shown below.
 
@@ -382,12 +382,11 @@ which is a dropdown in the UI, simply pass ``run_view_type=ViewType.ACTIVE_ONLY`
   import mlflow
   from mlflow.entities import ViewType
 
-  run = mlflow.search_runs(
+  active_runs = mlflow.search_runs(
       experiment_names=["search-run-guide"],
       run_view_type=ViewType.ACTIVE_ONLY,
-      max_results=1,
       order_by=["metrics.accuracy DESC"],
-  )[0]
+  )
 
 
 2 - Ordering
@@ -403,11 +402,11 @@ the ``order_by`` parameter is omitted is to sort by ``start_time DESC``, then ``
   import mlflow
   from mlflow.entities import ViewType
 
-  run = mlflow.search_runs(
+  active_runs_ordered_by_accuracy = mlflow.search_runs(
       experiment_names=["search-run-guide"],
       run_view_type=ViewType.ACTIVE_ONLY,
       order_by=["metrics.accuracy DESC"],
-  )[0]
+  )
 
 A common use case is getting the top `n` results, for example, the top 5 runs by accuracy. When 
 combined with the ``max_results`` parameter, you can get the top ``n`` that match your query. 
@@ -417,7 +416,7 @@ combined with the ``max_results`` parameter, you can get the top ``n`` that matc
   import mlflow
   from mlflow.entities import ViewType
 
-  run = mlflow.search_runs(
+  highest_accuracy_run = mlflow.search_runs(
       experiment_names=["search-run-guide"],
       run_view_type=ViewType.ACTIVE_ONLY,
       max_results=1,
@@ -436,8 +435,9 @@ Now you might be wondering how to search all experiments. It's as simple as spec
   import mlflow
   from mlflow.entities import ViewType
 
-  runs = mlflow.search_runs(
-      filter_string="params.model = 'Inception'",
+  model_of_interest = "GPT-4"
+  gpt_4_runs_global = mlflow.search_runs(
+      filter_string=f"params.model = '{model_of_interest}'",
       run_view_type=ViewType.ALL,
       search_all_experiments=True,
   )
