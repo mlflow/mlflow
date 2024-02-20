@@ -1,8 +1,6 @@
 import os
 import shutil
 import logging
-import pytorch_lightning as pl
-from pytorch_lightning.utilities import rank_zero_only
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import create_tmp_dir
 

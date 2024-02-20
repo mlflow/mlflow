@@ -10,6 +10,7 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
     ExceptionSafeClass,
 )
+from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 
 class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
@@ -60,6 +61,99 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
         # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
         if epoch % self.log_every_n_steps == 0:
             self.metrics_logger.record_metrics(logs, epoch)
+
+
+class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase):
+    """Callback for automatic Keras model checkpointing to MLflow.
+    """
+
+    def __init__(
+        self,
+        client,
+        run_id,
+        monitor="val_loss",
+        mode="min",
+        save_best_only=True,
+        save_weights_only=False,
+        save_freq="epoch",
+    ):
+        """
+        Args:
+            client: An instance of `MlflowClient`.
+            run_id: The id of the MLflow run which you want to log checkpoints to.
+            monitor: In automatic model checkpointing, the metric name to monitor if
+                you set `model_checkpoint_save_best_only` to True.
+            save_best_only: If True, automatic model checkpointing only saves when
+                the model is considered the "best" model according to the quantity
+                monitored and previous checkpoint model is overwritten.
+            mode: one of {"min", "max"}. In automatic model checkpointing,
+                if save_best_only=True, the decision to overwrite the current save file is made
+                based on either the maximization or the minimization of the monitored quantity.
+            save_weights_only: In automatic model checkpointing, if True, then
+                only the model’s weights will be saved. Otherwise, the optimizer states,
+                lr-scheduler states, etc are added in the checkpoint too.
+            save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+                saves the model after each epoch. When using integer, the callback
+                saves the model at end of this many batches. Note that if the saving isn't
+                aligned to epochs, the monitored metric may potentially be less reliable (it
+                could reflect as little as 1 batch, since the metrics get reset
+                every epoch). Defaults to `"epoch"`.
+        """
+        super().__init__(
+            client=client,
+            run_id=run_id,
+            monitor=monitor,
+            mode=mode,
+            save_best_only=save_best_only,
+            save_weights_only=save_weights_only,
+            save_freq=save_freq,
+        )
+        self.trainer = None
+        self.current_epoch = None
+        self.global_step = None
+        self._last_batch_seen = 0
+        self.global_step = 0
+        self.global_step_last_saving = 0
+
+    def save_checkpoint(self, filepath: str):
+        if self.save_weights_only:
+            self.model.save_weights(tmp_model_save_path, overwrite=True)
+        else:
+            self.model.save(tmp_model_save_path, overwrite=True)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.current_epoch = epoch
+
+    def on_train_batch_end(self, batch, logs=None):
+        # Note that `on_train_batch_end` might be invoked by evern N train steps,
+        # (controlled by `steps_per_execution` argument in `model.comple` method).
+        # the following logic is similar to
+        # https://github.com/keras-team/keras/blob/e6e62405fa1b4444102601636d871610d91e5783/keras/callbacks/model_checkpoint.py#L212
+        if batch <= self._last_batch_seen:  # New epoch.
+            add_batches = batch + 1  # batches are zero-indexed.
+        else:
+            add_batches = batch - self._last_batch_seen
+        self._last_batch_seen = batch
+
+        self.global_step += add_batches
+
+        if isinstance(self.save_freq, int):
+            if self.global_step - self.global_step_last_saving >= self.save_freq:
+                self.check_and_save_checkpoint_if_needed(
+                    current_epoch=self.current_epoch,
+                    global_step=self.global_step,
+                    metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()}
+                )
+                self.global_step_last_saving = self.global_step
+
+    def on_epoch_end(self, epoch, logs=None):
+        if self.save_freq == "epoch":
+            self.check_and_save_checkpoint_if_needed(
+                current_epoch=self.current_epoch,
+                global_step=self.global_step,
+                metric_dict={k: float(v) for k, v in logs}
+            )
+
 
 
 def _extract_input_example_from_tensor_or_ndarray(
