@@ -51,7 +51,6 @@ the ``mlflow ui`` command.
   learning_rate = [0.001, 0.01] * 5
   model = ["GPT-2", "GPT-3", "GPT-3.5", "GPT-4"] + [None] * 6
 
-  mlflow_user = ["Monkey D Luffy"] * 3 + [None] * 7
   task = ["classification", "regression", "causal lm"] + [None] * 7
   environment = ["notebook"] * 5 + [None] * 5
 
@@ -154,7 +153,7 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
   * ``datasets.{any_attribute}``
   * ``attributes.run_id``
 
-* Non-NULL conditions for numeric fields are not supported e.g. ``metrics.accuracy != "NULL"`` will fail.
+* Non-None conditions for numeric fields are not supported e.g. ``metrics.accuracy != "None"`` will fail.
 
 Other than the that, the syntax should be intuitive to anyone who has used SQL. To assemble
 a single search condition, you must assemble an inequality using the following components...
@@ -305,16 +304,16 @@ You can also apply multiple conditions on the same field, for example searching 
 Finally, before moving on it's important to revisit that that you cannot use the ``OR`` keyword in 
 your queries.
 
-7 - Non-NULL Queries
+7 - Non-None Queries
 ~~~~~~~~~~~~~~~~~~~~
 
 To search for runs where a field (only type string is supported) is not null, use the 
-``field != "NULL"`` syntax. For example, to search for runs where the batch_size is not null, you 
+``field != "None"`` syntax. For example, to search for runs where the batch_size is not null, you 
 can use the following query:
 
 .. code-block:: sql
 
-    params.batch_size != "NULL"
+    params.batch_size != "None"
 
 Programmatically Searching Runs
 --------------------------------
