@@ -1,6 +1,7 @@
 import os
 import shutil
 import logging
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import create_tmp_dir
 
@@ -140,3 +141,39 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
             self.client.log_artifact(self.run_id, tmp_model_save_path, checkpoint_artifact_dir)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None):
+    from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
+    from mlflow.client import MlflowClient
+
+    client = MlflowClient()
+
+    if run_id is None:
+        run = mlflow.active_run()
+        if run is None:
+            raise MlflowException(
+                "There is no active run, please provide the 'run_id' for " "'load_checkpoint' call."
+            )
+        run_id = run.info.run_id
+    else:
+        run = client.get_run(run_id)
+
+    latest_checkpoint_artifact_path = run.data.tags.get(LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
+    if latest_checkpoint_artifact_path is None:
+        raise MlflowException("There is no logged checkpoint artifact in the current run.")
+
+    checkpoint_filename = os.path.basename(latest_checkpoint_artifact_path)
+
+    if epoch is not None and global_step is not None:
+        raise MlflowException(
+            "Only one of 'epoch' and 'global_step' can be set for 'load_checkpoint'."
+        )
+    elif global_step is not None:
+        checkpoint_artifact_path = f"checkpoints/global_step_{global_step}/{checkpoint_filename}"
+    elif epoch is not None:
+        checkpoint_artifact_path = f"checkpoints/epoch_{epoch}/{checkpoint_filename}"
+    else:
+        checkpoint_artifact_path = latest_checkpoint_artifact_path
+
+    return client.download_artifacts(run_id, checkpoint_artifact_path)

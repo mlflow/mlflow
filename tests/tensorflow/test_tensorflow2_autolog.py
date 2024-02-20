@@ -1383,3 +1383,141 @@ def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence
     with mlflow.start_run() as run:
         with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
             model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])
+
+
+def test_automatic_checkpoint_per_epoch_callback(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(
+        checkpoint=True,
+        checkpoint_monitor=None,
+        checkpoint_mode=None,
+        checkpoint_save_best_only=False,
+        checkpoint_save_weights_only=False,
+        checkpoint_save_freq="epoch",
+    )
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(
+            random_train_data,
+            random_one_hot_labels,
+            epochs=1
+        )
+    run_id = run.info.run_id
+
+    logged_metrics = mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json"
+    )
+    assert set(logged_metrics) == {'epoch', 'loss', 'accuracy', 'global_step'}
+    assert logged_metrics['epoch'] == 0
+    assert logged_metrics['global_step'] == 5
+
+    tf.keras.models.load_model(
+        mlflow.artifacts.download_artifacts(
+            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.pth"
+        )
+    )
+
+
+def test_automatic_checkpoint_per_epoch_save_weight_only_callback(
+    random_train_data, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog(
+        checkpoint=True,
+        checkpoint_monitor=None,
+        checkpoint_mode=None,
+        checkpoint_save_best_only=False,
+        checkpoint_save_weights_only=True,
+        checkpoint_save_freq="epoch",
+    )
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(
+            random_train_data,
+            random_one_hot_labels,
+            epochs=1
+        )
+    run_id = run.info.run_id
+
+    logged_metrics = mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/epoch_0/checkpoint_metrics.json"
+    )
+    assert set(logged_metrics) == {'epoch', 'loss', 'accuracy', 'global_step'}
+    assert logged_metrics['epoch'] == 0
+    assert logged_metrics['global_step'] == 5
+
+    model2 = create_tf_keras_model()
+    model2.load_weights(
+        mlflow.artifacts.download_artifacts(
+            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.weights.pth"
+        )
+    )
+
+
+def test_automatic_checkpoint_per_3_steps_callback(
+    random_train_data, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog(
+        checkpoint=True,
+        checkpoint_monitor=None,
+        checkpoint_mode=None,
+        checkpoint_save_best_only=False,
+        checkpoint_save_weights_only=False,
+        checkpoint_save_freq=3,
+    )
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(
+            random_train_data,
+            random_one_hot_labels,
+            epochs=1
+        )
+    run_id = run.info.run_id
+    logged_metrics = mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/global_step_3/checkpoint_metrics.json"
+    )
+    assert set(logged_metrics) == {'epoch', 'loss', 'accuracy', 'global_step'}
+    assert logged_metrics['epoch'] == 0
+    assert logged_metrics['global_step'] == 3
+    tf.keras.models.load_model(
+        mlflow.artifacts.download_artifacts(
+            run_id=run_id, artifact_path="checkpoints/global_step_3/checkpoint.pth"
+        )
+    )
+
+
+def test_automatic_checkpoint_per_3_steps_save_best_only_callback(
+    random_train_data, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog(
+        checkpoint=True,
+        checkpoint_monitor="loss",
+        checkpoint_mode="min",
+        checkpoint_save_best_only=True,
+        checkpoint_save_weights_only=False,
+        checkpoint_save_freq=3,
+    )
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(
+            random_train_data,
+            random_one_hot_labels,
+            epochs=1,
+        )
+    run_id = run.info.run_id
+    logged_metrics = mlflow.artifacts.load_dict(
+        f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json"
+    )
+    assert set(logged_metrics) == {'epoch', 'loss', 'accuracy', 'global_step'}
+    assert logged_metrics['epoch'] == 0
+    assert logged_metrics['global_step'] == 3
+    tf.keras.models.load_model(
+        mlflow.artifacts.download_artifacts(
+            run_id=run_id, artifact_path="checkpoints/latest_checkpoint.pth"
+        )
+    )

@@ -23,6 +23,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.client import MlflowClient
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
@@ -961,7 +962,11 @@ def _setup_callbacks(callbacks, metrics_logger):
     input list, and returns the new list and appropriate log directory.
     """
     # pylint: disable=no-name-in-module
-    from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+    from mlflow.tensorflow._autolog import (
+        MlflowModelCheckpointCallback,
+        __MLflowTfKeras2Callback,
+        _TensorBoard,
+    )
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
@@ -978,6 +983,43 @@ def _setup_callbacks(callbacks, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
     callbacks.append(__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS))
+
+    model_checkpoint = get_autologging_config(mlflow.tensorflow.FLAVOR_NAME, "checkpoint", True)
+    if model_checkpoint:
+        checkpoint_monitor = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
+        )
+        checkpoint_mode = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_mode", "min"
+        )
+        checkpoint_save_best_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_best_only", True
+        )
+        checkpoint_save_weights_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_weights_only", False
+        )
+        checkpoint_save_freq = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_freq", "epoch"
+        )
+
+        if not any(
+            isinstance(callback, MlflowModelCheckpointCallback)
+            for callback in callbacks
+        ):
+            run_id = mlflow.active_run().info.run_id
+            mlflow_client = MlflowClient(mlflow.get_tracking_uri())
+            callbacks.append(
+                MlflowModelCheckpointCallback(
+                    client=mlflow_client,
+                    run_id=run_id,
+                    monitor=checkpoint_monitor,
+                    mode=checkpoint_mode,
+                    save_best_only=checkpoint_save_best_only,
+                    save_weights_only=checkpoint_save_weights_only,
+                    save_freq=checkpoint_save_freq,
+                )
+            )
+
     return callbacks, log_dir
 
 
@@ -996,6 +1038,12 @@ def autolog(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     extra_tags=None,
+    checkpoint=True,
+    checkpoint_monitor="val_loss",
+    checkpoint_mode="min",
+    checkpoint_save_best_only=True,
+    checkpoint_save_weights_only=False,
+    checkpoint_save_freq="epoch",
 ):  # pylint: disable=unused-argument
     # pylint: disable=no-name-in-module
     """
@@ -1359,3 +1407,45 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targ
         return
 
     mlflow.log_input(dataset, context)
+
+
+def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
+    """
+    If you enable "checkpoint" in autologging, during Keras model
+    training execution, checkpointed models are logged as MLflow artifacts.
+    Using this API, you can load the checkpointed model.
+
+    If you want to load the latest checkpoint, set both `epoch` and `global_step` to None.
+    If "checkpoint_save_freq" is set to "epoch" in autologging,
+    you can set `epoch` param to the epoch of the checkpoint to load specific epoch checkpoint.
+    If "checkpoint_save_freq" is set to an integer in autologging,
+    you can set `global_step` param to the global step of the checkpoint to load specific
+    global step checkpoint.
+    `epoch` param and `global_step` can't be set together.
+
+    Args:
+        model: A Keras model, this argument is required
+            only when the saved checkpoint is "weight-only".
+        run_id: The id of the run which model is logged to. If not provided,
+            current active run is used.
+        epoch: The epoch of the checkpoint to be loaded, if you set
+            "checkpoint_save_freq" to "epoch".
+        global_step: The global step of the checkpoint to be loaded, if
+            you set "checkpoint_save_freq" to an integer.
+
+    Returns:
+        The instance of a Keras model restored from the specified checkpoint.
+    """
+    downloaded_checkpoint_filepath = download_checkpoint_artifact(
+        run_id=run_id, epoch=epoch, global_step=global_step
+    )
+    if os.path.basename(downloaded_checkpoint_filepath).split(".")[-2] == "weights":
+        # the model is saved as weights only
+        if model is None:
+            raise MlflowException(
+                "The latest checkpoint is weights-only, you need to provide 'model' "
+                "argument when calling 'load_latest_checkpoint'."
+            )
+        model.load_weights(downloaded_checkpoint_filepath)
+        return model
+    return keras.models.load_model(downloaded_checkpoint_filepath)

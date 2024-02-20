@@ -99,7 +99,9 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
                 could reflect as little as 1 batch, since the metrics get reset
                 every epoch). Defaults to `"epoch"`.
         """
-        super().__init__(
+        Callback.__init__(self)
+        MlflowModelCheckpointCallbackBase.__init__(
+            self,
             client=client,
             run_id=run_id,
             monitor=monitor,
@@ -117,9 +119,9 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
 
     def save_checkpoint(self, filepath: str):
         if self.save_weights_only:
-            self.model.save_weights(tmp_model_save_path, overwrite=True)
+            self.model.save_weights(filepath, overwrite=True)
         else:
-            self.model.save(tmp_model_save_path, overwrite=True)
+            self.model.save(filepath, overwrite=True)
 
     def on_epoch_begin(self, epoch, logs=None):
         self.current_epoch = epoch
@@ -142,7 +144,7 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
                 self.check_and_save_checkpoint_if_needed(
                     current_epoch=self.current_epoch,
                     global_step=self.global_step,
-                    metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()}
+                    metric_dict={k: float(v) for k, v in logs.items()}
                 )
                 self.global_step_last_saving = self.global_step
 
@@ -151,7 +153,7 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
             self.check_and_save_checkpoint_if_needed(
                 current_epoch=self.current_epoch,
                 global_step=self.global_step,
-                metric_dict={k: float(v) for k, v in logs}
+                metric_dict={k: float(v) for k, v in logs.items()}
             )
 
 

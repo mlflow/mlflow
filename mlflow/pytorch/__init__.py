@@ -24,7 +24,6 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.client import MlflowClient
 from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
@@ -37,6 +36,7 @@ from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -1177,38 +1177,9 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
         # load history checkpoint model logged in second epoch
         checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id, epoch=2)
     """
-    from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
-
-    client = MlflowClient()
-
-    if run_id is None:
-        run = mlflow.active_run()
-        if run is None:
-            raise MlflowException(
-                "There is no active run, please provide the 'run_id' for " "'load_checkpoint' call."
-            )
-        run_id = run.info.run_id
-    else:
-        run = client.get_run(run_id)
-
-    latest_checkpoint_artifact_path = run.data.tags.get(LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
-    if latest_checkpoint_artifact_path is None:
-        raise MlflowException("There is no logged checkpoint artifact in the current run.")
-
-    checkpoint_filename = os.path.basename(latest_checkpoint_artifact_path)
-
-    if epoch is not None and global_step is not None:
-        raise MlflowException(
-            "Only one of 'epoch' and 'global_step' can be set for 'load_checkpoint'."
-        )
-    elif global_step is not None:
-        checkpoint_artifact_path = f"checkpoints/global_step_{global_step}/{checkpoint_filename}"
-    elif epoch is not None:
-        checkpoint_artifact_path = f"checkpoints/epoch_{epoch}/{checkpoint_filename}"
-    else:
-        checkpoint_artifact_path = latest_checkpoint_artifact_path
-
-    downloaded_checkpoint_filepath = client.download_artifacts(run_id, checkpoint_artifact_path)
+    downloaded_checkpoint_filepath = download_checkpoint_artifact(
+        run_id=run_id, epoch=epoch, global_step=global_step
+    )
     return model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
 
 
