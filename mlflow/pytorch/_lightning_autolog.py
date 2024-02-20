@@ -347,6 +347,9 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         )
         self.trainer.strategy.save_checkpoint(checkpoint, filepath)
 
+    def checkpoint_file_suffix(self):
+        return "pth"
+
     @rank_zero_only
     def on_train_batch_end(
         self,

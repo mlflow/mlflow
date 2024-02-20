@@ -123,6 +123,9 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
         else:
             self.model.save(filepath, overwrite=True)
 
+    def checkpoint_file_suffix(self):
+        return "h5"
+
     def on_epoch_begin(self, epoch, logs=None):
         self.current_epoch = epoch
 

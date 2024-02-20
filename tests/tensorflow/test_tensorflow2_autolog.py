@@ -20,7 +20,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.utils import _read_example
+from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
 from mlflow.tensorflow.callback import MLflowCallback
 from mlflow.types.utils import _infer_schema
@@ -1414,9 +1414,11 @@ def test_automatic_checkpoint_per_epoch_callback(random_train_data, random_one_h
 
     tf.keras.models.load_model(
         mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.pth"
+            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.h5"
         )
     )
+    assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)
+    assert isinstance(load_checkpoint(run_id=run_id, epoch=0), tf.keras.Sequential)
 
 
 def test_automatic_checkpoint_per_epoch_save_weight_only_callback(
@@ -1451,9 +1453,13 @@ def test_automatic_checkpoint_per_epoch_save_weight_only_callback(
     model2 = create_tf_keras_model()
     model2.load_weights(
         mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.weights.pth"
+            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.weights.h5"
         )
     )
+    model3 = create_tf_keras_model()
+    load_checkpoint(model=model3, run_id=run_id)
+    model4 = create_tf_keras_model()
+    load_checkpoint(model=model4, run_id=run_id)
 
 
 def test_automatic_checkpoint_per_3_steps_callback(
@@ -1484,9 +1490,11 @@ def test_automatic_checkpoint_per_3_steps_callback(
     assert logged_metrics['global_step'] == 3
     tf.keras.models.load_model(
         mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/global_step_3/checkpoint.pth"
+            run_id=run_id, artifact_path="checkpoints/global_step_3/checkpoint.h5"
         )
     )
+    assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)
+    assert isinstance(load_checkpoint(run_id=run_id, global_step=3), tf.keras.Sequential)
 
 
 def test_automatic_checkpoint_per_3_steps_save_best_only_callback(
@@ -1518,6 +1526,7 @@ def test_automatic_checkpoint_per_3_steps_save_best_only_callback(
     assert logged_metrics['global_step'] == 3
     tf.keras.models.load_model(
         mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/latest_checkpoint.pth"
+            run_id=run_id, artifact_path="checkpoints/latest_checkpoint.h5"
         )
     )
+    assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)

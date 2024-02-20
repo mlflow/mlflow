@@ -52,6 +52,7 @@ from mlflow.utils.autologging_utils.metrics_queue import (
     add_to_metrics_queue,
     flush_metrics_queue,
 )
+from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -1436,9 +1437,12 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
     Returns:
         The instance of a Keras model restored from the specified checkpoint.
     """
+    import tensorflow as tf
+
     downloaded_checkpoint_filepath = download_checkpoint_artifact(
         run_id=run_id, epoch=epoch, global_step=global_step
     )
+
     if os.path.basename(downloaded_checkpoint_filepath).split(".")[-2] == "weights":
         # the model is saved as weights only
         if model is None:
@@ -1448,4 +1452,4 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
             )
         model.load_weights(downloaded_checkpoint_filepath)
         return model
-    return keras.models.load_model(downloaded_checkpoint_filepath)
+    return tf.keras.models.load_model(downloaded_checkpoint_filepath)

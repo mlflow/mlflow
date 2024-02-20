@@ -82,6 +82,9 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
     def save_checkpoint(self, filepath: str):
         raise NotImplementedError()
 
+    def checkpoint_file_suffix(self):
+        raise NotImplementedError()
+
     def check_and_save_checkpoint_if_needed(self, current_epoch, global_step, metric_dict):
         if self.save_best_only:
             if self.monitor not in metric_dict:
@@ -101,11 +104,12 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
 
             self.last_monitor_value = new_monitor_value
 
+        suffix = self.checkpoint_file_suffix()
         if self.save_best_only:
             if self.save_weights_only:
-                checkpoint_model_filename = "latest_checkpoint.weights.pth"
+                checkpoint_model_filename = f"latest_checkpoint.weights.{suffix}"
             else:
-                checkpoint_model_filename = "latest_checkpoint.pth"
+                checkpoint_model_filename = f"latest_checkpoint.{suffix}"
             checkpoint_metrics_filename = "latest_checkpoint_metrics.json"
             checkpoint_artifact_dir = "checkpoints"
         else:
@@ -115,9 +119,9 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
                 sub_dir_name = f"global_step_{global_step}"
 
             if self.save_weights_only:
-                checkpoint_model_filename = "checkpoint.weights.pth"
+                checkpoint_model_filename = f"checkpoint.weights.{suffix}"
             else:
-                checkpoint_model_filename = "checkpoint.pth"
+                checkpoint_model_filename = f"checkpoint.{suffix}"
             checkpoint_metrics_filename = "checkpoint_metrics.json"
             checkpoint_artifact_dir = f"checkpoints/{sub_dir_name}"
 
@@ -136,7 +140,6 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         tmp_dir = create_tmp_dir()
         try:
             tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
-
             self.save_checkpoint(tmp_model_save_path)
             self.client.log_artifact(self.run_id, tmp_model_save_path, checkpoint_artifact_dir)
         finally:
