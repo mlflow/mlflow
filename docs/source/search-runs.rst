@@ -230,8 +230,9 @@ comparators, such as ``=`` and ``!=``.
 .. code-block:: sql
 
     tags."environment" = "notebook"
-    tags."mlflow.user" = "Monkey D Luffy"
-    tags."mlflow.user" != "Monkey C Luffy"
+    tags.environment = "notebook"
+    tags.task = "Classification"
+    tags.task ILIKE "classif%"
 
 4 - Searching By Dataset Information
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
