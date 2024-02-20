@@ -1191,7 +1191,8 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     if return_type == "pipeline":
         conf.update(**kwargs)
-        return transformers.pipeline(**conf)
+        with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
+            return transformers.pipeline(**conf)
     elif return_type == "components":
         return conf
 
