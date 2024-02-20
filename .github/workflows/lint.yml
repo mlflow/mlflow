@@ -46,7 +46,6 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
