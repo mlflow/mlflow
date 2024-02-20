@@ -32,8 +32,8 @@ repos:
         stages: [commit]
         require_serial: true
 
-      - id: clint
-        name: clint
+      - id: custom-python-lint
+        name: custom-python-lint
         entry: clint
         language: system
         types: [python]
