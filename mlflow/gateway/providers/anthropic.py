@@ -120,11 +120,6 @@ class AnthropicAdapter(ProviderAdapter):
                     ),
                 )
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp.get("input_tokens"),
-                completion_tokens=resp.get("output_tokens"),
-                total_tokens=resp.get("total_tokens"),
-            ),
         )
 
     @classmethod
@@ -240,7 +235,6 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         indices = []
         metadata = {}
-        input_tokens = None
         async for chunk in stream:
             chunk = chunk.strip()
             if not chunk:
@@ -265,7 +259,6 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
-                input_tokens = resp["message"]["usage"]["input_tokens"]
                 continue
 
             index = resp.get("index")
@@ -274,16 +267,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
-                output_tokens = resp["delta"]["usage"]["output_tokens"]
                 for index in indices:
                     yield AnthropicAdapter.model_to_chat_streaming(
-                        {
-                            **resp,
-                            "index": index,
-                            "input_tokens": input_tokens,
-                            "output_tokens": output_tokens,
-                            "total_tokens": input_tokens + output_tokens,
-                        },
+                        {**resp, "index": index},
                         self.config,
                     )
             else:
