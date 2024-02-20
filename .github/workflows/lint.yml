@@ -38,7 +38,7 @@ jobs:
         id: setup-python
       - name: Add problem matchers
         run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
+          echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/format.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
       - uses: ./.github/actions/cache-pip
@@ -46,7 +46,6 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks

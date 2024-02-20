@@ -184,7 +184,7 @@ def _create_import_hook_from_entrypoint(entrypoint):
 def discover_post_import_hooks(group):
     # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
     if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import files  # pylint: disable=lazy-builtin-import
+        from importlib.resources import files  # clint: disable=lazy-builtin-import
 
         for entrypoint in (
             resource.name for resource in files(group).iterdir() if resource.is_file()
@@ -192,7 +192,7 @@ def discover_post_import_hooks(group):
             callback = _create_import_hook_from_entrypoint(entrypoint)
             register_post_import_hook(callback, entrypoint.name)
     else:
-        from importlib.resources import contents  # pylint: disable=lazy-builtin-import
+        from importlib.resources import contents  # clint: disable=lazy-builtin-import
 
         for entrypoint in contents(group):
             callback = _create_import_hook_from_entrypoint(entrypoint)
@@ -286,7 +286,7 @@ class ImportHookFinder:
             # real loader to import the module and invoke the
             # post import hooks.
             try:
-                import importlib.util  # pylint: disable=lazy-builtin-import
+                import importlib.util  # clint: disable=lazy-builtin-import
 
                 loader = importlib.util.find_spec(fullname).loader
             # If an ImportError (or AttributeError) is encountered while finding the module,
@@ -324,7 +324,7 @@ class ImportHookFinder:
         # Now call back into the import system again.
 
         try:
-            import importlib.util  # pylint: disable=lazy-builtin-import
+            import importlib.util  # clint: disable=lazy-builtin-import
 
             spec = importlib.util.find_spec(fullname)
             # Replace the module spec's loader with a wrapped version that executes import

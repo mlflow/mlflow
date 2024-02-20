@@ -1,7 +1,7 @@
 {
   "problemMatcher": [
     {
-      "owner": "pylint",
+      "owner": "clint",
       "severity": "error",
       "pattern": [
         {

@@ -576,7 +576,7 @@ def test_log_and_load_retriever_chain(tmp_path):
 
     # Define the loader_fn
     def load_retriever(persist_directory):
-        from typing import List  # pylint: disable=lazy-builtin-import
+        from typing import List  # clint: disable=lazy-builtin-import
 
         import numpy as np
         from langchain.embeddings.base import Embeddings

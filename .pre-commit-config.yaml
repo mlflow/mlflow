@@ -32,18 +32,9 @@ repos:
         stages: [commit]
         require_serial: true
 
-      - id: pylint
-        name: pylint
-        entry: pylint
-        language: system
-        types: [python]
-        args: ["--rcfile=pylintrc"]
-        stages: [commit]
-        require_serial: true
-
-      - id: disallow-rule-ids
-        name: disallow-rule-ids
-        entry: python ./dev/disallow_rule_ids.py
+      - id: custom-python-lint
+        name: custom-python-lint
+        entry: clint
         language: system
         types: [python]
         stages: [commit]
