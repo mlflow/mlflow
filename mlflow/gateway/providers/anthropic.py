@@ -35,8 +35,7 @@ class AnthropicAdapter(ProviderAdapter):
             )
         payload["max_tokens"] = max_tokens
 
-        n = payload.pop("n", 1)
-        if n != 1:
+        if payload.pop("n", 1) != 1:
             raise HTTPException(
                 status_code=422,
                 detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
