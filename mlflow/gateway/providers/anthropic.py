@@ -41,6 +41,16 @@ class AnthropicAdapter(ProviderAdapter):
                 detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
+        # Cohere uses `system` to set the system message
+        # we concatenate all system messages from the user with a newline
+        system_messages = [m for m in payload["messages"] if m["role"] == "system"]
+        if len(system_messages) > 0:
+            payload["system"] = "\n".join(m["content"] for m in system_messages)
+
+        # remaining messages are chat history
+        # we want to include only user and assistant messages
+        payload["messages"] = [m for m in payload["messages"] if m["role"] in ("user", "assistant")]
+
         # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]

@@ -202,6 +202,7 @@ def chat_response():
 def chat_payload(stream: bool = False):
     payload = {
         "messages": [
+            {"role": "system", "content": "System message"},
             {"role": "user", "content": "Message 1"},
             {"role": "assistant", "content": "Message 2"},
             {"role": "user", "content": "Message 3"},
@@ -287,6 +288,7 @@ async def test_chat():
                     {"role": "assistant", "content": "Message 2"},
                     {"role": "user", "content": "Message 3"},
                 ],
+                "system": "System message",
                 "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
                 "temperature": 0.25,
             },
@@ -357,6 +359,7 @@ async def test_chat_stream():
                     {"role": "assistant", "content": "Message 2"},
                     {"role": "user", "content": "Message 3"},
                 ],
+                "system": "System message",
                 "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
                 "temperature": 0.25,
                 "stream": True,
