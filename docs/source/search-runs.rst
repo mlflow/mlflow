@@ -138,29 +138,35 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
 
 * The SQL ``OR`` keyword is not supported.
 * For fields that contain special characters or start with numbers, you need to wrap them in double quotes.
+
   * Good: ``metrics."cross-entropy-loss" < 0.5``
   * Bad:  ``metrics.cross-entropy-loss < 0.5``
   * Good: ``params."1st_iteration_timestamp" = "2022-01-01"``
   * Bad:  ``params.1st_iteration_timestamp = "2022-01-01"``
+
 * For the SQL ``IN`` keyword, you must surround the values of your list with single quotes.
+
   * Good: ``params."learning rate" IN ('0.001', '0.01')``
   * Bad:  ``params."learning rate" IN ("0.001", "0.01")``
+
 * For the SQL ``IN`` keyword, you can only search the following fields:
+
   * ``datasets.{any_attribute}``
   * ``attributes.run_id``
+
 * Non-NULL conditions for numeric fields are not supported e.g. ``metrics.accuracy != "NULL"`` will fail.
 
 Other than the that, the syntax should be intuitive to anyone who has used SQL. To assemble
 a single search condition, you must assemble an inequality using the following components...
 
-1. An MLflow field: a metric, param, tag, dataset or run metadata.
-2. A comparator: an inequality operator. 
+1. **An MLflow field**: a metric, param, tag, dataset or run metadata.
+2. **A comparator**: an inequality operator. 
 
   * For numerics, MLflow supports ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
   * For strings, MLflow supports ``=``, ``!=``, ``LIKE`` (case-sensitive) and ``ILIKE`` (case-insensitive). 
   * For sets, MLflow supports ``IN``.
 
-3. A reference value: a numeric value, string, or set of strings.
+3. **A reference value**: a numeric value, string, or set of strings.
 
 Let's look at some examples.
 
@@ -168,7 +174,8 @@ Example Queries
 ^^^^^^^^^^^^^^^
 
 In this section we will go over how to search by different categories of MLflow fields. For each category we provide
-a few sample queries, if you have executed the run creation script we provided, these queries should fetch certain runs.
+a few sample queries. If you have executed the run creation script we provided, these queries should fetch certain runs
+but sometimes require modification for run-specific information, such as ``start_time``.
 
 1 - Searching By Metrics
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -178,11 +185,10 @@ or after training. Metrics can include values like accuracy, precision, recall, 
 can change over time as the model trains. They are logged manually via ``mlflow.log_metric`` or 
 ``mlflow.log_metrics`` or automatically via autologging.
 
-To search for runs by filtering on metrics, you must include the ``metrics.`` prefix in the left 
+To search for runs by filtering on metrics, you must include the ``metrics`` prefix in the left 
 side of the inequality. Note that they are **stored as numbers**, so you must use numeric comparators.
 
 .. code-block:: sql
-  :caption: Example Metrics Queries
 
   metrics.accuracy > 0.72
   metrics.loss <= 0.15
@@ -197,7 +203,7 @@ Params are strings that typically represent the configuration aspects of the mod
 like learning rate, batch size, and number of epochs. They are logged manually via ``mlflow.log_param``
 or ``mlflow.log_params`` or automatically via autologging.
 
-To search for runs by filtering on params, you must include the ``params.`` prefix in the left 
+To search for runs by filtering on params, you must include the ``params`` prefix in the left 
 side of the inequality. Note that they are **stored as strings**, so you must use string 
 comparators, such as ``=`` and ``!=``.
 
@@ -216,9 +222,9 @@ comparators, such as ``=`` and ``!=``.
 Tags are metadata that typically provide additional context about the run. Tags can include values
 like user name, team, etc. They are logged manually via ``mlflow.set_tag``
 or ``mlflow.set_tags``. In addition, `system tags <https://mlflow.org/docs/latest/tracking/tracking-api.html#system-tags>`_,
-such as ``mlflow.user`` are automatically logged.
+such as ``mlflow.user``, are automatically logged.
 
-To search for runs by filtering on tags, you must include the ``tags.`` or ``mlflow.`` prefixes in
+To search for runs by filtering on tags, you must include the ``tags`` or ``mlflow`` prefixes in
 the left side of the inequality. Note that tags are **stored as strings**, so you must use string 
 comparators, such as ``=`` and ``!=``.
 
@@ -226,20 +232,23 @@ comparators, such as ``=`` and ``!=``.
 
     tags."environment" == "notebook"
     tags."mlflow.user" == "Monkey D Luffy"
+    tags."mlflow.user" != "Monkey C Luffy"
 
 4 - Searching By Dataset Information
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Datasets represent a data used in model training or evaluation, including features, targets, 
+Datasets represent data used in model training or evaluation, including features, targets, 
 predictions, and metadata such as the dataset's name, digest (hash) schema, profile, and source. 
 They are logged via ``mlflow.log_input`` or automatically via autologging.
 
 To search for runs by filtering on dataset information, you must filter on one of the below fields
+
 1. Dataset name ``datasets.name``, which is the dataset's name.
 2. Dataset digest ``datasets.digest``, which is a unique identifier for the dataset.
 3. Dataset context ``datasets.context``, which represents if the dataset is used for train, evaluation or test.
 
 Note that dataset information is **stored as strings**, so you must use string comparators, such as ``=`` and ``!=``.
+Also note that datasets support set comparators, such as ``IN``.
 
 .. code-block:: sql
 
@@ -251,15 +260,14 @@ Note that dataset information is **stored as strings**, so you must use string c
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Run metadata are a variety of user-specified and system-generated attributes that provide additional context about the run.
-metadata that typically provide additional context about the run. Tags can include values
 
-To search for runs by filtering on run's metadata, you must include the ``attributes.`` prefix in the left
+To search for runs by filtering on run's metadata, you must include the ``attributes`` prefix in the left
 side of the inequality. Note that run metadata can be either a string or a numeric depending on the 
-attribute, so you must use the appropriate comparator. For a complete list of searchable attributes, 
-see :py:class:`mlflow.entities.RunInfo`. However, note that not all fields in the RunInfo object are
+attribute, so you must use the appropriate comparator. For a complete list of attributes, see
+:py:class:`mlflow.entities.RunInfo`, however note that not all fields in the RunInfo object are
 searchable.
 
-To search for runs by filtering on tags, you must include the ``tags.`` or ``mlflow.`` prefixes in
+To search for runs by filtering on tags, you must include the ``tags`` or ``mlflow`` prefixes in
 the left side of the inequality. Note that tags are **stored as strings**, so you must use string 
 comparators, such as ``=`` and ``!=``.
 
@@ -282,19 +290,19 @@ You can chain multiple queries together using the ``AND`` keyword. For example, 
 with a variety of conditions, you can use the following queries:
 
 .. code-block:: sql
-    :caption: Simple Chained Queries
+  :caption: Simple Chained Queries
 
-    metrics.accuracy > 0.72 AND metrics.loss <= 0.15
-    metrics.accuracy > 0.72 AND metrics.batch_size != 0
-    metrics.accuracy > 0.72 AND metrics.batch_size != 0 AND attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
+  metrics.accuracy > 0.72 AND metrics.loss <= 0.15
+  metrics.accuracy > 0.72 AND metrics.batch_size != 0
+  metrics.accuracy > 0.72 AND metrics.batch_size != 0 AND attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
 
 You can also apply multiple conditions on the same field, for example searching for all loss metrics
 between 0.1 and 0.15:
 
 .. code-block:: sql
-    :caption: ``BETWEEN`` Operator 
+  :caption: ``BETWEEN`` Operator 
 
-    metrics.loss <= 0.15 AND metrics.loss > 0.1
+  metrics.loss <= 0.15 AND metrics.loss > 0.1
 
 Finally, before moving on it's important to revisit that that you cannot use the ``OR`` keyword in 
 your queries.
@@ -308,7 +316,7 @@ can use the following query:
 
 .. code-block:: sql
 
-    params.batch_size IS NOT NULL
+    params.batch_size != "NULL"
 
 Programmatically Searching Runs
 --------------------------------
@@ -319,8 +327,8 @@ outside the MLflow UI. This can be done programmatically using the MLflow client
 Python
 ^^^^^^
 
-:py:func:`MlflowClient.search_runs() <mlflow.client.MlflowClient.search_runs>` or :py:func:`mlflow.search_runs` 
-take the same arguments to the above UI examples and more! They return a list of all the runs that 
+:py:func:`mlflow.client.MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` 
+take the same arguments as the above UI examples and more! They return a list of all the runs that 
 match the specified filters. Your best resource is the dosctrings for each of these functions, but
 here are some useful examples.
 
@@ -329,7 +337,8 @@ here are some useful examples.
 ~~~~~~~~~~~~~~~~~~
 
 Python provides powerful ways to build these queries programmatically. Some tips:
-* For complex filters, specifically those with both single and double quotes, use multi-line strings or `\"` to escape the quotes.
+
+* For complex filters, specifically those with both single and double quotes, use multi-line strings or `\\"` to escape the quotes.
 * When working with lists, use the ``.join()`` method to concatenate the list elements with a delimiter.
 
 .. code-block:: python
@@ -340,10 +349,10 @@ Python provides powerful ways to build these queries programmatically. Some tips
   run_id_condition = "'" + "','".join(run_ids) + "'"
 
   complex_filter = f"""
-      attributes.run_id IN ({run_id_condition})
-          AND metrics.loss > 0.3
-          AND metrics."f1 score" < 0.5
-          AND params.model LIKE "GPT%"
+  attributes.run_id IN ({run_id_condition})
+    AND metrics.loss > 0.3
+    AND metrics."f1 score" < 0.5
+    AND params.model LIKE "GPT%"
   """
 
   runs = mlflow.search_runs(
@@ -353,12 +362,13 @@ Python provides powerful ways to build these queries programmatically. Some tips
   print(runs)
 
 .. code-block:: text
+  :caption: Output
 
-                                 run_id  ... tags.mlflow.runName
-    0  22db81f070f6413588641c8c343cdd72  ...   orderly-quail-568
-    1  c3680e37d0fa44eb9c9fb7828f6b5481  ...    melodic-lynx-301
+                                run_id  ... tags.mlflow.runName
+  0  22db81f070f6413588641c8c343cdd72  ...   orderly-quail-568
+  1  c3680e37d0fa44eb9c9fb7828f6b5481  ...    melodic-lynx-301
 
-    [2 rows x 19 columns]
+  [2 rows x 19 columns]
 
 2 - `run_view_type`
 ~~~~~~~~~~~~~~~~~~~
@@ -383,12 +393,10 @@ which is a dropdown in the UI, simply pass ``run_view_type=ViewType.ACTIVE_ONLY`
 2 - Ordering
 ~~~~~~~~~~~~
 
-Another useful feature is ordering the results. You specify the list of columns to order by in the 
-``order_by`` column. The column can contain an optional ``DESC`` or ``ASC`` value, but when the 
-optional ``DESC`` or ``ASC`` value is not provided, the default is ``ASC``.  Also note that the 
-default ordering  when the ``order_by`` parameter is omitted is to sort by ``start_time DESC``, 
-then ``run_id``.
-
+Another useful feature is ordering the results. You specify a list of columns of interest along with
+``DESC`` or ``ASC`` in the ``order_by`` kwarg. Note that the ``DESC`` or ``ASC`` value is optional,
+so when the value is not provided, the default is ``ASC``. Also note that the default ordering when
+the ``order_by`` parameter is omitted is to sort by ``start_time DESC``, then ``run_id ASC``.
 
 .. code-block:: python
 
@@ -434,10 +442,9 @@ Now you might be wondering how to search all experiments. It's as simple as spec
       search_all_experiments=True,
   )
 
-Finally, there are more useful features in the 
-:py:func:`MlflowClient.search_runs() <mlflow.client.MlflowClient.search_runs>` or 
-:py:func:`mlflow.search_runs` methods, so be sure to check out the documentation for more details.
- 
+Finally, there are additioanl useful features in the 
+:py:func:`MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` methods, so be sure to 
+check out the documentation for more details.
 
 R
 ^^^^^^
