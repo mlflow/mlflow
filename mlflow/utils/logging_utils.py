@@ -92,9 +92,9 @@ def eprint(*args, **kwargs):
 
 
 class LoggerMessageFilter(logging.Filter):
-    def __init__(self, module: str, filter_regex: str):
+    def __init__(self, module: str, filter_regex: re.Pattern):
         super().__init__()
-        self._pattern = re.compile(filter_regex)
+        self._pattern = filter_regex
         self._module = module
 
     def filter(self, record):
@@ -104,7 +104,7 @@ class LoggerMessageFilter(logging.Filter):
 
 
 @contextlib.contextmanager
-def suppress_logs(module: str, filter_regex: str):
+def suppress_logs(module: str, filter_regex: re.Pattern):
     """
     Context manager that suppresses log messages from the specified module that match the specified
     regular expression. This is useful for suppressing expected log messages from third-party

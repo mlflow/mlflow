@@ -125,7 +125,7 @@ if TYPE_CHECKING:
 # Transformers pipeline complains that PeftModel is not supported for any task type, even
 # when the wrapped model is supported. As MLflow require users to use pipeline for logging,
 # we should suppress that confusing error message.
-_PEFT_PIPELINE_ERROR_MSG = r"The model '(PeftModel[^']*)' is not supported for ([^.]+)\."
+_PEFT_PIPELINE_ERROR_MSG = re.compile(r"The model 'PeftModel[^']*' is not supported for")
 
 FLAVOR_NAME = "transformers"
 
