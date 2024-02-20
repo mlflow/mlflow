@@ -13,7 +13,7 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
-from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
+from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0einternal.proto\x12\x0fmlflow.internal\x1a\x15scalapb/scalapb.proto*\'\n\x0fInputVertexType\x12\x07\n\x03RUN\x10\x01\x12\x0b\n\x07\x44\x41TASET\x10\x02\x42#\n\x19org.mlflow.internal.proto\x90\x01\x01\xe2?\x02\x10\x01')
