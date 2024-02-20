@@ -1,3 +1,9 @@
+# Installation
+
+```
+pip install -e dev/clint
+```
+
 # Usage
 
 ```bash
