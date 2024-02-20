@@ -1764,7 +1764,8 @@ def test_get_experiment_graphql(mlflow_client):
         headers={"content-type": "application/json; charset=utf-8"},
     )
     assert response.status_code == 200
-    assert "GraphqlTest" in response.text
+    json = response.json()
+    assert json["data"]["mlflowGetExperiment"]["experiment"]["name"] == "GraphqlTest"
 
 
 def test_get_run_and_experiment_graphql(mlflow_client):
@@ -1790,4 +1791,5 @@ def test_get_run_and_experiment_graphql(mlflow_client):
         headers={"content-type": "application/json; charset=utf-8"},
     )
     assert response.status_code == 200
-    assert "GraphqlTest" in response.text
+    json = response.json()
+    assert json["data"]["mlflowGetRun"]["run"]["experiment"]["name"] == "GraphqlTest"
