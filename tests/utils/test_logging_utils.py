@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 from io import StringIO
 
@@ -123,6 +124,6 @@ def test_suppress_logs():
     assert message in capture_stream.getvalue()
 
     capture_stream.truncate(0)
-    with suppress_logs(module, "This .* be suppressed."):
+    with suppress_logs(module, re.compile("This .* be suppressed.")):
         logger.error(message)
     assert len(capture_stream.getvalue()) == 0
