@@ -1167,11 +1167,31 @@ def test_get_metric_history_bulk_interval_calls_optimized_impl_when_expected(tmp
         get_metric_history_bulk_interval_handler()
 
         mock_store.get_max_step_for_metric.assert_not_called()
-        mock_store.get_metric_history_bulk_interval_from_steps.assert_called_once_with(
-            run_ids=run_ids,
+        assert mock_store.get_metric_history_bulk_interval_from_steps.call_count == len(run_ids)
+        mock_store.get_metric_history_bulk_interval_from_steps.assert_called_with(
+            run_id=run_ids[-1],
             metric_key="mock_key",
             steps=[0, 2, 4, 6, 8, 9],
-            max_results=5,
+            max_results=25000,
+        )
+
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
+        run_ids = [str(i) for i in range(10)]
+        mock_context.request.args = MockRequestArgs(
+            {
+                "run_ids": run_ids,
+                "metric_key": "mock_key",
+                "max_results": 5,
+            }
+        )
+
+        get_metric_history_bulk_interval_handler()
+
+        assert mock_store.get_max_step_for_metric.call_count == len(run_ids)
+        mock_store.get_max_step_for_metric.assert_called_with(
+            run_id=run_ids[-1], metric_key="mock_key"
         )
 
 
