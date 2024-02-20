@@ -15,7 +15,7 @@ from mlflow.gateway.constants import (
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
 
 
 def completions_response():
@@ -213,6 +213,40 @@ def chat_payload(stream: bool = False):
     return payload
 
 
+def chat_stream_response():
+    return [
+        b"event: message_start\n",
+        b'data: {"type": "message_start", "message": {"id": "test-id", "type": "message", '
+        b'"role": "assistant", "content": [], "model": "claude-2.1", "stop_reason": null, '
+        b'"stop_sequence": null, "usage": {"input_tokens": 25, "output_tokens": 1}}}\n',
+        b"\n",
+        b"event: content_block_start\n",
+        b'data: {"type": "content_block_start", "index":0, "content_block": {"type": "text", '
+        b'"text": ""}}\n',
+        b"\n",
+        b"event: ping\n",
+        b'data: {"type": "ping"}\n',
+        b"\n",
+        b"event: content_block_delta\n",
+        b'data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", '
+        b'"text": "Hello"}}\n',
+        b"\n",
+        b"event: content_block_delta\n",
+        b'data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", '
+        b'"text": "!"}}\n',
+        b"\n",
+        b"event: content_block_stop\n",
+        b'data: {"type": "content_block_stop", "index": 0}\n',
+        b"\n",
+        b"event: message_delta\n",
+        b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
+        b'"stop_sequence":null, "usage":{"output_tokens": 15}}}\n',
+        b"\n",
+        b"event: message_stop\n",
+        b'data: {"type": "message_stop"}\n',
+    ]
+
+
 @pytest.mark.asyncio
 async def test_chat():
     resp = chat_response()
@@ -255,6 +289,77 @@ async def test_chat():
                 ],
                 "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
                 "temperature": 0.25,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
+@pytest.mark.asyncio
+async def test_chat_stream():
+    resp = chat_stream_response()
+    config = chat_config()
+
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(RouteConfig(**config))
+        payload = chat_payload(stream=True)
+        response = provider.chat_stream(chat.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": ""}}
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {"role": None, "content": "Hello"},
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": "!"}}
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {"index": 0, "finish_reason": "stop", "delta": {"role": None, "content": None}}
+                ],
+            },
+        ]
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/messages",
+            json={
+                "model": "claude-2.1",
+                "messages": [
+                    {"role": "user", "content": "Message 1"},
+                    {"role": "assistant", "content": "Message 2"},
+                    {"role": "user", "content": "Message 3"},
+                ],
+                "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+                "temperature": 0.25,
+                "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )

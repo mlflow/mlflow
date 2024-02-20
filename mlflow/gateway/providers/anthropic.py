@@ -1,4 +1,6 @@
+import json
 import time
+from typing import AsyncIterable
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -9,7 +11,7 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
 
 
@@ -48,27 +50,28 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat(cls, resp, config):
-        """
-        Example response:
-        {
-          "content": [
-            {
-              "text": "Blue is often seen as a calming and soothing color.",
-              "type": "text"
-            }
-          ],
-          "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
-          "model": "claude-2.1",
-          "role": "assistant",
-          "stop_reason": "end_turn",
-          "stop_sequence": null,
-          "type": "message",
-          "usage": {
-            "input_tokens": 10,
-            "output_tokens": 25
-          }
-        }
-        """
+        # Example response:
+        #
+        # ```
+        # {
+        #   "content": [
+        #     {
+        #       "text": "Blue is often seen as a calming and soothing color.",
+        #       "type": "text"
+        #     }
+        #   ],
+        #   "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+        #   "model": "claude-2.1",
+        #   "role": "assistant",
+        #   "stop_reason": "end_turn",
+        #   "stop_sequence": null,
+        #   "type": "message",
+        #   "usage": {
+        #     "input_tokens": 10,
+        #     "output_tokens": 25
+        #   }
+        # }
+        # ```
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
 
         return chat.ResponsePayload(
@@ -81,15 +84,46 @@ class AnthropicAdapter(ProviderAdapter):
                     index=0,
                     message=chat.ResponseMessage(
                         role="assistant",
-                        content=resp["content"][0]["text"],
+                        content=c["text"],
                     ),
                     finish_reason=stop_reason,
-                ),
+                )
+                for c in resp["content"]
             ],
             usage=chat.ChatUsage(
                 prompt_tokens=resp["usage"]["input_tokens"],
                 completion_tokens=resp["usage"]["output_tokens"],
                 total_tokens=resp["usage"]["input_tokens"] + resp["usage"]["output_tokens"],
+            ),
+        )
+
+    @classmethod
+    def chat_streaming_to_model(cls, payload, config):
+        return cls.chat_to_model(payload, config)
+
+    @classmethod
+    def model_to_chat_streaming(cls, resp, config):
+        content = resp.get("delta") or resp.get("content_block") or {}
+        if (stop_reason := content.get("stop_reason")) is not None:
+            stop_reason = "length" if stop_reason == "max_tokens" else "stop"
+        return chat.StreamResponsePayload(
+            id=resp["id"],
+            created=int(time.time()),
+            model=resp["model"],
+            choices=[
+                chat.StreamChoice(
+                    index=resp["index"],
+                    finish_reason=stop_reason,
+                    delta=chat.StreamDelta(
+                        role=None,
+                        content=content.get("text"),
+                    ),
+                )
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=resp.get("input_tokens"),
+                completion_tokens=resp.get("output_tokens"),
+                total_tokens=resp.get("total_tokens"),
             ),
         )
 
@@ -188,6 +222,72 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             "anthropic-version": self.anthropic_config.anthropic_version,
         }
         self.base_url = "https://api.anthropic.com/v1/"
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        stream = send_stream_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="messages",
+            payload={
+                "model": self.config.model.name,
+                **AnthropicAdapter.chat_streaming_to_model(payload, self.config),
+            },
+        )
+
+        indices = []
+        metadata = {}
+        input_tokens = None
+        async for chunk in stream:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            # No handling on "event" lines
+            prefix, content = chunk.decode("utf-8").split(":", 1)
+            if prefix != "data":
+                continue
+
+            # See https://docs.anthropic.com/claude/reference/messages-streaming
+            resp = json.loads(content)
+            if resp["type"] not in (
+                "message_start",
+                "message_delta",
+                "content_block_start",
+                "content_block_delta",
+            ):
+                continue
+
+            # response id and model are only present in `message_start`
+            if resp["type"] == "message_start":
+                metadata["id"] = resp["message"]["id"]
+                metadata["model"] = resp["message"]["model"]
+                input_tokens = resp["message"]["usage"]["input_tokens"]
+                continue
+
+            index = resp.get("index")
+            if index is not None and index not in indices:
+                indices.append(index)
+
+            resp.update(metadata)
+            if resp["type"] == "message_delta":
+                output_tokens = resp["delta"]["usage"]["output_tokens"]
+                for index in indices:
+                    yield AnthropicAdapter.model_to_chat_streaming(
+                        {
+                            **resp,
+                            "index": index,
+                            "input_tokens": input_tokens,
+                            "output_tokens": output_tokens,
+                            "total_tokens": input_tokens + output_tokens,
+                        },
+                        self.config,
+                    )
+            else:
+                yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
