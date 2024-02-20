@@ -1,7 +1,13 @@
-# How to lint python files using `clint` on VSCode
+# Usage
+
+```bash
+clint file.py ...
+```
+
+# Integrating with Visual Studio Code
 
 1. Install [the Pylint extension](https://marketplace.visualstudio.com/items?itemName=ms-python.pylint)
-2. Add the following settings to your `settings.json` file (you can open it by pressing `Ctrl + ,`)
+2. Add the following setting in your `settings.json` file:
 
 ```json
 {
