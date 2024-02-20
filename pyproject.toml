@@ -112,3 +112,14 @@ forced-separate = ["tests"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
+
+[tool.clint]
+exclude = [
+  "docs",
+  "examples",
+  "mlflow/protos",
+  "mlflow/ml_package_versions.py",
+  "mlflow/server/js",
+  "mlflow/store/db_migrations",
+  "tests/protos",
+]
