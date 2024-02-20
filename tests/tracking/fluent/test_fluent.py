@@ -1365,25 +1365,33 @@ def test_flush_async_logging():
 
 
 def test_enable_async_logging():
-    mlflow.enable_async_logging()
+    mlflow.config.log_synchronously(False)
     with mock.patch(
         "mlflow.utils.async_logging.async_logging_queue.AsyncLoggingQueue.log_batch_async"
     ) as mock_log_batch_async:
         with mlflow.start_run():
             mlflow.log_metric("dummy", 1)
             mlflow.log_param("dummy", 1)
+            mlflow.set_tag("dummy", 1)
+            mlflow.log_metrics({"dummy": 1})
+            mlflow.log_params({"dummy": 1})
+            mlflow.set_tags({"dummy": 1})
 
-        mock_log_batch_async.assert_called()
+    assert mock_log_batch_async.call_count == 6
 
-    mlflow.enable_async_logging(False)
+    mlflow.config.log_synchronously(True)
     with mock.patch(
         "mlflow.utils.async_logging.async_logging_queue.AsyncLoggingQueue.log_batch_async"
     ) as mock_log_batch_async:
         with mlflow.start_run():
             mlflow.log_metric("dummy", 1)
             mlflow.log_param("dummy", 1)
+            mlflow.set_tag("dummy", 1)
+            mlflow.log_metrics({"dummy": 1})
+            mlflow.log_params({"dummy": 1})
+            mlflow.set_tags({"dummy": 1})
 
-        mock_log_batch_async.assert_not_called()
+    mock_log_batch_async.assert_not_called()
 
 
 def test_set_tag_async():

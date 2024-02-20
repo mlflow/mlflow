@@ -512,5 +512,7 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
-#: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
-MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
+#: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log synchronously.
+MLFLOW_ENABLE_SYNCHRONOUS_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SYNCHRONOUS_LOGGING", True
+)

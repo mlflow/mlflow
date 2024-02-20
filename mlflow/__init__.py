@@ -44,6 +44,7 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
+    config,  # noqa: F401
     data,  # noqa: F401
     exceptions,  # noqa: F401
     models,  # noqa: F401
@@ -151,7 +152,6 @@ from mlflow.tracking.fluent import (
     set_tags,
     start_run,
 )
-from mlflow.utils.async_logging import enable_async_logging
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
 from mlflow.utils.credentials import login
 from mlflow.utils.doctor import doctor
@@ -168,7 +168,6 @@ __all__ = [
     "delete_tag",
     "disable_system_metrics_logging",
     "doctor",
-    "enable_async_logging",
     "enable_system_metrics_logging",
     "end_run",
     "evaluate",
