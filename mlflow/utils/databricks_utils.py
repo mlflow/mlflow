@@ -792,7 +792,7 @@ def _init_databricks_cli_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
                 )
-    elif dbr_major_minor_version >= (9, 0):
+    elif dbr_major_minor_version >= (10, 3):
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
                 try:
