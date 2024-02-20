@@ -326,7 +326,7 @@ Python
 ^^^^^^
 
 :py:func:`mlflow.client.MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` 
-take the same arguments as the above UI examples and more! They return a list of all the runs that 
+take the same arguments as the above UI examples and more! They return all the runs that 
 match the specified filters. Your best resource is the dosctrings for each of these functions, but
 here are some useful examples.
 
@@ -338,6 +338,7 @@ Python provides powerful ways to build these queries programmatically. Some tips
 
 * For complex filters, specifically those with both single and double quotes, use multi-line strings or `\\"` to escape the quotes.
 * When working with lists, use the ``.join()`` method to concatenate the list elements with a delimiter.
+* It's often most concise to use the fluent APIs, so below we demo only with the fluent API.
 
 .. code-block:: python
 
@@ -442,7 +443,7 @@ Now you might be wondering how to search all experiments. It's as simple as spec
   )
 
 Finally, there are additioanl useful features in the 
-:py:func:`MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` methods, so be sure to 
+:py:func:`mlflow.client.MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` methods, so be sure to 
 check out the documentation for more details.
 
 R
