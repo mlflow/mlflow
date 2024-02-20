@@ -1,17 +1,16 @@
 from tensorflow import keras
 
-from mlflow import log_params, log_text
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow import log_metrics, log_params, log_text
+from mlflow.utils.autologging_utils import ExceptionSafeClass
 
 
-class MLflowCallback(keras.callbacks.Callback):
+class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
     """Callback for logging Tensorflow training metrics to MLflow.
 
     This callback logs model information at training start, and logs training metrics every epoch or
     every n steps (defined by the user) to MLflow.
 
     Args:
-        run: an `mlflow.entities.run.Run` instance, the MLflow run.
         log_every_epoch: bool, If True, log metrics every epoch. If False, log metrics every n
             steps.
         log_every_n_steps: int, log metrics every n steps. If None, log metrics every epoch.
@@ -52,8 +51,7 @@ class MLflowCallback(keras.callbacks.Callback):
             )
     """
 
-    def __init__(self, run, log_every_epoch=True, log_every_n_steps=None):
-        self.metrics_logger = BatchMetricsLogger(run.info.run_id)
+    def __init__(self, log_every_epoch=True, log_every_n_steps=None):
         self.log_every_epoch = log_every_epoch
         self.log_every_n_steps = log_every_n_steps
 
@@ -71,7 +69,7 @@ class MLflowCallback(keras.callbacks.Callback):
     def on_train_begin(self, logs=None):
         """Log model architecture and optimizer configuration when training begins."""
         config = self.model.optimizer.get_config()
-        log_params({f"optimizer_{k}": v for k, v in config.items()})
+        log_params({f"opt_{k}": v for k, v in config.items()})
 
         model_summary = []
 
@@ -84,20 +82,22 @@ class MLflowCallback(keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         """Log metrics at the end of each epoch."""
-        if not self.log_every_epoch:
+        if not self.log_every_epoch or logs is None:
             return
-        self.metrics_logger.record_metrics(logs, epoch)
+        log_metrics(logs, step=epoch, synchronous=False)
 
     def on_batch_end(self, batch, logs=None):
         """Log metrics at the end of each batch with user specified frequency."""
-        if self.log_every_n_steps is None:
+        if self.log_every_n_steps is None or logs is None:
             return
-        if (batch + 1) % self.log_every_n_steps == 0:
-            self.metrics_logger.record_metrics(logs, batch)
+        current_iteration = int(self.model.optimizer.iterations.numpy())
+
+        if current_iteration % self.log_every_n_steps == 0:
+            log_metrics(logs, step=current_iteration, synchronous=False)
 
     def on_test_end(self, logs=None):
         """Log validation metrics at validation end."""
         if logs is None:
             return
         metrics = {"validation_" + k: v for k, v in logs.items()}
-        self.metrics_logger.record_metrics(metrics)
+        log_metrics(metrics, synchronous=False)
