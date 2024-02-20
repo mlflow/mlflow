@@ -243,9 +243,9 @@ They are logged via ``mlflow.log_input`` or automatically via autologging.
 
 To search for runs by filtering on dataset information, you must filter on one of the below fields
 
-1. Dataset name ``datasets.name``, which is the dataset's name.
-2. Dataset digest ``datasets.digest``, which is a unique identifier for the dataset.
-3. Dataset context ``datasets.context``, which represents if the dataset is used for train, evaluation or test.
+1. ``datasets.name``, which is the dataset's name.
+2. ``datasets.digest``, which is a unique identifier for the dataset.
+3. ``datasets.context``, which represents if the dataset is used for train, evaluation or test.
 
 Note that dataset information is **stored as strings**, so you must use string comparators, such as ``=`` and ``!=``.
 Also note that datasets support set comparators, such as ``IN``.
@@ -290,19 +290,17 @@ You can chain multiple queries together using the ``AND`` keyword. For example, 
 with a variety of conditions, you can use the following queries:
 
 .. code-block:: sql
-  :caption: Simple Chained Queries
 
   metrics.accuracy > 0.72 AND metrics.loss <= 0.15
   metrics.accuracy > 0.72 AND metrics.batch_size != 0
   metrics.accuracy > 0.72 AND metrics.batch_size != 0 AND attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
 
 You can also apply multiple conditions on the same field, for example searching for all loss metrics
-between 0.1 and 0.15:
+``BETWEEEN`` 0.1 and 0.15, inclusive:
 
 .. code-block:: sql
-  :caption: ``BETWEEN`` Operator 
 
-  metrics.loss <= 0.15 AND metrics.loss > 0.1
+  metrics.loss <= 0.15 AND metrics.loss >= 0.1
 
 Finally, before moving on it's important to revisit that that you cannot use the ``OR`` keyword in 
 your queries.
@@ -361,8 +359,8 @@ Python provides powerful ways to build these queries programmatically. Some tips
   )
   print(runs)
 
+The output will be a pandas DataFrame with the runs that match the specified filters, as shown below.
 .. code-block:: text
-  :caption: Output
 
                                 run_id  ... tags.mlflow.runName
   0  22db81f070f6413588641c8c343cdd72  ...   orderly-quail-568
