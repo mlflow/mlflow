@@ -86,7 +86,7 @@ def test_wrong_target_name():
 
 def test_plugin_doesnot_have_required_attrib():
     class DummyPlugin:
-        ...
+        pass
 
     dummy_plugin = DummyPlugin()
     plugin_manager = DeploymentPlugins()
