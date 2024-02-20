@@ -444,7 +444,7 @@ class _PaddleWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -494,7 +494,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
 

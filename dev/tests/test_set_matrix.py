@@ -28,7 +28,7 @@ class MockResponse:
 
 
 def mock_pypi_api(mock_responses):
-    def requests_get_patch(url, *args, **kwargs):  # pylint: disable=unused-argument
+    def requests_get_patch(url, *args, **kwargs):
         package_name = re.search(r"https://pypi\.org/pypi/(.+)/json", url).group(1)
         return mock_responses[package_name]
 

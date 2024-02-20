@@ -1,4 +1,3 @@
-# pylint: disable=redefined-outer-name
 import ftplib
 import posixpath
 from ftplib import FTP

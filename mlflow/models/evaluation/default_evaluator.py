@@ -719,12 +719,10 @@ def _shap_predict_fn(x, predict_fn, feature_names):
     return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
 
 
-# pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
     def __init__(self):
         self.client = MlflowClient()
 
-    # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in _ModelType.values() or model_type is None
 

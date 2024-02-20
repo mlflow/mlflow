@@ -11,8 +11,6 @@ from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import RunContextProviderRegistry, resolve_tags
 
-# pylint: disable=unused-argument
-
 
 def test_run_context_provider_registry_register():
     provider_class = mock.Mock()

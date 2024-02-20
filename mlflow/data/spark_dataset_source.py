@@ -31,7 +31,7 @@ class SparkDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "spark"
 
-    def load(self, **kwargs):  # pylint: disable=unused-argument
+    def load(self, **kwargs):
         """Loads the dataset source as a Spark Dataset Source.
 
         Returns:

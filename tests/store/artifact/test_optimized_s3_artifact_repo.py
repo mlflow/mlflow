@@ -36,7 +36,6 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
         mock_get_s3_client.return_value = s3_client_mock
         s3_client_mock.head_bucket.return_value = {"BucketRegion": "us-west-2"}
 
-        # pylint: disable=no-value-for-parameter
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
         # We get the s3 client once during initialization to get the bucket region name

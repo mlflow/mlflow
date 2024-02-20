@@ -34,7 +34,6 @@ from tests.helper_functions import (
     random_str,
 )
 
-# pylint: disable=no-name-in-module,reimported
 if Version(keras.__version__) >= Version("2.6.0"):
     from tensorflow.keras.layers import Concatenate, Dense, Input
     from tensorflow.keras.models import Model

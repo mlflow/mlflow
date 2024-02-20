@@ -590,12 +590,10 @@ class _AutologgingMetricsManager:
 
     def disable_log_post_training_metrics(self):
         class LogPostTrainingMetricsDisabledScope:
-            def __enter__(inner_self):  # pylint: disable=no-self-argument
-                # pylint: disable=attribute-defined-outside-init
+            def __enter__(inner_self):
                 inner_self.old_status = self._log_post_training_metrics_enabled
                 self._log_post_training_metrics_enabled = False
 
-            # pylint: disable=no-self-argument
             def __exit__(inner_self, exc_type, exc_val, exc_tb):
                 self._log_post_training_metrics_enabled = inner_self.old_status
 
@@ -778,7 +776,7 @@ def autolog(
     log_model_signatures=True,
     log_model_allowlist=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
     This method is not threadsafe.

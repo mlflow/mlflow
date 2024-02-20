@@ -1018,7 +1018,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
 
         def to_dict(
             self,
-            flat,  # pylint: disable=unused-argument
+            flat,
         ):
             return self.args_dict
 

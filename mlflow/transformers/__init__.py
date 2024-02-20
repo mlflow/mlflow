@@ -285,7 +285,7 @@ def save_model(
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion: bool = False,
     prompt_template: Optional[str] = None,
-    **kwargs,  # pylint: disable=unused-argument
+    **kwargs,
 ) -> None:
     """
     Save a trained transformers model to a path on the local file system.
@@ -2784,7 +2784,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     This autologging integration is solely used for disabling spurious autologging of irrelevant
     sub-models that are created during the training and evaluation of transformers-based models.

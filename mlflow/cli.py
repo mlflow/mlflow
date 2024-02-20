@@ -261,7 +261,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
             )
 
 
-def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argument
+def _validate_static_prefix(ctx, param, value):
     """
     Validate that the static_prefix option starts with a "/" and does not end in a "/".
     Conforms to the callback interface of click documented at

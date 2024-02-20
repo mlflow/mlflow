@@ -351,7 +351,7 @@ class _ProphetModelWrapper:
     def __init__(self, pr_model):
         self.pr_model = pr_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

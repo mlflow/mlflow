@@ -351,7 +351,6 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     if platform.system() == "Windows":
         win_user_dir = os.environ["USERPROFILE"]
         aws_path = os.path.join(win_user_dir, ".aws")
@@ -372,7 +371,6 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     envs = {
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
         "AZURE_STORAGE_ACCESS_KEY": os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
@@ -382,7 +380,6 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_gcs_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     cmds = []
     envs = {}
 
@@ -394,7 +391,6 @@ def _get_gcs_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     cmds = []
     envs = {
         "MLFLOW_KERBEROS_TICKET_CACHE": MLFLOW_KERBEROS_TICKET_CACHE.get(),

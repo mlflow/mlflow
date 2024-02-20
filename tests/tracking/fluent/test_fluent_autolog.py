@@ -88,7 +88,7 @@ def reset_global_states():
 #   and is only imported when we call wrapt.notify_module_loaded in the tests below. Normally,
 #   notify_module_loaded would be called by register_post_import_hook if it sees that the module
 #   is already loaded.
-def only_register(callback_fn, module, overwrite):  # pylint: disable=unused-argument
+def only_register(callback_fn, module, overwrite):
     mlflow.utils.import_hooks._post_import_hooks[module] = [callback_fn]
 
 

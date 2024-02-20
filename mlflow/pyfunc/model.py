@@ -138,7 +138,7 @@ class _FunctionPythonModel(PythonModel):
 
     def predict(
         self,
-        context,  # pylint: disable=unused-argument
+        context,
         model_input,
         params: Optional[Dict[str, Any]] = None,
     ):

@@ -61,7 +61,7 @@ class KerasImageClassifierPyfunc:
     def predict(
         self,
         input,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Generate predictions for the data.
