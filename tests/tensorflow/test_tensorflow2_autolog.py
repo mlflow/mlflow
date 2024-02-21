@@ -1363,13 +1363,12 @@ def test_automatic_checkpoint_per_epoch_callback(random_train_data, random_one_h
     assert logged_metrics['epoch'] == 0
     assert logged_metrics['global_step'] == 5
 
-    tf.keras.models.load_model(
-        mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.h5"
-        )
-    )
-    assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)
-    assert isinstance(load_checkpoint(run_id=run_id, epoch=0), tf.keras.Sequential)
+    pred_result = model.predict(random_train_data)
+    pred_result2 = load_checkpoint(run_id=run_id).predict(random_train_data)
+    np.testing.assert_array_almost_equal(pred_result, pred_result2)
+
+    pred_result3 = load_checkpoint(run_id=run_id, epoch=0).predict(random_train_data)
+    np.testing.assert_array_almost_equal(pred_result, pred_result3)
 
 
 def test_automatic_checkpoint_per_epoch_save_weight_only_callback(
@@ -1402,15 +1401,9 @@ def test_automatic_checkpoint_per_epoch_save_weight_only_callback(
     assert logged_metrics['global_step'] == 5
 
     model2 = create_tf_keras_model()
-    model2.load_weights(
-        mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/epoch_0/checkpoint.weights.h5"
-        )
-    )
-    model3 = create_tf_keras_model()
-    load_checkpoint(model=model3, run_id=run_id)
-    model4 = create_tf_keras_model()
-    load_checkpoint(model=model4, run_id=run_id)
+    pred_result = model.predict(random_train_data)
+    pred_result2 = load_checkpoint(model=model2, run_id=run_id).predict(random_train_data)
+    np.testing.assert_array_almost_equal(pred_result, pred_result2)
 
 
 def test_automatic_checkpoint_per_3_steps_callback(
@@ -1439,11 +1432,7 @@ def test_automatic_checkpoint_per_3_steps_callback(
     assert set(logged_metrics) == {'epoch', 'loss', 'accuracy', 'global_step'}
     assert logged_metrics['epoch'] == 0
     assert logged_metrics['global_step'] == 3
-    tf.keras.models.load_model(
-        mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/global_step_3/checkpoint.h5"
-        )
-    )
+
     assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)
     assert isinstance(load_checkpoint(run_id=run_id, global_step=3), tf.keras.Sequential)
 
@@ -1475,9 +1464,5 @@ def test_automatic_checkpoint_per_3_steps_save_best_only_callback(
     assert set(logged_metrics) == {'epoch', 'loss', 'accuracy', 'global_step'}
     assert logged_metrics['epoch'] == 0
     assert logged_metrics['global_step'] == 3
-    tf.keras.models.load_model(
-        mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="checkpoints/latest_checkpoint.h5"
-        )
-    )
+
     assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)
