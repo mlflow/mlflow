@@ -351,8 +351,6 @@ def _assert_less_than_or_equal(x, max_value, message=None):
 
 
 def _assert_intlike_within_range(x, min_value, max_value, message=None):
-    # Note this condition must be applied after _assert_intlike
-    x = int(x)
     if not min_value <= x <= max_value:
         raise AssertionError(message) if message else AssertionError()
 
@@ -926,7 +924,7 @@ def _search_runs():
         schema={
             "experiment_ids": [_assert_array],
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 50000)],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 50000)],
             "order_by": [_assert_array, _assert_item_type_string],
         },
     )
@@ -1155,7 +1153,7 @@ def get_metric_history_bulk_interval_handler():
             "max_results": [
                 _assert_intlike,
                 lambda x: _assert_intlike_within_range(
-                    x,
+                    int(x),
                     1,
                     MAX_RESULTS_PER_RUN,
                     message=f"max_results must be between 1 and {MAX_RESULTS_PER_RUN}.",
@@ -1615,7 +1613,7 @@ def _search_registered_models():
         SearchRegisteredModels(),
         schema={
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 1000)],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 1000)],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
@@ -1893,7 +1891,7 @@ def _search_model_versions():
         SearchModelVersions(),
         schema={
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 200_000)],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 200_000)],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
