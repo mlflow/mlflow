@@ -1,4 +1,10 @@
-import type { ModelVersionInfoEntity, RunInfoEntity, RunDatasetWithTags, KeyValueEntity } from '../../../types';
+import type {
+  ModelVersionInfoEntity,
+  RunInfoEntity,
+  RunDatasetWithTags,
+  KeyValueEntity,
+  MetricEntity,
+} from '../../../types';
 
 /**
  * Represents a single ag-grid compatible row used in Experiment View runs table.
@@ -111,7 +117,7 @@ export interface RunGroupParentInfo {
   groupId: string;
   expanderOpen?: boolean;
   runUuids: string[];
-  aggregatedMetricData: Record<string, { key: string; value: number }>;
+  aggregatedMetricData: Record<string, { key: string; value: number; maxStep: number }>;
   aggregatedParamData: Record<string, { key: string; value: number }>;
   aggregateFunction?: RunGroupingAggregateFunction;
 }
@@ -133,7 +139,7 @@ export interface RowRenderMetadata {
   level: number;
   childrenIds?: string[];
   params: KeyValueEntity[];
-  metrics: KeyValueEntity[];
+  metrics: MetricEntity[];
   tags: Record<string, KeyValueEntity>;
   datasets: RunDatasetWithTags[];
   isGroup?: false;
@@ -148,6 +154,7 @@ export interface RowGroupRenderMetadata {
   aggregatedMetricEntities: {
     key: string;
     value: number;
+    maxStep: number;
   }[];
   aggregatedParamEntities: {
     key: string;

@@ -68,7 +68,7 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
   } else if (spec.optional !== undefined && spec.optional) {
     required = false;
   }
-  const requiredTag = required ? <Text bold>{'(required)'}</Text> : <Text color="secondary">{'(optional)'}</Text>;
+  const requiredTag = required ? <Text bold>(required)</Text> : <Text color="secondary">(optional)</Text>;
 
   const name = 'name' in spec ? spec.name : '-';
 

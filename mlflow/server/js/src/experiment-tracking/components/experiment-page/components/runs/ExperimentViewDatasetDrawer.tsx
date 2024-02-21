@@ -21,6 +21,9 @@ import Routes from '../../../../routes';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentViewDatasetWithContext } from './ExperimentViewDatasetWithContext';
 import { RunColorPill } from '../RunColorPill';
+import { ExperimentViewDatasetSourceType } from './ExperimentViewDatasetSourceType';
+import { ExperimentViewDatasetSourceURL } from './ExperimentViewDatasetSourceURL';
+import { ExperimentViewDatasetDigest } from './ExperimentViewDatasetDigest';
 
 export type DatasetWithRunType = {
   datasetWithTags: RunDatasetWithTags;
@@ -149,6 +152,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
                   }}
                 >
                   <Button
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_151"
                     type="link"
                     css={{
                       textAlign: 'left',
@@ -208,8 +212,12 @@ export const ExperimentViewDatasetDrawerImpl = ({
                     </div>
                   }
                 />
-                <Typography.Title level={4} color="secondary" css={{ marginBottom: 0 }} title={fullProfile}>
-                  {datasetWithTags.dataset.digest},{' '}
+                <Typography.Title
+                  level={4}
+                  color="secondary"
+                  css={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.xs }}
+                  title={fullProfile}
+                >
                   {datasetWithTags.dataset.profile && datasetWithTags.dataset.profile !== 'null' ? (
                     datasetWithTags.dataset.profile.length > MAX_PROFILE_LENGTH ? (
                       `${datasetWithTags.dataset.profile.substring(0, MAX_PROFILE_LENGTH)} ...`
@@ -226,8 +234,13 @@ export const ExperimentViewDatasetDrawerImpl = ({
               </div>
               <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} runTags={tags} />
             </div>
+            <div css={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <ExperimentViewDatasetDigest datasetWithTags={datasetWithTags} />
+              <ExperimentViewDatasetSourceType datasetWithTags={datasetWithTags} />
+              <ExperimentViewDatasetSourceURL datasetWithTags={datasetWithTags} />
+            </div>
             {/* dataset schema */}
-            <Divider css={{ marginTop: theme.spacing.xs, marginBottom: theme.spacing.xs }} />
+            <Divider css={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }} />
             <ExperimentViewDatasetSchema datasetWithTags={datasetWithTags} />
           </div>
         </div>

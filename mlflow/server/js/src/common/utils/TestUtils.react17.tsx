@@ -8,8 +8,15 @@
 import { fireEvent, within, render, type RenderResult, screen, act } from '@testing-library/react';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import { defaultProviderProps } from './TestUtils';
 import userEvent from '@testing-library/user-event';
+
+import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
+
+const defaultProviderProps = {
+  locale: DEFAULT_LOCALE,
+  defaultLocale: DEFAULT_LOCALE,
+  messages: {},
+};
 
 export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, providerProps = {}): RenderResult {
   const mergedProviderProps = {

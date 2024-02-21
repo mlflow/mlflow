@@ -17,7 +17,7 @@ export interface ToggleIconButtonProps extends ButtonProps {
  */
 const ToggleIconButton = React.forwardRef<HTMLButtonElement, ToggleIconButtonProps>(
   (props: ToggleIconButtonProps, ref) => {
-    const { pressed, onClick, icon, onBlur, onFocus, onMouseEnter, onMouseLeave } = props;
+    const { pressed, onClick, icon, onBlur, onFocus, onMouseEnter, onMouseLeave, type, ...remainingProps } = props;
     const { theme } = useDesignSystemTheme();
     return (
       <button
@@ -45,6 +45,7 @@ const ToggleIconButton = React.forwardRef<HTMLButtonElement, ToggleIconButtonPro
         onFocus={onFocus}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
+        {...remainingProps}
       >
         {icon}
       </button>

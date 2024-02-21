@@ -50,7 +50,12 @@ export const ExperimentViewHeaderV2 = React.memo(
     const renderFeedbackForm = () => {
       const feedbackLink = (
         <a href={feedbackFormUrl} target="_blank" rel="noreferrer" css={{ display: 'flex', alignItems: 'center' }}>
-          <Button css={{ marginLeft: theme.spacing.sm }} type="link" size="small">
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheaderv2.tsx_100"
+            css={{ marginLeft: theme.spacing.sm }}
+            type="link"
+            size="small"
+          >
             <FormattedMessage
               defaultMessage="Provide Feedback"
               description="Link to a survey for users to give feedback"
@@ -76,6 +81,7 @@ export const ExperimentViewHeaderV2 = React.memo(
     const getAddDescriptionButton = () => {
       return (
         <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheaderv2.tsx_271"
           size="small"
           onClick={() => {
             setEditing(true);

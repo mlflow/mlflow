@@ -103,7 +103,12 @@ export const ModelListFilters = ({
         showSearchButton
       />
       {isFiltered && (
-        <Button type="tertiary" onClick={reset} data-testid="models-list-filters-reset">
+        <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_152"
+          type="tertiary"
+          onClick={reset}
+          data-testid="models-list-filters-reset"
+        >
           <FormattedMessage defaultMessage="Reset filters" description="Reset filters button in list" />
         </Button>
       )}

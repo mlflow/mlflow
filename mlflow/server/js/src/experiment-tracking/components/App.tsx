@@ -105,7 +105,7 @@ class App extends Component<AppProps> {
                   <span css={{ marginRight }}>
                     <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
                   </span>
-                  <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
+                  <a href="https://github.com/mlflow/mlflow" css={{ marginRight }}>
                     <div className="github">
                       <span>GitHub</span>
                     </div>

@@ -36,6 +36,7 @@ export class LoadMoreBarImpl extends React.PureComponent<Props> {
     const { disableButton, onLoadMore, nestChildren, intl, designSystemThemeApi } = this.props;
     const loadMoreButton = (
       <Button
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_loadmorebar.tsx_38"
         className="load-more-button"
         style={styles.loadMoreButton}
         type="primary"

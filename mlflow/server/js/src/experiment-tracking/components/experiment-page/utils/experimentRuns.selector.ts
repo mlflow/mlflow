@@ -8,6 +8,7 @@ import {
   DatasetSummary,
   RunInfoEntity,
   RunDatasetWithTags,
+  MetricEntity,
 } from '../../../types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunDatasets, getRunInfo, getRunTags } from '../../../reducers/Reducers';
@@ -38,7 +39,7 @@ export type ExperimentRunsSelectorResult = {
    * Example: metricsList[2] contains list of all
    * metrics corresponding to the 3rd run in the run list
    */
-  metricsList: KeyValueEntity[][];
+  metricsList: MetricEntity[][];
 
   /**
    * List of metrics indexed by the respective runs.
@@ -192,7 +193,7 @@ export const experimentRunsSelector = (
       metricKeysSet.add(metric.key);
     });
     return metrics;
-  }) as KeyValueEntity[][];
+  }) as MetricEntity[][];
 
   /**
    * Extracting lists of params by run index
