@@ -735,9 +735,7 @@ def get_databricks_runtime_major_minor_version():
         dbr_version_splits = dbr_version.split(".", maxsplit=2)
         return int(dbr_version_splits[0]), int(dbr_version_splits[1])
     except Exception:
-        raise MlflowException(
-            f"Failed to parse databricks runtime version '{dbr_version}'."
-        )
+        raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
 
 
 def _init_databricks_cli_config_provider(entry_point):
