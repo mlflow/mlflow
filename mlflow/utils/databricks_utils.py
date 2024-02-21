@@ -803,9 +803,9 @@ def _init_databricks_cli_config_provider(entry_point):
                         return DatabricksConfig.from_token(
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll)
                 except Exception as e:
-                    print(
+                    print(  # noqa
                         "Unexpected internal error while constructing `DatabricksConfig` "
-                        "from REPL context: {e}".format(e=e),
+                        f"from REPL context: {e}",
                         file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
