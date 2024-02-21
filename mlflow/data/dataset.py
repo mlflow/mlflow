@@ -1,4 +1,3 @@
-import hashlib
 import json
 from abc import abstractmethod
 from typing import Any, Dict, Optional
@@ -31,28 +30,20 @@ class Dataset:
 
     @abstractmethod
     def _compute_digest(self) -> str:
-        """Computes a digest for the dataset.
-
-        Called if the user doesn't supply a digest when constructing the dataset. Users can override
-        this method in subclasses to provide custom digest computation logic.
+        """Computes a digest for the dataset. Called if the user doesn't supply
+        a digest when constructing the dataset.
 
         Returns:
             A string digest for the dataset. We recommend a maximum digest length
             of 10 characters with an ideal length of 8 characters.
 
         """
-        config = {
-            "name": self.name,
-            "source": self.source.to_json(),
-            "source_type": self.source._get_source_type(),
-        }
-        return hashlib.md5(json.dumps(config).encode("utf-8")).hexdigest()[:8]
 
     @abstractmethod
     def to_dict(self) -> Dict[str, str]:
         """Create config dictionary for the dataset.
 
-        Subclasses should override this method to provide a additional fields in the config dict,
+        Subclasses should override this method to provide additional fields in the config dict,
         e.g., schema, profile, etc.
         """
         return {

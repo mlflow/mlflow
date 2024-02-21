@@ -1277,14 +1277,14 @@ def test_log_input(tmp_path):
 def test_log_input_metadata_only():
     source_uri = "test:/my/test/uri"
     source = HTTPDatasetSource(url=source_uri)
-    dataset = mlflow.data.Dataset(source=source)
+    dataset = mlflow.data.meta_dataset.MetaDataset(source=source)
 
     with start_run() as run:
         mlflow.log_input(dataset, "train")
     dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
     assert len(dataset_inputs) == 1
     assert dataset_inputs[0].dataset.name == "dataset"
-    assert dataset_inputs[0].dataset.digest != None
+    assert dataset_inputs[0].dataset.digest is not None
     assert dataset_inputs[0].dataset.source_type == "http"
     assert json.loads(dataset_inputs[0].dataset.source) == {"url": source_uri}
 
