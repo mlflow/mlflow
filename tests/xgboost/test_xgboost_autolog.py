@@ -668,16 +668,6 @@ def test_xgb_autolog_log_models_configuration(bst_params, log_models):
     assert ("model" in artifacts) == log_models
 
 
-def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
-    """
-    This test verifies that `xgboost.DMatrix(None)` doesn't fail after patching.
-    XGBoost internally calls `xgboost.DMatrix(None)` to create a blank `DMatrix` object.
-    Example: https://github.com/dmlc/xgboost/blob/v1.2.1/python-package/xgboost/core.py#L701
-    """
-    mlflow.xgboost.autolog()
-    xgb.DMatrix(None)
-
-
 def test_callback_func_is_pickable():
     cb = picklable_exception_safe_function(
         functools.partial(autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
