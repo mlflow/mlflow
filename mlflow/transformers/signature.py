@@ -2,7 +2,6 @@ import json
 import logging
 
 import numpy as np
-import transformers
 
 from mlflow.environment_variables import MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
 from mlflow.models.signature import ModelSignature, infer_signature
@@ -26,15 +25,15 @@ _CLASSIFICATION_SIGNATURE = ModelSignature(
 
 # Order is important here, the first matching pipeline type will be used
 _DEFAULT_SIGNATURE_FOR_PIPELINES = {
-    transformers.TokenClassificationPipeline: _TEXT2TEXT_SIGNATURE,
-    transformers.ConversationalPipeline: _TEXT2TEXT_SIGNATURE,
-    transformers.TranslationPipeline: _TEXT2TEXT_SIGNATURE,
-    transformers.FillMaskPipeline: _TEXT2TEXT_SIGNATURE,
-    transformers.TextGenerationPipeline: _TEXT2TEXT_SIGNATURE,
-    transformers.Text2TextGenerationPipeline: _TEXT2TEXT_SIGNATURE,
-    transformers.TextClassificationPipeline: _CLASSIFICATION_SIGNATURE,
-    transformers.ImageClassificationPipeline: _CLASSIFICATION_SIGNATURE,
-    transformers.ZeroShotClassificationPipeline: ModelSignature(
+    "TokenClassificationPipeline": _TEXT2TEXT_SIGNATURE,
+    "ConversationalPipeline": _TEXT2TEXT_SIGNATURE,
+    "TranslationPipeline": _TEXT2TEXT_SIGNATURE,
+    "FillMaskPipeline": _TEXT2TEXT_SIGNATURE,
+    "TextGenerationPipeline": _TEXT2TEXT_SIGNATURE,
+    "Text2TextGenerationPipeline": _TEXT2TEXT_SIGNATURE,
+    "TextClassificationPipeline": _CLASSIFICATION_SIGNATURE,
+    "ImageClassificationPipeline": _CLASSIFICATION_SIGNATURE,
+    "ZeroShotClassificationPipeline": ModelSignature(
         inputs=Schema(
             [
                 ColSpec(DataType.string, name="sequences"),
@@ -50,29 +49,29 @@ _DEFAULT_SIGNATURE_FOR_PIPELINES = {
             ]
         ),
     ),
-    transformers.AutomaticSpeechRecognitionPipeline: ModelSignature(
+    "AutomaticSpeechRecognitionPipeline": ModelSignature(
         inputs=Schema([ColSpec(DataType.binary)]),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
-    transformers.AudioClassificationPipeline: ModelSignature(
+    "AudioClassificationPipeline": ModelSignature(
         inputs=Schema([ColSpec(DataType.binary)]),
         outputs=Schema(
             [ColSpec(DataType.double, name="score"), ColSpec(DataType.string, name="label")]
         ),
     ),
-    transformers.TableQuestionAnsweringPipeline: ModelSignature(
+    "TableQuestionAnsweringPipeline": ModelSignature(
         inputs=Schema(
             [ColSpec(DataType.string, name="query"), ColSpec(DataType.string, name="table")]
         ),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
-    transformers.QuestionAnsweringPipeline: ModelSignature(
+    "QuestionAnsweringPipeline": ModelSignature(
         inputs=Schema(
             [ColSpec(DataType.string, name="question"), ColSpec(DataType.string, name="context")]
         ),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
-    transformers.FeatureExtractionPipeline: ModelSignature(
+    "FeatureExtractionPipeline": ModelSignature(
         inputs=Schema([ColSpec(DataType.string)]),
         outputs=Schema([TensorSpec(np.dtype("float64"), [-1], "double")]),
     ),
@@ -117,8 +116,10 @@ def infer_or_get_default_signature(
                 )
             _logger.warning(msg)
 
+    import transformers
+
     for pipeline_type, signature in _DEFAULT_SIGNATURE_FOR_PIPELINES.items():
-        if isinstance(pipeline, pipeline_type):
+        if isinstance(pipeline, getattr(transformers, pipeline_type)):
             return signature
 
     _logger.warning(
@@ -143,11 +144,11 @@ def _infer_signature_with_example(
             f"environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
         )
         with run_with_timeout(timeout):
-            prediction = _generate_signature_output(
+            prediction = generate_signature_output(
                 pipeline, example, model_config, flavor_config, params
             )
     else:
-        prediction = _generate_signature_output(
+        prediction = generate_signature_output(
             pipeline, example, model_config, flavor_config, params
         )
     return infer_signature(example, prediction, params)
@@ -172,7 +173,7 @@ def format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
-def _generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
+def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
     from mlflow.transformers import _TransformersWrapper

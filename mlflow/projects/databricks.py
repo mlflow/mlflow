@@ -298,8 +298,8 @@ class DatabricksJobRunner:
             databricks_run_id: Integer Databricks job run ID.
 
         Returns:
-            `RunResultState <https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
-            the run is still active.
+            `RunResultState <https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or
+            None if the run is still active.
         """
         res = self.jobs_runs_get(databricks_run_id)
         return res["state"].get("result_state", None)

@@ -44,8 +44,7 @@ def generate_data(location_data, start_dt) -> pd.DataFrame:
             )
         )
 
-    output = pd.concat(generated_listing).reset_index().drop("index", axis=1)
-    return output
+    return pd.concat(generated_listing).reset_index().drop("index", axis=1)
 
 
 def grouped_prophet_example(locations, start_dt, artifact_path):

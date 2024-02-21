@@ -825,6 +825,10 @@ cd -
 python setup.py bdist_wheel
 ```
 
+### TOML formatting
+
+We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting. You can install it by following the instructions [here](https://taplo.tamasfe.dev/cli/introduction.html).
+
 ### Writing Docs
 
 First, install dependencies for building docs as described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).

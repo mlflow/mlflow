@@ -1740,8 +1740,7 @@ def test_upload_artifact_handler(mlflow_client):
 
 
 def test_graphql_handler(mlflow_client):
-    response = requests.request(
-        "post",
+    response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
         json={
             "query": 'query testQuery {test(inputString: "abc") { output }}',
@@ -1750,3 +1749,47 @@ def test_graphql_handler(mlflow_client):
         headers={"content-type": "application/json; charset=utf-8"},
     )
     assert response.status_code == 200
+
+
+def test_get_experiment_graphql(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("GraphqlTest")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": 'query testQuery {mlflowGetExperiment(input: {experimentId: "'
+            + experiment_id
+            + '"}) { experiment { name } }}',
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    json = response.json()
+    assert json["data"]["mlflowGetExperiment"]["experiment"]["name"] == "GraphqlTest"
+
+
+def test_get_run_and_experiment_graphql(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("GraphqlTest")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    mlflowGetRun(input: {{runId: "{run_id}"}}) {{
+                        run {{
+                            experiment {{
+                                name
+                            }}
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    json = response.json()
+    assert json["data"]["mlflowGetRun"]["run"]["experiment"]["name"] == "GraphqlTest"

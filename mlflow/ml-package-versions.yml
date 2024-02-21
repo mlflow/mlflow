@@ -648,7 +648,8 @@ johnsnowlabs:
     minimum: "4.4.6"
     maximum: "5.2.2"
     requirements:
-      ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
+      ">= 0.0.0": ["pandas<=1.5.3"]
+      "< 5.2.8": ["pyspark<3.4"]
     run: |
       if [ ! -z "$JOHNSNOWLABS_LICENSE_JSON" ]; then
         pytest tests/johnsnowlabs/test_johnsnowlabs_model_export.py

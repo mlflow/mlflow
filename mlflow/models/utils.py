@@ -34,6 +34,26 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
+try:
+    from pyspark.sql import DataFrame as SparkDataFrame
+    from pyspark.sql import Row
+    from pyspark.sql.types import (
+        ArrayType,
+        BinaryType,
+        DateType,
+        FloatType,
+        IntegerType,
+        ShortType,
+        StructType,
+        TimestampType,
+    )
+
+    HAS_PYSPARK = True
+except ImportError:
+    SparkDataFrame = None
+    HAS_PYSPARK = False
+
+
 INPUT_EXAMPLE_PATH = "artifact_path"
 EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
@@ -60,7 +80,13 @@ PyFuncInput = Union[
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
 
+if HAS_PYSPARK:
+    PyFuncInput = Union[PyFuncInput, SparkDataFrame]
+    PyFuncOutput = Union[PyFuncOutput, SparkDataFrame]
+
 _logger = logging.getLogger(__name__)
+
+_FEATURE_STORE_FLAVOR = "databricks.feature_store.mlflow_model"
 
 
 class _Example:
@@ -542,6 +568,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
 
     Any other type mismatch will raise error.
     """
+
     if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
@@ -569,7 +596,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # ignore precision when matching datetime columns.
         return values.astype(np.dtype("datetime64[ns]"))
 
-    if t == DataType.datetime and values.dtype == object:
+    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
@@ -830,7 +857,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -840,6 +867,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     For column-based signatures, we make sure the types of the input match the type specified in
     the schema or if it can be safely converted to match the input schema.
 
+    For Pyspark DataFrame inputs, MLflow casts a sample of the PySpark DataFrame into a Pandas
+    DataFrame. MLflow will only enforce the schema on a subset of the data rows.
+
     For tensor-based signatures, we make sure the shape and type of the input matches the shape
     and type specified in model's input schema.
     """
@@ -847,6 +877,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     def _is_scalar(x):
         return np.isscalar(x) or x is None
 
+    original_pf_input = pf_input
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
@@ -912,7 +943,13 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     )
         elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
-
+        elif HAS_PYSPARK and isinstance(pf_input, SparkDataFrame):
+            pf_input = pf_input.limit(10).toPandas()
+            for field in original_pf_input.schema.fields:
+                if isinstance(field.dataType, (StructType, ArrayType)):
+                    pf_input[field.name] = pf_input[field.name].apply(
+                        lambda row: convert_complex_types_pyspark_to_pandas(row, field.dataType)
+                    )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
                 f"Expected input to be DataFrame. Found: {type(pf_input).__name__}"
@@ -956,10 +993,64 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
+    elif HAS_PYSPARK and isinstance(original_pf_input, SparkDataFrame):
+        return _enforce_pyspark_dataframe_schema(
+            original_pf_input, pf_input, input_schema, flavor=flavor
+        )
     elif input_schema.has_input_names():
         return _enforce_named_col_schema(pf_input, input_schema)
     else:
         return _enforce_unnamed_col_schema(pf_input, input_schema)
+
+
+def _enforce_pyspark_dataframe_schema(
+    original_pf_input: SparkDataFrame,
+    pf_input_as_pandas,
+    input_schema: Schema,
+    flavor: Optional[str] = None,
+):
+    """
+    Enforce that the input PySpark DataFrame conforms to the model's input schema.
+
+    This function creates a new DataFrame that only includes the columns from the original
+    DataFrame that are declared in the model's input schema. Any extra columns in the original
+    DataFrame are dropped.Note that this function does not modify the original DataFrame.
+
+    :param original_pf_input: Original input PySpark DataFrame.
+    :param pf_input_as_pandas: Input DataFrame converted to pandas.
+    :param input_schema: Expected schema of the input DataFrame.
+    :param flavor: Optional model flavor. If specified, it is used to handle specific behaviors
+                   for different model flavors. Currently, only the '_FEATURE_STORE_FLAVOR' is
+                   handled specially.
+    :return: New PySpark DataFrame that conforms to the model's input schema.
+    """
+    if not HAS_PYSPARK:
+        raise MlflowException("PySpark is not installed. Cannot handle a PySpark DataFrame.")
+    new_pf_input = original_pf_input.alias("pf_input_copy")
+    if input_schema.has_input_names():
+        _enforce_named_col_schema(pf_input_as_pandas, input_schema)
+        input_names = input_schema.input_names()
+
+    else:
+        _enforce_unnamed_col_schema(pf_input_as_pandas, input_schema)
+        input_names = pf_input_as_pandas.columns[: len(input_schema.inputs)]
+    columns_to_drop = []
+    columns_not_dropped_for_feature_store_model = []
+    for col, dtype in new_pf_input.dtypes:
+        if col not in input_names:
+            # to support backwards compatability with feature store models
+            if any(x in dtype for x in ["array", "map", "struct"]):
+                if flavor == _FEATURE_STORE_FLAVOR:
+                    columns_not_dropped_for_feature_store_model.append(col)
+                    continue
+            columns_to_drop.append(col)
+    if columns_not_dropped_for_feature_store_model:
+        _logger.warning(
+            "The following columns are not in the model signature but "
+            "are not dropped for feature store model: %s",
+            ", ".join(columns_not_dropped_for_feature_store_model),
+        )
+    return new_pf_input.drop(*columns_to_drop)
 
 
 def _enforce_datatype(data: Any, dtype: DataType):
@@ -1019,6 +1110,8 @@ def _enforce_property(data: Any, property: Property):
 def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
     if not required and data is None:
         return None
+    if HAS_PYSPARK and isinstance(data, Row):
+        data = data.asDict(True)
     if not isinstance(data, dict):
         raise MlflowException(
             f"Failed to enforce schema of '{data}' with type '{obj}'. "
@@ -1249,3 +1342,31 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
         )
 
     return params
+
+
+def convert_complex_types_pyspark_to_pandas(value, dataType):
+    # This function is needed because the default `asDict` function in PySpark
+    # converts the data to Python types, which is not compatible with the schema enforcement.
+    type_mapping = {
+        IntegerType: lambda v: np.int32(v),
+        ShortType: lambda v: np.int16(v),
+        FloatType: lambda v: np.float32(v),
+        DateType: lambda v: v.strftime("%Y-%m-%d"),
+        TimestampType: lambda v: v.strftime("%Y-%m-%d %H:%M:%S.%f"),
+        BinaryType: lambda v: np.bytes_(v),
+    }
+    if value is None:
+        return None
+    if isinstance(dataType, StructType):
+        return {
+            field.name: convert_complex_types_pyspark_to_pandas(value[field.name], field.dataType)
+            for field in dataType.fields
+        }
+    elif isinstance(dataType, ArrayType):
+        return [
+            convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
+        ]
+    converter = type_mapping.get(type(dataType))
+    if converter:
+        return converter(value)
+    return value

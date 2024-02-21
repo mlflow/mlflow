@@ -8,7 +8,7 @@ import botocore.exceptions
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import AWSBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
+from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
@@ -22,7 +22,7 @@ from mlflow.gateway.schemas import completions
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
 
-class AWSBedrockAnthropicAdapter(AnthropicAdapter):
+class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
     @classmethod
     def completions_to_model(cls, payload, config):
         payload = super().completions_to_model(payload, config)
@@ -136,7 +136,7 @@ class AI21Adapter(ProviderAdapter):
         raise NotImplementedError
 
 
-class AWSBedrockModelProvider(Enum):
+class AmazonBedrockModelProvider(Enum):
     AMAZON = "amazon"
     COHERE = "cohere"
     AI21 = "ai21"
@@ -156,22 +156,22 @@ class AWSBedrockModelProvider(Enum):
 
 
 AWS_MODEL_PROVIDER_TO_ADAPTER = {
-    AWSBedrockModelProvider.COHERE: CohereAdapter,
-    AWSBedrockModelProvider.ANTHROPIC: AWSBedrockAnthropicAdapter,
-    AWSBedrockModelProvider.AMAZON: AWSTitanAdapter,
-    AWSBedrockModelProvider.AI21: AI21Adapter,
+    AmazonBedrockModelProvider.COHERE: CohereAdapter,
+    AmazonBedrockModelProvider.ANTHROPIC: AmazonBedrockAnthropicAdapter,
+    AmazonBedrockModelProvider.AMAZON: AWSTitanAdapter,
+    AmazonBedrockModelProvider.AI21: AI21Adapter,
 }
 
 
-class AWSBedrockProvider(BaseProvider):
-    NAME = "AWS Bedrock"
+class AmazonBedrockProvider(BaseProvider):
+    NAME = "Amazon Bedrock"
 
     def __init__(self, config: RouteConfig):
         super().__init__(config)
 
-        if config.model.config is None or not isinstance(config.model.config, AWSBedrockConfig):
+        if config.model.config is None or not isinstance(config.model.config, AmazonBedrockConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
-        self.bedrock_config: AWSBedrockConfig = config.model.config
+        self.bedrock_config: AmazonBedrockConfig = config.model.config
         self._client = None
         self._client_created = 0
 
@@ -201,10 +201,10 @@ class AWSBedrockProvider(BaseProvider):
             return self._client
         except botocore.exceptions.UnknownServiceError as e:
             raise AIGatewayConfigException(
-                "Cannot create AWS Bedrock client; ensure boto3/botocore "
-                "linked from the AWS Bedrock user guide are installed. "
+                "Cannot create Amazon Bedrock client; ensure boto3/botocore "
+                "linked from the Amazon Bedrock user guide are installed. "
                 "Otherwise likely missing credentials or accessing account without to "
-                "AWS Bedrock Private Preview"
+                "Amazon Bedrock Private Preview"
             ) from e
 
     def _construct_session_args(self):
@@ -242,7 +242,7 @@ class AWSBedrockProvider(BaseProvider):
         if (not self.config.model.name) or "." not in self.config.model.name:
             return None
         provider = self.config.model.name.split(".")[0]
-        return AWSBedrockModelProvider.of_str(provider)
+        return AmazonBedrockModelProvider.of_str(provider)
 
     @property
     def underlying_provider_adapter(self) -> ProviderAdapter:
@@ -250,13 +250,13 @@ class AWSBedrockProvider(BaseProvider):
         if not provider:
             raise HTTPException(
                 status_code=422,
-                detail=f"Unknown AWS Bedrock model type {self._underlying_provider}",
+                detail=f"Unknown Amazon Bedrock model type {self._underlying_provider}",
             )
         adapter = provider.adapter
         if not adapter:
             raise HTTPException(
                 status_code=422,
-                detail=f"Don't know how to handle {self._underlying_provider} for AWS Bedrock",
+                detail=f"Don't know how to handle {self._underlying_provider} for Amazon Bedrock",
             )
         return adapter
 

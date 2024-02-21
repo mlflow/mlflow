@@ -387,9 +387,14 @@ class MlflowGatewayClient:
             limits: Limits (Array of dictionary) to set on the route. Each limit is defined by a
                 dictionary representing the limit details to be associated with the route. This
                 dictionary should define:
-                - renewal_period: a string representing the length of the window to enforce limit on (only supports "minute" for now). # pylint: disable=line-too-long
-                - calls: a non-negative integer representing the number of calls allowed per  renewal_period (e.g., 10, 0, 55). # pylint: disable=line-too-long
-                - key: an optional string represents per route limit or per user limit ("user" for per user limit, "route" for per route limit, if not supplied, default to per route limit). # pylint: disable=line-too-long
+
+                - renewal_period: a string representing the length of the window to enforce limit
+                  on (only supports "minute" for now).
+                - calls: a non-negative integer representing the number of calls allowed per
+                  renewal_period (e.g., 10, 0, 55).
+                - key: an optional string represents per route limit or per user limit ("user" for
+                  per user limit, "route" for per route limit, if not supplied, default to per
+                  route limit).
 
         Returns:
             The returned data structure is a serialized representation of the `Limit`

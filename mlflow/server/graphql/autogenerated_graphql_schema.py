@@ -1,7 +1,6 @@
 # GENERATED FILE. PLEASE DON'T MODIFY.
 # Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.
 import graphene
-
 import mlflow
 from mlflow.server.graphql.graphql_custom_scalars import LongString
 from mlflow.utils.proto_json_utils import parse_dict
@@ -81,7 +80,26 @@ class MlflowRun(graphene.ObjectType):
 
 
 class MlflowGetRunResponse(graphene.ObjectType):
-    run = graphene.Field(MlflowRun)
+    run = graphene.Field('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension')
+
+
+class MlflowExperimentTag(graphene.ObjectType):
+    key = graphene.String()
+    value = graphene.String()
+
+
+class MlflowExperiment(graphene.ObjectType):
+    experiment_id = graphene.String()
+    name = graphene.String()
+    artifact_location = graphene.String()
+    lifecycle_stage = graphene.String()
+    last_update_time = LongString()
+    creation_time = LongString()
+    tags = graphene.List(graphene.NonNull(MlflowExperimentTag))
+
+
+class MlflowGetExperimentResponse(graphene.ObjectType):
+    experiment = graphene.Field(MlflowExperiment)
 
 
 class MlflowGetRunInput(graphene.InputObjectType):
@@ -89,8 +107,19 @@ class MlflowGetRunInput(graphene.InputObjectType):
     run_uuid = graphene.String()
 
 
+class MlflowGetExperimentInput(graphene.InputObjectType):
+    experiment_id = graphene.String()
+
+
 class QueryType(graphene.ObjectType):
+    mlflow_get_experiment = graphene.Field(MlflowGetExperimentResponse, input=MlflowGetExperimentInput())
     mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
+
+    def resolve_mlflow_get_experiment(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.GetExperiment()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.get_experiment_impl(request_message)
 
     def resolve_mlflow_get_run(self, info, input):
         input_dict = vars(input)

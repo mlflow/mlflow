@@ -1,164 +1,17 @@
-import warnings
 from typing import Dict, Union
 
 import numpy as np
 import tensorflow
-from tensorflow.keras.callbacks import Callback, TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
 
-import mlflow
 from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
     ExceptionSafeClass,
 )
-from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 
 class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
     pass
-
-
-class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
-    """
-    Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
-    Records model structural information as params when training starts.
-    """
-
-    def __init__(self, metrics_logger, log_every_n_steps):
-        super().__init__()
-        self.metrics_logger = metrics_logger
-        self.log_every_n_steps = log_every_n_steps
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-        config = self.model.optimizer.get_config()
-        for attribute in config:
-            mlflow.log_param("opt_" + attribute, config[attribute])
-
-        model_summary = []
-
-        def print_fn(line, *args, **kwargs):
-            model_summary.append(line)
-
-        try:
-            self.model.summary(print_fn=print_fn)
-            summary = "\n".join(model_summary)
-            mlflow.log_text(summary, artifact_file="model_summary.txt")
-        except ValueError as ex:
-            if "This model has not yet been built" in str(ex):
-                warnings.warn(str(ex))
-            else:
-                raise ex
-
-    def on_epoch_end(self, epoch, logs=None):
-        # NB: tf.Keras uses zero-indexing for epochs, while other TensorFlow Estimator
-        # APIs (e.g., tf.Estimator) use one-indexing. Accordingly, the modular arithmetic
-        # used here is slightly different from the arithmetic used in `_log_event`, which
-        # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
-        if epoch % self.log_every_n_steps == 0:
-            self.metrics_logger.record_metrics(logs, epoch)
-
-
-class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase):
-    """Callback for automatic Keras model checkpointing to MLflow.
-    """
-
-    def __init__(
-        self,
-        client,
-        run_id,
-        monitor="val_loss",
-        mode="min",
-        save_best_only=True,
-        save_weights_only=False,
-        save_freq="epoch",
-    ):
-        """
-        Args:
-            client: An instance of `MlflowClient`.
-            run_id: The id of the MLflow run which you want to log checkpoints to.
-            monitor: In automatic model checkpointing, the metric name to monitor if
-                you set `model_checkpoint_save_best_only` to True.
-            save_best_only: If True, automatic model checkpointing only saves when
-                the model is considered the "best" model according to the quantity
-                monitored and previous checkpoint model is overwritten.
-            mode: one of {"min", "max"}. In automatic model checkpointing,
-                if save_best_only=True, the decision to overwrite the current save file is made
-                based on either the maximization or the minimization of the monitored quantity.
-            save_weights_only: In automatic model checkpointing, if True, then
-                only the model’s weights will be saved. Otherwise, the optimizer states,
-                lr-scheduler states, etc are added in the checkpoint too.
-            save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
-                saves the model after each epoch. When using integer, the callback
-                saves the model at end of this many batches. Note that if the saving isn't
-                aligned to epochs, the monitored metric may potentially be less reliable (it
-                could reflect as little as 1 batch, since the metrics get reset
-                every epoch). Defaults to `"epoch"`.
-        """
-        Callback.__init__(self)
-        MlflowModelCheckpointCallbackBase.__init__(
-            self,
-            client=client,
-            run_id=run_id,
-            monitor=monitor,
-            mode=mode,
-            save_best_only=save_best_only,
-            save_weights_only=save_weights_only,
-            save_freq=save_freq,
-        )
-        self.trainer = None
-        self.current_epoch = None
-        self.global_step = None
-        self._last_batch_seen = 0
-        self.global_step = 0
-        self.global_step_last_saving = 0
-
-    def save_checkpoint(self, filepath: str):
-        if self.save_weights_only:
-            self.model.save_weights(filepath, overwrite=True)
-        else:
-            self.model.save(filepath, overwrite=True)
-
-    def checkpoint_file_suffix(self):
-        return "h5"
-
-    def on_epoch_begin(self, epoch, logs=None):
-        self.current_epoch = epoch
-
-    def on_train_batch_end(self, batch, logs=None):
-        # Note that `on_train_batch_end` might be invoked by evern N train steps,
-        # (controlled by `steps_per_execution` argument in `model.comple` method).
-        # the following logic is similar to
-        # https://github.com/keras-team/keras/blob/e6e62405fa1b4444102601636d871610d91e5783/keras/callbacks/model_checkpoint.py#L212
-        if batch <= self._last_batch_seen:  # New epoch.
-            add_batches = batch + 1  # batches are zero-indexed.
-        else:
-            add_batches = batch - self._last_batch_seen
-        self._last_batch_seen = batch
-
-        self.global_step += add_batches
-
-        if isinstance(self.save_freq, int):
-            if self.global_step - self.global_step_last_saving >= self.save_freq:
-                self.check_and_save_checkpoint_if_needed(
-                    current_epoch=self.current_epoch,
-                    global_step=self.global_step,
-                    metric_dict={k: float(v) for k, v in logs.items()}
-                )
-                self.global_step_last_saving = self.global_step
-
-    def on_epoch_end(self, epoch, logs=None):
-        if self.save_freq == "epoch":
-            self.check_and_save_checkpoint_if_needed(
-                current_epoch=self.current_epoch,
-                global_step=self.global_step,
-                metric_dict={k: float(v) for k, v in logs.items()}
-            )
-
 
 
 def _extract_input_example_from_tensor_or_ndarray(

@@ -373,7 +373,7 @@ def test_check_databricks_secret_scope_access_error():
             "Unable to access Databricks secret scope 'scope' for OpenAI credentials that will be "
             "used to deploy the model to Databricks Model Serving. Please verify that the current "
             "Databricks user has 'READ' permission for this scope. For more information, see "
-            "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # pylint: disable=line-too-long
+            "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # noqa: E501
             "Error: no scope access"
         )
         mock_dbutils.secrets.list.assert_called_once_with("scope")

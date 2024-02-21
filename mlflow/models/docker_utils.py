@@ -27,7 +27,7 @@ RUN apt install -y python3.8 python3.8-distutils \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
 RUN pip install virtualenv
-"""
+"""  # noqa: E501
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
 FROM {base_image}

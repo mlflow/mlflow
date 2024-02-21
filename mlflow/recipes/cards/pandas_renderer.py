@@ -259,7 +259,18 @@ def get_facets_polyfills() -> str:
         };
     })();
     """
-    return '!function(){let t=window.URL;window.URL=function(n,e){return"string"==typeof e&&e.startsWith("blob:")?new URL(e):new t(n,e)}}();'  # pylint: disable=line-too-long
+    return """
+!function() {
+  let t = window.URL;
+  window.URL = function(n, e) {
+    if (typeof e === "string" && e.startsWith("blob:")) {
+      return new URL(e);
+    } else {
+      return new t(n, e);
+    }
+  }
+}();
+"""
 
 
 def construct_facets_html(
@@ -287,7 +298,7 @@ def construct_facets_html(
         <link rel="import" href="https://raw.githubusercontent.com/PAIR-code/facets/1.0.0/facets-dist/facets-jupyter.html" >
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
         </div>
-    """
+    """  # noqa: E501
     return html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
 
 
