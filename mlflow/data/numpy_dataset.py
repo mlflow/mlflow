@@ -55,7 +55,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def to_dict(self) -> Dict[str, str]:
         """Create config dictionary for the dataset."""
-        schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
+        schema = json.dumps(self.schema.to_dict()) if self.schema else None
         config = super().to_dict()
         config.update(
             {

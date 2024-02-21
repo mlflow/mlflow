@@ -70,7 +70,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return compute_pandas_digest(self._df)
 
-    def to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[str, str]:
         """Create config dictionary for the dataset."""
         schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
         config = super().to_dict()
