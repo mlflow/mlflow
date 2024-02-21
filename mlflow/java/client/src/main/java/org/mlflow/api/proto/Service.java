@@ -63299,7 +63299,7 @@ public final class Service {
       "ryBulkInterval\032-.mlflow.GetMetricHistory" +
       "BulkInterval.Response\">\362\206\031:\n6\n\003GET\022)/mlf" +
       "low/metrics/get-history-bulk-interval\032\004\010" +
-      "\002\020\000\020\003\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031.ml" +
+      "\002\020\013\020\003\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031.ml" +
       "flow.LogBatch.Response\"7\362\206\0313\n$\n\004POST\022\026/m" +
       "lflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022" +
       "p\n\010logModel\022\020.mlflow.LogModel\032\031.mlflow.L" +
