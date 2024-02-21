@@ -743,6 +743,7 @@ def _init_databricks_cli_config_provider(entry_point):
     dbr_major_minor_version = (int(dbr_version_splits[0]), int(dbr_version_splits[1]))
 
     if dbr_major_minor_version >= (13, 2):
+
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
                 logger = entry_point.getLogger()
@@ -793,6 +794,7 @@ def _init_databricks_cli_config_provider(entry_point):
                     host=api_url, token=api_token, insecure=ssl_trust_all
                 )
     elif dbr_major_minor_version >= (10, 3):
+
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
                 try:
@@ -801,7 +803,8 @@ def _init_databricks_cli_config_provider(entry_point):
                     ctx = get_context()
                     if ctx and ctx.apiUrl and ctx.apiToken:
                         return DatabricksConfig.from_token(
-                            host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll)
+                            host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
+                        )
                 except Exception as e:
                     print(  # noqa
                         "Unexpected internal error while constructing `DatabricksConfig` "
@@ -823,6 +826,7 @@ def _init_databricks_cli_config_provider(entry_point):
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
     else:
+
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
                 # Invoking getContext() will attempt to find the credentials related to the
