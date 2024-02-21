@@ -35,6 +35,7 @@ from mlflow.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -1092,7 +1093,7 @@ def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client
                 "max_results": 5,
             },
         ),
-        "End step must be greater than start step. ",
+        "end_step must be greater than start_step. ",
     )
 
     assert_response(
@@ -1251,6 +1252,13 @@ def test_get_metric_history_bulk_interval_calls_optimized_impl_when_expected(tmp
         mock_store.get_max_step_for_metric.assert_called_with(
             run_id=run_ids[-1], metric_key="mock_key"
         )
+
+
+def test_get_sampled_steps_from_steps():
+    assert _get_sampled_steps_from_steps(1, 10, 5) == [1, 3, 5, 7, 9]
+    assert _get_sampled_steps_from_steps(1, 20, 4) == [1, 6, 11, 16]
+    assert _get_sampled_steps_from_steps(10, 100, 10) == [10, 20, 29, 38, 47, 56, 65, 74, 83, 92]
+    assert _get_sampled_steps_from_steps(0, 100, 5) == [0, 21, 41, 61, 81]
 
 
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):

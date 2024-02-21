@@ -1109,7 +1109,8 @@ def _get_sampled_steps_from_steps(start_step, end_step, max_results):
     interval = num_steps / max_results
     steps = []
     intervals = [-1]
-    for i in range(start_step, end_step):
+    # include both start_step & end_step
+    for i in range(start_step, end_step + 1):
         idx = (i - start_step) // interval
         if idx != intervals[-1]:
             intervals.append(idx)
