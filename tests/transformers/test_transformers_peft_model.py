@@ -8,15 +8,14 @@ import mlflow
 from mlflow.models import Model
 from mlflow.transformers.peft import get_peft_base_model, is_peft_model
 
-from tests.transformers.test_transformers_model_export import HF_COMMIT_HASH_PATTERN
-
-pytestmark = pytest.mark.skipif(
+SKIP_IF_PEFT_NOT_AVAILABLE = pytest.mark.skipif(
     (
         importlib.util.find_spec("peft") is None
         or Version(transformers.__version__) <= Version("4.25.1")
     ),
     reason="PEFT is not installed or Transformer version is too old",
 )
+pytestmark = SKIP_IF_PEFT_NOT_AVAILABLE
 
 
 def test_is_peft_model(peft_pipeline, small_qa_pipeline):
@@ -47,6 +46,8 @@ def test_get_peft_base_model_prompt_learning(small_qa_pipeline):
 
 def test_save_and_load_peft_pipeline(peft_pipeline, tmp_path):
     import peft
+
+    from tests.transformers.test_transformers_model_export import HF_COMMIT_HASH_PATTERN
 
     mlflow.transformers.save_model(
         transformers_model=peft_pipeline,
