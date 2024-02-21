@@ -729,6 +729,17 @@ def get_databricks_env_vars(tracking_uri):
     return env_vars
 
 
+def get_databricks_runtime_major_minor_version():
+    dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
+    try:
+        dbr_version_splits = dbr_version.split(".", maxsplit=2)
+        return int(dbr_version_splits[0]), int(dbr_version_splits[1])
+    except Exception:
+        raise MlflowException(
+            f"Failed to parse databricks runtime version '{dbr_version}'."
+        )
+
+
 def _init_databricks_cli_config_provider(entry_point):
     """
     set a custom DatabricksConfigProvider with the hostname and token of the
@@ -738,9 +749,7 @@ def _init_databricks_cli_config_provider(entry_point):
     """
     notebook_utils = entry_point.getDbutils().notebook()
 
-    dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
-    dbr_version_splits = dbr_version.split(".", maxsplit=2)
-    dbr_major_minor_version = (int(dbr_version_splits[0]), int(dbr_version_splits[1]))
+    dbr_major_minor_version = get_databricks_runtime_major_minor_version()
 
     if dbr_major_minor_version >= (13, 2):
 
