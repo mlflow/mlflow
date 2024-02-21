@@ -87,10 +87,10 @@ select = [
   "W",       # warning
 ]
 ignore = [
-  "E402",  # module-import-not-at-top-of-file
-  "E721",  # type-comparison
-  "E741",  # ambiguous-variable-name
-  "F811",  # redefined-while-unused
+  "E402", # module-import-not-at-top-of-file
+  "E721", # type-comparison
+  "E741", # ambiguous-variable-name
+  "F811", # redefined-while-unused
 ]
 
 [tool.ruff.lint.per-file-ignores]
