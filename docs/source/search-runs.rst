@@ -94,7 +94,7 @@ the ``mlflow ui`` command.
 
 
 The code above creates 10 MLflow runs with different metrics, params, tags and dataset information. 
-After successful execution, if you return to the MLflow UI in your browser, you should find all 
+After successful execution, if you return to the MLflow UI in your browser, you should find all of 
 these runs under the experiment "search-run-guide", as shown by the screenshot:
 
 .. figure:: _static/images/search-runs/created_mlflow_runs.png
