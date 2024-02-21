@@ -102,7 +102,7 @@ these runs under the experiment "search-run-guide", as shown by the following sc
    :width: 90%
    :align: center
 
-Now in production systems, it's common to have thousands or even hundreds of thousands of mlflow 
+In real-world production deployments of MLflow, it's common to have thousands or even hundreds of thousands of  
 runs. In such cases, it's important to be able to filter and search for runs based on specific criteria.
 
 .. _search-runs-syntax:
