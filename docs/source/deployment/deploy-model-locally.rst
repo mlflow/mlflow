@@ -166,7 +166,7 @@ the required payload format, you can leverage the dict payload structures below.
       - 
         .. code-block:: python
 
-          {"inputs": [["Hello!"], ["Cheese", "and", "crackers"]]}
+          {"inputs": {"messages": [{"role": "user", "content": "Tell a joke!"}]}}
 
 .. code-block:: python
   :caption: Example
