@@ -1105,6 +1105,23 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
     ]
     assert response_limited.json().get("metrics") == expected_metrics
 
+    # with start_step and end_step
+    response_limited = requests.get(
+        url,
+        params={
+            "run_ids": [run_id1],
+            "metric_key": "metricA",
+            "start_step": 0,
+            "end_step": 4,
+            "max_results": 5,
+        },
+    )
+    assert response_limited.status_code == 200
+    assert response_limited.json().get("metrics") == [
+        {**metric, "run_id": run_id1} for metric in metric_history[:5]
+    ]
+
+    # multiple runs
     run_id2 = mlflow_client.create_run(experiment_id).info.run_id
     metric_history2 = [
         {"key": "metricA", "timestamp": 1, "step": i, "value": 10.0} for i in range(20)
@@ -1117,7 +1134,7 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
     )
     expected_steps = [0, 4, 8, 9, 12, 16, 19]
     expected_metrics = []
-    for run_id, metric_history in sorted([(run_id1, metric_history), (run_id2, metric_history2)]):
+    for run_id, metric_history in [(run_id1, metric_history), (run_id2, metric_history2)]:
         expected_metrics.extend(
             [
                 {**metric, "run_id": run_id}
@@ -1125,6 +1142,26 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
                 if metric["step"] in expected_steps
             ]
         )
+    assert response_limited.json().get("metrics") == expected_metrics
+
+    # test metrics with same steps
+    metric_history_timestamp2 = [
+        {"key": "metricA", "timestamp": 2, "step": i, "value": 10.0} for i in range(10)
+    ]
+    for metric in metric_history_timestamp2:
+        mlflow_client.log_metric(run_id1, **metric)
+
+    response_limited = requests.get(
+        url,
+        params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
+    )
+    assert response_limited.status_code == 200
+    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_metrics = [
+        {"key": "metricA", "timestamp": j, "step": i, "value": 10.0, "run_id": run_id1}
+        for i in expected_steps
+        for j in [1, 2]
+    ]
     assert response_limited.json().get("metrics") == expected_metrics
 
 

@@ -990,7 +990,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(SqlMetric.run_uuid == run_id, SqlMetric.key == metric_key)
                 .scalar()
             )
-            return max_step if max_step is not None else 0
+            return max_step or 0
 
     def get_metric_history_bulk_interval_from_steps(
         self, run_id, metric_key, steps, max_results=None

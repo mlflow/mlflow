@@ -1104,6 +1104,20 @@ def get_metric_history_bulk_handler():
     }
 
 
+def _get_sampled_steps_from_steps(start_step, end_step, max_results):
+    # Implementation of https://src.dev.databricks.com/databricks/universe@92cf18fbbd640800be1b2c80b698cc78e91020e4/-/blob/mlflow/src/main/scala/com/databricks/mlflow/MlflowBackend.scala?L1995:15&popover=pinned#tab=def
+    num_steps = end_step - start_step + 1
+    interval = num_steps / max_results
+    steps = []
+    intervals = [-1]
+    for i in range(start_step, end_step):
+        idx = (i - start_step) // interval
+        if idx != intervals[-1]:
+            intervals.append(idx)
+            steps.append(i)
+    return steps
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_metric_history_bulk_interval_handler():
@@ -1144,18 +1158,8 @@ def get_metric_history_bulk_interval_handler():
             return store.get_max_step_for_metric(run_id=run_id, metric_key=metric_key)
         return max(m.step for m in store.get_metric_history(run_id, metric_key))
 
-    def _get_sampled_steps_from_steps(start_step, end_step, max_results):
-        num_steps = end_step - start_step + 1
-        interval = num_steps / max_results
-        steps, intervals = [], [-1]
-        for i in range(start_step, end_step):
-            idx = (i - start_step) // interval
-            if idx != intervals[-1]:
-                intervals.append(idx)
-                steps.append(i)
-        return steps
-
     def _get_sampled_steps(run_ids, metric_key, max_results):
+        # Implementation of https://src.dev.databricks.com/databricks/universe@92cf18fbbd640800be1b2c80b698cc78e91020e4/-/blob/mlflow/src/main/scala/com/databricks/mlflow/MlflowBackend.scala?L1956:23&popover=pinned#tab=references
         start_step = args.get("start_step")
         end_step = args.get("end_step")
         if start_step is None and end_step is None:
@@ -1165,6 +1169,8 @@ def get_metric_history_bulk_interval_handler():
             sampled_steps = _get_sampled_steps_from_steps(0, max_steps, max_results)
             return sorted(set(sampled_steps).union(max_steps_per_run))
         elif start_step is not None and end_step is not None:
+            start_step = int(start_step)
+            end_step = int(end_step)
             if start_step > end_step:
                 raise MlflowException.invalid_parameter_value(
                     "End step must be greater than start step. "
@@ -1181,7 +1187,7 @@ def get_metric_history_bulk_interval_handler():
         steps = _get_sampled_steps(run_ids, metric_key, max_results)
         metrics_with_run_ids = []
         if hasattr(store, "get_metric_history_bulk_interval_from_steps"):
-            for run_id in sorted(run_ids):
+            for run_id in run_ids:
                 metrics_with_run_ids.extend(
                     [
                         metric.to_dict()
@@ -1194,10 +1200,10 @@ def get_metric_history_bulk_interval_handler():
                     ]
                 )
         else:
-            for run_id in sorted(run_ids):
+            for run_id in run_ids:
                 metrics_for_run = sorted(
                     [m for m in store.get_metric_history(run_id, metric_key) if m.step in steps],
-                    key=lambda metric: metric.step,
+                    key=lambda metric: (metric.step, metric.timestamp),
                 )
                 metrics_with_run_ids.extend(
                     [
