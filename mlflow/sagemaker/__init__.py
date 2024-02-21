@@ -1069,7 +1069,7 @@ def push_model_to_sagemaker(
     _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
 
 
-def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
+def run_local(name, model_uri, flavor=None, config=None):
     """
     Serve the model locally in a SageMaker compatible Docker container.
 
@@ -2328,7 +2328,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return {"name": app_name, "flavor": flavor}
 
-    def update_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):  # pylint: disable=signature-differs
+    def update_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
         """
         Update a deployment on AWS SageMaker. This function can replace or add a new model to
         an existing SageMaker endpoint. By default, this function replaces the existing model
@@ -2764,7 +2764,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         self,
         deployment_name=None,
         inputs=None,
-        endpoint=None,  # pylint: disable=unused-argument
+        endpoint=None,
         params: Optional[Dict[str, Any]] = None,
     ):
         """

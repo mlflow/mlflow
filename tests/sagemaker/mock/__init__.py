@@ -513,7 +513,7 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-    def list_tags(self, resource_arn, region_name, resource_type):  # pylint: disable=unused-argument
+    def list_tags(self, resource_arn, region_name, resource_type):
         """
         Modifies backend state during calls to the SageMaker "ListTags" API
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html

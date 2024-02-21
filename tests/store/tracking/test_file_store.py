@@ -1829,7 +1829,7 @@ def test_log_batch_internal_error(store):
         run_name="name",
     )
 
-    def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
+    def _raise_exception_fn(*args, **kwargs):
         raise Exception("Some internal error")
 
     with mock.patch(

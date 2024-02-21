@@ -909,7 +909,7 @@ def autolog(
     checkpoint_save_best_only=True,
     checkpoint_save_weights_only=False,
     checkpoint_save_freq="epoch",
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.

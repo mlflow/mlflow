@@ -804,7 +804,7 @@ def _load_model_or_server(
     )
 
 
-def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+def _get_model_dependencies(model_uri, format="pip"):
     model_dir = _download_artifact_from_uri(model_uri)
 
     def get_conda_yaml_path():
@@ -860,7 +860,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         )
 
 
-def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+def get_model_dependencies(model_uri, format="pip"):
     """
     Downloads the model dependencies and returns the path to requirements.txt or conda.yaml file.
 

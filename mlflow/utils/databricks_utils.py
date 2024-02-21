@@ -131,7 +131,7 @@ def acl_path_of_acl_root():
 
 def _get_property_from_spark_context(key):
     try:
-        from pyspark import TaskContext  # pylint: disable=import-error
+        from pyspark import TaskContext
 
         task_context = TaskContext.get()
         if task_context:

@@ -195,7 +195,6 @@ def test_extra_tags_tensorflow_autolog(random_train_data, random_one_hot_labels)
 def test_tf_keras_autolog_log_models_configuration(
     random_train_data, random_one_hot_labels, log_models
 ):
-    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(log_models=log_models)
 
     data = random_train_data
@@ -366,7 +365,6 @@ def test_tf_keras_autolog_persists_manually_created_run(random_train_data, rando
 
 @pytest.fixture
 def tf_keras_random_data_run(random_train_data, random_one_hot_labels, initial_epoch):
-    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -727,7 +725,6 @@ def get_tf_keras_random_data_run_with_callback(
     initial_epoch,
     log_models,
 ):
-    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=1, log_models=log_models)
 
     data = random_train_data
@@ -965,7 +962,6 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
 def get_text_vec_model(train_samples):
     # Taken from: https://github.com/mlflow/mlflow/issues/3910
 
-    # pylint: disable=no-name-in-module
     try:
         from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
     except ModuleNotFoundError:
@@ -1087,7 +1083,7 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import tensorflow  # pylint: disable=reimported  # noqa: F401
+    import tensorflow  # noqa: F401
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 

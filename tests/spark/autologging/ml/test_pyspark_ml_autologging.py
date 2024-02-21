@@ -200,7 +200,7 @@ def test_basic_estimator(dataset_binomial):
     Version(pyspark.__version__) < Version("3.1"),
     reason="This test require spark version >= 3.1",
 )
-def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-argument
+def test_models_in_allowlist_exist(spark_session):
     mlflow.pyspark.ml.autolog()  # initialize the variable `mlflow.pyspark.ml._log_model_allowlist`
 
     def model_does_not_exist(model_class):
@@ -508,7 +508,7 @@ def test_pipeline(dataset_text):
 # Test on metric of rmse (smaller is better) and r2 (larger is better)
 @pytest.mark.parametrize("metric_name", ["rmse", "r2"])
 @pytest.mark.parametrize("param_search_estimator", [CrossValidator, TrainValidationSplit])
-def test_param_search_estimator(  # pylint: disable=unused-argument
+def test_param_search_estimator(
     metric_name, param_search_estimator, spark_session, dataset_regression
 ):
     mlflow.pyspark.ml.autolog(log_input_examples=True)
@@ -621,7 +621,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
             assert math.isclose(std_metric_value, float(row.get(std_metric_name)), rel_tol=1e-6)
 
 
-def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
+def test_get_params_to_log(spark_session):
     lor = LogisticRegression(maxIter=3, standardization=False)
     lor_params = get_params_to_log(lor)
     assert lor_params["maxIter"] == 3
@@ -657,7 +657,7 @@ def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
         assert params_to_test["LogisticRegression.maxIter"] == 3
 
 
-def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argument
+def test_gen_estimator_metadata(spark_session):
     tokenizer1 = Tokenizer(inputCol="text1", outputCol="words1")
     hashing_tf1 = HashingTF(inputCol=tokenizer1.getOutputCol(), outputCol="features1")
 
@@ -980,9 +980,6 @@ def test_autologging_handle_wrong_tuning_params(dataset_regression):
         ValueError, match="Tuning params should not include params not owned by the tuned estimator"
     ):
         pipeline.fit(dataset_regression)
-
-
-# pylint: disable=unused-argument
 
 
 def test_autolog_registering_model(spark_session, dataset_binomial):

@@ -970,7 +970,7 @@ class _PyFuncModelWrapper:
     def predict(
         self,
         pandas_df,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Generate predictions given input data in a pandas DataFrame.
@@ -1022,7 +1022,7 @@ class _PyFuncModelWrapper:
 
 
 @autologging_integration(FLAVOR_NAME)
-def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
+def autolog(disable=False, silent=False):
     """
     Enables (or disables) and configures logging of Spark datasource paths, versions
     (if applicable), and formats when they are read. This method is not threadsafe and assumes a

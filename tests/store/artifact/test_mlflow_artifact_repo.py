@@ -79,7 +79,7 @@ class MockResponse:
 
 
 class MockStreamResponse(MockResponse):
-    def iter_content(self, chunk_size):  # pylint: disable=unused-argument
+    def iter_content(self, chunk_size):
         yield self.data.encode("utf-8")
 
     def __enter__(self):
