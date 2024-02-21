@@ -73,7 +73,7 @@ def test_save_and_load_peft_pipeline(peft_pipeline, tmp_path):
     loaded_pipeline.predict("Hi")
 
 
-def test_save_and_load_peft_components(peft_pipeline, tmp_path):
+def test_save_and_load_peft_components(peft_pipeline, tmp_path, capsys):
     from peft import PeftModel
 
     mlflow.transformers.save_model(
@@ -83,6 +83,12 @@ def test_save_and_load_peft_components(peft_pipeline, tmp_path):
         },
         path=tmp_path,
     )
+
+    # PEFT pipeline construction error should not be raised
+    peft_err_msg = (
+        "The model 'PeftModelForSequenceClassification' is not supported for text-classification"
+    )
+    assert peft_err_msg not in capsys.readouterr().err
 
     loaded_pipeline = mlflow.transformers.load_model(tmp_path)
     assert isinstance(loaded_pipeline.model, PeftModel)
