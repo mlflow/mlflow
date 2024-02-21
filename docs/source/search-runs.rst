@@ -29,7 +29,7 @@ Before running the script, let's simply start the MLflow UI on a local host.
   mlflow ui
 
 Let's visit ``http://localhost:5000/`` in our web browser. After doing so, you'll notice that we don't 
-have any experiments or models. Let's resolve this by creating a few MLflow runs. Via the script
+have any experiments or models. Let's resolve this by creating a few MLflow runs via the script
 below. 
 
 Note that when you run this script, you'll want to do so from the same directory that your ran
