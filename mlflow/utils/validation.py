@@ -163,6 +163,8 @@ def _validate_metric(key, value, timestamp, step):
             INVALID_PARAMETER_VALUE,
         )
 
+    _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, key)
+
 
 def _validate_param(key, value):
     """
@@ -315,12 +317,6 @@ def _validate_batch_log_limits(metrics, params, tags):
 def _validate_batch_log_data(metrics, params, tags):
     for metric in metrics:
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        # TODO: move _validate_length_limit calls into _validate_metric etc. This would be a
-        # breaking change as _validate_metric is also used in the single-entry log_metric API. Thus
-        # we defer it for now to allow for a release of the batched logging APIs without breaking
-        # changes to other APIs. See related discussion in
-        # https://github.com/mlflow/mlflow/issues/985
-        _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, metric.key)
     for param in params:
         _validate_param(param.key, param.value)
     for tag in tags:
