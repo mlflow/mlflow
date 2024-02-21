@@ -10,7 +10,7 @@ Search Runs on MLflow UI
 ------------------------
 
 The MLflow UI provides a powerful search interface that allows you to filter runs. Below we'll...
-1. Create example mllfow runs
+1. Create example MLflow runs
 2. Look at a simple querying example
 3. Deep dive into query syntax
 4. Provide a variety of example queries
