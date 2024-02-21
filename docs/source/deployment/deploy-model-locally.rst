@@ -6,7 +6,7 @@ Deploy MLflow Model as a Local Inference Server
 MLflow allows you to deploy your model as a locally using just a single command.
 This approach is ideal for lightweight applications or for testing your model locally before moving it to a staging or production environment.
 
-If you are new to MLflow model deployment, please read the guide on `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments.
+If you are new to MLflow model deployment, please read the guide on `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments. 
 
 
 Deploying Inference Server
@@ -171,7 +171,7 @@ the required payload format, you can leverage the dict payload structures below.
 .. code-block:: python
   :caption: Example
 
-  # Prerequisite: serve a custom pyfunc OpenAI model (not mlflow.openai) on localhost:5678 
+  # Prerequisite: serve a custom pyfunc OpenAI model (not mlflow.openai) on localhost:5678
   #   that defines inputs in the below format and params of `temperature` and `max_tokens`
 
   import json
