@@ -73,7 +73,7 @@ jobs:
         id: build-dist
         run: |
           # Build distribution files
-          python -m build --sdist --wheel .
+          python -m build .
 
           # List distribution files and check their file sizes
           ls -lh dist
