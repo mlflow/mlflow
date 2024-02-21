@@ -32,7 +32,7 @@ Let's visit ``http://localhost:5000/`` in our web browser. After doing so, you'l
 have any experiments or models. Let's resolve this by creating a few MLflow runs via the script
 below. 
 
-Note that when you run this script, you'll want to do so from the same directory that your ran
+Note that when you run this script, you'll want to do so from the same directory that you ran
 the ``mlflow ui`` command.
 
 .. code-block:: python
