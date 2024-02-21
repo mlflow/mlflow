@@ -1107,15 +1107,15 @@ def get_metric_history_bulk_handler():
 def _get_sampled_steps_from_steps(start_step, end_step, max_results):
     num_steps = end_step - start_step + 1
     interval = num_steps / max_results
-    steps = []
-    intervals = [-1]
+    grouped_steps = {}
     # include both start_step & end_step
     for i in range(start_step, end_step + 1):
         idx = (i - start_step) // interval
-        if idx != intervals[-1]:
-            intervals.append(idx)
-            steps.append(i)
-    return steps
+        if idx not in grouped_steps:
+            grouped_steps[idx] = i
+        else:
+            grouped_steps[idx] = min(grouped_steps[idx], i)
+    return list(grouped_steps.values())
 
 
 @catch_mlflow_exception
