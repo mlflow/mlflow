@@ -1215,16 +1215,7 @@ def get_metric_history_bulk_interval_handler():
             )
         return metrics_with_run_ids
 
-    if hasattr(store, "get_metric_history_bulk_interval"):
-        metrics_with_run_ids = store.get_metric_history_bulk_interval(
-            run_ids=run_ids,
-            metric_key=metric_key,
-            start_step=args.get("start_step"),
-            end_step=args.get("end_step"),
-            max_results=max_results,
-        )
-    else:
-        metrics_with_run_ids = _default_history_bulk_interval_impl()
+    metrics_with_run_ids = _default_history_bulk_interval_impl()
 
     response_message = GetMetricHistoryBulkInterval.Response()
     response_message.metrics.extend([m.to_proto() for m in metrics_with_run_ids])
