@@ -17,7 +17,6 @@ import mlflow.store.db.utils
 from mlflow.entities import (
     DatasetInput,
     Experiment,
-    Metric,
     Run,
     RunInputs,
     RunStatus,
@@ -27,6 +26,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.metric import MetricWithRunId
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -917,29 +917,6 @@ class SqlAlchemyStore(AbstractStore):
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
             return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
 
-    class MetricWithRunId(Metric):
-        def __init__(self, metric: Metric, run_id):
-            super().__init__(
-                key=metric.key,
-                value=metric.value,
-                timestamp=metric.timestamp,
-                step=metric.step,
-            )
-            self._run_id = run_id
-
-        @property
-        def run_id(self):
-            return self._run_id
-
-        def to_dict(self):
-            return {
-                "key": self.key,
-                "value": self.value,
-                "timestamp": self.timestamp,
-                "step": self.step,
-                "run_id": self.run_id,
-            }
-
     def get_metric_history_bulk(self, run_ids, metric_key, max_results):
         """
         Return all logged values for a given metric.
@@ -976,7 +953,7 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             return [
-                SqlAlchemyStore.MetricWithRunId(
+                MetricWithRunId(
                     run_id=metric.run_uuid,
                     metric=metric.to_mlflow_entity(),
                 )
@@ -1011,10 +988,10 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             return [
-                SqlAlchemyStore.MetricWithRunId(
+                MetricWithRunId(
                     run_id=metric.run_uuid,
                     metric=metric.to_mlflow_entity(),
-                ).to_dict()
+                )
                 for metric in metrics
             ]
 

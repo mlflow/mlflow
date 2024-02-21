@@ -345,8 +345,16 @@ def _assert_required(x):
     assert x != ""
 
 
-def _assert_less_than_or_equal(x, max_value):
-    assert x <= max_value
+def _assert_less_than_or_equal(x, max_value, message=None):
+    if x > max_value:
+        raise AssertionError(message) if message else AssertionError()
+
+
+def _assert_intlike_within_range(x, min_value, max_value, message=None):
+    # Note this condition must be applied after _assert_intlike
+    x = int(x)
+    if not min_value <= x <= max_value:
+        raise AssertionError(message) if message else AssertionError()
 
 
 def _assert_item_type_string(x):
@@ -387,8 +395,10 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
 
         try:
             f(value)
-        except AssertionError:
-            if f == _assert_required:
+        except AssertionError as e:
+            if e.args:
+                message = e.args[0]
+            elif f == _assert_required:
                 message = f"Missing value for required parameter '{param}'."
             else:
                 message = (
@@ -434,21 +444,21 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             ):
                 if not isinstance(request_dict[field.name], list):
                     request_dict[field.name] = [request_dict[field.name]]
-        parse_dict(request_dict, request_message)
-        return request_message
+        request_json = request_dict
 
-    request_json = _get_request_json(flask_request)
+    else:
+        request_json = _get_request_json(flask_request)
 
-    # Older clients may post their JSON double-encoded as strings, so the get_json
-    # above actually converts it to a string. Therefore, we check this condition
-    # (which we can tell for sure because any proper request should be a dictionary),
-    # and decode it a second time.
-    if is_string_type(request_json):
-        request_json = json.loads(request_json)
+        # Older clients may post their JSON double-encoded as strings, so the get_json
+        # above actually converts it to a string. Therefore, we check this condition
+        # (which we can tell for sure because any proper request should be a dictionary),
+        # and decode it a second time.
+        if is_string_type(request_json):
+            request_json = json.loads(request_json)
 
-    # If request doesn't have json body then assume it's empty.
-    if request_json is None:
-        request_json = {}
+        # If request doesn't have json body then assume it's empty.
+        if request_json is None:
+            request_json = {}
 
     proto_parsing_succeeded = True
     try:
@@ -1125,31 +1135,39 @@ def get_metric_history_bulk_interval_handler():
     MAX_RESULTS_PER_RUN = 2500
     MAX_RESULTS_GET_METRIC_HISTORY = 25000
 
-    args = request.args
-    run_ids = args.to_dict(flat=False).get("run_ids", [])
-    if not run_ids:
-        raise MlflowException.invalid_parameter_value(
-            "GetMetricHistoryBulkInterval request must specify at least one run_id."
-        )
-    if len(run_ids) > MAX_RUNS_GET_METRIC_HISTORY_BULK:
-        raise MlflowException.invalid_parameter_value(
-            f"GetMetricHistoryBulkInterval request must specify at most "
-            f"{MAX_RUNS_GET_METRIC_HISTORY_BULK} run_ids. Received {len(run_ids)} run_ids."
-        )
-    if max_results := args.get("max_results"):
-        max_results = int(max_results)
-        if max_results <= 0 or max_results > MAX_RESULTS_PER_RUN:
-            raise MlflowException.invalid_parameter_value(
-                f"Max results must be between 1 and {MAX_RESULTS_PER_RUN}."
-            )
-    else:
-        max_results = MAX_RESULTS_PER_RUN
+    request_message = _get_request_message(
+        GetMetricHistoryBulkInterval(),
+        schema={
+            "run_ids": [
+                _assert_required,
+                _assert_array,
+                _assert_item_type_string,
+                lambda x: _assert_less_than_or_equal(
+                    len(x),
+                    MAX_RUNS_GET_METRIC_HISTORY_BULK,
+                    message=f"GetMetricHistoryBulkInterval request must specify at most "
+                    f"{MAX_RUNS_GET_METRIC_HISTORY_BULK} run_ids. Received {len(x)} run_ids.",
+                ),
+            ],
+            "metric_key": [_assert_required, _assert_string],
+            "start_step": [_assert_intlike],
+            "end_step": [_assert_intlike],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_intlike_within_range(
+                    x,
+                    1,
+                    MAX_RESULTS_PER_RUN,
+                    message=f"max_results must be between 1 and {MAX_RESULTS_PER_RUN}.",
+                ),
+            ],
+        },
+    )
 
-    metric_key = request.args.get("metric_key")
-    if metric_key is None:
-        raise MlflowException.invalid_parameter_value(
-            "GetMetricHistoryBulkInterval request must specify a metric_key."
-        )
+    args = request.args
+    run_ids = request_message.run_ids
+    metric_key = request_message.metric_key
+    max_results = int(args.get("max_results", MAX_RESULTS_PER_RUN))
 
     store = _get_tracking_store()
 
@@ -1159,6 +1177,7 @@ def get_metric_history_bulk_interval_handler():
         return max(m.step for m in store.get_metric_history(run_id, metric_key))
 
     def _get_sampled_steps(run_ids, metric_key, max_results):
+        # can not fetch from request_message as the default value is 0
         start_step = args.get("start_step")
         end_step = args.get("end_step")
         if start_step is None and end_step is None:
@@ -1197,22 +1216,21 @@ def get_metric_history_bulk_interval_handler():
         return metrics_with_run_ids
 
     if hasattr(store, "get_metric_history_bulk_interval"):
-        metrics_with_run_ids = [
-            metric.to_dict()
-            for metric in store.get_metric_history_bulk_interval(
-                run_ids=run_ids,
-                metric_key=metric_key,
-                start_step=args.get("start_step"),
-                end_step=args.get("end_step"),
-                max_results=max_results,
-            )
-        ]
+        metrics_with_run_ids = store.get_metric_history_bulk_interval(
+            run_ids=run_ids,
+            metric_key=metric_key,
+            start_step=args.get("start_step"),
+            end_step=args.get("end_step"),
+            max_results=max_results,
+        )
     else:
         metrics_with_run_ids = _default_history_bulk_interval_impl()
 
-    return {
-        "metrics": metrics_with_run_ids,
-    }
+    response_message = GetMetricHistoryBulkInterval.Response()
+    response_message.metrics.extend([m.to_proto() for m in metrics_with_run_ids])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
 
 
 @catch_mlflow_exception

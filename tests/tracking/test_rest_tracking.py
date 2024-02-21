@@ -1057,12 +1057,12 @@ def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client
 
     assert_response(
         requests.get(url, params={"metric_key": "key"}),
-        "GetMetricHistoryBulkInterval request must specify at least one run_id.",
+        "Missing value for required parameter 'run_ids'.",
     )
 
     assert_response(
         requests.get(url, params={"run_ids": [], "metric_key": "key"}),
-        "GetMetricHistoryBulkInterval request must specify at least one run_id",
+        "Missing value for required parameter 'run_ids'.",
     )
 
     assert_response(
@@ -1074,12 +1074,17 @@ def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client
 
     assert_response(
         requests.get(url, params={"run_ids": ["123"], "metric_key": "key", "max_results": 0}),
-        "Max results must be between 1 and 2500",
+        "max_results must be between 1 and 2500",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": ["123"], "metric_key": ""}),
+        "Missing value for required parameter 'metric_key'",
     )
 
     assert_response(
         requests.get(url, params={"run_ids": ["123"], "max_results": 5}),
-        "GetMetricHistoryBulkInterval request must specify a metric_key.",
+        "Missing value for required parameter 'metric_key'",
     )
 
     assert_response(
@@ -1209,19 +1214,30 @@ def test_get_metric_history_bulk_interval_calls_optimized_impl_when_expected(tmp
         def get(self, key, default=None):
             return self.args_dict.get(key, default)
 
+    def params_to_query_string(params):
+        query_string = []
+        for k, v in params.items():
+            if isinstance(v, list):
+                for item in v:
+                    query_string.append(f"{k}={item}")
+            else:
+                query_string.append(f"{k}={v}")
+        query_string = "&".join(query_string)
+        return bytes(query_string, "utf-8")
+
     with mock.patch(
         "mlflow.server.handlers._get_tracking_store", return_value=mock_store
     ), flask_app.test_request_context() as mock_context:
         run_ids = [str(i) for i in range(10)]
-        mock_context.request.args = MockRequestArgs(
-            {
-                "run_ids": run_ids,
-                "metric_key": "mock_key",
-                "start_step": 0,
-                "end_step": 9,
-                "max_results": 5,
-            }
-        )
+        params = {
+            "run_ids": run_ids,
+            "metric_key": "mock_key",
+            "start_step": 0,
+            "end_step": 9,
+            "max_results": 5,
+        }
+        mock_context.request.query_string = params_to_query_string(params)
+        mock_context.request.args = MockRequestArgs(params)
 
         get_metric_history_bulk_interval_handler()
 
@@ -1238,13 +1254,13 @@ def test_get_metric_history_bulk_interval_calls_optimized_impl_when_expected(tmp
         "mlflow.server.handlers._get_tracking_store", return_value=mock_store
     ), flask_app.test_request_context() as mock_context:
         run_ids = [str(i) for i in range(10)]
-        mock_context.request.args = MockRequestArgs(
-            {
-                "run_ids": run_ids,
-                "metric_key": "mock_key",
-                "max_results": 5,
-            }
-        )
+        params = {
+            "run_ids": run_ids,
+            "metric_key": "mock_key",
+            "max_results": 5,
+        }
+        mock_context.request.query_string = params_to_query_string(params)
+        mock_context.request.args = MockRequestArgs(params)
 
         get_metric_history_bulk_interval_handler()
 
