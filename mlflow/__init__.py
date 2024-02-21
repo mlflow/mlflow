@@ -31,7 +31,6 @@ import contextlib
 from mlflow.version import VERSION
 
 __version__ = VERSION
-
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
@@ -41,6 +40,7 @@ from mlflow import (
     projects,  # noqa: F401
     tracking,  # noqa: F401
 )
+from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
@@ -81,7 +81,8 @@ tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
-_configure_mlflow_loggers(root_module_name=__name__)
+if MLFLOW_CONFIGURE_LOGGING.get() is True:
+    _configure_mlflow_loggers(root_module_name=__name__)
 
 from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
