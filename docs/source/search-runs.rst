@@ -110,7 +110,7 @@ runs. In such cases, it's important to be able to filter and search for runs bas
 Search Query Example 
 ^^^^^^^^^^^^^^^^^^^^
 
-To filter your MLflow runs, you need to write **search queries**, which are SQL-like conditions. 
+In order to filter your MLflow runs using the search field, you will need to write **search queries**, which are pseudo-SQL conditions expressed in a distinct syntax. 
 
 To showcase this functionality, let's reopen the MLflow UI, let's explore some example fields that you can use to filter your runs in the MLflow UI.
 
