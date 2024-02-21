@@ -479,9 +479,6 @@ def get_databricks_host_creds(server_uri=None, get_creds_for_model_serving_dep=F
                     config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
         if not config or not config.host:
             _fail_malformed_databricks_auth(profile)
-
-
-
         if config.username is not None and config.password is not None:
             return MlflowHostCreds(
                 config.host,
@@ -492,6 +489,7 @@ def get_databricks_host_creds(server_uri=None, get_creds_for_model_serving_dep=F
         elif config.token:
             return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
         _fail_malformed_databricks_auth(profile)
+
 
     if is_in_databricks_serving_environment() and get_creds_for_model_serving_dep:
         try:
