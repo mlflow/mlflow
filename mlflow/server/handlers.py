@@ -1105,7 +1105,6 @@ def get_metric_history_bulk_handler():
 
 
 def _get_sampled_steps_from_steps(start_step, end_step, max_results):
-    # Implementation of https://src.dev.databricks.com/databricks/universe@92cf18fbbd640800be1b2c80b698cc78e91020e4/-/blob/mlflow/src/main/scala/com/databricks/mlflow/MlflowBackend.scala?L1995:15&popover=pinned#tab=def
     num_steps = end_step - start_step + 1
     interval = num_steps / max_results
     steps = []
@@ -1159,7 +1158,6 @@ def get_metric_history_bulk_interval_handler():
         return max(m.step for m in store.get_metric_history(run_id, metric_key))
 
     def _get_sampled_steps(run_ids, metric_key, max_results):
-        # Implementation of https://src.dev.databricks.com/databricks/universe@92cf18fbbd640800be1b2c80b698cc78e91020e4/-/blob/mlflow/src/main/scala/com/databricks/mlflow/MlflowBackend.scala?L1956:23&popover=pinned#tab=references
         start_step = args.get("start_step")
         end_step = args.get("end_step")
         if start_step is None and end_step is None:
@@ -1173,8 +1171,8 @@ def get_metric_history_bulk_interval_handler():
             end_step = int(end_step)
             if start_step > end_step:
                 raise MlflowException.invalid_parameter_value(
-                    "End step must be greater than start step. "
-                    f"Found startStep={start_step} and endStep={end_step}."
+                    "end_step must be greater than start_step. "
+                    f"Found start_step={start_step} and end_step={end_step}."
                 )
             sampled_steps = _get_sampled_steps_from_steps(start_step, end_step, max_results)
             return sorted(set(sampled_steps).union([end_step]))
