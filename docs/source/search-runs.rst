@@ -5,11 +5,16 @@ This guide will walk you through how to search your MLflow runs through the MLfl
 This resource will be valuable if you're interested in querying specific runs based on their metrics,
 params, tags, dataset information, or run metadata.
 
+In short, you can leverage SQL-like syntax to filter your runs based on a variety of conditions. 
+Note that the ``OR`` keyword is not supported and there are a few other differences from SQL 
+mentioned below, but despite these limitations, the run search functionality is quite powerful.
+
 
 Search Runs on MLflow UI
 ------------------------
 
 The MLflow UI provides a powerful search interface that allows you to filter runs. Below we'll...
+
 1. Create example MLflow runs
 2. Look at a simple querying example
 3. Deep dive into query syntax
@@ -110,21 +115,54 @@ runs. In such cases, it's important to be able to filter and search for runs bas
 Search Query Example 
 ^^^^^^^^^^^^^^^^^^^^
 
-In order to filter your MLflow runs using the search field, you will need to write **search queries**, which are pseudo-SQL conditions expressed in a distinct syntax. 
+In order to filter your MLflow runs, you will need to write **search queries**, which are pseudo-SQL
+conditions expressed in a distinct syntax. 
 
-To showcase this functionality, let's reopen the MLflow UI and explore some example fields that you can use to filter your runs.
+To showcase this functionality, let's look at the below code examples.
 
-.. figure:: _static/images/search-runs/before_search_query.png
-   :alt: search query
-   :width: 90%
-   :align: center
+.. code-block:: python
+
+  import mlflow
+
+  all_runs = mlflow.search_runs(search_all_experiments=True)
+  print(all_runs)
+
+.. code-block:: text
+  :caption: output
+
+                               run_id  ... tags.mlflow.user
+  0  5984a3488161440f92de9847e846b342  ...     michael.berk
+  1  41160f238a5841998dda263794b26067  ...     michael.berk
+  2  babe221a676b4fa4b204f8240f2c4f14  ...     michael.berk
+  3  45eb4f02c5a1461aa6098fa550233be6  ...     michael.berk
+  4  1c7c459486c44b23bb016028aee1f153  ...     michael.berk
+  5  4453f59f1ab04491bb9582d8cba5f437  ...     michael.berk
+  6  22db81f070f6413588641c8c343cdd72  ...     michael.berk
+  7  c3680e37d0fa44eb9c9fb7828f6b5481  ...     michael.berk
+  8  67973142b9c0470d8d764ada07c5a988  ...     michael.berk
+  9  59853d5f17f946218f63de1dc82de07b  ...     michael.berk
+
+  [10 rows x 19 columns]
 
 Second, let's try filtering the runs for our really bad models: ``metrics.loss > 0.8``.
 
-.. figure:: _static/images/search-runs/after_search_query.png
-   :alt: search query
-   :width: 90%
-   :align: center
+.. code-block:: python
+  
+  import mlflow
+
+  bad_runs = mlflow.search_runs(
+      filter_string="metrics.loss > 0.8", search_all_experiments=True
+  )
+  print(bad_runs)
+
+.. code-block:: text
+  :caption: output
+
+                               run_id  ... tags.mlflow.source.name
+  0  67973142b9c0470d8d764ada07c5a988  ...               delete.py
+  1  59853d5f17f946218f63de1dc82de07b  ...               delete.py
+
+  [2 rows x 19 columns]
 
 You'll notice that we now are displaying 2 runs instead of 10. Pretty easy, right?
 
@@ -137,20 +175,26 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
 
 * The SQL ``OR`` keyword is not supported.
 * For fields that contain special characters or start with numbers, you need to wrap them in double quotes.
+  .. code-block:: diff
 
-  * Good: ``metrics."cross-entropy-loss" < 0.5``
-  * Bad:  ``metrics.cross-entropy-loss < 0.5``
-  * Good: ``params."1st_iteration_timestamp" = "2022-01-01"``
-  * Bad:  ``params.1st_iteration_timestamp = "2022-01-01"``
+    - Bad:  ``metrics.cross-entropy-loss < 0.5``
+    + Good: ``metrics."cross-entropy-loss" < 0.5``
+
+    - Bad:  ``params.1st_iteration_timestamp = "2022-01-01"``
+    + Good: ``params."1st_iteration_timestamp" = "2022-01-01"``
 
 * For the SQL ``IN`` keyword, you must surround the values of your list with single quotes.
 
-  * Good: ``params."learning rate" IN ('0.001', '0.01')``
-  * Bad:  ``params."learning rate" IN ("0.001", "0.01")``
+  .. code-block:: diff
+
+    - Bad:  ``attributes.run_id IN ("5984a3488161440f92de9847e846b342", "babe221a676b4fa4b204f8240f2c4f14")``
+    - Good: ``attributes.run_id IN ('5984a3488161440f92de9847e846b342', 'babe221a676b4fa4b204f8240f2c4f14')``
 
 * For the SQL ``IN`` keyword, you can only search the following fields:
 
-  * ``datasets.{any_attribute}``
+  * ``datasets.name``
+  * ``datasets.digest``
+  * ``datasets.context``
   * ``attributes.run_id``
 
 * Non-None conditions for numeric fields are not supported e.g. ``metrics.accuracy != "None"`` will fail.
@@ -161,9 +205,23 @@ a single search condition, you must assemble an inequality using the following c
 1. **An MLflow field**: a metric, param, tag, dataset or run metadata.
 2. **A comparator**: an inequality operator. 
 
-  * For numerics, MLflow supports ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-  * For strings, MLflow supports ``=``, ``!=``, ``LIKE`` (case-sensitive) and ``ILIKE`` (case-insensitive). 
-  * For sets, MLflow supports ``IN``.
+  * For numerics, MLflow supports ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``. Examples include:
+
+    * ``metrics.accuracy > 0.72``
+    * ``metrics.loss <= 0.15``
+    * ``metrics.accuracy != 0.15``
+
+  * For strings, MLflow supports ``=``, ``!=``, ``LIKE`` (case-sensitive) and ``ILIKE`` (case-insensitive). Examples include:
+
+    * ``params.model = "GPT-3"``
+    * ``params.model LIKE "GPT%"``
+    * ``params.model ILIKE "gpt%"``
+
+  * For sets, MLflow supports ``IN``. Examples include:
+
+    * ``datasets.name IN ('custom', 'also custom', 'another custom name')``
+    * ``datasets.digest IN ('s8ds293b', 'jks834s2')``
+    * ``attributes.run_id IN ('5984a3488161440f92de9847e846b342')``
 
 3. **A reference value**: a numeric value, string, or set of strings.
 
@@ -190,6 +248,7 @@ side of the inequality. Note that they are **stored as numbers**, so you must us
 .. code-block:: sql
 
   metrics.accuracy > 0.72
+  metrics."accuracy" > 0.72
   metrics.loss <= 0.15
   metrics."log-scale-loss" <= 0
   metrics."f1 score" >= 0.5
@@ -252,7 +311,7 @@ Also note that datasets support set comparators, such as ``IN``.
 
 .. code-block:: sql
 
-    datasets.name like "custom"
+    datasets.name LIKE "custom"
     datasets.digest IN ('s8ds293b', 'jks834s2')
     datasets.context = "train"
 
@@ -272,18 +331,36 @@ the left side of the inequality. Note that tags are **stored as strings**, so yo
 comparators, such as ``=`` and ``!=``.
 
 .. code-block:: sql
+  :caption: strings
 
-    attributes.status = 'ACTIVE'
-    attributes.user_id = 'user1'
-    attributes.run_name = 'my-run'
-    attributes.run_id = 'a1b2c3d4'
+  attributes.status = 'ACTIVE'
+  attributes.user_id = 'user1'
+  attributes.run_name = 'my-run'
+  attributes.run_id = 'a1b2c3d4'
+  attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
+
+.. code-block:: sql
+  :caption: numerics
+
+  attributes.start_time >= 1664067852747
+  attributes.end_time < 1664067852747
+  attributes.created > 1664067852747
+
+6 - Searching over a Set
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can search for runs by filtering on a set of acceptable values via the ``IN`` keyword. Note that 
+this is only supported for the following fields:
+* ``datasets.{any_attribute}``
+* ``attributes.run_id``
+
+.. code-block:: sql
+
+    datasets.name IN ('custom', 'also custom')
+    datasets.digest IN ('s8ds293b', 'jks834s2')
     attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
 
-    # Compared value for `start_time` and `end_time` are unix timestamp.
-    attributes.start_time >= 1664067852747
-    attributes.end_time < 1664067852747
-
-6 - Chained Queries
+7 - Chained Queries
 ~~~~~~~~~~~~~~~~~~~
 
 You can chain multiple queries together using the ``AND`` keyword. For example, to search for runs
@@ -305,7 +382,7 @@ You can also apply multiple conditions on the same field, for example searching 
 Finally, before moving on it's important to revisit that that you cannot use the ``OR`` keyword in 
 your queries.
 
-7 - Non-None Queries
+8 - Non-None Queries
 ~~~~~~~~~~~~~~~~~~~~
 
 To search for runs where a field (only type string is supported) is not null, use the 
