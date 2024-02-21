@@ -107,6 +107,7 @@ from mlflow.utils.environment import (
     infer_pip_requirements_with_timeout,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
+from mlflow.utils.logging_utils import suppress_logs
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
@@ -120,6 +121,11 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 # The following import is only used for type hinting
 if TYPE_CHECKING:
     from transformers import Pipeline
+
+# Transformers pipeline complains that PeftModel is not supported for any task type, even
+# when the wrapped model is supported. As MLflow require users to use pipeline for logging,
+# we should suppress that confusing error message.
+_PEFT_PIPELINE_ERROR_MSG = re.compile(r"The model 'PeftModel[^']*' is not supported for")
 
 FLAVOR_NAME = "transformers"
 
@@ -1185,7 +1191,8 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     if return_type == "pipeline":
         conf.update(**kwargs)
-        return transformers.pipeline(**conf)
+        with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
+            return transformers.pipeline(**conf)
     elif return_type == "components":
         return conf
 
@@ -1317,7 +1324,8 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
         task = get_task(model_dict[FlavorKey.MODEL].name_or_path)
 
     try:
-        return pipeline(task=task, **model_dict)
+        with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
+            return pipeline(task=task, **model_dict)
     except Exception as e:
         raise MlflowException(
             "The provided model configuration cannot be created as a Pipeline. "
