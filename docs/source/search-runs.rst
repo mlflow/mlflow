@@ -261,7 +261,7 @@ Also note that datasets support set comparators, such as ``IN``.
 
 Run metadata are a variety of user-specified and system-generated attributes that provide additional context about the run.
 
-To search for runs by filtering on run's metadata, you must include the ``attributes`` prefix in the left
+To search for runs by filtering on the metadata of runs, you must include the ``attributes`` prefix in the left
 side of the inequality. Note that run metadata can be either a string or a numeric depending on the 
 attribute, so you must use the appropriate comparator. For a complete list of attributes, see
 :py:class:`mlflow.entities.RunInfo`, however note that not all fields in the RunInfo object are
