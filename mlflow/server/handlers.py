@@ -1174,7 +1174,8 @@ def get_metric_history_bulk_interval_handler():
     def _get_max_step_for_metric(run_id, metric_key):
         if hasattr(store, "get_max_step_for_metric"):
             return store.get_max_step_for_metric(run_id=run_id, metric_key=metric_key)
-        return max(m.step for m in store.get_metric_history(run_id, metric_key))
+        steps = [m.step for m in store.get_metric_history(run_id, metric_key)]
+        return max(steps) if steps else 0
 
     def _get_sampled_steps(run_ids, metric_key, max_results):
         # can not fetch from request_message as the default value is 0
