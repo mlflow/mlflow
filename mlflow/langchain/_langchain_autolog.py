@@ -215,13 +215,14 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         )
 
     run_id = getattr(self, "run_id", None)
+    active_run = mlflow.active_run()
     if run_id is None:
         # only log the tags once
         extra_tags = get_autologging_config(mlflow.langchain.FLAVOR_NAME, "extra_tags", None)
         # include run context tags
         resolved_tags = context_registry.resolve_tags(extra_tags)
         tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, resolved_tags)
-        if active_run := mlflow.active_run():
+        if active_run:
             run_id = active_run.info.run_id
             mlflow.MlflowClient().log_batch(
                 run_id=run_id,
