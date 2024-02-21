@@ -128,7 +128,7 @@ To showcase this functionality, let's look at the below code examples.
   print(all_runs)
 
 .. code-block:: text
-  :caption: output
+  :caption: Output
 
                                run_id  ... tags.mlflow.user
   0  5984a3488161440f92de9847e846b342  ...     michael.berk
@@ -156,7 +156,7 @@ Second, let's try filtering the runs for our really bad models: ``metrics.loss >
   print(bad_runs)
 
 .. code-block:: text
-  :caption: output
+  :caption: Output
 
                                run_id  ... tags.mlflow.source.name
   0  67973142b9c0470d8d764ada07c5a988  ...               delete.py
@@ -178,18 +178,18 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
 
   .. code-block:: diff
 
-    - Bad:  ``metrics.cross-entropy-loss < 0.5``
-    + Good: ``metrics."cross-entropy-loss" < 0.5``
+    - Bad:  metrics.cross-entropy-loss < 0.5
+    + Good: metrics."cross-entropy-loss" < 0.5
 
-    - Bad:  ``params.1st_iteration_timestamp = "2022-01-01"``
-    + Good: ``params."1st_iteration_timestamp" = "2022-01-01"``
+    - Bad:  params.1st_iteration_timestamp = "2022-01-01"
+    + Good: params."1st_iteration_timestamp" = "2022-01-01"
 
 * For the SQL ``IN`` keyword, you must surround the values of your list with single quotes.
 
   .. code-block:: diff
 
-    - Bad:  ``attributes.run_id IN ("5984a3488161440f92de9847e846b342", "babe221a676b4fa4b204f8240f2c4f14")``
-    + Good: ``attributes.run_id IN ('5984a3488161440f92de9847e846b342', 'babe221a676b4fa4b204f8240f2c4f14')``
+    - Bad:  attributes.run_id IN ("5984a3488161440f92de9847e846b342", "babe221a676b4fa4b204f8240f2c4f14")
+    + Good: attributes.run_id IN ('5984a3488161440f92de9847e846b342', 'babe221a676b4fa4b204f8240f2c4f14')
 
 * For the SQL ``IN`` keyword, you can only search the following fields:
 
@@ -208,25 +208,31 @@ a single search condition, you must assemble an inequality using the following c
 
   * For numerics, MLflow supports ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``. Examples include:
 
-    * ``metrics.accuracy > 0.72``
-    * ``metrics.loss <= 0.15``
-    * ``metrics.accuracy != 0.15``
+    .. code-block:: sql
+
+      metrics.accuracy > 0.72
+      metrics.loss <= 0.15
+      metrics.accuracy != 0.15
 
   * For strings, MLflow supports ``=``, ``!=``, ``LIKE`` (case-sensitive) and ``ILIKE`` (case-insensitive). Examples include:
 
-    * ``params.model = "GPT-3"``
-    * ``params.model LIKE "GPT%"``
-    * ``params.model ILIKE "gpt%"``
+    .. code-block:: sql
+
+      params.model = "GPT-3"
+      params.model LIKE "GPT%"
+      params.model ILIKE "gpt%"
 
   * For sets, MLflow supports ``IN``. Examples include:
 
-    * ``datasets.name IN ('custom', 'also custom', 'another custom name')``
-    * ``datasets.digest IN ('s8ds293b', 'jks834s2')``
-    * ``attributes.run_id IN ('5984a3488161440f92de9847e846b342')``
+    .. code-block:: sql
+
+      datasets.name IN ('custom', 'also custom', 'another custom name')
+      datasets.digest IN ('s8ds293b', 'jks834s2')
+      attributes.run_id IN ('5984a3488161440f92de9847e846b342')
 
 3. **A reference value**: a numeric value, string, or set of strings.
 
-Let's look at some examples.
+Let's look at some more examples.
 
 Example Queries
 ^^^^^^^^^^^^^^^
@@ -332,16 +338,16 @@ the left side of the inequality. Note that tags are **stored as strings**, so yo
 comparators, such as ``=`` and ``!=``.
 
 .. code-block:: sql
-  :caption: strings
+  :caption: Examples for Strings
 
   attributes.status = 'ACTIVE'
-  attributes.user_id = 'user1'
+  attributes.user_id LIKE 'user1'
   attributes.run_name = 'my-run'
   attributes.run_id = 'a1b2c3d4'
   attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
 
 .. code-block:: sql
-  :caption: numerics
+  :caption: Examples for Numerics
 
   attributes.start_time >= 1664067852747
   attributes.end_time < 1664067852747
@@ -350,8 +356,9 @@ comparators, such as ``=`` and ``!=``.
 6 - Searching over a Set
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can search for runs by filtering on a set of acceptable values via the ``IN`` keyword. Note that 
-this is only supported for the following fields:
+You can search for runs by filtering on a set of acceptable values via the ``IN`` keyword. As noted
+above, this is only supported for the following fields:
+
 * ``datasets.{any_attribute}``
 * ``attributes.run_id``
 
