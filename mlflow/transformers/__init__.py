@@ -7,6 +7,7 @@ import binascii
 import contextlib
 import copy
 import functools
+import importlib
 import json
 import logging
 import os
@@ -166,31 +167,6 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
 _logger = logging.getLogger(__name__)
 
 
-def _model_packages(model) -> List[str]:
-    """
-    Determines which pip libraries should be included based on the base model engine type.
-
-    Args:
-        model: The model instance to be saved in order to provide the required underlying
-            deep learning execution framework dependency requirements.
-
-    Returns:
-        A list of strings representing the underlying engine-specific dependencies
-    """
-    engine = _get_engine_type(model)
-    if engine == "torch":
-        packages = ["torch", "torchvision"]
-        try:
-            import accelerate  # noqa: F401
-
-            packages.append("accelerate")
-        except ImportError:
-            pass
-        return packages
-    else:
-        return [engine]
-
-
 @experimental
 def get_default_pip_requirements(model) -> List[str]:
     """
@@ -204,20 +180,28 @@ def get_default_pip_requirements(model) -> List[str]:
         ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()`
         produce a pip environment that contain these requirements at a minimum.
     """
+    packages = ["transformers"]
+
     try:
-        base_reqs = ["transformers", *_model_packages(model)]
-        return [_get_pinned_requirement(module) for module in base_reqs]
+        engine = _get_engine_type(model)
+        packages.append(engine)
     except Exception as e:
-        dependencies = [
-            _get_pinned_requirement(module)
-            for module in ["transformers", "torch", "torchvision", "tensorflow"]
-        ]
+        packages += ["torch", "tensorflow"]
         _logger.warning(
             "Could not infer model execution engine type due to huggingface_hub not "
-            "being installed or unable to connect in online mode. Adding full "
-            f"dependency chain: {dependencies}. \nFailure cause: {e}"
+            "being installed or unable to connect in online mode. Adding both Pytorch"
+            f"and Tensorflow to requirements.\nFailure cause: {e}"
         )
-        return dependencies
+
+    if "torch" in packages:
+        packages.append("torchvision")
+        if importlib.util.find_spec("accelerate"):
+            packages.append("accelerate")
+
+    if is_peft_model(model):
+        packages.append("peft")
+
+    return [_get_pinned_requirement(module) for module in packages]
 
 
 def _validate_transformers_model_dict(transformers_model):
@@ -659,11 +643,17 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements(built_pipeline.model)
-            # Infer the pip requirements with a timeout to avoid hanging indefinitely at prediction
-            inferred_reqs = infer_pip_requirements_with_timeout(
-                str(path), FLAVOR_NAME, fallback=default_reqs
-            )
-            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+            # NB: Skip inferring requirements for PEFT models to avoid loading the full pretrained
+            # model into memory. PEFT is mainly designed for fine-tuning large models under limited
+            # computational resources, so loading the full model is not preferred and can even crash
+            # the process due to OOM.
+            if not is_peft_model(built_pipeline.model):
+                # Infer the pip requirements with a timeout to avoid hanging at prediction
+                inferred_reqs = infer_pip_requirements_with_timeout(
+                    str(path), FLAVOR_NAME, fallback=default_reqs
+                )
+                default_reqs = set(inferred_reqs).union(default_reqs)
+            default_reqs = sorted(default_reqs)
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(

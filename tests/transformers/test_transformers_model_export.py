@@ -56,10 +56,8 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
-from tests.transformers.helper import (
-    IS_NEW_FEATURE_EXTRACTION_API,
-    flaky,
-)
+from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
+from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
 _IS_PIPELINE_DTYPE_SUPPORTED_VERSION = Version(transformers.__version__) >= Version("4.26.1")
 
@@ -138,34 +136,31 @@ def read_raw_audio_file():
     return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
 
 
-def test_dependencies_pytorch(small_qa_pipeline):
-    pip_requirements = get_default_pip_requirements(small_qa_pipeline.model)
-    expected_requirments = {"transformers", "torch", "torchvision"}
-    assert {package.split("=")[0] for package in pip_requirements}.intersection(
-        expected_requirments
-    ) == expected_requirments
-    conda_requirements = get_default_conda_env(small_qa_pipeline.model)
-    pip_in_conda = {
-        package.split("=")[0] for package in conda_requirements["dependencies"][2]["pip"]
-    }
-    expected_conda = {"mlflow"}
-    expected_conda.update(expected_requirments)
-    assert pip_in_conda.intersection(expected_conda) == expected_conda
+@pytest.mark.parametrize(
+    ("pipeline", "expected_requirements"),
+    [
+        ("small_qa_pipeline", {"transformers", "torch", "torchvision"}),
+        ("small_seq2seq_pipeline", {"transformers", "tensorflow"}),
+        pytest.param(
+            "peft_pipeline",
+            {"peft", "transformers", "torch", "torchvision"},
+            marks=SKIP_IF_PEFT_NOT_AVAILABLE,
+        ),
+    ],
+)
+def test_default_requirements(pipeline, expected_requirements, request):
+    if "torch" in expected_requirements and importlib.util.find_spec("accelerate"):
+        expected_requirements.add("accelerate")
 
+    model = request.getfixturevalue(pipeline).model
+    pip_requirements = get_default_pip_requirements(model)
+    conda_requirements = get_default_conda_env(model)["dependencies"][2]["pip"]
 
-def test_dependencies_tensorflow(small_seq2seq_pipeline):
-    pip_requirements = get_default_pip_requirements(small_seq2seq_pipeline.model)
-    expected_requirments = {"transformers", "tensorflow"}
-    assert {package.split("=")[0] for package in pip_requirements}.intersection(
-        expected_requirments
-    ) == expected_requirments
-    conda_requirements = get_default_conda_env(small_seq2seq_pipeline.model)
-    pip_in_conda = {
-        package.split("=")[0] for package in conda_requirements["dependencies"][2]["pip"]
-    }
-    expected_conda = {"mlflow"}
-    expected_conda.update(expected_requirments)
-    assert pip_in_conda.intersection(expected_conda) == expected_conda
+    def _strip_requirements(requirements):
+        return {req.split("==")[0] for req in requirements}
+
+    assert _strip_requirements(pip_requirements) == expected_requirements
+    assert _strip_requirements(conda_requirements) == (expected_requirements | {"mlflow"})
 
 
 def test_inference_task_validation(small_seq2seq_pipeline, text_generation_pipeline):
