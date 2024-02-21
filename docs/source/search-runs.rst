@@ -112,7 +112,7 @@ Search Query Example
 
 In order to filter your MLflow runs using the search field, you will need to write **search queries**, which are pseudo-SQL conditions expressed in a distinct syntax. 
 
-To showcase this functionality, let's reopen the MLflow UI, let's explore some example fields that you can use to filter your runs in the MLflow UI.
+To showcase this functionality, let's reopen the MLflow UI and explore some example fields that you can use to filter your runs.
 
 .. figure:: _static/images/search-runs/before_search_query.png
    :alt: search query
