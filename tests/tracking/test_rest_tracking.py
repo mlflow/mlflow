@@ -1081,6 +1081,27 @@ def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client
         "GetMetricHistoryBulkInterval request must specify a metric_key.",
     )
 
+    assert_response(
+        requests.get(
+            url,
+            params={
+                "run_ids": ["123"],
+                "metric_key": "key",
+                "start_step": 1,
+                "end_step": 0,
+                "max_results": 5,
+            },
+        ),
+        "End step must be greater than start step. ",
+    )
+
+    assert_response(
+        requests.get(
+            url, params={"run_ids": ["123"], "metric_key": "key", "start_step": 1, "max_results": 5}
+        ),
+        "If either start step or end step are specified, both must be specified.",
+    )
+
 
 def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
     experiment_id = mlflow_client.create_experiment("get metric history bulk")

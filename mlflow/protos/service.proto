@@ -336,7 +336,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/metrics/get-history-bulk-interval"
-        since { major: 2, minor: 0 },
+        since { major: 2, minor: 11 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
     };

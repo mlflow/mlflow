@@ -1180,7 +1180,7 @@ def get_metric_history_bulk_interval_handler():
             return sorted(set(sampled_steps).union([end_step]))
         else:
             raise MlflowException.invalid_parameter_value(
-                "Both start step and end step must be specified."
+                "If either start step or end step are specified, both must be specified."
             )
 
     def _default_history_bulk_interval_impl():
