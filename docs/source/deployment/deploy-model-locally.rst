@@ -95,14 +95,13 @@ models below, you can pass a raw payload dict.
       - Description
       - Example
     * - OpenAI Chat
-      - `OpenAI chat request payload <https://platform.openai.com/docs/api-reference/chat/create>`_.
-        Note that openai's ``model`` kwarg should not be included because we are querying the
-        mlflow served model. However, any other openai.chat parameter defined in our served model's 
-        signature will be applied.
+      - `OpenAI chat request payload <https://platform.openai.com/docs/api-reference/chat/create>`_.†
       - 
         .. code-block:: python
 
           {"messages": [{"role": "user", "content": "Tell a joke!"}], "temperature": 0.0}
+
+† Note that the ``model`` argument **should not** be included when using the OpenAI APIs, due to its configuration being set by the MLflow model instance. All other parameters can be freely used, provided that they are defined within the ``params`` argument within the logged model signature.
 
 .. code-block:: python
   :caption: Example
