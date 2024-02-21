@@ -392,7 +392,7 @@ which is a dropdown in the UI, simply pass ``run_view_type=ViewType.ACTIVE_ONLY`
 2 - Ordering
 ~~~~~~~~~~~~
 
-Another useful feature is ordering the results. You specify a list of columns of interest along with
+Another useful feature that is available in the search API is allowing for ordering of the returned search results. You can specify a list of columns of interest along with
 ``DESC`` or ``ASC`` in the ``order_by`` kwarg. Note that the ``DESC`` or ``ASC`` value is optional,
 so when the value is not provided, the default is ``ASC``. Also note that the default ordering when
 the ``order_by`` parameter is omitted is to sort by ``start_time DESC``, then ``run_id ASC``.
