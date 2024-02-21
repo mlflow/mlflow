@@ -157,6 +157,17 @@ These more advanced tutorials are designed to showcase different applications of
                     </p>
                 </a>
             </div>
+
+            <div class="simple-card">
+                <a href="tutorials/fine-tuning/transformers-peft.html">
+                    <div class="header">
+                        Fine tuning LLMs efficiently using PEFT and MLflow
+                    </div>
+                    <p>
+                        Learn how to fine-tune a large foundational models with significantly reduced memory usage using PEFT (QLoRA) and MLflow.
+                    </p>
+                </a>
+            </div>
             <div class="simple-card">
                 <a href="tutorials/prompt-templating/prompt-templating.html">
                     <div class="header">
@@ -191,6 +202,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/translation/component-translation.ipynb" class="notebook-download-btn">Download the Translation Notebook</a><br>        
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/conversational/conversational-model.ipynb" class="notebook-download-btn">Download the Chat Conversational Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning.ipynb" class="notebook-download-btn">Download the Fine Tuning Notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/fine-tuning/transformers-peft.ipynb" class="notebook-download-btn">Download the PEFT Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/prompt-templating/prompt-templating.ipynb" class="notebook-download-btn">Download the Prompt Templating Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.ipynb" class="notebook-download-btn">Download the Custom PyFunc transformers Notebook</a><br>
 
@@ -203,6 +215,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     tutorials/translation/component-translation.ipynb
     tutorials/conversational/conversational-model.ipynb
     tutorials/fine-tuning/transformers-fine-tuning.ipynb
+    tutorials/fine-tuning/transformers-peft.ipynb
     tutorials/prompt-templating/prompt-templating.ipynb
 
 
