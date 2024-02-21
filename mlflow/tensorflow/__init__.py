@@ -1426,6 +1426,25 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
 
     Returns:
         The instance of a Keras model restored from the specified checkpoint.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.tensorflow
+
+        mlflow.tensorflow.autolog(checkpoint=True, checkpoint_save_best_only=False)
+
+        model = create_tf_keras_model()  # Create a Keras model
+        with mlflow.start_run() as run:
+            model.fit(data, label, epoch=10)
+
+        run_id = run.info.run_id
+
+        # load latest checkpoint model
+        latest_checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id)
+
+        # load history checkpoint model logged in second epoch
+        checkpoint_model = mlflow.pytorch.load_checkpoint(run_id=run_id, epoch=2)
     """
     import tensorflow as tf
 

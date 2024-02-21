@@ -327,6 +327,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         super().__init__(
             client=client,
             run_id=run_id,
+            checkpoint_file_suffix="pth",
             monitor=monitor,
             mode=mode,
             save_best_only=save_best_only,
@@ -347,9 +348,6 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         )
         self.trainer.strategy.save_checkpoint(checkpoint, filepath)
 
-    def checkpoint_file_suffix(self):
-        return "pth"
-
     @rank_zero_only
     def on_train_batch_end(
         self,
@@ -359,7 +357,8 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         batch,
         batch_idx,
     ) -> None:
-        self.trainer = trainer
+        if self.trainer is None:
+            self.trainer = trainer
         if isinstance(self.save_freq, int) and (
             trainer.global_step > 0 and trainer.global_step % self.save_freq == 0
         ):
@@ -371,7 +370,8 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-        self.trainer = trainer
+        if self.trainer is None:
+            self.trainer = trainer
         if self.save_freq == "epoch":
             self.check_and_save_checkpoint_if_needed(
                 current_epoch=trainer.current_epoch,

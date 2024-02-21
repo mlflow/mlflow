@@ -20,6 +20,7 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         self,
         client,
         run_id,
+        checkpoint_file_suffix,
         monitor,
         mode,
         save_best_only,
@@ -30,6 +31,7 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         Args:
             client: An instance of `MlflowClient`.
             run_id: The id of the MLflow run which you want to log checkpoints to.
+            checkpoint_file_suffix: checkpoint file suffix.
             monitor: In automatic model checkpointing, the metric name to monitor if
                 you set `model_checkpoint_save_best_only` to True.
             save_best_only: If True, automatic model checkpointing only saves when
@@ -50,6 +52,7 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         """
         self.client = client
         self.run_id = run_id
+        self.checkpoint_file_suffix = checkpoint_file_suffix
         self.monitor = monitor
         self.mode = mode
         self.save_best_only = save_best_only
@@ -82,9 +85,6 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
     def save_checkpoint(self, filepath: str):
         raise NotImplementedError()
 
-    def checkpoint_file_suffix(self):
-        raise NotImplementedError()
-
     def check_and_save_checkpoint_if_needed(self, current_epoch, global_step, metric_dict):
         if self.save_best_only:
             if self.monitor not in metric_dict:
@@ -104,7 +104,7 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
 
             self.last_monitor_value = new_monitor_value
 
-        suffix = self.checkpoint_file_suffix()
+        suffix = self.checkpoint_file_suffix
         if self.save_best_only:
             if self.save_weights_only:
                 checkpoint_model_filename = f"latest_checkpoint.weights.{suffix}"

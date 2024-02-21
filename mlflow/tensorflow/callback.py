@@ -146,6 +146,7 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
             self,
             client=client,
             run_id=run_id,
+            checkpoint_file_suffix="h5",
             monitor=monitor,
             mode=mode,
             save_best_only=save_best_only,
@@ -165,14 +166,11 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
         else:
             self.model.save(filepath, overwrite=True)
 
-    def checkpoint_file_suffix(self):
-        return "h5"
-
     def on_epoch_begin(self, epoch, logs=None):
         self.current_epoch = epoch
 
     def on_train_batch_end(self, batch, logs=None):
-        # Note that `on_train_batch_end` might be invoked by evern N train steps,
+        # Note that `on_train_batch_end` might be invoked by every N train steps,
         # (controlled by `steps_per_execution` argument in `model.comple` method).
         # the following logic is similar to
         # https://github.com/keras-team/keras/blob/e6e62405fa1b4444102601636d871610d91e5783/keras/callbacks/model_checkpoint.py#L212
