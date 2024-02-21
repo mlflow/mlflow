@@ -45,7 +45,6 @@ def test_subscriber_methods():
 def test_enabling_autologging_throws_for_wrong_spark_version(
     spark_session, mock_get_current_listener
 ):
-    # pylint: disable=unused-argument
     with mock.patch("mlflow.spark.autologging._get_spark_major_version", return_value=2):
         with pytest.raises(
             MlflowException, match="Spark autologging unsupported for Spark versions < 3"

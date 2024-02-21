@@ -339,7 +339,7 @@ class _StatsmodelsModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -433,7 +433,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:

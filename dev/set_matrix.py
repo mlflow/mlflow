@@ -77,15 +77,15 @@ class TestConfig(BaseModel):
         arbitrary_types_allowed = True
 
     @validator("minimum", pre=True)
-    def validate_minimum(cls, v):  # pylint: disable=no-self-argument
+    def validate_minimum(cls, v):
         return Version(v)
 
     @validator("maximum", pre=True)
-    def validate_maximum(cls, v):  # pylint: disable=no-self-argument
+    def validate_maximum(cls, v):
         return Version(v)
 
     @validator("unsupported", pre=True)
-    def validate_unsupported(cls, v):  # pylint: disable=no-self-argument
+    def validate_unsupported(cls, v):
         return [Version(v) for v in v] if v else None
 
 

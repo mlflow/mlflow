@@ -400,7 +400,6 @@ class SqlAlchemyStore(AbstractStore):
                 select(SqlRegisteredModelTag.name)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlRegisteredModelTag.name)
-                # pylint: disable-next=not-callable
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
@@ -487,7 +486,6 @@ class SqlAlchemyStore(AbstractStore):
                 select(SqlModelVersionTag.name, SqlModelVersionTag.version)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version)
-                # pylint: disable-next=not-callable
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )

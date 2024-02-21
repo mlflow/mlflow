@@ -182,7 +182,7 @@ def _set_experiment_primary_metric(
     )
 
 
-class ActiveRun(Run):  # pylint: disable=abstract-method
+class ActiveRun(Run):
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
     def __init__(self, run):
@@ -2021,7 +2021,6 @@ def autolog(
     disable_for_unsupported_versions: bool = False,
     silent: bool = False,
     extra_tags: Optional[Dict[str, str]] = None,
-    # pylint: disable=unused-argument
 ) -> None:
     """
     Enables (or disables) and configures autologging for all supported integrations.

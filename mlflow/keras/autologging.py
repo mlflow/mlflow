@@ -138,8 +138,6 @@ def autolog(
     save_model_kwargs=None,
     extra_tags=None,
 ):
-    # pylint: disable=unused-argument
-    # pylint: disable=no-name-in-module
     """
     Enable autologging for Keras.
 

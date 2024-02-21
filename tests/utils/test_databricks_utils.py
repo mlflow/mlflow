@@ -259,9 +259,7 @@ def test_use_repl_context_if_available(tmp_path, monkeypatch):
 
     command_context_mock = mock.MagicMock()
     command_context_mock.jobId().get.return_value = "job_id"
-    command_context_mock.tags().get(  # pylint: disable=not-callable
-        "jobType"
-    ).get.return_value = "NORMAL"
+    command_context_mock.tags().get("jobType").get.return_value = "NORMAL"
     with mock.patch(
         "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
     ) as mock_get_command_context:

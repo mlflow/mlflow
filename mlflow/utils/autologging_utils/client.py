@@ -113,7 +113,7 @@ class MlflowAutologgingQueueingClient:
         """
         return self
 
-    def __exit__(self, exc_type, exc, traceback):  # pylint: disable=unused-argument
+    def __exit__(self, exc_type, exc, traceback):
         """
         Enables `MlflowAutologgingQueueingClient` to be used as a context manager with
         synchronous flushing upon exit, removing the need to call `flush()` for use cases

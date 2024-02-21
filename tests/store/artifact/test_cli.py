@@ -41,7 +41,7 @@ def test_download_from_uri():
         def __init__(self, scheme):
             self.scheme = scheme
 
-        def download_artifacts(self, artifact_path, **kwargs):  # pylint: disable=unused-argument
+        def download_artifacts(self, artifact_path, **kwargs):
             return (self.scheme, artifact_path)
 
     def test_get_artifact_repository(artifact_uri):

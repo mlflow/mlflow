@@ -6,7 +6,7 @@ import pytest
 import sqlalchemy
 from alembic import command
 from alembic.autogenerate import compare_metadata
-from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 
 import mlflow.db

@@ -665,7 +665,7 @@ class _SHAPWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
