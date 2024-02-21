@@ -437,10 +437,10 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
 
         import mlflow
 
-        mlflow.model.predict(
+        mlflow.models.predict(
             model_uri="runs:/<run_id>/model",
             input_data=<input_data>,
-            pip_requirements="opencv-python==4.8.0",
+            pip_requirements_override="opencv-python==4.8.0",
         )
 
     .. code-tab:: bash

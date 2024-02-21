@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from io import StringIO
-from typing import ForwardRef, List, Optional, get_args, get_origin
+from typing import ForwardRef, List, Literal, Optional, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -96,7 +96,7 @@ def predict(
     input_path: Optional[str] = None,
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
-    env_manager: _EnvManager = _EnvManager.VIRTUALENV,
+    env_manager: Literal["virtualenv", "local", "conda"] = _EnvManager.VIRTUALENV,
     install_mlflow: bool = False,
     pip_requirements_override: Optional[List[str]] = None,
 ):
@@ -113,9 +113,9 @@ def predict(
         output_path: File to output results to as json. If not provided, output to stdout.
         env_manager: Specify a way to create an environment for MLmodel inference:
 
-            - virtualenv (default): use virtualenv (and pyenv for Python version management)
-            - local: use the local environment
-            - conda: use conda
+            - "virtualenv" (default): use virtualenv (and pyenv for Python version management)
+            - "local": use the local environment
+            - "conda": use conda
 
         install_mlflow: If specified and there is a conda or virtualenv environment to be activated
             mlflow will be installed into the environment after it has been activated. The version
@@ -132,14 +132,14 @@ def predict(
 
         run_id = "..."
 
-        mlflow.pyfunc.predict(
+        mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
             input_data={"x": 1, "y": 2},
             content_type="json",
         )
 
         # Run prediction with additional pip dependencies
-        mlflow.pyfunc.predict(
+        mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
             input_data='{"x": 1, "y": 2}',
             content_type="json",
