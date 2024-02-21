@@ -1769,9 +1769,12 @@ def test_get_experiment_graphql(mlflow_client):
 
 
 def test_get_run_and_experiment_graphql(mlflow_client):
-    experiment_id = mlflow_client.create_experiment("GraphqlTest")
+    name = "GraphqlTest"
+    mlflow_client.create_registered_model(name)
+    experiment_id = mlflow_client.create_experiment(name)
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
+    mlflow_client.create_model_version("GraphqlTest", "runs:/graphql_test/model", run_id)
     response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
         json={
@@ -1780,6 +1783,9 @@ def test_get_run_and_experiment_graphql(mlflow_client):
                     mlflowGetRun(input: {{runId: "{run_id}"}}) {{
                         run {{
                             experiment {{
+                                name
+                            }}
+                            modelVersions {{
                                 name
                             }}
                         }}
@@ -1792,4 +1798,5 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     )
     assert response.status_code == 200
     json = response.json()
-    assert json["data"]["mlflowGetRun"]["run"]["experiment"]["name"] == "GraphqlTest"
+    assert json["data"]["mlflowGetRun"]["run"]["experiment"]["name"] == name
+    assert json["data"]["mlflowGetRun"]["run"]["modelVersions"][0]["name"] == name
