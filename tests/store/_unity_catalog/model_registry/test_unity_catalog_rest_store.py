@@ -239,7 +239,7 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
         )
     )
     storage_location = "s3://blah"
-    source = str(local_model_dir)
+    source = str(langchain_local_model_dir)
     model_name = "model_1"
     version = "1"
     tags = [
@@ -283,7 +283,7 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
             request_mock=request_mock, name=model_name, source=source, version=version, tags=tags, model_version_dependencies=model_version_dependencies
         )
 
-def test_create_model_version_with_langchain_no_dependencies(store, langchain_local_model_dir):
+def test_create_model_version_with_langchain_no_dependencies(store, langchain_local_model_dir_no_dependencies):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -295,7 +295,7 @@ def test_create_model_version_with_langchain_no_dependencies(store, langchain_lo
         )
     )
     storage_location = "s3://blah"
-    source = str(local_model_dir)
+    source = str(langchain_local_model_dir_no_dependencies)
     model_name = "model_1"
     version = "1"
     tags = [

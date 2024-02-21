@@ -88,15 +88,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 
-from mlflow.langchain import (
-    _DATABRICKS_DEPENDENCY_KEY,
-    _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY, 
-    _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-    _DATABRICKS_LLM_ENDPOINT_NAME_KEY, 
-    _DATABRICKS_CHAT_ENDPOINT_NAME_KEY
-)
-
-
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
 _DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -174,9 +165,17 @@ def get_model_version_dependencies(model_dir):
     Gets the specified dependencies for a particular model version and formats them
     to be passed into CreateModelVersion.
     """
+    # import here to work around circular imports
+    from mlflow.langchain.databricks_dependencies import (
+    _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY, 
+    _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
+    _DATABRICKS_LLM_ENDPOINT_NAME_KEY, 
+    _DATABRICKS_CHAT_ENDPOINT_NAME_KEY
+)
+
     model = _load_model(model_dir)
     model_info = model.get_model_info()
-    dependencies = List()
+    dependencies = []
     index_names = _fetch_langchain_dependency_from_model_info(model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY)
     for index_name in index_names:
         dependencies.append({"type": "VECTOR_INDEX", "name": index_name})
@@ -188,6 +187,8 @@ def get_model_version_dependencies(model_dir):
     
 
 def _fetch_langchain_dependency_from_model_info(model_info, key):
+        # import here to work around circular imports
+    from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
     return model_info.flavors.get("langchain", {}).get(_DATABRICKS_DEPENDENCY_KEY, {}).get(key, [])  
    
 @experimental
