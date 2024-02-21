@@ -13,8 +13,17 @@ interpreted as a generic Python function for inference via :py:func:`mlflow.pyfu
 You can also use the :py:func:`mlflow.transformers.load_model()` function to load a saved or logged MLflow
 Model with the ``transformers`` flavor in the native transformers formats.
 
-Input and Output types for PyFunc
----------------------------------
+This page explains the detailed features and configurations of the MLflow ``transformers`` flavor. For the general introduction about the MLflow's Transformer integration, please refer to the `MLflow Transformers Flavor <../index.html>`_ page.
+
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
+
+Loading a Transformers Model as a Python Function
+-------------------------------------------------
+
+Supported Transformers Pipeline types
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``transformers`` :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` simplifies
 and standardizes both the inputs and outputs of pipeline inference. This conformity allows for serving
@@ -52,8 +61,6 @@ data type inputs and outputs.
     Similarly, if your use case requires the use of raw tensor outputs or processing of outputs through an external ``processor`` module, load the
     model components directly as a ``dict`` by calling :py:func:`mlflow.transformers.load_model()` and specify the ``return_type`` argument as 'components'.
 
-Supported transformers Pipeline types for Pyfunc
-------------------------------------------------
 
 ================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
@@ -88,9 +95,51 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
+Example of loading a transformers model as a python function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is
+loaded as a ``pyfunc`` and used to generate a response from a passed-in list of strings.
+
+.. code-block:: python
+
+    import mlflow
+    import transformers
+
+    # Read a pre-trained conversation pipeline from HuggingFace hub
+    conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
+
+    # Define the signature
+    signature = mlflow.models.infer_signature(
+        "Hi there, chatbot!",
+        mlflow.transformers.generate_signature_output(
+            conversational_pipeline, "Hi there, chatbot!"
+        ),
+    )
+
+    # Log the pipeline
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=conversational_pipeline,
+            artifact_path="chatbot",
+            task="conversational",
+            signature=signature,
+            input_example="A clever and witty question",
+        )
+
+    # Load the saved pipeline as pyfunc
+    chatbot = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # Ask the chatbot a question
+    response = chatbot.predict("What is machine learning?")
+
+    print(response)
+
+    # >> [It's a new thing that's been around for a while.]
+
 
 Saving Prompt Templates with Transformer Pipelines
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------------------
 
 .. note::
 
@@ -155,8 +204,8 @@ template will be used to format user inputs before passing them into the pipelin
 For a more in-depth guide, check out the `Prompt Templating notebook <../tutorials/prompt-templating/prompt-templating.ipynb>`_!
 
 
-Using model_config and model signature params for `transformers` inference
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using model_config and Model Signature Params for Inference
+-----------------------------------------------------------
 
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
@@ -294,54 +343,34 @@ params that may be needed to compute the predictions for their specific samples.
     result = pyfunc_loaded.predict(data, params=params)
 
 
-Example of loading a transformers model as a python function
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pipelines vs. Component Logging
+-------------------------------
 
-In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is
-loaded as a ``pyfunc`` and used to generate a response from a passed-in list of strings.
+The transformers flavor has two different primary mechanisms for saving and loading models: pipelines and components.
 
-.. code-block:: python
+**Pipelines**
 
-    import mlflow
-    import transformers
+Pipelines in the context of the Transformers library are high-level objects that combine pre-trained models and tokenizers 
+(as well as other components, depending on the task type) to perform a specific task. They abstract away much of the preprocessing 
+and postprocessing work involved in using the models. 
 
-    # Read a pre-trained conversation pipeline from HuggingFace hub
-    conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
+For example, a text classification pipeline would handle the tokenization of text, passing the tokens through a model, and then 
+interpreting the logits to produce a human-readable classification.
 
-    # Define the signature
-    signature = mlflow.models.infer_signature(
-        "Hi there, chatbot!",
-        mlflow.transformers.generate_signature_output(
-            conversational_pipeline, "Hi there, chatbot!"
-        ),
-    )
+When logging a pipeline with MLflow, you're essentially saving this high-level abstraction, which can be loaded and used directly 
+for inference with minimal setup. This is ideal for end-to-end tasks where the preprocessing and postprocessing steps are standard 
+for the task at hand.
 
-    # Log the pipeline
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model=conversational_pipeline,
-            artifact_path="chatbot",
-            task="conversational",
-            signature=signature,
-            input_example="A clever and witty question",
-        )
+**Components**
 
-    # Load the saved pipeline as pyfunc
-    chatbot = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+Components refer to the individual parts that can make up a pipeline, such as the model itself, the tokenizer, and any additional 
+processors, extractors, or configuration needed for a specific task. Logging components with MLflow allows for more flexibility and 
+customization. You can log individual components when your project needs to have more control over the preprocessing and postprocessing 
+steps or when you need to access the individual components in a bespoke manner that diverges from how the pipeline abstraction would call them.
 
-    # Ask the chatbot a question
-    response = chatbot.predict("What is machine learning?")
-
-    print(response)
-
-    # >> [It's a new thing that's been around for a while.]
-
-
-Save and Load options for transformers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``transformers`` flavor for MLflow provides support for saving either components of a model or a pipeline object that contains the customized components in
-an easy to use interface that is optimized for inference.
+For example, you might log the components separately if you have a custom tokenizer or if you want to apply some special postprocessing 
+to the model outputs. When loading the components, you can then reconstruct the pipeline with your custom components or use the components 
+individually as needed.
 
 .. note::
     MLflow by default uses a 500 MB `max_shard_size` to save the model object in :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. You can use the environment variable `MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE` to override the value.
@@ -350,7 +379,7 @@ an easy to use interface that is optimized for inference.
     For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.
 
 Logging a components-based model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The example below shows logging components of a ``transformers`` model via a dictionary mapping of specific named components. The names of the keys within the submitted dictionary
 must be in the set: ``{"model", "tokenizer", "feature_extractor", "image_processor"}``. Processor type objects (some image processors, audio processors, and multi-modal processors)
@@ -402,7 +431,7 @@ After logging, the components are automatically inserted into the appropriate ``
 
 
 Saving a pipeline and loading components
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some use cases can benefit from the simplicity of defining a solution as a pipeline, but need the component-level access for performing a micro-services based deployment strategy
 where pre / post-processing is performed on containers that do not house the model itself. For this paradigm, a pipeline can be loaded as its constituent parts, as shown below.
@@ -454,8 +483,9 @@ where pre / post-processing is performed on containers that do not house the mod
     # >> [{'translation_text': "Les transformateurs rendent l'utilisation de modèles Deep Learning facile et amusante!"}]
 
 
+
 Automatic Metadata and ModelCard logging
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------
 
 In order to provide as much information as possible for saved models, the ``transformers`` flavor will automatically fetch the ``ModelCard`` for any model or pipeline that
 is saved that has a stored card on the HuggingFace hub. This card will be logged as part of the model artifact, viewable at the same directory level as the ``MLmodel`` file and
@@ -474,7 +504,7 @@ in order to determine what restrictions exist regarding the use of the model.
   Model license information was introduced in **MLflow 2.10.0**. Previous versions do not include license information for models.
 
 Automatic Signature inference
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 For pipelines that support ``pyfunc``, there are 3 means of attaching a model signature to the ``MLmodel`` file.
 
@@ -485,8 +515,8 @@ For pipelines that support ``pyfunc``, there are 3 means of attaching a model si
 * Do nothing. The ``transformers`` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
 
 
-Scalability for inference
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Scale Inference with Overriding Pytorch dtype
+---------------------------------------------
 
 A common configuration for lowering the total memory pressure for pytorch models within ``transformers`` pipelines is to modify the
 processing data type. This is achieved through setting the ``torch_dtype`` argument when creating a ``Pipeline``.
@@ -593,8 +623,8 @@ Result:
 .. note:: Overriding the data type for a pipeline when loading as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` is not supported.
     The value set for ``torch_dtype`` during ``save_model()`` or ``log_model()`` will persist when loading as `pyfunc`.
 
-Input data types for audio pipelines
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Input Data Types for Audio Pipelines
+------------------------------------
 
 Note that passing raw data to an audio pipeline (raw bytes) requires two separate elements of the same effective library.
 In order to use the bitrate transposition and conversion of the audio bytes data into numpy nd.array format, the library `ffmpeg` is required.
