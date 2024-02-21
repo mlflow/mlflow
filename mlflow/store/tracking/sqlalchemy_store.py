@@ -992,9 +992,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             return max_step or 0
 
-    def get_metric_history_bulk_interval_from_steps(
-        self, run_id, metric_key, steps, max_results=None
-    ):
+    def get_metric_history_bulk_interval_from_steps(self, run_id, metric_key, steps, max_results):
         with self.ManagedSessionMaker() as session:
             metrics = (
                 session.query(SqlMetric)
@@ -1016,7 +1014,7 @@ class SqlAlchemyStore(AbstractStore):
                 SqlAlchemyStore.MetricWithRunId(
                     run_id=metric.run_uuid,
                     metric=metric.to_mlflow_entity(),
-                )
+                ).to_dict()
                 for metric in metrics
             ]
 

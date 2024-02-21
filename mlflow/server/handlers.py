@@ -1166,7 +1166,7 @@ def get_metric_history_bulk_interval_handler():
             max_steps = max(max_steps_per_run)
             # Get sampled steps and append the max step for each run.
             sampled_steps = _get_sampled_steps_from_steps(0, max_steps, max_results)
-            return sorted(set(sampled_steps).union(max_steps_per_run))
+            return list(set(sampled_steps).union(max_steps_per_run))
         elif start_step is not None and end_step is not None:
             start_step = int(start_step)
             end_step = int(end_step)
@@ -1176,7 +1176,7 @@ def get_metric_history_bulk_interval_handler():
                     f"Found start_step={start_step} and end_step={end_step}."
                 )
             sampled_steps = _get_sampled_steps_from_steps(start_step, end_step, max_results)
-            return sorted(set(sampled_steps).union([end_step]))
+            return list(set(sampled_steps).union([end_step]))
         else:
             raise MlflowException.invalid_parameter_value(
                 "If either start step or end step are specified, both must be specified."
@@ -1185,37 +1185,15 @@ def get_metric_history_bulk_interval_handler():
     def _default_history_bulk_interval_impl():
         steps = _get_sampled_steps(run_ids, metric_key, max_results)
         metrics_with_run_ids = []
-        if hasattr(store, "get_metric_history_bulk_interval_from_steps"):
-            for run_id in run_ids:
-                metrics_with_run_ids.extend(
-                    [
-                        metric.to_dict()
-                        for metric in store.get_metric_history_bulk_interval_from_steps(
-                            run_id=run_id,
-                            metric_key=metric_key,
-                            steps=steps,
-                            max_results=MAX_RESULTS_GET_METRIC_HISTORY,
-                        )
-                    ]
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                store.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
                 )
-        else:
-            for run_id in run_ids:
-                metrics_for_run = sorted(
-                    [m for m in store.get_metric_history(run_id, metric_key) if m.step in steps],
-                    key=lambda metric: (metric.step, metric.timestamp),
-                )
-                metrics_with_run_ids.extend(
-                    [
-                        {
-                            "key": metric.key,
-                            "value": metric.value,
-                            "timestamp": metric.timestamp,
-                            "step": metric.step,
-                            "run_id": run_id,
-                        }
-                        for metric in metrics_for_run
-                    ]
-                )
+            )
         return metrics_with_run_ids
 
     if hasattr(store, "get_metric_history_bulk_interval"):

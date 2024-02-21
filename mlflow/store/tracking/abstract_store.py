@@ -327,6 +327,40 @@ class AbstractStore:
         # without the paged queries to the backend store.
         pass
 
+    def get_metric_history_bulk_interval_from_steps(self, run_id, metric_key, steps, max_results):
+        """
+        Return a list of metric objects in dictionary format corresponding to all values logged
+        for a given metric within a run for the specified steps.
+
+        Args:
+            run_id: Unique identifier for run.
+            metric_key: Metric name within the run.
+            steps: List of steps for which to return metrics.
+            max_results: Maximum number of metric history events (steps) to return.
+
+        Returns:
+            A list of dictionaries, each containing the following keys:
+                - key: Metric name within the run.
+                - value: Metric value.
+                - timestamp: Metric timestamp.
+                - step: Metric step.
+                - run_id: Unique identifier for run.
+        """
+        metrics_for_run = sorted(
+            [m for m in self.get_metric_history(run_id, metric_key) if m.step in steps],
+            key=lambda metric: (metric.step, metric.timestamp),
+        )[:max_results]
+        return [
+            {
+                "key": metric.key,
+                "value": metric.value,
+                "timestamp": metric.timestamp,
+                "step": metric.step,
+                "run_id": run_id,
+            }
+            for metric in metrics_for_run
+        ]
+
     def search_runs(
         self,
         experiment_ids,
