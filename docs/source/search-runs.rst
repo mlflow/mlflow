@@ -175,6 +175,7 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
 
 * The SQL ``OR`` keyword is not supported.
 * For fields that contain special characters or start with numbers, you need to wrap them in double quotes.
+
   .. code-block:: diff
 
     - Bad:  ``metrics.cross-entropy-loss < 0.5``
@@ -188,7 +189,7 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
   .. code-block:: diff
 
     - Bad:  ``attributes.run_id IN ("5984a3488161440f92de9847e846b342", "babe221a676b4fa4b204f8240f2c4f14")``
-    - Good: ``attributes.run_id IN ('5984a3488161440f92de9847e846b342', 'babe221a676b4fa4b204f8240f2c4f14')``
+    + Good: ``attributes.run_id IN ('5984a3488161440f92de9847e846b342', 'babe221a676b4fa4b204f8240f2c4f14')``
 
 * For the SQL ``IN`` keyword, you can only search the following fields:
 
