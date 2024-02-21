@@ -108,7 +108,7 @@ models below, you can pass a raw payload dict.
   :caption: Example
 
   # Prerequisite: serve an OpenAI model on localhost:5678 that defines
-  #   `temperature` and `max_tokens` as parameters in our model signature
+  #   `temperature` and `max_tokens` as parameters within the logged model signature
 
   import json
   import requests
