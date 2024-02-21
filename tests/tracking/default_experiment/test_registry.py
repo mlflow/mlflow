@@ -12,8 +12,6 @@ from mlflow.tracking.default_experiment.registry import (
     get_experiment_id,
 )
 
-# pylint: disable=unused-argument
-
 
 def test_default_experiment_provider_registry_register():
     provider_class = mock.Mock()

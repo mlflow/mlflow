@@ -293,7 +293,7 @@ class ImportHookFinder:
             # notify the hooks for import errors
             except (ImportError, AttributeError):
                 notify_module_import_error(fullname)
-                loader = importlib.find_loader(fullname, path)  # pylint: disable=deprecated-method
+                loader = importlib.find_loader(fullname, path)
             if loader:
                 return _ImportHookChainedLoader(loader)
         finally:
@@ -301,7 +301,7 @@ class ImportHookFinder:
 
     @synchronized(_post_import_hooks_lock)
     @synchronized(_import_error_hooks_lock)
-    def find_spec(self, fullname, path, target=None):  # pylint: disable=unused-argument
+    def find_spec(self, fullname, path, target=None):
         # If the module being imported is not one we have registered
         # import hooks for, we can return immediately. We will
         # take no further part in the importing of this module.

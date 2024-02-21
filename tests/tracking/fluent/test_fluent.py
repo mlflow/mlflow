@@ -513,7 +513,7 @@ def is_from_run(active_run, run):
     return active_run.info == run.info and active_run.data == run.data
 
 
-def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_defaults(empty_active_run_stack):
     mlflow.disable_system_metrics_logging()
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
@@ -563,7 +563,7 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 
 def test_start_run_defaults_databricks_notebook(
     empty_active_run_stack,
-):  # pylint: disable=unused-argument
+):
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -749,7 +749,7 @@ def test_start_run_with_parent_non_nested():
             start_run()
 
 
-def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_existing_run(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
@@ -763,7 +763,7 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
         MlflowClient.get_run.assert_called_with(run_id)
 
 
-def test_start_run_existing_run_from_environment(empty_active_run_stack, monkeypatch):  # pylint: disable=unused-argument
+def test_start_run_existing_run_from_environment(empty_active_run_stack, monkeypatch):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
@@ -780,7 +780,7 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack, monkeyp
 
 def test_start_run_existing_run_from_environment_with_set_environment(
     empty_active_run_stack, monkeypatch
-):  # pylint: disable=unused-argument
+):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
@@ -794,7 +794,7 @@ def test_start_run_existing_run_from_environment_with_set_environment(
             start_run()
 
 
-def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_existing_run_deleted(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.DELETED
 
@@ -806,7 +806,7 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disa
             start_run(run_id)
 
 
-def test_start_existing_run_status(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_existing_run_status(empty_active_run_stack):
     run_id = mlflow.start_run().info.run_id
     mlflow.end_run()
     assert MlflowClient().get_run(run_id).info.status == RunStatus.to_string(RunStatus.FINISHED)
@@ -814,7 +814,7 @@ def test_start_existing_run_status(empty_active_run_stack):  # pylint: disable=u
     assert restarted_run.info.status == RunStatus.to_string(RunStatus.RUNNING)
 
 
-def test_start_existing_run_end_time(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_existing_run_end_time(empty_active_run_stack):
     run_id = mlflow.start_run().info.run_id
     mlflow.end_run()
     run_obj_info = MlflowClient().get_run(run_id).info
@@ -826,7 +826,7 @@ def test_start_existing_run_end_time(empty_active_run_stack):  # pylint: disable
     assert run_obj_info.end_time > old_end
 
 
-def test_start_run_with_description(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_with_description(empty_active_run_stack):
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id

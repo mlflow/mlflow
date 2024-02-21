@@ -335,7 +335,7 @@ def test_download_directory_artifact(mock_filesystem_client, mock_file_client, t
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         path_arg = posixpath.abspath(kwargs["path"])
         if path_arg == posixpath.abspath(TEST_ROOT_PATH):
             return MockPathList([path_props_1, path_props_2, dir_props])

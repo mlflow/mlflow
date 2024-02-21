@@ -160,7 +160,6 @@ class FakeLLM(LLM):
         """Return type of llm."""
         return "fake"
 
-    # pylint: disable=arguments-differ
     def _call(self, prompt: str, stop: Optional[List[str]] = None, run_manager=None) -> str:
         """First try to lookup in queries, else return 'foo' or 'bar'."""
         if self.queries is not None:
@@ -192,7 +191,6 @@ class FakeChain(Chain):
         """Output key of bar."""
         return self.the_output_keys
 
-    # pylint: disable=arguments-differ
     def _call(self, inputs: Dict[str, str], run_manager=None) -> Dict[str, str]:
         if self.be_correct:
             return {"bar": "baz"}
@@ -1674,7 +1672,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     from langchain.schema.output_parser import StrOutputParser
 
     class ChatModel(SimpleChatModel):
-        def _call(self, messages, stop, run_manager, **kwargs):  # pylint: disable=signature-differs
+        def _call(self, messages, stop, run_manager, **kwargs):
             return "\n".join([f"{message.type}: {message.content}" for message in messages])
 
         @property
@@ -1792,7 +1790,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     from langchain.chat_models.base import SimpleChatModel
 
     class ChatModel(SimpleChatModel):
-        def _call(self, messages, stop, run_manager, **kwargs):  # pylint: disable=signature-differs
+        def _call(self, messages, stop, run_manager, **kwargs):
             return "You own MLflow"
 
         @property

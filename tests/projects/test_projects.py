@@ -336,7 +336,7 @@ def test_create_env_with_mamba(monkeypatch):
     installed in the test environment anyway)
     """
 
-    def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+    def exec_cmd_mock(cmd, *args, **kwargs):
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
             return subprocess.CompletedProcess(
@@ -347,7 +347,7 @@ def test_create_env_with_mamba(monkeypatch):
             # anything
             return subprocess.CompletedProcess(cmd, 0)
 
-    def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+    def exec_cmd_mock_raise(cmd, *args, **kwargs):
         if os.path.basename(cmd[0]) == "mamba":
             raise OSError()
 

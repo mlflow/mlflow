@@ -1036,7 +1036,7 @@ def test_download_artifacts_awaits_download_completion(databricks_artifact_repo,
     """
 
     def mock_download_from_cloud(
-        cloud_credential_info,  # pylint: disable=unused-argument
+        cloud_credential_info,
         dst_local_file_path,
     ):
         # Sleep in order to simulate a longer-running asynchronous download
@@ -1086,7 +1086,7 @@ def test_artifact_logging(databricks_artifact_repo, tmp_path):
     dst_dir.mkdir()
 
     def mock_upload_to_cloud(
-        cloud_credential_info,  # pylint: disable=unused-argument
+        cloud_credential_info,
         src_file_path,
         artifact_file_path,
     ):

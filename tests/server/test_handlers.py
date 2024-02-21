@@ -257,7 +257,6 @@ def test_catch_mlflow_exception():
     def test_handler():
         raise MlflowException("test error", error_code=INTERNAL_ERROR)
 
-    # pylint: disable=assignment-from-no-return
     response = test_handler()
     json_response = json.loads(response.get_data())
     assert response.status_code == 500

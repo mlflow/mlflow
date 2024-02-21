@@ -34,7 +34,7 @@ def _build_uri(base_uri, subdirectory):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_docker_project_execution(use_start_run, docker_example_base_image):  # pylint: disable=unused-argument
+def test_docker_project_execution(use_start_run, docker_example_base_image):
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
@@ -78,7 +78,7 @@ def test_docker_project_execution(use_start_run, docker_example_base_image):  # 
 
 def test_docker_project_execution_async_docker_args(
     docker_example_base_image,
-):  # pylint: disable=unused-argument
+):
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
@@ -112,7 +112,7 @@ def test_docker_project_tracking_uri_propagation(
     tracking_uri,
     expected_command_segment,
     docker_example_base_image,
-):  # pylint: disable=unused-argument
+):
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(
         "host", "user", "pass", insecure=True
@@ -136,7 +136,7 @@ def test_docker_project_tracking_uri_propagation(
         mlflow.set_tracking_uri(old_uri)
 
 
-def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
+def test_docker_uri_mode_validation(docker_example_base_image):
     with pytest.raises(ExecutionException, match="When running on Databricks"):
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks", backend_config={})
 

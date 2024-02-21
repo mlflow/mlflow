@@ -12,8 +12,6 @@ import pytest
 import tensorflow as tf
 import yaml
 from packaging.version import Version
-
-# pylint: disable=no-name-in-module
 from sklearn import datasets
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Dense, Layer
@@ -135,7 +133,6 @@ def custom_layer():
             super().__init__(**kwargs)
 
         def build(self, input_shape):
-            # pylint: disable=attribute-defined-outside-init
             self.kernel = self.add_weight(
                 name="kernel",
                 shape=(input_shape[1], self.output_dim),
@@ -144,7 +141,7 @@ def custom_layer():
             )
             super().build(input_shape)
 
-        def call(self, inputs):  # pylint: disable=arguments-differ
+        def call(self, inputs):
             return K.dot(inputs, self.kernel)
 
         def compute_output_shape(self, input_shape):
@@ -640,7 +637,7 @@ def test_load_without_save_format(tf_keras_model, model_path, data):
     "https://github.com/huggingface/transformers/issues/22421",
 )
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
+    from transformers import BertConfig, TFBertModel
 
     bert_model = TFBertModel(
         BertConfig(

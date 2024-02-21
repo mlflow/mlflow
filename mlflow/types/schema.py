@@ -523,7 +523,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, Array, Object, str],  # pylint: disable=redefined-builtin
+        type: Union[DataType, Array, Object, str],
         name: Optional[str] = None,
         optional: Optional[bool] = None,
         required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
@@ -698,7 +698,7 @@ class TensorSpec:
 
     def __init__(
         self,
-        type: np.dtype,  # pylint: disable=redefined-builtin
+        type: np.dtype,
         shape: Union[tuple, list],
         name: Optional[str] = None,
     ):

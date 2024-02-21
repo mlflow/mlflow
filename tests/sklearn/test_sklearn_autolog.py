@@ -491,7 +491,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
 
     mock_obj = mock.Mock()
 
-    def mock_score(self, X, y, sample_weight=None):  # pylint: disable=unused-argument
+    def mock_score(self, X, y, sample_weight=None):
         mock_obj(X, y, sample_weight)
         return 0
 
@@ -532,7 +532,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
 
     mock_obj = mock.Mock()
 
-    def mock_score(self, X, y, sample_weight=None):  # pylint: disable=unused-argument
+    def mock_score(self, X, y, sample_weight=None):
         mock_obj(X, y, sample_weight)
         return 0
 
@@ -575,7 +575,7 @@ def test_only_fit_contains_sample_weight():
 
     mock_obj = mock.Mock()
 
-    def mock_score(self, X, y):  # pylint: disable=unused-argument
+    def mock_score(self, X, y):
         mock_obj(X, y)
         return 0
 
@@ -613,7 +613,7 @@ def test_only_score_contains_sample_weight():
 
     mock_obj = mock.Mock()
 
-    def mock_score(self, X, y, sample_weight=None):  # pylint: disable=unused-argument
+    def mock_score(self, X, y, sample_weight=None):
         mock_obj(X, y, sample_weight)
         return 0
 
@@ -677,7 +677,7 @@ def test_autolog_emits_warning_message_when_score_fails():
     model = sklearn.cluster.KMeans()
 
     @functools.wraps(model.score)
-    def throwing_score(X, y=None, sample_weight=None):  # pylint: disable=unused-argument
+    def throwing_score(X, y=None, sample_weight=None):
         raise Exception("EXCEPTION")
 
     model.score = throwing_score
@@ -700,7 +700,7 @@ def test_autolog_emits_warning_message_when_metric_fails():
     model = sklearn.svm.SVC()
 
     @functools.wraps(sklearn.metrics.precision_score)
-    def throwing_metrics(y_true, y_pred):  # pylint: disable=unused-argument
+    def throwing_metrics(y_true, y_pred):
         raise Exception("EXCEPTION")
 
     with mlflow.start_run(), mock.patch(
@@ -955,10 +955,10 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
     y_train = pd.Series([1.33, 1.35, 0.93])
 
     class CustomTransformer(BaseEstimator, TransformerMixin):
-        def fit(self, X, y=None):  # pylint: disable=unused-argument
+        def fit(self, X, y=None):
             return self
 
-        def transform(self, X, y=None):  # pylint: disable=unused-argument
+        def transform(self, X, y=None):
             # Perform arbitary transformation
             if "XXLarge Bags" in X.columns:
                 raise Exception("Found unexpected 'XXLarge Bags' column!")
@@ -1276,10 +1276,10 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
         def get_params(self, deep=False):
             return {}
 
-        def fit(self, X, y):  # pylint: disable=unused-argument
+        def fit(self, X, y):
             self.prediction = np.array([7])
 
-        def predict(self, X):  # pylint: disable=unused-argument
+        def predict(self, X):
             return self.prediction
 
     class ChildMod(ParentMod):
@@ -1567,9 +1567,9 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
             cv_model = sklearn.model_selection.GridSearchCV(
                 svc, {"C": [1, 0.5]}, n_jobs=1, scoring=scoring
             )
-            cv_model.fit(X, y)  # pylint: disable=pointless-statement
-            cv_model.predict(X)  # pylint: disable=pointless-statement
-            cv_model.score(X, y)  # pylint: disable=pointless-statement
+            cv_model.fit(X, y)
+            cv_model.predict(X)
+            cv_model.score(X, y)
             mock_register_model.assert_called_once()
             assert mock_is_metric_value_loggable.call_count <= 1
             assert mock_log_post_training_metric.call_count <= 1
@@ -1602,7 +1602,6 @@ def test_meta_estimator_post_training_autologging(scoring):
 
 
 def test_gen_metric_call_commands():
-    # pylint: disable=unused-argument
     def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3="abc", **kwargs):
         pass
 

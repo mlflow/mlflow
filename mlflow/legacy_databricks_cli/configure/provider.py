@@ -220,7 +220,7 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
     @staticmethod
     def _get_spark_task_context_or_none():
         try:
-            from pyspark import TaskContext  # pylint: disable=import-error
+            from pyspark import TaskContext
 
             return TaskContext.get()
         except ImportError:
@@ -228,7 +228,7 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
 
     @staticmethod
     def set_insecure(x):
-        from pyspark import SparkContext  # pylint: disable=import-error
+        from pyspark import SparkContext
 
         new_val = "True" if x else None
         SparkContext._active_spark_context.setLocalProperty("spark.databricks.ignoreTls", new_val)
