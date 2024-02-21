@@ -7,6 +7,9 @@ from functools import wraps
 import transformers
 from packaging.version import Version
 
+from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG
+from mlflow.utils.logging_utils import suppress_logs
+
 _logger = logging.getLogger(__name__)
 
 transformers_version = Version(transformers.__version__)
@@ -278,7 +281,10 @@ def load_peft_pipeline():
         task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
     )
     peft_model = get_peft_model(base_model, peft_config)
-    return transformers.pipeline(task="text-classification", model=peft_model, tokenizer=tokenizer)
+    with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
+        return transformers.pipeline(
+            task="text-classification", model=peft_model, tokenizer=tokenizer
+        )
 
 
 def prefetch_models():
