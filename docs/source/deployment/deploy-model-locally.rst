@@ -166,20 +166,20 @@ the required payload format, you can leverage the dict payload structures below.
       - 
         .. code-block:: python
 
-          {"inputs": {"messages": [{"role": "user", "content": "Tell a joke!"}]}}
+          {"inputs": [["Cheese"], ["and", "Crackers"]]}
 
 .. code-block:: python
   :caption: Example
 
-  # Prerequisite: serve an OpenAI model on localhost:5678 that defines
-  #   inputs in the below format and params of `temperature` and `max_tokens`
+  # Prerequisite: serve a custom pyfunc OpenAI model (not mlflow.openai) on localhost:5678 
+  #   that defines inputs in the below format and params of `temperature` and `max_tokens`
 
   import json
   import requests
 
   payload = json.dumps(
       {
-          "inputs": [{"role": "user", "content": "Tell a joke!"}],
+          "inputs": {"messages": [{"role": "user", "content": "Tell a joke!"}]},
           "params": {
               "temperature": 0.5,
               "max_tokens": 20,
