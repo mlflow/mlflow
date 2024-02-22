@@ -521,6 +521,9 @@ transformers:
   models:
     minimum: "4.25.1"
     maximum: "4.37.1"
+    unsupported: [
+        "4.38.1", # to avoid this patch: https://github.com/huggingface/transformers/pull/29032
+      ]
     requirements:
       ">= 0.0.0": [
           "datasets",
@@ -548,6 +551,9 @@ transformers:
   autologging:
     minimum: "4.25.1"
     maximum: "4.37.1"
+    unsupported: [
+        "4.38.1", # to avoid this patch: https://github.com/huggingface/transformers/pull/29032
+      ]
     requirements:
       ">= 0.0.0":
         [
