@@ -168,10 +168,10 @@ def get_model_version_dependencies(model_dir):
     """
     # import here to work around circular imports
     from mlflow.langchain.databricks_dependencies import (
-        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
+        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
         _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
         _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
-        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
+        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
     )
 
     model = _load_model(model_dir)
