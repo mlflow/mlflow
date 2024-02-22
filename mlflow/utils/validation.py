@@ -287,7 +287,7 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
 
     if truncate and MLFLOW_TRUNCATE_LONG_VALUES.get():
         _logger.warning(
-            f"{entity_name} {value[:100]}...' ({len(value)} characters) is truncated to "
+            f"{entity_name} '{value[:100]}...' ({len(value)} characters) is truncated to "
             f"{limit} characters to meet the length limit."
         )
         return value[:limit]
