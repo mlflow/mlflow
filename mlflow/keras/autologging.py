@@ -34,7 +34,7 @@ def _infer_batch_size(inst, *keras_fit_args, **keras_fit_kwargs):
 
     training_data = keras_fit_kwargs["x"] if "x" in keras_fit_kwargs else keras_fit_args[0]
     if batch_size := getattr(training_data, "_batch_size", None):
-        return batch_size.numpy()
+        return batch_size if isinstance(batch_size, int) else batch_size.numpy()
     if batch_size := getattr(training_data, "batch_size", None):
         return batch_size
     is_single_input_model = isinstance(inst.input_shape, tuple)
