@@ -252,8 +252,8 @@ message SearchRegisteredModelsResponse {
 
 enum DependencyType {
   DEPENDENCY_TYPE_UNSPECIFIED = 0;
-  VECTOR_INDEX = 1;
-  MODEL_ENDPOINT = 2;
+  DATABRICKS_VECTOR_INDEX = 1;
+  DATABRICKS_MODEL_ENDPOINT = 2;
 }
 
 message Dependency {
