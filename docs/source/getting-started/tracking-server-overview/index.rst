@@ -189,7 +189,7 @@ Install Dependencies
 
 .. code-block:: bash
 
-  !pip install -q mlflow databricks-sdk
+  %pip install -q mlflow databricks-sdk
 
 Set Up Authentication of Databricks CE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
