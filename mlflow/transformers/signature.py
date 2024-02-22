@@ -105,14 +105,14 @@ def infer_or_get_default_signature(
             if isinstance(e, MlflowTimeoutError):
                 msg = (
                     "Attempted to generate a signature for the saved pipeline but prediction timed "
-                    "out after {timeout} seconds. Falling back to the default signature for the "
+                    f"out after {timeout} seconds. Falling back to the default signature for the "
                     "pipeline. You can specify a signature manually or increase the timeout "
                     f"by setting the environment variable {MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}"
                 )
             else:
                 msg = (
                     "Attempted to generate a signature for the saved pipeline but encountered an "
-                    "error. Fall back to the default signature for the pipeline type. Error: {e}"
+                    f"error. Fall back to the default signature for the pipeline type. Error: {e}"
                 )
             _logger.warning(msg)
 

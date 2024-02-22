@@ -35,6 +35,7 @@ from mlflow.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -1043,6 +1044,237 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
             metric_key="mock_key",
             max_results=25000,
         )
+
+
+def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    url = f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"
+
+    assert_response(
+        requests.get(url, params={"metric_key": "key"}),
+        "Missing value for required parameter 'run_ids'.",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": [], "metric_key": "key"}),
+        "Missing value for required parameter 'run_ids'.",
+    )
+
+    assert_response(
+        requests.get(
+            url, params={"run_ids": [f"id_{i}" for i in range(1000)], "metric_key": "key"}
+        ),
+        "GetMetricHistoryBulkInterval request must specify at most 100 run_ids.",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": ["123"], "metric_key": "key", "max_results": 0}),
+        "max_results must be between 1 and 2500",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": ["123"], "metric_key": ""}),
+        "Missing value for required parameter 'metric_key'",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": ["123"], "max_results": 5}),
+        "Missing value for required parameter 'metric_key'",
+    )
+
+    assert_response(
+        requests.get(
+            url,
+            params={
+                "run_ids": ["123"],
+                "metric_key": "key",
+                "start_step": 1,
+                "end_step": 0,
+                "max_results": 5,
+            },
+        ),
+        "end_step must be greater than start_step. ",
+    )
+
+    assert_response(
+        requests.get(
+            url, params={"run_ids": ["123"], "metric_key": "key", "start_step": 1, "max_results": 5}
+        ),
+        "If either start step or end step are specified, both must be specified.",
+    )
+
+
+def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("get metric history bulk")
+    run_id1 = mlflow_client.create_run(experiment_id).info.run_id
+    metric_history = [
+        {"key": "metricA", "timestamp": 1, "step": i, "value": 10.0} for i in range(10)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id1, **metric)
+
+    url = f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"
+    response_limited = requests.get(
+        url,
+        params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
+    )
+    assert response_limited.status_code == 200
+    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_metrics = [
+        {**metric, "run_id": run_id1}
+        for metric in metric_history
+        if metric["step"] in expected_steps
+    ]
+    assert response_limited.json().get("metrics") == expected_metrics
+
+    # with start_step and end_step
+    response_limited = requests.get(
+        url,
+        params={
+            "run_ids": [run_id1],
+            "metric_key": "metricA",
+            "start_step": 0,
+            "end_step": 4,
+            "max_results": 5,
+        },
+    )
+    assert response_limited.status_code == 200
+    assert response_limited.json().get("metrics") == [
+        {**metric, "run_id": run_id1} for metric in metric_history[:5]
+    ]
+
+    # multiple runs
+    run_id2 = mlflow_client.create_run(experiment_id).info.run_id
+    metric_history2 = [
+        {"key": "metricA", "timestamp": 1, "step": i, "value": 10.0} for i in range(20)
+    ]
+    for metric in metric_history2:
+        mlflow_client.log_metric(run_id2, **metric)
+    response_limited = requests.get(
+        url,
+        params={"run_ids": [run_id1, run_id2], "metric_key": "metricA", "max_results": 5},
+    )
+    expected_steps = [0, 4, 8, 9, 12, 16, 19]
+    expected_metrics = []
+    for run_id, metric_history in [(run_id1, metric_history), (run_id2, metric_history2)]:
+        expected_metrics.extend(
+            [
+                {**metric, "run_id": run_id}
+                for metric in metric_history
+                if metric["step"] in expected_steps
+            ]
+        )
+    assert response_limited.json().get("metrics") == expected_metrics
+
+    # test metrics with same steps
+    metric_history_timestamp2 = [
+        {"key": "metricA", "timestamp": 2, "step": i, "value": 10.0} for i in range(10)
+    ]
+    for metric in metric_history_timestamp2:
+        mlflow_client.log_metric(run_id1, **metric)
+
+    response_limited = requests.get(
+        url,
+        params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
+    )
+    assert response_limited.status_code == 200
+    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_metrics = [
+        {"key": "metricA", "timestamp": j, "step": i, "value": 10.0, "run_id": run_id1}
+        for i in expected_steps
+        for j in [1, 2]
+    ]
+    assert response_limited.json().get("metrics") == expected_metrics
+
+
+def test_get_metric_history_bulk_interval_calls_optimized_impl_when_expected(tmp_path):
+    from mlflow.server.handlers import get_metric_history_bulk_interval_handler
+
+    path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
+    uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+    mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
+
+    flask_app = flask.Flask("test_flask_app")
+
+    class MockRequestArgs:
+        def __init__(self, args_dict):
+            self.args_dict = args_dict
+
+        def to_dict(
+            self,
+            flat,  # pylint: disable=unused-argument
+        ):
+            return self.args_dict
+
+        def get(self, key, default=None):
+            return self.args_dict.get(key, default)
+
+    def params_to_query_string(params):
+        query_string = []
+        for k, v in params.items():
+            if isinstance(v, list):
+                for item in v:
+                    query_string.append(f"{k}={item}")
+            else:
+                query_string.append(f"{k}={v}")
+        query_string = "&".join(query_string)
+        return bytes(query_string, "utf-8")
+
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
+        run_ids = [str(i) for i in range(10)]
+        params = {
+            "run_ids": run_ids,
+            "metric_key": "mock_key",
+            "start_step": 0,
+            "end_step": 9,
+            "max_results": 5,
+        }
+        mock_context.request.query_string = params_to_query_string(params)
+        mock_context.request.args = MockRequestArgs(params)
+
+        get_metric_history_bulk_interval_handler()
+
+        mock_store.get_max_step_for_metric.assert_not_called()
+        assert mock_store.get_metric_history_bulk_interval_from_steps.call_count == len(run_ids)
+        mock_store.get_metric_history_bulk_interval_from_steps.assert_called_with(
+            run_id=run_ids[-1],
+            metric_key="mock_key",
+            steps=[0, 2, 4, 6, 8, 9],
+            max_results=25000,
+        )
+
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
+        run_ids = [str(i) for i in range(10)]
+        params = {
+            "run_ids": run_ids,
+            "metric_key": "mock_key",
+            "max_results": 5,
+        }
+        mock_context.request.query_string = params_to_query_string(params)
+        mock_context.request.args = MockRequestArgs(params)
+
+        get_metric_history_bulk_interval_handler()
+
+        assert mock_store.get_max_step_for_metric.call_count == len(run_ids)
+        mock_store.get_max_step_for_metric.assert_called_with(
+            run_id=run_ids[-1], metric_key="mock_key"
+        )
+
+
+def test_get_sampled_steps_from_steps():
+    assert _get_sampled_steps_from_steps(1, 10, 5) == [1, 3, 5, 7, 9]
+    assert _get_sampled_steps_from_steps(1, 20, 4) == [1, 6, 11, 16]
+    assert _get_sampled_steps_from_steps(10, 100, 10) == [10, 20, 29, 38, 47, 56, 65, 74, 83, 92]
+    assert _get_sampled_steps_from_steps(0, 100, 5) == [0, 21, 41, 61, 81]
 
 
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):

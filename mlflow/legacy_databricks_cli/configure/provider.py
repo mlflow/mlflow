@@ -14,7 +14,7 @@ _home = expanduser("~")
 CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE"
 HOST = "host"
 USERNAME = "username"
-PASSWORD = "password"  # NOQA
+PASSWORD = "password"
 TOKEN = "token"
 REFRESH_TOKEN = "refresh_token"
 INSECURE = "insecure"
@@ -299,7 +299,7 @@ class DatabricksConfig:
         refresh_token=None,
         insecure=None,
         jobs_api_version=None,
-    ):  # noqa
+    ):
         self.host = host
         self.username = username
         self.password = password
