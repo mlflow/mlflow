@@ -181,7 +181,7 @@ def get_model_version_dependencies(model_dir):
         model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
     )
     for index_name in index_names:
-        dependencies.append({"type": "VECTOR_INDEX", "name": index_name})
+        dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", "name": index_name})
     for key in (
         _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
         _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
@@ -189,7 +189,7 @@ def get_model_version_dependencies(model_dir):
     ):
         endpoint_names = _fetch_langchain_dependency_from_model_info(model_info, key)
         for endpoint_name in endpoint_names:
-            dependencies.append({"type": "MODEL_ENDPOINT", "name": endpoint_name})
+            dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
     return dependencies
 
 

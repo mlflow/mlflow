@@ -254,11 +254,11 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
         ModelVersionTag(key="anotherKey", value="some other value"),
     ]
     model_version_dependencies = [
-        {"type": "VECTOR_INDEX", "name": "index1"},
-        {"type": "VECTOR_INDEX", "name": "index2"},
-        {"type": "MODEL_ENDPOINT", "name": "embedding_endpoint"},
-        {"type": "MODEL_ENDPOINT", "name": "llm_endpoint"},
-        {"type": "MODEL_ENDPOINT", "name": "chat_endpoint"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
     ]
 
     mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
