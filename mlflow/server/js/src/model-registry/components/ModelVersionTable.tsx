@@ -57,7 +57,7 @@ type ModelVersionTableProps = {
   modelEntity?: ModelEntity;
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
-  aliases: ModelAliasMap
+  aliases?: ModelAliasMap
 };
 
 type ModelVersionColumnDef = ColumnDef<ModelVersionInfoEntity> & {
@@ -87,7 +87,7 @@ export const ModelVersionTable = ({
 }: ModelVersionTableProps) => {
   const aliasesByVersion = useMemo(() => {
     const result: Record<string, string[]> = {};
-    aliases.forEach(({ alias, version }) => {
+    aliases?.forEach(({ alias, version }) => {
       if (!result[version]) {
         result[version] = [];
       }

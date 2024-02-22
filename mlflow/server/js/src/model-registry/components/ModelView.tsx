@@ -393,7 +393,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onChange={this.onChange}
             onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
-            aliases={model?.aliases || {}}
+            aliases={model?.aliases}
           />
         </CollapsibleSection>
 
