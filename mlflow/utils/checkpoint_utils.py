@@ -14,7 +14,7 @@ from mlflow.utils.autologging_utils import (
 _logger = logging.getLogger(__name__)
 
 
-class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
+class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
 
     def __init__(
         self,
