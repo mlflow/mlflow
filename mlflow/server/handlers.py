@@ -71,6 +71,7 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetExperimentByName,
     GetMetricHistory,
+    GetMetricHistoryBulkInterval,
     GetRun,
     ListArtifacts,
     LogBatch,
@@ -344,8 +345,14 @@ def _assert_required(x):
     assert x != ""
 
 
-def _assert_less_than_or_equal(x, max_value):
-    assert x <= max_value
+def _assert_less_than_or_equal(x, max_value, message=None):
+    if x > max_value:
+        raise AssertionError(message) if message else AssertionError()
+
+
+def _assert_intlike_within_range(x, min_value, max_value, message=None):
+    if not min_value <= x <= max_value:
+        raise AssertionError(message) if message else AssertionError()
 
 
 def _assert_item_type_string(x):
@@ -386,8 +393,10 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
 
         try:
             f(value)
-        except AssertionError:
-            if f == _assert_required:
+        except AssertionError as e:
+            if e.args:
+                message = e.args[0]
+            elif f == _assert_required:
                 message = f"Missing value for required parameter '{param}'."
             else:
                 message = (
@@ -433,21 +442,21 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             ):
                 if not isinstance(request_dict[field.name], list):
                     request_dict[field.name] = [request_dict[field.name]]
-        parse_dict(request_dict, request_message)
-        return request_message
+        request_json = request_dict
 
-    request_json = _get_request_json(flask_request)
+    else:
+        request_json = _get_request_json(flask_request)
 
-    # Older clients may post their JSON double-encoded as strings, so the get_json
-    # above actually converts it to a string. Therefore, we check this condition
-    # (which we can tell for sure because any proper request should be a dictionary),
-    # and decode it a second time.
-    if is_string_type(request_json):
-        request_json = json.loads(request_json)
+        # Older clients may post their JSON double-encoded as strings, so the get_json
+        # above actually converts it to a string. Therefore, we check this condition
+        # (which we can tell for sure because any proper request should be a dictionary),
+        # and decode it a second time.
+        if is_string_type(request_json):
+            request_json = json.loads(request_json)
 
-    # If request doesn't have json body then assume it's empty.
-    if request_json is None:
-        request_json = {}
+        # If request doesn't have json body then assume it's empty.
+        if request_json is None:
+            request_json = {}
 
     proto_parsing_succeeded = True
     try:
@@ -915,7 +924,7 @@ def _search_runs():
         schema={
             "experiment_ids": [_assert_array],
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 50000)],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 50000)],
             "order_by": [_assert_array, _assert_item_type_string],
         },
     )
@@ -1101,6 +1110,117 @@ def get_metric_history_bulk_handler():
     return {
         "metrics": metrics_with_run_ids[:max_results],
     }
+
+
+def _get_sampled_steps_from_steps(start_step, end_step, max_results):
+    num_steps = end_step - start_step + 1
+    interval = num_steps / max_results
+    grouped_steps = {}
+    # include both start_step & end_step
+    for i in range(start_step, end_step + 1):
+        idx = (i - start_step) // interval
+        if idx not in grouped_steps:
+            grouped_steps[idx] = i
+        else:
+            grouped_steps[idx] = min(grouped_steps[idx], i)
+    return list(grouped_steps.values())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def get_metric_history_bulk_interval_handler():
+    MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
+    MAX_RESULTS_PER_RUN = 2500
+    MAX_RESULTS_GET_METRIC_HISTORY = 25000
+
+    request_message = _get_request_message(
+        GetMetricHistoryBulkInterval(),
+        schema={
+            "run_ids": [
+                _assert_required,
+                _assert_array,
+                _assert_item_type_string,
+                lambda x: _assert_less_than_or_equal(
+                    len(x),
+                    MAX_RUNS_GET_METRIC_HISTORY_BULK,
+                    message=f"GetMetricHistoryBulkInterval request must specify at most "
+                    f"{MAX_RUNS_GET_METRIC_HISTORY_BULK} run_ids. Received {len(x)} run_ids.",
+                ),
+            ],
+            "metric_key": [_assert_required, _assert_string],
+            "start_step": [_assert_intlike],
+            "end_step": [_assert_intlike],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_intlike_within_range(
+                    int(x),
+                    1,
+                    MAX_RESULTS_PER_RUN,
+                    message=f"max_results must be between 1 and {MAX_RESULTS_PER_RUN}.",
+                ),
+            ],
+        },
+    )
+
+    args = request.args
+    run_ids = request_message.run_ids
+    metric_key = request_message.metric_key
+    max_results = int(args.get("max_results", MAX_RESULTS_PER_RUN))
+
+    store = _get_tracking_store()
+
+    def _get_max_step_for_metric(run_id, metric_key):
+        if hasattr(store, "get_max_step_for_metric"):
+            return store.get_max_step_for_metric(run_id=run_id, metric_key=metric_key)
+        steps = [m.step for m in store.get_metric_history(run_id, metric_key)]
+        return max(steps) if steps else 0
+
+    def _get_sampled_steps(run_ids, metric_key, max_results):
+        # cannot fetch from request_message as the default value is 0
+        start_step = args.get("start_step")
+        end_step = args.get("end_step")
+        if start_step is None and end_step is None:
+            max_steps_per_run = [_get_max_step_for_metric(run_id, metric_key) for run_id in run_ids]
+            max_steps = max(max_steps_per_run)
+            # Get sampled steps and append the max step for each run.
+            sampled_steps = _get_sampled_steps_from_steps(0, max_steps, max_results)
+            return list(set(sampled_steps).union(max_steps_per_run))
+        elif start_step is not None and end_step is not None:
+            start_step = int(start_step)
+            end_step = int(end_step)
+            if start_step > end_step:
+                raise MlflowException.invalid_parameter_value(
+                    "end_step must be greater than start_step. "
+                    f"Found start_step={start_step} and end_step={end_step}."
+                )
+            sampled_steps = _get_sampled_steps_from_steps(start_step, end_step, max_results)
+            return list(set(sampled_steps).union([end_step]))
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "If either start step or end step are specified, both must be specified."
+            )
+
+    def _default_history_bulk_interval_impl():
+        steps = _get_sampled_steps(run_ids, metric_key, max_results)
+        metrics_with_run_ids = []
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                store.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                )
+            )
+        return metrics_with_run_ids
+
+    metrics_with_run_ids = _default_history_bulk_interval_impl()
+
+    response_message = GetMetricHistoryBulkInterval.Response()
+    response_message.metrics.extend([m.to_proto() for m in metrics_with_run_ids])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
 
 
 @catch_mlflow_exception
@@ -1493,7 +1613,7 @@ def _search_registered_models():
         SearchRegisteredModels(),
         schema={
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 1000)],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 1000)],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
@@ -1771,7 +1891,7 @@ def _search_model_versions():
         SearchModelVersions(),
         schema={
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 200_000)],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 200_000)],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
@@ -2172,6 +2292,7 @@ HANDLERS = {
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
+    GetMetricHistoryBulkInterval: get_metric_history_bulk_interval_handler,
     SearchExperiments: _search_experiments,
     LogInputs: _log_inputs,
     # Model Registry APIs

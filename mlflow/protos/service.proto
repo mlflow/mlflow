@@ -330,6 +330,17 @@ service MlflowService {
     };
   }
 
+  // Retrieves the value history for a specified metric across one or more specified runs.
+  rpc getMetricHistoryBulkInterval (GetMetricHistoryBulkInterval) returns (GetMetricHistoryBulkInterval.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/metrics/get-history-bulk-interval"
+        since { major: 2, minor: 11 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
 
   // Log a batch of metrics, params, and tags for a run.
   // If any data failed to be persisted, the server will respond with an error (non-200 status code).
@@ -1074,6 +1085,53 @@ message GetMetricHistory {
     // Token that can be used to issue a query for the next page of metric history values.
     // A missing token indicates that no additional metrics are available to fetch.
     optional string next_page_token = 2;
+  }
+}
+
+message MetricWithRunId {
+  // Key identifying this metric.
+  optional string key = 1;
+
+  // Value associated with this metric.
+  optional double value = 2;
+
+  // The timestamp at which this metric was recorded.
+  optional int64 timestamp = 3;
+
+  // Step at which to log the metric.
+  optional int64 step = 4 [default = 0];
+
+  // The ID of the run containing the metric
+  optional string run_id = 5;
+}
+
+message GetMetricHistoryBulkInterval {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID(s) of the run(s) from which to fetch metric values. Must be provided.
+  repeated string run_ids = 1;
+
+  // Name of the metric.
+  optional string metric_key = 2 [(validate_required) = true];
+
+  // Optional start step to only fetch metrics after the specified step. Must be defined if
+  // end_step is defined.
+  optional int32 start_step = 3;
+
+  // Optional end step to only fetch metrics before the specified step. Must be defined if
+  // start_step is defined.
+  optional int32 end_step = 4;
+
+  // Maximum number of results to fetch per run specified. Must be set to a positive number.
+  // Note, in reality, the API returns at most (max_results + # of run IDs) x (# run IDs) metric
+  // data points.
+  optional int32 max_results = 5;
+
+  message Response {
+
+    // List of metrics representing history of values and metadata.
+    repeated MetricWithRunId metrics = 1;
   }
 }
 
