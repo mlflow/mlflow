@@ -15,6 +15,7 @@ from mlflow.keras.save import log_model
 from mlflow.keras.utils import get_model_signature
 from mlflow.tensorflow import _infer_batch_size_from_iterator, _infer_batch_size_from_sequence
 from mlflow.tracking.context import registry as context_registry
+from mlflow.utils import is_iterator
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     PatchFunction,
@@ -36,9 +37,16 @@ def _infer_batch_size(inst, *keras_fit_args, **keras_fit_kwargs):
         return batch_size.numpy()
     if batch_size := getattr(training_data, "batch_size", None):
         return batch_size
-    return _infer_batch_size_from_sequence(
-        inst, use_tf=False, *keras_fit_args, **keras_fit_kwargs
-    ) or _infer_batch_size_from_iterator(inst, *keras_fit_args, **keras_fit_kwargs)
+    is_single_input_model = isinstance(inst.input_shape, tuple)
+    if isinstance(training_data, keras.utils.Sequence):
+        batch_size = _infer_batch_size_from_sequence(
+            is_single_input_model,
+            training_data,
+        )
+    elif is_iterator(training_data):
+        batch_size, keras_fit_args, keras_fit_kwargs = _infer_batch_size_from_iterator(
+            is_single_input_model, training_data, *keras_fit_args, **keras_fit_kwargs
+        )
 
 
 def _check_existing_mlflow_callback(callbacks):

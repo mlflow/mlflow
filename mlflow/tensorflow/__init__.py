@@ -1183,15 +1183,20 @@ def autolog(
 
             batch_size = None
             try:
+                is_single_input_model = isinstance(inst.input_shape, tuple)
                 training_data = kwargs["x"] if "x" in kwargs else args[0]
                 if isinstance(training_data, tf.data.Dataset) and hasattr(
                     training_data, "_batch_size"
                 ):
                     batch_size = training_data._batch_size.numpy()
-                else:
+                elif isinstance(training_data, tf.keras.utils.Sequence):
                     batch_size = _infer_batch_size_from_sequence(
-                        inst, *args, **kwargs
-                    ) or _infer_batch_size_from_iterator(inst, *args, **kwargs)
+                        is_single_input_model, training_data
+                    )
+                elif is_iterator(training_data):
+                    batch_size, args, kwargs = _infer_batch_size_from_iterator(
+                        is_single_input_model, training_data, *args, **kwargs
+                    )
             except Exception as e:
                 _logger.warning(
                     "Encountered unexpected error while inferring batch size from training"
@@ -1302,42 +1307,28 @@ def autolog(
         safe_patch(FLAVOR_NAME, *p, manage_run=True, extra_tags=extra_tags)
 
 
-def _infer_batch_size_from_sequence(inst, use_tf=True, *args, **kwargs):
-    if use_tf:
-        import tensorflow as tf
-
-        sequence_class = tf.keras.utils.Sequence
+def _infer_batch_size_from_sequence(is_single_input_model, training_data):
+    first_batch_inputs, *_ = training_data[0]
+    if is_single_input_model:
+        return len(first_batch_inputs)
     else:
-        import keras
-
-        sequence_class = keras.utils.Sequence
-    is_single_input_model = isinstance(inst.input_shape, tuple)
-    training_data = kwargs["x"] if "x" in kwargs else args[0]
-    if isinstance(training_data, sequence_class):
-        first_batch_inputs, *_ = training_data[0]
-        if is_single_input_model:
-            return len(first_batch_inputs)
-        else:
-            return len(first_batch_inputs[0])
+        return len(first_batch_inputs[0])
 
 
-def _infer_batch_size_from_iterator(inst, *args, **kwargs):
-    is_single_input_model = isinstance(inst.input_shape, tuple)
-    training_data = kwargs["x"] if "x" in kwargs else args[0]
-    if is_iterator(training_data):
-        peek = next(training_data)
-        batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
+def _infer_batch_size_from_iterator(is_single_input_model, training_data, *args, **kwargs):
+    peek = next(training_data)
+    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
 
-        def __restore_generator(prev_generator):
-            yield peek
-            yield from prev_generator
+    def __restore_generator(prev_generator):
+        yield peek
+        yield from prev_generator
 
-        restored_generator = __restore_generator(training_data)
-        if "x" in kwargs:
-            kwargs["x"] = restored_generator
-        else:
-            args = (restored_generator,) + args[1:]
-        return batch_size
+    restored_generator = __restore_generator(training_data)
+    if "x" in kwargs:
+        kwargs["x"] = restored_generator
+    else:
+        args = (restored_generator,) + args[1:]
+    return batch_size, args, kwargs
 
 
 def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):
