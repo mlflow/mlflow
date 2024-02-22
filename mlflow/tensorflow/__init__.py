@@ -29,6 +29,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tensorflow.callback import MLflowCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -1196,9 +1197,18 @@ def autolog(
                     else:
                         batch_size = len(first_batch_inputs[0])
                 elif is_iterator(training_data):
-                    batch_size, args, kwargs = _infer_batch_size_from_iterator(
-                        is_single_input_model, training_data, *args, **kwargs
-                    )
+                    peek = next(training_data)
+                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
+
+                    def __restore_generator(prev_generator):
+                        yield peek
+                        yield from prev_generator
+
+                    restored_generator = __restore_generator(training_data)
+                    if "x" in kwargs:
+                        kwargs["x"] = restored_generator
+                    else:
+                        args = (restored_generator,) + args[1:]
             except Exception as e:
                 _logger.warning(
                     "Encountered unexpected error while inferring batch size from training"
@@ -1307,22 +1317,6 @@ def autolog(
 
     for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True, extra_tags=extra_tags)
-
-
-def _infer_batch_size_from_iterator(is_single_input_model, training_data, *args, **kwargs):
-    peek = next(training_data)
-    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
-
-    def __restore_generator(prev_generator):
-        yield peek
-        yield from prev_generator
-
-    restored_generator = __restore_generator(training_data)
-    if "x" in kwargs:
-        kwargs["x"] = restored_generator
-    else:
-        args = (restored_generator,) + args[1:]
-    return batch_size, args, kwargs
 
 
 def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):

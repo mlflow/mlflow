@@ -13,7 +13,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.keras.callback import MLflowCallback
 from mlflow.keras.save import log_model
 from mlflow.keras.utils import get_model_signature
-from mlflow.tensorflow import _infer_batch_size_from_iterator
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import is_iterator
 from mlflow.utils.annotations import experimental
@@ -214,9 +213,18 @@ def autolog(
                     )
                 elif is_iterator(training_data):
                     is_single_input_model = isinstance(inst.input_shape, tuple)
-                    batch_size, args, kwargs = _infer_batch_size_from_iterator(
-                        is_single_input_model, training_data, *args, **kwargs
-                    )
+                    peek = next(training_data)
+                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
+
+                    def __restore_generator(prev_generator):
+                        yield peek
+                        yield from prev_generator
+
+                    restored_generator = __restore_generator(training_data)
+                    if "x" in kwargs:
+                        kwargs["x"] = restored_generator
+                    else:
+                        args = (restored_generator,) + args[1:]
 
             if batch_size is not None:
                 mlflow.log_param("batch_size", batch_size)
