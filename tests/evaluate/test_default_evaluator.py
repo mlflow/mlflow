@@ -3478,14 +3478,14 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
     validate_retriever_logged_data(logged_data, 4)
 
 
-def test_evaluate_retriever_error_message():
+def test_evaluate_with_numpy_array_values():
     X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [np.array(["doc1", "doc2"])] * 3})
 
     def fn(X):
-        return pd.DataFrame({"retrieved_context": [["doc1", "doc3", "doc2"]] * len(X)})
+        return pd.DataFrame({"retrieved_context": [np.array(["doc1", "doc3", "doc2"])] * len(X)})
 
     with mlflow.start_run():
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model=fn,
             data=X,
             targets="ground_truth",
@@ -3495,6 +3495,17 @@ def test_evaluate_retriever_error_message():
                 "k": 3,
             },
         )
+    assert results.metrics == {
+        "precision_at_3/mean": 2 / 3,
+        "precision_at_3/p90": 2 / 3,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/p90": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/variance": 0.0,
+    }
 
 
 def test_evaluate_with_numpy_array():
