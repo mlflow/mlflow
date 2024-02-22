@@ -51,6 +51,7 @@ select = [
   "RET504",  # unnecessary-assign
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF100",  # unused-noqa
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
   "SIM101",  # duplicate-isinstance-call
