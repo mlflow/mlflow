@@ -16,14 +16,11 @@ describe('ExpandableList', () => {
 
   beforeEach(() => {
     minimalProps = {
-      children: [<div className='minimal-prop'>testchild</div>],
+      children: [<div className="minimal-prop">testchild</div>],
     };
 
     advancedProps = {
-      children: [
-        <div className='minimal-prop-1'>testchild1</div>,
-        <div className='minimal-prop-2'>testchild2</div>,
-      ],
+      children: [<div className="minimal-prop-1">testchild1</div>, <div className="minimal-prop-2">testchild2</div>],
       showLines: 1,
     };
   });

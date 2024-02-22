@@ -4,6 +4,8 @@ import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
+import { useState } from 'react';
+import { shouldEnableDeepLearningUIPhase2 } from 'common/utils/FeatureUtils';
 
 /**
  * Mode switcher for the run details page.
@@ -12,10 +14,17 @@ export const RunViewModeSwitch = () => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
   const currentTab = useRunViewActiveTab();
+  const featureFlag = shouldEnableDeepLearningUIPhase2();
+  const [removeTabMargin, setRemoveTabMargin] = useState(featureFlag && currentTab === RunPageTabName.ARTIFACTS);
 
   const onTabChanged = (newTabKey: string) => {
     if (!experimentId || !runUuid || currentTab === newTabKey) {
       return;
+    }
+    if (featureFlag && newTabKey === RunPageTabName.ARTIFACTS) {
+      setRemoveTabMargin(true);
+    } else {
+      setRemoveTabMargin(false);
     }
     if (newTabKey === RunPageTabName.OVERVIEW) {
       navigate(Routes.getRunPageRoute(experimentId, runUuid));
@@ -25,31 +34,35 @@ export const RunViewModeSwitch = () => {
   };
 
   return (
-    <Tabs activeKey={currentTab} onChange={onTabChanged}>
+    // @ts-expect-error TS(2322)
+    <Tabs activeKey={currentTab} onChange={onTabChanged} tabBarStyle={{ margin: removeTabMargin && '0px' }}>
       <Tabs.TabPane
         tab={
-          <FormattedMessage
-            defaultMessage='Overview'
-            description='Run details page > tab selector > overview tab'
-          />
+          <FormattedMessage defaultMessage="Overview" description="Run details page > tab selector > overview tab" />
         }
         key={RunPageTabName.OVERVIEW}
       />
       <Tabs.TabPane
         tab={
           <FormattedMessage
-            defaultMessage='Metric charts'
-            description='Run details page > tab selector > metric charts tab'
+            defaultMessage="Model metrics"
+            description="Run details page > tab selector > Model metrics tab"
           />
         }
-        key={RunPageTabName.CHARTS}
+        key={RunPageTabName.MODEL_METRIC_CHARTS}
       />
       <Tabs.TabPane
         tab={
           <FormattedMessage
-            defaultMessage='Artifacts'
-            description='Run details page > tab selector > artifacts tab'
+            defaultMessage="System metrics"
+            description="Run details page > tab selector > Model metrics tab"
           />
+        }
+        key={RunPageTabName.SYSTEM_METRIC_CHARTS}
+      />
+      <Tabs.TabPane
+        tab={
+          <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
         }
         key={RunPageTabName.ARTIFACTS}
       />

@@ -57,7 +57,7 @@ New:
 Querying the server
 ~~~~~~~~~~~~~~~~~~~
 
-The fluent APIs have been replaced by the :py:class:`mlflow.deployments.DatabricksDeploymentClient` APIs.
+The fluent APIs have been replaced by the :py:class:`mlflow.deployments.MlflowDeploymentClient` APIs.
 See the table below for the mapping between the deprecated and new APIs.
 
 +-----------------------------------------+----------------------------------------------------+

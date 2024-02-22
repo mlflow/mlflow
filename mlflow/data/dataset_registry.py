@@ -18,22 +18,24 @@ class DatasetRegistry:
     def register_constructor(
         self, constructor_fn: callable, constructor_name: Optional[str] = None
     ) -> str:
-        """
-        Registers a dataset constructor.
+        """Registers a dataset constructor.
 
-        :param constructor_fn: A function that accepts at least the following
-                               inputs and returns an instance of a subclass of
-                               :py:class:`mlflow.data.dataset.Dataset`:
+        Args:
+            constructor_fn: A function that accepts at least the following
+                inputs and returns an instance of a subclass of
+                :py:class:`mlflow.data.dataset.Dataset`:
 
-                               - name: Optional. A string dataset name
-                               - digest: Optional. A string dataset digest.
+                - name: Optional. A string dataset name
+                - digest: Optional. A string dataset digest.
 
-        :param constructor_name: The name of the constructor, e.g.
-                                 "from_spark". The name must begin with the
-                                 string "from_" or "load_". If unspecified, the `__name__`
-                                 attribute of the `constructor_fn` is used instead and must
-                                 begin with the string "from_" or "load_".
-        :return: The name of the registered constructor, e.g. "from_pandas" or "load_delta".
+            constructor_name: The name of the constructor, e.g.
+                "from_spark". The name must begin with the
+                string "from_" or "load_". If unspecified, the `__name__`
+                attribute of the `constructor_fn` is used instead and must
+                begin with the string "from_" or "load_".
+
+        Returns:
+            The name of the registered constructor, e.g. "from_pandas" or "load_delta".
         """
         if constructor_name is None:
             constructor_name = constructor_fn.__name__
@@ -90,22 +92,25 @@ class DatasetRegistry:
 
 
 def register_constructor(constructor_fn: callable, constructor_name: Optional[str] = None) -> str:
-    """
-    Registers a dataset constructor.
+    """Registers a dataset constructor.
 
-    :param constructor_fn: A function that accepts at least the following
-                           inputs and returns an instance of a subclass of
-                           :py:class:`mlflow.data.dataset.Dataset`:
+    Args:
+        constructor_fn: A function that accepts at least the following
+            inputs and returns an instance of a subclass of
+            :py:class:`mlflow.data.dataset.Dataset`:
 
-                           - name: Optional. A string dataset name
-                           - digest: Optional. A string dataset digest.
+            - name: Optional. A string dataset name
+            - digest: Optional. A string dataset digest.
 
-    :param constructor_name: The name of the constructor, e.g.
-                             "from_spark". The name must begin with the
-                             string "from_" or "load_". If unspecified, the `__name__`
-                             attribute of the `constructor_fn` is used instead and must
-                             begin with the string "from_" or "load_".
-    :return: The name of the registered constructor, e.g. "from_pandas" or "load_delta".
+        constructor_name: The name of the constructor, e.g.
+            "from_spark". The name must begin with the
+            string "from_" or "load_". If unspecified, the `__name__`
+            attribute of the `constructor_fn` is used instead and must
+            begin with the string "from_" or "load_".
+
+    Returns:
+        The name of the registered constructor, e.g. "from_pandas" or "load_delta".
+
     """
     registered_constructor_name = _dataset_registry.register_constructor(
         constructor_fn=constructor_fn, constructor_name=constructor_name
@@ -116,10 +121,11 @@ def register_constructor(constructor_fn: callable, constructor_name: Optional[st
 
 
 def get_registered_constructors() -> Dict[str, callable]:
-    """
-    Obtains the registered dataset constructors.
+    """Obtains the registered dataset constructors.
 
-    :return: A dictionary mapping constructor names to constructor functions.
+    Returns:
+        A dictionary mapping constructor names to constructor functions.
+
     """
     return _dataset_registry.constructors
 

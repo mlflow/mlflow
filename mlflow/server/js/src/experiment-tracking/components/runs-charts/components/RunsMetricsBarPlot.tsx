@@ -4,10 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import {
-  highlightBarTraces,
-  useRunsChartTraceHighlight,
-} from '../hooks/useRunsChartTraceHighlight';
+import { highlightBarTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -17,7 +14,11 @@ import {
   createThemedPlotlyLayout,
   normalizeChartValue,
   useDynamicPlotSize,
+  getLegendDataFromRuns,
 } from './RunsCharts.common';
+import type { MetricEntity } from '../../../types';
+import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 
 // We're not using params in bar plot
 export type BarPlotRunData = Omit<RunsChartsRunData, 'params'>;
@@ -26,6 +27,7 @@ export interface RunsMetricsBarPlotHoverData {
   xValue: string;
   yValue: number;
   index: number;
+  metricEntity?: MetricEntity;
 }
 
 export interface RunsMetricsBarPlotProps extends RunsPlotsCommonProps {
@@ -53,8 +55,6 @@ export interface RunsMetricsBarPlotProps extends RunsPlotsCommonProps {
    * Display metric key on the X axis
    */
   displayMetricKey?: boolean;
-
-  barLabelTextPosition?: 'inside' | 'auto';
 }
 
 const PLOT_CONFIG: Partial<Config> = {
@@ -70,8 +70,7 @@ export const Y_AXIS_PARAMS = {
   fixedrange: true,
 };
 
-const getFixedPointValue = (val: string | number, places = 2) =>
-  typeof val === 'number' ? val.toFixed(places) : val;
+const getFixedPointValue = (val: string | number, places = 2) => (typeof val === 'number' ? val.toFixed(places) : val);
 
 /**
  * Implementation of plotly.js chart displaying
@@ -87,18 +86,19 @@ export const RunsMetricsBarPlot = React.memo(
     onUpdate,
     onHover,
     onUnhover,
-    barWidth = 1 / 2,
+    barWidth = 3 / 4,
     width,
     height,
     displayRunNames = true,
     useDefaultHoverBox = true,
     displayMetricKey = true,
-    barLabelTextPosition = 'auto',
     selectedRunUuid,
   }: RunsMetricsBarPlotProps) => {
+    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+
     const plotData = useMemo(() => {
       // Run uuids
-      const ids = runsData.map((d) => d.runInfo.run_uuid);
+      const ids = runsData.map((d) => d.uuid);
 
       // Actual metric values
       const values = runsData.map((d) => normalizeChartValue(d.metrics[metricKey]?.value));
@@ -109,32 +109,16 @@ export const RunsMetricsBarPlot = React.memo(
       // Colors corresponding to each run
       const colors = runsData.map((d) => d.color);
 
-      // Check if containing negatives to adjust rendering labels relative to axis
-      const containsNegatives = values.some(
-        (v) =>
-          v &&
-          // @ts-expect-error TODO: fix this
-          // Operator '<' cannot be applied to types 'string | number' and 'number'.ts(2365)
-          v < 0,
-      );
-
-      // Place the bar label either:
-      // - inside if explicitly set
-      // - or determine it automatically basing on the value sign
-      const getLabelTextPosition = () => {
-        if (barLabelTextPosition === 'inside') return 'inside';
-        return containsNegatives ? 'auto' : 'outside';
-      };
-
       return [
         {
           y: ids,
           x: values,
           text: textValues,
-          textposition: getLabelTextPosition(),
+          textposition: 'auto',
           textfont: {
             size: 11,
           },
+          metrics: runsData.map((d) => d.metrics[metricKey]),
           // Display run name on hover. "<extra></extra>" removes plotly's "extra" tooltip that
           // is unnecessary here.
           type: 'bar' as any,
@@ -142,16 +126,16 @@ export const RunsMetricsBarPlot = React.memo(
           hoverinfo: useDefaultHoverBox ? 'y' : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
           width: barWidth,
+
           orientation: 'h',
           marker: {
             color: colors,
           },
         } as Data,
       ];
-    }, [runsData, metricKey, barWidth, useDefaultHoverBox, barLabelTextPosition]);
+    }, [runsData, metricKey, barWidth, useDefaultHoverBox]);
 
-    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
-      useDynamicPlotSize();
+    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
     const { formatMessage } = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -161,7 +145,10 @@ export const RunsMetricsBarPlot = React.memo(
       width: width || layoutWidth,
       height: height || layoutHeight,
       margin,
-      xaxis: { title: displayMetricKey ? metricKey : undefined },
+      xaxis: {
+        title: displayMetricKey ? metricKey : undefined,
+        tickfont: { size: 11, color: theme.colors.textSecondary },
+      },
       yaxis: {
         showticklabels: displayRunNames,
         title: displayRunNames
@@ -170,7 +157,7 @@ export const RunsMetricsBarPlot = React.memo(
               description: 'Label for Y axis in bar chart when comparing metrics between runs',
             })
           : undefined,
-        tickfont: { size: 11 },
+        tickfont: { size: 11, color: theme.colors.textSecondary },
         fixedrange: true,
       },
       template: { layout: plotlyThemedLayout },
@@ -198,6 +185,7 @@ export const RunsMetricsBarPlot = React.memo(
 
     const hoverCallback = useCallback(
       ({ points, event }) => {
+        const metricEntity = points[0].data?.metrics[points[0].pointIndex];
         setHoveredPointIndex(points[0]?.pointIndex ?? -1);
 
         const hoverData: RunsMetricsBarPlotHoverData = {
@@ -205,6 +193,7 @@ export const RunsMetricsBarPlot = React.memo(
           yValue: points[0].value,
           // The index of the X datum
           index: points[0].pointIndex,
+          metricEntity,
         };
 
         const runUuid = points[0]?.label;
@@ -227,7 +216,9 @@ export const RunsMetricsBarPlot = React.memo(
      */
     const mutableHoverCallback = useMutableChartHoverCallback(hoverCallback);
 
-    return (
+    const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
+
+    const chart = (
       <div
         css={[commonRunsChartStyles.chartWrapper(theme), styles.highlightStyles]}
         className={className}
@@ -244,6 +235,12 @@ export const RunsMetricsBarPlot = React.memo(
           onUnhover={unhoverCallback}
         />
       </div>
+    );
+
+    return usingV2ChartImprovements ? (
+      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
+    ) : (
+      chart
     );
   },
 );

@@ -6,6 +6,11 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
 
 permissions:
   contents: read
@@ -29,7 +34,7 @@ jobs:
       matrix:
         type: ["full", "skinny"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -62,13 +67,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install wheel twine
+          pip install build twine
 
       - name: Build distribution files
         id: build-dist
         run: |
           # Build distribution files
-          python setup.py sdist bdist_wheel
+          python -m build .
 
           # List distribution files and check their file sizes
           ls -lh dist
@@ -99,14 +104,14 @@ jobs:
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Store wheel
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: github.event_name == 'push'
         with:
           name: ${{ steps.build-dist.outputs.wheel-name }}
           path: ${{ steps.build-dist.outputs.wheel-path }}
 
       - name: Remove old wheels
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: github.event_name == 'push'
         env:
           WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}

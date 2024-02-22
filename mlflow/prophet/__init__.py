@@ -321,10 +321,12 @@ def load_model(model_uri, dst_path=None):
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
             For more information about supported URI schemes, see
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
             artifact-locations>`_.
@@ -349,9 +351,7 @@ class _ProphetModelWrapper:
     def __init__(self, pr_model):
         self.pr_model = pr_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

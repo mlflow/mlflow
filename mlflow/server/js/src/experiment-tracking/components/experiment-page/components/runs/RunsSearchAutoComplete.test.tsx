@@ -240,16 +240,12 @@ describe('Input', () => {
   test('should update search facets model and properly clear filters afterwards', () => {
     const { wrapper, getCurrentState } = doStatefulMock();
 
-    wrapper
-      .find("input[data-test-id='search-box']")
-      .simulate('change', { target: { value: 'test-query' } });
+    wrapper.find("input[data-test-id='search-box']").simulate('change', { target: { value: 'test-query' } });
     wrapper.find("input[data-test-id='search-box']").simulate('keydown', { key: 'Enter' });
     // First keydown dismisses autocomplete, second will search
     wrapper.find("input[data-test-id='search-box']").simulate('keydown', { key: 'Enter' });
 
-    expect(getCurrentState()).toMatchObject(
-      expect.objectContaining({ searchFilter: 'test-query' }),
-    );
+    expect(getCurrentState()).toMatchObject(expect.objectContaining({ searchFilter: 'test-query' }));
 
     expect(onClearMock).not.toBeCalled();
 

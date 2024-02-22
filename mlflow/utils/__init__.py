@@ -26,9 +26,12 @@ def get_unique_resource_id(max_length=None):
     Obtains a unique id that can be included in a resource name. This unique id is a valid
     DNS subname.
 
-    :param max_length: The maximum length of the identifier
-    :return: A unique identifier that can be appended to a user-readable resource name to avoid
-             naming collisions.
+    Args:
+        max_length: The maximum length of the identifier.
+
+    Returns:
+        A unique identifier that can be appended to a user-readable resource name to avoid
+        naming collisions.
     """
     if max_length is not None and max_length <= 0:
         raise ValueError(
@@ -123,15 +126,17 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
 
 
 def merge_dicts(dict_a, dict_b, raise_on_duplicates=True):
-    """
-    This function takes two dictionaries and returns one singular merged dictionary.
+    """This function takes two dictionaries and returns one singular merged dictionary.
 
-    :param dict_a: The first dictionary.
-    :param dict_b: The second dictonary.
-    :param raise_on_duplicates: If True, the function raises ValueError if there are duplicate keys.
-                                Otherwise, duplicate keys in `dict_b` will override the ones in
-                                `dict_a`.
-    :return: A merged dictionary.
+    Args:
+        dict_a: The first dictionary.
+        dict_b: The second dictionary.
+        raise_on_duplicates: If True, the function raises ValueError if there are duplicate keys.
+            Otherwise, duplicate keys in `dict_b` will override the ones in `dict_a`.
+
+    Returns:
+        A merged dictionary.
+
     """
     duplicate_keys = dict_a.keys() & dict_b.keys()
     if raise_on_duplicates and len(duplicate_keys) > 0:
@@ -159,7 +164,7 @@ def _inspect_original_var_name(var, fallback_name):
 
         frame = inspect.currentframe().f_back
         while frame is not None:
-            arg_info = inspect.getargvalues(frame)  # pylint: disable=deprecated-method
+            arg_info = inspect.getargvalues(frame)
 
             fixed_args = [arg_info.locals[arg_name] for arg_name in arg_info.args]
             varlen_args = list(arg_info.locals[arg_info.varargs]) if arg_info.varargs else []
@@ -221,8 +226,11 @@ def check_port_connectivity():
 
 def is_iterator(obj):
     """
-    :param obj: any object.
-    :return: boolean representing whether or not 'obj' is an iterator.
+    Args:
+        obj: Any object.
+
+    Returns:
+        Boolean representing whether or not 'obj' is an iterator.
     """
     return (hasattr(obj, "__next__") or hasattr(obj, "next")) and hasattr(obj, "__iter__")
 
@@ -237,21 +245,20 @@ def _is_in_ipython_notebook():
 
 
 def get_results_from_paginated_fn(paginated_fn, max_results_per_page, max_results=None):
-    """
-    Gets results by calling the ``paginated_fn`` until either no more results remain or
+    """Gets results by calling the ``paginated_fn`` until either no more results remain or
     the specified ``max_results`` threshold has been reached.
 
-    :param paginated_fn:
-    :type paginated_fn: This function is expected to take in the number of results to retrieve
-        per page and a pagination token, and return a PagedList object
-    :param max_results_per_page:
-    :type max_results_per_page: The maximum number of results to retrieve per page
-    :param max_results:
-    :type max_results: The maximum number of results to retrieve overall. If unspecified,
-                       all results will be retrieved.
-    :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
-        entities than specified by max_results
-    :rtype: list[object]
+    Args:
+        paginated_fn: This function is expected to take in the number of results to retrieve
+            per page and a pagination token, and return a PagedList object.
+        max_results_per_page: The maximum number of results to retrieve per page.
+        max_results: The maximum number of results to retrieve overall. If unspecified,
+            all results will be retrieved.
+
+    Returns:
+        Returns a list of entities, as determined by the paginated_fn parameter, with no more
+        entities than specified by max_results.
+
     """
     all_results = []
     next_page_token = None
@@ -276,10 +283,10 @@ class AttrDict(dict):
 
     Examples
     --------
-    >>> d = AttrDict({'a': 1, 'b': 2})
+    >>> d = AttrDict({"a": 1, "b": 2})
     >>> d.a
     1
-    >>> d = AttrDict({'a': 1, 'b': {'c': 3, 'd': 4}})
+    >>> d = AttrDict({"a": 1, "b": {"c": 3, "d": 4}})
     >>> d.b.c
     3
     """

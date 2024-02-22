@@ -1,21 +1,181 @@
 import { css } from '@emotion/react';
 import React__default, { useState, useEffect, forwardRef } from 'react';
-import { u as useDesignSystemTheme, h as Input, B as Button, P as CursorIcon, T as Typography, V as FaceSmileIcon, U as FaceNeutralIcon, Q as FaceFrownIcon, C as CloseIcon, j as CheckIcon, p as ChevronLeftIcon, b as ChevronRightIcon, $ as dropdownItemStyles, d as useDesignSystemContext, m as dropdownContentStyles, a0 as dropdownSeparatorStyles } from './DropdownMenu-d888110a.js';
-import { jsxs, jsx } from '@emotion/react/jsx-runtime';
-import * as RadixSlider from '@radix-ui/react-slider';
+import { a2 as MegaphoneIcon, W as WarningIcon, l as DangerIcon, u as useDesignSystemTheme, B as Button$1, C as CloseIcon, d as Tooltip, T as Typography, a9 as primitiveColors, f as Input, _ as CursorIcon, a1 as FaceSmileIcon, a0 as FaceNeutralIcon, $ as FaceFrownIcon, h as CheckIcon, r as ChevronLeftIcon, b as ChevronRightIcon, aa as dropdownItemStyles, c as useDesignSystemContext, n as dropdownContentStyles, ab as dropdownSeparatorStyles } from './DropdownMenu-4ad8ab33.js';
+import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
 import { ContextMenu as ContextMenu$1, ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
+import * as RadixSlider from '@radix-ui/react-slider';
+import * as RadixToolbar from '@radix-ui/react-toolbar';
 import 'antd';
 import '@radix-ui/react-dropdown-menu';
-import 'chroma-js';
 import 'lodash/isNil';
 import 'lodash/endsWith';
 import 'lodash/isBoolean';
 import 'lodash/isNumber';
 import 'lodash/isString';
 import 'lodash/mapValues';
+import 'lodash/memoize';
 import '@emotion/unitless';
 import '@ant-design/icons';
-import 'lodash/uniqueId';
+
+function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const {
+  Text,
+  Paragraph
+} = Typography;
+const BANNER_MIN_HEIGHT = 68;
+// Max height will allow 2 lines of description (3 lines total)
+const BANNER_MAX_HEIGHT = 82;
+var _ref$1 = process.env.NODE_ENV === "production" ? {
+  name: "1te1whx",
+  styles: "margin-left:auto;display:flex;align-items:center"
+} : {
+  name: "13c4h59-rightContainer",
+  styles: "margin-left:auto;display:flex;align-items:center;label:rightContainer;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+};
+const useStyles = (props, theme) => {
+  const bannerLevelToBannerColors = {
+    info: {
+      backgroundDefaultColor: theme.colors.actionPrimaryBackgroundDefault,
+      actionButtonBackgroundHoverColor: theme.colors.actionPrimaryBackgroundHover,
+      actionButtonBackgroundPressColor: theme.colors.actionPrimaryBackgroundPress,
+      textColor: theme.colors.actionPrimaryTextDefault,
+      textHoverColor: theme.colors.actionPrimaryTextHover,
+      textPressColor: theme.colors.actionPrimaryTextPress
+    },
+    // TODO (PLAT-80558, zack.brody) Update hover and press states once we have colors for these
+    warning: {
+      backgroundDefaultColor: theme.colors.tagLemon,
+      actionButtonBackgroundHoverColor: theme.colors.tagLemon,
+      actionButtonBackgroundPressColor: theme.colors.tagLemon,
+      textColor: primitiveColors.grey800,
+      textHoverColor: primitiveColors.grey800,
+      textPressColor: primitiveColors.grey800
+    },
+    error: {
+      backgroundDefaultColor: theme.colors.actionDangerPrimaryBackgroundDefault,
+      actionButtonBackgroundHoverColor: theme.colors.actionDangerPrimaryBackgroundHover,
+      actionButtonBackgroundPressColor: theme.colors.actionDangerPrimaryBackgroundPress,
+      textColor: theme.colors.actionPrimaryTextDefault,
+      textHoverColor: theme.colors.actionPrimaryTextHover,
+      textPressColor: theme.colors.actionPrimaryTextPress
+    }
+  };
+  const colorScheme = bannerLevelToBannerColors[props.level];
+  return {
+    banner: /*#__PURE__*/css("max-height:", BANNER_MAX_HEIGHT, "px;display:flex;align-items:center;width:100%;padding:8px;box-sizing:border-box;background-color:", colorScheme.backgroundDefaultColor, ";" + (process.env.NODE_ENV === "production" ? "" : ";label:banner;")),
+    iconContainer: /*#__PURE__*/css("display:flex;color:", colorScheme.textColor, ";align-self:", props.description ? 'flex-start' : 'center', ";box-sizing:border-box;max-width:60px;padding-top:4px;padding-bottom:4px;padding-right:", theme.spacing.xs, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:iconContainer;")),
+    mainContent: /*#__PURE__*/css("flex-direction:column;align-self:", props.description ? 'flex-start' : 'center', ";display:flex;box-sizing:border-box;padding-right:", theme.spacing.sm, "px;padding-top:2px;padding-bottom:2px;min-width:", theme.spacing.lg, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:mainContent;")),
+    messageTextBlock: /*#__PURE__*/css("&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:messageTextBlock;")),
+    descriptionBlock: /*#__PURE__*/css("&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:descriptionBlock;")),
+    rightContainer: _ref$1,
+    closeIconContainer: /*#__PURE__*/css("display:flex;padding:", theme.spacing.xs, "px ", theme.spacing.xs, "px ", theme.spacing.xs, "px ", theme.spacing.xs, "px;margin-left:", theme.spacing.xs, "px;box-sizing:border-box;line-height:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIconContainer;")),
+    closeIcon: /*#__PURE__*/css("color:", colorScheme.textColor, "!important;cursor:pointer;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIcon;")),
+    actionButtonContainer: /*#__PURE__*/css("margin-right:", theme.spacing.xs, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButtonContainer;")),
+    // Override design system colors to show the use the action text color for text and border.
+    // Also overrides text for links.
+    actionButton: /*#__PURE__*/css("color:", colorScheme.textColor, "!important;border-color:", colorScheme.textColor, "!important;&:focus,&:hover{border-color:", colorScheme.textHoverColor, "!important;color:", colorScheme.textHoverColor, "!important;background-color:", colorScheme.actionButtonBackgroundHoverColor, "!important;}&:active{border-color:", colorScheme.textPressColor, "!important;color:", colorScheme.textPressColor, "!important;background-color:", colorScheme.actionButtonBackgroundPressColor, "!important;}a{color:", theme.colors.actionPrimaryTextDefault, ";}a:focus,a:hover{color:", colorScheme.textHoverColor, ";text-decoration:none;}a:active{color:", colorScheme.textPressColor, " text-decoration:none;}" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButton;"))
+  };
+};
+const levelToIconMap = {
+  info: jsx(MegaphoneIcon, {
+    "data-testid": "level-info-icon"
+  }),
+  warning: jsx(WarningIcon, {
+    "data-testid": "level-warning-icon"
+  }),
+  error: jsx(DangerIcon, {
+    "data-testid": "level-error-icon"
+  })
+};
+const Banner = props => {
+  const {
+    level,
+    message,
+    description,
+    ctaText,
+    onAccept,
+    closable,
+    onClose,
+    closeButtonAriaLabel
+  } = props;
+  const [closed, setClosed] = React__default.useState(false);
+  const [showingDescriptionEllipses, setShowingDescriptionEllipses] = React__default.useState(false);
+  const [showingMessageEllipses, setShowingMessageEllipses] = React__default.useState(false);
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const styles = useStyles(props, theme);
+  const actionButton = onAccept && ctaText ? jsx("div", {
+    css: styles.actionButtonContainer,
+    children: jsx(Button$1, {
+      onClick: onAccept,
+      css: styles.actionButton,
+      size: "small",
+      children: ctaText
+    })
+  }) : null;
+  const close = closable !== false ? jsx("div", {
+    css: styles.closeIconContainer,
+    children: jsx("a", {
+      onClick: () => {
+        if (onClose) {
+          onClose();
+        }
+        setClosed(true);
+      },
+      "aria-label": closeButtonAriaLabel !== null && closeButtonAriaLabel !== void 0 ? closeButtonAriaLabel : 'Close',
+      "data-testid": "banner-dismiss",
+      children: jsx(CloseIcon, {
+        css: styles.closeIcon
+      })
+    })
+  }) : null;
+  const messageElement = jsx(Text, {
+    size: "md",
+    ellipsis: {
+      onEllipsis: setShowingMessageEllipses
+    },
+    bold: true,
+    css: styles.messageTextBlock,
+    children: message
+  });
+  const descriptionElement = jsx(Paragraph, {
+    ellipsis: {
+      rows: 2,
+      onEllipsis: setShowingDescriptionEllipses
+    },
+    withoutMargins: true,
+    css: styles.descriptionBlock,
+    children: description
+  });
+  const descriptionElementWithConditionalTooltip = showingDescriptionEllipses ? jsx(Tooltip, {
+    title: description,
+    placement: "bottom",
+    children: descriptionElement
+  }) : descriptionElement;
+  return jsx(Fragment, {
+    children: !closed && jsxs("div", {
+      css: styles.banner,
+      className: "banner",
+      "data-testid": props['data-testid'],
+      children: [jsx("div", {
+        css: styles.iconContainer,
+        children: levelToIconMap[level]
+      }), jsxs("div", {
+        css: styles.mainContent,
+        children: [showingMessageEllipses ? jsx(Tooltip, {
+          title: message,
+          placement: "bottom",
+          children: messageElement
+        }) : messageElement, description && descriptionElementWithConditionalTooltip]
+      }), jsxs("div", {
+        css: styles.rightContainer,
+        children: [actionButton, close]
+      })]
+    })
+  });
+};
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const chatInputStyles = {
@@ -94,7 +254,7 @@ const ChatInput = _ref => {
         }
       },
       ...textAreaProps
-    }), jsx(Button, {
+    }), jsx(Button$1, {
       size: "small",
       css: chatInputStyles.button,
       icon: jsx(CursorIcon, {}),
@@ -227,21 +387,21 @@ const Feedback = _ref => {
         children: "Was this response:"
       }), jsxs("div", {
         css: feedbackStyles.feedbackOptions,
-        children: [jsx(Button, {
+        children: [jsx(Button$1, {
           icon: jsx(FaceSmileIcon, {}),
           onClick: () => {
             onFeedback('Better');
             setIsVisible(false);
           },
           children: "Better"
-        }), jsx(Button, {
+        }), jsx(Button$1, {
           icon: jsx(FaceNeutralIcon, {}),
           onClick: () => {
             onFeedback('Same');
             setIsVisible(false);
           },
           children: "Same"
-        }), jsx(Button, {
+        }), jsx(Button$1, {
           icon: jsx(FaceFrownIcon, {}),
           onClick: () => {
             onFeedback('Worse');
@@ -250,7 +410,7 @@ const Feedback = _ref => {
           children: "Worse"
         })]
       })]
-    }), jsx(Button, {
+    }), jsx(Button$1, {
       icon: jsx(CloseIcon, {}),
       onClick: () => setIsVisible(false)
     })]
@@ -340,7 +500,7 @@ const MessageActionButton = props => {
     style: {
       ['--checkmark-color']: theme.colors.green500
     },
-    children: [jsx(Button, {
+    children: [jsx(Button$1, {
       size: "small",
       ...props,
       onClick: handleClick,
@@ -526,111 +686,7 @@ const ChatUI = {
   ChatInput: ChatInput$1
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref = process.env.NODE_ENV === "production" ? {
-  name: "1tciq3q",
-  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;}"
-} : {
-  name: "18im58f-getRootStyles",
-  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;};label:getRootStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__
-};
-const getRootStyles = () => {
-  return _ref;
-};
-const Root$1 = /*#__PURE__*/forwardRef((props, ref) => {
-  return jsx(RadixSlider.Root, {
-    css: getRootStyles(),
-    ...props,
-    ref: ref
-  });
-});
-const getTrackStyles = theme => {
-  return /*#__PURE__*/css({
-    backgroundColor: theme.colors.grey100,
-    position: 'relative',
-    flexGrow: 1,
-    borderRadius: 9999,
-    '&[data-orientation="vertical"]': {
-      width: 3
-    },
-    '&[data-orientation="horizontal"]': {
-      height: 3
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getTrackStyles;");
-};
-const Track = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Track, {
-    css: getTrackStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-const getRangeStyles = theme => {
-  return /*#__PURE__*/css({
-    backgroundColor: theme.colors.primary,
-    position: 'absolute',
-    borderRadius: 9999,
-    height: '100%',
-    '&[data-disabled]': {
-      backgroundColor: theme.colors.grey100
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getRangeStyles;");
-};
-const Range = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Range, {
-    css: getRangeStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-const getThumbStyles = theme => {
-  return /*#__PURE__*/css({
-    display: 'block',
-    width: 20,
-    height: 20,
-    backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
-    boxShadow: `0 2px 4px 0 ${theme.colors.grey400}`,
-    borderRadius: 10,
-    outline: 'none',
-    '&:hover': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundHover
-    },
-    '&:focus': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundPress
-    },
-    '&[data-disabled]': {
-      backgroundColor: theme.colors.grey200,
-      boxShadow: 'none'
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getThumbStyles;");
-};
-const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Thumb, {
-    css: getThumbStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-
-var Slider = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Range: Range,
-  Root: Root$1,
-  Thumb: Thumb,
-  Track: Track
-});
-
-const Root = ContextMenu$1;
+const Root$2 = ContextMenu$1;
 const Trigger = ContextMenuTrigger;
 const ItemIndicator = ContextMenuItemIndicator;
 const Group = ContextMenuGroup;
@@ -786,7 +842,7 @@ const Hint = _ref8 => {
     children: children
   });
 };
-const Separator = () => {
+const Separator$1 = () => {
   const {
     theme
   } = useDesignSystemTheme();
@@ -799,7 +855,7 @@ const itemIndicatorStyles = theme => /*#__PURE__*/css({
   paddingRight: theme.spacing.xs
 }, process.env.NODE_ENV === "production" ? "" : ";label:itemIndicatorStyles;");
 const ContextMenu = {
-  Root,
+  Root: Root$2,
   Trigger,
   Label,
   Item,
@@ -808,7 +864,7 @@ const ContextMenu = {
   CheckboxItem,
   RadioItem,
   Arrow,
-  Separator,
+  Separator: Separator$1,
   Sub,
   SubTrigger,
   SubContent,
@@ -816,5 +872,202 @@ const ContextMenu = {
   Hint
 };
 
-export { Arrow, ChatUI, CheckboxItem, Content, ContextMenu, Group, Hint, Item, ItemIndicator, Label, RadioGroup, RadioItem, Root, Separator, Slider, Sub, SubContent, SubTrigger, Trigger, itemIndicatorStyles };
+function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref = process.env.NODE_ENV === "production" ? {
+  name: "1tciq3q",
+  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;}"
+} : {
+  name: "18im58f-getRootStyles",
+  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;};label:getRootStyles;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__
+};
+const getRootStyles$1 = () => {
+  return _ref;
+};
+const Root$1 = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixSlider.Root, {
+    css: getRootStyles$1(),
+    ...props,
+    ref: ref
+  });
+});
+const getTrackStyles = theme => {
+  return /*#__PURE__*/css({
+    backgroundColor: theme.colors.grey100,
+    position: 'relative',
+    flexGrow: 1,
+    borderRadius: 9999,
+    '&[data-orientation="vertical"]': {
+      width: 3
+    },
+    '&[data-orientation="horizontal"]': {
+      height: 3
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getTrackStyles;");
+};
+const Track = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Track, {
+    css: getTrackStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const getRangeStyles = theme => {
+  return /*#__PURE__*/css({
+    backgroundColor: theme.colors.primary,
+    position: 'absolute',
+    borderRadius: 9999,
+    height: '100%',
+    '&[data-disabled]': {
+      backgroundColor: theme.colors.grey100
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getRangeStyles;");
+};
+const Range = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Range, {
+    css: getRangeStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const getThumbStyles = theme => {
+  return /*#__PURE__*/css({
+    display: 'block',
+    width: 20,
+    height: 20,
+    backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
+    boxShadow: `0 2px 4px 0 ${theme.colors.grey400}`,
+    borderRadius: 10,
+    outline: 'none',
+    '&:hover': {
+      backgroundColor: theme.colors.actionPrimaryBackgroundHover
+    },
+    '&:focus': {
+      backgroundColor: theme.colors.actionPrimaryBackgroundPress
+    },
+    '&[data-disabled]': {
+      backgroundColor: theme.colors.grey200,
+      boxShadow: 'none'
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getThumbStyles;");
+};
+const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Thumb, {
+    css: getThumbStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+
+var Slider = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Range: Range,
+  Root: Root$1,
+  Thumb: Thumb,
+  Track: Track
+});
+
+const getRootStyles = theme => {
+  return /*#__PURE__*/css({
+    alignItems: 'center',
+    backgroundColor: theme.colors.backgroundSecondary,
+    border: `1px solid ${theme.colors.borderDecorative}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    boxShadow: theme.general.shadowLow,
+    display: 'flex',
+    gap: theme.spacing.md,
+    width: 'max-content',
+    padding: theme.spacing.sm
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getRootStyles;");
+};
+const Root = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.Root, {
+    css: getRootStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const Button = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.Button, {
+    ...props,
+    ref: ref
+  });
+});
+const getSeparatorStyles = theme => {
+  return /*#__PURE__*/css({
+    alignSelf: 'stretch',
+    backgroundColor: theme.colors.borderDecorative,
+    width: 1
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getSeparatorStyles;");
+};
+const Separator = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.Separator, {
+    css: getSeparatorStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const Link = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.Link, {
+    ...props,
+    ref: ref
+  });
+});
+const ToggleGroup = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.ToggleGroup, {
+    ...props,
+    ref: ref
+  });
+});
+const getToggleItemStyles = theme => {
+  return /*#__PURE__*/css({
+    background: 'none',
+    color: theme.colors.textPrimary,
+    border: 'none',
+    cursor: 'pointer',
+    '&:hover': {
+      color: theme.colors.actionDefaultTextHover
+    },
+    '&[data-state="on"]': {
+      color: theme.colors.actionDefaultTextPress
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getToggleItemStyles;");
+};
+const ToggleItem = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.ToggleItem, {
+    css: getToggleItemStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+
+var Toolbar = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Button: Button,
+  Link: Link,
+  Root: Root,
+  Separator: Separator,
+  ToggleGroup: ToggleGroup,
+  ToggleItem: ToggleItem
+});
+
+export { Arrow, BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, ChatUI, CheckboxItem, Content, ContextMenu, Group, Hint, Item, ItemIndicator, Label, RadioGroup, RadioItem, Root$2 as Root, Separator$1 as Separator, Slider, Sub, SubContent, SubTrigger, Toolbar, Trigger, itemIndicatorStyles };
 //# sourceMappingURL=development.js.map

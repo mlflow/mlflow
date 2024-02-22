@@ -11,7 +11,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature, set_signature
 from mlflow.models.model import get_model_info
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    ParamSchema,
+    ParamSpec,
+    Schema,
+    TensorSpec,
+)
 
 
 def test_model_signature_with_colspec():
@@ -130,6 +137,31 @@ def test_signature_inference_infers_input_and_output_as_expected():
     assert sig1.outputs == sig0.inputs
 
 
+def test_infer_signature_on_nested_array():
+    signature = infer_signature(
+        model_input=[{"queries": [["a", "b", "c"], ["d", "e"], []]}],
+        model_output=[{"answers": [["f", "g"], ["h"]]}],
+    )
+    assert signature.inputs == Schema([ColSpec(Array(Array(DataType.string)), name="queries")])
+    assert signature.outputs == Schema([ColSpec(Array(Array(DataType.string)), name="answers")])
+
+    signature = infer_signature(
+        model_input=[
+            {
+                "inputs": [
+                    np.array([["a", "b"], ["c", "d"]]),
+                    np.array([["e", "f"], ["g", "h"]]),
+                ]
+            }
+        ],
+        model_output=[{"outputs": [np.int32(5), np.int32(6)]}],
+    )
+    assert signature.inputs == Schema(
+        [ColSpec(Array(Array(Array(DataType.string))), name="inputs")]
+    )
+    assert signature.outputs == Schema([ColSpec(Array(DataType.integer), name="outputs")])
+
+
 def test_infer_signature_on_list_of_dictionaries():
     signature = infer_signature(
         model_input=[{"query": "test query"}],
@@ -145,8 +177,8 @@ def test_infer_signature_on_list_of_dictionaries():
     assert signature.outputs == Schema(
         [
             ColSpec(DataType.string, name="output"),
-            ColSpec(DataType.string, name="candidate_ids"),
-            ColSpec(DataType.string, name="candidate_sources"),
+            ColSpec(Array(DataType.string), name="candidate_ids"),
+            ColSpec(Array(DataType.string), name="candidate_sources"),
         ]
     )
 
@@ -224,7 +256,7 @@ def test_cannot_set_signature_on_models_scheme_uris():
 def test_signature_construction():
     signature = ModelSignature(inputs=Schema([ColSpec(DataType.binary)]))
     assert signature.to_dict() == {
-        "inputs": '[{"type": "binary"}]',
+        "inputs": '[{"type": "binary", "required": true}]',
         "outputs": None,
         "params": None,
     }
@@ -232,7 +264,7 @@ def test_signature_construction():
     signature = ModelSignature(outputs=Schema([ColSpec(DataType.double)]))
     assert signature.to_dict() == {
         "inputs": None,
-        "outputs": '[{"type": "double"}]',
+        "outputs": '[{"type": "double", "required": true}]',
         "params": None,
     }
 

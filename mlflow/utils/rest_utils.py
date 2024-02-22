@@ -38,30 +38,31 @@ def http_request(
     raise_on_status=True,
     **kwargs,
 ):
-    """
-    Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
+    """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
     errors such as Rate-limited (429), service unavailable (503) and internal error (500) are
     retried with an exponential back off with backoff_factor * (1, 2, 4, ... seconds).
     The function parses the API response (assumed to be JSON) into a Python object and returns it.
 
-    :param host_creds: A :py:class:`mlflow.rest_utils.MlflowHostCreds` object containing
-        hostname and optional authentication.
-    :param endpoint: a string for service endpoint, e.g. "/path/to/object".
-    :param method: a string indicating the method to use, e.g. "GET", "POST", "PUT".
-    :param max_retries: maximum number of retries before throwing an exception.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param backoff_jitter: A random jitter to add to the backoff interval.
-    :param extra_headers: a dict of HTTP header name-value pairs to be included in the request.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param timeout: wait for timeout seconds for response from remote server for connect and
-      read request.
-    :param raise_on_status: whether to raise an exception, or return a response, if status falls
-      in retry_codes range and retries have been exhausted.
-    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
+    Args:
+        host_creds: A :py:class:`mlflow.rest_utils.MlflowHostCreds` object containing
+            hostname and optional authentication.
+        endpoint: A string for service endpoint, e.g. "/path/to/object".
+        method: A string indicating the method to use, e.g. "GET", "POST", "PUT".
+        max_retries: Maximum number of retries before throwing an exception.
+        backoff_factor: A time factor for exponential backoff. e.g. value 5 means the HTTP
+            request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+            exponential backoff.
+        backoff_jitter: A random jitter to add to the backoff interval.
+        extra_headers: A dict of HTTP header name-value pairs to be included in the request.
+        retry_codes: A list of HTTP response error codes that qualifies for retry.
+        timeout: Wait for timeout seconds for response from remote server for connect and
+            read request.
+        raise_on_status: Whether to raise an exception, or return a response, if status falls
+            in retry_codes range and retries have been exhausted.
+        kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
-    :return: requests.Response object.
+    Returns:
+        requests.Response object.
     """
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
     backoff_factor = (

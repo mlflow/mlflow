@@ -113,7 +113,7 @@ class MlflowAutologgingQueueingClient:
         """
         return self
 
-    def __exit__(self, exc_type, exc, traceback):  # pylint: disable=unused-argument
+    def __exit__(self, exc_type, exc, traceback):
         """
         Enables `MlflowAutologgingQueueingClient` to be used as a context manager with
         synchronous flushing upon exit, removing the need to call `flush()` for use cases
@@ -146,8 +146,9 @@ class MlflowAutologgingQueueingClient:
         instance that can be used as input to other client logging APIs (e.g. `log_metrics`,
         `log_params`, ...).
 
-        :return: A `PendingRunId` that can be passed as the `run_id` parameter to other client
-                 logging APIs, such as `log_params` and `log_metrics`.
+        Returns:
+            A `PendingRunId` that can be passed as the `run_id` parameter to other client
+            logging APIs, such as `log_params` and `log_metrics`.
         """
         tags = tags or {}
         tags = _truncate_dict(
@@ -230,15 +231,18 @@ class MlflowAutologgingQueueingClient:
         Flushes all queued run operations, resulting in the creation or mutation of runs
         and run data.
 
-        :param synchronous: If `True`, run operations are performed synchronously, and a
-                            `RunOperations` result object is only returned once all operations
-                            are complete. If `False`, run operations are performed asynchronously,
-                            and an `RunOperations` object is returned that represents the ongoing
-                            run operations.
-        :return: A `RunOperations` instance representing the flushed operations. These operations
-                 are already complete if `synchronous` is `True`. If `synchronous` is `False`, these
-                 operations may still be inflight. Operation completion can be synchronously waited
-                 on via `RunOperations.await_completion()`.
+        Args:
+            synchronous: If `True`, run operations are performed synchronously, and a
+                `RunOperations` result object is only returned once all operations
+                are complete. If `False`, run operations are performed asynchronously,
+                and an `RunOperations` object is returned that represents the ongoing
+                run operations.
+
+        Returns:
+            A `RunOperations` instance representing the flushed operations. These operations
+            are already complete if `synchronous` is `True`. If `synchronous` is `False`, these
+            operations may still be inflight. Operation completion can be synchronously waited
+            on via `RunOperations.await_completion()`.
         """
         logging_futures = []
         for pending_operations in self._pending_ops_by_run_id.values():
@@ -256,8 +260,9 @@ class MlflowAutologgingQueueingClient:
 
     def _get_pending_operations(self, run_id):
         """
-        :return: A `_PendingRunOperations` containing all pending operations for the
-                 specified `run_id`.
+        Returns:
+            A `_PendingRunOperations` containing all pending operations for the
+            specified `run_id`.
         """
         if run_id not in self._pending_ops_by_run_id:
             self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)

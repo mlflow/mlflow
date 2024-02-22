@@ -54,7 +54,7 @@ const doSimpleMock = (props: ExperimentViewRunsControlsFiltersProps) =>
   mountWithIntl(
     <Provider store={minimalStore}>
       <DesignSystemProvider>
-        <IntlProvider locale='en'>
+        <IntlProvider locale="en">
           <BrowserRouter>
             <ExperimentViewRunsControlsFilters {...props} />
           </BrowserRouter>
@@ -76,6 +76,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
       updateViewState: () => {},
       searchFacetsState,
       requestError: null,
+      refreshRuns: () => {},
+      viewMaximized: false,
     });
 
     expect(wrapper).toBeTruthy();

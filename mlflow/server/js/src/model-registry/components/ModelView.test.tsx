@@ -18,9 +18,9 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { RegisteredModelTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
-import { act, mountWithIntl, renderWithIntl, screen } from '../../common/utils/TestUtils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
+import { renderWithIntl, screen } from 'common/utils/TestUtils.react17';
 import { DesignSystemProvider } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event';
 describe('ModelView', () => {
   let wrapper: any;
   let instance;
@@ -54,9 +54,7 @@ describe('ModelView', () => {
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
     // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() =>
-      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
-    );
+    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     navigateMock.mockClear();
     minimalProps = {
       model: mockRegisteredModelDetailed(
@@ -102,10 +100,12 @@ describe('ModelView', () => {
         </DesignSystemProvider>,
       );
     // This hides the useNextModelsUI promotion modal
+    jest.spyOn(window.localStorage, 'getItem').mockImplementation((key) => (key.match(/promo/) ? 'true' : ''));
+  });
+  const mockModelsNextUIDismissed = () =>
     jest
       .spyOn(window.localStorage, 'getItem')
-      .mockImplementation((key) => (key.match(/promo/) ? 'true' : ''));
-  });
+      .mockImplementation((key) => (key.match(/dismiss_next_model_registry/) ? 'true' : ''));
   test('should render with minimal props without exploding', () => {
     wrapper = createComponentInstance(minimalProps);
     expect(wrapper.find(ModelView).length).toBe(1);
@@ -117,10 +117,11 @@ describe('ModelView', () => {
     expect(wrapper.find('div[role="cell"].model-version').at(1).text()).toBe('Version 2');
     expect(wrapper.find('div[role="cell"].model-version').at(2).text()).toBe('Version 1');
   });
-  test('should render model version table with activeStageOnly when "Active" button is on', () => {
+  test('should render model version table with activeStageOnly when "Active" button is on', async () => {
+    mockModelsNextUIDismissed();
     wrapper = createComponentInstance(minimalProps);
-    expect(wrapper.find(ModelVersionTable).props().activeStageOnly).toBe(false);
     instance = wrapper.find(ModelViewImpl).instance();
+    expect(wrapper.find(ModelVersionTable).props().activeStageOnly).toBe(false);
     instance.setState({ stageFilter: StageFilters.ACTIVE });
     wrapper.update();
     expect(wrapper.find(ModelVersionTable).props().activeStageOnly).toBe(true);
@@ -151,9 +152,7 @@ describe('ModelView', () => {
   test('compare button is disabled when no/1 run selected, active when 2+ runs selected', () => {
     wrapper = createComponentInstance(minimalProps);
     expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().length).toBe(1);
-    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(
-      true,
-    );
+    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(true);
     wrapper
       .find(ModelViewImpl)
       .instance()
@@ -161,23 +160,16 @@ describe('ModelView', () => {
         runsSelected: { run_id_1: 'version_1' },
       });
     wrapper.update();
-    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(
-      true,
-    );
+    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(true);
     const twoRunsSelected = { run_id_1: 'version_1', run_id_2: 'version_2' };
     wrapper.find(ModelViewImpl).instance().setState({
       runsSelected: twoRunsSelected,
     });
     wrapper.update();
-    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(
-      false,
-    );
+    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(false);
     wrapper.find('[data-test-id="compareButton"]').hostNodes().simulate('click');
     expect(navigateMock).toHaveBeenCalledWith(
-      ModelRegistryRoutes.getCompareModelVersionsPageRoute(
-        minimalProps['model']['name'],
-        twoRunsSelected,
-      ),
+      ModelRegistryRoutes.getCompareModelVersionsPageRoute(minimalProps['model']['name'], twoRunsSelected),
     );
   });
   test('should tags rendered in the UI', () => {
@@ -205,7 +197,7 @@ describe('ModelView', () => {
     expect(wrapper.find('[data-testid="model-view-metadata"]').text()).toContain('Creator');
     expect(wrapper.find('[data-testid="model-view-metadata"]').text()).toContain(user_id);
   });
-  test('should display aliases and tags column instead of stage when new models UI is used', async () => {
+  test('should display aliases and tags columns instead of stage in new models UI', async () => {
     renderWithIntl(
       <DesignSystemProvider>
         <Provider store={minimalStore}>
@@ -216,21 +208,28 @@ describe('ModelView', () => {
       </DesignSystemProvider>,
     );
 
-    // Assert stage column being visible and aliases column being absent
-    expect(screen.queryByRole('columnheader', { name: 'Stage' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Active \d*/ })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
-
-    // Flip the "Next models UI" switch
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
-
-    // Assert the opposite: stage column should be invisible and aliases column should be present
     expect(screen.queryByRole('columnheader', { name: 'Stage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /Active/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
+  });
+
+  test('should display stage column instead of aliases and tags when old models UI is used', async () => {
+    mockModelsNextUIDismissed();
+
+    renderWithIntl(
+      <DesignSystemProvider>
+        <Provider store={minimalStore}>
+          <MemoryRouter>
+            <ModelView {...minimalProps} />
+          </MemoryRouter>
+        </Provider>
+      </DesignSystemProvider>,
+    );
+
+    expect(screen.queryByRole('columnheader', { name: 'Stage' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Active \d*/ })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
   });
 });

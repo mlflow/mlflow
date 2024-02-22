@@ -8,13 +8,13 @@ from unittest import mock
 import git
 import pytest
 import yaml
-from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import RunStatus, SourceType, ViewType
 from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.projects import _parse_kubernetes_config, _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import PYTHON_VERSION
@@ -336,7 +336,7 @@ def test_create_env_with_mamba(monkeypatch):
     installed in the test environment anyway)
     """
 
-    def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+    def exec_cmd_mock(cmd, *args, **kwargs):
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
             return subprocess.CompletedProcess(
@@ -347,7 +347,7 @@ def test_create_env_with_mamba(monkeypatch):
             # anything
             return subprocess.CompletedProcess(cmd, 0)
 
-    def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+    def exec_cmd_mock_raise(cmd, *args, **kwargs):
         if os.path.basename(cmd[0]) == "mamba":
             raise OSError()
 
@@ -500,7 +500,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 
 
 @pytest.mark.parametrize("synchronous", [True, False])
-@mock.patch("databricks_cli.configure.provider.get_config")
+@mock.patch("mlflow.utils.databricks_utils.get_config")
 def test_credential_propagation(get_config, synchronous):
     class DummyProcess:
         def wait(self):

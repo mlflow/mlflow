@@ -1,11 +1,4 @@
-import {
-  FormUI,
-  InfoIcon,
-  Input,
-  Tooltip,
-  Select,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { FormUI, InfoIcon, Input, Tooltip, Select, useDesignSystemTheme } from '@databricks/design-system';
 import { usePromptEvaluationParameters } from './hooks/usePromptEvaluationParameters';
 import { FormattedMessage } from 'react-intl';
 import { LineSmoothSlider } from '../LineSmoothSlider';
@@ -29,8 +22,8 @@ export const EvaluationCreatePromptParameters = ({
     <div css={{ marginBottom: theme.spacing.lg }}>
       <FormUI.Label css={{ marginBottom: theme.spacing.md }}>
         <FormattedMessage
-          defaultMessage='Model parameters'
-          description='Experiment page > new run modal > AI gateway model parameters label'
+          defaultMessage="Model parameters"
+          description="Experiment page > new run modal > served LLM model parameters label"
         />
       </FormUI.Label>
       {parameterDefinitions.map((parameterDef) => (
@@ -38,7 +31,7 @@ export const EvaluationCreatePromptParameters = ({
           <>
             <FormUI.Label htmlFor={parameterDef.name} css={{ span: { fontWeight: 'normal' } }}>
               <FormattedMessage {...parameterDef.string} />
-              <Tooltip title={<FormattedMessage {...parameterDef.helpString} />} placement='right'>
+              <Tooltip title={<FormattedMessage {...parameterDef.helpString} />} placement="right">
                 <InfoIcon
                   css={{
                     marginLeft: theme.spacing.sm,
@@ -63,7 +56,7 @@ export const EvaluationCreatePromptParameters = ({
             {parameterDef.type === 'input' && (
               <Input
                 data-testid={parameterDef.name}
-                type='number'
+                type="number"
                 disabled={disabled}
                 max={parameterDef.max}
                 min={parameterDef.min}
@@ -75,7 +68,7 @@ export const EvaluationCreatePromptParameters = ({
             {parameterDef.type === 'list' && (
               <Select
                 allowClear
-                mode='tags'
+                mode="tags"
                 style={{ width: '100%' }}
                 open={false}
                 disabled={disabled}

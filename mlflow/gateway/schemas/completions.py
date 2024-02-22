@@ -64,3 +64,45 @@ class ResponsePayload(ResponseModel):
             json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+
+
+class StreamDelta(ResponseModel):
+    role: Optional[str] = None
+    content: Optional[str] = None
+
+
+class StreamChoice(ResponseModel):
+    index: int
+    finish_reason: Optional[str] = None
+    delta: StreamDelta
+
+
+_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
+    "example": {
+        "id": "cmpl-123",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 6,
+                "finish_reason": "stop",
+                "delta": {"role": "assistant", "content": "you?"},
+            }
+        ],
+    }
+}
+
+
+class StreamResponsePayload(ResponseModel):
+    id: Optional[str] = None
+    object: Literal["text_completion_chunk"] = "text_completion_chunk"
+    created: int
+    model: str
+    choices: List[StreamChoice]
+
+    class Config:
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
+        else:
+            schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA

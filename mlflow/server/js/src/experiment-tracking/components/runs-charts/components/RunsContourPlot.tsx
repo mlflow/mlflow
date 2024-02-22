@@ -3,10 +3,7 @@ import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import {
-  highlightScatterTraces,
-  useRunsChartTraceHighlight,
-} from '../hooks/useRunsChartTraceHighlight';
+import { highlightScatterTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -16,7 +13,10 @@ import {
   RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   useDynamicPlotSize,
+  getLegendDataFromRuns,
 } from './RunsCharts.common';
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
+import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 
 export interface RunsContourPlotProps extends RunsPlotsCommonProps {
   /**
@@ -98,8 +98,9 @@ export const RunsContourPlot = React.memo(
   }: RunsContourPlotProps) => {
     const { theme } = useDesignSystemTheme();
 
-    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
-      useDynamicPlotSize();
+    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+
+    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
     const plotData = useMemo(() => {
       // Prepare empty values
@@ -111,12 +112,7 @@ export const RunsContourPlot = React.memo(
 
       // Iterate through all the runs and aggregate selected metrics/params
       for (const runData of runsData) {
-        const {
-          runInfo: { run_uuid, run_name },
-          metrics,
-          params,
-          color,
-        } = runData;
+        const { metrics, params, color, uuid, displayName } = runData;
         const xAxisData = xAxis.type === 'METRIC' ? metrics : params;
         const yAxisData = yAxis.type === 'METRIC' ? metrics : params;
         const zAxisData = zAxis.type === 'METRIC' ? metrics : params;
@@ -130,7 +126,7 @@ export const RunsContourPlot = React.memo(
           yValues.push(y);
           zValues.push(z);
           colors.push(color || theme.colors.primary);
-          tooltipData.push([run_uuid, run_name || run_uuid, z] as any);
+          tooltipData.push([uuid, displayName || uuid, z] as any);
         }
       }
 
@@ -171,6 +167,9 @@ export const RunsContourPlot = React.memo(
           },
           colorscale: colorScale,
           reversescale: reverseScale,
+          colorbar: {
+            tickfont: { size: 11, color: theme.colors.textSecondary, family: '' },
+          },
         } as Data);
       }
       return layers;
@@ -186,6 +185,7 @@ export const RunsContourPlot = React.memo(
       zAxis.type,
       zAxis.key,
       theme.colors.primary,
+      theme.colors.textSecondary,
       useDefaultHoverBox,
     ]);
 
@@ -195,8 +195,12 @@ export const RunsContourPlot = React.memo(
       width: width || layoutWidth,
       height: height || layoutHeight,
       margin,
-      xaxis: { title: xAxis.key },
-      yaxis: { ticks: 'inside', title: { standoff: 32, text: yAxis.key } },
+      xaxis: { title: xAxis.key, tickfont: { size: 11, color: theme.colors.textSecondary } },
+      yaxis: {
+        ticks: 'inside',
+        title: { standoff: 32, text: yAxis.key },
+        tickfont: { size: 11, color: theme.colors.textSecondary },
+      },
       template: { layout: plotlyThemedLayout },
     });
 
@@ -261,12 +265,11 @@ export const RunsContourPlot = React.memo(
      */
     const mutableHoverCallback = useMutableChartHoverCallback(hoverCallback);
 
-    return (
+    const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
+
+    const chart = (
       <div
-        css={[
-          commonRunsChartStyles.chartWrapper(theme),
-          commonRunsChartStyles.scatterChartHighlightStyles,
-        ]}
+        css={[commonRunsChartStyles.chartWrapper(theme), commonRunsChartStyles.scatterChartHighlightStyles]}
         className={className}
         ref={setContainerDiv}
       >
@@ -281,6 +284,12 @@ export const RunsContourPlot = React.memo(
           onUnhover={unhoverCallback}
         />
       </div>
+    );
+
+    return usingV2ChartImprovements ? (
+      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
+    ) : (
+      chart
     );
   },
 );

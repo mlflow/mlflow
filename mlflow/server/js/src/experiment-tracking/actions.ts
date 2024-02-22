@@ -16,7 +16,7 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
-import { EvaluationArtifactTable } from './types';
+import { EvaluationArtifactTable, KeyValueEntity } from './types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
@@ -41,11 +41,7 @@ export const getExperimentApi = (experimentId: any, id = getUUID()) => {
 };
 
 export const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
-export const createExperimentApi = (
-  experimentName: any,
-  artifactPath = undefined,
-  id = getUUID(),
-) => {
+export const createExperimentApi = (experimentName: any, artifactPath = undefined, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const createResponse = dispatch({
       type: CREATE_EXPERIMENT_API,
@@ -191,10 +187,7 @@ export const restoreRunApi = (runUuid: any, id = getUUID()) => {
 };
 
 export const SET_COMPARE_EXPERIMENTS = 'SET_COMPARE_EXPERIMENTS';
-export const setCompareExperiments = ({
-  comparedExperimentIds,
-  hasComparedExperimentsBefore,
-}: any) => {
+export const setCompareExperiments = ({ comparedExperimentIds, hasComparedExperimentsBefore }: any) => {
   return {
     type: SET_COMPARE_EXPERIMENTS,
     payload: { comparedExperimentIds, hasComparedExperimentsBefore },
@@ -372,13 +365,7 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const GET_METRIC_HISTORY_API = 'GET_METRIC_HISTORY_API';
-export const getMetricHistoryApi = (
-  runUuid: any,
-  metricKey: any,
-  maxResults: any,
-  pageToken: any,
-  id = getUUID(),
-) => {
+export const getMetricHistoryApi = (runUuid: any, metricKey: any, maxResults: any, pageToken: any, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: MlflowService.getMetricHistory({
@@ -461,13 +448,46 @@ export const deleteTagApi = (runUuid: any, tagName: any, id = getUUID()) => {
   };
 };
 
-export const SET_EXPERIMENT_TAG_API = 'SET_EXPERIMENT_TAG_API';
-export const setExperimentTagApi = (
-  experimentId: any,
-  tagName: any,
-  tagValue: any,
+export const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
+/**
+ * Given lists of existing and new tags, creates and calls
+ * multiple requests for setting/deleting tags in a experiment run
+ */
+export const setRunTagsBulkApi = (
+  run_uuid: string,
+  existingTags: KeyValueEntity[],
+  newTags: KeyValueEntity[],
   id = getUUID(),
 ) => {
+  // First, determine new aliases to be added
+  const addedOrModifiedTags = newTags.filter(
+    ({ key: newTagKey, value: newTagValue }) =>
+      !existingTags.some(
+        ({ key: existingTagKey, value: existingTagValue }) =>
+          existingTagKey === newTagKey && newTagValue === existingTagValue,
+      ),
+  );
+
+  // Next, determine those to be deleted
+  const deletedTags = existingTags.filter(
+    ({ key: existingTagKey }) => !newTags.some(({ key: newTagKey }) => existingTagKey === newTagKey),
+  );
+
+  // Fire all requests at once
+  const updateRequests = Promise.all([
+    ...addedOrModifiedTags.map(({ key, value }) => MlflowService.setTag({ run_uuid, key, value })),
+    ...deletedTags.map(({ key }) => MlflowService.deleteTag({ run_id: run_uuid, key })),
+  ]);
+
+  return {
+    type: SET_RUN_TAGS_BULK,
+    payload: updateRequests,
+    meta: { id, runUuid: run_uuid, existingTags, newTags },
+  };
+};
+
+export const SET_EXPERIMENT_TAG_API = 'SET_EXPERIMENT_TAG_API';
+export const setExperimentTagApi = (experimentId: any, tagName: any, tagValue: any, id = getUUID()) => {
   return {
     type: SET_EXPERIMENT_TAG_API,
     payload: MlflowService.setExperimentTag({
@@ -546,6 +566,7 @@ export const createPromptLabRunApi = ({
   modelInput,
   modelOutput,
   modelOutputParameters,
+  tags = [],
 }: {
   experimentId: string;
   runName?: string;
@@ -556,24 +577,20 @@ export const createPromptLabRunApi = ({
   modelOutput: string;
   modelParameters: Record<string, string | number | string[] | undefined>;
   modelOutputParameters: Record<string, string | number>;
+  tags?: { key: string; value: string }[];
 }) => {
-  const tupleToKeyValue = <T>(dict: Record<string, T>) =>
-    Object.entries(dict).map(([key, value]) => ({ key, value }));
+  const tupleToKeyValue = <T>(dict: Record<string, T>) => Object.entries(dict).map(([key, value]) => ({ key, value }));
 
-  const tupleToKeyValueFlattenArray = (
-    dict: Record<string, string | number | string[] | undefined>,
-  ) =>
+  const tupleToKeyValueFlattenArray = (dict: Record<string, string | number | string[] | undefined>) =>
     Object.entries(dict).map(([key, value]) => {
-      const scalarValue: string | number | undefined = Array.isArray(value)
-        ? `[${value.join(', ')}]`
-        : value;
+      const scalarValue: string | number | undefined = Array.isArray(value) ? `[${value.join(', ')}]` : value;
       return { key, value: scalarValue };
     });
 
   const payload = {
     experiment_id: experimentId,
     run_name: runName || undefined,
-    tags: [],
+    tags,
     prompt_template: promptTemplate,
     prompt_parameters: tupleToKeyValue(promptParameters),
     model_route: modelRouteName,

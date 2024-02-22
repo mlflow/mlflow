@@ -787,9 +787,7 @@ class TrainStep(BaseStep):
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
             .apply(
-                lambda s: s.map(lambda x: f"{x:.6g}")  # pylint: disable=unnecessary-lambda
-                if s.name in metric_names
-                else s,  # pylint: disable=unnecessary-lambda
+                lambda s: s.map(lambda x: f"{x:.6g}") if s.name in metric_names else s,
                 axis=0,
             )
             .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")

@@ -32,14 +32,12 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   onSuccess,
   saveTagsHandler,
   allAvailableTags,
+  valueRequired = false,
 }: {
   onSuccess?: () => void;
-  saveTagsHandler: (
-    editedEntity: T,
-    existingTags: KeyValueEntity[],
-    newTags: KeyValueEntity[],
-  ) => Promise<any>;
-  allAvailableTags: string[];
+  saveTagsHandler: (editedEntity: T, existingTags: KeyValueEntity[], newTags: KeyValueEntity[]) => Promise<any>;
+  allAvailableTags?: string[];
+  valueRequired?: boolean;
 }) => {
   const editedEntityRef = useRef<T>();
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -80,11 +78,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
     }
     setErrorMessage('');
     setIsLoading(true);
-    saveTagsHandler(
-      editedEntityRef.current,
-      Array.from(initialTags.values()),
-      Array.from(finalTags.values()),
-    )
+    saveTagsHandler(editedEntityRef.current, Array.from(initialTags.values()), Array.from(finalTags.values()))
       .then(() => {
         hideModal();
         onSuccess?.();
@@ -102,11 +96,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   const [isLoading, setIsLoading] = useState(false);
 
   const hasNewValues = useMemo(
-    () =>
-      !isEqual(
-        sortBy(Array.from(initialTags.values()), 'key'),
-        sortBy(Array.from(finalTags.values()), 'key'),
-      ),
+    () => !isEqual(sortBy(Array.from(initialTags.values()), 'key'), sortBy(Array.from(finalTags.values()), 'key')),
     [initialTags, finalTags],
   );
   const isDirty = formValues.key || formValues.value;
@@ -128,6 +118,11 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   };
 
   const onSubmit = () => {
+    // Do not accept form if no value provided while it's required
+    if (valueRequired && !formValues.value.trim()) {
+      return;
+    }
+
     // Add new tag to existing tags leaving only one tag per key value
     const newEntries = new Map(finalTags);
     newEntries.set(formValues.key, formValues);
@@ -142,8 +137,8 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
       visible={showModal}
       title={
         <FormattedMessage
-          defaultMessage='Add/Edit tags'
-          description='Key-value tag editor modal > Title of the update tags modal'
+          defaultMessage="Add/Edit tags"
+          description="Key-value tag editor modal > Title of the update tags modal"
         />
       }
       onCancel={hideModal}
@@ -164,11 +159,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
             })}
           </Button>
           {showPopoverMessage ? (
-            <UnsavedTagPopoverTrigger
-              formValues={formValues}
-              isLoading={isLoading}
-              onSaveTask={saveTags}
-            />
+            <UnsavedTagPopoverTrigger formValues={formValues} isLoading={isLoading} onSaveTask={saveTags} />
           ) : (
             <Tooltip
               title={
@@ -184,7 +175,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
                 dangerouslyUseFocusPseudoClass
                 disabled={!hasNewValues}
                 loading={isLoading}
-                type='primary'
+                type="primary"
                 onClick={saveTags}
               >
                 {intl.formatMessage({
@@ -203,32 +194,44 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
       >
         <div css={{ minWidth: 0, display: 'flex', gap: theme.spacing.md, flex: 1 }}>
           <div css={{ flex: 1 }}>
-            <FormUI.Label htmlFor='key'>
+            <FormUI.Label htmlFor="key">
               {intl.formatMessage({
                 defaultMessage: 'Key',
                 description: 'Key-value tag editor modal > Key input label',
               })}
             </FormUI.Label>
             <TagKeySelectDropdown
-              allAvailableTags={allAvailableTags}
+              allAvailableTags={allAvailableTags || []}
               control={form.control}
               onKeyChangeCallback={onKeyChangeCallback}
             />
           </div>
           <div css={{ flex: 1 }}>
-            <FormUI.Label htmlFor='value'>
-              {intl.formatMessage({
-                defaultMessage: 'Value (optional)',
-                description: 'Key-value tag editor modal > Value input label',
-              })}
+            <FormUI.Label htmlFor="value">
+              {valueRequired
+                ? intl.formatMessage({
+                    defaultMessage: 'Value',
+                    description: 'Key-value tag editor modal > Value input label (required)',
+                  })
+                : intl.formatMessage({
+                    defaultMessage: 'Value (optional)',
+                    description: 'Key-value tag editor modal > Value input label',
+                  })}
             </FormUI.Label>
             <RHFControlledComponents.Input
-              name='value'
+              name="value"
               control={form.control}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Value (optional)',
-                description: 'Key-value tag editor modal > Value input label',
-              })}
+              aria-label={
+                valueRequired
+                  ? intl.formatMessage({
+                      defaultMessage: 'Value',
+                      description: 'Key-value tag editor modal > Value input label (required)',
+                    })
+                  : intl.formatMessage({
+                      defaultMessage: 'Value (optional)',
+                      description: 'Key-value tag editor modal > Value input label',
+                    })
+              }
               placeholder={intl.formatMessage({
                 defaultMessage: 'Type a value',
                 description: 'Key-value tag editor modal > Value input placeholder',
@@ -243,7 +246,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
           })}
         >
           <Button
-            htmlType='submit'
+            htmlType="submit"
             aria-label={intl.formatMessage({
               defaultMessage: 'Add tag',
               description: 'Key-value tag editor modal > Add tag button',
@@ -253,7 +256,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
           </Button>
         </Tooltip>
       </form>
-      {errorMessage && <FormUI.Message type='error' message={errorMessage} />}
+      {errorMessage && <FormUI.Message type="error" message={errorMessage} />}
       <div
         css={{
           display: 'flex',
@@ -269,7 +272,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
     </Modal>
   );
 
-  return { EditTagsModal, showEditTagsModal };
+  return { EditTagsModal, showEditTagsModal, isLoading };
 };
 
 function UnsavedTagPopoverTrigger({
@@ -300,26 +303,25 @@ function UnsavedTagPopoverTrigger({
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <Button dangerouslyUseFocusPseudoClass loading={isLoading} type='primary'>
+        <Button dangerouslyUseFocusPseudoClass loading={isLoading} type="primary">
           {intl.formatMessage({
             defaultMessage: 'Save tags',
             description: 'Key-value tag editor modal > Manage Tag save button',
           })}
         </Button>
       </Popover.Trigger>
-      <Popover.Content align='end' aria-label={shownText}>
+      <Popover.Content align="end" aria-label={shownText}>
         <Typography.Paragraph css={{ maxWidth: 400 }}>{shownText}</Typography.Paragraph>
         <Popover.Close asChild>
           <Button onClick={onSaveTask}>
             {intl.formatMessage({
               defaultMessage: 'Yes, save and close',
-              description:
-                'Key-value tag editor modal > Unsaved tag message > Yes, save and close button',
+              description: 'Key-value tag editor modal > Unsaved tag message > Yes, save and close button',
             })}
           </Button>
         </Popover.Close>
         <Popover.Close asChild>
-          <Button type='primary' css={{ marginLeft: theme.spacing.sm }}>
+          <Button type="primary" css={{ marginLeft: theme.spacing.sm }}>
             {intl.formatMessage({
               defaultMessage: 'Cancel',
               description: 'Key-value tag editor modal > Unsaved tag message > cancel button',

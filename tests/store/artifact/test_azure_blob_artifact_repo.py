@@ -1,3 +1,4 @@
+import base64
 import os
 import posixpath
 from unittest import mock
@@ -5,6 +6,7 @@ from unittest import mock
 import pytest
 from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
 
+from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -42,7 +44,6 @@ def mock_client():
 
 
 def test_artifact_uri_factory(mock_client):
-    # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
     # We do need to set up a fake access key for the code to run though
     os.environ["AZURE_STORAGE_ACCESS_KEY"] = ""
@@ -53,7 +54,6 @@ def test_artifact_uri_factory(mock_client):
 
 @mock.patch("azure.identity.DefaultAzureCredential")
 def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_client):
-    # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it
     AzureBlobArtifactRepository(TEST_URI)
     assert mock_default_azure_credential.call_count == 1
@@ -262,7 +262,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
             return MockBlobList([blob_props_1, blob_props_2])
         else:
@@ -311,7 +311,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
         `_download_artifacts_into` subroutine without recursively listing the same artifacts at
         every level of the directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == "/":
             return MockBlobList([dir_prefix])
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(subdir_path):
@@ -353,7 +353,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
             # Return a blob that is not prefixed by the root path of the artifact store. This
             # should result in an exception being raised
@@ -367,3 +367,30 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         MlflowException, match="Azure blob does not begin with the specified artifact path"
     ):
         repo.download_artifacts("")
+
+
+def test_create_multipart_upload(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    mock_client.url = "some-url"
+    mock_client.account_name = "some-account"
+    mock_client.credential.account_key = base64.b64encode(b"some-key").decode("utf-8")
+
+    create = repo.create_multipart_upload("local_file")
+    assert create.upload_id is None
+    assert len(create.credentials) == 1
+    assert create.credentials[0].url.startswith(
+        "some-url/container/some/path/local_file?comp=block"
+    )
+
+
+def test_complete_multipart_upload(mock_client, tmp_path):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    parts = [
+        MultipartUploadPart(1, "", "some-url?comp=block&blockid=YQ%3D%3D%3D%3D"),
+        MultipartUploadPart(2, "", "some-url?comp=block&blockid=Yg%3D%3D%3D%3D"),
+    ]
+    repo.complete_multipart_upload("local_file", "", parts)
+    mock_client.get_blob_client.assert_called_with("container", f"{TEST_ROOT_PATH}/local_file")
+    mock_client.get_blob_client().commit_block_list.assert_called_with(["a", "b"])

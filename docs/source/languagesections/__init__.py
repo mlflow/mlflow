@@ -1,8 +1,8 @@
 import os
-from sphinx.util import logging
 
-from docutils.parsers.rst import Directive
 from docutils import nodes
+from docutils.parsers.rst import Directive
+from sphinx.util import logging
 from sphinx.util.osutil import copyfile
 
 logger = logging.getLogger(__name__)

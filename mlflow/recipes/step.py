@@ -59,11 +59,12 @@ class StepExecutionState:
 
     def __init__(self, status: StepStatus, last_updated_timestamp: int, stack_trace: str):
         """
-        :param status: The execution status of the step.
-        :param last_updated_timestamp: The timestamp of the last execution status update, measured
-                                       in seconds since the UNIX epoch.
-        :param stack_trace: The stack trace of the last execution. None if the step execution
-                            succeeds.
+        Args:
+            status: The execution status of the step.
+            last_updated_timestamp: The timestamp of the last execution status update, measured
+                in seconds since the UNIX epoch.
+            stack_trace: The stack trace of the last execution. None if the step execution
+                succeeds.
         """
         self.status = status
         self.last_updated_timestamp = last_updated_timestamp
@@ -100,10 +101,9 @@ class BaseStep(metaclass=abc.ABCMeta):
 
     def __init__(self, step_config: Dict[str, Any], recipe_root: str):
         """
-        :param step_config: dictionary of the config needed to
-                            run/implement the step.
-        :param recipe_root: String file path to the directory where step
-                              are defined.
+        Args:
+            step_config: Dictionary of the config needed to run/implement the step.
+            recipe_root: String file path to the directory where step are defined.
         """
         self.step_config = step_config
         self.recipe_root = recipe_root
@@ -119,9 +119,9 @@ class BaseStep(metaclass=abc.ABCMeta):
         Executes the step by running common setup operations and invoking
         step-specific code (as defined in ``_run()``).
 
-        :param output_directory: String file path to the directory where step
-                                 outputs should be stored.
-        :return: None
+        Args:
+            output_directory: String file path to the directory where step
+                outputs should be stored.
         """
         _logger.info(f"Running step {self.name}...")
         start_timestamp = time.time()
@@ -151,9 +151,9 @@ class BaseStep(metaclass=abc.ABCMeta):
         Inspect the step output state by running the generic inspect information here and
         running the step specific inspection code in the step's _inspect() method.
 
-        :param output_directory: String file path where to the directory where step
-                                 outputs are located.
-        :return: None
+        Args:
+            output_directory: String file path where to the directory where step
+                outputs are located.
         """
         card_path = os.path.join(output_directory, CARD_PICKLE_NAME)
         if not os.path.exists(card_path):
@@ -174,9 +174,12 @@ class BaseStep(metaclass=abc.ABCMeta):
         to the specified directory, and returning results to the user. It
         is invoked by the internal step runner.
 
-        :param output_directory: String file path to the directory where step outputs
-                                 should be stored.
-        :return: A BaseCard containing step execution information.
+        Args:
+            output_directory: String file path to the directory where step outputs
+                should be stored.
+
+        Returns:
+            A BaseCard containing step execution information.
         """
         pass
 
@@ -197,9 +200,12 @@ class BaseStep(metaclass=abc.ABCMeta):
         Subclasses must implement this method to produce the config required to correctly
         run the corresponding step.
 
-        :param recipe_config: Dictionary representation of the full recipe config.
-        :param recipe_root: String file path to the recipe root directory.
-        :return: class instance of the step.
+        Args:
+            recipe_config: Dictionary representation of the full recipe config.
+            recipe_root: String file path to the recipe root directory.
+
+        Returns:
+            class instance of the step.
         """
         pass
 
@@ -209,11 +215,14 @@ class BaseStep(metaclass=abc.ABCMeta):
         Constructs a step class instance using the config specified in the
         configuration file.
 
-        :param step_config_path: String path to the step-specific configuration
-                                 on the local filesystem.
-        :param recipe_root: String path to the recipe root directory on
-                              the local filesystem.
-        :return: class instance of the step.
+        Args:
+            step_config_path: String path to the step-specific configuration
+                on the local filesystem.
+            recipe_root: String path to the recipe root directory on
+                the local filesystem.
+
+        Returns:
+            class instance of the step.
         """
         with open(step_config_path) as f:
             step_config = yaml.safe_load(f)
@@ -255,9 +264,13 @@ class BaseStep(metaclass=abc.ABCMeta):
         status (succeeded, failed, unknown), last update time, and, if applicable, encountered
         stacktraces.
 
-        :param output_directory: String file path to the directory where step
-                                 outputs are stored.
-        :return: A ``StepExecutionState`` instance containing the step execution state.
+        Args:
+            output_directory: String file path to the directory where step
+                outputs are stored.
+
+        Returns:
+            A ``StepExecutionState`` instance containing the step execution state.
+
         """
         execution_state_file_path = os.path.join(
             output_directory, BaseStep._EXECUTION_STATE_FILE_NAME
@@ -333,8 +346,9 @@ class BaseStep(metaclass=abc.ABCMeta):
         Logs a step card as an artifact (destination: <step_name>/card.html) in a specified run.
         If the step card does not exist, logging is skipped.
 
-        :param run_id: Run ID to which the step card is logged.
-        :param step_name: Step name.
+        Args:
+            run_id: Run ID to which the step card is logged.
+            step_name: Step name.
         """
         from mlflow.recipes.utils.execution import get_step_output_path
 

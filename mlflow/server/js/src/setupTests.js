@@ -1,3 +1,4 @@
+/* eslint-disable no-undef -- FEINF-2715 - convert to TS */
 import { configure } from 'enzyme';
 import Adapter from '@wojtekmaj/enzyme-adapter-react-17';
 
@@ -59,9 +60,7 @@ beforeEach(() => {
   }
 
   jest.spyOn(global, 'fetch').mockImplementation(() => {
-    throw new Error(
-      'No API calls should be made from unit tests. Please explicitly mock all API calls.',
-    );
+    throw new Error('No API calls should be made from unit tests. Please explicitly mock all API calls.');
   });
 
   global.PerformanceObserver = class PerformanceObserver {

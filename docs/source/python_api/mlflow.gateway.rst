@@ -12,3 +12,4 @@ mlflow.gateway
 .. automodule:: mlflow.gateway.config
     :members:
     :undoc-members:
+    :exclude-members: model_computed_fields

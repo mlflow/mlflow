@@ -1,0 +1,47 @@
+name: Team review
+
+on:
+  pull_request_target:
+    types: [review_requested]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.requested_reviewer.login == 'mlflow-automation'}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const members = [
+              "B-Step62",
+              "BenWilson2",
+              "daniellok-db",
+              "harupy",
+              "serena-ruan",
+              "WeichenXu123",
+            ];
+            const author = context.payload.pull_request.user.login;
+            const reviews = await github.rest.pulls.listReviews({
+              owner,
+              repo,
+              pull_number,
+            });
+            const approved = reviews.data
+              .filter((r) => r.state === "APPROVED")
+              .map((r) => r.user.login);
+            await github.rest.pulls.requestReviewers({
+              owner,
+              repo,
+              pull_number,
+              reviewers: members.filter((m) => !approved.includes(m) && m !== author),
+            });
+            await github.rest.pulls.removeRequestedReviewers({
+              owner,
+              repo,
+              pull_number,
+              reviewers: ["mlflow-automation"],
+            });

@@ -10,7 +10,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import completions
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -57,7 +57,7 @@ class AnthropicAdapter(ProviderAdapter):
 
         payload["max_tokens"] = max_tokens
 
-        if payload.get("stream", None) == "true":
+        if payload.get("stream", False):
             raise HTTPException(
                 status_code=422,
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
@@ -67,7 +67,7 @@ class AnthropicAdapter(ProviderAdapter):
         if n != 1:
             raise HTTPException(
                 status_code=422,
-                detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
+                detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
         payload = rename_payload_keys(payload, key_mapping)
@@ -97,12 +97,17 @@ class AnthropicAdapter(ProviderAdapter):
 
 
 class AnthropicProvider(BaseProvider, AnthropicAdapter):
+    NAME = "Anthropic"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
         self.anthropic_config: AnthropicConfig = config.model.config
-        self.headers = {"x-api-key": self.anthropic_config.anthropic_api_key}
+        self.headers = {
+            "x-api-key": self.anthropic_config.anthropic_api_key,
+            "anthropic-version": self.anthropic_config.anthropic_version,
+        }
         self.base_url = "https://api.anthropic.com/v1/"
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
@@ -134,15 +139,3 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # ```
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
-
-    async def chat(self, payload: chat.RequestPayload) -> None:
-        # Anthropic does not have a chat endpoint
-        raise HTTPException(
-            status_code=404, detail="The chat route is not available for Anthropic models."
-        )
-
-    async def embeddings(self, payload: embeddings.RequestPayload) -> None:
-        # Anthropic does not have an embeddings endpoint
-        raise HTTPException(
-            status_code=404, detail="The embeddings route is not available for Anthropic models."
-        )

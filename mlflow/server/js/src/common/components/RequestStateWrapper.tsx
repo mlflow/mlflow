@@ -24,13 +24,9 @@ type OwnRequestStateWrapperProps = {
 
 type RequestStateWrapperState = any;
 
-type RequestStateWrapperProps = OwnRequestStateWrapperProps &
-  typeof RequestStateWrapper.defaultProps;
+type RequestStateWrapperProps = OwnRequestStateWrapperProps & typeof RequestStateWrapper.defaultProps;
 
-export class RequestStateWrapper extends Component<
-  RequestStateWrapperProps,
-  RequestStateWrapperState
-> {
+export class RequestStateWrapper extends Component<RequestStateWrapperProps, RequestStateWrapperState> {
   static defaultProps = {
     requests: [],
     requestIdsWith404sToIgnore: [],

@@ -1,10 +1,10 @@
 import type { TypographyProps as AntDTypographyProps } from 'antd';
 import type { ReactNode } from 'react';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 import { Hint } from './Hint';
 import { Paragraph } from './Paragraph';
 import { Text } from './Text';
 import { Title } from './Title';
+import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 interface TypographyProps extends Omit<AntDTypographyProps, 'Text' | 'Title' | 'Paragraph' | 'Link'>, DangerouslySetAntdProps<AntDTypographyProps>, HTMLDataAttributes {
     children?: ReactNode;
     withoutMargins?: boolean;

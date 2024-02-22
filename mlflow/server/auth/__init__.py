@@ -428,9 +428,11 @@ def authenticate_request() -> Union[Authorization, Response]:
 
 @functools.lru_cache(maxsize=None)
 def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
-    """Import and return the specified authorization function.
+    """
+    Import and return the specified authorization function.
 
-    :param authorization_function: A string of the form "module.submodule:auth_func
+    Args:
+        authorization_function: A string of the form "module.submodule:auth_func"
     """
     mod_name, fn_name = authorization_function.split(":", 1)
     module = importlib.import_module(mod_name)
@@ -871,8 +873,11 @@ def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
 
-    :param app: The Flask app to enable authentication and authorization for.
-    :return: The app with authentication and authorization enabled.
+    Args:
+        app: The Flask app to enable authentication and authorization for.
+
+    Returns:
+        The app with authentication and authorization enabled.
     """
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"

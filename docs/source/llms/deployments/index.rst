@@ -101,6 +101,9 @@ For details about the configuration file's parameters (including parameters for 
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
       - name: chat
         endpoint_type: llm/v1/chat
@@ -226,8 +229,8 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 +--------------------------+--------------------------+--------------------------+--------------------------+
 |                          | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings        |
 +==========================+==========================+==========================+==========================+
-| OpenAI                   | - gpt-3.5-turbo          | - gpt-3.5-turbo          | - text-embedding-ada-002 |
-|                          | - gpt-4                  | - gpt-4                  |                          |
+| OpenAI §                 | - gpt-3.5-turbo-instruct | - gpt-3.5-turbo          | - text-embedding-ada-002 |
+|                          | - davinci-002            | - gpt-4                  |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
 | MosaicML                 | - mpt-7b-instruct        | - llama2-70b-chat†       | - instructor-large       |
 |                          | - mpt-30b-instruct       |                          | - instructor-xl          |
@@ -237,8 +240,8 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 |                          | - claude-1.3-100k        |                          |                          |
 |                          | - claude-2               |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
-| Cohere                   | - command                | N/A                      | - embed-english-v2.0     |
-|                          | - command-light-nightly  |                          | - embed-multilingual-v2.0|
+| Cohere                   | - command                | - command                | - embed-english-v2.0     |
+|                          | - command-light          | - command-light          | - embed-multilingual-v2.0|
 +--------------------------+--------------------------+--------------------------+--------------------------+
 | Azure OpenAI             | - text-davinci-003       | - gpt-35-turbo           | - text-embedding-ada-002 |
 |                          | - gpt-35-turbo           | - gpt-4                  |                          |
@@ -253,10 +256,14 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 |                          | - j2-mid                 |                          |                          |
 |                          | - j2-light               |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
-| AWS Bedrock              | - Amazon Titan           | N/A                      | N/A                      |
+| Amazon Bedrock           | - Amazon Titan           | N/A                      | N/A                      |
 |                          | - Third-party providers  |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
+| Mistral                  | - mistral-tiny           | N/A                      |  - mistral-embed         |
+|                          | - mistral-small          |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
 
+§ For full compatibility references for ``OpenAI``, see the `OpenAI Model Compatibility Matrix <https://platform.openai.com/docs/models/model-endpoint-compatibility>`_.
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
@@ -284,6 +291,9 @@ Here's an example of a provider configuration within an endpoint:
           name: gpt-4
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
 In the above configuration, ``openai`` is the `provider` for the model.
 
@@ -296,7 +306,8 @@ As of now, the MLflow Deployments Server supports the following providers:
 * **palm**: This is used for models offered by `PaLM <https://developers.generativeai.google/api/rest/generativelanguage/models/>`_.
 * **huggingface text generation inference**: This is used for models deployed using `Huggingface Text Generation Inference <https://huggingface.co/docs/text-generation-inference/index>`_.
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
-* **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
+* **bedrock**: This is used for models offered by `Amazon Bedrock <https://aws.amazon.com/bedrock/>`_.
+* **mistral**: This is used for models offered by `Mistral <https://docs.mistral.ai/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
@@ -324,6 +335,11 @@ an endpoint in the MLflow Deployments Server consists of the following fields:
     * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
+* **limit**: Specify the rate limit setting this endpoint will follow. The limit field contains the following fields:
+
+    * **renewal_period**: The time unit of the rate limit, one of [second|minute|hour|day|month|year].
+    * **calls**: The number of calls this endpoint will accept within the specified time unit.
+
 Here's an example of an endpoint configuration:
 
 .. code-block:: yaml
@@ -336,6 +352,9 @@ Here's an example of an endpoint configuration:
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
 In the example above, a request sent to the completions endpoint would be forwarded to the
 ``gpt-3.5-turbo`` model provided by ``openai``.
@@ -423,10 +442,13 @@ Here is an example of a single-endpoint configuration:
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
 
 In this example, we define an endpoint named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
-will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service.
+will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service, and accept up to 10 requests per minute.
 
 The MLflow Deployments Server configuration is very easy to update.
 Simply edit the configuration file and save your changes, and the MLflow Deployments Server will automatically
@@ -494,6 +516,7 @@ Each endpoint has the following configuration parameters:
     - "huggingface-text-generation-inference"
     - "ai21labs"
     - "bedrock"
+    - "mistral"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -580,10 +603,10 @@ Anthropic
 | **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
-AWS Bedrock
-+++++++++++
+Amazon Bedrock
+++++++++++++++
 
-Top-level model configuration for AWS Bedrock endpoints must be one of the following two supported authentication modes: `key-based` or `role-based`.
+Top-level model configuration for Amazon Bedrock endpoints must be one of the following two supported authentication modes: `key-based` or `role-based`.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -593,7 +616,7 @@ Top-level model configuration for AWS Bedrock endpoints must be one of the follo
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
 
-To use key-based authentication, define an AWS Bedrock endpoint with the required fields below.
+To use key-based authentication, define an Amazon Bedrock endpoint with the required fields below.
 .. note::
 
   If using a configured endpoint purely for development or testing, utilizing an IAM User role or a temporary short-lived standard IAM role are recommended; while for production deployments, a standard long-expiry IAM role is recommended to ensure that the endpoint is capable of handling authentication for a long period. If the authentication expires and a new set of keys need to be supplied, the endpoint must be recreated in order to persist the new keys.
@@ -613,7 +636,7 @@ To use key-based authentication, define an AWS Bedrock endpoint with the require
 | **aws_session_token**    | No       | None                         | Optional session token, if required                   |
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
-Alternatively, for role-based authentication, an AWS Bedrock endpoint can be defined and initialized with an a IAM Role  ARN that is authorized to access Bedrock.  The MLflow Deployments Server will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
+Alternatively, for role-based authentication, an Amazon Bedrock endpoint can be defined and initialized with an a IAM Role  ARN that is authorized to access Bedrock.  The MLflow Deployments Server will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -665,6 +688,16 @@ To match your user's interaction and security access requirements, adjust the ``
 +----------------------------+----------+---------+-----------------------------------------------------------------------------------------------+
 
 
+Mistral
++++++++
+
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                  | Description                                           |
++==========================+==========+==========================+=======================================================+
+| **mistral_api_key**       | Yes      | N/A                      | This is the API key for the Mistral service.         |
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+
+
 An example configuration for Azure OpenAI is:
 
 .. code-block:: yaml
@@ -681,6 +714,9 @@ An example configuration for Azure OpenAI is:
             openai_deployment_name: "{your_deployment_name}"
             openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
             openai_api_version: "2023-05-15"
+        limit:
+          renewal_period: minute
+          calls: 10
 
 
 .. note::
@@ -804,10 +840,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 - ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
-
-The following parameters are not allowed:
-
-- ``stream`` is not supported. Setting this parameter on any provider will not work currently.
+- ``stream`` (supported by OpenAI, Cohere)
 
 Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
@@ -853,6 +886,65 @@ The results of the query are:
             "total_tokens": 635,
         },
     }
+
+Streaming
+~~~~~~~~~
+
+Some providers support streaming responses. Streaming responses are useful when you want to
+receive responses as they are generated, rather than waiting for the entire response to be
+generated before receiving it. Streaming responses are supported by the following providers:
+
++------------+---------------------+--------------+
+|  Provider  | Endpoints                          |
++------------+---------------------+--------------+
+|            | llm/v1/completions  | llm/v1/chat  |
++============+=====================+==============+
+| OpenAI     | ✓                   | ✓            |
++------------+---------------------+--------------+
+| Cohere     | ✓                   | ✓            |
++------------+---------------------+--------------+
+
+To enable streaming responses, set the ``stream`` parameter to ``true`` in your request. For example:
+
+.. code-block:: bash
+
+     curl -X POST http://my.deployments:8888/endpoints/chat/invocations \
+        -H "Content-Type: application/json" \
+        -d '{"messages": [{"role": "user", "content": "hello"}], "stream": true}'
+
+
+The results of the query follow the `OpenAI schema <https://platform.openai.com/docs/api-reference/chat/streaming>`_.
+
+
+Chat
+^^^^
+
+.. code-block:: text
+
+    data: {"choices": [{"delta": {"content": null, "role": "assistant"}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": "Hello", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": " there", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": null, "role": null}, "finish_reason": "stop", "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+
+Completions
+^^^^^^^^^^^
+
+.. code-block:: text
+
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": "If"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": " an"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": " asteroid"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": "length", "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
 
 FastAPI Documentation ("/docs")
 -------------------------------

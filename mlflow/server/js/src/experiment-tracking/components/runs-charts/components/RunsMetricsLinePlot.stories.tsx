@@ -1,11 +1,6 @@
 import { useCallback, useState } from 'react';
 import { RunInfoEntity } from '../../../types';
-import {
-  chartColors,
-  ChartStoryWrapper,
-  getRandomRunName,
-  stableNormalRandom,
-} from './RunsCharts.stories-common';
+import { chartColors, ChartStoryWrapper, getRandomRunName, stableNormalRandom } from './RunsCharts.stories-common';
 import { RunsMetricsLinePlot, RunsMetricsLinePlotProps } from './RunsMetricsLinePlot';
 
 export default {
@@ -43,6 +38,8 @@ const createMockMetricsData = (
     const runName = getRandomRunName(random);
 
     return {
+      uuid: `id-for-run-${runName}`,
+      displayName: runName,
       runInfo: {
         run_uuid: `id-for-run-${runName}`,
         run_name: runName,
@@ -75,31 +72,22 @@ const MetricsRunWrapper = ({
 
   return (
     <ChartStoryWrapper
-      title='Line chart'
+      title="Line chart"
       controls={
         <>
           {!disableLog && (
             <>
-              Log scale:{' '}
-              <input
-                type='checkbox'
-                checked={log}
-                onChange={({ target: { checked } }) => setLog(checked)}
-              />
+              Log scale: <input type="checkbox" checked={log} onChange={({ target: { checked } }) => setLog(checked)} />
             </>
           )}
           Poly line:{' '}
-          <input
-            type='checkbox'
-            checked={polyLine}
-            onChange={({ target: { checked } }) => setPolyLine(checked)}
-          />
+          <input type="checkbox" checked={polyLine} onChange={({ target: { checked } }) => setPolyLine(checked)} />
           hovered run: {hoveredRun}
         </>
       }
     >
       <RunsMetricsLinePlot
-        metricKey='metric1'
+        metricKey="metric1"
         runsData={runsData}
         scaleType={log ? 'log' : 'linear'}
         onHover={setHoveredRun}
@@ -116,7 +104,7 @@ const MetricsRunWrapper = ({
 export const TwoRuns = () => <MetricsRunWrapper runsData={DATA.slice(0, 2)} />;
 export const TenRuns = () => <MetricsRunWrapper runsData={DATA} />;
 export const TenRunsStatic = () => <MetricsRunWrapper runsData={DATA} />;
-export const TenRunsInTimeDomain = () => <MetricsRunWrapper runsData={DATA} xAxisKey='time' />;
+export const TenRunsInTimeDomain = () => <MetricsRunWrapper runsData={DATA} xAxisKey="time" />;
 export const TenRunsNegative = () => <MetricsRunWrapper runsData={NEGATIVE_DATA} disableLog />;
 
 TwoRuns.storyName = '2 runs (auto-size)';

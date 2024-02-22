@@ -201,8 +201,7 @@ export const retry = async (
 };
 
 // not a 200 and also not a retryable HTTP status code
-const defaultFetchErrorConditionFn = (res: any) =>
-  !res || (!res.ok && !HTTPRetryStatuses.includes(res.status));
+const defaultFetchErrorConditionFn = (res: any) => !res || (!res.ok && !HTTPRetryStatuses.includes(res.status));
 
 /**
  * Makes a fetch request.
@@ -280,8 +279,7 @@ const generateJsonBody = (data: any) => {
     throw new Error(
       // Reported during ESLint upgrade
       // eslint-disable-next-line max-len
-      'Unexpected type of input. The REST api payload type must be either an object or a string, got ' +
-        typeof data,
+      'Unexpected type of input. The REST api payload type must be either an object or a string, got ' + typeof data,
     );
   }
 };

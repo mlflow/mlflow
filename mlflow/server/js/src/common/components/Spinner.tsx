@@ -18,7 +18,7 @@ export class Spinner extends Component<Props> {
     return (
       // @ts-expect-error TS(2322): Type '(theme: Theme) => { width: number; marginTop... Remove this comment to see the full error message
       <div css={(theme) => styles.spinner(theme, this.props.showImmediately)}>
-        <img alt='Page loading...' src={spinner} />
+        <img alt="Page loading..." src={spinner} />
       </div>
     );
   }

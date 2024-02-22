@@ -9,39 +9,55 @@ import {
   ArrowUpIcon,
   SortAscendingIcon,
   SortDescendingIcon,
-  useDesignSystemTheme,
 } from '@databricks/design-system';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { middleTruncateStr } from '../../../../../common/utils/StringUtils';
-import {
-  COLUMN_SORT_BY_ASC,
-  COLUMN_SORT_BY_DESC,
-  SORT_DELIMITER_SYMBOL,
-} from '../../../../constants';
+import { COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC, SORT_DELIMITER_SYMBOL } from '../../../../constants';
 import { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
+import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
+import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
+import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 
 export const ExperimentViewRunsSortSelector = React.memo(
-  ({
-    orderByKey,
-    orderByAsc,
-    sortOptions,
-    onSortKeyChanged,
-  }: {
+  (props: {
     orderByKey: string;
     orderByAsc: boolean;
     sortOptions: ExperimentRunSortOption[];
     onSortKeyChanged: (valueContainer: any) => void;
   }) => {
-    const { theme } = useDesignSystemTheme();
+    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+    const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
+    const updateUIState = useUpdateExperimentViewUIState();
+
+    const { sortOptions } = props;
+    const { orderByKey, orderByAsc } = props;
+
+    // In the new view state model, manipulate URL search facets directly instead of using the callback
+    const onSortKeyChanged = usingNewViewStateModel
+      ? ({ value }: { value: string }) => {
+          const [newOrderBy, newOrderAscending] = value.split(SORT_DELIMITER_SYMBOL);
+
+          setUrlSearchFacets({
+            orderByAsc: newOrderAscending === COLUMN_SORT_BY_ASC,
+            orderByKey: newOrderBy,
+          });
+
+          updateUIState((currentUIState) => {
+            if (!currentUIState.selectedColumns.includes(newOrderBy)) {
+              return {
+                ...currentUIState,
+                selectedColumns: [...currentUIState.selectedColumns, newOrderBy],
+              };
+            }
+            return currentUIState;
+          });
+        }
+      : props.onSortKeyChanged;
 
     // Currently used canonical "sort by" value in form of "COLUMN_NAME***DIRECTION", e.g. "metrics.`metric`***DESCENDING"
     const currentSortSelectValue = useMemo(
-      () =>
-        `${orderByKey}${SORT_DELIMITER_SYMBOL}${
-          orderByAsc ? COLUMN_SORT_BY_ASC : COLUMN_SORT_BY_DESC
-        }`,
+      () => `${orderByKey}${SORT_DELIMITER_SYMBOL}${orderByAsc ? COLUMN_SORT_BY_ASC : COLUMN_SORT_BY_DESC}`,
       [orderByAsc, orderByKey],
     );
 
@@ -75,8 +91,8 @@ export const ExperimentViewRunsSortSelector = React.memo(
         <span css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {orderByAsc ? <SortAscendingIcon /> : <SortDescendingIcon />}{' '}
           <FormattedMessage
-            defaultMessage='Sort'
-            description='Sort by default option for sort by select dropdown for experiment runs'
+            defaultMessage="Sort"
+            description="Sort by default option for sort by select dropdown for experiment runs"
           />
           : {sortOptionLabel}
         </span>
@@ -85,15 +101,18 @@ export const ExperimentViewRunsSortSelector = React.memo(
 
     const handleChange = (updatedValue: string) => {
       onSortKeyChanged({ value: updatedValue });
+      setOpen(false);
     };
 
     const handleClear = () => {
       onSortKeyChanged({ value: '' });
     };
 
+    const [open, setOpen] = useState(false);
+
     return (
-      <DialogCombobox label={currentSortSelectLabel}>
-        <DialogComboboxTrigger onClear={handleClear} data-test-id='sort-select-dropdown' />
+      <DialogCombobox label={currentSortSelectLabel} onOpenChange={setOpen} open={open}>
+        <DialogComboboxTrigger onClear={handleClear} data-test-id="sort-select-dropdown" />
         <DialogComboboxContent minWidth={250}>
           <DialogComboboxOptionList>
             <DialogComboboxOptionListSearch>

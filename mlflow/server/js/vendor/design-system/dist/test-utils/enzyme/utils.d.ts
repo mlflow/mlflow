@@ -35,5 +35,11 @@ export declare function waitFor<T>(callback: () => T | Promise<T>, options?: Wai
  * but is much simpler because of the shortcomings of Enzyme's API.
  */
 export declare function findAllByRole<P, S, C>(wrapper: ReactWrapper<P, S, C>, role: string): ReactWrapper[];
+/**
+ * Finds a single element that has the specified role in the wrapper. If
+ * there are 0 or more than 1 element that have that role, an error
+ * is thrown. Returns the element in an enzyme wrapper.
+ */
+export declare function findByRole<P, S, C>(wrapper: ReactWrapper<P, S, C>, role: string): ReactWrapper;
 export {};
 //# sourceMappingURL=utils.d.ts.map

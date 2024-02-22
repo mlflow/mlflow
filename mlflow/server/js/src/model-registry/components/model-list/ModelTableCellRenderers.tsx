@@ -30,10 +30,7 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
 
   const noValue = (
     <em>
-      <FormattedMessage
-        description='Models table > tags column > no value'
-        defaultMessage='(empty)'
-      />
+      <FormattedMessage description="Models table > tags column > no value" defaultMessage="(empty)" />
     </em>
   );
 
@@ -47,12 +44,12 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
               {tag.key}: {tag.value || noValue}
             </>
           }
-          placement='left'
+          placement="left"
         >
           <div
             key={tag.key}
             css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
-            data-testid='models-table-tag-entry'
+            data-testid="models-table-tag-entry"
           >
             <Typography.Text bold>{tag.key}</Typography.Text>: {tag.value || noValue}
           </div>
@@ -61,20 +58,20 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
       {tags.length > tagsToShowInitially && (
         <Button
           css={{ marginTop: theme.spacing.sm }}
-          size='small'
+          size="small"
           onClick={() => setShowMore(!showMore)}
           icon={showMore ? <ChevronDoubleUpIcon /> : <ChevronDoubleDownIcon />}
-          data-testid='models-table-show-more-tags'
+          data-testid="models-table-show-more-tags"
         >
           {showMore ? (
             <FormattedMessage
-              defaultMessage='Show less'
-              description='Models table > tags column > show less toggle button'
+              defaultMessage="Show less"
+              description="Models table > tags column > show less toggle button"
             />
           ) : (
             <FormattedMessage
-              defaultMessage='{value} more'
-              description='Models table > tags column > show more toggle button'
+              defaultMessage="{value} more"
+              description="Models table > tags column > show more toggle button"
               values={{ value: validTags.length - tagsToShowInitially }}
             />
           )}
@@ -87,25 +84,17 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
 /**
  * Renders model version with the link in the models table
  */
-export const ModelListVersionLinkCell = ({
-  versionNumber,
-  name,
-}: {
-  versionNumber?: string;
-  name: string;
-}) => {
+export const ModelListVersionLinkCell = ({ versionNumber, name }: { versionNumber?: string; name: string }) => {
   if (!versionNumber) {
     return <EmptyCell />;
   }
   return (
     <FormattedMessage
-      defaultMessage='<link>Version {versionNumber}</link>'
-      description='Row entry for version columns in the registered model page'
+      defaultMessage="<link>Version {versionNumber}</link>"
+      description="Row entry for version columns in the registered model page"
       values={{
         versionNumber,
-        link: (text: any) => (
-          <Link to={ModelRegistryRoutes.getModelVersionPageRoute(name, versionNumber)}>{text}</Link>
-        ),
+        link: (text: any) => <Link to={ModelRegistryRoutes.getModelVersionPageRoute(name, versionNumber)}>{text}</Link>,
       }}
     />
   );

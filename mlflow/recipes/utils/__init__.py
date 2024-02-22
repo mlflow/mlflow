@@ -20,13 +20,18 @@ def get_recipe_name(recipe_root_path: Optional[str] = None) -> str:
     Obtains the name of the specified recipe or of the recipe corresponding to the current
     working directory.
 
-    :param recipe_root_path: The absolute path of the recipe root directory on the local
-                               filesystem. If unspecified, the recipe root directory is
-                               resolved from the current working directory.
-    :raises MlflowException: If the specified ``recipe_root_path`` is not a recipe root
-                             directory or if ``recipe_root_path`` is ``None`` and the current
-                             working directory does not correspond to a recipe.
-    :return: The name of the specified recipe.
+    Args:
+        recipe_root_path: The absolute path of the recipe root directory on the local
+            filesystem. If unspecified, the recipe root directory is resolved from the current
+            working directory.
+
+    Raises:
+        MlflowException: If the specified ``recipe_root_path`` is not a recipe root
+            directory or if ``recipe_root_path`` is ``None`` and the current working directory
+            does not correspond to a recipe.
+
+    Returns:
+        The name of the specified recipe.
     """
     recipe_root_path = recipe_root_path or get_recipe_root_path()
     _verify_is_recipe_root_directory(recipe_root_path=recipe_root_path)
@@ -39,15 +44,20 @@ def get_recipe_config(
     """
     Obtains a dictionary representation of the configuration for the specified recipe.
 
-    :param recipe_root_path: The absolute path of the recipe root directory on the local
-                               filesystem. If unspecified, the recipe root directory is
-                               resolved from the current working directory, and an
-    :param profile: The name of the profile under the `profiles` directory to use,
-                    e.g. "dev" to use configs from "profiles/dev.yaml"
-    :raises MlflowException: If the specified ``recipe_root_path`` is not a recipe root
-                             directory or if ``recipe_root_path`` is ``None`` and the current
-                             working directory does not correspond to a recipe.
-    :return: The configuration of the specified recipe.
+    Args:
+        recipe_root_path: The absolute path of the recipe root directory on the local
+            filesystem. If unspecified, the recipe root directory is resolved from the current
+            working directory.
+        profile: The name of the profile under the `profiles` directory to use, e.g. "dev" to
+            use configs from "profiles/dev.yaml".
+
+    Raises:
+        MlflowException: If the specified ``recipe_root_path`` is not a recipe root directory
+            or if ``recipe_root_path`` is ``None`` and the current working directory does not
+            correspond to a recipe.
+
+    Returns:
+        The configuration of the specified recipe.
     """
     recipe_root_path = recipe_root_path or get_recipe_root_path()
     _verify_is_recipe_root_directory(recipe_root_path=recipe_root_path)
@@ -88,7 +98,8 @@ def get_recipe_root_path() -> str:
     ``MlflowException`` if the current working directory does not reside within a recipe
     directory.
 
-    :return: The absolute path of the recipe root directory on the local filesystem.
+    Returns:
+        The absolute path of the recipe root directory on the local filesystem.
     """
     # In the release version of MLflow Recipes, each recipe will be its own git repository.
     # To improve developer velocity for now, we choose to treat a recipe as a directory, which
@@ -115,7 +126,8 @@ def get_default_profile() -> str:
     Returns the default profile name under which a recipe is executed. The default
     profile may change depending on runtime environment.
 
-    :return: The default profile name string.
+    Returns:
+        The default profile name string.
     """
     return "databricks" if is_in_databricks_runtime() else "local"
 
@@ -124,10 +136,13 @@ def _verify_is_recipe_root_directory(recipe_root_path: str) -> str:
     """
     Verifies that the specified local filesystem path is the path of a recipe root directory.
 
-    :param recipe_root_path: The absolute path of the recipe root directory on the local
-                               filesystem to validate.
-    :raises MlflowException: If the specified ``recipe_root_path`` is not a recipe root
-                             directory.
+    Args:
+        recipe_root_path: The absolute path of the recipe root directory on the local
+            filesystem to validate.
+
+    Raises:
+        MlflowException: If the specified ``recipe_root_path`` is not a recipe root
+            directory.
     """
     recipe_yaml_path = os.path.join(recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
     if not os.path.exists(recipe_yaml_path):

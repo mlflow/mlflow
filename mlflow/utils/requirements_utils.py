@@ -14,7 +14,7 @@ from collections import namedtuple
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
-from typing import NamedTuple, Optional
+from typing import List, NamedTuple, Optional
 
 import importlib_metadata
 import pkg_resources  # noqa: TID251
@@ -56,7 +56,7 @@ def _join_continued_lines(lines):
     Joins lines ending with '\\'.
 
     >>> _join_continued_lines["a\\", "b\\", "c"]
-    >>> 'abc'
+    >>> "abc"
     """
     continued_lines = []
 
@@ -81,8 +81,7 @@ _Requirement = namedtuple("_Requirement", ["req_str", "is_constraint"])
 
 
 def _parse_requirements(requirements, is_constraint, base_dir=None):
-    """
-    A simplified version of `pip._internal.req.parse_requirements` which performs the following
+    """A simplified version of `pip._internal.req.parse_requirements` which performs the following
     operations on the given requirements file and yields the parsed requirements.
 
     - Remove comments and blank lines
@@ -90,12 +89,15 @@ def _parse_requirements(requirements, is_constraint, base_dir=None):
     - Resolve requirements file references (e.g. '-r requirements.txt')
     - Resolve constraints file references (e.g. '-c constraints.txt')
 
-    :param requirements: A string path to a requirements file on the local filesystem or
-                         an iterable of pip requirement strings.
-    :param is_constraint: Indicates the parsed requirements file is a constraint file.
-    :param base_dir: If specified, resolve relative file references (e.g. '-r requirements.txt')
-                     against the specified directory.
-    :return: A list of ``_Requirement`` instances.
+    Args:
+        requirements: A string path to a requirements file on the local filesystem or
+            an iterable of pip requirement strings.
+        is_constraint: Indicates the parsed requirements file is a constraint file.
+        base_dir: If specified, resolve relative file references (e.g. '-r requirements.txt')
+            against the specified directory.
+
+    Returns:
+        A list of ``_Requirement`` instances.
 
     References:
     - `pip._internal.req.parse_requirements`:
@@ -247,14 +249,17 @@ def _get_installed_version(package, module=None):
 
 
 def _capture_imported_modules(model_uri, flavor):
-    """
-    Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
+    """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
 
-    :param model_uri: The URI of the model.
-    :param: flavor: The flavor name of the model.
-    :return: A list of captured modules.
+    Args:
+        model_uri: The URI of the model.
+        flavor: The flavor name of the model.
+
+    Returns:
+        A list of captured modules.
+
     """
     local_model_path = _download_artifact_from_uri(model_uri)
 
@@ -276,6 +281,14 @@ def _capture_imported_modules(model_uri, flavor):
             from mlflow.utils import _capture_transformers_modules
 
             for module_to_throw in ["tensorflow", "torch"]:
+                # NB: Setting USE_TF or USE_TORCH here as Transformers only checks these env
+                # variable on the first import of the library, which could happen anytime during
+                # the model loading process (or even mlflow import). When these variables are not
+                # set, Transformers import some torch/tensorflow modules even if they are not
+                # used by the model, resulting in false positives in the captured modules.
+                transformer_env = (
+                    {"USE_TF": "TRUE"} if module_to_throw == "torch" else {"USE_TORCH": "TRUE"}
+                )
                 try:
                     _run_command(
                         [
@@ -293,7 +306,7 @@ def _capture_imported_modules(model_uri, flavor):
                             module_to_throw,
                         ],
                         timeout_seconds=process_timeout,
-                        env=main_env,
+                        env={**main_env, **transformer_env},
                     )
                     with open(output_file) as f:
                         return f.read().splitlines()
@@ -394,13 +407,16 @@ _PYPI_PACKAGE_INDEX = None
 
 
 def _infer_requirements(model_uri, flavor):
-    """
-    Infers the pip requirements of the specified model by creating a subprocess and loading
+    """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
-    :param model_uri: The URI of the model.
-    :param: flavor: The flavor name of the model.
-    :return: A list of inferred pip requirements.
+    Args:
+        model_uri: The URI of the model.
+        flavor: The flavor name of the model.
+
+    Returns:
+        A list of inferred pip requirements.
+
     """
     _init_modules_to_packages_map()
     global _PYPI_PACKAGE_INDEX
@@ -439,10 +455,10 @@ def _infer_requirements(model_uri, flavor):
 
 
 def _get_local_version_label(version):
-    """
-    Extracts a local version label from `version`.
+    """Extracts a local version label from `version`.
 
-    :param version: A version string.
+    Args:
+        version: A version string.
     """
     try:
         return Version(version).local
@@ -451,13 +467,13 @@ def _get_local_version_label(version):
 
 
 def _strip_local_version_label(version):
-    """
-    Strips a local version label in `version`.
+    """Strips a local version label in `version`.
 
     Local version identifiers:
     https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
 
-    :param version: A version string to strip.
+    Args:
+        version: A version string to strip.
     """
 
     class IgnoreLocal(Version):
@@ -472,16 +488,17 @@ def _strip_local_version_label(version):
 
 
 def _get_pinned_requirement(req_str, version=None, module=None):
-    """
-    Returns a string representing a pinned pip requirement to install the specified package and
+    """Returns a string representing a pinned pip requirement to install the specified package and
     version (e.g. 'mlflow==1.2.3').
 
-    :param req_str: The package requirement string (e.g. "mlflow" or "mlflow[gateway]").
-    :param version: The version of the package. If None, defaults to the installed version.
-    :param module: The name of the top-level module provided by the package . For example,
-                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
-                   to `package`.
-    :param extras: A list of extra names for the package
+    Args:
+        req_str: The package requirement string (e.g. "mlflow" or "mlflow[gateway]").
+        version: The version of the package. If None, defaults to the installed version.
+        module: The name of the top-level module provided by the package . For example,
+            if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+            to `package`.
+        extras: A list of extra names for the package.
+
     """
     req = Requirement(req_str)
     package = req.name
@@ -567,3 +584,38 @@ def _check_requirement_satisfied(requirement_str):
         )
 
     return None
+
+
+def warn_dependency_requirement_mismatches(model_requirements: List[str]):
+    """
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
+    """
+    _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
+    try:
+        mismatch_infos = []
+        for req in model_requirements:
+            mismatch_info = _check_requirement_satisfied(req)
+            if mismatch_info is not None:
+                # Suppress databricks-feature-lookup warning for feature store cases
+                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
+                    continue
+                mismatch_infos.append(str(mismatch_info))
+
+        if len(mismatch_infos) > 0:
+            mismatch_str = " - " + "\n - ".join(mismatch_infos)
+            warning_msg = (
+                "Detected one or more mismatches between the model's dependencies and the current "
+                f"Python environment:\n{mismatch_str}\n"
+                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
+                "to fetch the model's environment and install dependencies using the resulting "
+                "environment file."
+            )
+            _logger.warning(warning_msg)
+
+    except Exception as e:
+        _logger.warning(
+            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
+            "mismatches. Set logging level to DEBUG to see the full traceback."
+        )
+        _logger.debug("", exc_info=True)

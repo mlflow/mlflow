@@ -2,7 +2,7 @@ import userEvent from '@testing-library/user-event';
 
 import { useEditRegisteredModelAliasesModal } from './useEditRegisteredModelAliasesModal';
 import { ModelEntity } from '../../experiment-tracking/types';
-import { RenderResult, act, renderWithIntl } from '../../common/utils/TestUtils';
+import { renderWithIntl, type RenderResult, act } from 'common/utils/TestUtils.react17';
 import { Services } from '../services';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { Provider } from 'react-redux';
@@ -71,9 +71,7 @@ describe('useEditRegisteredModelAliasesModal', () => {
   };
 
   const findOption = (scope: RenderResult, text: string) =>
-    scope
-      .getAllByTestId('model-alias-option')
-      .find(({ textContent }) => textContent?.includes(text)) as HTMLElement;
+    scope.getAllByTestId('model-alias-option').find(({ textContent }) => textContent?.includes(text)) as HTMLElement;
 
   test('should initialize and render modal with properly displayed tags', async () => {
     const component = renderComponentWithHook(MOCK_MODEL);

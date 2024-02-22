@@ -5,11 +5,14 @@ _EXPERIMENT_ID_FIXED_WIDTH = 18
 
 
 def _generate_unique_integer_id():
-    """
-    Utility function for generating a random fixed-length integer
-    :param id_length: The target length of the string representation of the integer without
-                      leading zeros
-    :return: a fixed-width integer
+    """Utility function for generating a random fixed-length integer
+
+    Args:
+        id_length: The target length of the string representation of the integer without
+            leading zeros
+
+    Returns:
+        a fixed-width integer
     """
 
     random_int = uuid.uuid4().int
@@ -36,11 +39,14 @@ def _generate_string(sep, integer_scale):
 def _generate_random_name(sep="-", integer_scale=3, max_length=20):
     """Helper function for generating a random predicate, noun, and integer combination
 
-    :param sep: String separator for word spacing
-    :param integer_scale: dictates the maximum scale range for random integer sampling (power of 10)
-    :param max_length: maximum allowable string length
+    Args:
+        sep: String separator for word spacing.
+        integer_scale: Dictates the maximum scale range for random integer sampling (power of 10).
+        max_length: Maximum allowable string length.
 
-    :return: A random string phrase comprised of a predicate, noun, and random integer
+    Returns:
+        A random string phrase comprised of a predicate, noun, and random integer.
+
     """
     name = None
     for _ in range(10):

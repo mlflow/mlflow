@@ -25,8 +25,7 @@ export const PROMPT_TEMPLATE_EXAMPLES = [
       },
       {
         name: 'documentation',
-        value:
-          'MLflow is an open source platform for managing the end-to-end machine learning lifecycle.',
+        value: 'MLflow is an open source platform for managing the end-to-end machine learning lifecycle.',
       },
     ],
   },

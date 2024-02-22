@@ -108,12 +108,10 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image
 
 def _get_docker_image_uri(repository_uri, work_dir):
     """
-    Returns an appropriate Docker image URI for a project based on the git hash of the specified
-    working directory.
-
-    :param repository_uri: The URI of the Docker repository with which to tag the image. The
-                           repository URI is used as the prefix of the image URI.
-    :param work_dir: Path to the working directory in which to search for a git commit hash
+    Args:
+        repository_uri: The URI of the Docker repository with which to tag the image. The
+            repository URI is used as the prefix of the image URI.
+        work_dir: Path to the working directory in which to search for a git commit hash
     """
     repository_uri = repository_uri if repository_uri else "docker-project"
     # Optionally include first 7 digits of git SHA in tag name, if available.

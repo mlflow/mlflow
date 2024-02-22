@@ -1,8 +1,5 @@
 import { useCallback, useState } from 'react';
-import {
-  ChartStoryWrapper,
-  useControls,
-} from '../../runs-charts/components/RunsCharts.stories-common';
+import { ChartStoryWrapper, useControls } from '../../runs-charts/components/RunsCharts.stories-common';
 import LazyParallelCoordinatesPlot from './LazyParallelCoordinatesPlot';
 import './ParallelCoordinatesPlot.css';
 
@@ -354,12 +351,7 @@ const ParallelCoordinatesPlotStoryWrapper = (props: any) => {
         </>
       }
     >
-      <LazyParallelCoordinatesPlot
-        {...axisProps}
-        onHover={setHoveredRun}
-        onUnhover={clear}
-        {...props}
-      />
+      <LazyParallelCoordinatesPlot {...axisProps} onHover={setHoveredRun} onUnhover={clear} {...props} />
     </ChartStoryWrapper>
   );
 };

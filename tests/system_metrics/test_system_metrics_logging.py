@@ -14,6 +14,7 @@ def disable_system_metrics_logging():
     mlflow.disable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(None)
     mlflow.set_system_metrics_samples_before_logging(None)
+    mlflow.set_system_metrics_node_id(None)
 
 
 def test_manual_system_metrics_monitor():
@@ -141,3 +142,25 @@ def test_automatic_system_metrics_monitor_resume_existing_run():
         run.info.run_id, "system/cpu_utilization_percentage"
     )
     assert metrics_history[-1].step > last_step
+
+
+def test_system_metrics_monitor_with_multi_node():
+    mlflow.enable_system_metrics_logging()
+    mlflow.set_system_metrics_sampling_interval(0.2)
+    mlflow.set_system_metrics_samples_before_logging(2)
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    node_ids = ["0", "1", "2", "3"]
+    for node_id in node_ids:
+        mlflow.set_system_metrics_node_id(node_id)
+        with mlflow.start_run(run_id=run_id, log_system_metrics=True):
+            time.sleep(1)
+
+    mlflow_run = mlflow.get_run(run_id)
+    metrics = mlflow_run.data.metrics
+
+    for node_id in node_ids:
+        expected_metric_name = f"system/{node_id}/cpu_utilization_percentage"
+        assert expected_metric_name in metrics.keys()

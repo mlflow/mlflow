@@ -72,7 +72,7 @@ requires OpenAI API key, if you don't have an OpenAI key, you can set it up [her
         # Wrap "gpt-4" as an MLflow model.
         logged_model_info = mlflow.openai.log_model(
             model="gpt-4",
-            task=openai.ChatCompletion,
+            task=openai.chat.completions,
             artifact_path="model",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -224,6 +224,34 @@ metrics:
 * :py:func:`mlflow.metrics.genai.relevance`: Use this metric when you want to evaluate how relevant the model generated output is with respect to both the input and the context. High scores mean that the model has understood the context and correct extracted relevant information from the context, while low score mean that output has completely ignored the question and the context and could be hallucinating.
 * :py:func:`mlflow.metrics.genai.faithfulness`: Use this metric when you want to evaluate how faithful the model generated output is based on the context provided. High scores mean that the outputs contain information that is in line with the context, while low scores mean that outputs may disagree with the context (input is ignored).
 
+Selecting the LLM-as-judge Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. You can change the default judge model by passing an override to the ``model`` argument within the metric definition, as shown below. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments. Use :py:func:`mlflow.deployments.set_deployments_target` to set the target deployment client.
+
+To use an endpoint hosted by a local MLflow Deployments Server, you can use the following code.
+
+.. code-block:: python
+
+    from mlflow.deployments import set_deployments_target
+
+    set_deployments_target("http://localhost:5000")
+    my_answer_similarity = mlflow.metrics.genai.answer_similarity(
+        model="endpoints:/my-endpoint"
+    )
+
+To use an endpoint hosted on Databricks, you can use the following code.
+
+.. code-block:: python
+
+    from mlflow.deployments import set_deployments_target
+
+    set_deployments_target("databricks")
+    llama2_answer_similarity = mlflow.metrics.genai.answer_similarity(
+        model="endpoints:/databricks-llama-2-70b-chat"
+    )
+
+For more information about how various models perform as judges, please refer to `this blog <https://www.databricks.com/blog/LLM-auto-eval-best-practices-RAG>`_.
 
 Creating Custom LLM-evaluation Metrics
 --------------------------------------
@@ -238,7 +266,7 @@ needs the following information:
 * ``definition``: describe what's the metric doing. 
 * ``grading_prompt``: describe the scoring critieria. 
 * ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
-* ``model``: the identifier of LLM judge. 
+* ``model``: the identifier of LLM judge, in the format of "openai:/gpt-4" or "endpoints:/databricks-llama-2-70b-chat".  
 * ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
 * ``aggregations``: The list of options to aggregate the per-row scores using numpy functions.
 * ``greater_is_better``: indicates if a higher score means your model is better.
@@ -318,10 +346,10 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
 Create heuristic-based LLM Evaluation Metrics (Category 2)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This is very similar to creating a custom traditional metrics, with the exception of returning a `EvaluationResult` instance.
+This is very similar to creating custom traditional metrics, with the exception of returning a :py:func:`mlflow.metrics.MetricValue` instance.
 Basically you need to:
 
-1. Implement a ``eval_fn`` to define your scoring logic, it must take in 3 args ``predictions``, ``targets`` and ``metrics``.
+1. Implement a ``eval_fn`` to define your scoring logic, it must take in 2 args ``predictions`` and ``targets``.
    ``eval_fn`` must return a :py:func:`mlflow.metrics.MetricValue` instance.
 2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
 
@@ -330,7 +358,7 @@ the score is "yes" otherwise "no".
 
 .. code-block:: python
 
-    def eval_fn(predictions, targets, metrics):
+    def eval_fn(predictions, targets):
         scores = []
         for i in range(len(predictions)):
             if len(predictions[i]) > 10:
@@ -348,6 +376,27 @@ the score is "yes" otherwise "no".
         eval_fn=eval_fn, greater_is_better=False, name="over_10_chars"
     )
 
+To create a custom metric that is dependent on other metrics, include those other metrics' names as an argument after ``predictions`` and ``targets``. This can be the name of a builtin metric or another custom metric.
+Ensure that you do not accidentally have any circular dependencies in your metrics, or the evaluation will fail.
+
+The following code creates a dummy per-row metric called ``"toxic_or_over_10_chars"``: if the model output is greater than 10 or the toxicity score is greater than 0.5, the score is "yes" otherwise "no".
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, toxicity, over_10_chars):
+        scores = []
+        for i in range(len(predictions)):
+            if toxicity.scores[i] > 0.5 or over_10_chars.scores[i]:
+                scores.append("yes")
+            else:
+                scores.append("no")
+        return MetricValue(scores=scores)
+
+
+    # Create an EvaluationMetric object.
+    toxic_and_over_10_chars_metric = make_metric(
+        eval_fn=eval_fn, greater_is_better=False, name="toxic_or_over_10_chars"
+    )
 
 Prepare Your LLM for Evaluating
 -------------------------------
@@ -380,7 +429,7 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
             # Wrap "gpt-3.5-turbo" as an MLflow model.
             logged_model_info = mlflow.openai.log_model(
                 model="gpt-3.5-turbo",
-                task=openai.ChatCompletion,
+                task=openai.chat.completions,
                 artifact_path="model",
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -426,7 +475,7 @@ up OpenAI authentication to run the code below.
         answers = []
         system_prompt = "Please answer the following question in formal language."
         for index, row in inputs.iterrows():
-            completion = openai.ChatCompletion.create(
+            completion = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -508,7 +557,7 @@ Viewing Evaluation Results
 View Evaluation Results via Code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instace. 
+``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instance. 
 To see the score on selected metrics, you can check:
 
 * ``metrics``: stores the aggregated results, like average/variance across the evaluation dataset. Let's take a second

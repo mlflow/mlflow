@@ -28,11 +28,11 @@ export const TrimmedText = ({ text, maxSize, className, allowShowMore = false }:
       {showMore ? text : trimmedText}
       {allowShowMore && (
         <Button
-          type='link'
+          type="link"
           onClick={() => setShowMore(!showMore)}
-          size='small'
+          size="small"
           css={styles.expandButton}
-          data-test-id='trimmed-text-button'
+          data-test-id="trimmed-text-button"
         >
           {showMore ? 'collapse' : 'expand'}
         </Button>

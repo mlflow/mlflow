@@ -15,9 +15,11 @@ const CreateNewRunContext = React.createContext<{
 export const CreateNewRunContextProvider = ({
   children,
   visibleRuns,
+  refreshRuns,
 }: {
   children: React.ReactNode;
   visibleRuns: RunRowType[];
+  refreshRuns: (() => Promise<never[]>) | (() => Promise<any> | null) | (() => void);
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [runBeingDuplicated, setRunBeingDuplicated] = useState<RunRowType | null>(null);
@@ -41,6 +43,7 @@ export const CreateNewRunContextProvider = ({
           isOpen={isOpen}
           closeModal={() => setIsOpen(false)}
           runBeingDuplicated={runBeingDuplicated}
+          refreshRuns={refreshRuns}
         />
       )}
     </CreateNewRunContext.Provider>

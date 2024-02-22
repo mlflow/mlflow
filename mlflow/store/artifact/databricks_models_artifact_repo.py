@@ -5,7 +5,10 @@ import posixpath
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
+    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -27,7 +30,6 @@ from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
@@ -154,7 +156,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 file_size=file_size,
                 # URI type is not known in this context
                 uri_type=None,
-                chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                chunk_size=MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
                 env=parallel_download_subproc_env,
                 headers=headers,
             )
@@ -183,10 +185,12 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 headers = self._extract_headers_from_signed_url(raw_headers)
             if (
                 not file_size
-                or file_size <= _DOWNLOAD_CHUNK_SIZE
+                or file_size <= MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get()
                 or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             ):
-                download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
+                download_file_using_http_uri(
+                    signed_uri, local_path, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(), headers
+                )
             else:
                 self._parallelized_download_from_cloud(
                     signed_uri,

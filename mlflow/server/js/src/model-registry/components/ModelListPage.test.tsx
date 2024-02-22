@@ -49,9 +49,7 @@ describe('ModelListPage', () => {
       location,
     };
     const name = 'Model A';
-    const versions = [
-      mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-    ];
+    const versions = [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)];
     minimalStore = mockStore({
       entities: {
         modelByName: {
@@ -185,15 +183,13 @@ describe('ModelListPage', () => {
       </Provider>,
     );
     instance = wrapper.find(ModelListPageImpl).instance();
-    const expectedUrl =
-      '/models?searchInput=name%20ilike%20%27%25abc%25%27%20AND%20tags.k%20%3D%20%22v%22';
+    const expectedUrl = '/models?searchInput=name%20ilike%20%27%25abc%25%27%20AND%20tags.k%20%3D%20%22v%22';
     instance.render();
     expect(navigateSpy).toHaveBeenCalledWith(expectedUrl);
   });
 
   test('should pushes URL correctly from URLs with searchInput', () => {
-    minimalProps['location']['search'] =
-      'searchInput=name%20ilike%20"%25ab%25"%20AND%20tags.a%20%3D%201';
+    minimalProps['location']['search'] = 'searchInput=name%20ilike%20"%25ab%25"%20AND%20tags.a%20%3D%201';
     wrapper = mount(
       <Provider store={minimalStore}>
         <MemoryRouter>
@@ -202,8 +198,7 @@ describe('ModelListPage', () => {
       </Provider>,
     );
     instance = wrapper.find(ModelListPageImpl).instance();
-    const expectedUrl =
-      '/models?searchInput=name%20ilike%20%22%25ab%25%22%20AND%20tags.a%20%3D%201';
+    const expectedUrl = '/models?searchInput=name%20ilike%20%22%25ab%25%22%20AND%20tags.a%20%3D%201';
     instance.render();
     expect(navigateSpy).toHaveBeenCalledWith(expectedUrl);
   });

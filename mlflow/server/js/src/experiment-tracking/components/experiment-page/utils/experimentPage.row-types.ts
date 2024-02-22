@@ -1,31 +1,46 @@
-import type {
-  ModelVersionInfoEntity,
-  RunInfoEntity,
-  RunDatasetWithTags,
-  KeyValueEntity,
-} from '../../../types';
+import type { ModelVersionInfoEntity, RunInfoEntity, RunDatasetWithTags, KeyValueEntity } from '../../../types';
 
 /**
  * Represents a single ag-grid compatible row used in Experiment View runs table.
  */
 export interface RunRowType {
+  /**
+   * Contains run UUID. Empty string for group rows.
+   */
   runUuid: string;
-  runInfo: RunInfoEntity;
-  experimentName: { name: string; basename: string };
-  experimentId: string;
+
+  /**
+   * Unique identifier for both run and group rows. Used by ag-grid to identify rows.
+   */
+  rowUuid: string;
+
+  runInfo?: RunInfoEntity;
+  experimentName?: { name: string; basename: string };
+  experimentId?: string;
   duration: string | null;
-  user: string;
+  user?: string;
   pinned: boolean;
   hidden: boolean;
   pinnable: boolean;
-  runName: string;
+  runName?: string;
   color?: string;
-  tags: Record<string, { key: string; value: string }>;
-  params: KeyValueEntity[];
-  runDateAndNestInfo: RunRowDateAndNestInfo;
-  models: RunRowModelsInfo;
-  version: RunRowVersionInfo;
+  tags?: Record<string, { key: string; value: string }>;
+  params?: KeyValueEntity[];
+
+  /**
+   * Contains information about run's date, timing and hierarchy. Empty for group rows.
+   */
+  runDateAndNestInfo?: RunRowDateAndNestInfo;
+
+  /**
+   * Set if the row is a group header/parent. Contains information about contained runs and aggregated data.
+   */
+  groupParentInfo?: RunGroupParentInfo;
+
+  models: RunRowModelsInfo | null;
+  version?: RunRowVersionInfo;
   datasets: RunDatasetWithTags[];
+
   [k: string]: any;
 }
 
@@ -65,7 +80,78 @@ export interface RunRowDateAndNestInfo {
   runStatus: string;
   isParent: boolean;
   hasExpander: boolean;
+  belongsToGroup: boolean;
   expanderOpen?: boolean;
   childrenIds?: string[];
   level: number;
+}
+
+export enum RunGroupingMode {
+  Dataset = 'dataset',
+  Tag = 'tag',
+  Param = 'param',
+}
+
+export enum RunGroupingAggregateFunction {
+  Min = 'min',
+  Average = 'average',
+  Max = 'max',
+}
+export type RunGroupByValueType =
+  | string
+  | symbol
+  | {
+      name: string;
+      digest: string;
+    };
+
+export interface RunGroupParentInfo {
+  groupingMode: RunGroupingMode;
+  value: RunGroupByValueType;
+  groupId: string;
+  expanderOpen?: boolean;
+  runUuids: string[];
+  aggregatedMetricData: Record<string, { key: string; value: number }>;
+  aggregatedParamData: Record<string, { key: string; value: number }>;
+  aggregateFunction?: RunGroupingAggregateFunction;
+}
+
+/**
+ * An intermediate interface representing single row in agGrid (but not necessarily
+ * a single run - these might be nested and not expanded). Is created from the data
+ * originating from the store, then after enriching with metrics, params, attributed etc.
+ * is being transformed to RunRowType which serves as a final agGrid compatible type.
+ */
+export interface RowRenderMetadata {
+  index: number;
+  isParent?: boolean;
+  hasExpander?: boolean;
+  expanderOpen?: boolean;
+  belongsToGroup?: boolean;
+  isPinnable?: boolean;
+  runInfo: RunInfoEntity;
+  level: number;
+  childrenIds?: string[];
+  params: KeyValueEntity[];
+  metrics: KeyValueEntity[];
+  tags: Record<string, KeyValueEntity>;
+  datasets: RunDatasetWithTags[];
+  isGroup?: false;
+  rowUuid: string;
+}
+
+export interface RowGroupRenderMetadata {
+  groupId: string;
+  isGroup: true;
+  expanderOpen: boolean;
+  runUuids: string[];
+  aggregatedMetricEntities: {
+    key: string;
+    value: number;
+  }[];
+  aggregatedParamEntities: {
+    key: string;
+    value: number;
+  }[];
+  value: RunGroupByValueType;
 }

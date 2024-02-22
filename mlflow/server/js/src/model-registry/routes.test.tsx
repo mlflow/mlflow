@@ -16,22 +16,16 @@ describe('model registry page routes', () => {
 
   test('yields correct route paths for model page routes', () => {
     expect(ModelRegistryRoutes.getModelPageRoute('model-name')).toEqual('/models/model-name');
-    expect(ModelRegistryRoutes.getModelPageServingRoute('model-name')).toEqual(
-      '/models/model-name/serving',
-    );
+    expect(ModelRegistryRoutes.getModelPageServingRoute('model-name')).toEqual('/models/model-name/serving');
   });
   test('yields correct route paths for model version page routes', () => {
-    expect(ModelRegistryRoutes.getModelVersionPageRoute('model-name', '6')).toEqual(
-      '/models/model-name/versions/6',
-    );
+    expect(ModelRegistryRoutes.getModelVersionPageRoute('model-name', '6')).toEqual('/models/model-name/versions/6');
     expect(
       ModelRegistryRoutes.getCompareModelVersionsPageRoute('model-name', {
         'run-1': '1',
         'run-2': '2',
         'run-3': '3',
       }),
-    ).toEqual(
-      '/compare-model-versions?name="model-name"&runs={"run-1":"1","run-2":"2","run-3":"3"}',
-    );
+    ).toEqual('/compare-model-versions?name="model-name"&runs={"run-1":"1","run-2":"2","run-3":"3"}');
   });
 });

@@ -32,10 +32,7 @@ type CompareRunScatterImplProps = {
 
 type CompareRunScatterImplState = any;
 
-export class CompareRunScatterImpl extends Component<
-  CompareRunScatterImplProps,
-  CompareRunScatterImplState
-> {
+export class CompareRunScatterImpl extends Component<CompareRunScatterImplProps, CompareRunScatterImplState> {
   // Size limits for displaying keys and values in our plot axes and tooltips
   static MAX_PLOT_KEY_LENGTH = 40;
   static MAX_PLOT_VALUE_LENGTH = 60;
@@ -85,10 +82,7 @@ export class CompareRunScatterImpl extends Component<
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
   getValue(i: any, { key, isMetric }: any) {
-    const value = CompareRunUtil.findInList(
-      (isMetric ? this.props.metricLists : this.props.paramLists)[i],
-      key,
-    );
+    const value = CompareRunUtil.findInList((isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : (value as any).value;
   }
 
@@ -129,10 +123,10 @@ export class CompareRunScatterImpl extends Component<
         controls={
           <>
             <div>
-              <label htmlFor='x-axis-selector'>
+              <label htmlFor="x-axis-selector">
                 <FormattedMessage
-                  defaultMessage='X-axis:'
-                  description='Label text for x-axis in scatter plot comparison in MLflow'
+                  defaultMessage="X-axis:"
+                  description="Label text for x-axis in scatter plot comparison in MLflow"
                 />
               </label>
               {this.renderSelect('x')}
@@ -140,10 +134,10 @@ export class CompareRunScatterImpl extends Component<
             <Spacer />
             <div>
               {' '}
-              <label htmlFor='y-axis-selector'>
+              <label htmlFor="y-axis-selector">
                 <FormattedMessage
-                  defaultMessage='Y-axis:'
-                  description='Label text for y-axis in scatter plot comparison in MLflow'
+                  defaultMessage="Y-axis:"
+                  description="Label text for y-axis in scatter plot comparison in MLflow"
                 />
               </label>
               {this.renderSelect('y')}
@@ -213,14 +207,14 @@ export class CompareRunScatterImpl extends Component<
           }}
           value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
         >
-          <OptGroup label='Parameter'>
+          <OptGroup label="Parameter">
             {this.paramKeys.map((p: any) => (
               <Option key={'param-' + p} value={'param-' + p}>
                 {p}
               </Option>
             ))}
           </OptGroup>
-          <OptGroup label='Metric'>
+          <OptGroup label="Metric">
             {this.metricKeys.map((m: any) => (
               <Option key={'metric-' + m} value={'metric-' + m}>
                 {m}
@@ -249,11 +243,7 @@ export class CompareRunScatterImpl extends Component<
     if (metricList.length > 0) {
       result += paramList.length > 0 ? '<br>' : '';
       metricList.forEach((m) => {
-        result +=
-          this.encodeHtml(Utils.truncateString(m.key, keyLength)) +
-          ': ' +
-          Utils.formatMetric(m.value) +
-          '<br>';
+        result += this.encodeHtml(Utils.truncateString(m.key, keyLength)) + ': ' + Utils.formatMetric(m.value) + '<br>';
       });
     }
     return result;

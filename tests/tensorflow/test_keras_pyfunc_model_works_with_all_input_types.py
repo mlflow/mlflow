@@ -5,12 +5,19 @@ import numpy as np
 import pandas as pd
 import pytest
 import tensorflow as tf
+from packaging.version import Version
 from pyspark.sql.functions import struct
 from sklearn import datasets
 from tensorflow.keras.layers import Concatenate, Dense, Input, Lambda
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
-from tensorflow.keras.utils import register_keras_serializable
+
+# Tensorflow >= 2.16 removed register_keras_serializable from
+# keras.utils and only export it from keras.saving.
+if Version(tf.__version__).release >= (2, 16):
+    from tensorflow.keras.saving import register_keras_serializable
+else:
+    from tensorflow.keras.utils import register_keras_serializable
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -23,6 +30,7 @@ from tests.helper_functions import (
     expect_status_code,
     pyfunc_serve_and_score_model,
 )
+from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 IS_TENSORFLOW_AVAILABLE = _is_available_on_pypi("tensorflow")
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-manager", "local"]
@@ -42,14 +50,6 @@ def data():
     y = data["target"]
     x = data.drop("target", axis=1)
     return x, y
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    from pyspark.sql import SparkSession
-
-    with SparkSession.builder.master("local[2]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")

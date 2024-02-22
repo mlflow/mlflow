@@ -1,13 +1,12 @@
 import type { ReactWrapper } from 'enzyme';
-import { mountWithIntl } from '../../../../../common/utils/TestUtils';
+import { MockedReduxStoreProvider, mountWithIntl } from '../../../../../common/utils/TestUtils';
 import { GetExperimentRunsContext } from '../../contexts/GetExperimentRunsContext';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import type { GetExperimentRunsContextType } from '../../contexts/GetExperimentRunsContext';
-import {
-  ExperimentViewRunsImpl as ExperimentViewRuns,
-  ExperimentViewRunsProps,
-} from './ExperimentViewRuns';
+import { ExperimentViewRunsImpl as ExperimentViewRuns, ExperimentViewRunsProps } from './ExperimentViewRuns';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
+import { createExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
 
 /**
  * Mock all expensive utility functions
@@ -16,6 +15,7 @@ const mockPrepareRunsGridData = jest.fn();
 jest.mock('../../utils/experimentPage.row-utils', () => ({
   ...jest.requireActual('../../utils/experimentPage.row-utils'),
   prepareRunsGridData: (...params: any) => mockPrepareRunsGridData(...params),
+  useExperimentRunRows: (...params: any) => mockPrepareRunsGridData(...params),
 }));
 
 jest.mock('../../hooks/useCreateNewRun', () => ({
@@ -27,7 +27,7 @@ jest.mock('./ExperimentViewRunsControls', () => ({
 jest.mock('./ExperimentViewRunsTable', () => ({
   ExperimentViewRunsTable: ({ loadMoreRunsFunc }: { loadMoreRunsFunc: () => void }) => (
     <div>
-      <button data-testid='load-more' onClick={loadMoreRunsFunc} />
+      <button data-testid="load-more" onClick={loadMoreRunsFunc} />
     </div>
   ),
 }));
@@ -73,12 +73,11 @@ jest.mock('../../hooks/useFetchedRunsNotification', () => {
   };
 });
 
-const mockTagKeys = Object.keys(
-  EXPERIMENT_RUNS_MOCK_STORE.entities.tagsByRunUuid['experiment123456789_run1'],
-);
+const mockTagKeys = Object.keys(EXPERIMENT_RUNS_MOCK_STORE.entities.tagsByRunUuid['experiment123456789_run1']);
 
 describe('ExperimentViewRuns', () => {
   let contextValue: Partial<GetExperimentRunsContextType> = {};
+  const loadMoreRunsMockFn = jest.fn();
 
   beforeAll(() => {
     jest.useFakeTimers();
@@ -101,7 +100,7 @@ describe('ExperimentViewRuns', () => {
       }),
       fetchExperimentRuns: jest.fn(),
       updateSearchFacets: jest.fn(),
-      loadMoreRuns: jest.fn(),
+      loadMoreRuns: loadMoreRunsMockFn,
       isPristine: jest.fn(),
     } as any;
   });
@@ -111,6 +110,8 @@ describe('ExperimentViewRuns', () => {
     runsData: {
       paramKeyList: ['p1', 'p2', 'p3'],
       metricKeyList: ['m1', 'm2', 'm3'],
+      modelVersionsByRunUuid: {},
+      runUuidsMatchingFilter: ['experiment123456789_run1'],
       tagsList: [EXPERIMENT_RUNS_MOCK_STORE.entities.tagsByRunUuid['experiment123456789_run1']],
       runInfos: [EXPERIMENT_RUNS_MOCK_STORE.entities.runInfosByUuid['experiment123456789_run1']],
       paramsList: [[{ key: 'p1', value: 'pv1' }]],
@@ -118,15 +119,29 @@ describe('ExperimentViewRuns', () => {
       datasetsList: [[{ dataset: { digest: 'ab12', name: 'dataset_name' } }]],
     } as any,
     isLoading: false,
+    searchFacetsState: new SearchExperimentRunsFacetsState(),
+    uiState: Object.assign(createExperimentPageUIStateV2(), {
+      runsPinned: ['experiment123456789_run1'],
+    }),
+    isLoadingRuns: false,
+    isPristine: () => false,
+    loadMoreRuns: loadMoreRunsMockFn,
+    refreshRuns: jest.fn(),
+    requestError: null,
+    moreRunsAvailable: false,
   };
   const ProxyComponent = (additionalProps: Partial<ExperimentViewRunsProps> = {}) => (
-    <GetExperimentRunsContext.Provider value={contextValue as any}>
-      <ExperimentViewRuns {...defaultProps} {...additionalProps} />
-    </GetExperimentRunsContext.Provider>
+    <MemoryRouter>
+      <MockedReduxStoreProvider state={{ entities: {} }}>
+        <GetExperimentRunsContext.Provider value={contextValue as any}>
+          <ExperimentViewRuns {...defaultProps} {...additionalProps} />
+        </GetExperimentRunsContext.Provider>
+      </MockedReduxStoreProvider>
+    </MemoryRouter>
   );
+
   const createWrapper = (additionalProps: Partial<ExperimentViewRunsProps> = {}) =>
-    // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
-    mountWithIntl(<ProxyComponent {...additionalProps} />) as ReactWrapper;
+    mountWithIntl(<ProxyComponent {...additionalProps} />);
 
   test('should properly call getting row data function', () => {
     createWrapper();
@@ -171,13 +186,16 @@ describe('ExperimentViewRuns', () => {
     contextValue.moreRunsAvailable = true;
     contextValue.isLoadingRuns = false;
 
-    contextValue.loadMoreRuns = jest.fn().mockResolvedValue([{ info: { run_uuid: 'new' } }]);
-    const wrapper = createWrapper();
+    loadMoreRunsMockFn.mockResolvedValue([{ info: { run_uuid: 'new' } }]);
+    const wrapper = createWrapper({
+      moreRunsAvailable: true,
+      isLoadingRuns: false,
+    });
 
     const button = wrapper.find("[data-testid='load-more']").first();
 
     button.simulate('click');
-    await contextValue.loadMoreRuns();
+    await loadMoreRunsMockFn();
 
     expect(mockedShowNotification).toBeCalledWith(
       [{ info: { run_uuid: 'new' } }],

@@ -52,6 +52,8 @@ class EmbeddingsResponse(BaseModel):
 
 
 class MlflowModelServingProvider(BaseProvider):
+    NAME = "MLflow Model Serving"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(

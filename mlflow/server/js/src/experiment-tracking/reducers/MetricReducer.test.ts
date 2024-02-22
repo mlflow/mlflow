@@ -167,13 +167,7 @@ describe('test getMaxMetrics', () => {
   });
 });
 
-const mockMetric = (
-  key: any,
-  value: any,
-  timestamp = 1234567890000,
-  step = 1,
-  run_id = undefined,
-) => {
+const mockMetric = (key: any, value: any, timestamp = 1234567890000, step = 1, run_id = undefined) => {
   const metric = {
     key: key,
     value: value,
@@ -354,106 +348,94 @@ describe('test metricsByRunUuid', () => {
     });
   });
 
-  test(
-    'GET_METRIC_HISTORY_API updates state for relevant metric ' +
-      'and leaves other metrics unaffected',
-    () => {
-      const [m1, m1proto] = mockMetric('acc', 5);
-      const [m2, m2proto] = mockMetric('acc', 6);
-      const [, m3proto] = mockMetric('loss', 0.001);
-      const state = {
-        run1: {
-          acc: [m1proto],
-          loss: [m3proto],
-        },
-      };
-      const action = {
-        type: fulfilled(GET_METRIC_HISTORY_API),
-        meta: { runUuid: 'run1', key: 'acc' },
-        payload: {
-          metrics: [m1, m2],
-        },
-      };
-      expect(metricsByRunUuid(state, action)).toEqual({
-        run1: {
-          acc: [m1proto, m2proto],
-          loss: [m3proto],
-        },
-      });
-    },
-  );
+  test('GET_METRIC_HISTORY_API updates state for relevant metric and leaves other metrics unaffected', () => {
+    const [m1, m1proto] = mockMetric('acc', 5);
+    const [m2, m2proto] = mockMetric('acc', 6);
+    const [, m3proto] = mockMetric('loss', 0.001);
+    const state = {
+      run1: {
+        acc: [m1proto],
+        loss: [m3proto],
+      },
+    };
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API),
+      meta: { runUuid: 'run1', key: 'acc' },
+      payload: {
+        metrics: [m1, m2],
+      },
+    };
+    expect(metricsByRunUuid(state, action)).toEqual({
+      run1: {
+        acc: [m1proto, m2proto],
+        loss: [m3proto],
+      },
+    });
+  });
 
-  test(
-    "GET_METRIC_HISTORY_API updates state for relevant run's metrics " +
-      'and leaves other runs unaffected',
-    () => {
-      const [m1, m1proto] = mockMetric('acc', 5);
-      const [m2, m2proto] = mockMetric('acc', 6);
-      const [, m3proto] = mockMetric('loss', 0.001);
-      const state = {
-        run1: {
-          acc: [m1proto],
-        },
-        run2: {
-          acc: [m3proto],
-        },
-      };
-      const action = {
-        type: fulfilled(GET_METRIC_HISTORY_API),
-        meta: { runUuid: 'run1', key: 'acc' },
-        payload: {
-          metrics: [m1, m2],
-        },
-      };
-      expect(metricsByRunUuid(state, action)).toEqual({
-        run1: {
-          acc: [m1proto, m2proto],
-        },
-        run2: {
-          acc: [m3proto],
-        },
-      });
-    },
-  );
+  test("GET_METRIC_HISTORY_API updates state for relevant run's metrics and leaves other runs unaffected", () => {
+    const [m1, m1proto] = mockMetric('acc', 5);
+    const [m2, m2proto] = mockMetric('acc', 6);
+    const [, m3proto] = mockMetric('loss', 0.001);
+    const state = {
+      run1: {
+        acc: [m1proto],
+      },
+      run2: {
+        acc: [m3proto],
+      },
+    };
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API),
+      meta: { runUuid: 'run1', key: 'acc' },
+      payload: {
+        metrics: [m1, m2],
+      },
+    };
+    expect(metricsByRunUuid(state, action)).toEqual({
+      run1: {
+        acc: [m1proto, m2proto],
+      },
+      run2: {
+        acc: [m3proto],
+      },
+    });
+  });
 
-  test(
-    "GET_METRIC_HISTORY_API_BULK updates state for relevant runs' metrics " +
-      'and leaves other runs unaffected',
-    () => {
-      // @ts-expect-error TS(2345): Argument of type '"run1"' is not assignable to par... Remove this comment to see the full error message
-      const [, m1proto] = mockMetric('acc', 5, 1, 1, 'run1');
-      // @ts-expect-error TS(2345): Argument of type '"run2"' is not assignable to par... Remove this comment to see the full error message
-      const [, m2proto] = mockMetric('acc', 6, 1, 1, 'run2');
-      // @ts-expect-error TS(2345): Argument of type '"run3"' is not assignable to par... Remove this comment to see the full error message
-      const [m3, m3proto] = mockMetric('acc', 7, 1, 1, 'run3');
-      const state = {
-        run1: {
-          acc: [m1proto],
-        },
-        run2: {
-          acc: [m2proto],
-        },
-      };
-      const action = {
-        type: fulfilled(GET_METRIC_HISTORY_API_BULK),
-        meta: { runUuids: ['run3'], key: 'acc' },
-        payload: {
-          metrics: [m3],
-        },
-      };
-      expect(metricsByRunUuid(state, action)).toEqual({
-        run1: {
-          acc: [m1proto],
-        },
-        run2: {
-          acc: [m2proto],
-        },
-        run3: {
-          acc: [m3proto],
-        },
-      });
-    },
-  );
+  test("GET_METRIC_HISTORY_API_BULK updates state for relevant runs' metrics and leaves other runs unaffected", () => {
+    // @ts-expect-error TS(2345): Argument of type '"run1"' is not assignable to par... Remove this comment to see the full error message
+    const [, m1proto] = mockMetric('acc', 5, 1, 1, 'run1');
+    // @ts-expect-error TS(2345): Argument of type '"run2"' is not assignable to par... Remove this comment to see the full error message
+    const [, m2proto] = mockMetric('acc', 6, 1, 1, 'run2');
+    // @ts-expect-error TS(2345): Argument of type '"run3"' is not assignable to par... Remove this comment to see the full error message
+    const [m3, m3proto] = mockMetric('acc', 7, 1, 1, 'run3');
+    const state = {
+      run1: {
+        acc: [m1proto],
+      },
+      run2: {
+        acc: [m2proto],
+      },
+    };
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API_BULK),
+      meta: { runUuids: ['run3'], key: 'acc' },
+      payload: {
+        metrics: [m3],
+      },
+    };
+    expect(metricsByRunUuid(state, action)).toEqual({
+      run1: {
+        acc: [m1proto],
+      },
+      run2: {
+        acc: [m2proto],
+      },
+      run3: {
+        acc: [m3proto],
+      },
+    });
+  });
 });
 
 describe('test minMetricsByRunUuid', () => {

@@ -46,30 +46,26 @@ export const PromptLabOnboarding = ({ onDismissed }: { onDismissed?: () => void 
               description='"Learn more" button in the modal for the prompt engineering onboarding'
             />
           </Button> */}
-          <Button onClick={closeModal} type='primary'>
+          <Button onClick={closeModal} type="primary">
             <FormattedMessage
-              defaultMessage='Try it now'
+              defaultMessage="Try it now"
               description='"Try it now" button in the modal for the prompt engineering onboarding'
             />
           </Button>
         </>
       }
-      size='wide'
+      size="wide"
       title={
         <FormattedMessage
-          defaultMessage='🎉 Introducing Prompt Engineering in Experiment Tracking 🎉'
-          description='Title of the modal for the prompt engineering onboarding'
+          defaultMessage="🎉 Introducing Prompt Engineering in Experiment Tracking 🎉"
+          description="Title of the modal for the prompt engineering onboarding"
         />
       }
     >
       <section css={styles.wrapper}>
         <div css={styles.label}>{promptlabDescription}</div>
         <div css={styles.gifContainer}>
-          <img
-            src={OnboardingGifPromptLab}
-            alt={promptlabDescription}
-            css={{ maxWidth: '100%', maxHeight: '100%' }}
-          />
+          <img src={OnboardingGifPromptLab} alt={promptlabDescription} css={{ maxWidth: '100%', maxHeight: '100%' }} />
         </div>
       </section>
     </Modal>

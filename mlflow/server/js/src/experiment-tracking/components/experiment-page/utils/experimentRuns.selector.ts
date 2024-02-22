@@ -10,13 +10,7 @@ import {
   RunDatasetWithTags,
 } from '../../../types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
-import {
-  getExperimentTags,
-  getParams,
-  getRunDatasets,
-  getRunInfo,
-  getRunTags,
-} from '../../../reducers/Reducers';
+import { getExperimentTags, getParams, getRunDatasets, getRunInfo, getRunTags } from '../../../reducers/Reducers';
 
 export type ExperimentRunsSelectorResult = {
   /**
@@ -81,6 +75,7 @@ export type ExperimentRunsSelectorResult = {
 
 export type ExperimentRunsSelectorParams = {
   experiments: ExperimentEntity[];
+  experimentIds?: string[];
   lifecycleFilter?: LIFECYCLE_FILTER;
   modelVersionFilter?: MODEL_VERSION_FILTER;
   datasetsFilter?: DatasetSummary[];
@@ -153,7 +148,7 @@ export const experimentRunsSelector = (
   params: ExperimentRunsSelectorParams,
 ): ExperimentRunsSelectorResult => {
   const { experiments } = params;
-  const experimentIds = experiments.map((e) => e.experiment_id);
+  const experimentIds = params.experimentIds || experiments.map((e) => e.experiment_id);
   const comparingExperiments = experimentIds.length > 1;
 
   /**
@@ -213,19 +208,17 @@ export const experimentRunsSelector = (
   /**
    * Extracting dictionaries of tags by run index
    */
-  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.run_uuid, state)) as Record<
-    string,
-    KeyValueEntity
-  >[];
+  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.run_uuid, state)) as Record<string, KeyValueEntity>[];
 
   const firstExperimentId = experimentIds[0];
 
   /**
    * If there is only one experiment, extract experiment tags as well
    */
-  const experimentTags = (
-    comparingExperiments ? {} : getExperimentTags(firstExperimentId, state)
-  ) as Record<string, KeyValueEntity>;
+  const experimentTags = (comparingExperiments ? {} : getExperimentTags(firstExperimentId, state)) as Record<
+    string,
+    KeyValueEntity
+  >;
 
   return {
     modelVersionsByRunUuid,

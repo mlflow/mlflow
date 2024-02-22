@@ -83,10 +83,12 @@ def create_run(
 
 
 def create_test_runs_and_expected_data(experiment_id=None):
-    """Create a pair of runs and a corresponding data to expect when runs are searched
-    for the same experiment
+    """
+    Create a pair of runs and a corresponding data to expect when runs are searched
+    for the same experiment.
 
-    :return: (list, dict)
+    Returns:
+        A tuple of a list and a dictionary
     """
     start_times = [get_current_time_millis(), get_current_time_millis()]
     end_times = [get_current_time_millis(), get_current_time_millis()]
@@ -511,7 +513,7 @@ def is_from_run(active_run, run):
     return active_run.info == run.info and active_run.data == run.data
 
 
-def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_defaults(empty_active_run_stack):
     mlflow.disable_system_metrics_logging()
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
@@ -561,7 +563,7 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 
 def test_start_run_defaults_databricks_notebook(
     empty_active_run_stack,
-):  # pylint: disable=unused-argument
+):
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -747,7 +749,7 @@ def test_start_run_with_parent_non_nested():
             start_run()
 
 
-def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_existing_run(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
@@ -761,9 +763,7 @@ def test_start_run_existing_run(empty_active_run_stack):  # pylint: disable=unus
         MlflowClient.get_run.assert_called_with(run_id)
 
 
-def test_start_run_existing_run_from_environment(
-    empty_active_run_stack, monkeypatch
-):  # pylint: disable=unused-argument
+def test_start_run_existing_run_from_environment(empty_active_run_stack, monkeypatch):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
@@ -780,7 +780,7 @@ def test_start_run_existing_run_from_environment(
 
 def test_start_run_existing_run_from_environment_with_set_environment(
     empty_active_run_stack, monkeypatch
-):  # pylint: disable=unused-argument
+):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
@@ -794,7 +794,7 @@ def test_start_run_existing_run_from_environment_with_set_environment(
             start_run()
 
 
-def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_existing_run_deleted(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.DELETED
 
@@ -806,7 +806,7 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):  # pylint: disa
             start_run(run_id)
 
 
-def test_start_existing_run_status(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_existing_run_status(empty_active_run_stack):
     run_id = mlflow.start_run().info.run_id
     mlflow.end_run()
     assert MlflowClient().get_run(run_id).info.status == RunStatus.to_string(RunStatus.FINISHED)
@@ -814,7 +814,7 @@ def test_start_existing_run_status(empty_active_run_stack):  # pylint: disable=u
     assert restarted_run.info.status == RunStatus.to_string(RunStatus.RUNNING)
 
 
-def test_start_existing_run_end_time(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_existing_run_end_time(empty_active_run_stack):
     run_id = mlflow.start_run().info.run_id
     mlflow.end_run()
     run_obj_info = MlflowClient().get_run(run_id).info
@@ -826,7 +826,7 @@ def test_start_existing_run_end_time(empty_active_run_stack):  # pylint: disable
     assert run_obj_info.end_time > old_end
 
 
-def test_start_run_with_description(empty_active_run_stack):  # pylint: disable=unused-argument
+def test_start_run_with_description(empty_active_run_stack):
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -1155,8 +1155,7 @@ def test_paginate_gt_maxresults_onepage():
 
 def test_delete_tag():
     """
-    Confirm that fluent API delete tags actually works
-    :return:
+    Confirm that fluent API delete tags actually works.
     """
     mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
@@ -1237,9 +1236,9 @@ def test_log_input(tmp_path):
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
     assert json.loads(dataset_inputs[0].dataset.schema) == {
         "mlflow_colspec": [
-            {"name": "a", "type": "long"},
-            {"name": "b", "type": "long"},
-            {"name": "c", "type": "long"},
+            {"name": "a", "type": "long", "required": True},
+            {"name": "b", "type": "long", "required": True},
+            {"name": "c", "type": "long", "required": True},
         ]
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
@@ -1262,9 +1261,9 @@ def test_log_input(tmp_path):
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
     assert json.loads(dataset_inputs[0].dataset.schema) == {
         "mlflow_colspec": [
-            {"name": "a", "type": "long"},
-            {"name": "b", "type": "long"},
-            {"name": "c", "type": "long"},
+            {"name": "a", "type": "long", "required": True},
+            {"name": "b", "type": "long", "required": True},
+            {"name": "c", "type": "long", "required": True},
         ]
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
@@ -1353,6 +1352,17 @@ def test_log_param_async_throws():
         mlflow.log_params({"async batch param": "2"}, synchronous=False)
         with pytest.raises(MlflowException, match="Changing param values is not allowed"):
             mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
+
+
+def test_flush_async_logging():
+    with mlflow.start_run() as run:
+        for i in range(100):
+            mlflow.log_metric("dummy", i, step=i, synchronous=False)
+
+        mlflow.flush_async_logging()
+
+        metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
+        assert len(metric_history) == 100
 
 
 def test_set_tag_async():

@@ -32,8 +32,6 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
-# pylint: disable=unused-argument
-
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
 # http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
@@ -166,9 +164,9 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     with mock.patch(
         "sqlalchemy.create_engine",
-    ) as mock_create_engine, mock.patch(
-        "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
+    ) as mock_create_engine, mock.patch("mlflow.store.db.utils._verify_schema"), mock.patch(
+        "mlflow.store.db.utils._initialize_tables"
+    ), mock.patch(
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
         return_value=[],
     ):

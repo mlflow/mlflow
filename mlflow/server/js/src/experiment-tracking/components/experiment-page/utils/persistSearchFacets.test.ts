@@ -1,10 +1,7 @@
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import Utils from '../../../../common/utils/Utils';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
-import {
-  persistExperimentSearchFacetsState,
-  restoreExperimentSearchFacetsState,
-} from './persistSearchFacets';
+import { persistExperimentSearchFacetsState, restoreExperimentSearchFacetsState } from './persistSearchFacets';
 import {
   deserializeFieldsFromLocalStorage,
   deserializeFieldsFromQueryString,
@@ -63,10 +60,8 @@ describe('persistSearchFacet', () => {
 
     test('it properly parses single- and double-encoded search params', () => {
       expect(
-        restoreExperimentSearchFacetsState(
-          `orderByKey=${encodeURIComponent('params.`param_1`')}`,
-          'id-key',
-        ).state.orderByKey,
+        restoreExperimentSearchFacetsState(`orderByKey=${encodeURIComponent('params.`param_1`')}`, 'id-key').state
+          .orderByKey,
       ).toEqual('params.`param_1`');
 
       expect(
@@ -174,11 +169,7 @@ describe('persistSearchFacet', () => {
       state.orderByKey = 'order-key';
       state.orderByAsc = true;
 
-      const queryString = persistExperimentSearchFacetsState(
-        state,
-        'id-key',
-        '?experiments=foobar&somethingElse=abc',
-      );
+      const queryString = persistExperimentSearchFacetsState(state, 'id-key', '?experiments=foobar&somethingElse=abc');
 
       let expectedQuery = '?experiments=foobar&somethingElse=abc';
       expectedQuery += `&searchFilter=${encodeURIComponent('some filter')}`;
@@ -187,9 +178,7 @@ describe('persistSearchFacet', () => {
       expectedQuery += `&startTime=${encodeURIComponent('ALL')}`;
       expectedQuery += `&lifecycleFilter=${encodeURIComponent('Active')}`;
       expectedQuery += `&modelVersionFilter=${encodeURIComponent('All Runs')}`;
-      expectedQuery += `&selectedColumns=${state.selectedColumns
-        .map((c) => encodeURIComponent(c))
-        .join(',')}`;
+      expectedQuery += `&selectedColumns=${state.selectedColumns.map((c) => encodeURIComponent(c)).join(',')}`;
 
       expect(queryString).toEqual(expectedQuery);
     });

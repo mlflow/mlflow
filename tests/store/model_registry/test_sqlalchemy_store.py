@@ -299,14 +299,10 @@ def test_get_latest_versions(store):
     ) == {"Production": 3}
     assert _extract_latest_by_stage(
         store.get_latest_versions(name=name, stages=["production"])
-    ) == {
-        "Production": 3
-    }  # The stages are case insensitive.
+    ) == {"Production": 3}  # The stages are case insensitive.
     assert _extract_latest_by_stage(
         store.get_latest_versions(name=name, stages=["pROduction"])
-    ) == {
-        "Production": 3
-    }  # The stages are case insensitive.
+    ) == {"Production": 3}  # The stages are case insensitive.
     assert _extract_latest_by_stage(
         store.get_latest_versions(name=name, stages=["None", "Production"])
     ) == {"None": 1, "Production": 3}

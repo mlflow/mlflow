@@ -138,8 +138,7 @@ describe('useEvaluationArtifactTables', () => {
         tags: {
           [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
             key: MLFLOW_LOGGED_ARTIFACTS_TAG,
-            value:
-              '[{"type":"table","path":"/table1.json"},{"type":"table","path":"/table1.json"}]',
+            value: '[{"type":"table","path":"/table1.json"},{"type":"table","path":"/table1.json"}]',
           },
         },
       } as any,

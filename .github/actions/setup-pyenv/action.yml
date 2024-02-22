@@ -18,9 +18,6 @@ runs:
       shell: bash
       run: |
         git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
-        cd $HOME/.pyenv
-        # Checkout cb5da5e831fb50ce0ac44fc13617965b2309a482 to avoid https://github.com/pyenv/pyenv/commit/ca1593c80eae0b84349ca163699b71b04ea8b9fa that broke tests for virtualenv project execution
-        git checkout cb5da5e831fb50ce0ac44fc13617965b2309a482
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash

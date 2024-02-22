@@ -33,10 +33,7 @@ type ModelListPageImplProps = WithRouterNextProps & {
 
 type ModelListPageImplState = any;
 
-export class ModelListPageImpl extends React.Component<
-  ModelListPageImplProps,
-  ModelListPageImplState
-> {
+export class ModelListPageImpl extends React.Component<ModelListPageImplProps, ModelListPageImplState> {
   constructor(props: ModelListPageImplProps) {
     super(props);
     this.state = {
@@ -264,12 +261,7 @@ export class ModelListPageImpl extends React.Component<
     this.loadPage(currentPage - 1, callback, errorCallback);
   };
 
-  handleClickSortableColumn = (
-    orderByKey: any,
-    sortOrder: any,
-    callback: any,
-    errorCallback: any,
-  ) => {
+  handleClickSortableColumn = (orderByKey: any, sortOrder: any, callback: any, errorCallback: any) => {
     const orderByAsc = sortOrder !== AntdTableSortOrder.DESC; // default to true
     this.setState({ orderByKey, orderByAsc }, () => {
       this.resetHistoryState();
@@ -303,9 +295,7 @@ export class ModelListPageImpl extends React.Component<
         this.state.maxResultsSelection,
         ModelListPageImpl.getOrderByExpr(orderByKey, orderByAsc),
         pageTokens[page],
-        isInitialLoading
-          ? this.initialSearchRegisteredModelsApiId
-          : this.searchRegisteredModelsApiId,
+        isInitialLoading ? this.initialSearchRegisteredModelsApiId : this.searchRegisteredModelsApiId,
       )
       .then((r: any) => {
         this.updatePageState(page, r);
@@ -370,11 +360,6 @@ const mapDispatchToProps = {
   searchRegisteredModelsApi,
 };
 
-const ModelListPageWithRouter = withRouterNext(
-  connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl),
-);
+const ModelListPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl));
 
-export const ModelListPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.MODEL_REGISTRY,
-  ModelListPageWithRouter,
-);
+export const ModelListPage = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelListPageWithRouter);

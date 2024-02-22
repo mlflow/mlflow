@@ -25,23 +25,17 @@ export default {
 };
 
 const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () => {
-  const [searchFacetsState] = useState<SearchExperimentRunsFacetsState>(
-    new SearchExperimentRunsFacetsState(),
-  );
+  const [searchFacetsState] = useState<SearchExperimentRunsFacetsState>(new SearchExperimentRunsFacetsState());
 
   const sortOptions = useRunSortOptions(['metric1'], ['param1']);
 
   return (
     <Provider
-      store={createStore(
-        (s) => s as any,
-        EXPERIMENT_RUNS_MOCK_STORE,
-        compose(applyMiddleware(promiseMiddleware())),
-      )}
+      store={createStore((s) => s as any, EXPERIMENT_RUNS_MOCK_STORE, compose(applyMiddleware(promiseMiddleware())))}
     >
       <MemoryRouter>
         <GetExperimentRunsContextProvider actions={{} as any}>
-          <IntlProvider locale='en'>
+          <IntlProvider locale="en">
             <div
               css={{
                 marginBottom: 20,
@@ -55,6 +49,7 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
               viewState={viewState}
+              refreshRuns={() => {}}
             />
           </IntlProvider>
         </GetExperimentRunsContextProvider>

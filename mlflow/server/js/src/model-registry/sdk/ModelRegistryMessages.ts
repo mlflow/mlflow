@@ -37,10 +37,10 @@ export const RegisteredModelTag = Immutable.Record(
  * into nested Immutable Record class.
  */
 (RegisteredModelTag as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_RegisteredModelTag = ModelBuilder.extend(RegisteredModelTag, {
@@ -60,9 +60,9 @@ const extended_RegisteredModelTag = ModelBuilder.extend(RegisteredModelTag, {
  *   const record = RegisteredModelTag.fromJs(pojo);
  */
 (RegisteredModelTag as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RegisteredModelTag as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_RegisteredModelTag(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RegisteredModelTag as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_RegisteredModelTag(pojoWithNestedImmutables);
 };
 
 export const ModelVersionTag = Immutable.Record(
@@ -82,10 +82,10 @@ export const ModelVersionTag = Immutable.Record(
  * into nested Immutable Record class.
  */
 (ModelVersionTag as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_ModelVersionTag = ModelBuilder.extend(ModelVersionTag, {
@@ -105,7 +105,7 @@ const extended_ModelVersionTag = ModelBuilder.extend(ModelVersionTag, {
  *   const record = ModelVersionTag.fromJs(pojo);
  */
 (ModelVersionTag as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (ModelVersionTag as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_ModelVersionTag(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (ModelVersionTag as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_ModelVersionTag(pojoWithNestedImmutables);
 };

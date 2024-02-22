@@ -3,10 +3,7 @@ import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import {
-  highlightScatterTraces,
-  useRunsChartTraceHighlight,
-} from '../hooks/useRunsChartTraceHighlight';
+import { highlightScatterTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -16,7 +13,10 @@ import {
   RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   useDynamicPlotSize,
+  getLegendDataFromRuns,
 } from './RunsCharts.common';
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
+import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 
 export interface RunsScatterPlotProps extends RunsPlotsCommonProps {
   /**
@@ -69,8 +69,9 @@ export const RunsScatterPlot = React.memo(
   }: RunsScatterPlotProps) => {
     const { theme } = useDesignSystemTheme();
 
-    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
-      useDynamicPlotSize();
+    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+
+    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
     const plotData = useMemo(() => {
       // Prepare empty values
@@ -81,12 +82,8 @@ export const RunsScatterPlot = React.memo(
 
       // Iterate through all the runs and aggregate selected metrics/params
       for (const runData of runsData) {
-        const {
-          runInfo: { run_uuid, run_name },
-          metrics,
-          params,
-          color,
-        } = runData;
+        const { runInfo, metrics, params, color, uuid, displayName } = runData;
+        const { run_uuid, run_name } = runInfo || {};
         const xAxisData = xAxis.type === 'METRIC' ? metrics : params;
         const yAxisData = yAxis.type === 'METRIC' ? metrics : params;
 
@@ -97,7 +94,11 @@ export const RunsScatterPlot = React.memo(
           xValues.push(x);
           yValues.push(y);
           colors.push(color || theme.colors.primary);
-          tooltipData.push([run_uuid, run_name || run_uuid] as any);
+          if (run_uuid) {
+            tooltipData.push([run_uuid, run_name || run_uuid] as any);
+          } else {
+            tooltipData.push([uuid, displayName] as any);
+          }
         }
       }
 
@@ -125,8 +126,8 @@ export const RunsScatterPlot = React.memo(
       width: width || layoutWidth,
       height: height || layoutHeight,
       margin,
-      xaxis: { title: xAxis.key },
-      yaxis: { title: yAxis.key },
+      xaxis: { title: xAxis.key, tickfont: { size: 11, color: theme.colors.textSecondary } },
+      yaxis: { title: yAxis.key, tickfont: { size: 11, color: theme.colors.textSecondary } },
       template: { layout: plotlyThemedLayout },
     });
 
@@ -184,12 +185,11 @@ export const RunsScatterPlot = React.memo(
      */
     const mutableHoverCallback = useMutableChartHoverCallback(hoverCallback);
 
-    return (
+    const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
+
+    const chart = (
       <div
-        css={[
-          commonRunsChartStyles.chartWrapper(theme),
-          commonRunsChartStyles.scatterChartHighlightStyles,
-        ]}
+        css={[commonRunsChartStyles.chartWrapper(theme), commonRunsChartStyles.scatterChartHighlightStyles]}
         className={className}
         ref={setContainerDiv}
       >
@@ -204,6 +204,12 @@ export const RunsScatterPlot = React.memo(
           onUnhover={unhoverCallback}
         />
       </div>
+    );
+
+    return usingV2ChartImprovements ? (
+      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
+    ) : (
+      chart
     );
   },
 );

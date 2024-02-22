@@ -11,8 +11,8 @@ export interface ExperimentNameCellRendererProps {
   data: RunRowType;
 }
 
-export const ExperimentNameCellRenderer = React.memo(
-  ({ data, value }: ExperimentNameCellRendererProps) => (
+export const ExperimentNameCellRenderer = React.memo(({ data, value }: ExperimentNameCellRendererProps) =>
+  !data.experimentId ? null : (
     <Link to={Routes.getExperimentPageRoute(data.experimentId)} title={value.name}>
       {value.basename}
     </Link>

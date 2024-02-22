@@ -70,6 +70,7 @@ def test_successful_http_request(request):
         assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
         assert kwargs == {
+            "allow_redirects": True,
             "json": {"view_type": "ACTIVE_ONLY"},
             "headers": DefaultRequestHeaderProvider().request_headers(),
             "verify": True,
@@ -169,9 +170,7 @@ def test_requestor():
         "mlflow.tracking._tracking_service.utils._get_store", return_value=store
     ), mock.patch(
         "mlflow.tracking.context.default_context._get_user", return_value=user_name
-    ), mock.patch(
-        "time.time", return_value=13579
-    ), source_name_patch, source_type_patch:
+    ), mock.patch("time.time", return_value=13579), source_name_patch, source_type_patch:
         with mlflow.start_run(experiment_id="43", run_name=run_name):
             cr_body = message_to_json(
                 CreateRun(

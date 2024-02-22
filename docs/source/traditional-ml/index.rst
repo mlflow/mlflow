@@ -99,6 +99,18 @@ Tutorials and Guides
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="serving-multiple-models-with-pyfunc/index.html">
+                    <div class="header">
+                        Multi-Model Endpoints with PyFunc
+                    </div>
+                    <p>
+                        Dive deep into custom multi-model inference via MLflow's custom PyFunc models. Learn how to
+                        simplify low-latency inference by passing additional inference parameters to a simple custom PyFunc implementation. 
+                        This tutorial can serve as a jumping off point for many multi-model endpoing (MME) use cases!
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
@@ -109,6 +121,7 @@ Tutorials and Guides
 
     hyperparameter-tuning-with-child-runs/index
     creating-custom-pyfunc/index
+    serving-multiple-models-with-pyfunc/index
 
 MLflow Tracking
 ---------------

@@ -16,7 +16,7 @@ export const RunsCompareConfigureField = ({
   return (
     <div
       css={(theme) => ({ marginBottom: theme.spacing.md * 2 })}
-      data-testid='experiment-view-compare-runs-config-field'
+      data-testid="experiment-view-compare-runs-config-field"
     >
       <Typography.Title level={4}>{title}:</Typography.Title>
       {children}
@@ -62,15 +62,11 @@ export const RunsCompareMetricParamSelect = ({
         <Select.OptGroup
           label={formatMessage({
             defaultMessage: 'Metrics',
-            description:
-              "Label for 'metrics' option group in the compare runs chart configure modal",
+            description: "Label for 'metrics' option group in the compare runs chart configure modal",
           })}
         >
           {metricKeyList.map((metric) => (
-            <Select.Option
-              key={makeCanonicalSortKey('METRIC', metric)}
-              value={makeCanonicalSortKey('METRIC', metric)}
-            >
+            <Select.Option key={makeCanonicalSortKey('METRIC', metric)} value={makeCanonicalSortKey('METRIC', metric)}>
               {metric}
             </Select.Option>
           ))}
@@ -80,15 +76,11 @@ export const RunsCompareMetricParamSelect = ({
         <Select.OptGroup
           label={formatMessage({
             defaultMessage: 'Params',
-            description:
-              "Label for 'params' option group in the compare runs chart configure modal",
+            description: "Label for 'params' option group in the compare runs chart configure modal",
           })}
         >
           {paramKeyList.map((param) => (
-            <Select.Option
-              key={makeCanonicalSortKey('PARAM', param)}
-              value={makeCanonicalSortKey('PARAM', param)}
-            >
+            <Select.Option key={makeCanonicalSortKey('PARAM', param)} value={makeCanonicalSortKey('PARAM', param)}>
               {param}
             </Select.Option>
           ))}
@@ -112,8 +104,7 @@ export const RunsCompareRunNumberSelect = ({
     <RunsCompareConfigureField
       title={formatMessage({
         defaultMessage: 'Max. no of runs shown',
-        description:
-          'Label for the control allowing selection of number of runs displayed in a compare runs chart',
+        description: 'Label for the control allowing selection of number of runs displayed in a compare runs chart',
       })}
     >
       <Select<number> css={styles.selectFull} value={value} onChange={onChange}>
@@ -137,8 +128,8 @@ export const runsCompareRunCountDefaultOptions: { value: number; label: React.Re
     value: 5,
     label: (
       <FormattedMessage
-        defaultMessage='5'
-        description='Label for 5 first runs visible in run count selector within runs compare configuration modal'
+        defaultMessage="5"
+        description="Label for 5 first runs visible in run count selector within runs compare configuration modal"
       />
     ),
   },
@@ -146,8 +137,8 @@ export const runsCompareRunCountDefaultOptions: { value: number; label: React.Re
     value: 10,
     label: (
       <FormattedMessage
-        defaultMessage='10'
-        description='Label for 10 first runs visible in run count selector within runs compare configuration modal'
+        defaultMessage="10"
+        description="Label for 10 first runs visible in run count selector within runs compare configuration modal"
       />
     ),
   },
@@ -155,8 +146,8 @@ export const runsCompareRunCountDefaultOptions: { value: number; label: React.Re
     value: 20,
     label: (
       <FormattedMessage
-        defaultMessage='20'
-        description='Label for 20 first runs visible in run count selector within runs compare configuration modal'
+        defaultMessage="20"
+        description="Label for 20 first runs visible in run count selector within runs compare configuration modal"
       />
     ),
   },

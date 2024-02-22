@@ -35,7 +35,7 @@ from mlflow.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.server.handlers import validate_path_is_safe
+from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -514,150 +514,6 @@ def test_set_tag_validation(mlflow_client):
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "path",
-    [
-        "path",
-        "path/",
-        "path/to/file",
-    ],
-)
-def test_validate_path_is_safe_good(path):
-    validate_path_is_safe(path)
-
-
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
-@pytest.mark.parametrize(
-    "path",
-    [
-        # relative path from current directory of C: drive
-        ".../...//",
-    ],
-)
-def test_validate_path_is_safe_windows_good(path):
-    validate_path_is_safe(path)
-
-
-@pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
-@pytest.mark.parametrize(
-    "path",
-    [
-        "/path",
-        "../path",
-        "../../path",
-        "./../path",
-        "path/../to/file",
-        "path/../../to/file",
-        "/etc/passwd",
-        "/etc/passwd%00.jpg",
-        "/etc/passwd%00.html",
-        "/etc/passwd%00.txt",
-        "/etc/passwd%00.php",
-        "/etc/passwd%00.asp",
-        "/file://etc/passwd",
-    ],
-)
-def test_validate_path_is_safe_bad(path):
-    with pytest.raises(MlflowException, match="Invalid path"):
-        validate_path_is_safe(path)
-
-
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
-@pytest.mark.parametrize(
-    "path",
-    [
-        r"../path",
-        r"../../path",
-        r"./../path",
-        r"path/../to/file",
-        r"path/../../to/file",
-        r"..\path",
-        r"..\..\path",
-        r".\..\path",
-        r"path\..\to\file",
-        r"path\..\..\to\file",
-        # Drive-relative paths
-        r"C:path",
-        r"C:path/",
-        r"C:path/to/file",
-        r"C:../path/to/file",
-        r"C:\path",
-        r"C:/path",
-        r"C:\path\to\file",
-        r"C:\path/to/file",
-        r"C:\path\..\to\file",
-        r"C:/path/../to/file",
-        # UNC(Universal Naming Convention) paths
-        r"\\path\to\file",
-        r"\\path/to/file",
-        r"\\.\\C:\path\to\file",
-        r"\\?\C:\path\to\file",
-        r"\\?\UNC/path/to/file",
-        # Other potential attackable paths
-        r"/etc/password",
-        r"/path",
-        r"/etc/passwd%00.jpg",
-        r"/etc/passwd%00.html",
-        r"/etc/passwd%00.txt",
-        r"/etc/passwd%00.php",
-        r"/etc/passwd%00.asp",
-        r"/Windows/no/such/path",
-        r"/file://etc/passwd",
-        r"/file:c:/passwd",
-        r"/file://d:/windows/win.ini",
-        r"/file://./windows/win.ini",
-        r"file://c:/boot.ini",
-        r"file://C:path",
-        r"file://C:path/",
-        r"file://C:path/to/file",
-        r"file:///C:/Windows/System32/",
-        r"file:///etc/passwd",
-        r"file:///d:/windows/repair/sam",
-        r"file:///proc/version",
-        r"file:///inetpub/wwwroot/global.asa",
-        r"/file://../windows/win.ini",
-        r"../etc/passwd",
-        r"..\Windows\System32\\",
-        r"C:\Windows\System32\\",
-        r"/etc/passwd",
-        r"::Windows\System32",
-        r"..\..\..\..\Windows\System32\\",
-        r"../Windows/System32",
-        r"....\\",
-        r"\\?\C:\Windows\System32\\",
-        r"\\.\C:\Windows\System32\\",
-        r"\\UNC\Server\Share\\",
-        r"\\Server\Share\folder\\",
-        r"\\127.0.0.1\c$\Windows\\",
-        r"\\localhost\c$\Windows\\",
-        r"\\smbserver\share\path\\",
-        r"..\\?\C:\Windows\System32\\",
-        r"C:/Windows/../Windows/System32/",
-        r"C:\Windows\..\Windows\System32\\",
-        r"../../../../../../../../../../../../Windows/System32",
-        r"../../../../../../../../../../../../etc/passwd",
-        r"../../../../../../../../../../../../var/www/html/index.html",
-        r"../../../../../../../../../../../../usr/local/etc/openvpn/server.conf",
-        r"../../../../../../../../../../../../Program Files (x86)",
-        r"/../../../../../../../../../../../../Windows/System32",
-        r"/Windows\../etc/passwd",
-        r"/Windows\..\Windows\System32\\",
-        r"/Windows\..\Windows\System32\cmd.exe",
-        r"/Windows\..\Windows\System32\msconfig.exe",
-        r"/Windows\..\Windows\System32\regedit.exe",
-        r"/Windows\..\Windows\System32\taskmgr.exe",
-        r"/Windows\..\Windows\System32\control.exe",
-        r"/Windows\..\Windows\System32\services.msc",
-        r"/Windows\..\Windows\System32\diskmgmt.msc",
-        r"/Windows\..\Windows\System32\eventvwr.msc",
-        r"/Windows/System32/drivers/etc/hosts",
-    ],
-)
-def test_validate_path_is_safe_windows_bad(path):
-    with pytest.raises(MlflowException, match="Invalid path"):
-        validate_path_is_safe(path)
-
-
 def test_path_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("tags validation")
     created_run = mlflow_client.create_run(experiment_id)
@@ -668,7 +524,7 @@ def test_path_validation(mlflow_client):
         assert resp.status_code == 400
         assert response.json() == {
             "error_code": "INVALID_PARAMETER_VALUE",
-            "message": f"Invalid path: {invalid_path}",
+            "message": "Invalid path",
         }
 
     response = requests.get(
@@ -1163,7 +1019,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
 
         def to_dict(
             self,
-            flat,  # pylint: disable=unused-argument
+            flat,
         ):
             return self.args_dict
 
@@ -1188,6 +1044,237 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
             metric_key="mock_key",
             max_results=25000,
         )
+
+
+def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    url = f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"
+
+    assert_response(
+        requests.get(url, params={"metric_key": "key"}),
+        "Missing value for required parameter 'run_ids'.",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": [], "metric_key": "key"}),
+        "Missing value for required parameter 'run_ids'.",
+    )
+
+    assert_response(
+        requests.get(
+            url, params={"run_ids": [f"id_{i}" for i in range(1000)], "metric_key": "key"}
+        ),
+        "GetMetricHistoryBulkInterval request must specify at most 100 run_ids.",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": ["123"], "metric_key": "key", "max_results": 0}),
+        "max_results must be between 1 and 2500",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": ["123"], "metric_key": ""}),
+        "Missing value for required parameter 'metric_key'",
+    )
+
+    assert_response(
+        requests.get(url, params={"run_ids": ["123"], "max_results": 5}),
+        "Missing value for required parameter 'metric_key'",
+    )
+
+    assert_response(
+        requests.get(
+            url,
+            params={
+                "run_ids": ["123"],
+                "metric_key": "key",
+                "start_step": 1,
+                "end_step": 0,
+                "max_results": 5,
+            },
+        ),
+        "end_step must be greater than start_step. ",
+    )
+
+    assert_response(
+        requests.get(
+            url, params={"run_ids": ["123"], "metric_key": "key", "start_step": 1, "max_results": 5}
+        ),
+        "If either start step or end step are specified, both must be specified.",
+    )
+
+
+def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("get metric history bulk")
+    run_id1 = mlflow_client.create_run(experiment_id).info.run_id
+    metric_history = [
+        {"key": "metricA", "timestamp": 1, "step": i, "value": 10.0} for i in range(10)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id1, **metric)
+
+    url = f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"
+    response_limited = requests.get(
+        url,
+        params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
+    )
+    assert response_limited.status_code == 200
+    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_metrics = [
+        {**metric, "run_id": run_id1}
+        for metric in metric_history
+        if metric["step"] in expected_steps
+    ]
+    assert response_limited.json().get("metrics") == expected_metrics
+
+    # with start_step and end_step
+    response_limited = requests.get(
+        url,
+        params={
+            "run_ids": [run_id1],
+            "metric_key": "metricA",
+            "start_step": 0,
+            "end_step": 4,
+            "max_results": 5,
+        },
+    )
+    assert response_limited.status_code == 200
+    assert response_limited.json().get("metrics") == [
+        {**metric, "run_id": run_id1} for metric in metric_history[:5]
+    ]
+
+    # multiple runs
+    run_id2 = mlflow_client.create_run(experiment_id).info.run_id
+    metric_history2 = [
+        {"key": "metricA", "timestamp": 1, "step": i, "value": 10.0} for i in range(20)
+    ]
+    for metric in metric_history2:
+        mlflow_client.log_metric(run_id2, **metric)
+    response_limited = requests.get(
+        url,
+        params={"run_ids": [run_id1, run_id2], "metric_key": "metricA", "max_results": 5},
+    )
+    expected_steps = [0, 4, 8, 9, 12, 16, 19]
+    expected_metrics = []
+    for run_id, metric_history in [(run_id1, metric_history), (run_id2, metric_history2)]:
+        expected_metrics.extend(
+            [
+                {**metric, "run_id": run_id}
+                for metric in metric_history
+                if metric["step"] in expected_steps
+            ]
+        )
+    assert response_limited.json().get("metrics") == expected_metrics
+
+    # test metrics with same steps
+    metric_history_timestamp2 = [
+        {"key": "metricA", "timestamp": 2, "step": i, "value": 10.0} for i in range(10)
+    ]
+    for metric in metric_history_timestamp2:
+        mlflow_client.log_metric(run_id1, **metric)
+
+    response_limited = requests.get(
+        url,
+        params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
+    )
+    assert response_limited.status_code == 200
+    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_metrics = [
+        {"key": "metricA", "timestamp": j, "step": i, "value": 10.0, "run_id": run_id1}
+        for i in expected_steps
+        for j in [1, 2]
+    ]
+    assert response_limited.json().get("metrics") == expected_metrics
+
+
+def test_get_metric_history_bulk_interval_calls_optimized_impl_when_expected(tmp_path):
+    from mlflow.server.handlers import get_metric_history_bulk_interval_handler
+
+    path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
+    uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+    mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
+
+    flask_app = flask.Flask("test_flask_app")
+
+    class MockRequestArgs:
+        def __init__(self, args_dict):
+            self.args_dict = args_dict
+
+        def to_dict(
+            self,
+            flat,  # pylint: disable=unused-argument
+        ):
+            return self.args_dict
+
+        def get(self, key, default=None):
+            return self.args_dict.get(key, default)
+
+    def params_to_query_string(params):
+        query_string = []
+        for k, v in params.items():
+            if isinstance(v, list):
+                for item in v:
+                    query_string.append(f"{k}={item}")
+            else:
+                query_string.append(f"{k}={v}")
+        query_string = "&".join(query_string)
+        return bytes(query_string, "utf-8")
+
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
+        run_ids = [str(i) for i in range(10)]
+        params = {
+            "run_ids": run_ids,
+            "metric_key": "mock_key",
+            "start_step": 0,
+            "end_step": 9,
+            "max_results": 5,
+        }
+        mock_context.request.query_string = params_to_query_string(params)
+        mock_context.request.args = MockRequestArgs(params)
+
+        get_metric_history_bulk_interval_handler()
+
+        mock_store.get_max_step_for_metric.assert_not_called()
+        assert mock_store.get_metric_history_bulk_interval_from_steps.call_count == len(run_ids)
+        mock_store.get_metric_history_bulk_interval_from_steps.assert_called_with(
+            run_id=run_ids[-1],
+            metric_key="mock_key",
+            steps=[0, 2, 4, 6, 8, 9],
+            max_results=25000,
+        )
+
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
+        run_ids = [str(i) for i in range(10)]
+        params = {
+            "run_ids": run_ids,
+            "metric_key": "mock_key",
+            "max_results": 5,
+        }
+        mock_context.request.query_string = params_to_query_string(params)
+        mock_context.request.args = MockRequestArgs(params)
+
+        get_metric_history_bulk_interval_handler()
+
+        assert mock_store.get_max_step_for_metric.call_count == len(run_ids)
+        mock_store.get_max_step_for_metric.assert_called_with(
+            run_id=run_ids[-1], metric_key="mock_key"
+        )
+
+
+def test_get_sampled_steps_from_steps():
+    assert _get_sampled_steps_from_steps(1, 10, 5) == [1, 3, 5, 7, 9]
+    assert _get_sampled_steps_from_steps(1, 20, 4) == [1, 6, 11, 16]
+    assert _get_sampled_steps_from_steps(10, 100, 10) == [10, 20, 29, 38, 47, 56, 65, 74, 83, 92]
+    assert _get_sampled_steps_from_steps(0, 100, 5) == [0, 21, 41, 61, 81]
 
 
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
@@ -1534,32 +1621,8 @@ def test_create_model_version_with_file_uri(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 400
-    assert "MLflow tracking server doesn't allow" in response.json()["message"]
-
-
-def test_create_model_version_with_file_uri_env_var(tmp_path):
-    backend_uri = tmp_path.joinpath("file").as_uri()
-    with _init_server(
-        backend_uri,
-        root_artifact_uri=tmp_path.as_uri(),
-        extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
-    ) as url:
-        mlflow_client = MlflowClient(url)
-
-        name = "test"
-        mlflow_client.create_registered_model(name)
-        exp_id = mlflow_client.create_experiment("test")
-        run = mlflow_client.create_run(experiment_id=exp_id)
-        response = requests.post(
-            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
-            json={
-                "name": name,
-                "source": "file://123.456.789.123/path/to/source",
-                "run_id": run.info.run_id,
-            },
-        )
-        assert response.status_code == 200
+    assert response.status_code == 500, response.json()
+    assert "is not a valid remote uri" in response.json()["message"]
 
 
 def test_logging_model_with_local_artifact_uri(mlflow_client):
@@ -1592,9 +1655,9 @@ def test_log_input(mlflow_client, tmp_path):
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
     assert json.loads(dataset_inputs[0].dataset.schema) == {
         "mlflow_colspec": [
-            {"name": "a", "type": "long"},
-            {"name": "b", "type": "long"},
-            {"name": "c", "type": "long"},
+            {"name": "a", "type": "long", "required": True},
+            {"name": "b", "type": "long", "required": True},
+            {"name": "c", "type": "long", "required": True},
         ]
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
@@ -1906,3 +1969,66 @@ def test_upload_artifact_handler(mlflow_client):
     )
     assert response.status_code == 200
     assert response.text == "hello world"
+
+
+def test_graphql_handler(mlflow_client):
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": 'query testQuery {test(inputString: "abc") { output }}',
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+
+
+def test_get_experiment_graphql(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("GraphqlTest")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": 'query testQuery {mlflowGetExperiment(input: {experimentId: "'
+            + experiment_id
+            + '"}) { experiment { name } }}',
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    json = response.json()
+    assert json["data"]["mlflowGetExperiment"]["experiment"]["name"] == "GraphqlTest"
+
+
+def test_get_run_and_experiment_graphql(mlflow_client):
+    name = "GraphqlTest"
+    mlflow_client.create_registered_model(name)
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+    mlflow_client.create_model_version("GraphqlTest", "runs:/graphql_test/model", run_id)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    mlflowGetRun(input: {{runId: "{run_id}"}}) {{
+                        run {{
+                            experiment {{
+                                name
+                            }}
+                            modelVersions {{
+                                name
+                            }}
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    json = response.json()
+    assert json["data"]["mlflowGetRun"]["run"]["experiment"]["name"] == name
+    assert json["data"]["mlflowGetRun"]["run"]["modelVersions"][0]["name"] == name

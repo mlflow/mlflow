@@ -3,6 +3,7 @@ import DeleteRunModal from '../../../modals/DeleteRunModal';
 import { RenameRunModal } from '../../../modals/RenameRunModal';
 import RestoreRunModal from '../../../modals/RestoreRunModal';
 import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
+import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 
 export interface ExperimentViewModalsProps {
   showDeleteRunModal: boolean;
@@ -13,6 +14,7 @@ export interface ExperimentViewModalsProps {
   onCloseRestoreRunModal: () => void;
   onCloseRenameRunModal: () => void;
   renamedRunName: string;
+  refreshRuns: () => void;
 }
 
 /**
@@ -28,7 +30,9 @@ export const ExperimentViewRunModals = ({
   onCloseRestoreRunModal,
   onCloseRenameRunModal,
   renamedRunName,
+  refreshRuns: refreshRunsFromProps,
 }: ExperimentViewModalsProps) => {
+  // TODO(ML-35962): Use refreshRuns() from props, remove updateSearchFacets after migration to new view state model
   const { updateSearchFacets } = useFetchExperimentRuns();
 
   const selectedRunIds = Object.entries(runsSelected)
@@ -56,19 +60,34 @@ export const ExperimentViewRunModals = ({
         isOpen={showDeleteRunModal}
         onClose={onCloseDeleteRunModal}
         selectedRunIds={selectedRunIds}
+        onSuccess={() => {
+          if (shouldEnableShareExperimentViewByTags()) {
+            refreshRunsFromProps();
+          }
+        }}
       />
       <RestoreRunModal
         isOpen={showRestoreRunModal}
         onClose={onCloseRestoreRunModal}
         selectedRunIds={selectedRunIds}
+        onSuccess={() => {
+          if (shouldEnableShareExperimentViewByTags()) {
+            refreshRunsFromProps();
+          }
+        }}
       />
       <RenameRunModal
-        // @ts-expect-error TS(2322): Type '{ runUuid: string; onClose: () => void; runN... Remove this comment to see the full error message
         runUuid={selectedRunIds[0]}
         onClose={onCloseRenameRunModal}
         runName={renamedRunName}
         isOpen={showRenameRunModal}
-        onSuccess={() => refreshRuns()}
+        onSuccess={() => {
+          if (shouldEnableShareExperimentViewByTags()) {
+            refreshRunsFromProps();
+          } else {
+            refreshRuns();
+          }
+        }}
       />
     </>
   );

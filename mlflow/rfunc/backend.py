@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 
+from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.string_utils import quote
@@ -27,11 +28,15 @@ class RFuncBackend(FlavorBackend):
 
     version_pattern = re.compile(r"version ([0-9]+\.[0-9]+\.[0-9]+)")
 
-    def predict(self, model_uri, input_path, output_path, content_type):
+    def predict(
+        self, model_uri, input_path, output_path, content_type, pip_requirements_override=None
+    ):
         """
         Generate predictions using R model saved with MLflow.
         Return the prediction results as a JSON.
         """
+        if pip_requirements_override is not None:
+            raise MlflowException("pip_requirements_override is not supported in the R backend.")
         model_path = _download_artifact_from_uri(model_uri)
         str_cmd = (
             "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, "

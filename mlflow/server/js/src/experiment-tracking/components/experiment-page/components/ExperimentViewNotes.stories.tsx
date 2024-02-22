@@ -49,11 +49,9 @@ const mockActions: any = {
 
 const createComponentWrapper = (experiment: Partial<ExperimentEntity>) => () =>
   (
-    <Provider
-      store={createStore((s) => s as any, mockStore, compose(applyMiddleware(promiseMiddleware())))}
-    >
-      <IntlProvider locale='en'>
-        <StaticRouter location='/experiments/1234'>
+    <Provider store={createStore((s) => s as any, mockStore, compose(applyMiddleware(promiseMiddleware())))}>
+      <IntlProvider locale="en">
+        <StaticRouter location="/experiments/1234">
           <GetExperimentsContextProvider actions={mockActions}>
             <ExperimentViewNotes experiment={experiment as ExperimentEntity} />
           </GetExperimentsContextProvider>

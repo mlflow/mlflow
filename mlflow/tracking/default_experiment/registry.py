@@ -6,17 +6,13 @@ import entrypoints
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
-    DatabricksRepoNotebookExperimentProvider,
 )
 
 _logger = logging.getLogger(__name__)
 # Listed below are the list of providers, which are used to provide MLflow Experiment IDs based on
 # the current context where the MLflow client is running when the user has not explicitly set
 # an experiment. The order below is the order in which the these providers are registered.
-_EXPERIMENT_PROVIDERS = (
-    DatabricksRepoNotebookExperimentProvider,
-    DatabricksNotebookExperimentProvider,
-)
+_EXPERIMENT_PROVIDERS = (DatabricksNotebookExperimentProvider,)
 
 
 class DefaultExperimentProviderRegistry:
@@ -59,12 +55,13 @@ _default_experiment_provider_registry.register_entrypoints()
 
 
 def get_experiment_id():
-    """Get an experiment ID for the current context. The experiment ID is fetched by querying
-    providers, in the order that they were registered.
+    """Get an experiment ID for the current context.
 
+    The experiment ID is fetched by querying providers, in the order that they were registered.
     This function iterates through all default experiment context providers in the registry.
 
-    :return: An experiment_id.
+    Returns:
+        An experiment_id.
     """
 
     experiment_id = DEFAULT_EXPERIMENT_ID

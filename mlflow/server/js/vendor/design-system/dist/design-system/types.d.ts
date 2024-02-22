@@ -1,6 +1,6 @@
 import type { Interpolation } from '@emotion/react';
-import type { Theme } from '../theme';
 import type { ColorVars } from './constants';
+import type { Theme } from '../theme';
 export interface DangerouslySetAntdProps<P> {
     /** For components that wrap `antd` components, emergency access for properties we do not support. Ask in #dubois before using. */
     dangerouslySetAntdProps?: P;

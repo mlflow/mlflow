@@ -3,20 +3,12 @@ import { EmotionJSX, WithConditionalCSSProp } from '@emotion/react/types/jsx-nam
 import React, { PropsWithChildren, ReactNode, useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { RunInfoEntity } from '../../../types';
-import {
-  chartColors,
-  getRandomRunName,
-  stableNormalRandom,
-} from '../components/RunsCharts.stories-common';
+import { chartColors, getRandomRunName, stableNormalRandom } from '../components/RunsCharts.stories-common';
 import { RunsContourPlot } from '../components/RunsContourPlot';
 import { RunsMetricsBarPlot } from '../components/RunsMetricsBarPlot';
 import { RunsMetricsLinePlot } from '../components/RunsMetricsLinePlot';
 import { RunsScatterPlot } from '../components/RunsScatterPlot';
-import {
-  RunsChartsTooltipBodyProps,
-  RunsChartsTooltipWrapper,
-  useRunsChartsTooltip,
-} from './useRunsChartsTooltip';
+import { RunsChartsTooltipBodyProps, RunsChartsTooltipWrapper, useRunsChartsTooltip } from './useRunsChartsTooltip';
 
 export default {
   title: 'Runs charts/Context menu',
@@ -118,7 +110,7 @@ const withChartMenuContext =
 
     return (
       <RunsChartsTooltipWrapper component={ContextMenuComponent} contextData={data}>
-        <IntlProvider locale='en'>
+        <IntlProvider locale="en">
           <div css={{ padding: 16 }}>
             <div css={{ marginBottom: 16, height: 200, overflowY: 'scroll' }}>
               <ul>
@@ -133,18 +125,10 @@ const withChartMenuContext =
               </ul>
             </div>
             <div css={{ margin: '8px 0', display: 'flex', gap: 8 }}>
-              <button onClick={() => setData({ runs: createMockData(15, 10) })}>
-                Dataset: default
-              </button>
-              <button onClick={() => setData({ runs: createMockData(15, 10).reverse() })}>
-                Dataset: reverse
-              </button>
-              <button onClick={() => setData({ runs: createMockData(5, 10) })}>
-                Dataset: 5 runs
-              </button>
-              <button onClick={() => setData({ runs: createMockData(30, 10) })}>
-                Dataset: 30 runs
-              </button>
+              <button onClick={() => setData({ runs: createMockData(15, 10) })}>Dataset: default</button>
+              <button onClick={() => setData({ runs: createMockData(15, 10).reverse() })}>Dataset: reverse</button>
+              <button onClick={() => setData({ runs: createMockData(5, 10) })}>Dataset: 5 runs</button>
+              <button onClick={() => setData({ runs: createMockData(30, 10) })}>Dataset: 30 runs</button>
             </div>
             <Component {...props} data={data} />
           </div>
@@ -160,7 +144,7 @@ export const ChartContextMenuStory = withChartMenuContext(({ data }: any) => {
     <div css={styles.chartsGrid}>
       <div css={styles.chartWrapper}>
         <RunsMetricsBarPlot
-          metricKey='metric1'
+          metricKey="metric1"
           runsData={data.runs}
           useDefaultHoverBox={false}
           displayRunNames={false}
@@ -189,7 +173,7 @@ export const ChartContextMenuStory = withChartMenuContext(({ data }: any) => {
       </div>
       <div css={styles.chartWrapper}>
         <RunsMetricsLinePlot
-          metricKey='metric1'
+          metricKey="metric1"
           runsData={data.runs}
           useDefaultHoverBox={false}
           onHover={setTooltip}

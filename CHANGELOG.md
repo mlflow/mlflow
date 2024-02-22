@@ -1,5 +1,152 @@
 # CHANGELOG
 
+## 2.10.2 (2024-02-09)
+
+MLflow 2.10.2 includes several major features and improvements
+
+Small bug fixes and documentation updates:
+
+#11065, @WeichenXu123
+
+## 2.10.1 (2024-02-06)
+
+MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `transformers` and `langchain` flavors, the MLflow UI, and the S3 artifact store. More details can be found in the patch notes below.
+
+Bug fixes:
+
+- [UI] Fixed a bug that prevented datasets from showing up in the MLflow UI (#10992, @daniellok-db)
+- [Artifact Store] Fixed directory bucket region name retrieval (#10967, @kriscon-db)
+- Bug fixes for Transformers flavor
+    - [Models] Fix an issue with transformer pipelines not inheriting the torch dtype specified on the model, causing pipeline inference to consume more resources than expected. (#10979, @B-Step62)
+    - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
+    - [Models] Fixed a bug affecting prompt templating with Text2TextGeneration pipelines. Previously, calling `predict()` on a pyfunc-loaded Text2TextGeneration pipeline would fail for `string` and `List[string]` inputs. (#10960, @B-Step62)
+- Bug fixes for Langchain flavor
+    - Fixed errors that occur when logging inputs and outputs with different lengths (#10952, @serena-ruan)
+
+Documentation updates:
+
+- [Docs] Add indications of DL UI capabilities to the DL landing page (#10991, @BenWilson2)
+- [Docs] Fix incorrect logo on LLMs landing page (#11017, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10930, #11005, @serena-ruan; #10927, @harupy
+
+## 2.10.0 (2024-01-26)
+
+MLflow 2.10.0 includes several major features and improvements
+
+In MLflow 2.10, we're introducing a number of significant new features that are preparing the way for current and future enhanced support for Deep Learning use cases, new features to support a broadened support for GenAI applications, and some quality of life improvements for the MLflow Deployments Server (formerly the AI Gateway). 
+
+Our biggest features this release are:
+
+- We have a new [home](https://mlflow.org). The new site landing page is fresh, modern, and contains more content than ever. We're adding new content and blogs all of the time.
+
+- Objects and Arrays are now available as configurable input and output schema elements. These new types are particularly useful for GenAI-focused flavors that can have complex input and output types. See the new [Signature and Input Example documentation](https://mlflow.org/docs/latest/model/signatures.html) to learn more about how to use these new signature types.
+
+- LangChain has autologging support now! When you invoke a chain, with autologging enabled, we will automatically log most chain implementations, recording and storing your configured LLM application for you.  See the new [Langchain documentation](https://mlflow.org/docs/latest/llms/langchain/index.html#mlflow-langchain-autologging) to learn more about how to use this feature.
+
+- The MLflow `transformers` flavor now supports prompt templates. You can now specify an application-specific set of instructions to submit to your GenAI pipeline in order to simplify, streamline, and integrate sets of system prompts to be supplied with each input request. Check out the updated [guide to transformers](https://www.mlflow.org/docs/latest/llms/transformers/index.html) to learn more and see examples!
+
+ - The [MLflow Deployments Server](https://mlflow.org/docs/latest/llms/deployments/index.html) now supports two new requested features: (1) OpenAI endpoints that support streaming responses. You can now configure an endpoint to return realtime responses for Chat and Completions instead of waiting for the entire text contents to be completed. (2) Rate limits can now be set per endpoint in order to help control cost overrun when using SaaS models. 
+ 
+- Continued the push for enhanced documentation, guides, tutorials, and examples by expanding on core MLflow functionality ([Deployments](https://mlflow.org/docs/latest/deployment/index.html), [Signatures](https://mlflow.org/docs/latest/model/signatures.html), and [Model Dependency management](https://mlflow.org/docs/latest/model/dependencies.html)), as well as entirely new pages for GenAI flavors. Check them out today!
+
+Features:
+
+- [Models] Introduce `Objects` and `Arrays` support for model signatures (#9936, @serena-ruan)
+- [Models] Support saving prompt templates for transformers (#10791, @daniellok-db)
+- [Models] Enhance the MLflow Models `predict` API to serve as a pre-logging validator of environment compatibility. (#10759, @B-Step62)
+- [Models] Add support for Image Classification pipelines within the transformers flavor (#10538, @KonakanchiSwathi)
+- [Models] Add support for retrieving and storing license files for transformers models (#10871, @BenWilson2)
+- [Models] Add support for model serialization in the Visual NLP format for JohnSnowLabs flavor (#10603, @C-K-Loan)
+- [Models] Automatically convert OpenAI input messages to LangChain chat messages for `pyfunc` predict (#10758, @dbczumar)
+- [Tracking] Add support for Langchain autologging (#10801, @serena-ruan)
+- [Tracking] Enhance async logging functionality by ensuring flush is called on `Futures` objects (#10715, @chenmoneygithub)
+- [Tracking] Add support for a non-interactive mode for the `login()` API (#10623, @henxing)
+- [Scoring] Allow MLflow model serving to support direct `dict` inputs with the `messages` key (#10742, @daniellok-db, @B-Step62)
+- [Deployments] Add streaming support to the MLflow Deployments Server for OpenAI streaming return compatible routes (#10765, @gabrielfu)
+- [Deployments] Add the ability to set rate limits on configured endpoints within the MLflow deployments server API (#10779, @TomeHirata)
+- [Deployments] Add support for directly interfacing with OpenAI via the MLflow Deployments server (#10473, @prithvikannan)
+- [UI] Introduce a number of new features for the MLflow UI (#10864, @daniellok-db)
+- [Server-infra] Add an environment variable that can disallow HTTP redirects (#10655, @daniellok-db)
+- [Artifacts] Add support for Multipart Upload for Azure Blob Storage (#10531, @gabrielfu)
+
+Bug fixes:
+
+- [Models] Add deduplication logic for pip requirements and extras handling for MLflow models (#10778, @BenWilson2)
+- [Models] Add support for paddle 2.6.0 release (#10757, @WeichenXu123)
+- [Tracking] Fix an issue with an incorrect retry default timeout for urllib3 1.x (#10839, @BenWilson2)
+- [Recipes] Fix an issue with MLflow Recipes card display format (#10893, @WeichenXu123)
+- [Java] Fix an issue with metadata collection when using Streaming Sources on certain versions of Spark where Delta is the source (#10729, @daniellok-db)
+- [Scoring] Fix an issue where SageMaker tags were not propagating correctly (#9310, @clarkh-ncino)
+- [Windows / Databricks] Fix an issue with executing Databricks run commands from within a Window environment (#10811, @wolpl)
+- [Models / Databricks] Disable `mlflowdbfs` mounts for JohnSnowLabs flavor due to flakiness (#9872, @C-K-Loan)
+
+Documentation updates:
+
+- [Docs] Fixed the `KeyError: 'loss'` bug for the Quickstart guideline (#10886, @yanmxa)
+- [Docs] Relocate and supplement Model Signature and Input Example docs (#10838, @BenWilson2)
+- [Docs] Add the HuggingFace Model Evaluation Notebook to the website (#10789, @BenWilson2)
+- [Docs] Rewrite the search run documentation (#10863, @chenmoneygithub)
+- [Docs] Create documentation for transformers prompt templates (#10836, @daniellok-db)
+- [Docs] Refactoring of the Getting Started page (#10798, @BenWilson2)
+- [Docs] Add a guide for model dependency management (#10807, @B-Step62)
+- [Docs] Add tutorials and guides for LangChain (#10770, @BenWilson2)
+- [Docs] Refactor portions of the Deep Learning documentation landing page (#10736, @chenmoneygithub)
+- [Docs] Refactor and overhaul the Deployment documentation and add new tutorials (#10726, @B-Step62)
+- [Docs] Add a PyTorch landing page, quick start, and guide (#10687, #10737 @chenmoneygithub)
+- [Docs] Add additional tutorials to OpenAI flavor docs (#10700, @BenWilson2)
+- [Docs] Enhance the guides on quickly getting started with MLflow by demonstrating how to use Databricks Community Edition (#10663, @BenWilson2)
+- [Docs] Create the OpenAI Flavor landing page and intro notebooks (#10622, @BenWilson2)
+- [Docs] Refactor the Tensorflow flavor API docs (#10662, @chenmoneygithub)
+
+Small bug fixes and documentation updates:
+
+#10538, #10901, #10903, #10876, #10833, #10859, #10867, #10843, #10857, #10834, #10814, #10805, #10764, #10771, #10733, #10724, #10703, #10710, #10696, #10691, #10692, @B-Step62; #10882, #10854, #10395, #10725, #10695, #10712, #10707, #10667, #10665, #10654, #10638, #10628, @harupy; #10881, #10875, #10835, #10845, #10844, #10651, #10806, #10786, #10785, #10781, #10741, #10772, #10727, @serena-ruan; #10873, #10755, #10750, #10749, #10619, @WeichenXu123; #10877, @amueller; #10852, @QuentinAmbard; #10822, #10858, @gabrielfu; #10862, @jerrylian-db; #10840, @ernestwong-db; #10841, #10795, #10792, #10774, #10776, #10672, @BenWilson2; #10827, #10826, #10825, #10732, #10481, @michael-berk; #10828, #10680, #10629, @daniellok-db; #10799, #10800, #10578, #10782, #10783, #10723, #10464, @annzhang-db; #10803, #10731, #10708, @kriscon-db; #10797, @dbczumar; #10756, #10751, @Ankit8848; #10784, @AveshCSingh; #10769, #10763, #10717, @chenmoneygithub; #10698, @rmalani-db; #10767, @liangz1; #10682, @cdreetz; #10659, @prithvikannan; #10639, #10609, @TomeHirata
+
+## 2.9.2 (2023-12-14)
+
+MLflow 2.9.2 is a patch release, containing several critical security fixes and configuration updates to support extremely large model artifacts. 
+
+Features:
+
+- [Deployments] Add the `mlflow.deployments.openai` API to simplify direct access to OpenAI services through the deployments API (#10473, @prithvikannan)
+- [Server-infra] Add a new environment variable that permits disabling http redirects within the Tracking Server for enhanced security in publicly accessible tracking server deployments (#10673, @daniellok-db)
+- [Artifacts] Add environment variable configurations for both Multi-part upload and Multi-part download that permits modifying the per-chunk size to support extremely large model artifacts (#10648, @harupy)
+
+Security fixes:
+
+- [Server-infra] Disable the ability to inject malicious code via manipulated YAML files by forcing YAML rendering to be performed in a secure Sandboxed mode (#10676, @BenWilson2, #10640, @harupy)
+- [Artifacts] Prevent path traversal attacks when querying artifact URI locations by disallowing `..` path traversal queries (#10653, @B-Step62)
+- [Data] Prevent a mechanism for conducting a malicious file traversal attack on Windows when using tracking APIs that interface with `HTTPDatasetSource` (#10647, @BenWilson2)
+- [Artifacts] Prevent a potential path traversal attack vector via encoded url traversal paths by decoding paths prior to evaluation  (#10650, @B-Step62)
+- [Artifacts] Prevent the ability to conduct path traversal attacks by enforcing the use of sanitized paths with the tracking server (#10666, @harupy)
+- [Artifacts] Prevent path traversal attacks when using an FTP server as a backend store by enforcing base path declarations prior to accessing user-supplied paths (#10657, @harupy)
+
+Documentation updates:
+
+- [Docs] Add an end-to-end tutorial for RAG creation and evaluation (#10661, @AbeOmor)
+- [Docs] Add Tensorflow landing page (#10646, @chenmoneygithub)
+- [Deployments / Tracking] Add endpoints to LLM evaluation docs (#10660, @prithvikannan)
+- [Examples] Add retriever evaluation tutorial for LangChain and improve the Question Generation tutorial notebook (#10419, @liangz1)
+
+Small bug fixes and documentation updates:
+
+#10677, #10636, @serena-ruan; #10652, #10649, #10641, @harupy; #10643, #10632, @BenWilson2
+
+## 2.9.1 (2023-12-07)
+
+MLflow 2.9.1 is a patch release, containing a critical bug fix related to loading `pyfunc` models that were saved in previous versions of MLflow.
+
+Bug fixes:
+
+- [Models] Revert Changes to PythonModel that introduced loading issues for models saved in earlier versions of MLflow (#10626, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10625, @BenWilson2
+
 ## 2.9.0 (2023-12-05)
 
 MLflow 2.9.0 includes several major features and improvements.

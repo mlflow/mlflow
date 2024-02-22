@@ -42,8 +42,8 @@ export function OverflowMenu({ menu }: OverflowMenuProps) {
 
   // @ts-expect-error TS(2532): Object is possibly 'undefined'.
   return menu.length > 0 ? (
-    <Dropdown overlay={overflowMenu} trigger={['click']} placement='bottomLeft' arrow>
-      <Button icon={<OverflowIcon />} data-test-id='overflow-menu-trigger' />
+    <Dropdown overlay={overflowMenu} trigger={['click']} placement="bottomLeft" arrow>
+      <Button icon={<OverflowIcon />} data-test-id="overflow-menu-trigger" aria-label="Open header dropdown menu" />
     </Dropdown>
   ) : null;
 }
@@ -55,6 +55,8 @@ type PageHeaderProps = {
   feedbackForm?: string;
   infoPopover?: React.ReactNode;
   children?: React.ReactNode;
+  spacerSize?: 'xs' | 'sm' | 'md' | 'lg';
+  titleAddOns?: React.ReactNode[];
 };
 
 /**
@@ -69,8 +71,10 @@ export function PageHeader(props: PageHeaderProps) {
   const {
     title, // required
     breadcrumbs = [],
+    titleAddOns = [],
     preview,
     children,
+    spacerSize,
   } = props;
   const { theme } = useDesignSystemTheme();
   return (
@@ -91,6 +95,7 @@ export function PageHeader(props: PageHeaderProps) {
         titleAddOns={
           <>
             {preview && <PreviewIcon css={{ marginRight: theme.spacing.sm }}/>}
+            {titleAddOns}
           </>
         }
       />
@@ -100,6 +105,7 @@ export function PageHeader(props: PageHeaderProps) {
           // Ensure spacer's fixed height
           flexShrink: 0,
         }}
+        size={spacerSize}
       />
     </>
   );

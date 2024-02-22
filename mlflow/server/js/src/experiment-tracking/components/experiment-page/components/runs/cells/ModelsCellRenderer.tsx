@@ -17,6 +17,9 @@ export interface ModelsCellRendererProps {
 }
 
 export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) => {
+  if (!props.value) {
+    return <>{EMPTY_CELL_PLACEHOLDER}</>;
+  }
   const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
   const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels);
 
@@ -35,31 +38,16 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
       const displayFullName = `${registeredModelName} version ${registeredModelVersion}`;
       modelDiv = (
         <>
-          <img
-            data-test-id='registered-model-icon'
-            alt=''
-            title='Registered Model'
-            src={registeredModelSvg}
-          />
+          <img data-test-id="registered-model-icon" alt="" title="Registered Model" src={registeredModelSvg} />
           <Tooltip title={displayFullName}>
             {shouldUsePathRouting() ? (
-              <Link
-                to={mvPageRoute}
-                target='_blank'
-                className='registered-model-link'
-                rel='noreferrer'
-              >
-                <TrimmedText text={displayName} maxSize={10} className={'model-name'} />
+              <Link to={mvPageRoute} target="_blank" className="registered-model-link" rel="noreferrer">
+                <TrimmedText text={displayName} maxSize={10} className="model-name" />
                 {`/${registeredModelVersion}`}
               </Link>
             ) : (
-              <a
-                href={mvPageRoute}
-                className='registered-model-link'
-                target='_blank'
-                rel='noreferrer'
-              >
-                <TrimmedText text={displayName} maxSize={10} className={'model-name'} />
+              <a href={mvPageRoute} className="registered-model-link" target="_blank" rel="noreferrer">
+                <TrimmedText text={displayName} maxSize={10} className="model-name" />
                 {`/${registeredModelVersion}`}
               </a>
             )}
@@ -68,15 +56,11 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
       );
     } else if (modelToRender.flavors) {
       const loggedModelFlavorText = modelToRender.flavors ? modelToRender.flavors[0] : 'Model';
-      const loggedModelLink = Routes.getRunPageRoute(
-        experimentId,
-        runUuid,
-        modelToRender.artifactPath,
-      );
+      const loggedModelLink = Routes.getRunPageRoute(experimentId, runUuid, modelToRender.artifactPath);
       modelDiv = (
         <>
-          <img data-test-id='logged-model-icon' alt='' title='Logged Model' src={loggedModelSvg} />
-          <Link to={loggedModelLink} target='_blank' className='logged-model-link'>
+          <img data-test-id="logged-model-icon" alt="" title="Logged Model" src={loggedModelSvg} />
+          <Link to={loggedModelLink} target="_blank" className="logged-model-link">
             {loggedModelFlavorText}
           </Link>
         </>
@@ -84,7 +68,7 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
     }
 
     return (
-      <div className='logged-model-cell' css={styles.imageWrapper}>
+      <div className="logged-model-cell" css={styles.imageWrapper}>
         {modelDiv}
         {loggedModels.length > 1 ? `, ${loggedModels.length - 1} more` : ''}
       </div>

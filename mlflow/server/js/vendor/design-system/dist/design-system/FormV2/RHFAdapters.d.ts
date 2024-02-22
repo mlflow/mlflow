@@ -9,6 +9,7 @@ import type { InputProps, PasswordProps, TextAreaProps } from '../Input';
 import type { RadioGroupProps } from '../Radio';
 import type { SelectProps } from '../Select';
 import type { SelectV2ContentProps, SelectV2OptionProps, SelectV2Props, SelectV2TriggerProps } from '../SelectV2';
+import type { SwitchProps } from '../Switch';
 import type { TypeaheadComboboxInputProps } from '../TypeaheadCombobox/TypeaheadComboboxInput';
 import type { TypeaheadComboboxMenuProps } from '../TypeaheadCombobox/TypeaheadComboboxMenu';
 import type { TypeaheadComboboxMultiSelectInputProps } from '../TypeaheadCombobox/TypeaheadComboboxMultiSelectInput';
@@ -73,10 +74,11 @@ interface RHFControlledTypeaheadComboboxProps<TFieldValues extends FieldValues =
     allItems: TFieldValues[];
     itemToString: (item: TFieldValues) => string;
     matcher: (item: TFieldValues, query: string) => boolean;
+    allowNewValue?: boolean;
     inputProps?: Partial<Omit<TypeaheadComboboxInputProps<TFieldValues>, 'comboboxState' | 'rhfOnChange' | 'id' | 'validationState'>>;
     menuProps?: Partial<Omit<TypeaheadComboboxMenuProps<TFieldValues>, 'comboboxState'>>;
 }
-declare function RHFControlledTypeaheadCombobox<TFieldValues extends FieldValues>({ name, control, rules, allItems, itemToString, matcher, children, validationState, inputProps, menuProps, ...props }: React.PropsWithChildren<RHFControlledTypeaheadComboboxProps<TFieldValues>> & HTMLAttributes<HTMLDivElement>): import("@emotion/react/jsx-runtime").JSX.Element;
+declare function RHFControlledTypeaheadCombobox<TFieldValues extends FieldValues>({ name, control, rules, allItems, itemToString, matcher, allowNewValue, children, validationState, inputProps, menuProps, ...props }: React.PropsWithChildren<RHFControlledTypeaheadComboboxProps<TFieldValues>> & HTMLAttributes<HTMLDivElement>): import("@emotion/react/jsx-runtime").JSX.Element;
 interface RHFControlledMultiSelectTypeaheadComboboxProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<TypeaheadComboboxRootProps<TFieldValues>, OmittedOriginalProps | 'comboboxState' | 'multiSelect'>, UseControllerProps<TFieldValues, TName> {
     control: Control<any, TFieldValues>;
     name: any;
@@ -105,6 +107,10 @@ interface RHFControlledRadioGroupProps<TFieldValues extends FieldValues = FieldV
     control: Control<TFieldValues>;
 }
 declare function RHFControlledRadioGroup<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>>({ name, control, rules, ...restProps }: React.PropsWithChildren<RHFControlledRadioGroupProps<TFieldValues, TName>>): import("@emotion/react/jsx-runtime").JSX.Element;
+interface RHFControlledSwitchProps<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>> extends Omit<SwitchProps, OmittedOriginalProps>, UseControllerProps<TFieldValues, TName> {
+    control: Control<TFieldValues>;
+}
+declare function RHFControlledSwitch<TFieldValues extends FieldValues = FieldValues, TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>>({ name, control, rules, ...restProps }: React.PropsWithChildren<RHFControlledSwitchProps<TFieldValues, TName>>): import("@emotion/react/jsx-runtime").JSX.Element;
 export declare const RHFControlledComponents: {
     Input: typeof RHFControlledInput;
     Password: typeof RHFControlledPasswordInput;
@@ -117,6 +123,7 @@ export declare const RHFControlledComponents: {
     RadioGroup: typeof RHFControlledRadioGroup;
     TypeaheadCombobox: typeof RHFControlledTypeaheadCombobox;
     MultiSelectTypeaheadCombobox: typeof RHFControlledMultiSelectTypeaheadCombobox;
+    Switch: typeof RHFControlledSwitch;
 };
 export {};
 //# sourceMappingURL=RHFAdapters.d.ts.map

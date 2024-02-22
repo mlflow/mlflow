@@ -9,10 +9,9 @@ import {
   DialogComboboxOptionListSearch,
   DialogComboboxTrigger,
   DownloadIcon,
-  Dropdown,
+  ClipboardIcon,
   FullscreenExitIcon,
   FullscreenIcon,
-  Menu,
   OverflowIcon,
   PlusIcon,
   SidebarIcon,
@@ -23,8 +22,9 @@ import {
 import { Theme } from '@emotion/react';
 import {
   shouldEnableArtifactBasedEvaluation,
+  shouldEnableDeepLearningUIPhase2,
   shouldEnablePromptLab,
-  shouldEnableDatasetsDropdown,
+  shouldEnableShareExperimentViewByTags,
 } from 'common/utils/FeatureUtils';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -45,10 +45,13 @@ import { ExperimentViewRefreshButton } from './ExperimentViewRefreshButton';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
 import type { ExperimentStoreEntities, DatasetSummary } from '../../../../types';
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
-import { Data } from 'vega';
 import { CreateNotebookRunModal } from 'experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
 import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
+import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
+import { createExperimentPageSearchFacetsStateV2 } from '../../models/ExperimentPageSearchFacetsStateV2';
+import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 
 export type ExperimentViewRunsControlsFiltersProps = {
   searchFacetsState: SearchExperimentRunsFacetsState;
@@ -60,6 +63,8 @@ export type ExperimentViewRunsControlsFiltersProps = {
   onDownloadCsv: () => void;
   requestError: ErrorWrapper | null;
   additionalControls?: React.ReactNode;
+  refreshRuns: () => void;
+  viewMaximized: boolean;
 };
 
 export const ExperimentViewRunsControlsFilters = React.memo(
@@ -73,21 +78,28 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     onDownloadCsv,
     requestError,
     additionalControls,
+    refreshRuns,
+    viewMaximized,
   }: ExperimentViewRunsControlsFiltersProps) => {
+    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+    const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
+
+    const [pageViewMode] = useExperimentPageViewMode();
+    const updateUIState = useUpdateExperimentViewUIState();
+
     const isComparingExperiments = useExperimentIds().length > 1;
-    const { compareRunsMode, startTime, lifecycleFilter, datasetsFilter, searchFilter } =
-      searchFacetsState;
+    const { startTime, lifecycleFilter, datasetsFilter, searchFilter } = searchFacetsState;
+
+    // Use modernized view mode value getter if flag is set
+    const compareRunsMode = usingNewViewStateModel ? pageViewMode : searchFacetsState.compareRunsMode;
+
     const intl = useIntl();
     const { createNewRun } = useCreateNewRun();
-    const [isCreateRunWithNotebookModalOpen, setCreateRunWithNotebookModalOpenValue] =
-      useState(false);
+    const [isCreateRunWithNotebookModalOpen, setCreateRunWithNotebookModalOpenValue] = useState(false);
     const { theme } = useDesignSystemTheme();
 
     // List of labels for "start time" filter
-    const startTimeColumnLabels: Record<string, string> = useMemo(
-      () => getStartTimeColumnDisplayName(intl),
-      [intl],
-    );
+    const startTimeColumnLabels: Record<string, string> = useMemo(() => getStartTimeColumnDisplayName(intl), [intl]);
 
     const currentLifecycleFilterValue =
       lifecycleFilter === LIFECYCLE_FILTER.ACTIVE
@@ -103,51 +115,57 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     const currentStartTimeFilterLabel = (
       <>
         <FormattedMessage
-          defaultMessage='Time created'
-          description='Label for the start time select dropdown for experiment runs view'
+          defaultMessage="Time created"
+          description="Label for the start time select dropdown for experiment runs view"
         />
       </>
     );
 
     // Show preview sidebar only on table view and artifact view
-    const displaySidebarToggleButton =
-      compareRunsMode === undefined || compareRunsMode === 'ARTIFACT';
+    const displaySidebarToggleButton = compareRunsMode === undefined || compareRunsMode === 'ARTIFACT';
 
     const datasetSummaries: DatasetSummary[] = useSelector(
-      (state: { entities: ExperimentStoreEntities }) =>
-        state.entities.datasetsByExperimentId[experimentId],
+      (state: { entities: ExperimentStoreEntities }) => state.entities.datasetsByExperimentId[experimentId],
     );
 
-    const updateDatasetsFilter = useCallback(
-      (summary: DatasetSummary) => {
+    const updateDatasetsFilter = (summary: DatasetSummary) => {
+      const newDatasetsFilter = datasetsFilter.some((item) => datasetSummariesEqual(item, summary))
+        ? datasetsFilter.filter((item) => !datasetSummariesEqual(item, summary))
+        : [...datasetsFilter, summary];
+
+      if (usingNewViewStateModel) {
+        // In the new view state version, set datasets filter directly in the URL search state
+        setUrlSearchFacets({
+          datasetsFilter: newDatasetsFilter,
+        });
+      } else {
         updateSearchFacets((existingFacets) => ({
           ...existingFacets,
-          datasetsFilter: datasetsFilter.some((item) => datasetSummariesEqual(item, summary))
-            ? datasetsFilter.filter((item) => !datasetSummariesEqual(item, summary))
-            : [...datasetsFilter, summary],
+          datasetsFilter: newDatasetsFilter,
         }));
-      },
-      [updateSearchFacets, datasetsFilter],
-    );
+      }
+    };
 
     const hasDatasets = datasetSummaries !== undefined;
     const previewIcon = () => {
       return (
-        <Tag style={{ marginLeft: '4px' }} color='turquoise'>
+        <Tag style={{ marginLeft: '4px' }} color="turquoise">
           <FormattedMessage
-            defaultMessage='Experimental'
-            description='Experimental badge shown for features which are experimental'
+            defaultMessage="Experimental"
+            description="Experimental badge shown for features which are experimental"
           />
         </Tag>
       );
     };
 
-    const searchFilterChange = useCallback(
-      (newSearchFilter: string) => {
+    const searchFilterChange = (newSearchFilter: string) => {
+      if (usingNewViewStateModel) {
+        // In the new view state version, set search filter directly in the URL search state
+        setUrlSearchFacets({ searchFilter: newSearchFilter });
+      } else {
         updateSearchFacets({ searchFilter: newSearchFilter });
-      },
-      [updateSearchFacets],
-    );
+      }
+    };
 
     return (
       <div css={styles.groupBar}>
@@ -156,7 +174,14 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             runsData={runsData}
             searchFilter={searchFilter}
             onSearchFilterChange={searchFilterChange}
-            onClear={() => updateSearchFacets(clearSearchExperimentsFacetsFilters)}
+            onClear={() => {
+              if (usingNewViewStateModel) {
+                // In the new view state version, reset URL search state directly
+                setUrlSearchFacets(createExperimentPageSearchFacetsStateV2());
+              } else {
+                updateSearchFacets(clearSearchExperimentsFacetsFilters);
+              }
+            }}
             requestError={requestError}
           />
 
@@ -166,8 +191,15 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           >
             <DialogComboboxTrigger
               allowClear={startTime !== 'ALL'}
-              onClear={() => updateSearchFacets({ startTime: 'ALL' })}
-              data-test-id='start-time-select-dropdown'
+              onClear={() => {
+                if (usingNewViewStateModel) {
+                  // In the new view state version, set time filter directly in the URL search state
+                  setUrlSearchFacets({ startTime: 'ALL' });
+                } else {
+                  updateSearchFacets({ startTime: 'ALL' });
+                }
+              }}
+              data-test-id="start-time-select-dropdown"
             />
             <DialogComboboxContent>
               <DialogComboboxOptionList>
@@ -178,7 +210,14 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     title={startTimeColumnLabels[startTimeKey]}
                     data-test-id={`start-time-select-${startTimeKey}`}
                     value={startTimeKey}
-                    onChange={() => updateSearchFacets({ startTime: startTimeKey })}
+                    onChange={() => {
+                      if (usingNewViewStateModel) {
+                        // In the new view state version, set time filter directly in the URL search state
+                        setUrlSearchFacets({ startTime: startTimeKey });
+                      } else {
+                        updateSearchFacets({ startTime: startTimeKey });
+                      }
+                    }}
                   >
                     {startTimeColumnLabels[startTimeKey]}
                   </DialogComboboxOptionListSelectItem>
@@ -190,123 +229,125 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           <DialogCombobox
             label={
               <FormattedMessage
-                defaultMessage='State'
-                description='Filtering label to filter experiments based on state of active or deleted'
+                defaultMessage="State"
+                description="Filtering label to filter experiments based on state of active or deleted"
               />
             }
             value={[currentLifecycleFilterValue]}
           >
-            <DialogComboboxTrigger allowClear={false} data-testid='lifecycle-filter' />
+            <DialogComboboxTrigger allowClear={false} data-testid="lifecycle-filter" />
             <DialogComboboxContent>
               <DialogComboboxOptionList>
                 <DialogComboboxOptionListSelectItem
                   checked={lifecycleFilter === LIFECYCLE_FILTER.ACTIVE}
                   key={LIFECYCLE_FILTER.ACTIVE}
-                  data-testid='active-runs-menu-item'
+                  data-testid="active-runs-menu-item"
                   value={LIFECYCLE_FILTER.ACTIVE}
-                  onChange={() => updateSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.ACTIVE })}
+                  onChange={() => {
+                    if (usingNewViewStateModel) {
+                      // In the new view state version, set lifecycle filter directly in the URL search state
+                      setUrlSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.ACTIVE });
+                    } else {
+                      updateSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.ACTIVE });
+                    }
+                  }}
                 >
                   <FormattedMessage
-                    defaultMessage='Active'
-                    description='Linked model dropdown option to show active experiment runs'
+                    defaultMessage="Active"
+                    description="Linked model dropdown option to show active experiment runs"
                   />
                 </DialogComboboxOptionListSelectItem>
                 <DialogComboboxOptionListSelectItem
                   checked={lifecycleFilter === LIFECYCLE_FILTER.DELETED}
                   key={LIFECYCLE_FILTER.DELETED}
-                  data-testid='deleted-runs-menu-item'
+                  data-testid="deleted-runs-menu-item"
                   value={LIFECYCLE_FILTER.DELETED}
-                  onChange={() => updateSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.DELETED })}
+                  onChange={() => {
+                    if (usingNewViewStateModel) {
+                      // In the new view state version, set lifecycle filter directly in the URL search state
+                      setUrlSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.DELETED });
+                    } else {
+                      updateSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.DELETED });
+                    }
+                  }}
                 >
                   <FormattedMessage
-                    defaultMessage='Deleted'
-                    description='Linked model dropdown option to show deleted experiment runs'
+                    defaultMessage="Deleted"
+                    description="Linked model dropdown option to show deleted experiment runs"
                   />
                 </DialogComboboxOptionListSelectItem>
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
-          {shouldEnableDatasetsDropdown() && (
-            <DialogCombobox
-              label={
-                <FormattedMessage
-                  defaultMessage='Datasets'
-                  description='Filtering label to filter runs based on datasets used'
-                />
+          <DialogCombobox
+            label={
+              <FormattedMessage
+                defaultMessage="Datasets"
+                description="Filtering label to filter runs based on datasets used"
+              />
+            }
+            value={datasetsFilter.map((datasetSummary) => datasetSummary.name)}
+            multiSelect
+          >
+            <Tooltip
+              title={
+                !hasDatasets && (
+                  <FormattedMessage
+                    defaultMessage="No datasets were recorded for this experiment's runs."
+                    description="Message to indicate that no datasets were recorded for this experiment's runs."
+                  />
+                )
               }
-              value={datasetsFilter.map((datasetSummary) => datasetSummary.name)}
-              multiSelect
             >
-              <Tooltip
-                title={
-                  !hasDatasets && (
-                    <FormattedMessage
-                      defaultMessage="No datasets were recorded for this experiment's runs."
-                      description="Message to indicate that no datasets were recorded for this experiment's runs."
-                    />
-                  )
-                }
-              >
-                <DialogComboboxTrigger
-                  allowClear
-                  onClear={() => updateSearchFacets({ datasetsFilter: [] })}
-                  data-test-id='datasets-select-dropdown'
-                  showTagAfterValueCount={1}
-                  disabled={!hasDatasets}
-                />
-                {hasDatasets && (
-                  <DialogComboboxContent maxHeight={600}>
-                    <DialogComboboxOptionList>
-                      <DialogComboboxOptionListSearch>
-                        {datasetSummaries.map((summary: DatasetSummary) => (
-                          <DialogComboboxOptionListCheckboxItem
-                            key={summary.name + summary.digest + summary.context}
-                            checked={datasetsFilter.some((item) =>
-                              datasetSummariesEqual(item, summary),
-                            )}
-                            title={summary.name}
-                            data-test-id={`dataset-dropdown-${summary.name}`}
-                            value={summary.name}
-                            onChange={() => updateDatasetsFilter(summary)}
-                          >
-                            {summary.name} ({summary.digest}){' '}
-                            {summary.context && (
-                              <Tag
-                                css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}
-                              >
-                                {summary.context}
-                              </Tag>
-                            )}
-                          </DialogComboboxOptionListCheckboxItem>
-                        ))}
-                      </DialogComboboxOptionListSearch>
-                    </DialogComboboxOptionList>
-                  </DialogComboboxContent>
-                )}
-              </Tooltip>
-            </DialogCombobox>
-          )}
+              <DialogComboboxTrigger
+                allowClear
+                onClear={() => updateSearchFacets({ datasetsFilter: [] })}
+                data-test-id="datasets-select-dropdown"
+                showTagAfterValueCount={1}
+                disabled={!hasDatasets}
+              />
+              {hasDatasets && (
+                <DialogComboboxContent maxHeight={600}>
+                  <DialogComboboxOptionList>
+                    <DialogComboboxOptionListSearch>
+                      {datasetSummaries.map((summary: DatasetSummary) => (
+                        <DialogComboboxOptionListCheckboxItem
+                          key={summary.name + summary.digest + summary.context}
+                          checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
+                          title={summary.name}
+                          data-test-id={`dataset-dropdown-${summary.name}`}
+                          value={summary.name}
+                          onChange={() => updateDatasetsFilter(summary)}
+                        >
+                          {summary.name} ({summary.digest}){' '}
+                          {summary.context && (
+                            <Tag css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}>
+                              {summary.context}
+                            </Tag>
+                          )}
+                        </DialogComboboxOptionListCheckboxItem>
+                      ))}
+                    </DialogComboboxOptionListSearch>
+                  </DialogComboboxOptionList>
+                </DialogComboboxContent>
+              )}
+            </Tooltip>
+          </DialogCombobox>
           {additionalControls}
         </div>
         <div css={styles.groupSeparator} />
         <div css={styles.controlBar}>
-          <Dropdown
-            trigger={['click']}
-            placement='bottomRight'
-            overlay={
-              <Menu>
-                <Menu.Item className='csv-button' onClick={onDownloadCsv}>
-                  <DownloadIcon />{' '}
-                  <FormattedMessage
-                    defaultMessage='Download CSV'
-                    description='String for the download csv button to download experiments offline in a CSV format'
-                  />
-                </Menu.Item>
-              </Menu>
-            }
-          >
-            <Button icon={<OverflowIcon />} />
-          </Dropdown>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <Button icon={<OverflowIcon />} />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              <DropdownMenu.Item className="csv-button" onClick={onDownloadCsv}>
+                <DownloadIcon />
+                {`Download ${runsData.runInfos.length} runs`}
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
 
           <CreateNotebookRunModal
             isOpen={isCreateRunWithNotebookModalOpen}
@@ -314,7 +355,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             experimentId={experimentId}
           />
 
-          {!isComparingExperiments && (
+          {!isComparingExperiments && !shouldEnableDeepLearningUIPhase2() && (
             /* 
           When comparing experiments, elements that are hidden upon 
           maximization are not displayed anyway so let's hide the button then
@@ -323,8 +364,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               key={viewState.viewMaximized.toString()}
               title={
                 <FormattedMessage
-                  defaultMessage='Click to {isMaximized, select, true {restore} other {maximize}} the view'
-                  description='Experiment page > control bar > expanded view toggle button tooltip'
+                  defaultMessage="Click to {isMaximized, select, true {restore} other {maximize}} the view"
+                  description="Experiment page > control bar > expanded view toggle button tooltip"
                   values={{
                     isMaximized: viewState.viewMaximized,
                   }}
@@ -332,9 +373,16 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               }
             >
               <ToggleIconButton
-                pressed={viewState.viewMaximized}
-                icon={viewState.viewMaximized ? <FullscreenExitIcon /> : <FullscreenIcon />}
-                onClick={() => updateViewState({ viewMaximized: !viewState.viewMaximized })}
+                pressed={viewMaximized}
+                icon={viewMaximized ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                onClick={() => {
+                  if (usingNewViewStateModel) {
+                    // In the new view state version, toggle view maximized in UI state object
+                    updateUIState((state) => ({ ...state, viewMaximized: !state.viewMaximized }));
+                  } else {
+                    updateViewState({ viewMaximized: !viewState.viewMaximized });
+                  }
+                }}
               />
             </Tooltip>
           )}
@@ -342,29 +390,27 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             <Tooltip
               title={
                 <FormattedMessage
-                  defaultMessage='Toggle the preview sidepane'
-                  description='Experiment page > control bar > expanded view toggle button tooltip'
+                  defaultMessage="Toggle the preview sidepane"
+                  description="Experiment page > control bar > expanded view toggle button tooltip"
                 />
               }
             >
               <ToggleIconButton
                 pressed={viewState.previewPaneVisible}
                 icon={<SidebarIcon />}
-                onClick={() =>
-                  updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })
-                }
+                onClick={() => updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })}
               />
             </Tooltip>
           )}
-          <ExperimentViewRefreshButton />
+          <ExperimentViewRefreshButton refreshRuns={refreshRuns} />
           {/* TODO: Add tooltip to guide users to this button */}
           {shouldEnablePromptLab() && !isComparingExperiments && (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <Button type='primary' icon={<PlusIcon />}>
+                <Button type="primary" icon={<PlusIcon />}>
                   <FormattedMessage
-                    defaultMessage='New run'
-                    description='Button used to pop up a modal to create a new run'
+                    defaultMessage="New run"
+                    description="Button used to pop up a modal to create a new run"
                   />
                 </Button>
               </DropdownMenu.Trigger>
@@ -372,16 +418,16 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 <DropdownMenu.Item onSelect={() => createNewRun()}>
                   {' '}
                   <FormattedMessage
-                    defaultMessage='using Prompt Engineering'
-                    description='String for creating a new run with prompt engineering modal'
+                    defaultMessage="using Prompt Engineering"
+                    description="String for creating a new run with prompt engineering modal"
                   />{' '}
                   {previewIcon()}
                 </DropdownMenu.Item>
                 <DropdownMenu.Item onSelect={() => setCreateRunWithNotebookModalOpenValue(true)}>
                   {' '}
                   <FormattedMessage
-                    defaultMessage='using Notebook'
-                    description='String for creating a new run from a notebook'
+                    defaultMessage="using Notebook"
+                    description="String for creating a new run from a notebook"
                   />
                 </DropdownMenu.Item>
               </DropdownMenu.Content>

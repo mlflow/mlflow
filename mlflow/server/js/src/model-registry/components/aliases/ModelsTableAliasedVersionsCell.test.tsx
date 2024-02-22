@@ -1,15 +1,10 @@
 import userEvent from '@testing-library/user-event';
 import { type Location, MemoryRouter, useLocation } from '../../../common/utils/RoutingUtils';
-import { act, renderWithIntl, screen, within } from '../../../common/utils/TestUtils';
+import { renderWithIntl, act, screen, within } from 'common/utils/TestUtils.react17';
 import { ModelEntity } from '../../../experiment-tracking/types';
 import { ModelsTableAliasedVersionsCell } from './ModelsTableAliasedVersionsCell';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
-import {
-  DesignSystemThemeProvider,
-  DesignSystemThemeContext,
-  DesignSystemProvider,
-} from '@databricks/design-system';
-import { first } from 'lodash';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('ModelListTableAliasedVersionsCell', () => {
   const modelWithOneAlias: ModelEntity = {
@@ -45,9 +40,7 @@ describe('ModelListTableAliasedVersionsCell', () => {
   };
 
   test('display a single version and navigate to it', () => {
-    const { getLocation } = renderWithRouterWrapper(
-      <ModelsTableAliasedVersionsCell model={modelWithOneAlias} />,
-    );
+    const { getLocation } = renderWithRouterWrapper(<ModelsTableAliasedVersionsCell model={modelWithOneAlias} />);
     expect(screen.getByText(/@ alias-version-1/)).toBeInTheDocument();
     userEvent.click(screen.getByRole('link', { name: 'alias-version-1 : Version 1' }));
     expect(getLocation()?.pathname).toEqual('/models/test-model/versions/1');

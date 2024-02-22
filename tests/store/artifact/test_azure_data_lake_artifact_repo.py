@@ -70,26 +70,69 @@ def mock_file_client(mock_directory_client):
 
 
 @pytest.mark.parametrize(
-    ("uri", "filesystem", "account", "path"),
+    ("uri", "filesystem", "account", "region_suffix", "path"),
     [
-        ("abfss://filesystem@acct.dfs.core.windows.net/path", "filesystem", "acct", "path"),
-        ("abfss://filesystem@acct.dfs.core.windows.net", "filesystem", "acct", ""),
-        ("abfss://filesystem@acct.dfs.core.windows.net/", "filesystem", "acct", ""),
-        ("abfss://filesystem@acct.dfs.core.windows.net/a/b", "filesystem", "acct", "a/b"),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/path",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "path",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/a/b",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "a/b",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.chinacloudapi.cn/a/b",
+            "filesystem",
+            "acct",
+            "dfs.core.chinacloudapi.cn",
+            "a/b",
+        ),
+        (
+            "abfss://filesystem@acct.privatelink.dfs.core.windows.net/a/b",
+            "filesystem",
+            "acct",
+            "privatelink.dfs.core.windows.net",
+            "a/b",
+        ),
+        (
+            "abfss://filesystem@acct.dfs.core.usgovcloudapi.net/a/b",
+            "filesystem",
+            "acct",
+            "dfs.core.usgovcloudapi.net",
+            "a/b",
+        ),
     ],
 )
-def test_parse_valid_abfss_uri(uri, filesystem, account, path):
-    assert _parse_abfss_uri(uri) == (filesystem, account, path)
+def test_parse_valid_abfss_uri(uri, filesystem, account, region_suffix, path):
+    assert _parse_abfss_uri(uri) == (filesystem, account, region_suffix, path)
 
 
 @pytest.mark.parametrize(
     "uri",
     [
-        "abfss://filesystem@acct.dfs.core.evil.net/path",
         "abfss://filesystem@acct/path",
         "abfss://acct.dfs.core.windows.net/path",
         "abfss://@acct.dfs.core.windows.net/path",
-        "abfss://filesystem@acctxdfs.core.windows.net/path",
     ],
 )
 def test_parse_invalid_abfss_uri(uri):
@@ -201,7 +244,7 @@ def test_log_artifacts(mock_filesystem_client, mock_directory_client, tmp_path):
     mock_directory_client.get_file_client("subdir/empty-file.txt").create_file.assert_called()
 
 
-def test_log_artifacts_in_parallel_when_necessary(tmp_path):
+def test_log_artifacts_in_parallel_when_necessary(tmp_path, monkeypatch):
     fake_sas_token = "fake_session_token"
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, AzureSasCredential(fake_sas_token))
 
@@ -209,7 +252,8 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path):
     parentd.mkdir()
     parentd.joinpath("a.txt").write_text("ABCDE")
 
-    with mock.patch(f"{ADLS_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", "0")
+    with mock.patch(
         f"{ADLS_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
     ) as multipart_upload_mock, mock.patch(
         f"{ADLS_ARTIFACT_REPOSITORY}.log_artifact", return_value=None
@@ -227,7 +271,7 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path):
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_download_file_in_parallel_when_necessary(file_size, is_parallel_download):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
@@ -291,7 +335,7 @@ def test_download_directory_artifact(mock_filesystem_client, mock_file_client, t
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         path_arg = posixpath.abspath(kwargs["path"])
         if path_arg == posixpath.abspath(TEST_ROOT_PATH):
             return MockPathList([path_props_1, path_props_2, dir_props])

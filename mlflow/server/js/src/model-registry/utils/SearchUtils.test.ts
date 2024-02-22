@@ -5,11 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import {
-  getModelNameFilter,
-  getCombinedSearchFilter,
-  constructSearchInputFromURLState,
-} from './SearchUtils';
+import { getModelNameFilter, getCombinedSearchFilter, constructSearchInputFromURLState } from './SearchUtils';
 
 describe('getModelNameFilter', () => {
   it('should construct name filter correctly', () => {
@@ -39,9 +35,7 @@ describe('constructSearchInputFromURLState', () => {
   });
 
   it('should construct searchInput correctly from URLState with tagSearchInput', () => {
-    expect(constructSearchInputFromURLState({ tagSearchInput: "tags.k = 'v'" })).toBe(
-      "tags.k = 'v'",
-    );
+    expect(constructSearchInputFromURLState({ tagSearchInput: "tags.k = 'v'" })).toBe("tags.k = 'v'");
   });
 
   it('should construct searchInput correctly from URLState with nameSearchInput and tagSearchInput', () => {

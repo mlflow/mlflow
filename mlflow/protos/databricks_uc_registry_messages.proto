@@ -530,6 +530,34 @@ message Notebook {
   optional string notebook_run_id = 3;
 }
 
+enum TableType {
+    TABLE = 0;
+    PERSISTED_VIEW = 1;
+    TEMP_VIEW = 2;
+    MATERIALIZED_VIEW = 3;
+    STREAMING_LIVE_TABLE = 4;
+    PATH = 5;
+}
+
+message Table {
+    optional string name = 1;
+    optional TableType table_type = 2;
+    optional string location = 3;
+    optional string table_id = 4;
+}
+
+message Securable {
+    oneof value {
+        Table table = 1;
+    }
+}
+
+message Lineage {
+    optional Securable target_securable = 4;
+    repeated Securable source_securables = 5;
+}
+
 message LineageHeaderInfo {
   repeated Entity entities = 1;
+  repeated Lineage lineages = 2;
 }

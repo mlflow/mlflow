@@ -109,7 +109,9 @@ object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtracto
         val deltaFileIndexOpt = ReflectionUtils.callMethod(obj, "unapply", Seq(lr)).asInstanceOf[Option[Any]]
         deltaFileIndexOpt.map(fileIndex => {
           val path = ReflectionUtils.getField(fileIndex, "path").toString
-          val versionOpt = Option(ReflectionUtils.callMethod(fileIndex, "tableVersion", Seq.empty)).map(_.toString)
+          val versionOpt = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
+            ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty)
+          ).map(_.toString)
           SparkTableInfo(path, versionOpt, Option("delta"))
         })
       case other => None

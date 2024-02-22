@@ -26,9 +26,7 @@ describe('RunView', () => {
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
     // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() =>
-      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
-    );
+    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     minimalProps = {
       runUuid: 'uuid-1234-5678-9012',
       experimentId: '12345',
@@ -37,12 +35,7 @@ describe('RunView', () => {
       setTagApi: jest.fn(),
       deleteTagApi: jest.fn(),
     };
-    const modelVersion = mockModelVersionDetailed(
-      'Model A',
-      1,
-      Stages.PRODUCTION,
-      ModelVersionStatus.READY,
-    );
+    const modelVersion = mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY);
     minimalStoreRaw = {
       entities: {
         runInfosByUuid: {
@@ -181,9 +174,7 @@ describe('RunView', () => {
     expect(wrapper.html()).toContain('Parent Run');
     expect(wrapper.html()).toContain('Job Output');
     expect(wrapper.html()).toContain('Run Command');
-    expect(wrapper.html()).toContain(
-      'mlflow run notebook -v abc -e entry -b databricks -P p1=v1 -P p2=v2',
-    );
+    expect(wrapper.html()).toContain('mlflow run notebook -v abc -e entry -b databricks -P p1=v1 -P p2=v2');
   });
   test('state: showNoteEditor false/true -> edit button shown/hidden', () => {
     wrapper = mountWithIntl(

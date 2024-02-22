@@ -59,12 +59,7 @@ export const normalizeInfinity = (value: number | string) => {
  * extermal ("infinity-like") metric values to NaN values so they will be
  * displayed correctly on plot.
  */
-export const normalizeMetricsHistoryEntry = ({
-  key,
-  timestamp,
-  value,
-  step,
-}: MetricHistoryEntry) => ({
+export const normalizeMetricsHistoryEntry = ({ key, timestamp, value, step }: MetricHistoryEntry) => ({
   key: key,
   value: normalizeInfinity(value),
   step: step || 0,
@@ -368,7 +363,6 @@ export const normalizeMetricChartTooltipValue = (value: string | number, decimal
 };
 
 const systemMetricPrefix = new RegExp(`^${MLFLOW_SYSTEM_METRIC_PREFIX}`);
-export const normalizeChartMetricKey = (metricKey: string) =>
-  metricKey.replace(systemMetricPrefix, '');
+export const normalizeChartMetricKey = (metricKey: string) => metricKey.replace(systemMetricPrefix, '');
 
 export const isSystemMetricKey = (metricKey: string) => metricKey.match(systemMetricPrefix);

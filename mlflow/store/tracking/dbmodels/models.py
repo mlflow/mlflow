@@ -100,7 +100,8 @@ class SqlExperiment(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.Experiment`.
+        Returns:
+            :py:class:`mlflow.entities.Experiment`.
         """
         return Experiment(
             experiment_id=str(self.experiment_id),
@@ -210,7 +211,8 @@ class SqlRun(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.Run`.
+        Returns:
+            mlflow.entities.Run: Description of the return value.
         """
         run_info = RunInfo(
             run_uuid=self.run_uuid,
@@ -273,7 +275,8 @@ class SqlExperimentTag(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.RunTag`.
+        Returns:
+            mlflow.entities.RunTag: Description of the return value.
         """
         return ExperimentTag(key=self.key, value=self.value)
 
@@ -313,7 +316,8 @@ class SqlTag(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.RunTag`.
+        Returns:
+            :py:class:`mlflow.entities.RunTag`.
         """
         return RunTag(key=self.key, value=self.value)
 
@@ -365,7 +369,8 @@ class SqlMetric(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.Metric`.
+        Returns:
+            mlflow.entities.Metric: Description of the return value.
         """
         return Metric(
             key=self.key,
@@ -420,7 +425,8 @@ class SqlLatestMetric(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.Metric`.
+        Returns:
+            mlflow.entities.Metric: Description of the return value.
         """
         return Metric(
             key=self.key,
@@ -462,7 +468,8 @@ class SqlParam(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.Param`.
+        Returns:
+            mlflow.entities.Param: Description of the return value.
         """
         return Param(key=self.key, value=self.value)
 
@@ -531,7 +538,8 @@ class SqlDataset(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.Dataset`.
+        Returns:
+            mlflow.entities.Dataset.
         """
         return Dataset(
             name=self.name,
@@ -620,6 +628,7 @@ class SqlInputTag(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        :return: :py:class:`mlflow.entities.InputTag`.
+        Returns:
+            mlflow.entities.InputTag: Description of the return value.
         """
         return InputTag(key=self.name, value=self.value)

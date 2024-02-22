@@ -89,9 +89,9 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
-            validate_path_is_safe(f["path"])
+            validated_path = validate_path_is_safe(f["path"])
             file_info = FileInfo(
-                posixpath.join(path, f["path"]) if path else f["path"],
+                posixpath.join(path, validated_path) if path else validated_path,
                 f["is_dir"],
                 int(f["file_size"]) if ("file_size" in f) else None,
             )
@@ -134,7 +134,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         params = {
             "path": local_file,
             "upload_id": upload_id,
-            "parts": [{"part_number": part.part_number, "etag": part.etag} for part in parts],
+            "parts": [part.to_dict() for part in parts],
         }
         resp = http_request(host_creds, endpoint, "POST", json=params)
         augmented_raise_for_status(resp)
@@ -159,6 +159,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return MultipartUploadPart(
             part_number=credential.part_number,
             etag=response.headers.get("ETag", ""),
+            url=credential.url,
         )
 
     def _try_multipart_upload(self, local_file, artifact_path=None):

@@ -13,11 +13,13 @@ class RunData(_MLflowObject):
     """
 
     def __init__(self, metrics=None, params=None, tags=None):
-        """
-        Construct a new :py:class:`mlflow.entities.RunData` instance.
-        :param metrics: List of :py:class:`mlflow.entities.Metric`.
-        :param params: List of :py:class:`mlflow.entities.Param`.
-        :param tags: List of :py:class:`mlflow.entities.RunTag`.
+        """Construct a new mlflow.entities.RunData instance.
+
+        Args:
+            metrics: List of mlflow.entities.Metric.
+            params: List of mlflow.entities.Param.
+            tags: List of mlflow.entities.RunTag.
+
         """
         # Maintain the original list of metrics so that we can easily convert it back to
         # protobuf

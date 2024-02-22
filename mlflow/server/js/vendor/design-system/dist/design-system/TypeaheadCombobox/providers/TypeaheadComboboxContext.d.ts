@@ -5,6 +5,8 @@ export interface TypeaheadComboboxContextType {
     multiSelect?: boolean;
     floatingUiRefs?: ExtendedRefs<Element>;
     floatingStyles?: React.CSSProperties;
+    inputWidth?: number;
+    setInputWidth?: (width: number) => void;
 }
 export declare const TypeaheadComboboxContext: import("react").Context<TypeaheadComboboxContextType>;
 export declare const TypeaheadComboboxContextProvider: ({ children, value, }: {

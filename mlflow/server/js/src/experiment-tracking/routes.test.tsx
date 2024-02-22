@@ -18,18 +18,14 @@ describe('experiment tracking page routes', () => {
     expect(Routes.getCompareExperimentsPageRoute(['123', '124'])).toEqual(
       '/compare-experiments/s?experiments=["123","124"]',
     );
-    expect(Routes.searchRunsByLifecycleStage('123', 'ACTIVE')).toEqual(
-      '/experiments/123?lifecycleFilter=ACTIVE',
-    );
+    expect(Routes.searchRunsByLifecycleStage('123', 'ACTIVE')).toEqual('/experiments/123?lifecycleFilter=ACTIVE');
     expect(Routes.searchRunsByUser('123', '987654321')).toEqual(
       "/experiments/123?searchFilter=user_id%20%3D%20'987654321'",
     );
   });
 
   test('yields correct route paths for run page routes', () => {
-    expect(Routes.getRunPageRoute('1234', 'run_uuid_1')).toEqual(
-      '/experiments/1234/runs/run_uuid_1',
-    );
+    expect(Routes.getRunPageRoute('1234', 'run_uuid_1')).toEqual('/experiments/1234/runs/run_uuid_1');
     expect(Routes.getRunPageRoute('1234', 'run_uuid_1', 'sample/path/to/artifact')).toEqual(
       '/experiments/1234/runs/run_uuid_1/artifactPath/sample/path/to/artifact',
     );

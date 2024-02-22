@@ -11,6 +11,8 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class PaLMProvider(BaseProvider):
+    NAME = "PaLM"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, PaLMConfig):

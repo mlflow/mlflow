@@ -10,6 +10,11 @@ import {
   serializeFieldsToLocalStorage,
   serializeFieldsToQueryString,
 } from './persistSearchFacets.serializers';
+import { ExperimentPageUIStateV2, createExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import {
+  ExperimentPageSearchFacetsStateV2,
+  createExperimentPageSearchFacetsStateV2,
+} from '../models/ExperimentPageSearchFacetsStateV2';
 
 const KNOWN_STATE_KEYS = Object.keys(new SearchExperimentRunsFacetsState());
 
@@ -145,9 +150,7 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
       baseState = mergeFacetsStates(baseState, localStorageValue);
     }
   } catch {
-    Utils.logErrorAndNotifyUser(
-      `Error: malformed persisted search state for experiment(s) ${idKey}`,
-    );
+    Utils.logErrorAndNotifyUser(`Error: malformed persisted search state for experiment(s) ${idKey}`);
   }
 
   // Preliminarily decode the search query, despite QueryString.parse doing the same.
@@ -184,4 +187,33 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
     state: baseState,
     queryString: createPersistedQueryString({ ...restData, ...baseState }),
   };
+}
+
+// TODO(ML-35962): remove all above functions after the migration to the new view state model is complete
+/**
+ * Loads current view state (UI state, view state) in the local storage.
+ */
+export function loadExperimentViewState(idKey: string) {
+  try {
+    const localStorageInstance = LocalStorageUtils.getStoreForComponent('ExperimentPage', idKey);
+    return localStorageInstance.loadComponentState();
+  } catch {
+    Utils.logErrorAndNotifyUser(`Error: malformed persisted search state for experiment(s) ${idKey}`);
+
+    return {
+      ...createExperimentPageUIStateV2(),
+      ...createExperimentPageSearchFacetsStateV2(),
+    };
+  }
+}
+
+/**
+ * Persists view state (UI state, view state) in the local storage.
+ */
+export function saveExperimentViewState(
+  data: ExperimentPageUIStateV2 & ExperimentPageSearchFacetsStateV2,
+  idKey: string,
+) {
+  const localStorageInstance = LocalStorageUtils.getStoreForComponent('ExperimentPage', idKey);
+  localStorageInstance.saveComponentState(data);
 }

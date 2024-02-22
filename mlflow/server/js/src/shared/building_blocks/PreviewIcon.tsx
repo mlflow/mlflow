@@ -7,10 +7,7 @@ type Props = {
 };
 
 export const PreviewIcon = ({ className }: Props) => (
-  <Tag style={{ marginLeft: '4px' }} color='turquoise' className={className}>
-    <FormattedMessage
-      defaultMessage='Preview'
-      description='Preview badge shown for features which are under preview'
-    />
+  <Tag style={{ marginLeft: '4px' }} color="turquoise" className={className}>
+    <FormattedMessage defaultMessage="Preview" description="Preview badge shown for features which are under preview" />
   </Tag>
 );

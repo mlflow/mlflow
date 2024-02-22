@@ -4,7 +4,7 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class RunContextProvider(metaclass=ABCMeta):
+class RunContextProvider:
     """
     Abstract base class for context provider objects specifying custom tags at run-creation time
     (e.g. tags specifying the git repo with which the run is associated).
@@ -15,20 +15,23 @@ class RunContextProvider(metaclass=ABCMeta):
     All context tags are then merged together and set on the newly-created run.
     """
 
+    __metaclass__ = ABCMeta
+
     @abstractmethod
     def in_context(self):
-        """
-        Determine if MLflow is running in this context.
+        """Determine if MLflow is running in this context.
 
-        :return: bool indicating if in this context
+        Returns:
+            bool indicating if in this context.
+
         """
         pass
 
     @abstractmethod
     def tags(self):
-        """
-        Generate context-specific tags.
+        """Generate context-specific tags.
 
-        :return: dict of tags
+        Returns:
+            dict of tags.
         """
         pass

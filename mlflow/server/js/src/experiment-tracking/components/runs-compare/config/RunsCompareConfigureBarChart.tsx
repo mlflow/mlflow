@@ -56,7 +56,7 @@ export const RunsCompareConfigureBarChart = ({
 
   return (
     <>
-      <RunsCompareConfigureField title='Metric'>
+      <RunsCompareConfigureField title="Metric">
         <Select
           css={styles.selectFull}
           value={emptyMetricsList ? 'No metrics available' : state.metricKey}

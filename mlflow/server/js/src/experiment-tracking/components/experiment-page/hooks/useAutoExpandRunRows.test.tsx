@@ -1,11 +1,5 @@
 import { mount } from 'enzyme';
-import { AUTOML_EVALUATION_METRIC_ORDER_BY_ASC_TAG } from '../../automl/AutoMLExperimentPanelPage';
-import {
-  AUTOML_EVALUATION_METRIC_TAG,
-  MLFLOW_RUN_TYPE_TAG,
-  MLFLOW_RUN_TYPE_VALUE_EVALUATION,
-} from '../../../constants';
-import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_EVALUATION } from '../../../constants';
 import { useAutoExpandRunRows } from './useAutoExpandRunRows';
 import type { RunRowType } from '../utils/experimentPage.row-types';
 import type { UpdateExperimentSearchFacetsFn } from '../../../types';

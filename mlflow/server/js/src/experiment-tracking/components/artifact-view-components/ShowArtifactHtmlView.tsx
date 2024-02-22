@@ -52,28 +52,24 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   render() {
     if (this.state.loading || this.state.path !== this.props.path) {
-      return <div className='artifact-html-view-loading'>Loading...</div>;
+      return <div className="artifact-html-view-loading">Loading...</div>;
     }
     if (this.state.error) {
       console.error('Unable to load HTML artifact, got error ' + this.state.error);
-      return (
-        <div className='artifact-html-view-error'>
-          Oops we couldn't load your file because of an error.
-        </div>
-      );
+      return <div className="artifact-html-view-error">Oops we couldn't load your file because of an error.</div>;
     } else {
       return (
-        <div className='artifact-html-view'>
+        <div className="artifact-html-view">
           <Iframe
-            url=''
+            url=""
             src={this.getBlobURL(this.state.html, 'text/html')}
-            width='100%'
-            height='100%'
-            id='html'
-            className='html-iframe'
-            display='block'
-            position='relative'
-            sandbox='allow-scripts'
+            width="100%"
+            height="100%"
+            id="html"
+            className="html-iframe"
+            display="block"
+            position="relative"
+            sandbox="allow-scripts"
           />
         </div>
       );

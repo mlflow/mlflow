@@ -152,9 +152,7 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-code-content').html()).toContain(
-        'runs:/fakeUuid/modelPath',
-      );
+      expect(wrapper.find('.artifact-logged-model-view-code-content').html()).toContain('runs:/fakeUuid/modelPath');
       done();
     });
   });

@@ -163,9 +163,7 @@ describe('test experimentsById', () => {
     };
     const state2 = experimentsById(state1, action2);
     const { tags } = state2.experiment1;
-    expect(tags).toEqual(
-      Immutable.List([(ExperimentTag as any).fromJs(tag1), (ExperimentTag as any).fromJs(tag2)]),
-    );
+    expect(tags).toEqual(Immutable.List([(ExperimentTag as any).fromJs(tag1), (ExperimentTag as any).fromJs(tag2)]));
   });
 });
 
@@ -363,11 +361,7 @@ describe('test runInfosByUuid', () => {
     const action = {
       type: fulfilled(SEARCH_RUNS_API),
       payload: {
-        runs: [
-          { info: preserved.toJSON() },
-          { info: replacedNew.toJSON() },
-          { info: newRun.toJSON() },
-        ],
+        runs: [{ info: preserved.toJSON() }, { info: replacedNew.toJSON() }, { info: newRun.toJSON() }],
       },
     };
     const new_state = runInfosByUuid(state, action);
@@ -416,11 +410,7 @@ describe('test runInfosByUuid', () => {
     const action = {
       type: fulfilled(LOAD_MORE_RUNS_API),
       payload: {
-        runs: [
-          { info: preserved.toJSON() },
-          { info: replacedNew.toJSON() },
-          { info: newRun.toJSON() },
-        ],
+        runs: [{ info: preserved.toJSON() }, { info: replacedNew.toJSON() }, { info: newRun.toJSON() }],
       },
     };
     const new_state = runInfosByUuid(state, action);
@@ -617,12 +607,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(
-      paramsByRunUuid,
-      undefined,
-      newState('params', empty_state),
-      new_action('params', undefined),
-    );
+    reduceAndTest(paramsByRunUuid, undefined, newState('params', empty_state), new_action('params', undefined));
     reduceAndTest(
       tagsByRunUuid,
       undefined,
@@ -638,12 +623,7 @@ describe('test params(tags)ByRunUuid', () => {
       newState('params', expected_state),
       new_action('params', [val1, val2, val3]),
     );
-    reduceAndTest(
-      tagsByRunUuid,
-      undefined,
-      newState('tags', expected_state),
-      new_action('tags', [val1, val2, val3]),
-    );
+    reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action('tags', [val1, val2, val3]));
   });
   test('getRunApi updates non empty state correctly', () => {
     const initial_state = deepFreeze({
@@ -687,12 +667,7 @@ describe('test params(tags)ByRunUuid', () => {
       newState('params', expected_state),
       new_action('params'),
     );
-    reduceAndTest(
-      tagsByRunUuid,
-      newState('tags', initial_state),
-      newState('tags', expected_state),
-      new_action('tags'),
-    );
+    reduceAndTest(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action('tags'));
   });
   test('search runs and load more apis updates non empty state correctly', () => {
     const initial_state = deepFreeze({
@@ -807,12 +782,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(
-      tagsByRunUuid,
-      newState('tags', initial_state),
-      newState('tags', expected_state),
-      new_action(),
-    );
+    reduceAndTest(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action());
   });
   test('deleteTagApi works with empty state', () => {
     const expected_state = {};
@@ -856,12 +826,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(
-      tagsByRunUuid,
-      newState('tags', initial_state),
-      newState('tags', expected_state),
-      new_action(),
-    );
+    reduceAndTest(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action());
   });
 });
 

@@ -1,15 +1,11 @@
 import { mount, ReactWrapper } from 'enzyme';
 import React from 'react';
-import {
-  RunsChartsTooltipBodyComponent,
-  RunsChartsTooltipWrapper,
-  useRunsChartsTooltip,
-} from './useRunsChartsTooltip';
+import { RunsChartsTooltipBodyComponent, RunsChartsTooltipWrapper, useRunsChartsTooltip } from './useRunsChartsTooltip';
 
 const defaultBodyComponent: RunsChartsTooltipBodyComponent = ({ runUuid }) => (
-  <div data-testid='tooltip-body'>
+  <div data-testid="tooltip-body">
     tooltip body
-    <div data-testid='tooltip-body-run-uuid'>{runUuid}</div>
+    <div data-testid="tooltip-body-run-uuid">{runUuid}</div>
   </div>
 );
 
@@ -28,10 +24,8 @@ const createWrapper = (
 
     return (
       <button
-        data-testid='fake-chart'
-        onMouseEnter={({ runId, nativeEvent, hoverData }: any) =>
-          setTooltip(runId, nativeEvent, hoverData)
-        }
+        data-testid="fake-chart"
+        onMouseEnter={({ runId, nativeEvent, hoverData }: any) => setTooltip(runId, nativeEvent, hoverData)}
         onMouseLeave={resetTooltip}
       />
     );
@@ -73,7 +67,7 @@ describe('useRunsChartsTooltip', () => {
 
   it('properly sets the tooltip content', () => {
     wrapper = createWrapper('context-data', 'chart-data', ({ runUuid, contextData, chartData }) => (
-      <div data-testid='tooltip-body'>
+      <div data-testid="tooltip-body">
         {runUuid},{contextData},{chartData}
       </div>
     ));
@@ -87,7 +81,7 @@ describe('useRunsChartsTooltip', () => {
 
   it('properly sets hover data', () => {
     wrapper = createWrapper(undefined, undefined, ({ runUuid, hoverData }) => (
-      <div data-testid='tooltip-body'>
+      <div data-testid="tooltip-body">
         {runUuid}, step: {hoverData.step}
       </div>
     ));
@@ -114,7 +108,7 @@ describe('useRunsChartsTooltip', () => {
 
   it('properly invokes the context menu out of the tooltip', () => {
     wrapper = createWrapper(undefined, undefined, ({ isHovering }) => (
-      <div data-testid='tooltip-body'>{!isHovering && <div>context menu only content</div>}</div>
+      <div data-testid="tooltip-body">{!isHovering && <div>context menu only content</div>}</div>
     ));
     // Hover over the run
     getFakeChart().simulate('mouseenter', { runId: 'fake_run_id_123' });
@@ -133,7 +127,7 @@ describe('useRunsChartsTooltip', () => {
 
   it('properly prevents the context menu from appearing if user has moved the mouse', () => {
     wrapper = createWrapper(undefined, undefined, ({ isHovering }) => (
-      <div data-testid='tooltip-body'>{!isHovering && <div>context menu only content</div>}</div>
+      <div data-testid="tooltip-body">{!isHovering && <div>context menu only content</div>}</div>
     ));
     // Hover over the run
     getFakeChart().simulate('mouseenter', { runId: 'fake_run_id_123' });

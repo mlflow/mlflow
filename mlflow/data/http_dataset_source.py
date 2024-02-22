@@ -1,5 +1,4 @@
 import os
-import posixpath
 import re
 from typing import Any, Dict
 from urllib.parse import urlparse
@@ -30,10 +29,11 @@ class HTTPDatasetSource(DatasetSource):
 
     @property
     def url(self):
-        """
-        The HTTP/S URL referring to the dataset source location.
+        """The HTTP/S URL referring to the dataset source location.
 
-        :return: The HTTP/S URL referring to the dataset source location.
+        Returns:
+            The HTTP/S URL referring to the dataset source location.
+
         """
         return self._url
 
@@ -41,15 +41,35 @@ class HTTPDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "http"
 
-    def load(self, dst_path=None) -> str:
+    def _extract_filename(self, response) -> str:
         """
-        Downloads the dataset source to the local filesystem.
+        Extracts a filename from the Content-Disposition header or the URL's path.
+        """
+        if content_disposition := response.headers.get("Content-Disposition"):
+            for match in re.finditer(r"filename=(.+)", content_disposition):
+                filename = match[1].strip("'\"")
+                if _is_path(filename):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid filename in Content-Disposition header: {filename}. "
+                        "It must be a file name, not a path."
+                    )
+                return filename
 
-        :param dst_path: Path of the local filesystem destination directory to which to download the
-                         dataset source. If the directory does not exist, it is created. If
-                         unspecified, the dataset source is downloaded to a new uniquely-named
-                         directory on the local filesystem.
-        :return: The path to the downloaded dataset source on the local filesystem.
+        # Extract basename from URL if no valid filename in Content-Disposition
+        return os.path.basename(urlparse(self.url).path)
+
+    def load(self, dst_path=None) -> str:
+        """Downloads the dataset source to the local filesystem.
+
+        Args:
+            dst_path: Path of the local filesystem destination directory to which to download the
+                dataset source. If the directory does not exist, it is created. If
+                unspecified, the dataset source is downloaded to a new uniquely-named
+                directory on the local filesystem.
+
+        Returns:
+            The path to the downloaded dataset source on the local filesystem.
+
         """
         resp = cloud_storage_http_request(
             method="GET",
@@ -58,21 +78,9 @@ class HTTPDatasetSource(DatasetSource):
         )
         augmented_raise_for_status(resp)
 
-        path = urlparse(self.url).path
-        content_disposition = resp.headers.get("Content-Disposition")
-        if content_disposition is not None and (
-            file_name := next(re.finditer(r"filename=(.+)", content_disposition), None)
-        ):
-            # NB: If the filename is quoted, unquote it
-            basename = file_name[1].strip("'\"")
-            if _is_path(basename):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid filename in Content-Disposition header: {basename}. "
-                    "It must be a file name, not a path."
-                )
-        elif path is not None and len(posixpath.basename(path)) > 0:
-            basename = posixpath.basename(path)
-        else:
+        basename = self._extract_filename(resp)
+
+        if not basename:
             basename = "dataset_source"
 
         if dst_path is None:
@@ -89,8 +97,11 @@ class HTTPDatasetSource(DatasetSource):
     @staticmethod
     def _can_resolve(raw_source: Any) -> bool:
         """
-        :param raw_source: The raw source, e.g. a string like "http://mysite/mydata.tar.gz".
-        :return: True if this DatsetSource can resolve the raw source, False otherwise.
+        Args:
+            raw_source: The raw source, e.g. a string like "http://mysite/mydata.tar.gz".
+
+        Returns:
+            True if this DatsetSource can resolve the raw source, False otherwise.
         """
         if not isinstance(raw_source, str):
             return False
@@ -104,13 +115,15 @@ class HTTPDatasetSource(DatasetSource):
     @classmethod
     def _resolve(cls, raw_source: Any) -> "HTTPDatasetSource":
         """
-        :param raw_source: The raw source, e.g. a string like "http://mysite/mydata.tar.gz".
+        Args:
+            raw_source: The raw source, e.g. a string like "http://mysite/mydata.tar.gz".
         """
         return HTTPDatasetSource(raw_source)
 
     def _to_dict(self) -> Dict[Any, Any]:
         """
-        :return: A JSON-compatible dictionary representation of the HTTPDatasetSource.
+        Returns:
+            A JSON-compatible dictionary representation of the HTTPDatasetSource.
         """
         return {
             "url": self.url,
@@ -119,7 +132,8 @@ class HTTPDatasetSource(DatasetSource):
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> "HTTPDatasetSource":
         """
-        :param source_dict: A dictionary representation of the HTTPDatasetSource.
+        Args:
+            source_dict: A dictionary representation of the HTTPDatasetSource.
         """
         url = source_dict.get("url")
         if url is None:

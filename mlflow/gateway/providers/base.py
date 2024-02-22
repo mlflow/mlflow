@@ -1,5 +1,5 @@
-from abc import ABC, abstractclassmethod
-from typing import Tuple
+from abc import ABC, abstractmethod
+from typing import AsyncIterable, Tuple
 
 from fastapi import HTTPException
 
@@ -12,20 +12,51 @@ class BaseProvider(ABC):
     Base class for MLflow Gateway providers.
     """
 
-    NAME: str
+    NAME: str = ""
     SUPPORTED_ROUTE_TYPES: Tuple[str, ...]
 
     def __init__(self, config: RouteConfig):
+        if self.NAME == "":
+            raise ValueError(
+                f"{self.__class__.__name__} is a subclass of BaseProvider and must "
+                f"override 'NAME' attribute as a non-empty string."
+            )
+
         self.config = config
 
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        raise HTTPException(
+            status_code=501,
+            detail=f"The chat streaming route is not implemented for {self.NAME} models.",
+        )
+
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=501,
+            detail=f"The chat route is not implemented for {self.NAME} models.",
+        )
+
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        raise HTTPException(
+            status_code=501,
+            detail=f"The completions streaming route is not implemented for {self.NAME} models.",
+        )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=501,
+            detail=f"The completions route is not implemented for {self.NAME} models.",
+        )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=501,
+            detail=f"The embeddings route is not implemented for {self.NAME} models.",
+        )
 
     @staticmethod
     def check_for_model_field(payload):
@@ -42,19 +73,47 @@ class BaseProvider(ABC):
 class ProviderAdapter(ABC):
     """ """
 
-    @abstractclassmethod
+    @classmethod
+    @abstractmethod
     def model_to_embeddings(cls, resp, config):
         raise NotImplementedError
 
-    @abstractclassmethod
+    @classmethod
+    @abstractmethod
     def model_to_completions(cls, resp, config):
         raise NotImplementedError
 
-    @abstractclassmethod
+    @classmethod
+    def model_to_completions_streaming(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
     def completions_to_model(cls, payload, config):
         raise NotImplementedError
 
-    @abstractclassmethod
+    @classmethod
+    def completions_streaming_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_chat(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_chat_streaming(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def chat_streaming_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
     def embeddings_to_model(cls, payload, config):
         raise NotImplementedError
 

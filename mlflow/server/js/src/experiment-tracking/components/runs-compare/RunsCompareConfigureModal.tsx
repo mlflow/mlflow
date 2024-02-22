@@ -34,12 +34,14 @@ import { RunsCompareConfigureContourChart } from './config/RunsCompareConfigureC
 import { RunsCompareConfigureScatterChart } from './config/RunsCompareConfigureScatterChart';
 import { RunsCompareTooltipBody } from './RunsCompareTooltipBody';
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 
 const previewComponentsMap: Record<
   RunsCompareChartType,
   React.FC<{
     previewData: RunsChartsRunData[];
     cardConfig: any;
+    groupBy: string;
   }>
 > = {
   [RunsCompareChartType.BAR]: RunsCompareConfigureBarChartPreview,
@@ -56,15 +58,19 @@ export const RunsCompareConfigureModal = ({
   chartRunData,
   metricKeyList,
   paramKeyList,
+  groupBy,
 }: {
   metricKeyList: string[];
   paramKeyList: string[];
   config: RunsCompareCardConfig;
   chartRunData: RunsChartsRunData[];
   onCancel: () => void;
+  groupBy: string;
   onSubmit: (formData: Partial<RunsCompareCardConfig>) => void;
 }) => {
   const [currentFormState, setCurrentFormState] = useState<RunsCompareCardConfig>(config);
+
+  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
 
   const isEditing = Boolean(currentFormState.uuid);
 
@@ -72,7 +78,7 @@ export const RunsCompareConfigureModal = ({
     if (!type) {
       return;
     }
-    const emptyChartCard = RunsCompareCardConfig.getEmptyChartCardByType(type);
+    const emptyChartCard = RunsCompareCardConfig.getEmptyChartCardByType(type, true);
     if (emptyChartCard) {
       setCurrentFormState(emptyChartCard);
     }
@@ -143,10 +149,16 @@ export const RunsCompareConfigureModal = ({
     if (!PreviewComponent) {
       return null;
     }
-    return <PreviewComponent previewData={previewData} cardConfig={currentFormState} />;
+    return <PreviewComponent previewData={previewData} cardConfig={currentFormState} groupBy={groupBy} />;
   };
 
   const { formatMessage } = useIntl();
+
+  let disableSaveButton = false;
+  if (usingV2ChartImprovements && currentFormState.type === RunsCompareChartType.LINE) {
+    const lineCardConfig = currentFormState as RunsCompareLineCardConfig;
+    disableSaveButton = (lineCardConfig.selectedMetricKeys ?? []).length === 0;
+  }
 
   return (
     <Modal
@@ -164,32 +176,32 @@ export const RunsCompareConfigureModal = ({
               description: 'Title of the modal when adding a new runs comparison chart',
             })
       }
-      okButtonProps={{ 'data-testid': 'experiment-view-compare-runs-chart-modal-confirm' }}
+      okButtonProps={{
+        'data-testid': 'experiment-view-compare-runs-chart-modal-confirm',
+        disabled: disableSaveButton,
+      }}
       cancelText={formatMessage({
         defaultMessage: 'Cancel',
-        description:
-          'Cancel button label within a modal for adding/editing a new runs comparison chart',
+        description: 'Cancel button label within a modal for adding/editing a new runs comparison chart',
       })}
       okText={
         isEditing
           ? formatMessage({
               defaultMessage: 'Save changes',
-              description:
-                'Confirm button label within a modal when editing a runs comparison chart',
+              description: 'Confirm button label within a modal when editing a runs comparison chart',
             })
           : formatMessage({
               defaultMessage: 'Add chart',
-              description:
-                'Confirm button label within a modal when adding a new runs comparison chart',
+              description: 'Confirm button label within a modal when adding a new runs comparison chart',
             })
       }
-      size='wide'
+      size="wide"
       css={{ width: 1280 }}
     >
       <div css={styles.wrapper}>
         <div>
           {!isEditing && (
-            <RunsCompareConfigureField title='Type'>
+            <RunsCompareConfigureField title="Type">
               <Select<RunsCompareChartType>
                 css={{ width: '100%' }}
                 value={currentFormState.type}
@@ -230,11 +242,7 @@ export const RunsCompareConfigureModal = ({
           )}
           {renderConfigOptionsforChartType(currentFormState.type)}
         </div>
-        <RunsChartsTooltipWrapper
-          contextData={{ runs: chartRunData }}
-          component={RunsCompareTooltipBody}
-          hoverOnly
-        >
+        <RunsChartsTooltipWrapper contextData={{ runs: chartRunData }} component={RunsCompareTooltipBody} hoverOnly>
           <div css={styles.chartWrapper}>{renderPreviewChartType(currentFormState.type)}</div>
         </RunsChartsTooltipWrapper>
       </div>

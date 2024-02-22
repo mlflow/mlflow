@@ -58,18 +58,15 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
       runsData: MOCK_RUNS_DATA,
       searchFacetsState,
       viewState: DEFAULT_VIEW_STATE,
+      refreshRuns: jest.fn(),
       ...additionalProps,
     };
     return (
       <Provider
-        store={createStore(
-          (s) => s as any,
-          EXPERIMENT_RUNS_MOCK_STORE,
-          compose(applyMiddleware(promiseMiddleware())),
-        )}
+        store={createStore((s) => s as any, EXPERIMENT_RUNS_MOCK_STORE, compose(applyMiddleware(promiseMiddleware())))}
       >
         <MemoryRouter>
-          <IntlProvider locale='en'>
+          <IntlProvider locale="en">
             <ExperimentViewRunsControlsActions {...props} />
           </IntlProvider>
         </MemoryRouter>

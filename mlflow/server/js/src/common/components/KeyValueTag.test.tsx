@@ -1,17 +1,11 @@
-import { renderWithIntl, screen } from '../utils/TestUtils';
+import { screen, renderWithIntl } from 'common/utils/TestUtils.react17';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 import { KeyValueTag, getKeyAndValueComplexTruncation } from './KeyValueTag';
 
 describe('KeyValueTag', () => {
   const handleTagClose = jest.fn();
   function renderTestComponent(tag: KeyValueEntity, isClosable = true) {
-    renderWithIntl(
-      <KeyValueTag
-        tag={tag}
-        isClosable={isClosable}
-        onClose={isClosable ? handleTagClose : undefined}
-      />,
-    );
+    renderWithIntl(<KeyValueTag tag={tag} isClosable={isClosable} onClose={isClosable ? handleTagClose : undefined} />);
   }
 
   function createTestTag(key: string, value: string): KeyValueEntity {

@@ -56,8 +56,8 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
     const { isOpen } = this.props;
     return (
       <GenericInputModal
-        title='Create Experiment'
-        okText='Create'
+        title="Create Experiment"
+        okText="Create"
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
         onClose={this.props.onClose}

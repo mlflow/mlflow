@@ -1,26 +1,15 @@
-import type {
-  CellClassParams,
-  ColDef,
-  ColGroupDef,
-  ColumnApi,
-  IsFullWidthRowParams,
-} from '@ag-grid-community/core';
-import { Spinner, SpinnerProps } from '@databricks/design-system';
+import type { CellClassParams, ColDef, ColGroupDef, ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
+import { Spinner, SpinnerProps, Typography } from '@databricks/design-system';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { isEqual } from 'lodash';
+import { capitalize, isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
-import {
-  ATTRIBUTE_COLUMN_LABELS,
-  ATTRIBUTE_COLUMN_SORT_KEY,
-  COLUMN_TYPES,
-} from '../../../constants';
+import { ATTRIBUTE_COLUMN_LABELS, ATTRIBUTE_COLUMN_SORT_KEY, COLUMN_TYPES } from '../../../constants';
 import { ColumnHeaderCell } from '../components/runs/cells/ColumnHeaderCell';
 import { DateCellRenderer } from '../components/runs/cells/DateCellRenderer';
 import { ExperimentNameCellRenderer } from '../components/runs/cells/ExperimentNameCellRenderer';
 import { ModelsCellRenderer } from '../components/runs/cells/ModelsCellRenderer';
 import { SourceCellRenderer } from '../components/runs/cells/SourceCellRenderer';
 import { VersionCellRenderer } from '../components/runs/cells/VersionCellRenderer';
-import type { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
@@ -36,21 +25,19 @@ import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRendere
 import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
 import { DatasetsCellRenderer } from '../components/runs/cells/DatasetsCellRenderer';
 import { RunDatasetWithTags } from '../../../types';
+import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetricValueCell';
 
 const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
   context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
 /**
  * Width for "run name" column.
  */
-const RUN_NAME_COLUMN_WIDTH = 310;
+const RUN_NAME_COLUMN_WIDTH = 190;
 
 /**
- * Calculates width for "actions" column. "compactMode" should be set to true
- * for compare runs mode when checkboxes are hidden.
+ * Width for "run actions" column.
  */
-const getActionsColumnWidth = (compactMode?: boolean) =>
-  // 70px when checkboxes are hidden, 104px otherwise
-  compactMode ? 70 : 104;
+const RUN_ACTIONS_COLUMN_WIDTH = 105;
 
 /*
  * Functions used to generate grid field names for params, metrics and prefixes
@@ -88,6 +75,7 @@ export const getFrameworkComponents = () => ({
   RowActionsHeaderCellRenderer,
   RunNameCellRenderer,
   DatasetsCellRenderer,
+  AggregateMetricValueCell,
 });
 
 /**
@@ -104,7 +92,7 @@ export const TAGS_TO_COLUMNS_MAP = {
 /**
  * Function returns unique row ID to be used in runs table
  */
-export const getRowId = ({ data }: { data: RunRowType }) => data.runUuid;
+export const getRowId = ({ data }: { data: RunRowType }) => data.rowUuid;
 
 /**
  * Determines if a data row houses "load more" button
@@ -232,18 +220,18 @@ export const useRunsColumnDefinitions = ({
     // Checkbox selection column
     columns.push({
       valueGetter: ({ data: { pinned, hidden } }) => ({ pinned, hidden }),
-      checkboxSelection: !isComparingRuns,
+      checkboxSelection: true,
       headerComponent: 'RowActionsHeaderCellRenderer',
       headerComponentParams: { onToggleVisibility, allRunsHidden },
-      headerCheckboxSelection: !isComparingRuns,
+      headerCheckboxSelection: true,
       headerName: '',
       cellClass: 'is-checkbox-cell',
       cellRenderer: 'RowActionsCellRenderer',
       cellRendererParams: { onTogglePin, onToggleVisibility },
       pinned: 'left',
-      minWidth: getActionsColumnWidth(isComparingRuns),
-      width: getActionsColumnWidth(isComparingRuns),
-      maxWidth: getActionsColumnWidth(isComparingRuns),
+      minWidth: RUN_ACTIONS_COLUMN_WIDTH,
+      width: RUN_ACTIONS_COLUMN_WIDTH,
+      maxWidth: RUN_ACTIONS_COLUMN_WIDTH,
       resizable: false,
     });
 
@@ -254,10 +242,10 @@ export const useRunsColumnDefinitions = ({
       headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
       pinned: 'left',
       sortable: true,
-      field: 'runDateAndNestInfo',
       cellRenderer: 'RunNameCellRenderer',
       cellRendererParams: { onExpand },
-      equals: (dateInfo1, dateInfo2) => isEqual(dateInfo1, dateInfo2),
+      equals: (runA: RunRowType, runB: RunRowType) =>
+        runA?.rowUuid === runB?.rowUuid && runA?.groupParentInfo?.expanderOpen === runB?.groupParentInfo?.expanderOpen,
       headerComponentParams: {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
       },
@@ -319,10 +307,7 @@ export const useRunsColumnDefinitions = ({
     if (compareExperiments) {
       columns.push({
         headerName: ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME,
-        colId: makeCanonicalSortKey(
-          COLUMN_TYPES.ATTRIBUTES,
-          ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME,
-        ),
+        colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME),
         field: 'experimentName',
         cellRenderer: 'ExperimentNameCellRenderer',
         equals: (experimentName1, experimentName2) => isEqual(experimentName1, experimentName2),
@@ -353,7 +338,7 @@ export const useRunsColumnDefinitions = ({
       colId: TAGS_TO_COLUMNS_MAP[ATTRIBUTE_COLUMN_SORT_KEY.SOURCE],
       field: 'tags',
       cellRenderer: 'SourceCellRenderer',
-      equals: (tags1, tags2) => Utils.getSourceName(tags1) === Utils.getSourceName(tags2),
+      equals: (tags1 = {}, tags2 = {}) => Utils.getSourceName(tags1) === Utils.getSourceName(tags2),
       sortable: true,
       headerComponentParams: {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
@@ -370,7 +355,7 @@ export const useRunsColumnDefinitions = ({
       colId: TAGS_TO_COLUMNS_MAP[ATTRIBUTE_COLUMN_SORT_KEY.VERSION],
       field: 'version',
       cellRenderer: 'VersionCellRenderer',
-      equals: (version1, version2) => isEqual(version1, version2),
+      equals: (version1 = {}, version2 = {}) => isEqual(version1, version2),
       sortable: true,
       headerComponentParams: {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
@@ -388,7 +373,7 @@ export const useRunsColumnDefinitions = ({
       field: 'models',
       cellRenderer: 'ModelsCellRenderer',
       initialWidth: 200,
-      equals: (models1, models2) => isEqual(models1, models2),
+      equals: (models1 = {}, models2 = {}) => isEqual(models1, models2),
       initialHide: true,
     });
 
@@ -413,6 +398,8 @@ export const useRunsColumnDefinitions = ({
             headerComponentParams: {
               canonicalSortKey,
             },
+            cellRendererSelector: ({ data: { groupParentInfo } }) =>
+              groupParentInfo ? { component: 'AggregateMetricValueCell' } : undefined,
             cellClassRules: {
               'is-previewable-cell': () => true,
               'is-ordered-by': cellClassIsOrderedBy,
@@ -485,9 +472,7 @@ export const useRunsColumnDefinitions = ({
 
   const canonicalSortKeys = useMemo(
     () => [
-      ...getAdjustableAttributeColumns(true).map((key) =>
-        makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, key),
-      ),
+      ...getAdjustableAttributeColumns(true).map((key) => makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, key)),
       ...cumulativeColumns.paramKeys.map((key) => makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
       ...cumulativeColumns.metricKeys.map((key) => makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
       ...cumulativeColumns.tagKeys.map((key) => makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),

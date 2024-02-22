@@ -104,4 +104,4 @@ def test_create_promptlab_run(store):
     # try to load the model
     import mlflow.pyfunc
 
-    mlflow.pyfunc.load_model(os.path.join(artifact_location, "model"))
+    mlflow.pyfunc.load_model(f"{artifact_location}/model")

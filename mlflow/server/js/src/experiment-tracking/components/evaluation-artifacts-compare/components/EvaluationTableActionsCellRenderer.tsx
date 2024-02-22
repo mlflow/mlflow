@@ -26,11 +26,11 @@ export const EvaluationTableActionsCellRenderer = ({
       }}
     >
       <Tooltip
-        placement='right'
+        placement="right"
         title={
           <FormattedMessage
-            defaultMessage='Add row'
-            description='Experiment page > artifact compare view > add new row button'
+            defaultMessage="Add row"
+            description="Experiment page > artifact compare view > add new row button"
           />
         }
       >

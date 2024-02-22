@@ -22,8 +22,7 @@ type OwnRunsTableCustomHeaderProps = {
   computedStylesOnSortKey?: (...args: any[]) => any;
 };
 
-type RunsTableCustomHeaderProps = OwnRunsTableCustomHeaderProps &
-  typeof RunsTableCustomHeader.defaultProps;
+type RunsTableCustomHeaderProps = OwnRunsTableCustomHeaderProps & typeof RunsTableCustomHeader.defaultProps;
 
 export class RunsTableCustomHeader extends React.Component<RunsTableCustomHeaderProps> {
   static defaultProps = {
@@ -55,7 +54,7 @@ export class RunsTableCustomHeader extends React.Component<RunsTableCustomHeader
 
     return (
       <div
-        role='columnheader'
+        role="columnheader"
         style={{
           ...styles.headerLabelWrapper,
           ...JSON.parse(style),
@@ -63,9 +62,7 @@ export class RunsTableCustomHeader extends React.Component<RunsTableCustomHeader
         }}
         onClick={enableSorting ? () => this.handleSortBy() : undefined}
       >
-        {enableSorting && canonicalSortKey === orderByKey ? (
-          <SortByIcon orderByAsc={orderByAsc} />
-        ) : null}
+        {enableSorting && canonicalSortKey === orderByKey ? <SortByIcon orderByAsc={orderByAsc} /> : null}
         <span data-test-id={`sort-header-${displayName}`} title={canonicalSortKey}>
           {displayName}
         </span>

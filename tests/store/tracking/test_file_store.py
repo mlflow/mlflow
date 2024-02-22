@@ -1829,16 +1829,14 @@ def test_log_batch_internal_error(store):
         run_name="name",
     )
 
-    def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
+    def _raise_exception_fn(*args, **kwargs):
         raise Exception("Some internal error")
 
     with mock.patch(
         FILESTORE_PACKAGE + ".FileStore._log_run_metric"
     ) as log_metric_mock, mock.patch(
         FILESTORE_PACKAGE + ".FileStore._log_run_param"
-    ) as log_param_mock, mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._set_run_tag"
-    ) as set_tag_mock:
+    ) as log_param_mock, mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock:
         log_metric_mock.side_effect = _raise_exception_fn
         log_param_mock.side_effect = _raise_exception_fn
         set_tag_mock.side_effect = _raise_exception_fn
@@ -2076,8 +2074,8 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
     ("input_uri", "expected_uri"),
     [
         (
-            "file://my_server/my_path/my_sub_path",
-            "file://my_server/my_path/my_sub_path/{e}/{r}/artifacts",
+            "\\my_server/my_path/my_sub_path",
+            "file:///{drive}my_server/my_path/my_sub_path/{e}/{r}/artifacts",
         ),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
@@ -2179,7 +2177,7 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
-        ("file://my_server/my_path/my_sub_path", "file://my_server/my_path/my_sub_path/{e}"),
+        ("\\my_server/my_path/my_sub_path", "file:///{drive}my_server/my_path/my_sub_path/{e}"),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
@@ -2384,7 +2382,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         overwrite_dataset = Dataset(
             name="name",
             digest="digest",
-            source_type="st{i}",
+            source_type=f"st{i}",
             source=f"source{i}",
             schema=f"schema{i}",
             profile=f"profile{i}",

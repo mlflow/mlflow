@@ -80,10 +80,10 @@ def _resolve_env_manager(_, __, env_manager):
     return None
 
 
-def _create_env_manager_option(help_string):
+def _create_env_manager_option(help_string, default=None):
     return click.option(
         "--env-manager",
-        default=None,
+        default=default,
         type=click.UNPROCESSED,
         callback=_resolve_env_manager,
         help=help_string,
@@ -91,6 +91,7 @@ def _create_env_manager_option(help_string):
 
 
 ENV_MANAGER = _create_env_manager_option(
+    default=_EnvManager.VIRTUALENV,
     # '\b' prevents rewrapping text:
     # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
     help_string="""
@@ -210,4 +211,12 @@ NO_CONDA = click.option(
     "--no-conda",
     is_flag=True,
     help="If specified, use local environment.",
+)
+
+INSTALL_JAVA = click.option(
+    "--install-java",
+    is_flag=True,
+    help="Install Java in the image. Default is False in order to reduce both the "
+    "image size and the build time. Model flavors requiring Java will enable this "
+    "setting automatically, such as the Spark flavor.",
 )

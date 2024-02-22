@@ -1,8 +1,4 @@
-import {
-  createRouteElement,
-  createMLflowRoutePath,
-  generatePath,
-} from '../common/utils/RoutingUtils';
+import { createRouteElement, createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
 
 import { CompareModelVersionsPage } from './components/CompareModelVersionsPage';
 import { ModelListPage } from './components/ModelListPage';
@@ -56,10 +52,7 @@ export class ModelRegistryRoutes {
       version,
     });
   }
-  static getCompareModelVersionsPageRoute(
-    modelName: string,
-    runsToVersions: Record<string, string>,
-  ) {
+  static getCompareModelVersionsPageRoute(modelName: string, runsToVersions: Record<string, string>) {
     const path = generatePath(ModelRegistryRoutePaths.compareModelVersionsPage);
     const query =
       `?name=${JSON.stringify(encodeURIComponent(modelName))}` +

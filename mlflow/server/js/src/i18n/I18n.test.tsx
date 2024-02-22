@@ -4,10 +4,10 @@ import { mountWithIntl, shallowWithIntl } from '../common/utils/TestUtils';
 
 function TestComponent() {
   return (
-    <div data-test-id='test-component'>
+    <div data-test-id="test-component">
       <FormattedMessage
-        defaultMessage='This is a default message!'
-        description='Test description to ensure that the default message is rendered'
+        defaultMessage="This is a default message!"
+        description="Test description to ensure that the default message is rendered"
       />
     </div>
   );

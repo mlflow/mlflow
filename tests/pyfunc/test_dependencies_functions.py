@@ -1,123 +1,14 @@
 from pathlib import Path
 from unittest import mock
 
-import cloudpickle
 import pytest
 import sklearn
 from sklearn.linear_model import LinearRegression
 
 import mlflow.utils.requirements_utils
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
+from mlflow.pyfunc import get_model_dependencies
 from mlflow.utils import PYTHON_VERSION
-
-from tests.helper_functions import AnyStringWith
-
-
-def test_warn_dependency_requirement_mismatches(tmp_path):
-    req_file = tmp_path.joinpath("requirements.txt")
-    req_file.write_text(
-        f"cloudpickle=={cloudpickle.__version__}\nscikit-learn=={sklearn.__version__}\n"
-    )
-
-    with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-        # Test case: all packages satisfy requirements.
-        _warn_dependency_requirement_mismatches(model_path=tmp_path)
-        mock_warning.assert_not_called()
-
-        mock_warning.reset_mock()
-
-        original_get_installed_version_fn = mlflow.utils.requirements_utils._get_installed_version
-
-        def gen_mock_get_installed_version_fn(mock_versions):
-            def mock_get_installed_version_fn(package, module=None):
-                if package in mock_versions:
-                    return mock_versions[package]
-                else:
-                    return original_get_installed_version_fn(package, module)
-
-            return mock_get_installed_version_fn
-
-        # Test case: multiple mismatched packages
-        with mock.patch(
-            "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn(
-                {
-                    "scikit-learn": "999.99.11",
-                    "cloudpickle": "999.99.22",
-                }
-            ),
-        ):
-            _warn_dependency_requirement_mismatches(model_path=tmp_path)
-            mock_warning.assert_called_once_with(
-                """
-Detected one or more mismatches between the model's dependencies and the current Python environment:
- - cloudpickle (current: 999.99.22, required: cloudpickle=={cloudpickle_version})
- - scikit-learn (current: 999.99.11, required: scikit-learn=={sklearn_version})
-To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` to fetch the \
-model's environment and install dependencies using the resulting environment file.
-""".strip().format(
-                    sklearn_version=sklearn.__version__, cloudpickle_version=cloudpickle.__version__
-                )
-            )
-
-        mock_warning.reset_mock()
-
-        req_file.write_text("scikit-learn>=0.8,<=0.9")
-
-        # Test case: requirement with multiple version specifiers is satisfied
-        with mock.patch(
-            "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn({"scikit-learn": "0.8.1"}),
-        ):
-            _warn_dependency_requirement_mismatches(model_path=tmp_path)
-            mock_warning.assert_not_called()
-
-        mock_warning.reset_mock()
-
-        # Test case: requirement with multiple version specifiers is not satisfied
-        with mock.patch(
-            "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn({"scikit-learn": "0.7.1"}),
-        ):
-            _warn_dependency_requirement_mismatches(model_path=tmp_path)
-            mock_warning.assert_called_once_with(
-                AnyStringWith(" - scikit-learn (current: 0.7.1, required: scikit-learn>=0.8,<=0.9)")
-            )
-
-        mock_warning.reset_mock()
-
-        # Test case: required package is uninstalled.
-        req_file.write_text("uninstalled-pkg==1.2.3")
-        _warn_dependency_requirement_mismatches(model_path=tmp_path)
-        mock_warning.assert_called_once_with(
-            AnyStringWith(
-                " - uninstalled-pkg (current: uninstalled, required: uninstalled-pkg==1.2.3)"
-            )
-        )
-
-        mock_warning.reset_mock()
-
-        # Test case: requirement without version specifiers
-        req_file.write_text("mlflow")
-        _warn_dependency_requirement_mismatches(model_path=tmp_path)
-        mock_warning.assert_not_called()
-
-        mock_warning.reset_mock()
-
-        # Test case: an unexpected error happens while detecting mismatched packages.
-        with mock.patch(
-            "mlflow.pyfunc._check_requirement_satisfied",
-            side_effect=RuntimeError("check_requirement_satisfied_fn_failed"),
-        ):
-            _warn_dependency_requirement_mismatches(model_path=tmp_path)
-            mock_warning.assert_called_once_with(
-                AnyStringWith(
-                    "Encountered an unexpected error "
-                    "(RuntimeError('check_requirement_satisfied_fn_failed')) while "
-                    "detecting model dependency mismatches"
-                )
-            )
 
 
 def test_get_model_dependencies_read_req_file(tmp_path):
@@ -246,11 +137,3 @@ def test_get_model_dependencies_with_model_version_uri():
 
     deps = get_model_dependencies("models:/linear/1", format="pip")
     assert f"scikit-learn=={sklearn.__version__}" in Path(deps).read_text()
-
-
-def test_warn_dependency_requirement_mismatches_ignores_file_path(tmp_path):
-    req_file = tmp_path / "requirements.txt"
-    req_file.write_text("/path/to/my.whl")
-    with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-        _warn_dependency_requirement_mismatches(model_path=tmp_path)
-        mock_warning.assert_not_called()

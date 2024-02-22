@@ -64,9 +64,7 @@ describe('DeleteExperimentModal', () => {
     expect(navigate).not.toBeCalled();
   });
   test('handleSubmit does not perform redirection if deleted experiment is not active experiment', async () => {
-    wrapper = shallow(
-      <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentIds: undefined }} />,
-    );
+    wrapper = shallow(<DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentIds: undefined }} />);
     instance = wrapper.instance();
     await instance.handleSubmit();
 

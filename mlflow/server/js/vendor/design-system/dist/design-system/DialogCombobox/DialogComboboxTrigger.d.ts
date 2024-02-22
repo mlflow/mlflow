@@ -20,4 +20,11 @@ export interface DialogComboboxTriggerProps extends Popover.PopoverTriggerProps,
     isBare?: boolean;
 }
 export declare const DialogComboboxTrigger: React.ForwardRefExoticComponent<DialogComboboxTriggerProps & React.RefAttributes<HTMLButtonElement>>;
+interface DialogComboboxIconButtonTriggerProps extends Popover.PopoverTriggerProps {
+}
+/**
+ * A custom button trigger that can be wrapped around any button.
+ */
+export declare const DialogComboboxCustomButtonTriggerWrapper: ({ children }: DialogComboboxIconButtonTriggerProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export {};
 //# sourceMappingURL=DialogComboboxTrigger.d.ts.map

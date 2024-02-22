@@ -71,7 +71,7 @@ export const ModelVersionAliasSelect = ({
       })}
       allowClear
       css={{ width: '100%' }}
-      mode='tags'
+      mode="tags"
       // There's a bug with current <Select /> implementation that causes the dropdown
       // to detach from input vertically when its position on screen changes (in this case, it's
       // caused by the conflict alerts). A small key={} hack ensures that the component is recreated
@@ -95,13 +95,13 @@ export const ModelVersionAliasSelect = ({
       value={draftAliases || []}
     >
       {existingAliases.map((alias) => (
-        <Select.Option key={alias} value={alias} data-testid='model-alias-option'>
+        <Select.Option key={alias} value={alias} data-testid="model-alias-option">
           <div key={alias} css={{ display: 'flex', marginRight: theme.spacing.xs }}>
             <div css={{ flex: 1 }}>{alias}</div>
             <div>
               <FormattedMessage
-                defaultMessage='This version'
-                description='Model registry > model version alias select > Indicator for alias of selected version'
+                defaultMessage="This version"
+                description="Model registry > model version alias select > Indicator for alias of selected version"
               />
             </div>
           </div>
@@ -110,13 +110,13 @@ export const ModelVersionAliasSelect = ({
       {Object.entries(aliasToVersionMap)
         .filter(([, otherVersion]) => otherVersion !== version)
         .map(([alias, aliasedVersion]) => (
-          <Select.Option key={alias} value={alias} data-testid='model-alias-option'>
+          <Select.Option key={alias} value={alias} data-testid="model-alias-option">
             <div key={alias} css={{ display: 'flex', marginRight: theme.spacing.xs }}>
               <div css={{ flex: 1 }}>{alias}</div>
               <div>
                 <FormattedMessage
-                  defaultMessage='Version {version}'
-                  description='Model registry > model version alias select > Indicator for alias of a particular version'
+                  defaultMessage="Version {version}"
+                  description="Model registry > model version alias select > Indicator for alias of a particular version"
                   values={{ version: aliasedVersion }}
                 />
               </div>

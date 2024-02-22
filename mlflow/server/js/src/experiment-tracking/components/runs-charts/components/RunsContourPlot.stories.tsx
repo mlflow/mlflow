@@ -23,6 +23,8 @@ const createMockContourData = (numRuns: number): RunsContourPlotProps['runsData'
   return new Array(numRuns).fill(0).map((_, index) => {
     const runName = getRandomRunName(random);
     return {
+      uuid: `id-for-run-${runName}`,
+      displayName: runName,
       runInfo: {
         run_uuid: `id-for-run-${runName}`,
         run_name: runName,
@@ -55,38 +57,20 @@ const ContourPlotStoryWrapper = (props: any) => {
       controls={
         <span>
           {controls} Reverse scale:{' '}
-          <input
-            type='checkbox'
-            checked={reverse}
-            onChange={({ target }) => setReverse(target.checked)}
-          />{' '}
-          Hovered run ID: {hoveredRun}
+          <input type="checkbox" checked={reverse} onChange={({ target }) => setReverse(target.checked)} /> Hovered run
+          ID: {hoveredRun}
         </span>
       }
     >
-      <RunsContourPlot
-        reverseScale={reverse}
-        {...axisProps}
-        onHover={setHoveredRun}
-        onUnhover={clear}
-        {...props}
-      />
+      <RunsContourPlot reverseScale={reverse} {...axisProps} onHover={setHoveredRun} onUnhover={clear} {...props} />
     </ChartStoryWrapper>
   );
 };
-export const TenRuns = () => (
-  <ContourPlotStoryWrapper runsData={useMemo(() => createMockContourData(10), [])} />
-);
+export const TenRuns = () => <ContourPlotStoryWrapper runsData={useMemo(() => createMockContourData(10), [])} />;
 export const TenRunsStatic = () => (
-  <ContourPlotStoryWrapper
-    runsData={useMemo(() => createMockContourData(10), [])}
-    width={400}
-    height={400}
-  />
+  <ContourPlotStoryWrapper runsData={useMemo(() => createMockContourData(10), [])} width={400} height={400} />
 );
-export const SeventyRuns = () => (
-  <ContourPlotStoryWrapper runsData={useMemo(() => createMockContourData(70), [])} />
-);
+export const SeventyRuns = () => <ContourPlotStoryWrapper runsData={useMemo(() => createMockContourData(70), [])} />;
 export const CustomScaleRuns = () => (
   <ContourPlotStoryWrapper
     runsData={useMemo(() => createMockContourData(10), [])}

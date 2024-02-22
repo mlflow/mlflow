@@ -84,11 +84,12 @@ class ParamDocs(dict):
         Returns:
             A new `ParamDocs` instance with the formatted param docs.
 
-        Examples
-        --------
-        >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
-        >>> pd.format(doc1="foo", doc2="bar")
-        ParamDocs({'p1': 'foo', 'p2': 'bar'})
+        .. code-block:: text
+            :caption: Example
+
+            >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
+            >>> pd.format(doc1="foo", doc2="bar")
+            ParamDocs({'p1': 'foo', 'p2': 'bar'})
         """
         replacements = _replace_keys_with_placeholders(kwargs)
         return ParamDocs({k: _replace_all(v, replacements) for k, v in self.items()})
@@ -97,17 +98,20 @@ class ParamDocs(dict):
         """
         Formats placeholders in `docstring`.
 
-        Examples
-        --------
-        >>> pd = ParamDocs(p1="doc1", p2="doc2\ndoc2 second line")
-        >>> docstring = '''
-        ... :param p1: {{ p1 }}
-        ... :param p2: {{ p2 }}
-        ... '''.strip()
-        >>> print(pd.format_docstring(docstring))
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
+        Args:
+            p1: {{ p1 }}
+            p2: {{ p2 }}
+
+        .. code-block:: text
+            :caption: Example
+
+            >>> pd = ParamDocs(p1="doc1", p2="doc2
+            doc2 second line")
+            >>> docstring = '''
+            ... :param p1: {{ p1 }}
+            ... :param p2: {{ p2 }}
+            ... '''.strip()
+            >>> print(pd.format_docstring(docstring))
         """
         if docstring is None:
             return None
@@ -131,20 +135,22 @@ def format_docstring(param_docs):
     Returns:
         A decorator to apply the formatting.
 
-    Examples
-    --------
-    >>> param_docs = {"p1": "doc1", "p2": "doc2\ndoc2 second line"}
-    >>> @format_docstring(param_docs)
-    ... def func(p1, p2):
-    ...     '''
-    ...     :param p1: {{ p1 }}
-    ...     :param p2: {{ p2 }}
-    ...     '''
-    >>> import textwrap
-    >>> print(textwrap.dedent(func.__doc__).strip())
-    :param p1: doc1
-    :param p2: doc2
-               doc2 second line
+    .. code-block:: text
+        :caption: Example
+
+        >>> param_docs = {"p1": "doc1", "p2": "doc2
+        doc2 second line"}
+        >>> @format_docstring(param_docs)
+        ... def func(p1, p2):
+        ...     '''
+        ...     :param p1: {{ p1 }}
+        ...     :param p2: {{ p2 }}
+        ...     '''
+        >>> import textwrap
+        >>> print(textwrap.dedent(func.__doc__).strip())
+        :param p1: doc1
+        :param p2: doc2
+                   doc2 second line
     """
     param_docs = ParamDocs(param_docs)
 
@@ -211,8 +217,8 @@ section of the model's conda environment (``conda.yaml``) file.
     - ``pip_requirements``
     - ``extra_pip_requirements``
 
-:ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements using
-``pip_requirements`` and ``extra_pip_requirements``."""
+`This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
+``pip_requirements`` and ``extra_pip_requirements``."""  # noqa: E501
         ),
         "signature": (
             """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -242,6 +248,27 @@ DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
 by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
 ``None``, the input example is used to infer a model signature.
+"""
+        ),
+        "example_no_conversion": (
+            """If ``True``, the input example will not be converted to a Pandas DataFrame
+format when saving. This is useful when the model expects a non-DataFrame input and the
+input example could be passed directly to the model. Defaults to ``False`` for backwards
+compatibility.
+"""
+        ),
+        "prompt_template": (
+            """A string that, if provided, will be used to format the user's input prior
+to inference. The string should contain a single placeholder, ``{prompt}``, which will be
+replaced with the user's input. For example: ``"Answer the following question. Q: {prompt} A:"``.
+
+Currently, only the following pipeline types are supported:
+
+- `feature-extraction <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline>`_
+- `fill-mask <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline>`_
+- `summarization <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline>`_
+- `text2text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline>`_
+- `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
 """
         ),
     }

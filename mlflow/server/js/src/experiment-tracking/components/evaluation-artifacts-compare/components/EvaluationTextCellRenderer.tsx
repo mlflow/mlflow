@@ -6,8 +6,6 @@ import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
 import { useSelector } from 'react-redux';
 import { ReduxState } from '../../../../redux-types';
-import { PendingEvaluationArtifactTableEntry } from '../../../types';
-import { canEvaluateOnRun } from '../../prompt-engineering/PromptEngineering.utils';
 import { EvaluationCellEvaluateButton } from './EvaluationCellEvaluateButton';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
@@ -21,9 +19,7 @@ interface EvaluationTextCellRendererProps extends ICellRendererParams {
   isGroupByColumn?: boolean;
   context: { highlightedText: string };
 
-  data: UseEvaluationArtifactTableDataResult extends (infer U)[]
-    ? U
-    : UseEvaluationArtifactTableDataResult;
+  data: UseEvaluationArtifactTableDataResult extends (infer U)[] ? U : UseEvaluationArtifactTableDataResult;
 
   // Valid only for run columns
   run?: RunRowType;
@@ -70,7 +66,9 @@ export const EvaluationTextCellRenderer = ({
   const { theme } = useDesignSystemTheme();
   const { pendingDataLoading, canEvaluateInRunColumn } = usePromptEngineeringContext();
   const isGatewayRoutesLoading = useSelector(
-    ({ modelGateway }: ReduxState) => modelGateway.modelGatewayRoutesLoading,
+    ({ modelGateway: { modelGatewayRoutesLoading, modelGatewayRoutesLoadingLegacy } }: ReduxState) => {
+      return modelGatewayRoutesLoading.loading;
+    },
   );
 
   const isCellEvaluating = run && pendingDataLoading[run.runUuid]?.[data?.key];
@@ -101,10 +99,10 @@ export const EvaluationTextCellRenderer = ({
       ) : (
         <>
           {!value ? (
-            <Typography.Text color='info' css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography.Text color="info" css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
               <FormattedMessage
-                defaultMessage='(empty)'
-                description='Experiment page > artifact compare view > results table > no result (empty cell)'
+                defaultMessage="(empty)"
+                description="Experiment page > artifact compare view > results table > no result (empty cell)"
               />
             </Typography.Text>
           ) : (
@@ -149,10 +147,10 @@ export const EvaluationTextCellRenderer = ({
               />
             )}
             {(outputMetadata?.isPending || data.isPendingInputRow) && (
-              <Typography.Hint size='sm' css={{ fontStyle: 'italic' }}>
+              <Typography.Hint size="sm" css={{ fontStyle: 'italic' }}>
                 <FormattedMessage
-                  defaultMessage='Unsaved'
-                  description='Experiment page > artifact compare view > results table > unsaved indicator'
+                  defaultMessage="Unsaved"
+                  description="Experiment page > artifact compare view > results table > unsaved indicator"
                 />
               </Typography.Hint>
             )}
@@ -160,16 +158,16 @@ export const EvaluationTextCellRenderer = ({
           {outputMetadata && !isCellEvaluating && (
             <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center' }}>
               {outputMetadata.evaluationTime && (
-                <Typography.Hint size='sm'>
+                <Typography.Hint size="sm">
                   {Math.round(outputMetadata.evaluationTime)} ms
                   {outputMetadata.totalTokens ? ',' : ''}
                 </Typography.Hint>
               )}
               {outputMetadata.totalTokens && (
-                <Typography.Hint size='sm'>
+                <Typography.Hint size="sm">
                   <FormattedMessage
-                    defaultMessage='{totalTokens} total tokens'
-                    description='Experiment page > artifact compare view > results table > total number of evaluated tokens'
+                    defaultMessage="{totalTokens} total tokens"
+                    description="Experiment page > artifact compare view > results table > total number of evaluated tokens"
                     values={{ totalTokens: outputMetadata.totalTokens }}
                   />
                 </Typography.Hint>

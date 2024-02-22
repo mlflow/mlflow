@@ -57,8 +57,6 @@ export interface ModelVersionInfoEntity {
   run_id: string;
   status: string;
   status_message?: string;
-  permission_level: string;
-  email_subscription_status: string;
   aliases?: ModelVersionAliasList;
   tags?: KeyValueEntity[];
 }
@@ -83,7 +81,7 @@ export interface RunInfoEntity {
   run_uuid: string;
   run_name: string;
   start_time: number;
-  status: string;
+  status: 'SCHEDULED' | 'FAILED' | 'FINISHED' | 'RUNNING' | 'KILLED';
 
   getArtifactUri(): string;
   getEndTime(): string;
@@ -118,11 +116,6 @@ export interface MetricEntity {
   step: number;
   timestamp: number;
   value: string | number;
-
-  getKey(): string;
-  getStep(): string;
-  getTimestamp(): string;
-  getValue(): string | number;
 }
 
 export type MetricEntitiesByName = Record<string, MetricEntity>;
@@ -147,6 +140,19 @@ export interface ExperimentEntity {
   getName(): string;
   getTags(): KeyValueEntity[];
 }
+
+export type SampledMetricsByRunUuidState = {
+  [runUuid: string]: {
+    [metricKey: string]: {
+      [rangeKey: string]: {
+        loading?: boolean;
+        refreshing?: boolean;
+        error?: any;
+        metricsHistory?: MetricEntity[];
+      };
+    };
+  };
+};
 
 export interface ExperimentStoreEntities {
   /**
@@ -232,6 +238,17 @@ export interface ExperimentStoreEntities {
    * List of all datasets for given experiment ID.
    */
   datasetsByExperimentId: Record<string, DatasetSummary[]>;
+
+  /**
+   * Dictionary of sampled metric values.
+   * Indexed by run UUIDs, metric keys and sample ranges.
+   */
+  sampledMetricsByRunUuid: SampledMetricsByRunUuidState;
+
+  /**
+   * Dictionary of artifact root URIs by run UUIDs.
+   */
+  artifactRootUriByRunUuid: Record<string, string>;
 }
 
 export enum LIFECYCLE_FILTER {
@@ -259,9 +276,7 @@ export type ExperimentCategorizedUncheckedKeys = {
  * are no sufficient changes to the model.
  */
 export type UpdateExperimentSearchFacetsFn = (
-  newFilterModel:
-    | Partial<SearchExperimentRunsFacetsState>
-    | React.SetStateAction<SearchExperimentRunsFacetsState>,
+  newFilterModel: Partial<SearchExperimentRunsFacetsState> | React.SetStateAction<SearchExperimentRunsFacetsState>,
   updateOptions?: {
     forceRefresh?: boolean;
     preservePristine?: boolean;
@@ -273,9 +288,7 @@ export type UpdateExperimentSearchFacetsFn = (
  * Function used to update the local (non-persistable) view state.
  * First parameter is the subset of fields that the current view state model will be merged with.
  */
-export type UpdateExperimentViewStateFn = (
-  newPartialViewState: Partial<SearchExperimentRunsViewState>,
-) => void;
+export type UpdateExperimentViewStateFn = (newPartialViewState: Partial<SearchExperimentRunsViewState>) => void;
 
 /**
  * Enum representing the different types of dataset sources.
@@ -333,3 +346,18 @@ export type RunLoggedArtifactsDeclaration = {
 }[];
 
 export type ExperimentViewRunsCompareMode = undefined | 'ARTIFACT' | 'CHART';
+
+/**
+ * Describes a section of the compare runs view
+ */
+export type ChartSectionConfig = {
+  name: string; // Display name of the section
+  uuid: string; // Unique section ID of the section
+  display: boolean; // Whether the section is displayed
+  isReordered: boolean; // Whether the charts in the section has been reordered
+};
+
+export type RunViewMetricConfig = {
+  metricKey: string; // key of the metric
+  sectionKey: string; // key of the section initialized with prefix of metricKey
+};

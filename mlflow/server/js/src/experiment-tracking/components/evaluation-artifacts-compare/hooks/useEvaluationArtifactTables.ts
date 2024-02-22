@@ -17,9 +17,7 @@ export const useEvaluationArtifactTables = (comparedRunRows: RunRowType[]) =>
           const tablesInRun: Set<string> = new Set();
           if (rawLoggedArtifactsDeclaration) {
             try {
-              const loggedArtifacts: RunLoggedArtifactsDeclaration = JSON.parse(
-                rawLoggedArtifactsDeclaration,
-              );
+              const loggedArtifacts: RunLoggedArtifactsDeclaration = JSON.parse(rawLoggedArtifactsDeclaration);
 
               loggedArtifacts
                 .filter(({ type }) => type === RunLoggedArtifactType.TABLE)
@@ -28,9 +26,7 @@ export const useEvaluationArtifactTables = (comparedRunRows: RunRowType[]) =>
                 });
             } catch (error) {
               if (error instanceof SyntaxError) {
-                throw new SyntaxError(
-                  `The "${MLFLOW_LOGGED_ARTIFACTS_TAG}" tag in "${run.runName}" run is malformed!`,
-                );
+                throw new SyntaxError(`The "${MLFLOW_LOGGED_ARTIFACTS_TAG}" tag in "${run.runName}" run is malformed!`);
               }
               throw error;
             }

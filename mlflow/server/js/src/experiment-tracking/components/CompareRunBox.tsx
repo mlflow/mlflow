@@ -44,21 +44,21 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }: P
   const renderSelector = (onChange: any, selectedValue: any) => (
     <Select
       css={{ width: '100%', marginBottom: '16px' }}
-      placeholder='Select'
+      placeholder="Select"
       onChange={onChange}
       value={selectedValue}
     >
-      <OptGroup label='Parameters' key='parameters'>
+      <OptGroup label="Parameters" key="parameters">
         {paramKeys.map((key) => (
           <Option key={key} value={paramOptionPrefix + key}>
-            <div data-test-id='axis-option'>{key}</div>
+            <div data-test-id="axis-option">{key}</div>
           </Option>
         ))}
       </OptGroup>
-      <OptGroup label='Metrics'>
+      <OptGroup label="Metrics">
         {metricKeys.map((key) => (
           <Option key={key} value={metricOptionPrefix + key}>
-            <div data-test-id='axis-option'>{key}</div>
+            <div data-test-id="axis-option">{key}</div>
           </Option>
         ))}
       </OptGroup>
@@ -107,10 +107,10 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }: P
             alignItems: 'center',
           }}
         >
-          <Typography.Text size='xl'>
+          <Typography.Text size="xl">
             <FormattedMessage
-              defaultMessage='Select parameters/metrics to plot.'
-              description='Text to show when x or y axis is not selected on box plot'
+              defaultMessage="Select parameters/metrics to plot."
+              description="Text to show when x or y axis is not selected on box plot"
             />
           </Typography.Text>
         </div>
@@ -160,20 +160,20 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }: P
       <Col span={6}>
         <div css={styles.borderSpacer}>
           <div>
-            <label htmlFor='x-axis-selector'>
+            <label htmlFor="x-axis-selector">
               <FormattedMessage
-                defaultMessage='X-axis:'
-                description='Label text for X-axis in box plot comparison in MLflow'
+                defaultMessage="X-axis:"
+                description="Label text for X-axis in box plot comparison in MLflow"
               />
             </label>
           </div>
           {renderSelector(handleXAxisChange, (xAxis as any).value)}
 
           <div>
-            <label htmlFor='y-axis-selector'>
+            <label htmlFor="y-axis-selector">
               <FormattedMessage
-                defaultMessage='Y-axis:'
-                description='Label text for Y-axis in box plot comparison in MLflow'
+                defaultMessage="Y-axis:"
+                description="Label text for Y-axis in box plot comparison in MLflow"
               />
             </label>
           </div>

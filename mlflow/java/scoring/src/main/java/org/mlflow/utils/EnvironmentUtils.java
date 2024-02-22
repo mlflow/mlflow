@@ -1,6 +1,6 @@
 package org.mlflow.utils;
 
-/** Utilities for reading from / writing to the system enviroment */
+/** Utilities for reading from / writing to the system environment */
 public class EnvironmentUtils {
   public static int getIntegerValue(String varName, int defaultValue) {
     String rawValue = System.getenv(varName);

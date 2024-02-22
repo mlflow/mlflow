@@ -14,8 +14,8 @@ export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetL
     return (
       <Button icon={<NewWindowIcon />}>
         <FormattedMessage
-          defaultMessage='Go to external location'
-          description='Text for the external location link in the experiment run dataset drawer'
+          defaultMessage="Go to external location"
+          description="Text for the external location link in the experiment run dataset drawer"
         />
       </Button>
     );

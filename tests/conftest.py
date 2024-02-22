@@ -2,6 +2,7 @@ import inspect
 import os
 import shutil
 import subprocess
+import uuid
 from unittest import mock
 
 import pytest
@@ -17,7 +18,7 @@ from tests.autologging.fixtures import enable_test_mode
 @pytest.fixture(autouse=True)
 def tracking_uri_mock(tmp_path, request):
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(os.path.join(tmp_path, "mlruns.sqlite"))
+        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
         with _use_tracking_uri(tracking_uri):
             yield tracking_uri
     else:
@@ -73,10 +74,10 @@ def prevent_infer_pip_requirements_fallback(request):
     Prevents `mlflow.models.infer_pip_requirements` from falling back in `mlflow.*.save_model`
     unless explicitly disabled via `pytest.mark.allow_infer_pip_requirements_fallback`.
     """
-    from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
+    from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE
 
     def new_exception(msg, *_, **__):
-        if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
+        if msg == _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE and _called_in_save_model():
             raise Exception(
                 "`mlflow.models.infer_pip_requirements` should not fall back in"
                 "`mlflow.*.save_model` during test"
@@ -116,7 +117,8 @@ def mock_s3_bucket():
     """
     Creates a mock S3 bucket using moto
 
-    :return: The name of the mock bucket
+    Returns:
+        The name of the mock bucket.
     """
     import boto3
     import moto

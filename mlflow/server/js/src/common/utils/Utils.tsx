@@ -21,6 +21,8 @@ import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
 import { shouldUsePathRouting } from './FeatureUtils';
+import { KeyValueEntity } from '../../experiment-tracking/types';
+import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
 
 class Utils {
   /**
@@ -141,8 +143,8 @@ class Utils {
     if (interval >= 1) {
       return (
         <FormattedMessage
-          defaultMessage='{timeSince, plural, =1 {1 year} other {# years}} ago'
-          description='Text for time in years since given date for MLflow views'
+          defaultMessage="{timeSince, plural, =1 {1 year} other {# years}} ago"
+          description="Text for time in years since given date for MLflow views"
           values={{ timeSince: interval }}
         />
       );
@@ -151,8 +153,8 @@ class Utils {
     if (interval >= 1) {
       return (
         <FormattedMessage
-          defaultMessage='{timeSince, plural, =1 {1 month} other {# months}} ago'
-          description='Text for time in months since given date for MLflow views'
+          defaultMessage="{timeSince, plural, =1 {1 month} other {# months}} ago"
+          description="Text for time in months since given date for MLflow views"
           values={{ timeSince: interval }}
         />
       );
@@ -161,8 +163,8 @@ class Utils {
     if (interval >= 1) {
       return (
         <FormattedMessage
-          defaultMessage='{timeSince, plural, =1 {1 day} other {# days}} ago'
-          description='Text for time in days since given date for MLflow views'
+          defaultMessage="{timeSince, plural, =1 {1 day} other {# days}} ago"
+          description="Text for time in days since given date for MLflow views"
           values={{ timeSince: interval }}
         />
       );
@@ -171,8 +173,8 @@ class Utils {
     if (interval >= 1) {
       return (
         <FormattedMessage
-          defaultMessage='{timeSince, plural, =1 {1 hour} other {# hours}} ago'
-          description='Text for time in hours since given date for MLflow views'
+          defaultMessage="{timeSince, plural, =1 {1 hour} other {# hours}} ago"
+          description="Text for time in hours since given date for MLflow views"
           values={{ timeSince: interval }}
         />
       );
@@ -181,16 +183,16 @@ class Utils {
     if (interval >= 1) {
       return (
         <FormattedMessage
-          defaultMessage='{timeSince, plural, =1 {1 minute} other {# minutes}} ago'
-          description='Text for time in minutes since given date for MLflow views'
+          defaultMessage="{timeSince, plural, =1 {1 minute} other {# minutes}} ago"
+          description="Text for time in minutes since given date for MLflow views"
           values={{ timeSince: interval }}
         />
       );
     }
     return (
       <FormattedMessage
-        defaultMessage='{timeSince, plural, =1 {1 second} other {# seconds}} ago'
-        description='Text for time in seconds since given date for MLflow views'
+        defaultMessage="{timeSince, plural, =1 {1 second} other {# seconds}} ago"
+        description="Text for time in seconds since given date for MLflow views"
         values={{ timeSince: seconds }}
       />
     );
@@ -309,11 +311,17 @@ class Utils {
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
     if (gitHubMatch) {
-      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}/tree/${sourceVersion}/${gitHubMatch[3]}`;
+      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}/tree/${sourceVersion}/${
+        gitHubMatch[3]
+      }`;
     } else if (gitLabMatch) {
-      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}/-/tree/${sourceVersion}/${gitLabMatch[3]}`;
+      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}/-/tree/${sourceVersion}/${
+        gitLabMatch[3]
+      }`;
     } else if (bitbucketMatch) {
-      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}/src/${sourceVersion}/${bitbucketMatch[3]}`;
+      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}/src/${sourceVersion}/${
+        bitbucketMatch[3]
+      }`;
     } else if (gitMatch) {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = `${baseUrl.replace(/git@/, 'https://')}/${repoDir.replace(/.git/, '')}/tree/${sourceVersion}/${fileDir}`;
@@ -452,7 +460,7 @@ class Utils {
     const gitRepoUrlOrNull = Utils.getGitRepoUrl(sourceName);
     if (gitRepoUrlOrNull) {
       res = (
-        <a target='_top' href={gitRepoUrlOrNull}>
+        <a target="_top" href={gitRepoUrlOrNull}>
           {res}
         </a>
       );
@@ -481,19 +489,9 @@ class Utils {
     const name = nameOverride || baseName;
 
     if (notebookId) {
-      const url = Utils.getNotebookSourceUrl(
-        queryParams,
-        notebookId,
-        revisionId,
-        runUuid,
-        workspaceUrl,
-      );
+      const url = Utils.getNotebookSourceUrl(queryParams, notebookId, revisionId, runUuid, workspaceUrl);
       return (
-        <a
-          title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
-          href={url}
-          target='_top'
-        >
+        <a title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)} href={url} target="_top">
           {name}
         </a>
       );
@@ -505,13 +503,7 @@ class Utils {
   /**
    * Returns the URL for the notebook source.
    */
-  static getNotebookSourceUrl(
-    queryParams: any,
-    notebookId: any,
-    revisionId: any,
-    runUuid: any,
-    workspaceUrl = null,
-  ) {
+  static getNotebookSourceUrl(queryParams: any, notebookId: any, revisionId: any, runUuid: any, workspaceUrl = null) {
     let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
     url += `#notebook/${notebookId}`;
     if (revisionId) {
@@ -543,7 +535,7 @@ class Utils {
     if (jobId) {
       const url = Utils.getJobSourceUrl(queryParams, jobId, jobRunId, workspaceUrl);
       return (
-        <a title={reformatJobName} href={url} target='_top'>
+        <a title={reformatJobName} href={url} target="_top">
           {name}
         </a>
       );
@@ -576,27 +568,44 @@ class Utils {
     const sourceType = Utils.getSourceType(tags);
     if (sourceType === 'NOTEBOOK') {
       if (Utils.getNotebookRevisionId(tags)) {
-        return (
-          <img
-            alt='Notebook Revision Icon'
-            title='Notebook Revision'
-            style={imageStyle}
-            src={revisionSvg}
-          />
-        );
+        return <img alt="Notebook Revision Icon" title="Notebook Revision" style={imageStyle} src={revisionSvg} />;
       } else {
-        return <img alt='Notebook Icon' title='Notebook' style={imageStyle} src={notebookSvg} />;
+        return <img alt="Notebook Icon" title="Notebook" style={imageStyle} src={notebookSvg} />;
       }
     } else if (sourceType === 'LOCAL') {
+      return <img alt="Local Source Icon" title="Local Source" style={imageStyle} src={laptopSvg} />;
+    } else if (sourceType === 'PROJECT') {
+      return <img alt="Project Icon" title="Project" style={imageStyle} src={projectSvg} />;
+    } else if (sourceType === 'JOB') {
+      return <img alt="Job Icon" title="Job" style={imageStyle} src={workflowsIconSvg} />;
+    }
+    return <img alt="No icon" style={imageStyle} src={emptySvg} />;
+  }
+
+  // New version of renderSourceTypeIcon that uses icons from design system
+  static renderSourceTypeIconV2(tags: any) {
+    const sourceType = Utils.getSourceType(tags);
+
+    if (sourceType === 'NOTEBOOK') {
+      return <NotebookIcon />;
+    } else if (sourceType === 'LOCAL') {
+      // TODO: missing icon for local source
       return (
-        <img alt='Local Source Icon' title='Local Source' style={imageStyle} src={laptopSvg} />
+        <img
+          alt="Local Source Icon"
+          title="Local Source"
+          css={{
+            width: 16,
+          }}
+          src={laptopSvg}
+        />
       );
     } else if (sourceType === 'PROJECT') {
-      return <img alt='Project Icon' title='Project' style={imageStyle} src={projectSvg} />;
+      return <FolderBranchIcon />;
     } else if (sourceType === 'JOB') {
-      return <img alt='Job Icon' title='Job' style={imageStyle} src={workflowsIconSvg} />;
+      return <WorkflowsIcon />;
     }
-    return <img alt='No icon' style={imageStyle} src={emptySvg} />;
+    return null;
   }
 
   /**
@@ -892,17 +901,12 @@ class Utils {
   static getVisibleTagValues(tags: any) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
     return Object.values(tags)
-      .map((t) => [
-        (t as any).key || (t as any).getKey(),
-        (t as any).value || (t as any).getValue(),
-      ])
+      .map((t) => [(t as any).key || (t as any).getKey(), (t as any).value || (t as any).getValue()])
       .filter((t) => !t[0].startsWith(MLFLOW_INTERNAL_PREFIX));
   }
 
   static getVisibleTagKeyList(tagsList: any) {
-    return _.uniq(
-      _.flatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)),
-    );
+    return _.uniq(_.flatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)));
   }
 
   /**
@@ -931,7 +935,11 @@ class Utils {
    * Each logged model will be of the form:
    * { artifactPath: string, flavors: string[], utcTimeCreated: number }
    */
-  static getLoggedModelsFromTags(tags: any) {
+  static getLoggedModelsFromTags(tags: Record<string, KeyValueEntity>): {
+    artifactPath: string;
+    flavors: string[];
+    utcTimeCreated: number;
+  }[] {
     const modelsTag = tags[Utils.loggedModelsTag];
     if (modelsTag) {
       const models = JSON.parse(modelsTag.value);
@@ -948,9 +956,7 @@ class Utils {
           };
         });
         // sort in descending order of creation time
-        const sorted = filtered.sort(
-          (a: any, b: any) => parseFloat(b.utcTimeCreated) - parseFloat(a.utcTimeCreated),
-        );
+        const sorted = filtered.sort((a: any, b: any) => parseFloat(b.utcTimeCreated) - parseFloat(a.utcTimeCreated));
         return _.uniqWith(sorted, (a, b) => (a as any).artifactPath === (b as any).artifactPath);
       }
     }
@@ -977,9 +983,7 @@ class Utils {
       return registeredModel;
     });
     const loggedModelsWithNormalizedPath = loggedModels.flatMap((model: any) => {
-      return model.artifactPath
-        ? [{ ...model, artifactPath: Utils.normalize(model.artifactPath) }]
-        : [];
+      return model.artifactPath ? [{ ...model, artifactPath: Utils.normalize(model.artifactPath) }] : [];
     });
     const models = Utils.concatAndGroupArraysById(
       loggedModelsWithNormalizedPath,
@@ -1103,6 +1107,7 @@ class Utils {
   }
 
   static updatePageTitle(title: any) {
+    /* prettier-ignore */
   }
 
   /**
@@ -1116,9 +1121,7 @@ class Utils {
   }
 
   static shouldRender404(requests: any, requestIdsToCheck: any) {
-    const requestsToCheck = requests.filter((request: any) =>
-      requestIdsToCheck.includes(request.id),
-    );
+    const requestsToCheck = requests.filter((request: any) => requestIdsToCheck.includes(request.id));
     return requestsToCheck.some((request: any) => {
       const { error } = request;
       return error && error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST;

@@ -1,4 +1,3 @@
-# pylint: disable=abstract-method
 import argparse
 
 import torch

@@ -825,9 +825,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
     ), mock.patch(
         "mlflow.utils.databricks_utils._get_dbutils", mock_get_dbutils
-    ), mock.patch.object(
-        spark_model_iris.model, "save"
-    ) as mock_save, mock.patch(
+    ), mock.patch.object(spark_model_iris.model, "save") as mock_save, mock.patch(
         "mlflow.models.infer_pip_requirements", return_value=[]
     ) as mock_infer:
         with mlflow.start_run():
@@ -850,7 +848,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
 def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     monkeypatch, spark_model_iris, dummy_read_shows_mlflowdbfs_available
 ):
-    def mock_spark_session_load(path):  # pylint: disable=unused-argument
+    def mock_spark_session_load(path):
         if dummy_read_shows_mlflowdbfs_available:
             raise Exception("MlflowdbfsClient operation failed!")
         else:
@@ -886,9 +884,7 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     ), mock.patch(
         "mlflow.utils.databricks_utils._get_dbutils",
         mock_get_dbutils,
-    ), mock.patch.object(
-        spark_model_iris.model, "save"
-    ) as mock_save:
+    ), mock.patch.object(spark_model_iris.model, "save") as mock_save:
         with mlflow.start_run():
             monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
             mlflow.spark.log_model(spark_model=spark_model_iris.model, artifact_path="model")
@@ -949,12 +945,13 @@ def test_model_log_with_metadata(spark_model_iris):
 
 _df_input_example = iris_pandas_df().drop("label", axis=1).iloc[[0]]
 _dict_input_example = _df_input_example.iloc[0].to_dict()
-_array_input_example = list(_dict_input_example.values())
 
 
 @pytest.mark.parametrize(
     "input_example",
-    [_df_input_example, _dict_input_example, _array_input_example],
+    # array input example is not supported any more as it won't be converted
+    # to a pandas dataframe when saving example
+    [_df_input_example, _dict_input_example],
 )
 def test_model_log_with_signature_inference(spark_model_iris, input_example):
     artifact_path = "model"

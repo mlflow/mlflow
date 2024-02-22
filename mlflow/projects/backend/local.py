@@ -260,9 +260,11 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.
-    :param command: Entry point command to run
-    :param work_dir: Working directory in which to run the command
-    :param run_id: MLflow run ID associated with the entry point execution.
+
+    Args:
+        command: Entry point command to run
+        work_dir: Working directory in which to run the command
+        run_id: MLflow run ID associated with the entry point execution.
     """
     env = os.environ.copy()
     env.update(get_run_env_vars(run_id, experiment_id))
@@ -349,7 +351,6 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     if platform.system() == "Windows":
         win_user_dir = os.environ["USERPROFILE"]
         aws_path = os.path.join(win_user_dir, ".aws")
@@ -370,7 +371,6 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     envs = {
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
         "AZURE_STORAGE_ACCESS_KEY": os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
@@ -380,7 +380,6 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_gcs_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     cmds = []
     envs = {}
 
@@ -392,7 +391,6 @@ def _get_gcs_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     cmds = []
     envs = {
         "MLFLOW_KERBEROS_TICKET_CACHE": MLFLOW_KERBEROS_TICKET_CACHE.get(),

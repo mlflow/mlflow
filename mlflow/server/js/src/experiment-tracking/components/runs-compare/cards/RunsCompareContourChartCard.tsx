@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import type { RunsCompareContourCardConfig } from '../runs-compare.types';
-import { RunsCompareChartCardWrapper } from './ChartCard.common';
+import {
+  ChartRunsCountIndicator,
+  RunsCompareChartCardReorderProps,
+  RunsCompareChartCardWrapper,
+  RunsCompareChartsDragGroup,
+} from './ChartCard.common';
 import { RunsContourPlot } from '../../runs-charts/components/RunsContourPlot';
 import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 
-export interface RunsCompareContourChartCardProps {
+export interface RunsCompareContourChartCardProps extends RunsCompareChartCardReorderProps {
   config: RunsCompareContourCardConfig;
   chartRunData: RunsChartsRunData[];
 
@@ -18,6 +23,11 @@ export const RunsCompareContourChartCard = ({
   chartRunData,
   onDelete,
   onEdit,
+  onReorderWith,
+  canMoveDown,
+  canMoveUp,
+  onMoveDown,
+  onMoveUp,
 }: RunsCompareContourChartCardProps) => {
   const slicedRuns = useMemo(
     () => chartRunData.slice(0, config.runsCountToCompare || 10).reverse(),
@@ -31,8 +41,14 @@ export const RunsCompareContourChartCard = ({
       onEdit={onEdit}
       onDelete={onDelete}
       title={`${config.xaxis.key} vs. ${config.yaxis.key} vs. ${config.zaxis.key}`}
-      // TODO: add i18n after making decision on the final wording
-      subtitle={<>Comparing first {slicedRuns.length} runs</>}
+      subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
+      uuid={config.uuid}
+      dragGroupKey={RunsCompareChartsDragGroup.GENERAL_AREA}
+      onReorderWith={onReorderWith}
+      canMoveDown={canMoveDown}
+      canMoveUp={canMoveUp}
+      onMoveDown={onMoveDown}
+      onMoveUp={onMoveUp}
     >
       <div css={styles.contourChartCardWrapper}>
         <RunsContourPlot

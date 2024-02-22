@@ -7,8 +7,10 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 from urllib.parse import urlparse
+
+from starlette.responses import StreamingResponse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
@@ -148,13 +150,13 @@ def gateway_deprecated(obj):
 
 @gateway_deprecated
 def set_gateway_uri(gateway_uri: str):
-    """
-    Sets the uri of a configured and running MLflow AI Gateway server in a global context.
+    """Sets the uri of a configured and running MLflow AI Gateway server in a global context.
     Providing a valid uri and calling this function is required in order to use the MLflow
     AI Gateway fluent APIs.
 
-    :param gateway_uri: The full uri of a running MLflow AI Gateway server or, if running on
-                        Databricks, "databricks".
+    Args:
+        gateway_uri: The full uri of a running MLflow AI Gateway server or, if running on
+            Databricks, "databricks".
     """
     if not _is_valid_uri(gateway_uri):
         raise MlflowException.invalid_parameter_value(
@@ -187,11 +189,14 @@ def get_gateway_uri() -> str:
 
 
 def assemble_uri_path(paths: List[str]) -> str:
-    """
-    Assemble a correct URI path from a list of path parts.
+    """Assemble a correct URI path from a list of path parts.
 
-    :param paths: A list of strings representing parts of a URI path.
-    :return: A string representing the complete assembled URI path.
+    Args:
+        paths: A list of strings representing parts of a URI path.
+
+    Returns:
+        A string representing the complete assembled URI path.
+
     """
     stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
     return "/" + posixpath.join(*stripped_paths) if stripped_paths else "/"
@@ -203,12 +208,15 @@ def resolve_route_url(base_url: str, route: str) -> str:
     with Databricks) or requires the assembly of a fully qualified url by appending the
     Route return route_url to the base url of the AI Gateway server.
 
-    :param base_url: The base URL. Should include the scheme and domain, e.g.,
-                     ``http://127.0.0.1:6000``.
-    :param route: The route to be appended to the base URL, e.g., ``/api/2.0/gateway/routes/`` or,
-                  in the case of Databricks, the fully qualified url.
-    :return: The complete URL, either directly returned or formed and returned by joining the
-             base URL and the route path.
+    Args:
+        base_url: The base URL. Should include the scheme and domain, e.g.,
+            ``http://127.0.0.1:6000``.
+        route: The route to be appended to the base URL, e.g., ``/api/2.0/gateway/routes/`` or,
+            in the case of Databricks, the fully qualified url.
+
+    Returns:
+        The complete URL, either directly returned or formed and returned by joining the
+        base URL and the route path.
     """
     return route if _is_valid_uri(route) else append_to_uri_path(base_url, route)
 
@@ -259,3 +267,46 @@ def is_valid_mosiacml_chat_model(model_name: str) -> bool:
 
 def is_valid_ai21labs_model(model_name: str) -> bool:
     return model_name in {"j2-ultra", "j2-mid", "j2-light"}
+
+
+def strip_sse_prefix(s: str) -> str:
+    # https://html.spec.whatwg.org/multipage/server-sent-events.html
+    return re.sub(r"^data:\s+", "", s)
+
+
+def to_sse_chunk(data: str) -> str:
+    # https://html.spec.whatwg.org/multipage/server-sent-events.html
+    return f"data: {data}\n\n"
+
+
+def _find_boundary(buffer: bytes) -> int:
+    try:
+        return buffer.index(b"\n")
+    except ValueError:
+        return -1
+
+
+async def handle_incomplete_chunks(
+    stream: AsyncGenerator[bytes, Any],
+) -> AsyncGenerator[bytes, Any]:
+    """
+    Wraps a streaming response and handles incomplete chunks from the server.
+    See https://community.openai.com/t/incomplete-stream-chunks-for-completions-api/383520
+    for more information.
+    """
+    buffer = b""
+    async for chunk in stream:
+        buffer += chunk
+        while (boundary := _find_boundary(buffer)) != -1:
+            yield buffer[:boundary]
+            buffer = buffer[boundary + 1 :]
+
+
+async def make_streaming_response(resp):
+    if isinstance(resp, AsyncGenerator):
+        return StreamingResponse(
+            (to_sse_chunk(d.json()) async for d in resp),
+            media_type="text/event-stream",
+        )
+    else:
+        return await resp

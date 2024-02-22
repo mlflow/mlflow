@@ -10,11 +10,14 @@ MAX_ROWS = 10000
 
 
 def compute_pandas_digest(df) -> str:
-    """
-    Computes a digest for the given Pandas DataFrame.
+    """Computes a digest for the given Pandas DataFrame.
 
-    :param df: A Pandas DataFrame.
-    :return: A string digest.
+    Args:
+        df: A Pandas DataFrame.
+
+    Returns:
+        A string digest.
+
     """
     import numpy as np
     import pandas as pd
@@ -39,12 +42,15 @@ def compute_pandas_digest(df) -> str:
 
 
 def compute_numpy_digest(features, targets=None) -> str:
-    """
-    Computes a digest for the given numpy array.
+    """Computes a digest for the given numpy array.
 
-    :param features: A numpy array containing dataset features.
-    :param targets: A numpy array containing dataset targets. Optional.
-    :return: A string digest.
+    Args:
+        features: A numpy array containing dataset features.
+        targets: A numpy array containing dataset targets. Optional.
+
+    Returns:
+        A string digest.
+
     """
     import numpy as np
     import pandas as pd
@@ -79,11 +85,14 @@ def compute_numpy_digest(features, targets=None) -> str:
 
 
 def compute_tensorflow_dataset_digest(dataset, targets=None) -> str:
-    """
-    Computes a digest for the given Tensorflow dataset.
+    """Computes a digest for the given Tensorflow dataset.
 
-    :param dataset: A Tensorflow dataset.
-    :return: A string digest.
+    Args:
+        dataset: A Tensorflow dataset.
+
+    Returns:
+        A string digest.
+
     """
     import numpy as np
     import pandas as pd
@@ -112,11 +121,14 @@ def compute_tensorflow_dataset_digest(dataset, targets=None) -> str:
 
 
 def compute_tensor_digest(tensor_data, tensor_targets) -> str:
-    """
-    Computes a digest for the given Tensorflow tensor.
+    """Computes a digest for the given Tensorflow tensor.
 
-    :param tensor: A Tensorflow tensor.
-    :return: A string digest.
+    Args:
+        tensor: A Tensorflow tensor.
+
+    Returns:
+        A string digest.
+
     """
     if tensor_targets is None:
         return compute_numpy_digest(tensor_data.numpy())
@@ -125,13 +137,16 @@ def compute_tensor_digest(tensor_data, tensor_targets) -> str:
 
 
 def compute_spark_df_digest(df) -> str:
-    """
-    Computes a digest for the given Spark DataFrame. Retrieve a semantic hash of the
+    """Computes a digest for the given Spark DataFrame. Retrieve a semantic hash of the
     DataFrame's logical plan, which is much more efficient and deterministic than hashing
     DataFrame records
 
-    :param df: A Spark DataFrame.
-    :return: A string digest.
+    Args:
+        df: A Spark DataFrame.
+
+    Returns:
+        A string digest.
+
     """
 
     import numpy as np
@@ -146,11 +161,14 @@ def compute_spark_df_digest(df) -> str:
 
 
 def get_normalized_md5_digest(elements: List[Any]) -> str:
-    """
-    Computes a normalized digest for a list of hashable elements.
+    """Computes a normalized digest for a list of hashable elements.
 
-    :param elements: A list of hashable elements for inclusion in the md5 digest.
-    :return: An 8-character, truncated md5 digest.
+    Args:
+        elements: A list of hashable elements for inclusion in the md5 digest.
+
+    Returns:
+        An 8-character, truncated md5 digest.
+
     """
 
     if not elements:

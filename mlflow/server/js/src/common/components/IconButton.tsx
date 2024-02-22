@@ -17,7 +17,7 @@ type Props = {
 
 export const IconButton = ({ icon, className, style, ...restProps }: Props) => {
   return (
-    <Button type='link' className={className} style={{ padding: 0, ...style }} {...restProps}>
+    <Button type="link" className={className} style={{ padding: 0, ...style }} {...restProps}>
       {icon}
     </Button>
   );

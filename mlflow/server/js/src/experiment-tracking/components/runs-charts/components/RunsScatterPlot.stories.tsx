@@ -23,6 +23,8 @@ const createMockContourData = (numRuns: number): RunsScatterPlotProps['runsData'
   return new Array(numRuns).fill(0).map((_, index) => {
     const runName = getRandomRunName(random);
     return {
+      uuid: `id-for-run-${runName}`,
+      displayName: runName,
       runInfo: {
         run_uuid: `id-for-run-${runName}`,
         run_name: runName,
@@ -63,25 +65,17 @@ const ScatterPlotStoryWrapper = (props: any) => {
   );
 };
 
-export const FiftyRuns = () => (
-  <ScatterPlotStoryWrapper runsData={useMemo(() => createMockContourData(50), [])} />
-);
+export const FiftyRuns = () => <ScatterPlotStoryWrapper runsData={useMemo(() => createMockContourData(50), [])} />;
 
 export const TwoHundredFiftyRuns = () => (
   <ScatterPlotStoryWrapper runsData={useMemo(() => createMockContourData(250), [])} />
 );
 
 export const TwoHundredFiftyRunsStatic = () => (
-  <ScatterPlotStoryWrapper
-    runsData={useMemo(() => createMockContourData(250), [])}
-    width={500}
-    height={250}
-  />
+  <ScatterPlotStoryWrapper runsData={useMemo(() => createMockContourData(250), [])} width={500} height={250} />
 );
 
-export const ThousandRuns = () => (
-  <ScatterPlotStoryWrapper runsData={useMemo(() => createMockContourData(1000), [])} />
-);
+export const ThousandRuns = () => <ScatterPlotStoryWrapper runsData={useMemo(() => createMockContourData(1000), [])} />;
 
 FiftyRuns.storyName = '50 runs (auto-size)';
 TwoHundredFiftyRuns.storyName = '250 runs (auto-size)';

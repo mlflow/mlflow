@@ -11,10 +11,10 @@ export const EvaluationTableActionsColumnRenderer = () => {
   return (
     <EvaluationTableHeader>
       <Tooltip
-        placement='right'
+        placement="right"
         title={
           <FormattedMessage
-            defaultMessage='Toggle detailed view'
+            defaultMessage="Toggle detailed view"
             description='Experiment page > artifact compare view > table header > label for "toggle detailed view" button'
           />
         }

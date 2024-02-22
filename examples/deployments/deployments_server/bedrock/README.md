@@ -1,6 +1,6 @@
-## Example endpoint configuration for AWS Bedrcok
+## Example endpoint configuration for Amazon Bedrock
 
-To view an example of a Bedrock endpoint configurations, see [the configuration example](config.yaml) YAML file.
+To view an example of a Bedrock endpoint configuration, see [the configuration example](config.yaml) YAML file.
 
 ## Credentials
 

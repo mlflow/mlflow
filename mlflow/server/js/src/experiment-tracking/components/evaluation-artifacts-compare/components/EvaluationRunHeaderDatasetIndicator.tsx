@@ -34,7 +34,7 @@ export const EvaluationRunHeaderDatasetIndicator = ({
       }}
     >
       <div css={{ flexShrink: 1, flexGrow: 1, overflow: 'hidden' }}>
-        <Button type='link' onClick={() => handleDatasetSelected(run.datasets[0])}>
+        <Button type="link" onClick={() => handleDatasetSelected(run.datasets[0])}>
           <ExperimentViewDatasetWithContext
             datasetWithTags={run.datasets[0]}
             displayTextAsLink
@@ -46,11 +46,11 @@ export const EvaluationRunHeaderDatasetIndicator = ({
         <div css={{ flexShrink: 0, flexGrow: 1, display: 'flex', alignItems: 'flex-end' }}>
           <Popover.Root modal={false}>
             <Popover.Trigger asChild>
-              <Button size='small' style={{ borderRadius: '8px', width: '40px' }}>
-                <Typography.Text color='secondary'>+{run.datasets.length - 1}</Typography.Text>
+              <Button size="small" style={{ borderRadius: '8px', width: '40px' }}>
+                <Typography.Text color="secondary">+{run.datasets.length - 1}</Typography.Text>
               </Button>
             </Popover.Trigger>
-            <Popover.Content align='start'>
+            <Popover.Content align="start">
               {run.datasets
                 .slice(1)
                 .filter(Boolean)
@@ -63,11 +63,8 @@ export const EvaluationRunHeaderDatasetIndicator = ({
                     }}
                     key={`${datasetWithTags.dataset.name}-${datasetWithTags.dataset.digest}`}
                   >
-                    <Button type='link' onClick={() => handleDatasetSelected(datasetWithTags)}>
-                      <ExperimentViewDatasetWithContext
-                        datasetWithTags={datasetWithTags}
-                        displayTextAsLink
-                      />
+                    <Button type="link" onClick={() => handleDatasetSelected(datasetWithTags)}>
+                      <ExperimentViewDatasetWithContext datasetWithTags={datasetWithTags} displayTextAsLink />
                     </Button>
                   </div>
                 ))}

@@ -25,22 +25,13 @@ export type UseEvaluationArtifactTableDataResult = {
 
   // Contains data describing additional metadata for output: evaluation time, total tokens and a flag
   // indicating if the run was evaluated in this session and is unsynced
-  outputMetadataByRunUuid?: Record<
-    string,
-    { isPending: boolean; evaluationTime: number; totalTokens?: number }
-  >;
+  outputMetadataByRunUuid?: Record<string, { isPending: boolean; evaluationTime: number; totalTokens?: number }>;
 
   isPendingInputRow?: boolean;
 }[];
 
-const extractGroupByValuesFromEntry = (
-  entry: EvaluationArtifactTableEntry,
-  groupByCols: string[],
-) => {
-  const groupByMappings = groupByCols.map<[string, string]>((groupBy) => [
-    groupBy,
-    entry[groupBy]?.toString(),
-  ]);
+const extractGroupByValuesFromEntry = (entry: EvaluationArtifactTableEntry, groupByCols: string[]) => {
+  const groupByMappings = groupByCols.map<[string, string]>((groupBy) => [groupBy, entry[groupBy]?.toString()]);
 
   // Next, let's calculate a unique hash for values of those columns - it will serve as
   // an identifier of each result row.
@@ -100,10 +91,7 @@ export const useEvaluationArtifactTableData = (
      * Start with populating the table with the draft rows created from the draft input sets
      */
     for (const draftInputValueSet of draftInputValues) {
-      const visibleGroupByValues = groupByCols.map((colName) => [
-        colName,
-        draftInputValueSet[colName],
-      ]);
+      const visibleGroupByValues = groupByCols.map((colName) => [colName, draftInputValueSet[colName]]);
 
       const draftInputRowKey = visibleGroupByValues.map(([, value]) => value).join('.');
 
@@ -118,15 +106,13 @@ export const useEvaluationArtifactTableData = (
     > = {};
 
     // Search through artifact tables and get all entries corresponding to a particular run
-    const runsWithEntries = comparedRunsUuids.map<[string, EvaluationArtifactTableEntry[]]>(
-      (runUuid) => {
-        const baseEntries = Object.values(artifactsByRun[runUuid] || {})
-          .filter(({ path }) => tableNames.includes(path))
-          .map(({ entries }) => entries)
-          .flat();
-        return [runUuid, baseEntries];
-      },
-    );
+    const runsWithEntries = comparedRunsUuids.map<[string, EvaluationArtifactTableEntry[]]>((runUuid) => {
+      const baseEntries = Object.values(artifactsByRun[runUuid] || {})
+        .filter(({ path }) => tableNames.includes(path))
+        .map(({ entries }) => entries)
+        .flat();
+      return [runUuid, baseEntries];
+    });
 
     // Iterate through all entries and assign them to the corresponding groups.
     for (const [runUuid, entries] of runsWithEntries) {
@@ -144,10 +130,7 @@ export const useEvaluationArtifactTableData = (
         }
 
         // Check if there are values in promptlab metadata columns
-        if (
-          entry[PROMPTLAB_METADATA_COLUMN_LATENCY] ||
-          entry[PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS]
-        ) {
+        if (entry[PROMPTLAB_METADATA_COLUMN_LATENCY] || entry[PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS]) {
           if (!outputMetadataByCellsValueMap[key]) {
             outputMetadataByCellsValueMap[key] = {};
           }
@@ -219,10 +202,7 @@ export const useEvaluationArtifactTableData = (
      * Extract all "group by" keys, i.e. effectively row keys.
      * Hoist all rows that were created during the pending evaluation to the top.
      */
-    const allRowKeys = sortBy(
-      Object.entries(groupByCellsValueMap),
-      ([key]) => !pendingRowKeys.includes(key),
-    );
+    const allRowKeys = sortBy(Object.entries(groupByCellsValueMap), ([key]) => !pendingRowKeys.includes(key));
 
     // In the final step, iterate through all found combinations of "group by" values and
     // assign the cells
@@ -243,12 +223,4 @@ export const useEvaluationArtifactTableData = (
     }
 
     return results;
-  }, [
-    comparedRunsUuids,
-    artifactsByRun,
-    groupByCols,
-    draftInputValues,
-    tableNames,
-    outputColumn,
-    pendingDataByRun,
-  ]);
+  }, [comparedRunsUuids, artifactsByRun, groupByCols, draftInputValues, tableNames, outputColumn, pendingDataByRun]);

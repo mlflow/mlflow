@@ -194,8 +194,8 @@ async def test_chat_is_not_supported_for_anthropic():
 
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
-    assert "The chat route is not available for Anthropic models" in e.value.detail
-    assert e.value.status_code == 404
+    assert "The chat route is not implemented for Anthropic models" in e.value.detail
+    assert e.value.status_code == 501
 
 
 def embedding_config():
@@ -220,8 +220,8 @@ async def test_embeddings_are_not_supported_for_anthropic():
 
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
-    assert "The embeddings route is not available for Anthropic models" in e.value.detail
-    assert e.value.status_code == 404
+    assert "The embeddings route is not implemented for Anthropic models" in e.value.detail
+    assert e.value.status_code == 501
 
 
 @pytest.mark.asyncio

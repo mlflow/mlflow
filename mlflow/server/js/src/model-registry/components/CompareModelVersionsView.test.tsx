@@ -94,9 +94,7 @@ describe('unconnected tests', () => {
       </Provider>,
     );
     // Checking the breadcrumb renders correctly
-    expect(
-      wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 2 Versions']),
-    ).toEqual(true);
+    expect(wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 2 Versions'])).toEqual(true);
     // Checking the model version shows up
     expect(wrapper.containsAllMatchingElements(['Model Version:', '1'])).toEqual(true);
     expect(wrapper.containsAllMatchingElements(['Model Version:', '2'])).toEqual(true);
@@ -184,9 +182,7 @@ describe('connected tests', () => {
     );
     expect(wrapper.find(CompareModelVersionsView).length).toBe(1);
     // Checking the breadcrumb renders correctly
-    expect(
-      wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 1 Versions']),
-    ).toEqual(true);
+    expect(wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 1 Versions'])).toEqual(true);
     // Checking the model version shows up
     expect(wrapper.containsAllMatchingElements(['Model Version:', '1'])).toEqual(true);
   });
@@ -204,9 +200,7 @@ describe('connected tests', () => {
     );
     expect(wrapper.find(CompareModelVersionsView).length).toBe(1);
     // Checking the breadcrumb renders correctly
-    expect(
-      wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 3 Versions']),
-    ).toEqual(true);
+    expect(wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 3 Versions'])).toEqual(true);
     // Checking the model version shows up
     expect(wrapper.containsAllMatchingElements(['Model Version:', '1'])).toEqual(true);
   });

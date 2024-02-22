@@ -44,4 +44,9 @@ export declare function clearAll(select: HTMLElement): Promise<void>;
  * the menu, and returns a list of the text of each option in order.
  */
 export declare function getAllOptions(select: HTMLElement): Promise<string[]>;
+/**
+ * Creates a new option for a Select with `mode="tags"` by typing it into the input,
+ * clicking on the option in the options list, and then closing the menu.
+ */
+export declare function createNewOption(select: HTMLElement, option: string): Promise<void>;
 //# sourceMappingURL=selectEvent.d.ts.map

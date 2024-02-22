@@ -12,9 +12,7 @@ describe('RunNameUtils', () => {
   it.each([5, 10, 30])(
     'correctly generate random run names with respect to the maximum length of %s characters',
     (maxLength) => {
-      const generatedNames = new Array(10)
-        .fill(0)
-        .map(() => generateRandomRunName('-', 3, maxLength));
+      const generatedNames = new Array(10).fill(0).map(() => generateRandomRunName('-', 3, maxLength));
 
       for (const name of generatedNames) {
         expect(name.length).toBeLessThanOrEqual(maxLength);
@@ -37,9 +35,7 @@ describe('RunNameUtils', () => {
     it('creates duplicated name considering already existing names', () => {
       expect(getDuplicatedRunName('run-name', ['run-name (1)'])).toEqual('run-name (2)');
       expect(getDuplicatedRunName('run-name (1)', ['run-name (2)'])).toEqual('run-name (3)');
-      expect(getDuplicatedRunName('run-name (17)', ['run-name (18)', 'run-name (19)'])).toEqual(
-        'run-name (20)',
-      );
+      expect(getDuplicatedRunName('run-name (17)', ['run-name (18)', 'run-name (19)'])).toEqual('run-name (20)');
       expect(getDuplicatedRunName('run-name (15)', ['run-name (10)'])).toEqual('run-name (16)');
     });
   });

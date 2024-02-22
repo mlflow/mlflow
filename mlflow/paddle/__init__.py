@@ -442,7 +442,9 @@ class _PaddleWrapper:
         self.pd_model = pd_model
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -456,6 +458,7 @@ class _PaddleWrapper:
             Model predictions.
         """
         import numpy as np
+        import paddle
         import pandas as pd
 
         if isinstance(data, pd.DataFrame):
@@ -473,7 +476,7 @@ class _PaddleWrapper:
 
         self.pd_model.eval()
 
-        predicted = self.pd_model(inp_data)
+        predicted = self.pd_model(paddle.to_tensor(inp_data))
         return pd.DataFrame(predicted.numpy())
 
 
@@ -491,7 +494,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
 

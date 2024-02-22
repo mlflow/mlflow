@@ -59,10 +59,7 @@ type ModelVersionPageImplProps = WithRouterNextProps & {
 
 type ModelVersionPageImplState = any;
 
-export class ModelVersionPageImpl extends React.Component<
-  ModelVersionPageImplProps,
-  ModelVersionPageImplState
-> {
+export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplProps, ModelVersionPageImplState> {
   listTransitionRequestId: any;
   pollIntervalId: any;
 
@@ -73,10 +70,7 @@ export class ModelVersionPageImpl extends React.Component<
   getModelVersionDetailsRequestId = getUUID();
   initGetMlModelFileRequestId = getUUID();
   state = {
-    criticalInitialRequestIds: [
-      this.initGetModelVersionDetailsRequestId,
-      this.initGetMlModelFileRequestId,
-    ],
+    criticalInitialRequestIds: [this.initGetModelVersionDetailsRequestId, this.initGetMlModelFileRequestId],
   };
 
   pollingRelatedRequestIds = [this.getModelVersionDetailsRequestId, this.getRunRequestId];
@@ -118,9 +112,7 @@ export class ModelVersionPageImpl extends React.Component<
       .getModelVersionApi(
         modelName,
         version,
-        isInitialLoading === true
-          ? this.initGetModelVersionDetailsRequestId
-          : this.getModelVersionDetailsRequestId,
+        isInitialLoading === true ? this.initGetModelVersionDetailsRequestId : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }: any) => {
         if (value && !value[getProtoField('model_version')].run_link) {
@@ -135,22 +127,14 @@ export class ModelVersionPageImpl extends React.Component<
     this.props
       .getModelVersionArtifactApi(modelName, version)
       .then((content: any) =>
-        this.props.parseMlModelFile(
-          modelName,
-          version,
-          content.value,
-          this.initGetMlModelFileRequestId,
-        ),
+        this.props.parseMlModelFile(modelName, version, content.value, this.initGetMlModelFileRequestId),
       )
       .catch(() => {
         // Failure of this call chain should not block the page. Here we remove
         // `initGetMlModelFileRequestId` from `criticalInitialRequestIds`
         // to unblock RequestStateWrapper from rendering its content
         this.setState((prevState: any) => ({
-          criticalInitialRequestIds: _.without(
-            prevState.criticalInitialRequestIds,
-            this.initGetMlModelFileRequestId,
-          ),
+          criticalInitialRequestIds: _.without(prevState.criticalInitialRequestIds, this.initGetMlModelFileRequestId),
         }));
       });
   }
@@ -204,16 +188,7 @@ export class ModelVersionPageImpl extends React.Component<
   }
 
   render() {
-    const {
-      modelName,
-      version,
-      modelVersion,
-      runInfo,
-      runDisplayName,
-      navigate,
-      schema,
-      modelEntity,
-    } = this.props;
+    const { modelName, version, modelVersion, runInfo, runDisplayName, navigate, schema, modelEntity } = this.props;
 
     return (
       <PageContainer>
@@ -276,10 +251,7 @@ export class ModelVersionPageImpl extends React.Component<
   }
 }
 
-const mapStateToProps = (
-  state: ReduxState,
-  ownProps: WithRouterNextProps<{ modelName: string; version: string }>,
-) => {
+const mapStateToProps = (state: ReduxState, ownProps: WithRouterNextProps<{ modelName: string; version: string }>) => {
   const modelName = decodeURIComponent(ownProps.params.modelName);
   const { version } = ownProps.params;
   const modelVersion = getModelVersion(state, modelName, version);
@@ -315,11 +287,6 @@ const mapDispatchToProps = {
   getRunApi,
 };
 
-const ModelVersionPageWithRouter = withRouterNext(
-  connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl),
-);
+const ModelVersionPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl));
 
-export const ModelVersionPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.MODEL_REGISTRY,
-  ModelVersionPageWithRouter,
-);
+export const ModelVersionPage = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelVersionPageWithRouter);

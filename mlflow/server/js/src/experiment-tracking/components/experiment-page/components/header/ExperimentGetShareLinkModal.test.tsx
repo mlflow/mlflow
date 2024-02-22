@@ -1,0 +1,170 @@
+import {
+  ExperimentPageSearchFacetsStateV2,
+  createExperimentPageSearchFacetsStateV2,
+} from '../../models/ExperimentPageSearchFacetsStateV2';
+import { ExperimentPageUIStateV2, createExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentGetShareLinkModal } from './ExperimentGetShareLinkModal';
+import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
+import { renderWithIntl, act, screen, waitFor } from 'common/utils/TestUtils.react17';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
+import { setExperimentTagApi } from '../../../../actions';
+
+jest.mock('../../../../../common/utils/StringUtils', () => {
+  const windowCryptoSupported = Boolean(global.crypto?.subtle);
+  // If window.crypto is not supported, provide a simple hex hashing function instead of SHA256
+  if (!windowCryptoSupported) {
+    return {
+      getStringSHA256: (val: string) =>
+        val.split('').reduce((hex, c) => hex + c.charCodeAt(0).toString(16).padStart(2, '0'), ''),
+    };
+  }
+  return jest.requireActual('../../../../../common/utils/StringUtils');
+});
+
+jest.mock('../../../../actions', () => ({
+  ...jest.requireActual('../../../../actions'),
+  setExperimentTagApi: jest.fn(() => ({ type: 'SET_EXPERIMENT_TAG_API', payload: Promise.resolve() })),
+}));
+
+const experimentIds = ['experiment-1'];
+
+describe('ExperimentGetShareLinkModal', () => {
+  const onCancel = jest.fn();
+
+  let navigatorClipboard: Clipboard;
+
+  beforeAll(() => {
+    navigatorClipboard = navigator.clipboard;
+    // @ts-expect-error: navigator is overridable in tests
+    navigator.clipboard = { writeText: jest.fn() };
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+    // @ts-expect-error: navigator is overridable in tests
+    navigator.clipboard = navigatorClipboard;
+  });
+
+  const renderExperimentGetShareLinkModal = (
+    searchFacetsState = createExperimentPageSearchFacetsStateV2(),
+    uiState = createExperimentPageUIStateV2(),
+  ) => {
+    const Component = ({
+      searchFacetsState,
+      uiState,
+    }: {
+      searchFacetsState: ExperimentPageSearchFacetsStateV2;
+      uiState: ExperimentPageUIStateV2;
+    }) => {
+      const [visible, setVisible] = useState(false);
+      return (
+        <MockedReduxStoreProvider>
+          <button onClick={() => setVisible(true)}>get link</button>
+          <ExperimentGetShareLinkModal
+            experimentIds={experimentIds}
+            onCancel={onCancel}
+            searchFacetsState={searchFacetsState}
+            uiState={uiState}
+            visible={visible}
+          />
+        </MockedReduxStoreProvider>
+      );
+    };
+    const { rerender } = renderWithIntl(<Component searchFacetsState={searchFacetsState} uiState={uiState} />);
+    return {
+      rerender: (
+        searchFacetsState = createExperimentPageSearchFacetsStateV2(),
+        uiState = createExperimentPageUIStateV2(),
+      ) => rerender(<Component searchFacetsState={searchFacetsState} uiState={uiState} />),
+    };
+  };
+
+  test('copies the shareable URL and expects to reuse the same tag for identical view state', async () => {
+    // Initial facets and UI state
+    const initialSearchState = { ...createExperimentPageSearchFacetsStateV2(), searchFilter: 'metrics.m1 = 2' };
+    const initialUIState = { ...createExperimentPageUIStateV2(), viewMaximized: true };
+
+    // Render the modal and open it
+    renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
+    await act(async () => {
+      userEvent.click(screen.getByText('get link'));
+    });
+
+    // Wait for the link and tag to be processed and copy button to be visible
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+    });
+
+    // Click the copy button and assert that the URL was copied to the clipboard
+    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringMatching(/\/experiments\/experiment-1\?viewStateShareKey=([0-9a-f]+)/i),
+    );
+
+    // Assert that the tag was created with the correct name and serialized state
+    expect(setExperimentTagApi).toHaveBeenCalledWith(
+      'experiment-1',
+      expect.stringMatching(/mlflow\.sharedViewState\.([0-9a-f]+)/),
+      // Assert serialized state in the next step
+      expect.anything(),
+    );
+    const serializedTagValue = jest.mocked(setExperimentTagApi).mock.calls[0]?.[2];
+    const serializedState = JSON.parse(serializedTagValue);
+    expect(serializedState).toEqual({
+      ...initialSearchState,
+      ...initialUIState,
+    });
+  });
+
+  test('reuse the same tag for identical view state', async () => {
+    // Initial facets and UI state
+    const initialSearchState = { ...createExperimentPageSearchFacetsStateV2(), searchFilter: 'metrics.m1 = 2' };
+    const initialUIState = { ...createExperimentPageUIStateV2(), viewMaximized: true };
+
+    // Render the modal and open it
+    const { rerender } = renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
+    await act(async () => {
+      userEvent.click(screen.getByText('get link'));
+    });
+
+    // Wait for the link and tag to be processed and copy button to be visible
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+    });
+    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    // Save the first persisted tag name (containing serialized state hash)
+    const firstSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
+
+    // Update the search state and UI state, rerender the modal
+    const updatedSearchState = { ...initialSearchState, searchFilter: 'metrics.m1 = 5' };
+    const updatedUIState = { ...initialUIState, viewMaximized: false };
+    rerender(updatedSearchState, updatedUIState);
+
+    // Click the copy button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+    });
+    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    // Save the second persisted tag name (containing serialized state hash), should be different from the first one
+    const secondSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
+    expect(firstSavedTagName).not.toEqual(secondSavedTagName);
+
+    // Change the search state and UI state back to the initial values (but with new object references)
+    const revertedSearchState = { ...updatedSearchState, searchFilter: 'metrics.m1 = 2' };
+    const revertedUIState = { ...updatedUIState, viewMaximized: true };
+    rerender(revertedSearchState, revertedUIState);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+    });
+
+    userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    // Assert the third persisted tag name, should be the same as the first one
+    const lastSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
+    expect(lastSavedTagName).toEqual(firstSavedTagName);
+  });
+});

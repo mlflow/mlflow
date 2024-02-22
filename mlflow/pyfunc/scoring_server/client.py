@@ -29,12 +29,16 @@ class BaseScoringServerClient(ABC):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-        :return: Prediction result.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
+
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+
+        Returns:
+            Prediction result.
         """
 
 
@@ -73,12 +77,15 @@ class ScoringServerClient(BaseScoringServerClient):
 
     def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-        :return: :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+
+        Returns:
+            :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
         """
         response = requests.post(
             url=self.url_prefix + "/invocations",
@@ -109,12 +116,15 @@ class StdinScoringServerClient(BaseScoringServerClient):
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
 
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-        :return: :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                           release without warning.
+
+        Returns:
+            :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
         """
         if not self.output_json.exists():
             self.output_json.touch()

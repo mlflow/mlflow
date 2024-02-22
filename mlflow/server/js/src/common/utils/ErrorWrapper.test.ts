@@ -9,10 +9,7 @@ import { ErrorWrapper } from './ErrorWrapper';
 
 describe('ErrorWrapper', () => {
   it('renderHttpError works on DatabricksServiceExceptions', () => {
-    const error = new ErrorWrapper(
-      '{ "error_code": "INVALID_REQUEST", "message": "Foo!" }',
-      400,
-    ).renderHttpError();
+    const error = new ErrorWrapper('{ "error_code": "INVALID_REQUEST", "message": "Foo!" }', 400).renderHttpError();
     expect(error).toEqual('INVALID_REQUEST: Foo!');
   });
 

@@ -42,7 +42,7 @@ export class RunLinksPopover extends React.Component<Props> {
           return (
             <Link key={key} to={to}>
               <p style={{ color }}>
-                <i className='fas fa-external-link-o' style={{ marginRight: 5 }} />
+                <i className="fas fa-external-link-o" style={{ marginRight: 5 }} />
                 {`${name}, ${Utils.formatMetric(y)}`}
               </p>
             </Link>
@@ -58,7 +58,7 @@ export class RunLinksPopover extends React.Component<Props> {
       <div>
         <span>Jump to individual runs</span>
         <IconButton
-          icon={<i className='fas fa-times' />}
+          icon={<i className="fas fa-times" />}
           // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: (...args: any[]) =... Remove this comment to see the full error message
           onClick={handleClose}
           style={{ float: 'right', marginLeft: '7px' }}
@@ -73,7 +73,7 @@ export class RunLinksPopover extends React.Component<Props> {
       <LegacyPopover
         content={this.renderContent()}
         title={this.renderTitle()}
-        placement='left'
+        placement="left"
         visible={visible}
         onVisibleChange={handleVisibleChange}
       >

@@ -19,9 +19,7 @@ type Props = {
 export const GetLinkModal = ({ visible, onCancel, link }: Props) => {
   return (
     <Modal
-      title={
-        <FormattedMessage defaultMessage='Get Link' description={'Title text for get-link modal'} />
-      }
+      title={<FormattedMessage defaultMessage="Get Link" description="Title text for get-link modal" />}
       visible={visible}
       onCancel={onCancel}
     >

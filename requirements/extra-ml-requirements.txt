@@ -65,5 +65,3 @@ tenacity
 langchain
 # Required by mlflow.sentence_transformers
 sentence-transformers
-# Required by mlflow.keras_core
-keras-core

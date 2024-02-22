@@ -44,6 +44,7 @@ describe('MyComponent', () => {
       selectedRunIds: ['runId0', 'runId1'],
       openErrorModal: jest.fn(),
       deleteRunApi: getMockDeleteRunApiFn(false, []),
+      intl: { formatMessage: jest.fn() },
     };
     wrapper = shallow(<DeleteRunModalImpl {...minimalProps} />);
   });

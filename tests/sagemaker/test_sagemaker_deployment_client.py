@@ -508,10 +508,39 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_
     model_name = endpoint_production_variants[0]["VariantName"]
     description = sagemaker_client.describe_model(ModelName=model_name)
 
-    tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    model_tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    endpoint_tags = sagemaker_client.list_tags(ResourceArn=endpoint_description["EndpointArn"])
 
     # Extra tags exist besides the ones we set, so avoid strict equality
-    assert all(tag in tags["Tags"] for tag in expected_tags)
+    assert all(tag in model_tags["Tags"] for tag in expected_tags)
+    assert all(tag in endpoint_tags["Tags"] for tag in expected_tags)
+
+
+def test_prepare_sagemaker_tags_without_custom_tags():
+    config_tags = [{"Key": "tag1", "Value": "value1"}]
+    tags = mfs._prepare_sagemaker_tags(config_tags, None)
+    assert tags == config_tags
+
+
+def test_prepare_sagemaker_tags_when_custom_tags_are_added():
+    config_tags = [{"Key": "tag1", "Value": "value1"}]
+    sagemaker_tags = {"tag2": "value2", "tag3": "123"}
+    expected_tags = [
+        {"Key": "tag1", "Value": "value1"},
+        {"Key": "tag2", "Value": "value2"},
+        {"Key": "tag3", "Value": "123"},
+    ]
+    tags = mfs._prepare_sagemaker_tags(config_tags, sagemaker_tags)
+    assert tags == expected_tags
+
+
+def test_prepare_sagemaker_tags_duplicate_key_raises_exception():
+    config_tags = [{"Key": "app_name", "Value": "a_cool_name"}]
+    sagemaker_tags = {"app_name": "a_cooler_name", "tag2": "value2", "tag3": "123"}
+    match = "Duplicate tag provided for 'app_name'"
+    with pytest.raises(MlflowException, match=match) as exc:
+        mfs._prepare_sagemaker_tags(config_tags, sagemaker_tags)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.parametrize("proxies_enabled", [True, False])
@@ -673,10 +702,12 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_tags_from_l
     model_name = endpoint_production_variants[0]["VariantName"]
     description = sagemaker_client.describe_model(ModelName=model_name)
 
-    tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    model_tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+    endpoint_tags = sagemaker_client.list_tags(ResourceArn=endpoint_description["EndpointArn"])
 
     # Extra tags exist besides the ones we set, so avoid strict equality
-    assert all(tag in tags["Tags"] for tag in expected_tags)
+    assert all(tag in model_tags["Tags"] for tag in expected_tags)
+    assert all(tag in endpoint_tags["Tags"] for tag in expected_tags)
 
 
 @pytest.mark.parametrize("proxies_enabled", [True, False])

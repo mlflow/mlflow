@@ -74,6 +74,9 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
     "mlflow.experiment.primaryMetric.greaterIsBetter"
 )
 
+# For automatic model checkpointing
+LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
+
 
 def _get_run_name_from_tags(tags):
     for tag in tags:

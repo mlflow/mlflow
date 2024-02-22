@@ -24,7 +24,7 @@ export function processParallelCoordinateData(
 ): ParallelCoordinateDataEntry[] {
   const allRuns = chartRunData.map((run) => {
     const result: ParallelCoordinateDataEntry = {
-      uuid: run.runInfo.run_uuid,
+      uuid: run.uuid,
     };
     function computeSelectedAttrs(attrs: string[], runvalue: Record<string, any>) {
       if (Array.isArray(attrs)) {
@@ -46,9 +46,7 @@ export function processParallelCoordinateData(
 }
 
 // filter data so each column only shows #s or strs, whichever allows more to be displayed
-export function filterParallelCoordinateData(
-  allRuns: ParallelCoordinateDataEntry[],
-): ParallelCoordinateDataEntry[] {
+export function filterParallelCoordinateData(allRuns: ParallelCoordinateDataEntry[]): ParallelCoordinateDataEntry[] {
   if (allRuns.length === 0) {
     return allRuns;
   }

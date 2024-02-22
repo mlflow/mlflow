@@ -1,5 +1,3 @@
-# pylint: disable=import-error
-
 """
 Generates the following test resources:
 

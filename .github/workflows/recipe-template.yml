@@ -39,8 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           path: ${{ github.event.inputs.repository }}
           repository: ${{ github.event.inputs.repository }}
@@ -49,7 +49,7 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Add problem matchers
         run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
+          echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
       - name: Install dependencies
@@ -68,8 +68,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           path: ${{ github.event.inputs.repository }}
           repository: ${{ github.event.inputs.repository }}
@@ -88,8 +88,8 @@ jobs:
   recipe-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           path: ${{ github.event.inputs.repository }}
           repository: ${{ github.event.inputs.repository }}

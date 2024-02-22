@@ -10,6 +10,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { deleteRunApi, openErrorModal } from '../../actions';
 import { connect } from 'react-redux';
 import Utils from '../../../common/utils/Utils';
+import { IntlShape, injectIntl } from 'react-intl';
 
 type Props = {
   isOpen: boolean;
@@ -17,6 +18,8 @@ type Props = {
   selectedRunIds: string[];
   openErrorModal: (...args: any[]) => any;
   deleteRunApi: (...args: any[]) => any;
+  onSuccess?: () => void;
+  intl: IntlShape;
 };
 
 export class DeleteRunModalImpl extends Component<Props> {
@@ -30,9 +33,17 @@ export class DeleteRunModalImpl extends Component<Props> {
     this.props.selectedRunIds.forEach((runId) => {
       deletePromises.push(this.props.deleteRunApi(runId));
     });
-    return Promise.all(deletePromises).catch(() => {
-      this.props.openErrorModal('While deleting an experiment run, an error occurred.');
-    });
+    return Promise.all(deletePromises)
+      .catch(() => {
+        const errorModalContent = `${this.props.intl.formatMessage({
+          defaultMessage: 'While deleting an experiment run, an error occurred.',
+          description: 'Experiment tracking > delete run modal > error message',
+        })}`;
+        this.props.openErrorModal(errorModalContent);
+      })
+      .then(() => {
+        this.props.onSuccess?.();
+      });
   }
 
   render() {
@@ -53,15 +64,15 @@ export class DeleteRunModalImpl extends Component<Props> {
             {/* @ts-expect-error TS(4111): Property 'SHOW_GDPR_PURGING_MESSAGES' comes from a... Remove this comment to see the full error message */}
             {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
               <p>
-                Deleted runs are restorable for 30 days, after which they are purged along with
-                associated metrics, params, tags, and artifacts.
+                Deleted runs are restorable for 30 days, after which they are purged along with associated metrics,
+                params, tags, and artifacts.
               </p>
             ) : (
               ''
             )}
           </div>
         }
-        confirmButtonText={'Delete'}
+        confirmButtonText="Delete"
       />
     );
   }
@@ -72,4 +83,4 @@ const mapDispatchToProps = {
   openErrorModal,
 };
 
-export default connect(null, mapDispatchToProps)(DeleteRunModalImpl);
+export default connect(null, mapDispatchToProps)(injectIntl(DeleteRunModalImpl));

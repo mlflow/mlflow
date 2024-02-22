@@ -36,13 +36,16 @@ def resolve_default_artifact_root(
 
 
 def _is_default_backend_store_uri(backend_store_uri: str) -> bool:
-    """
-    Utility function to validate if the configured backend store uri location is set as the
+    """Utility function to validate if the configured backend store uri location is set as the
     default value for MLflow server.
 
-    :param backend_store_uri: The value set for the backend store uri for MLflow server artifact
-           handling.
-    :return: bool True if the default value is set.
+    Args:
+        backend_store_uri: The value set for the backend store uri for MLflow server artifact
+            handling.
+
+    Returns:
+        bool True if the default value is set.
+
     """
     return backend_store_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 

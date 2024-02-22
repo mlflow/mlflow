@@ -7,15 +7,12 @@ export type DarkModePref = 'system' | 'dark' | 'light';
 const DARK_MODE_PREF_DEFAULT = 'light';
 
 export interface SupportsDuBoisThemesProps {
-  disabled?: boolean;
+  isDarkMode?: boolean;
 }
 
-export const SupportsDuBoisThemes: React.FC<SupportsDuBoisThemesProps> = ({
-  disabled = false,
-  children,
-}) => {
+export const SupportsDuBoisThemes: React.FC<SupportsDuBoisThemesProps> = ({ isDarkMode = false, children }) => {
   // eslint-disable-next-line react/forbid-elements
-  return <DesignSystemThemeProvider isDarkMode={false}>{children}</DesignSystemThemeProvider>;
+  return <DesignSystemThemeProvider isDarkMode={isDarkMode}>{children}</DesignSystemThemeProvider>;
 };
 
 export function getUserDarkModePref(): DarkModePref {

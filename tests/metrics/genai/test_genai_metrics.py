@@ -625,8 +625,8 @@ def test_extract_score_and_justification():
     assert justification6 == "This is a justification"
 
 
-def test_correctness_metric():
-    correctness_metric = answer_similarity(
+def test_similarity_metric():
+    similarity_metric = answer_similarity(
         model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
     )
 
@@ -637,7 +637,7 @@ def test_correctness_metric():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = correctness_metric.eval_fn(
+        metric_value = similarity_metric.eval_fn(
             pd.Series([mlflow_prediction]), {}, pd.Series([input]), pd.Series([mlflow_ground_truth])
         )
 
@@ -658,14 +658,12 @@ def test_correctness_metric():
             "grading rubric to determine your score. You must also justify your score."
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
-            f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{AnswerSimilarityMetric.definition}\n"
             f"\nGrading rubric:\n{AnswerSimilarityMetric.grading_prompt}\n"
             "\nExamples:\n"
-            f"\nExample Input:\n{mlflow_example.input}\n"
             f"\nExample Output:\n{mlflow_example.output}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
@@ -735,7 +733,6 @@ def test_faithfulness_metric():
             "grading rubric to determine your score. You must also justify your score."
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
-            f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: context\nvalue:\n"
             f"{mlflow_ground_truth}\n"
@@ -771,6 +768,14 @@ def test_faithfulness_metric():
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
+
+    faithfulness_metric.eval_fn(
+        # Inputs with different indices
+        pd.Series([mlflow_prediction], index=[0]),
+        {},
+        pd.Series([input], index=[1]),
+        pd.Series([mlflow_ground_truth], index=[2]),
+    )
 
 
 def test_answer_correctness_metric():
@@ -1004,16 +1009,14 @@ def test_make_genai_metric_metric_details():
         aggregations=["mean", "variance", "p90"],
     )
 
-    # pylint: disable=line-too-long
-    expected_metric_details = "\nTask:\nYou must return the following fields in your response in two lines, one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your reasoning about the model's correctness score\n\nYou are an impartial judge. You will be given an input that was sent to a machine\nlearning model, and you will be given an output that the model produced. You\nmay also be given additional information that was used by the model to generate the output.\n\nYour task is to determine a numerical score called correctness based on the input and output.\nA definition of correctness and a grading rubric are provided below.\nYou must use the grading rubric to determine your score. You must also justify your score.\n\nExamples could be included below for reference. Make sure to use them as references and to\nunderstand them before completing the task.\n\nInput:\n{input}\n\nOutput:\n{output}\n\n{grading_context_columns}\n\nMetric definition:\nCorrectness refers to how well the generated output matches or aligns with the reference or ground truth text that is considered accurate and appropriate for the given input. The ground truth serves as a benchmark against which the provided output is compared to determine the level of accuracy and fidelity.\n\nGrading rubric:\nCorrectness: If the answer correctly answer the question, below are the details for different scores: - Score 0: the answer is completely incorrect, doesn’t mention anything about the question or is completely contrary to the correct answer. - Score 1: the answer provides some relevance to the question and answer one aspect of the question correctly. - Score 2: the answer mostly answer the question but is missing or hallucinating on one critical aspect. - Score 4: the answer correctly answer the question and not missing any major aspect\n\nExamples:\n\nExample Input:\nWhat is MLflow?\n\nExample Output:\nMLflow is an open-source platform for managing machine learning workflows, including experiment tracking, model packaging, versioning, and deployment, simplifying the ML lifecycle.\n\nAdditional information used by the model:\nkey: targets\nvalue:\nMLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.\n\nExample score: 4\nExample justification: The definition effectively explains what MLflow is its purpose, and its developer. It could be more concise for a 5-score.\n        \n\nYou must return the following fields in your response in two lines, one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your reasoning about the model's correctness score\n\nDo not add additional new lines. Do not add any other fields.\n    "
+    expected_metric_details = "\nTask:\nYou must return the following fields in your response in two lines, one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your reasoning about the model's correctness score\n\nYou are an impartial judge. You will be given an input that was sent to a machine\nlearning model, and you will be given an output that the model produced. You\nmay also be given additional information that was used by the model to generate the output.\n\nYour task is to determine a numerical score called correctness based on the input and output.\nA definition of correctness and a grading rubric are provided below.\nYou must use the grading rubric to determine your score. You must also justify your score.\n\nExamples could be included below for reference. Make sure to use them as references and to\nunderstand them before completing the task.\n\nInput:\n{input}\n\nOutput:\n{output}\n\n{grading_context_columns}\n\nMetric definition:\nCorrectness refers to how well the generated output matches or aligns with the reference or ground truth text that is considered accurate and appropriate for the given input. The ground truth serves as a benchmark against which the provided output is compared to determine the level of accuracy and fidelity.\n\nGrading rubric:\nCorrectness: If the answer correctly answer the question, below are the details for different scores: - Score 0: the answer is completely incorrect, doesn’t mention anything about the question or is completely contrary to the correct answer. - Score 1: the answer provides some relevance to the question and answer one aspect of the question correctly. - Score 2: the answer mostly answer the question but is missing or hallucinating on one critical aspect. - Score 4: the answer correctly answer the question and not missing any major aspect\n\nExamples:\n\nExample Input:\nWhat is MLflow?\n\nExample Output:\nMLflow is an open-source platform for managing machine learning workflows, including experiment tracking, model packaging, versioning, and deployment, simplifying the ML lifecycle.\n\nAdditional information used by the model:\nkey: targets\nvalue:\nMLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.\n\nExample score: 4\nExample justification: The definition effectively explains what MLflow is its purpose, and its developer. It could be more concise for a 5-score.\n        \n\nYou must return the following fields in your response in two lines, one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your reasoning about the model's correctness score\n\nDo not add additional new lines. Do not add any other fields.\n    "  # noqa: E501
 
     assert custom_metric.metric_details == expected_metric_details
 
-    assert (
-        custom_metric.__str__()
-        == f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, version=v1, metric_details={expected_metric_details})"
+    assert custom_metric.__str__() == (
+        f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, "
+        f"version=v1, metric_details={expected_metric_details})"
     )
-    # pylint: enable=line-too-long
 
 
 def test_make_genai_metric_without_example():

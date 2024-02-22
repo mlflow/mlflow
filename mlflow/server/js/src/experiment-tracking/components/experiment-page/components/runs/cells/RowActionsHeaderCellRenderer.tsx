@@ -11,10 +11,7 @@ export const RowActionsHeaderCellRenderer = React.memo(
   (props: { allRunsHidden?: boolean; onToggleVisibility: (runUuidOrToggle: string) => void }) => (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
-        <button
-          css={styles.actionButton}
-          data-testid='experiment-view-runs-visibility-column-header'
-        >
+        <button css={styles.actionButton} data-testid="experiment-view-runs-visibility-column-header">
           {props.allRunsHidden ? <VisibleOffIcon /> : <VisibleIcon />}
         </button>
       </DropdownMenu.Trigger>
@@ -22,26 +19,26 @@ export const RowActionsHeaderCellRenderer = React.memo(
       <DropdownMenu.Content>
         <DropdownMenu.Item
           onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.HIDEALL)}
-          data-testid='experiment-view-runs-visibility-hide-all'
+          data-testid="experiment-view-runs-visibility-hide-all"
         >
           <DropdownMenu.IconWrapper>
             <VisibleOffIcon />
           </DropdownMenu.IconWrapper>
           <FormattedMessage
-            defaultMessage='Hide all runs'
-            description='Menu option for hiding all runs in the experiment view runs compare mode'
+            defaultMessage="Hide all runs"
+            description="Menu option for hiding all runs in the experiment view runs compare mode"
           />
         </DropdownMenu.Item>
         <DropdownMenu.Item
           onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.SHOWALL)}
-          data-testid='experiment-view-runs-visibility-show-all'
+          data-testid="experiment-view-runs-visibility-show-all"
         >
           <DropdownMenu.IconWrapper>
             <VisibleIcon />
           </DropdownMenu.IconWrapper>
           <FormattedMessage
-            defaultMessage='Show all runs'
-            description='Menu option for revealing all hidden runs in the experiment view runs compare mode'
+            defaultMessage="Show all runs"
+            description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
           />
         </DropdownMenu.Item>
       </DropdownMenu.Content>

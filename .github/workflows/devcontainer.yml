@@ -5,6 +5,11 @@ on:
     branches:
       - "master"
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
     paths:
       - .devcontainer/**
 
@@ -31,7 +36,7 @@ jobs:
     permissions:
       packages: write # to push to ghcr.io
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Get image name
         run: |
           IMAGE_NAME=$(yq '.services.mlflow.image' .devcontainer/docker-compose.yml)

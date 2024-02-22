@@ -4,8 +4,7 @@ import { FormattedMessage, defineMessage, useIntl } from 'react-intl';
 
 const whitespaceViolationMessage = defineMessage({
   defaultMessage: 'The following variable names contain spaces which is disallowed: {invalidNames}',
-  description:
-    'Experiment page > new run modal > variable name validation > including spaces error',
+  description: 'Experiment page > new run modal > variable name validation > including spaces error',
 });
 
 export const EvaluationCreateRunPromptTemplateErrors = ({
@@ -19,8 +18,8 @@ export const EvaluationCreateRunPromptTemplateErrors = ({
     <>
       {namesWithSpaces.length > 0 && (
         <Typography.Text
-          color='warning'
-          size='sm'
+          color="warning"
+          size="sm"
           aria-label={formatMessage(whitespaceViolationMessage, {
             invalidNames: namesWithSpaces.join(', '),
           })}

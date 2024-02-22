@@ -43,10 +43,10 @@ export const Metric = Immutable.Record(
  * into nested Immutable Record class.
  */
 (Metric as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_Metric = ModelBuilder.extend(Metric, {
@@ -72,9 +72,9 @@ const extended_Metric = ModelBuilder.extend(Metric, {
  *   const record = Metric.fromJs(pojo);
  */
 (Metric as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Metric as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_Metric(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Metric as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_Metric(pojoWithNestedImmutables);
 };
 
 export const Param = Immutable.Record(
@@ -94,10 +94,10 @@ export const Param = Immutable.Record(
  * into nested Immutable Record class.
  */
 (Param as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_Param = ModelBuilder.extend(Param, {
@@ -117,9 +117,9 @@ const extended_Param = ModelBuilder.extend(Param, {
  *   const record = Param.fromJs(pojo);
  */
 (Param as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Param as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_Param(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Param as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_Param(pojoWithNestedImmutables);
 };
 
 export const RunInfo = Immutable.Record(
@@ -160,10 +160,10 @@ export const RunInfo = Immutable.Record(
  * into nested Immutable Record class.
  */
 (RunInfo as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_RunInfo = ModelBuilder.extend(RunInfo, {
@@ -198,9 +198,9 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
  *   const record = RunInfo.fromJs(pojo);
  */
 (RunInfo as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunInfo as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_RunInfo(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunInfo as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_RunInfo(pojoWithNestedImmutables);
 };
 
 export const RunData = Immutable.Record(
@@ -223,16 +223,16 @@ export const RunData = Immutable.Record(
  * into nested Immutable Record class.
  */
 (RunData as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        case 'metrics':
-            return Immutable.List(value.map((element: any) => (Metric as any).fromJs(element)));
-        case 'params':
-            return Immutable.List(value.map((element: any) => (Param as any).fromJs(element)));
-        case 'tags':
-            return Immutable.List(value.map((element: any) => (RunTag as any).fromJs(element)));
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    case 'metrics':
+      return Immutable.List(value.map((element: any) => (Metric as any).fromJs(element)));
+    case 'params':
+      return Immutable.List(value.map((element: any) => (Param as any).fromJs(element)));
+    case 'tags':
+      return Immutable.List(value.map((element: any) => (RunTag as any).fromJs(element)));
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_RunData = ModelBuilder.extend(RunData, {});
@@ -245,9 +245,9 @@ const extended_RunData = ModelBuilder.extend(RunData, {});
  *   const record = RunData.fromJs(pojo);
  */
 (RunData as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunData as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_RunData(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunData as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_RunData(pojoWithNestedImmutables);
 };
 
 export const Run = Immutable.Record(
@@ -267,14 +267,14 @@ export const Run = Immutable.Record(
  * into nested Immutable Record class.
  */
 (Run as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        case 'info':
-            return (RunInfo as any).fromJs(value);
-        case 'data':
-            return (RunData as any).fromJs(value);
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    case 'info':
+      return (RunInfo as any).fromJs(value);
+    case 'data':
+      return (RunData as any).fromJs(value);
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_Run = ModelBuilder.extend(Run, {
@@ -294,9 +294,9 @@ const extended_Run = ModelBuilder.extend(Run, {
  *   const record = Run.fromJs(pojo);
  */
 (Run as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Run as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_Run(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Run as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_Run(pojoWithNestedImmutables);
 };
 
 export const Experiment = Immutable.Record(
@@ -321,7 +321,6 @@ export const Experiment = Immutable.Record(
 
     // repeated ExperimentTag
     tags: Immutable.List(),
-
   },
   'Experiment',
 );
@@ -332,12 +331,12 @@ export const Experiment = Immutable.Record(
  * into nested Immutable Record class.
  */
 (Experiment as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        case 'tags':
-            return Immutable.List(value.map((element: any) => (ExperimentTag as any).fromJs(element)));
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    case 'tags':
+      return Immutable.List(value.map((element: any) => (ExperimentTag as any).fromJs(element)));
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_Experiment = ModelBuilder.extend(Experiment, {
@@ -372,9 +371,9 @@ const extended_Experiment = ModelBuilder.extend(Experiment, {
  *   const record = Experiment.fromJs(pojo);
  */
 (Experiment as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Experiment as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_Experiment(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (Experiment as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_Experiment(pojoWithNestedImmutables);
 };
 
 export const CreateExperiment = Immutable.Record(
@@ -394,10 +393,10 @@ export const CreateExperiment = Immutable.Record(
  * into nested Immutable Record class.
  */
 (CreateExperiment as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_CreateExperiment = ModelBuilder.extend(CreateExperiment, {
@@ -417,9 +416,9 @@ const extended_CreateExperiment = ModelBuilder.extend(CreateExperiment, {
  *   const record = CreateExperiment.fromJs(pojo);
  */
 (CreateExperiment as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (CreateExperiment as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_CreateExperiment(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (CreateExperiment as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_CreateExperiment(pojoWithNestedImmutables);
 };
 
 export const SearchExperiments = Immutable.Record(
@@ -436,10 +435,10 @@ export const SearchExperiments = Immutable.Record(
  * into nested Immutable Record class.
  */
 (SearchExperiments as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_SearchExperiments = ModelBuilder.extend(SearchExperiments, {
@@ -456,9 +455,9 @@ const extended_SearchExperiments = ModelBuilder.extend(SearchExperiments, {
  *   const record = SearchExperiments.fromJs(pojo);
  */
 (SearchExperiments as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (SearchExperiments as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_SearchExperiments(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (SearchExperiments as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_SearchExperiments(pojoWithNestedImmutables);
 };
 
 export const GetExperiment = Immutable.Record(
@@ -475,10 +474,10 @@ export const GetExperiment = Immutable.Record(
  * into nested Immutable Record class.
  */
 (GetExperiment as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_GetExperiment = ModelBuilder.extend(GetExperiment, {
@@ -495,9 +494,9 @@ const extended_GetExperiment = ModelBuilder.extend(GetExperiment, {
  *   const record = GetExperiment.fromJs(pojo);
  */
 (GetExperiment as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetExperiment as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_GetExperiment(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetExperiment as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_GetExperiment(pojoWithNestedImmutables);
 };
 
 export const GetRun = Immutable.Record(
@@ -514,10 +513,10 @@ export const GetRun = Immutable.Record(
  * into nested Immutable Record class.
  */
 (GetRun as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_GetRun = ModelBuilder.extend(GetRun, {
@@ -534,9 +533,9 @@ const extended_GetRun = ModelBuilder.extend(GetRun, {
  *   const record = GetRun.fromJs(pojo);
  */
 (GetRun as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetRun as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_GetRun(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetRun as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_GetRun(pojoWithNestedImmutables);
 };
 
 export const MetricSearchExpression = Immutable.Record(
@@ -556,12 +555,12 @@ export const MetricSearchExpression = Immutable.Record(
  * into nested Immutable Record class.
  */
 (MetricSearchExpression as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        case 'float':
-            return (FloatClause as any).fromJs(value);
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    case 'float':
+      return (FloatClause as any).fromJs(value);
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_MetricSearchExpression = ModelBuilder.extend(MetricSearchExpression, {
@@ -581,9 +580,9 @@ const extended_MetricSearchExpression = ModelBuilder.extend(MetricSearchExpressi
  *   const record = MetricSearchExpression.fromJs(pojo);
  */
 (MetricSearchExpression as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (MetricSearchExpression as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_MetricSearchExpression(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (MetricSearchExpression as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_MetricSearchExpression(pojoWithNestedImmutables);
 };
 
 export const ParameterSearchExpression = Immutable.Record(
@@ -603,12 +602,12 @@ export const ParameterSearchExpression = Immutable.Record(
  * into nested Immutable Record class.
  */
 (ParameterSearchExpression as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        case 'string':
-            return (StringClause as any).fromJs(value);
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    case 'string':
+      return (StringClause as any).fromJs(value);
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_ParameterSearchExpression = ModelBuilder.extend(ParameterSearchExpression, {
@@ -628,9 +627,9 @@ const extended_ParameterSearchExpression = ModelBuilder.extend(ParameterSearchEx
  *   const record = ParameterSearchExpression.fromJs(pojo);
  */
 (ParameterSearchExpression as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (ParameterSearchExpression as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_ParameterSearchExpression(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (ParameterSearchExpression as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_ParameterSearchExpression(pojoWithNestedImmutables);
 };
 
 export const SearchExpression = Immutable.Record(
@@ -650,14 +649,14 @@ export const SearchExpression = Immutable.Record(
  * into nested Immutable Record class.
  */
 (SearchExpression as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        case 'metric':
-            return (MetricSearchExpression as any).fromJs(value);
-        case 'parameter':
-            return (ParameterSearchExpression as any).fromJs(value);
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    case 'metric':
+      return (MetricSearchExpression as any).fromJs(value);
+    case 'parameter':
+      return (ParameterSearchExpression as any).fromJs(value);
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_SearchExpression = ModelBuilder.extend(SearchExpression, {
@@ -677,9 +676,9 @@ const extended_SearchExpression = ModelBuilder.extend(SearchExpression, {
  *   const record = SearchExpression.fromJs(pojo);
  */
 (SearchExpression as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (SearchExpression as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_SearchExpression(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (SearchExpression as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_SearchExpression(pojoWithNestedImmutables);
 };
 
 export const FloatClause = Immutable.Record(
@@ -699,10 +698,10 @@ export const FloatClause = Immutable.Record(
  * into nested Immutable Record class.
  */
 (FloatClause as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_FloatClause = ModelBuilder.extend(FloatClause, {
@@ -722,9 +721,9 @@ const extended_FloatClause = ModelBuilder.extend(FloatClause, {
  *   const record = FloatClause.fromJs(pojo);
  */
 (FloatClause as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (FloatClause as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_FloatClause(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (FloatClause as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_FloatClause(pojoWithNestedImmutables);
 };
 
 export const StringClause = Immutable.Record(
@@ -744,10 +743,10 @@ export const StringClause = Immutable.Record(
  * into nested Immutable Record class.
  */
 (StringClause as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_StringClause = ModelBuilder.extend(StringClause, {
@@ -767,9 +766,9 @@ const extended_StringClause = ModelBuilder.extend(StringClause, {
  *   const record = StringClause.fromJs(pojo);
  */
 (StringClause as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (StringClause as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_StringClause(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (StringClause as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_StringClause(pojoWithNestedImmutables);
 };
 
 export const SearchRuns = Immutable.Record(
@@ -789,12 +788,12 @@ export const SearchRuns = Immutable.Record(
  * into nested Immutable Record class.
  */
 (SearchRuns as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        case 'experiment_ids':
-            return Immutable.List(value);
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    case 'experiment_ids':
+      return Immutable.List(value);
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_SearchRuns = ModelBuilder.extend(SearchRuns, {
@@ -811,9 +810,9 @@ const extended_SearchRuns = ModelBuilder.extend(SearchRuns, {
  *   const record = SearchRuns.fromJs(pojo);
  */
 (SearchRuns as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (SearchRuns as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_SearchRuns(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (SearchRuns as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_SearchRuns(pojoWithNestedImmutables);
 };
 
 export const FileInfo = Immutable.Record(
@@ -836,10 +835,10 @@ export const FileInfo = Immutable.Record(
  * into nested Immutable Record class.
  */
 (FileInfo as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_FileInfo = ModelBuilder.extend(FileInfo, {
@@ -862,9 +861,9 @@ const extended_FileInfo = ModelBuilder.extend(FileInfo, {
  *   const record = FileInfo.fromJs(pojo);
  */
 (FileInfo as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (FileInfo as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_FileInfo(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (FileInfo as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_FileInfo(pojoWithNestedImmutables);
 };
 
 export const ListArtifacts = Immutable.Record(
@@ -884,10 +883,10 @@ export const ListArtifacts = Immutable.Record(
  * into nested Immutable Record class.
  */
 (ListArtifacts as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_ListArtifacts = ModelBuilder.extend(ListArtifacts, {
@@ -907,9 +906,9 @@ const extended_ListArtifacts = ModelBuilder.extend(ListArtifacts, {
  *   const record = ListArtifacts.fromJs(pojo);
  */
 (ListArtifacts as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (ListArtifacts as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_ListArtifacts(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (ListArtifacts as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_ListArtifacts(pojoWithNestedImmutables);
 };
 
 export const GetArtifact = Immutable.Record(
@@ -929,10 +928,10 @@ export const GetArtifact = Immutable.Record(
  * into nested Immutable Record class.
  */
 (GetArtifact as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_GetArtifact = ModelBuilder.extend(GetArtifact, {
@@ -952,9 +951,9 @@ const extended_GetArtifact = ModelBuilder.extend(GetArtifact, {
  *   const record = GetArtifact.fromJs(pojo);
  */
 (GetArtifact as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetArtifact as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_GetArtifact(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetArtifact as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_GetArtifact(pojoWithNestedImmutables);
 };
 
 export const GetMetricHistory = Immutable.Record(
@@ -974,10 +973,10 @@ export const GetMetricHistory = Immutable.Record(
  * into nested Immutable Record class.
  */
 (GetMetricHistory as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_GetMetricHistory = ModelBuilder.extend(GetMetricHistory, {
@@ -997,9 +996,9 @@ const extended_GetMetricHistory = ModelBuilder.extend(GetMetricHistory, {
  *   const record = GetMetricHistory.fromJs(pojo);
  */
 (GetMetricHistory as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetMetricHistory as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_GetMetricHistory(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (GetMetricHistory as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_GetMetricHistory(pojoWithNestedImmutables);
 };
 
 export const RunTag = Immutable.Record(
@@ -1019,10 +1018,10 @@ export const RunTag = Immutable.Record(
  * into nested Immutable Record class.
  */
 (RunTag as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_RunTag = ModelBuilder.extend(RunTag, {
@@ -1042,9 +1041,9 @@ const extended_RunTag = ModelBuilder.extend(RunTag, {
  *   const record = RunTag.fromJs(pojo);
  */
 (RunTag as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunTag as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_RunTag(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunTag as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_RunTag(pojoWithNestedImmutables);
 };
 
 export const ExperimentTag = Immutable.Record(
@@ -1064,10 +1063,10 @@ export const ExperimentTag = Immutable.Record(
  * into nested Immutable Record class.
  */
 (ExperimentTag as any).fromJsReviver = function fromJsReviver(key: any, value: any) {
-    switch (key) {
-        default:
-            return Immutable.fromJS(value);
-    }
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
 };
 
 const extended_ExperimentTag = ModelBuilder.extend(ExperimentTag, {
@@ -1087,7 +1086,7 @@ const extended_ExperimentTag = ModelBuilder.extend(ExperimentTag, {
  *   const record = RunTag.fromJs(pojo);
  */
 (ExperimentTag as any).fromJs = function fromJs(pojo: any) {
-    const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunTag as any).fromJsReviver);
-    // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    return new extended_ExperimentTag(pojoWithNestedImmutables);
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, (RunTag as any).fromJsReviver);
+  // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
+  return new extended_ExperimentTag(pojoWithNestedImmutables);
 };

@@ -1,5 +1,15 @@
+import {
+  shouldEnableDeepLearningUIPhase2,
+  shouldEnableShareExperimentViewByTags,
+} from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
 import { prepareRunsGridData } from './experimentPage.row-utils';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  shouldEnableShareExperimentViewByTags: jest.fn().mockImplementation(() => false),
+  shouldEnableDeepLearningUIPhase2: jest.fn().mockImplementation(() => false),
+}));
 
 const LOGGED_MODEL = { LOGGED_MODEL: true };
 
@@ -83,9 +93,11 @@ const commonPrepareRunsGridDataParams = {
   runsPinned: [],
   runsHidden: [],
   runUuidsMatchingFilter: MOCK_RUN_DATA.map((r) => r.runInfo.run_uuid),
+  groupBy: '',
+  groupsExpanded: {},
 };
 
-describe('ExperimentViewRuns row utils', () => {
+describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => {
   test('it creates proper row dataset for a flat run list', () => {
     const runsGridData = prepareRunsGridData(commonPrepareRunsGridDataParams);
 
@@ -107,15 +119,13 @@ describe('ExperimentViewRuns row utils', () => {
     );
 
     // Assert passing through run infos
-    expect(runsGridData.map((runData) => runData.runInfo)).toEqual(
-      MOCK_RUN_DATA.map((d) => d.runInfo),
-    );
+    expect(runsGridData.map((runData) => runData.runInfo)).toEqual(MOCK_RUN_DATA.map((d) => d.runInfo));
 
     // Assert model for the second run (index #1)
-    expect(runsGridData[1].models.registeredModels).toEqual(
+    expect(runsGridData[1].models?.registeredModels).toEqual(
       expect.arrayContaining([expect.objectContaining(MOCK_MODEL_MAP.run1_2[0])]),
     );
-    expect(runsGridData[1].models.loggedModels).toEqual(expect.arrayContaining([LOGGED_MODEL]));
+    expect(runsGridData[1].models?.loggedModels).toEqual(expect.arrayContaining([LOGGED_MODEL]));
 
     expect(runsGridData.map((runData) => runData.version)).toEqual(
       expect.arrayContaining([
@@ -175,9 +185,9 @@ describe('ExperimentViewRuns row utils', () => {
     //     run2_1
     //     run2_2
     expect(runsGridData.length).toBe(3);
-    expect(runsGridData[0].runDateAndNestInfo.isParent).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.hasExpander).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.childrenIds).toEqual(['run1_2', 'run1_3']);
+    expect(runsGridData[0].runDateAndNestInfo?.isParent).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.hasExpander).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.childrenIds).toEqual(['run1_2', 'run1_3']);
   });
 
   test('it creates proper row dataset for a nested run list with one run expanded', () => {
@@ -195,19 +205,19 @@ describe('ExperimentViewRuns row utils', () => {
     //     run2_1
     //     run2_2
     expect(runsGridData.length).toBe(5);
-    expect(runsGridData[0].runDateAndNestInfo.isParent).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.hasExpander).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.expanderOpen).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.childrenIds).toEqual(['run1_2', 'run1_3']);
+    expect(runsGridData[0].runDateAndNestInfo?.isParent).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.hasExpander).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.expanderOpen).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.childrenIds).toEqual(['run1_2', 'run1_3']);
 
-    expect(runsGridData[1].runDateAndNestInfo.isParent).toEqual(true);
-    expect(runsGridData[1].runDateAndNestInfo.hasExpander).toEqual(true);
-    expect(runsGridData[1].runDateAndNestInfo.expanderOpen).toEqual(false);
-    expect(runsGridData[1].runDateAndNestInfo.childrenIds).toEqual(['run1_4']);
+    expect(runsGridData[1].runDateAndNestInfo?.isParent).toEqual(true);
+    expect(runsGridData[1].runDateAndNestInfo?.hasExpander).toEqual(true);
+    expect(runsGridData[1].runDateAndNestInfo?.expanderOpen).toEqual(false);
+    expect(runsGridData[1].runDateAndNestInfo?.childrenIds).toEqual(['run1_4']);
 
-    expect(runsGridData[2].runDateAndNestInfo.isParent).toEqual(false);
-    expect(runsGridData[2].runDateAndNestInfo.hasExpander).toEqual(false);
-    expect(runsGridData[2].runDateAndNestInfo.expanderOpen).toEqual(false);
+    expect(runsGridData[2].runDateAndNestInfo?.isParent).toEqual(false);
+    expect(runsGridData[2].runDateAndNestInfo?.hasExpander).toEqual(false);
+    expect(runsGridData[2].runDateAndNestInfo?.expanderOpen).toEqual(false);
   });
 
   test('it creates proper row dataset for a nested run list with two runs expanded', () => {
@@ -226,15 +236,15 @@ describe('ExperimentViewRuns row utils', () => {
     //     run2_1
     //     run2_2
     expect(runsGridData.length).toBe(6);
-    expect(runsGridData[0].runDateAndNestInfo.isParent).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.hasExpander).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.expanderOpen).toEqual(true);
-    expect(runsGridData[0].runDateAndNestInfo.childrenIds).toEqual(['run1_2', 'run1_3']);
+    expect(runsGridData[0].runDateAndNestInfo?.isParent).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.hasExpander).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.expanderOpen).toEqual(true);
+    expect(runsGridData[0].runDateAndNestInfo?.childrenIds).toEqual(['run1_2', 'run1_3']);
 
-    expect(runsGridData[1].runDateAndNestInfo.isParent).toEqual(true);
-    expect(runsGridData[1].runDateAndNestInfo.hasExpander).toEqual(true);
-    expect(runsGridData[1].runDateAndNestInfo.expanderOpen).toEqual(true);
-    expect(runsGridData[1].runDateAndNestInfo.childrenIds).toEqual(['run1_4']);
+    expect(runsGridData[1].runDateAndNestInfo?.isParent).toEqual(true);
+    expect(runsGridData[1].runDateAndNestInfo?.hasExpander).toEqual(true);
+    expect(runsGridData[1].runDateAndNestInfo?.expanderOpen).toEqual(true);
+    expect(runsGridData[1].runDateAndNestInfo?.childrenIds).toEqual(['run1_4']);
   });
 
   test('it disallow expanding nested runs that parents are not expanded', () => {
@@ -337,7 +347,7 @@ describe('ExperimentViewRuns row utils', () => {
     // [-] [ ] run1_1
     //              run2_2
     expect(
-      runsGridData.map(({ runUuid, pinned, runDateAndNestInfo: { isParent } }) => ({
+      runsGridData.map(({ runUuid, pinned, runDateAndNestInfo: { isParent } = {} }) => ({
         runUuid,
         pinned,
         isParent,
@@ -400,5 +410,186 @@ describe('ExperimentViewRuns row utils', () => {
         { pinned: true, runUuid: 'run1_3' },
       ]),
     );
+  });
+});
+
+describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
+  beforeEach(() => {
+    // Enable run grouping by switching the flag
+    jest.mocked(shouldEnableShareExperimentViewByTags).mockImplementation(() => true);
+    jest.mocked(shouldEnableDeepLearningUIPhase2).mockImplementation(() => true);
+  });
+
+  test('it creates proper row set for runs grouped by a tag', () => {
+    const runsGridData = prepareRunsGridData({
+      ...commonPrepareRunsGridDataParams,
+      groupBy: 'tag.min.testtag1',
+    });
+
+    // We expect 7 rows - 4 groups and 3 runs. Ungrouped runs are hidden by default.
+    expect(runsGridData).toHaveLength(7);
+
+    // We expect first group to be expanded by default
+    expect(runsGridData[0].groupParentInfo).toEqual(
+      expect.objectContaining({
+        aggregateFunction: 'min',
+        expanderOpen: true,
+        groupId: 'tag.testtag1.testval1',
+        groupingMode: 'tag',
+        aggregatedMetricData: {
+          met1: {
+            key: 'met1',
+            value: 111.123456789,
+          },
+        },
+        aggregatedParamData: {
+          p1: {
+            key: 'p1',
+            value: 123,
+          },
+        },
+        runUuids: ['run1_1'],
+      }),
+    );
+    // Next, we expect the first run to be a child of the first group
+    expect(runsGridData[1].groupParentInfo).toBeUndefined();
+    expect(runsGridData[1].runUuid).toBe('run1_1');
+
+    // Similar for 2nd and 3rd group
+    expect(runsGridData[2].groupParentInfo).toEqual(
+      expect.objectContaining({
+        groupId: 'tag.testtag1.testval2',
+        aggregatedMetricData: {
+          met1: {
+            key: 'met1',
+            value: 222,
+          },
+        },
+        runUuids: ['run1_2'],
+      }),
+    );
+    expect(runsGridData[3].groupParentInfo).toBeUndefined();
+    expect(runsGridData[3].runUuid).toBe('run1_2');
+    expect(runsGridData[4].groupParentInfo).toEqual(
+      expect.objectContaining({
+        groupId: 'tag.testtag1.testval3',
+        runUuids: ['run1_3'],
+      }),
+    );
+    expect(runsGridData[5].groupParentInfo).toBeUndefined();
+    expect(runsGridData[5].runUuid).toBe('run1_3');
+
+    // In the end, we expect the last group with ungrouped runs to be collapsed by default
+    expect(runsGridData[6].groupParentInfo).toEqual(
+      expect.objectContaining({
+        groupId: 'tag.testtag1',
+        expanderOpen: false,
+        runUuids: ['run1_4', 'run2_1', 'run2_2'],
+      }),
+    );
+  });
+
+  test('it creates proper row dataset for runs grouped by a tag when expanded configuration is provided', () => {
+    const runsGridData = prepareRunsGridData({
+      ...commonPrepareRunsGridDataParams,
+      groupBy: 'tag.min.testtag1',
+      // Contract all groups but expand "remaining runs" group
+      groupsExpanded: {
+        'tag.testtag1.testval1': false,
+        'tag.testtag1.testval2': false,
+        'tag.testtag1.testval3': false,
+        'tag.testtag1': true,
+      },
+    });
+    expect(runsGridData).toHaveLength(7);
+    expect(runsGridData[0].groupParentInfo?.expanderOpen).toBe(false);
+    expect(runsGridData[1].groupParentInfo?.expanderOpen).toBe(false);
+    expect(runsGridData[2].groupParentInfo?.expanderOpen).toBe(false);
+    expect(runsGridData[3].groupParentInfo?.expanderOpen).toBe(true);
+    expect(runsGridData[4].runUuid).toEqual('run1_4');
+    expect(runsGridData[5].runUuid).toEqual('run2_1');
+    expect(runsGridData[6].runUuid).toEqual('run2_2');
+  });
+
+  test('it properly hoists pinned runs within a certain group', () => {
+    const runsGridData = prepareRunsGridData({
+      ...commonPrepareRunsGridDataParams,
+      groupBy: 'tag.min.testtag1',
+      groupsExpanded: {
+        'tag.testtag1.testval1': false,
+        'tag.testtag1.testval2': false,
+        'tag.testtag1.testval3': false,
+        'tag.testtag1': true,
+      },
+      // Pin a single run
+      runsPinned: ['run2_2'],
+    });
+    expect(runsGridData).toHaveLength(7);
+    expect(runsGridData[3].groupParentInfo?.expanderOpen).toBe(true);
+    // Expect pinned run to be hoisted to the top of the group
+    expect(runsGridData[4].runUuid).toEqual('run2_2');
+    expect(runsGridData[5].runUuid).toEqual('run1_4');
+    expect(runsGridData[6].runUuid).toEqual('run2_1');
+  });
+
+  test('it properly hoists pinned group runs', () => {
+    const runsGridData = prepareRunsGridData({
+      ...commonPrepareRunsGridDataParams,
+      groupBy: 'tag.min.testtag1',
+      groupsExpanded: {
+        'tag.testtag1.testval1': false,
+        'tag.testtag1.testval2': false,
+        'tag.testtag1.testval3': false,
+        'tag.testtag1': false,
+      },
+      // Pin two run groups
+      runsPinned: ['tag.testtag1.testval2', 'tag.testtag1'],
+    });
+    expect(runsGridData).toHaveLength(4);
+    // Expect pinned groups to be hoisted to the top of the list
+    expect(runsGridData[0].rowUuid).toEqual('tag.testtag1.testval2');
+    expect(runsGridData[1].rowUuid).toEqual('tag.testtag1');
+
+    // Expect not pinned groups to be at the bottom
+    expect(runsGridData[2].rowUuid).toEqual('tag.testtag1.testval1');
+    expect(runsGridData[3].rowUuid).toEqual('tag.testtag1.testval3');
+  });
+
+  test('it properly marks entire group as hidden when all its runs are hidden', () => {
+    const runsGridData = prepareRunsGridData({
+      ...commonPrepareRunsGridDataParams,
+      groupBy: 'tag.min.testtag1',
+      groupsExpanded: {
+        'tag.testtag1.testval1': false,
+        'tag.testtag1.testval2': false,
+        'tag.testtag1.testval3': false,
+        'tag.testtag1': false,
+      },
+      // Mark all runs in "remaining runs" group as hidden
+      runsHidden: ['run1_4', 'run2_1', 'run2_2'],
+    });
+    expect(runsGridData).toHaveLength(4);
+
+    // Expect "remaining runs" group to be hidden
+    expect(runsGridData[3].hidden).toEqual(true);
+  });
+
+  test('it properly marks entire group as visible when not all its runs are hidden', () => {
+    const runsGridData = prepareRunsGridData({
+      ...commonPrepareRunsGridDataParams,
+      groupBy: 'tag.min.testtag1',
+      groupsExpanded: {
+        'tag.testtag1.testval1': false,
+        'tag.testtag1.testval2': false,
+        'tag.testtag1.testval3': false,
+        'tag.testtag1': false,
+      },
+      // Mark few runs in "remaining runs" group as hidden
+      runsHidden: ['run1_4', 'run2_2'],
+    });
+    expect(runsGridData).toHaveLength(4);
+
+    // Expect "remaining runs" group to be visible
+    expect(runsGridData[3].hidden).toEqual(false);
   });
 });

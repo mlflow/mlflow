@@ -241,6 +241,7 @@ def test_get_individual_routes(gateway, monkeypatch):
         "name": "completions",
         "route_type": "llm/v1/completions",
         "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
+        "limit": None,
     }
 
     route2 = gateway_client.get_route(name="chat")
@@ -250,6 +251,7 @@ def test_get_individual_routes(gateway, monkeypatch):
         "name": "chat",
         "route_type": "llm/v1/chat",
         "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
+        "limit": None,
     }
 
 
@@ -348,12 +350,14 @@ def test_list_all_configured_routes(gateway):
         "name": "completions",
         "route_type": "llm/v1/completions",
         "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
+        "limit": None,
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
         "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
+        "limit": None,
     }
 
 

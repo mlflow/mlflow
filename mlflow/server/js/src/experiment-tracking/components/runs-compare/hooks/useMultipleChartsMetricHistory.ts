@@ -2,13 +2,10 @@ import { max } from 'lodash';
 import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
-import {
-  RunsCompareCardConfig,
-  RunsCompareChartType,
-  RunsCompareLineCardConfig,
-} from '../runs-compare.types';
+import { RunsCompareCardConfig, RunsCompareChartType, RunsCompareLineCardConfig } from '../runs-compare.types';
 import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHistory';
 import type { ReduxState } from '../../../../redux-types';
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 
 /**
  * This hook aggregates demands from multiple charts requiring metric
@@ -18,7 +15,10 @@ import type { ReduxState } from '../../../../redux-types';
 export const useMultipleChartsMetricHistory = (
   cardsConfig: RunsCompareCardConfig[],
   chartRunData: RunsChartsRunData[],
+  enabled = true,
 ) => {
+  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+
   // First, determine which cards require metric history
   const cardsRequiringMetricHistory = useMemo(
     () =>
@@ -41,15 +41,31 @@ export const useMultipleChartsMetricHistory = (
   }, [cardsRequiringMetricHistory, chartRunData]);
 
   // Determine which metrics need history to be fetched
-  const metricsRequiringHistory = useMemo(
+  const metricsRequiringHistoryV1 = useMemo(
     () => Array.from(new Set(cardsRequiringMetricHistory.map((card) => card.metricKey))),
     [cardsRequiringMetricHistory],
   );
 
+  // Multiple metrics are supported in V2 line charts
+  const metricsRequiringHistoryV2 = useMemo(() => {
+    if (!usingV2ChartImprovements) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(cardsRequiringMetricHistory.map((card) => card.selectedMetricKeys ?? [card.metricKey]).flat()),
+    );
+  }, [cardsRequiringMetricHistory, usingV2ChartImprovements]);
+
+  const metricsRequiringHistory = usingV2ChartImprovements ? metricsRequiringHistoryV2 : metricsRequiringHistoryV1;
+
   // Invoke the hook that actually fetches the history
+  // TODO: switch to useSampledMetricHistory()
   const { isLoading } = useFetchCompareRunsMetricHistory(
     metricsRequiringHistory,
     runsRequiringMetricHistory,
+    undefined,
+    enabled,
   );
 
   // Enrich the input data with the metric history and return it
@@ -60,7 +76,7 @@ export const useMultipleChartsMetricHistory = (
     }
     return chartRunData.map((baseRun) => ({
       ...baseRun,
-      metricsHistory: metricsByRunUuid[baseRun.runInfo.run_uuid] || undefined,
+      metricsHistory: (baseRun.runInfo?.run_uuid && metricsByRunUuid[baseRun.runInfo.run_uuid]) || undefined,
     }));
   }, [runsRequiringMetricHistory, metricsByRunUuid, chartRunData]);
 

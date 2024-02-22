@@ -24,14 +24,7 @@ type OwnProps = {
 type Props = OwnProps & typeof StyledDropdown.defaultProps;
 
 // @ts-expect-error TS(7022): 'StyledDropdown' implicitly has type 'any' because... Remove this comment to see the full error message
-export const StyledDropdown = ({
-  id,
-  className,
-  title,
-  triggers,
-  dropdownOptions,
-  buttonSize,
-}: Props) => {
+export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions, buttonSize }: Props) => {
   return (
     <div css={classNames.wrapper}>
       <Dropdown
@@ -42,9 +35,8 @@ export const StyledDropdown = ({
         trigger={triggers}
         overlay={dropdownOptions}
       >
-        <Button className='StyledDropdown-button' size={buttonSize} css={classNames.button}>
-          <span>{title}</span>{' '}
-          <img className='StyledDropdown-chevron' src={expandIcon} alt='Expand' />
+        <Button className="StyledDropdown-button" size={buttonSize} css={classNames.button}>
+          <span>{title}</span> <img className="StyledDropdown-chevron" src={expandIcon} alt="Expand" />
         </Button>
       </Dropdown>
     </div>

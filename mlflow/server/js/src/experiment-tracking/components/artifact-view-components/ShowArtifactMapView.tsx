@@ -114,17 +114,13 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   render() {
     if (this.state.loading) {
-      return <div className='artifact-map-view-loading'>Loading...</div>;
+      return <div className="artifact-map-view-loading">Loading...</div>;
     }
     if (this.state.error) {
-      return (
-        <div className='artifact-map-view-error'>
-          Oops, we couldn't load your file because of an error.
-        </div>
-      );
+      return <div className="artifact-map-view-error">Oops, we couldn't load your file because of an error.</div>;
     } else {
       return (
-        <div className='map-container'>
+        <div className="map-container">
           <div id={this.mapDivId}></div>
         </div>
       );

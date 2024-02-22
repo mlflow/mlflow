@@ -41,7 +41,7 @@ def spark_session():
 def test_yaml_read_and_write(tmp_path):
     temp_dir = str(tmp_path)
     yaml_file = random_file("yaml")
-    long_value = 1  # pylint: disable=undefined-variable
+    long_value = 1
     data = {
         "a": random_int(),
         "B": random_int(),
@@ -340,7 +340,6 @@ def test_handle_readonly_on_windows(tmp_path):
 @pytest.mark.parametrize(
     ("input_uri", "expected_path"),
     [
-        ("file://my_server/my_path/my_sub_path", r"\\my_server\my_path\my_sub_path"),
         (r"\\my_server\my_path\my_sub_path", r"\\my_server\my_path\my_sub_path"),
     ],
 )

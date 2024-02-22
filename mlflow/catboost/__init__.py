@@ -66,17 +66,19 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return [_get_pinned_requirement("catboost")]
 
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -95,26 +97,27 @@ def save_model(
     metadata=None,
     **kwargs,
 ):
-    """
-    Save a CatBoost model to a path on the local file system.
+    """Save a CatBoost model to a path on the local file system.
 
-    :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
-                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
+            `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param kwargs: kwargs to pass to `CatBoost.save_model`_ method.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
+        kwargs: kwargs to pass to `CatBoost.save_model`_ method.
+
     """
     import catboost as cb
 
@@ -213,34 +216,37 @@ def log_model(
     metadata=None,
     **kwargs,
 ):
-    """
-    Log a CatBoost model as an MLflow artifact for the current run.
+    """Log a CatBoost model as an MLflow artifact for the current run.
 
-    :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
-                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                        being created and is in ``READY`` status. By default, the function
-                        waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
+            `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: This argument may change or be removed in a
+            future release without warning. If given, create a model
+            version under ``registered_model_name``, also creating a
+            registered model if one with the given name does not exist.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param kwargs: kwargs to pass to `CatBoost.save_model`_ method.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
+        kwargs: kwargs to pass to `CatBoost.save_model`_ method.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
+
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -284,10 +290,10 @@ def _load_model(path, model_type, save_format):
 
 
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
+    """Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``catboost`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``catboost`` flavor.
     """
     flavor_conf = _get_flavor_configuration(
         model_path=os.path.dirname(path), flavor_name=FLAVOR_NAME
@@ -298,25 +304,27 @@ def _load_pyfunc(path):
 
 
 def load_model(model_uri, dst_path=None):
-    """
-    Load a CatBoost model from a local file or a run.
+    """Load a CatBoost model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-    :return: A CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_, `CatBoostRanker`_,
-             or `CatBoostRegressor`_)
+    Returns:
+        A CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_, `CatBoostRanker`_,
+        or `CatBoostRegressor`_)
+
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -333,17 +341,17 @@ class _CatboostModelWrapper:
     def __init__(self, cb_model):
         self.cb_model = cb_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
-        :param dataframe: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            dataframe: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         return self.cb_model.predict(dataframe)
 

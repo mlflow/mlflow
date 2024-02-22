@@ -36,8 +36,8 @@ describe('DirectRunPage', () => {
       return (
         <Provider store={mockStore}>
           <Routes>
-            <Route path='/experiments/:experimentId/runs/:runId' element={null} />
-            <Route path='/:runUuid' element={<DirectRunPage />} />
+            <Route path="/experiments/:experimentId/runs/:runId" element={null} />
+            <Route path="/:runUuid" element={<DirectRunPage />} />
           </Routes>
         </Provider>
       );
@@ -64,9 +64,7 @@ describe('DirectRunPage', () => {
     mountComponent({}, '321-run-id');
 
     expect(getRunApi).toBeCalledWith('321-run-id');
-    expect(mockStore.getActions()).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: 'getRunApi' })]),
-    );
+    expect(mockStore.getActions()).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'getRunApi' })]));
   });
 
   test('displays error if run does not exist', async () => {

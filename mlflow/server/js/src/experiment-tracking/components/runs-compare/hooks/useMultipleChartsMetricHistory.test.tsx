@@ -2,20 +2,22 @@ import { mount } from 'enzyme';
 import { useEffect } from 'react';
 import { MetricEntity } from '../../../types';
 import { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
-import {
-  RunsCompareCardConfig,
-  RunsCompareChartType,
-  RunsCompareLineCardConfig,
-} from '../runs-compare.types';
+import { RunsCompareCardConfig, RunsCompareChartType, RunsCompareLineCardConfig } from '../runs-compare.types';
 import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHistory';
 import { useMultipleChartsMetricHistory } from './useMultipleChartsMetricHistory';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
+import { shouldEnableDeepLearningUI } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('./useFetchCompareRunsMetricHistory', () => ({
   useFetchCompareRunsMetricHistory: jest.fn().mockReturnValue({ isLoading: false }),
+}));
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  shouldEnableDeepLearningUI: jest.fn(),
 }));
 
 describe('useMultipleChartsMetricHistory', () => {
@@ -23,6 +25,7 @@ describe('useMultipleChartsMetricHistory', () => {
     cardsConfig: RunsCompareCardConfig[],
     chartRunData: RunsChartsRunData[],
     metricsByRunUuid: any = {},
+    enabled = true,
   ) => {
     const MOCK_STATE = {
       entities: {
@@ -33,17 +36,14 @@ describe('useMultipleChartsMetricHistory', () => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
     const resultingData: RunsChartsRunData[] = [];
     const Component = () => {
-      const { chartRunDataWithHistory, isLoading } = useMultipleChartsMetricHistory(
-        cardsConfig,
-        chartRunData,
-      );
+      const { chartRunDataWithHistory, isLoading } = useMultipleChartsMetricHistory(cardsConfig, chartRunData, enabled);
 
       useEffect(() => {
         resultingData.length = 0;
         resultingData.push(...chartRunDataWithHistory);
       }, [chartRunDataWithHistory]);
 
-      return <div>{isLoading && <div data-testid='loading' />}</div>;
+      return <div>{isLoading && <div data-testid="loading" />}</div>;
     };
 
     return {
@@ -68,16 +68,41 @@ describe('useMultipleChartsMetricHistory', () => {
 
     // Mock the component with charts that don't require the history
     const { wrapper, resultingData } = mountWrappingComponent(
-      [{ type: RunsCompareChartType.SCATTER }, { type: RunsCompareChartType.CONTOUR }],
+      [
+        { type: RunsCompareChartType.SCATTER, deleted: false, isGenerated: true },
+        { type: RunsCompareChartType.CONTOUR, deleted: false, isGenerated: true },
+      ],
       mockRuns,
     );
 
     // Fetch hook is called with empty metric list
     expect(useFetchCompareRunsMetricHistory).toBeCalledTimes(1);
-    expect(useFetchCompareRunsMetricHistory).toBeCalledWith([], []);
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith([], [], undefined, true);
 
     // Output data is the same as input data since there is nothing to enrich
     expect(resultingData).toEqual(mockRuns);
+
+    // Cleanup
+    wrapper.unmount();
+  });
+
+  it('does not fetch metric history if disabled', async () => {
+    // Prepare mocked data
+    const mockRuns = [mockRun('100'), mockRun('101')];
+
+    // Mock the component with charts that don't require the history
+    const { wrapper, resultingData } = mountWrappingComponent(
+      [
+        { type: RunsCompareChartType.SCATTER, deleted: false, isGenerated: true },
+        { type: RunsCompareChartType.CONTOUR, deleted: false, isGenerated: true },
+      ],
+      mockRuns,
+      {},
+      false,
+    );
+
+    // Fetch hook is called with empty metric list
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith([], [], undefined, false);
 
     // Cleanup
     wrapper.unmount();
@@ -99,7 +124,7 @@ describe('useMultipleChartsMetricHistory', () => {
     );
 
     // We expect fetch hook to be called for a single metric and a single run
-    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_name'], [mockRuns[0]]);
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_name'], [mockRuns[0]], undefined, true);
 
     // Cleanup
     wrapper.unmount();
@@ -127,7 +152,7 @@ describe('useMultipleChartsMetricHistory', () => {
     );
 
     // We expect fetch hook to be called for a 6 runs (as the max runsCountToCompare value)
-    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_name'], mockRuns.slice(0, 6));
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_name'], mockRuns.slice(0, 6), undefined, true);
 
     // Cleanup
     wrapper.unmount();
@@ -158,6 +183,8 @@ describe('useMultipleChartsMetricHistory', () => {
     expect(useFetchCompareRunsMetricHistory).toBeCalledWith(
       ['metric_1', 'metric_2'],
       mockRuns.slice(0, 10),
+      undefined,
+      true,
     );
 
     // Cleanup
@@ -217,6 +244,65 @@ describe('useMultipleChartsMetricHistory', () => {
     );
 
     // Cleanup
+    wrapper.unmount();
+  });
+
+  it('correctly fetches multiple metrics if the enableDeepLearningUI flag is true', async () => {
+    (shouldEnableDeepLearningUI as jest.Mock).mockReturnValue(true);
+
+    const mockRuns = new Array(20).fill(null).map((_, index) => mockRun(`${101 + index}`));
+
+    const { wrapper } = mountWrappingComponent(
+      [
+        {
+          type: RunsCompareChartType.LINE,
+          // should always be the same as selectedMetricKeys[0], but
+          // we want to test that it is not used for fetching
+          metricKey: 'metric_1',
+          // fetching should be based on `selectedMetricKeys`
+          selectedMetricKeys: ['metric_2', 'metric_3', 'metric_4'],
+          runsCountToCompare: 5,
+        } as RunsCompareLineCardConfig,
+      ],
+      mockRuns,
+    );
+
+    // We expect fetch hook to be called for two distinct metrics for 10 runs
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(
+      ['metric_2', 'metric_3', 'metric_4'],
+      mockRuns.slice(0, 5),
+      undefined,
+      true,
+    );
+
+    // Cleanup
+    (shouldEnableDeepLearningUI as jest.Mock).mockRestore();
+    wrapper.unmount();
+  });
+
+  it('only fetches single metrics if the enableDeepLearningUI flag is false', async () => {
+    (shouldEnableDeepLearningUI as jest.Mock).mockReturnValue(false);
+
+    const mockRuns = new Array(20).fill(null).map((_, index) => mockRun(`${101 + index}`));
+
+    const { wrapper } = mountWrappingComponent(
+      [
+        {
+          type: RunsCompareChartType.LINE,
+          metricKey: 'metric_1',
+          // even if this is set, fetching should only be based on metricKey
+          selectedMetricKeys: ['metric_2', 'metric_3', 'metric_4'],
+          runsCountToCompare: 5,
+        } as RunsCompareLineCardConfig,
+      ],
+      mockRuns,
+    );
+
+    // We expect fetch hook to be called for two distinct metrics for 10 runs
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_1'], mockRuns.slice(0, 5), undefined, true);
+
+    // Cleanup
+    (shouldEnableDeepLearningUI as jest.Mock).mockRestore();
     wrapper.unmount();
   });
 });

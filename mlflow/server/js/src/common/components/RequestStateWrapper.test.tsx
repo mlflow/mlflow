@@ -50,7 +50,7 @@ test('Renders custom loading page when requests are not complete', () => {
     // @ts-expect-error TS(2769): No overload matches this call.
     <RequestStateWrapper
       requests={[activeRequest, completeRequest]}
-      customSpinner={<h1 className='custom-spinner'>a custom spinner</h1>}
+      customSpinner={<h1 className="custom-spinner">a custom spinner</h1>}
     >
       <div>I am the child</div>
     </RequestStateWrapper>,
@@ -62,7 +62,7 @@ test('Renders children when requests are complete', () => {
   const wrapper = shallow(
     // @ts-expect-error TS(2769): No overload matches this call.
     <RequestStateWrapper requests={[completeRequest]}>
-      <div className='child'>I am the child</div>
+      <div className="child">I am the child</div>
     </RequestStateWrapper>,
   );
   expect(wrapper.find('div.child')).toHaveLength(1);
@@ -74,7 +74,7 @@ test('Throws exception if child is a React element and wrapper has bad request.'
     shallow(
       // @ts-expect-error TS(2769): No overload matches this call.
       <RequestStateWrapper requests={[errorRequest]}>
-        <div className='child'>I am the child</div>
+        <div className="child">I am the child</div>
       </RequestStateWrapper>,
     );
   } catch (e) {
@@ -92,7 +92,7 @@ test('Throws exception if errorRenderFunc returns undefined and wrapper has bad 
           return undefined;
         }}
       >
-        <div className='child'>I am the child</div>
+        <div className="child">I am the child</div>
       </RequestStateWrapper>,
     );
     // @ts-expect-error TS(2304): Cannot find name 'assert'.
@@ -106,7 +106,7 @@ test('Renders child if request expectedly returns a 404', () => {
   const wrapper = shallow(
     // @ts-expect-error TS(2769): No overload matches this call.
     <RequestStateWrapper requests={[errorRequest]} requestIdsWith404sToIgnore={[errorRequest.id]}>
-      <div className='child'>I am the child</div>
+      <div className="child">I am the child</div>
     </RequestStateWrapper>,
   );
   expect(wrapper.find('div.child')).toHaveLength(1);
@@ -124,7 +124,7 @@ test('Does not render child if request returns a non-404 error', () => {
           return undefined;
         }}
       >
-        <div className='child'>I am the child</div>
+        <div className="child">I am the child</div>
       </RequestStateWrapper>,
     );
     // @ts-expect-error TS(2304): Cannot find name 'assert'.
@@ -141,9 +141,9 @@ test('Render func works if wrapper has bad request.', () => {
       {(isLoading: any, shouldRenderError: any, requests: any) => {
         if (shouldRenderError) {
           expect(requests).toEqual([activeRequest, completeRequest, errorRequest]);
-          return <div className='error'>Error!</div>;
+          return <div className="error">Error!</div>;
         }
-        return <div className='child'>I am the child</div>;
+        return <div className="child">I am the child</div>;
       }}
     </RequestStateWrapper>,
   );

@@ -1,6 +1,6 @@
 import { IntlShape } from 'react-intl';
 import { saveAs } from 'file-saver';
-import { ExperimentEntity } from '../../../types';
+import { ExperimentEntity, KeyValueEntity } from '../../../types';
 import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
 import { runInfosToCsv } from '../../../utils/CsvUtils';
 
@@ -32,8 +32,7 @@ export const getExperimentType = (experiment: ExperimentEntity) => {
   return null;
 };
 
-const hasExperimentType = (experiment: ExperimentEntity, type: string) =>
-  getExperimentType(experiment) === type;
+const hasExperimentType = (experiment: ExperimentEntity, type: string) => getExperimentType(experiment) === type;
 
 /**
  * Function returns true if the experiment is of default ("MLFLOW_EXPERIMENT") type
@@ -119,14 +118,12 @@ export const getQualifiedEntityName = (keyType: string, keyName: string) => {
   return `${keyType}.${replace}${keyName}${replace}`;
 };
 
-export const makeCanonicalSortKey = (keyType: string, keyName: string) =>
-  keyType + '.`' + keyName + '`';
+export const makeCanonicalSortKey = (keyType: string, keyName: string) => keyType + '.`' + keyName + '`';
 /**
  * Creates canonical sort key name for metrics and params
  */
 
-export const isCanonicalSortKeyOfType = (canonicalKey: string, keyType: string) =>
-  canonicalKey.startsWith(keyType);
+export const isCanonicalSortKeyOfType = (canonicalKey: string, keyType: string) => canonicalKey.startsWith(keyType);
 /**
  * Extracts param/metric/tag name from the canonical key
  */

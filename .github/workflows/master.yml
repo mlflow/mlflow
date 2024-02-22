@@ -2,6 +2,11 @@ name: MLflow tests
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - master
@@ -38,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -61,7 +66,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -93,14 +98,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
+          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
       - name: Run tests
         run: |
           set +e
@@ -142,7 +147,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -162,7 +167,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -198,7 +203,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -224,7 +229,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -238,7 +243,10 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/evaluate
+          pytest tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+      - name: Run tests with delta
+        run: |
+          pytest tests/evaluate/test_default_evaluator_delta.py
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -251,7 +259,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -263,11 +271,13 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install tensorflow 'pyspark[connect]'
+          pip install typing_extensions -U
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py \
+            --ignore tests/pyfunc/docker/test_docker_flavors.py
 
           # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
@@ -277,7 +287,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -302,7 +312,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -315,7 +325,6 @@ jobs:
           python -m venv .venv
           source .venv/Scripts/activate
           python -m pip install -U pip
-          pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
           pip install pyspark
@@ -326,6 +335,7 @@ jobs:
           pip install tensorflow
           # Install torch and transformers to test metrics
           pip install torch transformers
+          pip install -r requirements/test-requirements.txt
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |

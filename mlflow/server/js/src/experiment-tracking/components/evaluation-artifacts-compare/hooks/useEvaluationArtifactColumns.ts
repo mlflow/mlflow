@@ -22,11 +22,7 @@ export const useEvaluationArtifactColumns = (
 
     // Extract all matching table objects from the store data
     const allTableEntries = comparedRunUuids
-      .map((runUuid) =>
-        Object.values(artifactsByRun[runUuid] || {}).filter(({ path }) =>
-          tableNames.includes(path),
-        ),
-      )
+      .map((runUuid) => Object.values(artifactsByRun[runUuid] || {}).filter(({ path }) => tableNames.includes(path)))
       .flat();
 
     // Extract all valid column names

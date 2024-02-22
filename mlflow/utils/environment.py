@@ -1,13 +1,17 @@
 import logging
 import os
+import pathlib
 import re
-from collections import Counter
+import subprocess
+import sys
+import tempfile
+from typing import List
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION, insecure_hash
@@ -15,7 +19,9 @@ from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _infer_requirements,
     _parse_requirements,
+    warn_dependency_requirement_mismatches,
 )
+from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -49,13 +55,14 @@ class _PythonEnv:
         """
         Represents environment information for MLflow Models and Projects.
 
-        :param python: Python version for the environment. If unspecified, defaults to the current
-                       Python version.
-        :param build_dependencies: List of build dependencies for the environment that must
-                                   be installed before installing ``dependencies``. If unspecified,
-                                   defaults to an empty list.
-        :param dependencies: List of dependencies for the environment. If unspecified, defaults to
-                             an empty list.
+        Args:
+            python: Python version for the environment. If unspecified, defaults to the current
+                Python version.
+            build_dependencies: List of build dependencies for the environment that must
+                be installed before installing ``dependencies``. If unspecified,
+                defaults to an empty list.
+            dependencies: List of dependencies for the environment. If unspecified, defaults to
+                an empty list.
         """
         if python is not None and not isinstance(python, str):
             raise TypeError(f"`python` must be a string but got {type(python)}")
@@ -198,21 +205,24 @@ def _mlflow_conda_env(
     additional_conda_channels=None,
     install_mlflow=True,
 ):
-    """
-    Creates a Conda environment with the specified package channels and dependencies. If there are
-    any pip dependencies, including from the install_mlflow parameter, then pip will be added to
+    """Creates a Conda environment with the specified package channels and dependencies. If there
+    are any pip dependencies, including from the install_mlflow parameter, then pip will be added to
     the conda dependencies. This is done to ensure that the pip inside the conda environment is
     used to install the pip dependencies.
 
-    :param path: Local filesystem path where the conda env file is to be written. If unspecified,
-                 the conda env will not be written to the filesystem; it will still be returned
-                 in dictionary format.
-    :param additional_conda_deps: List of additional conda dependencies passed as strings.
-    :param additional_pip_deps: List of additional pip dependencies passed as strings.
-    :param additional_conda_channels: List of additional conda channels to search when resolving
-                                      packages.
-    :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
-             Conda environment.
+    Args:
+        path: Local filesystem path where the conda env file is to be written. If unspecified,
+            the conda env will not be written to the filesystem; it will still be returned
+            in dictionary format.
+        additional_conda_deps: List of additional conda dependencies passed as strings.
+        additional_pip_deps: List of additional pip dependencies passed as strings.
+        additional_conda_channels: List of additional conda channels to search when resolving
+            packages.
+
+    Returns:
+        None if path is specified. Otherwise, the a dictionary representation of the
+        Conda environment.
+
     """
     additional_pip_deps = additional_pip_deps or []
     mlflow_deps = (
@@ -254,9 +264,10 @@ def _mlflow_conda_env(
 
 def _get_pip_version():
     """
-    :return: The version of ``pip`` that is installed in the current environment,
-             or ``None`` if ``pip`` is not currently installed / does not have a
-             ``__version__`` attribute.
+    Returns:
+        The version of ``pip`` that is installed in the current environment,
+        or ``None`` if ``pip`` is not currently installed / does not have a
+        ``__version__`` attribute.
     """
     try:
         import pip
@@ -285,7 +296,8 @@ def _is_pip_deps(dep):
 
 def _get_pip_deps(conda_env):
     """
-    :return: The pip dependencies from the conda env
+    Returns:
+        The pip dependencies from the conda env.
     """
     if conda_env is not None:
         for dep in conda_env["dependencies"]:
@@ -330,14 +342,16 @@ def _log_pip_requirements(conda_env, path, requirements_file=_REQUIREMENTS_FILE_
 
 
 def _parse_pip_requirements(pip_requirements):
-    """
-    Parses an iterable of pip requirement strings or a pip requirements file.
+    """Parses an iterable of pip requirement strings or a pip requirements file.
 
-    :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If ``None``, an empty list will
-        be returned.
-    :return: A tuple of parsed requirements and constraints.
+    Args:
+        pip_requirements: Either an iterable of pip requirement strings
+            (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip
+            requirements file on the local filesystem (e.g. ``"requirements.txt"``). If ``None``,
+            an empty list will be returned.
+
+    Returns:
+        A tuple of parsed requirements and constraints.
     """
     if pip_requirements is None:
         return [], []
@@ -374,28 +388,72 @@ def _parse_pip_requirements(pip_requirements):
         )
 
 
-_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
-    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s),"
-    " fall back to return %s. Set logging level to DEBUG to see the full traceback."
+_INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
+    "Encountered an unexpected error while inferring pip requirements "
+    "(model URI: {model_uri}, flavor: {flavor}). Fall back to return {fallback}. "
+    "Set logging level to DEBUG to see the full traceback. "
 )
 
 
+def infer_pip_requirements_with_timeout(model_uri, flavor, fallback):
+    timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
+
+    if timeout and not _IS_UNIX:
+        timeout = None
+        _logger.warning(
+            "On Windows, timeout is not supported for model requirement inference. Therefore, "
+            "the operation is not bound by a timeout and may hang indefinitely. If it hangs, "
+            "please consider specifying the signature manually."
+        )
+
+    try:
+        if timeout:
+            with run_with_timeout(timeout):
+                return infer_pip_requirements(model_uri, flavor, fallback)
+        else:
+            return infer_pip_requirements(model_uri, flavor, fallback)
+    except Exception as e:
+        if fallback is not None:
+            if isinstance(e, MlflowTimeoutError):
+                msg = (
+                    "Attempted to infer pip requirements for the saved model or pipeline but the "
+                    f"operation timed out in {timeout} seconds. Fall back to return {fallback}. "
+                    "You can specify a different timeout by setting the environment variable "
+                    f"{MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
+                )
+            else:
+                msg = _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
+                    model_uri=model_uri, flavor=flavor, fallback=fallback
+                )
+            _logger.warning(msg)
+            _logger.debug("", exc_info=True)
+            return fallback
+        raise
+
+
 def infer_pip_requirements(model_uri, flavor, fallback=None):
-    """
-    Infers the pip requirements of the specified model by creating a subprocess and loading
+    """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
-    :param model_uri: The URI of the model.
-    :param flavor: The flavor name of the model.
-    :param fallback: If provided, an unexpected error during the inference procedure is swallowed
-                     and the value of ``fallback`` is returned. Otherwise, the error is raised.
-    :return: A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+    Args:
+        model_uri: The URI of the model.
+        flavor: The flavor name of the model.
+        fallback: If provided, an unexpected error during the inference procedure is swallowed
+            and the value of ``fallback`` is returned. Otherwise, the error is raised.
+
+    Returns:
+        A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+
     """
     try:
         return _infer_requirements(model_uri, flavor)
     except Exception:
         if fallback is not None:
-            _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor, fallback)
+            _logger.warning(
+                msg=_INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
+                    model_uri=model_uri, flavor=flavor, fallback=fallback
+                )
+            )
             _logger.debug("", exc_info=True)
             return fallback
         raise
@@ -464,10 +522,11 @@ def _is_mlflow_requirement(requirement_string):
 
 
 def _generate_mlflow_version_pinning() -> str:
-    """
-    Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
+    """Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
 
-    :return: A pinned requirement for the current MLflow version.
+    Returns:
+        A pinned requirement for the current MLflow version.
+
     """
     if _MLFLOW_TESTING.get():
         # The local PyPI server should be running. It serves a wheel for the current MLflow version.
@@ -514,31 +573,147 @@ def _process_pip_requirements(
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
+    sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+
+    # Check if pip requirements contain incompatible version with the current environment
+    warn_dependency_requirement_mismatches(sanitized_pip_reqs)
+
     if constraints:
-        pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+        sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
-    conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
-    return conda_env, pip_reqs, constraints
+    conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
+    return conda_env, sanitized_pip_reqs, constraints
 
 
-def _find_duplicate_requirements(requirements):
+def _deduplicate_requirements(requirements):
     """
-    Checks if duplicate base package requirements are specified in any list of requirements
-    and returns the list of duplicate base package names.
-    Note that git urls and paths to local files are not being considered for duplication checking.
-    """
-    base_package_names = []
+    De-duplicates a list of pip package requirements, handling complex scenarios such as merging
+    extras and combining version constraints.
 
-    for package in requirements:
+    This function processes a list of pip package requirements and de-duplicates them. It handles
+    standard PyPI packages and non-standard requirements (like URLs or local paths). The function
+    merges extras and combines version constraints for duplicate packages. The most restrictive
+    version specifications or the ones with extras are prioritized. If incompatible version
+    constraints are detected, it raises an MlflowException.
+
+    Args:
+        requirements (list of str): A list of pip package requirement strings.
+
+    Returns:
+        list of str: A deduplicated list of pip package requirements.
+
+    Raises:
+        MlflowException: If incompatible version constraints are detected among the provided
+                         requirements.
+
+    Examples:
+        - Input: ["packageA", "packageA==1.0"]
+          Output: ["packageA==1.0"]
+
+        - Input: ["packageX>1.0", "packageX[extras]", "packageX<2.0"]
+          Output: ["packageX[extras]>1.0,<2.0"]
+
+        - Input: ["markdown[extra1]>=3.5.1", "markdown[extra2]<4", "markdown"]
+          Output: ["markdown[extra1,extra2]>=3.5.1,<4"]
+
+        - Input: ["scikit-learn==1.1", "scikit-learn<1"]
+          Raises MlflowException indicating incompatible versions.
+
+    Note:
+        - Non-standard requirements (like URLs or file paths) are included as-is.
+        - If a requirement appears multiple times with different sets of extras, they are merged.
+        - The function uses `_validate_version_constraints` to check for incompatible version
+          constraints by doing a dry-run pip install of a requirements collection.
+    """
+    deduped_reqs = {}
+
+    for req in requirements:
         try:
-            base_package_names.append(Requirement(package).name)
-        except InvalidRequirement:
-            # Skip anything that's not a valid package requirement
-            continue
+            parsed_req = Requirement(req)
+            base_pkg = parsed_req.name
 
-    package_counts = Counter(base_package_names)
-    return [package for package, count in package_counts.items() if count > 1]
+            existing_req = deduped_reqs.get(base_pkg)
+
+            if not existing_req:
+                deduped_reqs[base_pkg] = parsed_req
+            else:
+                # Verify that there are not unresolvable constraints applied if set and combine
+                # if possible
+                if (
+                    existing_req.specifier
+                    and parsed_req.specifier
+                    and existing_req.specifier != parsed_req.specifier
+                ):
+                    _validate_version_constraints([str(existing_req), req])
+                    parsed_req.specifier = ",".join(
+                        [str(existing_req.specifier), str(parsed_req.specifier)]
+                    )
+
+                # Preserve existing specifiers
+                if existing_req.specifier and not parsed_req.specifier:
+                    parsed_req.specifier = existing_req.specifier
+
+                # Combine and apply extras if specified
+                if (
+                    existing_req.extras
+                    and parsed_req.extras
+                    and existing_req.extras != parsed_req.extras
+                ):
+                    parsed_req.extras = sorted(set(existing_req.extras).union(parsed_req.extras))
+                elif existing_req.extras and not parsed_req.extras:
+                    parsed_req.extras = existing_req.extras
+
+                deduped_reqs[base_pkg] = parsed_req
+
+        except InvalidRequirement:
+            # Include non-standard package strings as-is
+            if req not in deduped_reqs:
+                deduped_reqs[req] = req
+    return [str(req) for req in deduped_reqs.values()]
+
+
+def _validate_version_constraints(requirements):
+    """
+    Validates the version constraints of given Python package requirements using pip's resolver with
+    the `--dry-run` option enabled that performs validation only (will not install packages).
+
+    This function writes the requirements to a temporary file and then attempts to resolve
+    them using pip's `--dry-run` install option. If any version conflicts are detected, it
+    raises an MlflowException with details of the conflict.
+
+    Args:
+        requirements (list of str): A list of package requirements (e.g., `["pandas>=1.15",
+        "pandas<2"]`).
+
+    Raises:
+        MlflowException: If any version conflicts are detected among the provided requirements.
+
+    Returns:
+        None: This function does not return anything. It either completes successfully or raises
+        an MlflowException.
+
+    Example:
+        _validate_version_constraints(["tensorflow<2.0", "tensorflow>2.3"])
+        # This will raise an exception due to boundary validity.
+    """
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
+        tmp_file.write("\n".join(requirements))
+        tmp_file_name = tmp_file.name
+
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--dry-run", "-r", tmp_file_name],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise MlflowException.invalid_parameter_value(
+            "The specified requirements versions are incompatible. Detected "
+            f"conflicts: \n{e.stderr.decode()}"
+        )
+    finally:
+        os.remove(tmp_file_name)
 
 
 def _process_conda_env(conda_env):
@@ -561,6 +736,9 @@ def _process_conda_env(conda_env):
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
+    # Check if pip requirements contain incompatible version with the current environment
+    warn_dependency_requirement_mismatches(pip_reqs)
+
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
@@ -569,12 +747,15 @@ def _process_conda_env(conda_env):
 
 
 def _get_mlflow_env_name(s):
-    """
-    Creates an environment name for an MLflow model by hashing the given string.
+    """Creates an environment name for an MLflow model by hashing the given string.
 
-    :param s: String to hash (e.g. the content of `conda.yaml`).
-    :returns: String in the form of "mlflow-{hash}"
-              (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
+    Args:
+        s: String to hash (e.g. the content of `conda.yaml`).
+
+    Returns:
+        String in the form of "mlflow-{hash}"
+        (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
+
     """
     return "mlflow-" + insecure_hash.sha1(s.encode("utf-8")).hexdigest()
 
@@ -590,6 +771,56 @@ def _get_pip_install_mlflow():
         return f"pip install -e {mlflow_home} 1>&2"
     else:
         return f"pip install mlflow=={VERSION} 1>&2"
+
+
+def _get_requirements_from_file(
+    file_path: pathlib.Path,
+) -> List[Requirement]:
+    data = file_path.read_text()
+    if file_path.name == _CONDA_ENV_FILE_NAME:
+        conda_env = yaml.safe_load(data)
+        reqs = _get_pip_deps(conda_env)
+    else:
+        reqs = data.splitlines()
+    return [Requirement(req) for req in reqs if req]
+
+
+def _write_requirements_to_file(
+    file_path: pathlib.Path,
+    new_reqs: List[str],
+) -> None:
+    if file_path.name == _CONDA_ENV_FILE_NAME:
+        conda_env = yaml.safe_load(file_path.read_text())
+        conda_env = _overwrite_pip_deps(conda_env, new_reqs)
+        with file_path.open("w") as file:
+            yaml.dump(conda_env, file)
+    else:
+        file_path.write_text("\n".join(new_reqs))
+
+
+def _add_or_overwrite_requirements(
+    new_reqs: List[Requirement],
+    old_reqs: List[Requirement],
+) -> List[str]:
+    deduped_new_reqs = _deduplicate_requirements([str(req) for req in new_reqs])
+    deduped_new_reqs = [Requirement(req) for req in deduped_new_reqs]
+
+    old_reqs_dict = {req.name: str(req) for req in old_reqs}
+    new_reqs_dict = {req.name: str(req) for req in deduped_new_reqs}
+    old_reqs_dict.update(new_reqs_dict)
+    return list(old_reqs_dict.values())
+
+
+def _remove_requirements(
+    reqs_to_remove: List[Requirement],
+    old_reqs: List[Requirement],
+) -> List[str]:
+    old_reqs_dict = {req.name: str(req) for req in old_reqs}
+    for req in reqs_to_remove:
+        if req.name not in old_reqs_dict:
+            _logger.warning(f'"{req.name}" not found in requirements, ignoring')
+        old_reqs_dict.pop(req.name, None)
+    return list(old_reqs_dict.values())
 
 
 class Environment:

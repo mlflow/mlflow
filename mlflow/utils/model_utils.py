@@ -1,35 +1,37 @@
-import ast
-import inspect
 import json
 import os
 import sys
-import textwrap
 from typing import Any, Dict
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
 
 
-def _get_flavor_configuration(model_path, flavor_name):
-    """
-    Obtains the configuration for the specified flavor from the specified
-    MLflow model path. If the model does not contain the specified flavor,
-    an exception will be thrown.
+def _get_all_flavor_configurations(model_path):
+    """Obtains all the flavor configurations from the specified MLflow model path.
 
-    :param model_path: The path to the root directory of the MLflow model for which to load
-                       the specified flavor configuration.
-    :param flavor_name: The name of the flavor configuration to load.
-    :return: The flavor configuration as a dictionary.
+    Args:
+        model_path: The path to the root directory of the MLflow model for which to load
+            the specified flavor configuration.
+
+    Returns:
+        The dictionary contains all flavor configurations with flavor name as key.
+
     """
     model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     if not os.path.exists(model_configuration_path):
@@ -39,25 +41,45 @@ def _get_flavor_configuration(model_path, flavor_name):
         )
 
     model_conf = Model.load(model_configuration_path)
-    if flavor_name not in model_conf.flavors:
+    return model_conf.flavors
+
+
+def _get_flavor_configuration(model_path, flavor_name):
+    """Obtains the configuration for the specified flavor from the specified
+    MLflow model path. If the model does not contain the specified flavor,
+    an exception will be thrown.
+
+    Args:
+        model_path: The path to the root directory of the MLflow model for which to load
+            the specified flavor configuration.
+        flavor_name: The name of the flavor configuration to load.
+
+    Returns:
+        The flavor configuration as a dictionary.
+
+    """
+    flavors = _get_all_flavor_configurations(model_path)
+    if flavor_name not in flavors:
         raise MlflowException(
             f'Model does not have the "{flavor_name}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
-    return model_conf.flavors[flavor_name]
+    return flavors[flavor_name]
 
 
 def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
-    """
-    Obtains the configuration for the specified flavor from the specified
+    """Obtains the configuration for the specified flavor from the specified
     MLflow model uri. If the model does not contain the specified flavor,
     an exception will be thrown.
 
-    :param model_uri: The path to the root directory of the MLflow model for which to load
-                       the specified flavor configuration.
-    :param flavor_name: The name of the flavor configuration to load.
-    :param logger: The local flavor's logger to report the resolved path of the model uri.
-    :return: The flavor configuration as a dictionary.
+    Args:
+        model_uri: The path to the root directory of the MLflow model for which to load
+            the specified flavor configuration.
+        flavor_name: The name of the flavor configuration to load.
+        logger: The local flavor's logger to report the resolved path of the model uri.
+
+    Returns:
+        The flavor configuration as a dictionary.
     """
     try:
         resolved_uri = model_uri
@@ -107,20 +129,34 @@ def _validate_code_paths(code_paths):
 
 
 def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
-    """
-    Validates that a code path is a valid list and copies the code paths to a directory. This
+    """Validates that a code path is a valid list and copies the code paths to a directory. This
     can later be used to log custom code as an artifact.
 
-    :param code_paths: A list of files or directories containing code that should be logged
-    as artifacts
-    :param path: The local model path.
-    :param default_subpath: The default directory name used to store code artifacts.
+    Args:
+        code_paths: A list of files or directories containing code that should be logged
+            as artifacts.
+        path: The local model path.
+        default_subpath: The default directory name used to store code artifacts.
     """
     _validate_code_paths(code_paths)
     if code_paths is not None:
         code_dir_subpath = default_subpath
         for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+            try:
+                _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+            except OSError as e:
+                # A common error is code-paths includes Databricks Notebook. We include it in error
+                # message when running in Databricks, but not in other envs tp avoid confusion.
+                example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
+                raise MlflowException(
+                    message=(
+                        f"Failed to copy the specified code path '{code_path}' into the model "
+                        "artifacts. It appears that your code path includes file(s) that cannot "
+                        f"be copied{example}. Please specify a code path that does not include "
+                        "such files and try again.",
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
     else:
         code_dir_subpath = None
     return code_dir_subpath
@@ -141,15 +177,15 @@ def _validate_and_prepare_target_save_path(path):
 
 
 def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):
-    """
-    Checks if any code_paths were logged with the model in the flavor conf and prepends
+    """Checks if any code_paths were logged with the model in the flavor conf and prepends
     the directory to the system path.
 
-    :param local_path: The local path containing model artifacts.
-    :param conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
-    key, which specifies the directory containing custom code logged as artifacts.
-    :param code_key: The key used by the flavor to indicate custom code artifacts.
-    By default this is FLAVOR_CONFIG_CODE.
+    Args:
+        local_path: The local path containing model artifacts.
+        conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
+            key, which specifies the directory containing custom code logged as artifacts.
+        code_key: The key used by the flavor to indicate custom code artifacts.
+            By default this is FLAVOR_CONFIG_CODE.
     """
     assert isinstance(conf, dict), "`conf` argument must be a dict."
     if code_key in conf and conf[code_key]:
@@ -158,10 +194,10 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
 
 
 def _validate_onnx_session_options(onnx_session_options):
-    """
-    Validates that the specified onnx_session_options dict is valid.
+    """Validates that the specified onnx_session_options dict is valid.
 
-    :param ort_session_options: The onnx_session_options dict to validate.
+    Args:
+        ort_session_options: The onnx_session_options dict to validate.
     """
     import onnxruntime as ort
 
@@ -184,12 +220,12 @@ def _validate_onnx_session_options(onnx_session_options):
             elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be "
-                    "'parallel' or 'sequential', not {value}"
+                    f"'parallel' or 'sequential', not {value}"
                 )
             elif key == "graph_optimization_level" and value not in [0, 1, 2, 99]:
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be 0, 1, 2, or 99, "
-                    "not {value}"
+                    f"not {value}"
                 )
             elif key in ["intra_op_num_threads", "intra_op_num_threads"] and value < 0:
                 raise ValueError(
@@ -266,31 +302,3 @@ def _validate_pyfunc_model_config(model_config):
             "Values in the provided ``model_config`` are of an unsupported type. Only "
             "JSON-serializable data types can be provided as values."
         )
-
-
-def _check_model_assignment_in_init(cls):
-    """
-    Checks for the presence of `self.model = <something>` in the init method
-    of a class. Intended to be used `PythonModel` to encourage best practices
-    when declaring pyfunc models.
-    """
-    cls_init_source = textwrap.dedent(inspect.getsource(cls.__init__))
-
-    class ModelAssignVisitor(ast.NodeVisitor):
-        def __init__(self):
-            self.has_model = False
-
-        def visit_Assign(self, node):
-            if (
-                isinstance(node.targets[0], ast.Attribute)
-                and node.targets[0].attr == "model"
-                and isinstance(node.targets[0].value, ast.Name)
-                and node.targets[0].value.id == "self"
-            ):
-                self.has_model = True
-
-    visitor = ModelAssignVisitor()
-    tree = ast.parse(cls_init_source)
-    visitor.visit(tree)
-
-    return visitor.has_model

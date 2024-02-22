@@ -39,16 +39,14 @@ export class CollapsibleTagsCell extends React.Component<Props, State> {
     // we should just show the tag instead of the expansion button
     const showCellExpansion = visibleTags.length > NUM_TAGS_ON_COLLAPSED + 1;
     const tagsToDisplay =
-      this.state.collapsed && showCellExpansion
-        ? visibleTags.slice(0, NUM_TAGS_ON_COLLAPSED)
-        : visibleTags;
+      this.state.collapsed && showCellExpansion ? visibleTags.slice(0, NUM_TAGS_ON_COLLAPSED) : visibleTags;
     const showLess = (
-      <div onClick={this.handleToggleCollapse} className='expander-text'>
+      <div onClick={this.handleToggleCollapse} className="expander-text">
         Less
       </div>
     );
     const showMore = (
-      <div onClick={this.handleToggleCollapse} className='expander-text'>
+      <div onClick={this.handleToggleCollapse} className="expander-text">
         +{visibleTags.length - NUM_TAGS_ON_COLLAPSED} more
       </div>
     );
@@ -59,15 +57,15 @@ export class CollapsibleTagsCell extends React.Component<Props, State> {
           const value = entry[1];
           const tooltipContent = value === '' ? tagName : `${tagName}: ${value}`;
           return (
-            <div className='tag-cell-item truncate-text single-line' key={tagName}>
-              <Tooltip title={tooltipContent} placement='bottom'>
+            <div className="tag-cell-item truncate-text single-line" key={tagName}>
+              <Tooltip title={tooltipContent} placement="bottom">
                 <span css={styles.overflowWithEllipsis}>
                   {value === '' ? (
-                    <span className='tag-name'>{tagName}</span>
+                    <span className="tag-name">{tagName}</span>
                   ) : (
                     <span>
-                      <span className='tag-name'>{tagName}:</span>
-                      <span className='metric-param-value'>{value}</span>
+                      <span className="tag-name">{tagName}:</span>
+                      <span className="metric-param-value">{value}</span>
                     </span>
                   )}
                 </span>

@@ -28,7 +28,7 @@ class CreateExperimentFormComponent extends Component<Props> {
   render() {
     return (
       // @ts-expect-error TS(2322): Type '{ children: Element[]; ref: any; layout: "ve... Remove this comment to see the full error message
-      <Form ref={this.props.innerRef} layout='vertical'>
+      <Form ref={this.props.innerRef} layout="vertical">
         <Form.Item
           label={this.props.intl.formatMessage({
             defaultMessage: 'Experiment Name',

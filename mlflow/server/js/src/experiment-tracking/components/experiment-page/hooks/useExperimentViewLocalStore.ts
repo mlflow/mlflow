@@ -11,7 +11,4 @@ import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
  * @param storeIdentifier a unique identifier of created store - can be an experiment id or a general purpose name
  */
 export const useExperimentViewLocalStore = (storeIdentifier: string) =>
-  useMemo(
-    () => LocalStorageUtils.getStoreForComponent('ExperimentView', storeIdentifier),
-    [storeIdentifier],
-  );
+  useMemo(() => LocalStorageUtils.getStoreForComponent('ExperimentView', storeIdentifier), [storeIdentifier]);

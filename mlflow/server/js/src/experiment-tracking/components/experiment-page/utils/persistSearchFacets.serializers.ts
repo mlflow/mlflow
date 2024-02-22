@@ -28,6 +28,14 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
     deserializeLocalStorage: flattenString,
     deserializeQueryString: flattenString,
   },
+  orderByAsc: {
+    serializeQueryString(input: boolean) {
+      return input.toString();
+    },
+    deserializeQueryString(input: string) {
+      return input === 'true';
+    },
+  },
   datasetsFilter: {
     serializeQueryString(inputs: SearchExperimentRunsFacetsState['datasetsFilter']) {
       const inputsWithoutExperimentId = inputs.map(({ name, digest, context }) => ({

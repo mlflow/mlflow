@@ -1,13 +1,5 @@
 import { Interpolation, Theme } from '@emotion/react';
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 export interface RunsChartsTooltipBodyProps<TContext = any, TChartData = any, THoverData = any> {
   runUuid: string;
@@ -18,21 +10,14 @@ export interface RunsChartsTooltipBodyProps<TContext = any, TChartData = any, TH
   isHovering?: boolean;
 }
 
-export type RunsChartsTooltipBodyComponent<C = any, T = any> = React.ComponentType<
-  RunsChartsTooltipBodyProps<C, T>
->;
+export type RunsChartsTooltipBodyComponent<C = any, T = any> = React.ComponentType<RunsChartsTooltipBodyProps<C, T>>;
 
 const RunsChartsTooltipContext = React.createContext<{
   selectedRunUuid: string | null;
   closeContextMenu: () => void;
   resetTooltip: () => void;
   destroyTooltip: () => void;
-  updateTooltip: (
-    runUuid: string,
-    chartData?: any,
-    event?: MouseEvent,
-    additionalData?: any,
-  ) => void;
+  updateTooltip: (runUuid: string, chartData?: any, event?: MouseEvent, additionalData?: any) => void;
 } | null>(null);
 
 export enum ContextMenuVisibility {
@@ -92,9 +77,7 @@ export const RunsChartsTooltipWrapper = <
   const currentPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Current visibility of the tooltip/context-menu
-  const [contextMenuShown, setContextMenuShown] = useState<ContextMenuVisibility>(
-    ContextMenuVisibility.HIDDEN,
-  );
+  const [contextMenuShown, setContextMenuShown] = useState<ContextMenuVisibility>(ContextMenuVisibility.HIDDEN);
 
   const [tooltipDisplayParams, setTooltipDisplayParams] = useState<any | null>(null);
   const [hoveredRunUuid, setHoveredRunUuid] = useState<string>('');
@@ -109,6 +92,7 @@ export const RunsChartsTooltipWrapper = <
   const mutableContextMenuShownRef = useRef<ContextMenuVisibility>(contextMenuShown);
   const mutableHoveredRunUuid = useRef(hoveredRunUuid);
   const mutableTooltipDisplayParams = useRef(tooltipDisplayParams);
+  const mutableAdditionalAxisData = useRef(additionalAxisData);
 
   // This method applies the tooltip position basing on the mouse position
   const applyPositioning = useCallback(() => {
@@ -140,16 +124,13 @@ export const RunsChartsTooltipWrapper = <
   }, [contextMenuShown]);
 
   // This function returns X and Y of the target element relative to the container
-  const getCoordinatesForTargetElement = useCallback(
-    (targetElement: HTMLElement, event: MouseEvent) => {
-      const targetRect = targetElement.getBoundingClientRect();
-      const containerRect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
-      const x = event.offsetX + (targetRect.left - containerRect.left);
-      const y = event.offsetY + (targetRect.top - containerRect.top);
-      return { x, y };
-    },
-    [],
-  );
+  const getCoordinatesForTargetElement = useCallback((targetElement: HTMLElement, event: MouseEvent) => {
+    const targetRect = targetElement.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
+    const x = event.offsetX + (targetRect.left - containerRect.left);
+    const y = event.offsetY + (targetRect.top - containerRect.top);
+    return { x, y };
+  }, []);
 
   const mouseMove: React.MouseEventHandler<HTMLDivElement> = useCallback(
     (event) => {
@@ -171,45 +152,42 @@ export const RunsChartsTooltipWrapper = <
   );
 
   // This callback is being fired on every new run being hovered
-  const updateTooltip = useCallback(
-    (runUuid: string, chartData?: any, _?: Event, additionalRunData?: any) => {
-      mutableHoveredRunUuid.current = runUuid;
-      mutableTooltipDisplayParams.current = chartData;
+  const updateTooltip = useCallback((runUuid: string, chartData?: any, _?: Event, additionalRunData?: any) => {
+    mutableHoveredRunUuid.current = runUuid;
+    mutableTooltipDisplayParams.current = chartData;
+    mutableAdditionalAxisData.current = additionalRunData;
 
-      // If the tooltip is visible and hardwired to the position, don't change it
-      if (mutableContextMenuShownRef.current === ContextMenuVisibility.VISIBLE) {
-        return;
+    // If the tooltip is visible and hardwired to the position, don't change it
+    if (mutableContextMenuShownRef.current === ContextMenuVisibility.VISIBLE) {
+      return;
+    }
+
+    // Update the event-specific data in the state
+    setTooltipDisplayParams(chartData);
+
+    // If the mouse button has been clicked on a run but hover
+    // has been lost, do nothing
+    if (!runUuid && focusedRunData.current?.runUuid) {
+      return;
+    }
+
+    // Update the currently hovered run
+    setHoveredRunUuid((currentRunUuid) => {
+      if (additionalRunData) {
+        setAdditionalAxisData(additionalRunData);
       }
-
-      // Update the event-specific data in the state
-      setTooltipDisplayParams(chartData);
-
-      // If the mouse button has been clicked on a run but hover
-      // has been lost, do nothing
-      if (!runUuid && focusedRunData.current?.runUuid) {
-        return;
+      // If the tooltip was hidden or it's shown but it's another run,
+      // make sure that the state is updated
+      if (
+        mutableContextMenuShownRef.current === ContextMenuVisibility.HIDDEN ||
+        (mutableContextMenuShownRef.current === ContextMenuVisibility.HOVER && runUuid !== currentRunUuid)
+      ) {
+        setContextMenuShown(ContextMenuVisibility.HOVER);
+        return runUuid;
       }
-
-      // Update the currently hovered run
-      setHoveredRunUuid((currentRunUuid) => {
-        if (additionalRunData) {
-          setAdditionalAxisData(additionalRunData);
-        }
-        // If the tooltip was hidden or it's shown but it's another run,
-        // make sure that the state is updated
-        if (
-          mutableContextMenuShownRef.current === ContextMenuVisibility.HIDDEN ||
-          (mutableContextMenuShownRef.current === ContextMenuVisibility.HOVER &&
-            runUuid !== currentRunUuid)
-        ) {
-          setContextMenuShown(ContextMenuVisibility.HOVER);
-          return runUuid;
-        }
-        return currentRunUuid;
-      });
-    },
-    [],
-  );
+      return currentRunUuid;
+    });
+  }, []);
 
   const mouseDownCapture: React.MouseEventHandler<HTMLDivElement> = useCallback(
     (event) => {
@@ -246,6 +224,7 @@ export const RunsChartsTooltipWrapper = <
         // the updated run UUID
         if (mutableContextMenuShownRef.current === ContextMenuVisibility.VISIBLE) {
           setHoveredRunUuid(focusedRunData.current.runUuid);
+          setAdditionalAxisData(mutableAdditionalAxisData.current);
           const targetElement = extractHTMLAncestorElement(event.nativeEvent.target);
           if (targetElement) {
             currentPos.current = getCoordinatesForTargetElement(targetElement, event.nativeEvent);
@@ -312,10 +291,7 @@ export const RunsChartsTooltipWrapper = <
   // Callback used to reset the tooltip, fired when the mouse leaves the run
   const resetTooltip = useCallback(() => {
     mutableHoveredRunUuid.current = '';
-    if (
-      focusedRunData.current?.runUuid ||
-      mutableContextMenuShownRef.current === ContextMenuVisibility.VISIBLE
-    ) {
+    if (focusedRunData.current?.runUuid || mutableContextMenuShownRef.current === ContextMenuVisibility.VISIBLE) {
       return;
     }
     setHoveredRunUuid('');
@@ -346,11 +322,7 @@ export const RunsChartsTooltipWrapper = <
     <RunsChartsTooltipContext.Provider value={contextValue}>
       {/* The element below wraps all the children (where charts are expected to be mounted)
       and tracks mouse movement inside */}
-      <div
-        onMouseMove={mouseMove}
-        onMouseDownCapture={mouseDownCapture}
-        onClickCapture={tooltipAreaClicked}
-      >
+      <div onMouseMove={mouseMove} onMouseDownCapture={mouseDownCapture} onClickCapture={tooltipAreaClicked}>
         {children}
       </div>
       {/* The element below houses the tooltip/context menu */}
@@ -359,7 +331,7 @@ export const RunsChartsTooltipWrapper = <
           <div
             ref={ctxMenuRef}
             css={styles.contextMenuWrapper}
-            data-testid='tooltip-container'
+            data-testid="tooltip-container"
             style={{
               userSelect: contextMenuShown === ContextMenuVisibility.HOVER ? 'none' : 'unset',
               pointerEvents: contextMenuShown === ContextMenuVisibility.HOVER ? 'none' : 'all',
@@ -402,8 +374,7 @@ export const useRunsChartsTooltip = <
     );
   }
 
-  const { updateTooltip, resetTooltip, selectedRunUuid, closeContextMenu, destroyTooltip } =
-    contextValue;
+  const { updateTooltip, resetTooltip, selectedRunUuid, closeContextMenu, destroyTooltip } = contextValue;
 
   const setTooltip = useCallback(
     (runUuid = '', event?: MouseEvent, additionalAxisData?: TAxisData) => {

@@ -1,5 +1,8 @@
-import { Tag, Typography } from '@databricks/design-system';
+import { Tag, Tooltip, Typography } from '@databricks/design-system';
 import { KeyValueEntity } from '../../experiment-tracking/types';
+import React, { useState } from 'react';
+import { useIntl } from 'react-intl';
+import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
 
 /**
  * An arbitrary number that is used to determine if a tag is too
@@ -26,26 +29,55 @@ export const KeyValueTag = ({
   isClosable = false,
   onClose,
   tag,
+  enableFullViewModal = false,
 }: {
   isClosable?: boolean;
   onClose?: () => void;
   tag: KeyValueEntity;
+  enableFullViewModal?: boolean;
 }) => {
+  const intl = useIntl();
+
+  const [isKeyValueTagFullViewModalVisible, setIsKeyValueTagFullViewModalVisible] = useState(false);
+
   const { shouldTruncateKey, shouldTruncateValue } = getKeyAndValueComplexTruncation(tag);
+  const allowFullViewModal = enableFullViewModal && (shouldTruncateKey || shouldTruncateValue);
+
+  const fullViewModalLabel = intl.formatMessage({
+    defaultMessage: 'Click to see more',
+    description: 'Run page > Overview > Tags cell > Tag',
+  });
 
   return (
-    <Tag closable={isClosable} onClose={onClose} title={tag.key}>
-      <span css={{ maxWidth: 300, display: 'inline-flex' }}>
-        <Typography.Text bold title={tag.key} css={getTruncatedStyles(shouldTruncateKey)}>
-          {tag.key}
-        </Typography.Text>
-        {tag.value && (
-          <Typography.Text title={tag.value} css={getTruncatedStyles(shouldTruncateValue)}>
-            : {tag.value}
-          </Typography.Text>
+    <div>
+      <Tag closable={isClosable} onClose={onClose} title={tag.key}>
+        <Tooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
+          <span
+            css={{ maxWidth: 300, display: 'inline-flex' }}
+            onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
+          >
+            <Typography.Text bold title={tag.key} css={getTruncatedStyles(shouldTruncateKey)}>
+              {tag.key}
+            </Typography.Text>
+            {tag.value && (
+              <Typography.Text title={tag.value} css={getTruncatedStyles(shouldTruncateValue)}>
+                : {tag.value}
+              </Typography.Text>
+            )}
+          </span>
+        </Tooltip>
+      </Tag>
+      <div>
+        {isKeyValueTagFullViewModalVisible && (
+          <KeyValueTagFullViewModal
+            tagKey={tag.key}
+            tagValue={tag.value}
+            isKeyValueTagFullViewModalVisible={isKeyValueTagFullViewModalVisible}
+            setIsKeyValueTagFullViewModalVisible={setIsKeyValueTagFullViewModalVisible}
+          />
         )}
-      </span>
-    </Tag>
+      </div>
+    </div>
   );
 };
 

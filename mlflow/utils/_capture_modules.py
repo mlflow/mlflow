@@ -40,7 +40,6 @@ class _CaptureImportedModules:
         self.original_import_module = None
 
     def _wrap_import(self, original):
-        # pylint: disable=redefined-builtin
         @functools.wraps(original)
         def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
             is_absolute_import = level == 0

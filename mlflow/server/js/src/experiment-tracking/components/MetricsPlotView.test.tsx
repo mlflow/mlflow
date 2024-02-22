@@ -607,10 +607,7 @@ describe('unit tests', () => {
     // convert to relative time in seconds when axis is Time (Relative)
     expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_RELATIVE)).toEqual([0, 5]);
     // convert to date time string when axis is Time (Wall)
-    expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_WALL)).toEqual([
-      timestampStr,
-      anotherTimestampStr,
-    ]);
+    expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_WALL)).toEqual([timestampStr, anotherTimestampStr]);
   });
   test('should disable both plotly logo and the link to plotly studio', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);

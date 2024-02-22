@@ -88,10 +88,7 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
   getValue(i: any, { key, isMetric }: any) {
-    const value = CompareRunUtil.findInList(
-      (isMetric ? this.props.metricLists : this.props.paramLists)[i],
-      key,
-    );
+    const value = CompareRunUtil.findInList((isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : (value as any).value;
   }
 
@@ -135,11 +132,11 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
       return (
         <div>
           <FormattedMessage
-            defaultMessage='Contour plots can only be rendered when comparing a group of runs
+            defaultMessage="Contour plots can only be rendered when comparing a group of runs
               with three or more unique metrics or params. Log more metrics or params to your
-              runs to visualize them using the contour plot.'
-            description='Text explanation when contour plot is disabled in comparison pages
-              in MLflow'
+              runs to visualize them using the contour plot."
+            description="Text explanation when contour plot is disabled in comparison pages
+              in MLflow"
           />
         </div>
       );
@@ -178,9 +175,7 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
       }
       if (invalidAxes.length > 0) {
         const messageHead =
-          invalidAxes.length > 1
-            ? `The ${invalidAxes.join(' and ')} axes don't`
-            : `The ${invalidAxes[0]} axis doesn't`;
+          invalidAxes.length > 1 ? `The ${invalidAxes.join(' and ')} axes don't` : `The ${invalidAxes[0]} axis doesn't`;
         return (
           <div
             css={styles.noDataMessage}
@@ -256,43 +251,43 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
         controls={
           <>
             <div>
-              <label htmlFor='x-axis-selector'>
+              <label htmlFor="x-axis-selector">
                 <FormattedMessage
-                  defaultMessage='X-axis:'
-                  description='Label text for x-axis in contour plot comparison in MLflow'
+                  defaultMessage="X-axis:"
+                  description="Label text for x-axis in contour plot comparison in MLflow"
                 />
               </label>
               {this.renderSelect('xaxis')}
             </div>
             <Spacer />
             <div>
-              <label htmlFor='y-axis-selector'>
+              <label htmlFor="y-axis-selector">
                 <FormattedMessage
-                  defaultMessage='Y-axis:'
-                  description='Label text for y-axis in contour plot comparison in MLflow'
+                  defaultMessage="Y-axis:"
+                  description="Label text for y-axis in contour plot comparison in MLflow"
                 />
               </label>
               {this.renderSelect('yaxis')}
             </div>
             <Spacer />
             <div>
-              <label htmlFor='z-axis-selector'>
+              <label htmlFor="z-axis-selector">
                 <FormattedMessage
-                  defaultMessage='Z-axis:'
-                  description='Label text for z-axis in contour plot comparison in MLflow'
+                  defaultMessage="Z-axis:"
+                  description="Label text for z-axis in contour plot comparison in MLflow"
                 />
               </label>
               {this.renderSelect('zaxis')}
             </div>
             <Spacer />
-            <div className='inline-control'>
+            <div className="inline-control">
               <FormattedMessage
-                defaultMessage='Reverse color:'
-                description='Label text for reverse color toggle in contour plot comparison
-                      in MLflow'
+                defaultMessage="Reverse color:"
+                description="Label text for reverse color toggle in contour plot comparison
+                      in MLflow"
               />{' '}
               <Switch
-                className='show-point-toggle'
+                className="show-point-toggle"
                 // @ts-expect-error TS(4111): Property 'reverseColor' comes from an index signat... Remove this comment to see the full error message
                 checked={this.state.reverseColor}
                 onChange={(checked) => this.setState({ reverseColor: checked })}
@@ -320,14 +315,14 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
         }}
         value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
       >
-        <OptGroup label='Parameter'>
+        <OptGroup label="Parameter">
           {this.paramKeys.map((p: any) => (
             <Option key={'param-' + p} value={'param-' + p}>
               {p}
             </Option>
           ))}
         </OptGroup>
-        <OptGroup label='Metric'>
+        <OptGroup label="Metric">
           {this.metricKeys.map((m: any) => (
             <Option key={'metric-' + m} value={'metric-' + m}>
               {m}
@@ -355,11 +350,7 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
     if (metricList.length > 0) {
       result += paramList.length > 0 ? '<br>' : '';
       metricList.forEach((m) => {
-        result +=
-          this.encodeHtml(Utils.truncateString(m.key, keyLength)) +
-          ': ' +
-          Utils.formatMetric(m.value) +
-          '<br>';
+        result += this.encodeHtml(Utils.truncateString(m.key, keyLength)) + ': ' + Utils.formatMetric(m.value) + '<br>';
       });
     }
     return result;

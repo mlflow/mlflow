@@ -92,13 +92,6 @@ describe('CompareRunUtil', () => {
       'strnum',
       'timestamp',
     ]);
-    expect(CompareRunUtil.getKeys(list, true)).toEqual([
-      'loss',
-      'objective',
-      'rmse',
-      'step',
-      'strnum',
-      'timestamp',
-    ]);
+    expect(CompareRunUtil.getKeys(list, true)).toEqual(['loss', 'objective', 'rmse', 'step', 'strnum', 'timestamp']);
   });
 });

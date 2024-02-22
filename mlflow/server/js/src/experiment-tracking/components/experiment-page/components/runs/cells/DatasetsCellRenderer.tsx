@@ -1,12 +1,5 @@
 import { throttle } from 'lodash';
-import {
-  Button,
-  Popover,
-  TableIcon,
-  Tag,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, Popover, TableIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../../constants';
 import type { RunDatasetWithTags } from '../../../../../types';
@@ -53,14 +46,14 @@ const SingleDataset = ({
       >
         {inPopover ? (
           <Popover.Close asChild>
-            <Button type='link' onClick={onDatasetSelected}>
+            <Button type="link" onClick={onDatasetSelected}>
               <span css={{ fontSize: 12 }}>
                 {dataset.name} ({dataset.digest})
               </span>
             </Button>
           </Popover.Close>
         ) : (
-          <Button type='link' onClick={onDatasetSelected}>
+          <Button type="link" onClick={onDatasetSelected}>
             <span>
               {dataset.name} ({dataset.digest})
             </span>
@@ -89,10 +82,10 @@ export const DatasetsCellRenderer = React.memo(
     const containerElement = useRef<HTMLDivElement>(null);
     const [datasetsVisible, setDatasetsVisible] = useState(0);
     const [ellipsisVisible, setEllipsisVisible] = useState(false);
-    const clampedDatasets = useMemo(() => datasets.slice(0, MAX_DATASETS_VISIBLE), [datasets]);
+    const clampedDatasets = useMemo(() => (datasets || []).slice(0, MAX_DATASETS_VISIBLE), [datasets]);
     const { theme } = useDesignSystemTheme();
 
-    const datasetsLength = datasets.length;
+    const datasetsLength = (datasets || []).length;
 
     useEffect(() => {
       if (!containerElement.current) {
@@ -176,11 +169,11 @@ export const DatasetsCellRenderer = React.memo(
             {moreItemsToShow > 0 && (
               <Popover.Root modal={false}>
                 <Popover.Trigger asChild>
-                  <Button size='small' style={{ borderRadius: '8px', width: '40px' }}>
-                    <Typography.Text color='secondary'>+{moreItemsToShow}</Typography.Text>
+                  <Button size="small" style={{ borderRadius: '8px', width: '40px' }}>
+                    <Typography.Text color="secondary">+{moreItemsToShow}</Typography.Text>
                   </Button>
                 </Popover.Trigger>
-                <Popover.Content align='start' css={{ maxHeight: '400px', overflow: 'auto' }}>
+                <Popover.Content align="start" css={{ maxHeight: '400px', overflow: 'auto' }}>
                   {datasets.slice(datasetsLength - moreItemsToShow).map((datasetWithTags) => (
                     <div
                       css={{

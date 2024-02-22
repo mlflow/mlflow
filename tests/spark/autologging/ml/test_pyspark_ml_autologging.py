@@ -27,7 +27,6 @@ from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenize
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
-from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow import MlflowClient
@@ -52,15 +51,10 @@ from mlflow.utils.validation import (
 )
 
 from tests.helper_functions import AnyStringWith
+from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    with SparkSession.builder.master("local[*]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")
@@ -206,7 +200,7 @@ def test_basic_estimator(dataset_binomial):
     Version(pyspark.__version__) < Version("3.1"),
     reason="This test require spark version >= 3.1",
 )
-def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-argument
+def test_models_in_allowlist_exist(spark_session):
     mlflow.pyspark.ml.autolog()  # initialize the variable `mlflow.pyspark.ml._log_model_allowlist`
 
     def model_does_not_exist(model_class):
@@ -514,7 +508,7 @@ def test_pipeline(dataset_text):
 # Test on metric of rmse (smaller is better) and r2 (larger is better)
 @pytest.mark.parametrize("metric_name", ["rmse", "r2"])
 @pytest.mark.parametrize("param_search_estimator", [CrossValidator, TrainValidationSplit])
-def test_param_search_estimator(  # pylint: disable=unused-argument
+def test_param_search_estimator(
     metric_name, param_search_estimator, spark_session, dataset_regression
 ):
     mlflow.pyspark.ml.autolog(log_input_examples=True)
@@ -627,7 +621,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
             assert math.isclose(std_metric_value, float(row.get(std_metric_name)), rel_tol=1e-6)
 
 
-def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
+def test_get_params_to_log(spark_session):
     lor = LogisticRegression(maxIter=3, standardization=False)
     lor_params = get_params_to_log(lor)
     assert lor_params["maxIter"] == 3
@@ -663,7 +657,7 @@ def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
         assert params_to_test["LogisticRegression.maxIter"] == 3
 
 
-def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argument
+def test_gen_estimator_metadata(spark_session):
     tokenizer1 = Tokenizer(inputCol="text1", outputCol="words1")
     hashing_tf1 = HashingTF(inputCol=tokenizer1.getOutputCol(), outputCol="features1")
 
@@ -988,9 +982,6 @@ def test_autologging_handle_wrong_tuning_params(dataset_regression):
         pipeline.fit(dataset_regression)
 
 
-# pylint: disable=unused-argument
-
-
 def test_autolog_registering_model(spark_session, dataset_binomial):
     registered_model_name = "test_autolog_registered_model"
     mlflow.pyspark.ml.autolog(registered_model_name=registered_model_name)
@@ -1068,7 +1059,9 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
         _assert_autolog_infers_model_signature_correctly(
-            run, input_sig_spec=[{"name": "text", "type": "string"}], output_sig_spec=None
+            run,
+            input_sig_spec=[{"name": "text", "type": "string", "required": True}],
+            output_sig_spec=None,
         )
 
 
@@ -1095,7 +1088,9 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
         with open(ml_model_path) as f:
             data = yaml.safe_load(f)
             signature = data["signature"]
-            assert json.loads(signature["inputs"]) == [{"name": "number", "type": "double"}]
+            assert json.loads(signature["inputs"]) == [
+                {"name": "number", "type": "double", "required": True}
+            ]
             assert signature["outputs"] is None
 
 
@@ -1143,7 +1138,9 @@ def test_signature_with_index_to_string_stage(
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
         _assert_autolog_infers_model_signature_correctly(
-            run, input_sig_spec=[{"name": "id", "type": "long"}], output_sig_spec=None
+            run,
+            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
+            output_sig_spec=None,
         )
 
 
@@ -1186,7 +1183,7 @@ def test_signature_with_non_feature_input_columns(
         pipeline_for_feature_cols.fit(input_df_with_non_features)
         _assert_autolog_infers_model_signature_correctly(
             run,
-            input_sig_spec=[{"name": "id", "type": "long"}],
+            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
             output_sig_spec=None,
         )
 

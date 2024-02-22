@@ -17,9 +17,18 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { ModelVersionTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
 import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxStoreFixtures';
-import Routers from '../../experiment-tracking/routes';
+import TrackingRouters from '../../experiment-tracking/routes';
+import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 import { DesignSystemContainer } from '../../common/components/DesignSystemContainer';
+import { Services } from '../services';
+import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
+
+jest.spyOn(Services, 'searchRegisteredModels').mockResolvedValue({});
+jest.mock('../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../common/utils/FeatureUtils'),
+  shouldShowModelsNextUI: jest.fn(),
+}));
 describe('ModelVersionView', () => {
   let wrapper;
   let minimalProps: any;
@@ -30,12 +39,7 @@ describe('ModelVersionView', () => {
   beforeEach(() => {
     minimalProps = {
       modelName: 'Model A',
-      modelVersion: mockModelVersionDetailed(
-        'Model A',
-        1,
-        Stages.PRODUCTION,
-        ModelVersionStatus.READY,
-      ),
+      modelVersion: mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
       handleStageTransitionDropdownSelect: jest.fn(),
       deleteModelVersionApi: jest.fn(() => Promise.resolve()),
       handleEditDescription: jest.fn(() => Promise.resolve()),
@@ -91,12 +95,7 @@ describe('ModelVersionView', () => {
     for (i = 0; i < ACTIVE_STAGES.length; ++i) {
       const props = {
         ...minimalProps,
-        modelVersion: mockModelVersionDetailed(
-          'Model A',
-          1,
-          ACTIVE_STAGES[i],
-          ModelVersionStatus.READY,
-        ),
+        modelVersion: mockModelVersionDetailed('Model A', 1, ACTIVE_STAGES[i], ModelVersionStatus.READY),
       };
       wrapper = createComponentInstance(props);
       wrapper.find("button[data-test-id='overflow-menu-trigger']").simulate('click');
@@ -115,12 +114,7 @@ describe('ModelVersionView', () => {
     for (i = 0; i < inactiveStages.length; ++i) {
       const props = {
         ...minimalProps,
-        modelVersion: mockModelVersionDetailed(
-          'Model A',
-          1,
-          inactiveStages[i],
-          ModelVersionStatus.READY,
-        ),
+        modelVersion: mockModelVersionDetailed('Model A', 1, inactiveStages[i], ModelVersionStatus.READY),
       };
       wrapper = createComponentInstance(props);
       wrapper.find('button[data-test-id="overflow-menu-trigger"]').at(0).simulate('click');
@@ -135,8 +129,7 @@ describe('ModelVersionView', () => {
   });
   test('run link renders if set', () => {
     const runLink =
-      'https://other.mlflow.hosted.instance.com/experiments/18722387/' +
-      'runs/d2c09dbd056c4d9c9289b854f491be10';
+      'https://other.mlflow.hosted.instance.com/experiments/18722387/runs/d2c09dbd056c4d9c9289b854f491be10';
     const modelVersion = mockModelVersionDetailed(
       'Model A',
       1,
@@ -167,7 +160,7 @@ describe('ModelVersionView', () => {
     const experimentId = 'experiment_id';
     // @ts-expect-error TS(2345): Argument of type '"experiment_id"' is not assignab... Remove this comment to see the full error message
     const runInfo = mockRunInfo(runId, experimentId);
-    const expectedRunLink = Routers.getRunPageRoute(experimentId, runId);
+    const expectedRunLink = TrackingRouters.getRunPageRoute(experimentId, runId);
     const expectedRunDisplayName = Utils.getRunDisplayName({}, runId);
     const props = {
       ...minimalProps,
@@ -191,6 +184,7 @@ describe('ModelVersionView', () => {
     expect(wrapper.html()).toContain('not so special value');
   });
   test('creator description not rendered if user_id is unavailable', () => {
+    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => false);
     const props = {
       ...minimalProps,
       modelVersion: mockModelVersionDetailed(
@@ -207,30 +201,47 @@ describe('ModelVersionView', () => {
     };
     wrapper = createComponentInstance(props);
     expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(4);
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe(
-      'Registered At',
-    );
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Stage');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe(
-      'Last Modified',
-    );
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe(
-      'Source Run',
-    );
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe('Registered At');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Last Modified');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Source Run');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe('Stage');
   });
   test('creator description rendered if user_id is available', () => {
+    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => false);
     wrapper = createComponentInstance(minimalProps);
     expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(5);
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe(
-      'Registered At',
-    );
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe('Registered At');
     expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Creator');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Stage');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe(
-      'Last Modified',
-    );
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(4).text()).toBe(
-      'Source Run',
-    );
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Last Modified');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe('Source Run');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(4).text()).toBe('Stage');
+  });
+  test('should render copied from link when model version is a copy', () => {
+    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
+    const props = {
+      ...minimalProps,
+      modelVersion: mockModelVersionDetailed(
+        'Model A',
+        1,
+        Stages.NONE,
+        ModelVersionStatus.READY,
+        [],
+        undefined,
+        'b99a0fc567ae4d32994392c800c0b6ce',
+        'richard@example.com',
+        'models:/Model B/2',
+      ),
+    };
+    wrapper = createComponentInstance(props);
+    expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(7);
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe('Registered At');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Creator');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Last Modified');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe('Source Run');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(4).text()).toBe('Copied from');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(5).text()).toBe('Aliases');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(6).text()).toBe('Stage (deprecated)');
+    const linkedRun = wrapper.find('[data-test-id="copied-from-link"]').at(0);
+    expect(linkedRun.html()).toContain(ModelRegistryRoutes.getModelVersionPageRoute('Model B', '2'));
   });
 });

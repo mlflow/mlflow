@@ -8,8 +8,9 @@ def _validate_content_type(flask_request, allowed_content_types: List[str]):
     """
     Validates that the request content type is one of the allowed content types.
 
-    :param flask_request: Flask request object (flask.request)
-    :param allowed_content_types: A list of allowed content types
+    Args:
+        flask_request: Flask request object (flask.request)
+        allowed_content_types: A list of allowed content types
     """
     if flask_request.method not in ["POST", "PUT"]:
         return

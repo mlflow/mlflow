@@ -1,5 +1,5 @@
-import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
 import { act } from 'react-dom/test-utils';
+import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
 
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
 
@@ -11,9 +11,7 @@ import { act } from 'react-dom/test-utils';
 function findByText(wrapper, text, queryOptions) {
   const newWrappers = findAllByText(wrapper, text, queryOptions);
   if (newWrappers.length !== 1) {
-    throw new Error(
-    // eslint-disable-next-line testing-library/no-debugging-utils
-    `Expected to find 1 node but found ${newWrappers.length} nodes for text "${text}".\n${wrapper.debug()}`);
+    throw new Error(`Expected to find 1 node but found ${newWrappers.length} nodes for text "${text}".\n${wrapper.debug()}`);
   }
   return newWrappers[0];
 }
@@ -59,7 +57,6 @@ const originalSetTimeout = window.setTimeout;
  * 1579cb44f9f175be1ec46087/src/wait-for.js#L15-L19
  */
 function copyStackTrace(target, source) {
-  // eslint-disable-next-line no-param-reassign
   target.stack = source.stack.replace(source.message, target.message);
 }
 /**
@@ -160,6 +157,19 @@ function findAllByRole(wrapper, role) {
   return wrapper.find(`[role="${role}"]`).hostNodes().map(n => n);
 }
 
+/**
+ * Finds a single element that has the specified role in the wrapper. If
+ * there are 0 or more than 1 element that have that role, an error
+ * is thrown. Returns the element in an enzyme wrapper.
+ */
+function findByRole(wrapper, role) {
+  const newWrappers = findAllByRole(wrapper, role);
+  if (newWrappers.length !== 1) {
+    throw new Error(`Expected to find 1 node but found ${newWrappers.length} nodes for role "${role}".\n${wrapper.debug()}`);
+  }
+  return newWrappers[0];
+}
+
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
 
 
@@ -177,14 +187,12 @@ function clearAll(getSelect) {
  */
 async function closeMenu(getSelect) {
   if (!getSelect().find(`.${selectClasses.open}`).exists()) {
-    // eslint-disable-next-line testing-library/no-debugging-utils
     throw new Error(`Select is already closed\n${getSelect().debug()}`);
   }
   getSelect().find(`.${selectClasses.selector}`).simulate('mousedown');
   await waitFor(() => {
     const select = getSelect();
     if (select.find(`.${selectClasses.open}`).exists()) {
-      // eslint-disable-next-line testing-library/no-debugging-utils
       throw new Error(`Select did not close\n${select.debug()}`);
     }
   });
@@ -246,14 +254,12 @@ async function singleSelect(getSelect, option) {
  */
 async function openMenu(getSelect) {
   if (getSelect().find(`.${selectClasses.open}`).exists()) {
-    // eslint-disable-next-line testing-library/no-debugging-utils
     throw new Error(`Select is already open\n${getSelect().debug()}`);
   }
   getSelect().find(`.${selectClasses.selector}`).simulate('mousedown');
   await waitFor(() => {
     const select = getSelect();
     if (!select.find(`.${selectClasses.open}`).exists()) {
-      // eslint-disable-next-line testing-library/no-debugging-utils
       throw new Error(`Select did not open\n${select.debug()}`);
     }
   });
@@ -270,10 +276,28 @@ async function getAllOptions(getSelect) {
   return options;
 }
 
+/**
+ * Creates a new option for a Select with `mode="tags"` by typing it into the input,
+ * clicking on the option in the options list, and then closing the menu.
+ */
+async function createNewOption(getSelect, option) {
+  const selectInput = findByRole(getSelect(), 'combobox');
+  selectInput.simulate('change', {
+    target: {
+      value: option
+    }
+  });
+  const optionList = getSelect().find(`.${selectClasses.list}`);
+  const optionItem = findByText(optionList, option);
+  optionItem.simulate('click');
+  await closeMenu(getSelect);
+}
+
 var selectEvent = /*#__PURE__*/Object.freeze({
   __proto__: null,
   clearAll: clearAll,
   closeMenu: closeMenu,
+  createNewOption: createNewOption,
   getAllOptions: getAllOptions,
   getLabelText: getLabelText,
   multiSelect: multiSelect,
@@ -295,7 +319,6 @@ function getColumnHeaderIndex(tableWrapper, columnHeaderName) {
     }
   });
   if (columnHeaderIndex === -1) {
-    // eslint-disable-next-line testing-library/no-debugging-utils
     throw new Error(`Unable to find a column with name "${columnHeaderName}"\n${tableWrapper.debug()}`);
   }
   return columnHeaderIndex;
@@ -331,14 +354,10 @@ function getTableRowByCellText(tableWrapper, cellText) {
     }
   });
   if (matchingRows.length === 0) {
-    throw new Error(
-    // eslint-disable-next-line testing-library/no-debugging-utils
-    `Unable to find a table row with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
+    throw new Error(`Unable to find a table row with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
   }
   if (matchingRows.length > 1) {
-    throw new Error(
-    // eslint-disable-next-line testing-library/no-debugging-utils
-    `Found multiple table rows with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
+    throw new Error(`Found multiple table rows with text "${cellText}" in the column "${columnHeaderName}"\n${tableWrapper.debug()}`);
   }
   return matchingRows[0].hostNodes();
 }

@@ -58,7 +58,7 @@ class LineSmoothSliderImpl extends React.Component<Props> {
             step={step}
             value={typeof defaultValue === 'number' ? defaultValue : 1}
             onChange={this.onChange}
-            data-test-id='InputNumber'
+            data-test-id="InputNumber"
           />
         </Col>
       </Row>

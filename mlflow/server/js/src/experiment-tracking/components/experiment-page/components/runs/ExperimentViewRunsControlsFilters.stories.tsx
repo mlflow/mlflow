@@ -37,10 +37,7 @@ export const Default = () => {
     if (typeof updatedFacetsState === 'function') {
       setSearchFacetsState(updatedFacetsState);
 
-      setMessages((currentMessages) => [
-        'updateSearchFacets() called with setter function',
-        ...currentMessages,
-      ]);
+      setMessages((currentMessages) => ['updateSearchFacets() called with setter function', ...currentMessages]);
     } else {
       setSearchFacetsState((s) => ({ ...s, ...updatedFacetsState }));
 
@@ -60,7 +57,7 @@ export const Default = () => {
         compose(applyMiddleware(promiseMiddleware())),
       )}
     >
-      <IntlProvider locale='en'>
+      <IntlProvider locale="en">
         <MemoryRouter>
           <GetExperimentRunsContextProvider actions={MOCK_ACTIONS as any}>
             <div
@@ -76,7 +73,7 @@ export const Default = () => {
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
               updateSearchFacets={updateSearchFacets}
-              experimentId={'123'}
+              experimentId="123"
               viewState={{} as any}
               updateViewState={() => {}}
               onDownloadCsv={() => {
@@ -84,6 +81,8 @@ export const Default = () => {
                 window.alert('Downloading dummy CSV...');
               }}
               requestError={null}
+              refreshRuns={() => {}}
+              viewMaximized={false}
             />
             <div
               css={{
@@ -94,9 +93,7 @@ export const Default = () => {
             >
               <h2>Debug info:</h2>
               <h3>Current search-sort-filter state:</h3>
-              <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>
-                {JSON.stringify(searchFacetsState)}
-              </div>
+              <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>{JSON.stringify(searchFacetsState)}</div>
               <h3>Log:</h3>
               {messages.map((m, i) => (
                 <div key={i} css={{ fontFamily: 'monospace' }}>

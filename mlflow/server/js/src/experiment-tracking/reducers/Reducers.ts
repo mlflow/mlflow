@@ -23,29 +23,23 @@ import {
 } from '../actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import {
-  metricsByRunUuid,
-  latestMetricsByRunUuid,
-  minMetricsByRunUuid,
-  maxMetricsByRunUuid,
-} from './MetricReducer';
+import { metricsByRunUuid, latestMetricsByRunUuid, minMetricsByRunUuid, maxMetricsByRunUuid } from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
 import _, { isArray, update } from 'lodash';
-import {
-  fulfilled,
-  isFulfilledApi,
-  isPendingApi,
-  isRejectedApi,
-  rejected,
-} from '../../common/utils/ActionUtils';
+import { fulfilled, isFulfilledApi, isPendingApi, isRejectedApi, rejected } from '../../common/utils/ActionUtils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
 import Utils from '../../common/utils/Utils';
 import { evaluationDataReducer as evaluationData } from './EvaluationDataReducer';
 import { modelGatewayReducer as modelGateway } from './/ModelGatewayReducer';
 import type { DatasetSummary, ModelVersionInfoEntity } from 'experiment-tracking/types';
+import { sampledMetricsByRunUuid } from './SampledMetricsReducer';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
-export type ApisReducerReduxState = Record<string, { active: boolean; id: string; data: any }>;
+export type ApisReducerReduxState = Record<
+  string,
+  { active: boolean; id: string; data: any; error?: Error | ErrorWrapper }
+>;
 export type ViewsReducerReduxState = {
   errorModal: {
     isOpen: boolean;
@@ -207,8 +201,7 @@ export const modelVersionsByRunUuid = (state = {}, action: any) => {
       let newState: Record<string, ModelVersionInfoEntity[]> = { ...state };
       const updatedState: Record<string, ModelVersionInfoEntity[]> = {};
       if (action.payload) {
-        const modelVersions: ModelVersionInfoEntity[] =
-          action.payload[getProtoField('model_versions')];
+        const modelVersions: ModelVersionInfoEntity[] = action.payload[getProtoField('model_versions')];
         if (modelVersions) {
           modelVersions.forEach((model_version: any) => {
             if (model_version.run_id in updatedState) {
@@ -472,6 +465,19 @@ export const artifactRootUriByRunUuid = (state = {}, action: any) => {
         [runUuid]: runInfo.getArtifactUri(),
       };
     }
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
+      const { runs } = action.payload;
+      const newState: any = { ...state };
+      if (runs) {
+        runs.forEach((rJson: any) => {
+          const runUuid = rJson.info.run_uuid;
+          const tags = rJson.data.tags || [];
+          newState[runUuid] = rJson.info.artifact_uri;
+        });
+      }
+      return newState;
+    }
     default:
       return state;
   }
@@ -517,26 +523,21 @@ export const entities = combineReducers({
   artifactRootUriByRunUuid,
   modelVersionsByRunUuid,
   datasetsByExperimentId,
+  sampledMetricsByRunUuid,
   ...modelRegistryReducers,
 });
 
 export const getSharedParamKeysByRunUuids = (runUuids: any, state: any) =>
-  _.intersection(
-    ...runUuids.map((runUuid: any) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
-  );
+  _.intersection(...runUuids.map((runUuid: any) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
 
 export const getSharedMetricKeysByRunUuids = (runUuids: any, state: any) =>
-  _.intersection(
-    ...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
-  );
+  _.intersection(...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])));
 
 export const getAllParamKeysByRunUuids = (runUuids: any, state: any) =>
   _.union(...runUuids.map((runUuid: any) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
 
 export const getAllMetricKeysByRunUuids = (runUuids: any, state: any) =>
-  _.union(
-    ...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
-  );
+  _.union(...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])));
 
 export const getApis = (requestIds: any, state: any) => {
   return requestIds.map((id: any) => state.apis[id] || {});

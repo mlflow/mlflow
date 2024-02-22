@@ -14,21 +14,24 @@ AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
 
 
 @developer_stable
-class AbstractStore(metaclass=ABCMeta):
+class AbstractStore:
     """
     Abstract class that defines API interfaces for storing Model Registry metadata.
     """
+
+    __metaclass__ = ABCMeta
 
     def __init__(self, store_uri=None, tracking_uri=None):
         """
         Empty constructor. This is deliberately not marked as abstract, else every derived class
         would be forced to create one.
 
-        :param store_uri: The model registry store URI
-        :param tracking_uri: URI of the current MLflow tracking server, used to perform operations
-                             like fetching source run metadata or downloading source run artifacts
-                             to support subsequently uploading them to the model registry storage
-                             location
+        Args:
+            store_uri: The model registry store URI.
+            tracking_uri: URI of the current MLflow tracking server, used to perform operations
+                like fetching source run metadata or downloading source run artifacts
+                to support subsequently uploading them to the model registry storage
+                location.
         """
         pass
 
@@ -39,12 +42,16 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Create a new registered model in backend store.
 
-        :param name: Name of the new model. This is expected to be unique in the backend store.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-                     instances associated with this registered model.
-        :param description: Description of the model.
-        :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
-                 created in the backend.
+        Args:
+            name: Name of the new model. This is expected to be unique in the backend store.
+            tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
+                instances associated with this registered model.
+            description: Description of the model.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
+            created in the backend.
+
         """
         pass
 
@@ -53,9 +60,12 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Update description of the registered model.
 
-        :param name: Registered model name.
-        :param description: New description.
-        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+            description: New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         pass
 
@@ -64,9 +74,12 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Rename the registered model.
 
-        :param name: Registered model name.
-        :param new_name: New proposed name.
-        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+            new_name: New proposed name.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         pass
 
@@ -76,8 +89,11 @@ class AbstractStore(metaclass=ABCMeta):
         Delete the registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param name: Registered model name.
-        :return: None
+        Args:
+            name: Registered model name.
+
+        Returns:
+            None
         """
         pass
 
@@ -88,15 +104,18 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string, defaults to searching all registered models.
-        :param max_results: Maximum number of registered models desired.
-        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
-                         matching search results.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``search_registered_models`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-                that satisfy the search expressions. The pagination token for the next page can be
-                obtained via the ``token`` attribute of the object.
+        Args:
+            filter_string: Filter query string, defaults to searching all registered models.
+            max_results: Maximum number of registered models desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_registered_models`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
         """
         pass
 
@@ -105,8 +124,11 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Get registered model instance by name.
 
-        :param name: Registered model name.
-        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         pass
 
@@ -116,10 +138,13 @@ class AbstractStore(metaclass=ABCMeta):
         Latest version models for each requested stage. If no ``stages`` argument is provided,
         returns the latest version for each stage.
 
-        :param name: Registered model name.
-        :param stages: List of desired stages. If input list is None, return latest versions for
-                       each stage.
-        :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+        Args:
+            name: Registered model name.
+            stages: List of desired stages. If input list is None, return latest versions for
+                each stage.
+
+        Returns:
+            List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         pass
 
@@ -128,9 +153,12 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Set a tag for the registered model.
 
-        :param name: Registered model name.
-        :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
-        :return: None
+        Args:
+            name: Registered model name.
+            tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
+
+        Returns:
+            None
         """
         pass
 
@@ -139,9 +167,12 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Delete a tag associated with the registered model.
 
-        :param name: Registered model name.
-        :param key: Registered model tag key.
-        :return: None
+        Args:
+            name: Registered model name.
+            key: Registered model tag key.
+
+        Returns:
+            None
         """
         pass
 
@@ -161,21 +192,25 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Create a new model version from given source and run ID.
 
-        :param name: Registered model name.
-        :param source: URI indicating the location of the model artifacts.
-        :param run_id: Run ID from MLflow tracking server that generated the model.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-                     instances associated with this model version.
-        :param run_link: Link to the run from an MLflow tracking server that generated this model.
-        :param description: Description of the version.
-        :param local_model_path: Local path to the MLflow model, if it's already accessible
-                                 on the local filesystem. Can be used by AbstractStores that
-                                 upload model version files to the model registry to avoid
-                                 a redundant download from the source location when logging
-                                 and registering a model via a single
-                                 mlflow.<flavor>.log_model(..., registered_model_name) call
-        :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 created in the backend.
+        Args:
+            name: Registered model name.
+            source: URI indicating the location of the model artifacts.
+            run_id: Run ID from MLflow tracking server that generated the model.
+            tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+                instances associated with this model version.
+            run_link: Link to the run from an MLflow tracking server that generated this model.
+            description: Description of the version.
+            local_model_path: Local path to the MLflow model, if it's already accessible
+                on the local filesystem. Can be used by AbstractStores that
+                upload model version files to the model registry to avoid
+                a redundant download from the source location when logging
+                and registering a model via a single
+                mlflow.<flavor>.log_model(..., registered_model_name) call
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            created in the backend.
+
         """
         pass
 
@@ -184,10 +219,13 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Update metadata associated with a model version in backend.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param description: New model description.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            description: New model description.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
 
@@ -196,25 +234,32 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Update model version stage.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param stage: New desired stage for this model version.
-        :param archive_existing_versions: If this flag is set to ``True``, all existing model
-            versions in the stage will be automatically moved to the "archived" stage. Only valid
-            when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            stage: New desired stage for this model version.
+            archive_existing_versions: If this flag is set to ``True``, all existing model
+                versions in the stage will be automatically moved to the "archived" stage. Only
+                valid when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will
+                be raised.
 
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
         """
         pass
 
     @abstractmethod
     def delete_model_version(self, name, version):
         """
-        Delete model version in backend.
+        Delete model model version in backend.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: None
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            None
         """
         pass
 
@@ -223,9 +268,12 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Get the model version instance by name and version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
 
@@ -236,9 +284,12 @@ class AbstractStore(metaclass=ABCMeta):
         NOTE: For first version of Model Registry, since the models are not copied over to another
               location, download URI points to input source path.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: A single URI location that allows reads for downloading.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            A single URI location that allows reads for downloading.
         """
         pass
 
@@ -249,17 +300,21 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently supports a single filter
-                              condition either name of model like ``name = 'model_name'`` or
-                              ``run_id = '...'``.
-        :param max_results: Maximum number of model versions desired.
-        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
-                         matching search results.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``search_model_versions`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects that satisfy the search expressions. The pagination token for the next
-                 page can be obtained via the ``token`` attribute of the object.
+        Args:
+            filter_string: A filter string expression. Currently supports a single filter
+                condition either name of model like ``name = 'model_name'`` or
+                ``run_id = '...'``.
+            max_results: Maximum number of model versions desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_model_versions`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            objects that satisfy the search expressions. The pagination token for the next
+            page can be obtained via the ``token`` attribute of the object.
+
         """
         pass
 
@@ -268,10 +323,13 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Set a tag for the model version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
-        :return: None
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
+
+        Returns:
+            None
         """
         pass
 
@@ -280,10 +338,13 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Delete a tag associated with the model version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param key: Tag key.
-        :return: None
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            key: Tag key.
+
+        Returns:
+            None
         """
         pass
 
@@ -292,10 +353,13 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Set a registered model alias pointing to a model version.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :param version: Registered model version number.
-        :return: None
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+            version: Registered model version number.
+
+        Returns:
+            None
         """
         pass
 
@@ -304,9 +368,12 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Delete an alias associated with a registered model.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :return: None
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+
+        Returns:
+            None
         """
         pass
 
@@ -315,9 +382,12 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Get the model version instance by name and alias.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
 
@@ -325,12 +395,15 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Copy a model version from one registered model to another as a new model version.
 
-        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
-                       the source model version.
-        :param dst_name: the name of the registered model to copy the model version to. If a
-                         registered model with this name does not exist, it will be created.
-        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
-                 the cloned model version.
+        Args:
+            src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                the source model version.
+            dst_name: The name of the registered model to copy the model version to. If a
+                registered model with this name does not exist, it will be created.
+
+        Returns:
+            Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+            the cloned model version.
         """
         try:
             self.create_registered_model(dst_name)
@@ -359,9 +432,10 @@ class AbstractStore(metaclass=ABCMeta):
         """
         Await for model version to become ready after creation.
 
-        :param mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-        :param await_creation_for: Number of seconds to wait for the model version to finish being
-                                    created and is in ``READY`` status.
+        Args:
+            mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+            await_creation_for: Number of seconds to wait for the model version to finish being
+                created and is in ``READY`` status.
         """
         self._await_model_version_creation_impl(mv, await_creation_for)
 

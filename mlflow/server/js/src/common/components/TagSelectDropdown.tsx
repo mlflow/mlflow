@@ -35,9 +35,7 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
             value: searchValue,
             disabled: !isValidTagKey,
             style: {
-              color: isValidTagKey
-                ? theme.colors.actionTertiaryTextDefault
-                : theme.colors.actionDisabledText,
+              color: isValidTagKey ? theme.colors.actionTertiaryTextDefault : theme.colors.actionDisabledText,
             },
             children: (
               <Tooltip
@@ -50,15 +48,14 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
                           'Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error',
                       })
                 }
-                placement='right'
+                placement="right"
               >
                 <span css={{ display: 'block' }}>
                   <PlusIcon css={{ marginRight: theme.spacing.sm }} />
                   {intl.formatMessage(
                     {
                       defaultMessage: 'Add tag "{tagKey}"',
-                      description:
-                        'Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button',
+                      description: 'Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button',
                     },
                     {
                       tagKey: searchValue,

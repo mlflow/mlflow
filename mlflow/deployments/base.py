@@ -15,26 +15,28 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import developer_stable
 
 
-def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
-    """
+def run_local(target, name, model_uri, flavor=None, config=None):
+    """Deploys the specified model locally, for testing. This function should be defined
+    within the plugin module. Also note that this function has a signature which is very
+    similar to :py:meth:`BaseDeploymentClient.create_deployment` since both does logically
+    similar operation.
+
     .. Note::
         This function is kept here only for documentation purpose and not implementing the
         actual feature. It should be implemented in the plugin's top level namescope and should
         be callable with ``plugin_module.run_local``
 
-    Deploys the specified model locally, for testing. This function should be defined
-    within the plugin module. Also note that this function has a signature which is very
-    similar to :py:meth:`BaseDeploymentClient.create_deployment` since both does logically
-    similar operation.
+    Args:
+        target: Which target to use. This information is used to call the appropriate plugin.
+        name: Unique name to use for deployment. If another deployment exists with the same
+            name, create_deployment will raise a
+            :py:class:`mlflow.exceptions.MlflowException`.
+        model_uri: URI of model to deploy.
+        flavor: (optional) Model flavor to deploy. If unspecified, default flavor is chosen.
+        config: (optional) Dict containing updated target-specific config for the deployment.
 
-    :param target: Which target to use. This information is used to call the appropriate plugin
-    :param name:  Unique name to use for deployment. If another deployment exists with the same
-                     name, create_deployment will raise a
-                     :py:class:`mlflow.exceptions.MlflowException`
-    :param model_uri: URI of model to deploy
-    :param flavor: (optional) Model flavor to deploy. If unspecified, default flavor is chosen.
-    :param config: (optional) Dict containing updated target-specific config for the deployment
-    :return: None
+    Returns:
+        None
     """
     raise NotImplementedError(
         "This function should be implemented in the deployment plugin. It is "
@@ -97,17 +99,20 @@ class BaseDeploymentClient(abc.ABC):
         :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
         for additional detail on support for asynchronous deployment and other configuration.
 
-        :param name: Unique name to use for deployment. If another deployment exists with the same
-                     name, raises a
-                     :py:class:`mlflow.exceptions.MlflowException`
-        :param model_uri: URI of model to deploy
-        :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
-                       will be chosen.
-        :param config: (optional) Dict containing updated target-specific configuration for the
-                       deployment
-        :param endpoint: (optional) Endpoint to create the deployment under. May not be supported
-                         by all targets
-        :return: Dict corresponding to created deployment, which must contain the 'name' key.
+        Args:
+            name: Unique name to use for deployment. If another deployment exists with the same
+                name, raises a :py:class:`mlflow.exceptions.MlflowException`
+            model_uri: URI of model to deploy
+            flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
+                will be chosen.
+            config: (optional) Dict containing updated target-specific configuration for the
+                deployment
+            endpoint: (optional) Endpoint to create the deployment under. May not be supported
+                by all targets
+
+        Returns:
+            Dict corresponding to created deployment, which must contain the 'name' key.
+
         """
         pass
 
@@ -121,50 +126,61 @@ class BaseDeploymentClient(abc.ABC):
         with the updated deployment). See target-specific plugin documentation for additional
         detail on support for asynchronous deployment and other configuration.
 
-        :param name: Unique name of deployment to update
-        :param model_uri: URI of a new model to deploy.
-        :param flavor: (optional) new model flavor to use for deployment. If provided,
-                       ``model_uri`` must also be specified. If ``flavor`` is unspecified but
-                       ``model_uri`` is specified, a default flavor will be chosen and the
-                       deployment will be updated using that flavor.
-        :param config: (optional) dict containing updated target-specific configuration for the
-                       deployment
-        :param endpoint: (optional) Endpoint containing the deployment to update. May not be
-                         supported by all targets
-        :return: None
+        Args:
+            name: Unique name of deployment to update.
+            model_uri: URI of a new model to deploy.
+            flavor: (optional) new model flavor to use for deployment. If provided,
+                ``model_uri`` must also be specified. If ``flavor`` is unspecified but
+                ``model_uri`` is specified, a default flavor will be chosen and the
+                deployment will be updated using that flavor.
+            config: (optional) dict containing updated target-specific configuration for the
+                deployment.
+            endpoint: (optional) Endpoint containing the deployment to update. May not be
+                supported by all targets.
+
+        Returns:
+            None
+
         """
         pass
 
     @abc.abstractmethod
     def delete_deployment(self, name, config=None, endpoint=None):
-        """
-        Delete the deployment with name ``name`` from the specified target. Deletion should be
-        idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
+        """Delete the deployment with name ``name`` from the specified target.
 
-        :param name: Name of deployment to delete
-        :param config: (optional) dict containing updated target-specific configuration for the
-                       deployment
-        :param endpoint: (optional) Endpoint containing the deployment to delete. May not be
-                         supported by all targets
-        :return: None
+        Deletion should be idempotent (i.e. deletion should not fail if retried on a non-existent
+        deployment).
+
+        Args:
+            name: Name of deployment to delete
+            config: (optional) dict containing updated target-specific configuration for the
+                deployment
+            endpoint: (optional) Endpoint containing the deployment to delete. May not be
+                supported by all targets
+
+        Returns:
+            None
         """
         pass
 
     @abc.abstractmethod
     def list_deployments(self, endpoint=None):
-        """
-        List deployments. This method is expected to return an unpaginated list of all
+        """List deployments.
+
+        This method is expected to return an unpaginated list of all
         deployments (an alternative would be to return a dict with a 'deployments' field
         containing the actual deployments, with plugins able to specify other fields, e.g.
         a next_page_token field, in the returned dictionary for pagination, and to accept
         a `pagination_args` argument to this method for passing pagination-related args).
 
-        :param endpoint: (optional) List deployments in the specified endpoint. May not be
-                         supported by all targets
+        Args:
+            endpoint: (optional) List deployments in the specified endpoint. May not be
+                supported by all targets
 
-        :return: A list of dicts corresponding to deployments. Each dict is guaranteed to
-                 contain a 'name' key containing the deployment name. The other fields of
-                 the returned dictionary and their types may vary across deployment targets.
+        Returns:
+            A list of dicts corresponding to deployments. Each dict is guaranteed to
+            contain a 'name' key containing the deployment name. The other fields of
+            the returned dictionary and their types may vary across deployment targets.
         """
         pass
 
@@ -178,43 +194,51 @@ class BaseDeploymentClient(abc.ABC):
         The other fields of the returned dictionary and their types may vary across
         deployment targets.
 
-        :param name: ID of deployment to fetch
-        :param endpoint: (optional) Endpoint containing the deployment to get. May not be
-                         supported by all targets
-        :return: A dict corresponding to the retrieved deployment. The dict is guaranteed to
-                 contain a 'name' key corresponding to the deployment name. The other fields of
-                 the returned dictionary and their types may vary across targets.
+        Args:
+            name: ID of deployment to fetch.
+            endpoint: (optional) Endpoint containing the deployment to get. May not be
+                supported by all targets.
+
+        Returns:
+            A dict corresponding to the retrieved deployment. The dict is guaranteed to
+            contain a 'name' key corresponding to the deployment name. The other fields of
+            the returned dictionary and their types may vary across targets.
         """
         pass
 
     @abc.abstractmethod
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        """
-        Compute predictions on inputs using the specified deployment or model endpoint.
+        """Compute predictions on inputs using the specified deployment or model endpoint.
+
         Note that the input/output types of this method match those of `mlflow pyfunc predict`.
 
-        :param deployment_name: Name of deployment to predict against
-        :param inputs: Input data (or arguments) to pass to the deployment or model endpoint for
-                       inference
-        :param endpoint: Endpoint to predict against. May not be supported by all targets
-        :return: A :py:class:`mlflow.deployments.PredictionsResponse` instance representing the
-                 predictions and associated Model Server response metadata.
+        Args:
+            deployment_name: Name of deployment to predict against.
+            inputs: Input data (or arguments) to pass to the deployment or model endpoint for
+                inference.
+            endpoint: Endpoint to predict against. May not be supported by all targets.
+
+        Returns:
+            A :py:class:`mlflow.deployments.PredictionsResponse` instance representing the
+            predictions and associated Model Server response metadata.
+
         """
         pass
 
-    def explain(
-        self, deployment_name=None, df=None, endpoint=None
-    ):  # pylint: disable=unused-argument
+    def explain(self, deployment_name=None, df=None, endpoint=None):
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
         ``df`` for the deployed model. Explanation output formats vary by deployment target,
         and can include details like feature importance for understanding/debugging predictions.
 
-        :param deployment_name: Name of deployment to predict against
-        :param df: Pandas DataFrame to use for explaining feature importance in model prediction
-        :param endpoint: Endpoint to predict against. May not be supported by all targets
-        :return: A JSON-able object (pandas dataframe, numpy array, dictionary), or
-                 an exception if the implementation is not available in deployment target's class
+        Args:
+            deployment_name: Name of deployment to predict against
+            df: Pandas DataFrame to use for explaining feature importance in model prediction
+            endpoint: Endpoint to predict against. May not be supported by all targets
+
+        Returns:
+            A JSON-able object (pandas dataframe, numpy array, dictionary), or
+            an exception if the implementation is not available in deployment target's class
         """
         raise MlflowException(
             "Computing model explanations is not yet supported for this deployment target"
@@ -229,11 +253,15 @@ class BaseDeploymentClient(abc.ABC):
         :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
         for additional detail on support for asynchronous creation and other configuration.
 
-        :param name: Unique name to use for endpoint. If another endpoint exists with the same
-                     name, raises a :py:class:`mlflow.exceptions.MlflowException`.
-        :param config: (optional) Dict containing target-specific configuration for the
-                       endpoint.
-        :return: Dict corresponding to created endpoint, which must contain the 'name' key.
+        Args:
+            name: Unique name to use for endpoint. If another endpoint exists with the same
+                name, raises a :py:class:`mlflow.exceptions.MlflowException`.
+            config: (optional) Dict containing target-specific configuration for the
+                endpoint.
+
+        Returns:
+            Dict corresponding to created endpoint, which must contain the 'name' key.
+
         """
         raise MlflowException(
             "Method is unimplemented in base client. Implementation should be "
@@ -248,10 +276,14 @@ class BaseDeploymentClient(abc.ABC):
         target-specific plugin documentation for additional detail on support for asynchronous
         update and other configuration.
 
-        :param endpoint: Unique name of endpoint to update
-        :param config: (optional) dict containing target-specific configuration for the
-                       endpoint
-        :return: None
+        Args:
+            endpoint: Unique name of endpoint to update
+            config: (optional) dict containing target-specific configuration for the
+                endpoint
+
+        Returns:
+            None
+
         """
         raise MlflowException(
             "Method is unimplemented in base client. Implementation should be "
@@ -263,8 +295,11 @@ class BaseDeploymentClient(abc.ABC):
         Delete the endpoint from the specified target. Deletion should be idempotent (i.e. deletion
         should not fail if retried on a non-existent deployment).
 
-        :param endpoint: Name of endpoint to delete
-        :return: None
+        Args:
+            endpoint: Name of endpoint to delete
+
+        Returns:
+            None
         """
         raise MlflowException(
             "Method is unimplemented in base client. Implementation should be "
@@ -280,9 +315,10 @@ class BaseDeploymentClient(abc.ABC):
         and to accept a `pagination_args` argument to this method for passing
         pagination-related args).
 
-        :return: A list of dicts corresponding to endpoints. Each dict is guaranteed to
-                 contain a 'name' key containing the endpoint name. The other fields of
-                 the returned dictionary and their types may vary across targets.
+        Returns:
+            A list of dicts corresponding to endpoints. Each dict is guaranteed to
+            contain a 'name' key containing the endpoint name. The other fields of
+            the returned dictionary and their types may vary across targets.
         """
         raise MlflowException(
             "Method is unimplemented in base client. Implementation should be "
@@ -297,10 +333,13 @@ class BaseDeploymentClient(abc.ABC):
         The dict is guaranteed to contain an 'name' key containing the endpoint name.
         The other fields of the returned dictionary and their types may vary across targets.
 
-        :param endpoint: Name of endpoint to fetch
-        :return: A dict corresponding to the retrieved endpoint. The dict is guaranteed to
-                 contain a 'name' key corresponding to the endpoint name. The other fields of
-                 the returned dictionary and their types may vary across targets.
+        Args:
+            endpoint: Name of endpoint to fetch
+
+        Returns:
+            A dict corresponding to the retrieved endpoint. The dict is guaranteed to
+            contain a 'name' key corresponding to the endpoint name. The other fields of
+            the returned dictionary and their types may vary across targets.
         """
         raise MlflowException(
             "Method is unimplemented in base client. Implementation should be "

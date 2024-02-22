@@ -12,9 +12,7 @@ interface EvaluationGroupByHeaderCellRendererProps extends IHeaderParams {
 /**
  * Component used as a column header for "group by" columns
  */
-export const EvaluationGroupByHeaderCellRenderer = ({
-  displayName,
-}: EvaluationGroupByHeaderCellRendererProps) => {
+export const EvaluationGroupByHeaderCellRenderer = ({ displayName }: EvaluationGroupByHeaderCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (

@@ -32,7 +32,7 @@ def reset_logging_level():
     logger.setLevel(level_before)
 
 
-class TestStream:
+class SampleStream:
     def __init__(self):
         self.content = None
         self.flush_count = 0
@@ -50,8 +50,8 @@ class TestStream:
 
 @pytest.mark.parametrize("logging_fn", LOGGING_FNS_TO_TEST)
 def test_event_logging_apis_respect_stderr_reassignment(logging_fn):
-    stream1 = TestStream()
-    stream2 = TestStream()
+    stream1 = SampleStream()
+    stream2 = SampleStream()
     message_content = "test message"
 
     sys.stderr = stream1
@@ -70,7 +70,7 @@ def test_event_logging_apis_respect_stderr_reassignment(logging_fn):
 
 @pytest.mark.parametrize("logging_fn", LOGGING_FNS_TO_TEST)
 def test_event_logging_apis_respect_stream_disablement_enablement(logging_fn):
-    stream = TestStream()
+    stream = SampleStream()
     sys.stderr = stream
     message_content = "test message"
 
@@ -91,7 +91,7 @@ def test_event_logging_apis_respect_stream_disablement_enablement(logging_fn):
 
 
 def test_event_logging_stream_flushes_properly():
-    stream = TestStream()
+    stream = SampleStream()
     sys.stderr = stream
 
     eprint("foo", flush=True)
@@ -100,7 +100,7 @@ def test_event_logging_stream_flushes_properly():
 
 
 def test_debug_logs_emitted_correctly_when_configured():
-    stream = TestStream()
+    stream = SampleStream()
     sys.stderr = stream
 
     logger.setLevel(logging.DEBUG)

@@ -47,6 +47,7 @@ For full examples of configurations and supported endpoint types, see:
 - [AI21 Labs](ai21labs/config.yaml)
 - [PaLM](palm/config.yaml)
 - [AzureOpenAI](azure_openai/config.yaml)
+- [Mistral](mistral/config.yaml)
 
 ## Step 3: Setting Access Keys
 

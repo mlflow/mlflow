@@ -1,7 +1,9 @@
-import os
 import logging
+import os
 from importlib.machinery import SourceFileLoader
-from setuptools import setup, find_packages, Command
+from pathlib import Path
+
+from setuptools import find_packages, setup
 
 _MLFLOW_SKINNY_ENV_VAR = "MLFLOW_SKINNY"
 
@@ -73,45 +75,9 @@ with open(os.path.join("requirements", "gateway-requirements.txt")) as f:
     GATEWAY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
-logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
+logging.debug(f"{_MLFLOW_SKINNY_ENV_VAR} env var is set: {_is_mlflow_skinny}")
 
-
-class ListDependencies(Command):
-    # `python setup.py <command name>` prints out "running <command name>" by default.
-    # This logging message must be hidden by specifying `--quiet` (or `-q`) when piping the output
-    # of this command to `pip install`.
-    description = "List mlflow dependencies"
-    user_options = [
-        ("skinny", None, "List mlflow-skinny dependencies"),
-    ]
-
-    def initialize_options(self):
-        self.skinny = False
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        dependencies = SKINNY_REQUIREMENTS if self.skinny else CORE_REQUIREMENTS
-        print("\n".join(dependencies))
-
-
-MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
-
-
-class MinPythonVersion(Command):
-    description = "Print out the minimum supported Python version"
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        print(MINIMUM_SUPPORTED_PYTHON_VERSION)
-
+MINIMUM_SUPPORTED_PYTHON_VERSION = Path("requirements", "python-version.txt").read_text().strip()
 
 skinny_package_data = [
     # include alembic files to enable usage of the skinny client with SQL databases
@@ -122,10 +88,16 @@ skinny_package_data = [
     *recipes_files,
 ]
 
+with open("README_SKINNY.rst") as f:
+    README_SKINNY = f.read()
+
+with open("README.rst") as f:
+    README = f.read()
+
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
-    packages=find_packages(exclude=["tests", "tests.*"]),
+    packages=find_packages(exclude=["tests", "tests.*", "pylint_plugins"]),
     package_data=(
         {"mlflow": skinny_package_data}
         if _is_mlflow_skinny
@@ -146,6 +118,7 @@ setup(
             "requests-auth-aws-sigv4",
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
+            "botocore",
             # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage>=1.30.0",
             "azureml-core>=1.2.0",
@@ -169,6 +142,7 @@ setup(
             "azure-storage-file-datalake>12",
             "google-cloud-storage>=1.30.0",
             "boto3>1",
+            "botocore",
         ],
         "gateway": GATEWAY_REQUIREMENTS,
         "genai": GATEWAY_REQUIREMENTS,
@@ -190,17 +164,12 @@ setup(
         databricks=mlflow.deployments.databricks
         http=mlflow.deployments.mlflow
         https=mlflow.deployments.mlflow
+        openai=mlflow.deployments.openai
     """,
-    cmdclass={
-        "dependencies": ListDependencies,
-        "min_python_version": MinPythonVersion,
-    },
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
-    long_description=open("README.rst").read()
-    if not _is_mlflow_skinny
-    else open("README_SKINNY.rst").read() + open("README.rst").read(),
+    long_description=README if not _is_mlflow_skinny else README_SKINNY + README,
     long_description_content_type="text/x-rst",
     license="Apache License 2.0",
     classifiers=[

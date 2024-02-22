@@ -58,91 +58,75 @@ describe('GenericInputModal', () => {
     expect(wrapper.find(Modal).length).toBe(1);
   });
 
-  test(
-    'should validate form contents and set submitting state in submission handler: ' +
-      'successful submission case',
-    async () => {
-      // Test that validateFields() is called, and that handleSubmit is not called
-      // when validation fails (and submitting state remains false)
-      wrapper = shallow(<GenericInputModal {...minimalProps} />);
-      const instance = wrapper.instance();
-      wrapper.children(SimpleForm).props().innerRef.current = {
-        validateFields: () => validateFields(true),
-        resetFields: () => resetFields(resetFieldsMock),
-      };
-      const onValidationPromise = instance.onSubmit();
-      expect(instance.state.isSubmitting).toEqual(true);
-      await onValidationPromise;
-      // We expect submission to succeed, and for the form fields to be reset and for the form to
-      // no longer be submitting
-      expect(resetFieldsMock).toBeCalled();
-      expect(instance.state.isSubmitting).toEqual(false);
-    },
-  );
+  test('should validate form contents and set submitting state in submission handler: successful submission case', async () => {
+    // Test that validateFields() is called, and that handleSubmit is not called
+    // when validation fails (and submitting state remains false)
+    wrapper = shallow(<GenericInputModal {...minimalProps} />);
+    const instance = wrapper.instance();
+    wrapper.children(SimpleForm).props().innerRef.current = {
+      validateFields: () => validateFields(true),
+      resetFields: () => resetFields(resetFieldsMock),
+    };
+    const onValidationPromise = instance.onSubmit();
+    expect(instance.state.isSubmitting).toEqual(true);
+    await onValidationPromise;
+    // We expect submission to succeed, and for the form fields to be reset and for the form to
+    // no longer be submitting
+    expect(resetFieldsMock).toBeCalled();
+    expect(instance.state.isSubmitting).toEqual(false);
+  });
 
-  test(
-    'should validate form contents and set submitting state in submission handler: ' +
-      'failed validation case',
-    async () => {
-      // Test that validateFields() is called, and that handleSubmit is not called
-      // when validation fails (and submitting state remains false)
-      // @ts-expect-error TS(2769): No overload matches this call.
-      const form = <SimpleForm shouldValidationThrow resetFieldsFn={resetFieldsMock} />;
-      const handleSubmit = jest.fn();
-      wrapper = shallow(
-        <GenericInputModal {...{ ...minimalProps, children: form, handleSubmit }} />,
-      );
-      const instance = wrapper.instance();
-      wrapper.children(SimpleForm).props().innerRef.current = {
-        validateFields: () => validateFields(false),
-        resetFields: () => resetFields(resetFieldsMock),
-      };
-      const onValidationPromise = instance.onSubmit();
-      expect(instance.state.isSubmitting).toEqual(true);
-      try {
-        await onValidationPromise;
-        // Reported during ESLint upgrade
-        // eslint-disable-next-line no-undef, jest/no-jasmine-globals -- TODO: Fix this (use throw new Error())
-        fail('Must throw');
-      } catch (e) {
-        // For validation errors, the form should not be reset (so that the user can fix the
-        // validation error)
-        expect(resetFieldsMock).not.toBeCalled();
-        expect(handleSubmit).not.toBeCalled();
-        expect(instance.state.isSubmitting).toEqual(false);
-      }
-    },
-  );
-
-  test(
-    'should validate form contents and set submitting state in submission handler: ' +
-      'failed submission case',
-    async () => {
-      // Test that validateFields() is called, and that handleSubmit is not called
-      // when validation fails (and submitting state remains false)
-      // @ts-expect-error TS(2769): No overload matches this call.
-      const form = <SimpleForm shouldValidationThrow={false} resetFieldsFn={resetFieldsMock} />;
-      const handleSubmit = (values: any) =>
-        new Promise((resolve, reject) => {
-          window.setTimeout(() => {
-            reject(new Error());
-          }, 1000);
-        });
-      wrapper = shallow(
-        <GenericInputModal {...{ ...minimalProps, children: form, handleSubmit }} />,
-      );
-      const instance = wrapper.instance();
-      wrapper.children(SimpleForm).props().innerRef.current = {
-        validateFields: () => validateFields(true),
-        resetFields: () => resetFields(resetFieldsMock),
-      };
-      const onValidationPromise = instance.onSubmit();
-      expect(instance.state.isSubmitting).toEqual(true);
+  test('should validate form contents and set submitting state in submission handler: failed validation case', async () => {
+    // Test that validateFields() is called, and that handleSubmit is not called
+    // when validation fails (and submitting state remains false)
+    // @ts-expect-error TS(2769): No overload matches this call.
+    const form = <SimpleForm shouldValidationThrow resetFieldsFn={resetFieldsMock} />;
+    const handleSubmit = jest.fn();
+    wrapper = shallow(<GenericInputModal {...{ ...minimalProps, children: form, handleSubmit }} />);
+    const instance = wrapper.instance();
+    wrapper.children(SimpleForm).props().innerRef.current = {
+      validateFields: () => validateFields(false),
+      resetFields: () => resetFields(resetFieldsMock),
+    };
+    const onValidationPromise = instance.onSubmit();
+    expect(instance.state.isSubmitting).toEqual(true);
+    try {
       await onValidationPromise;
+      // Reported during ESLint upgrade
+      // eslint-disable-next-line no-undef, jest/no-jasmine-globals -- TODO: Fix this (use throw new Error())
+      fail('Must throw');
+    } catch (e) {
       // For validation errors, the form should not be reset (so that the user can fix the
       // validation error)
-      expect(resetFieldsMock).toBeCalled();
+      expect(resetFieldsMock).not.toBeCalled();
+      expect(handleSubmit).not.toBeCalled();
       expect(instance.state.isSubmitting).toEqual(false);
-    },
-  );
+    }
+  });
+
+  test('should validate form contents and set submitting state in submission handler: failed submission case', async () => {
+    // Test that validateFields() is called, and that handleSubmit is not called
+    // when validation fails (and submitting state remains false)
+    // @ts-expect-error TS(2769): No overload matches this call.
+    const form = <SimpleForm shouldValidationThrow={false} resetFieldsFn={resetFieldsMock} />;
+    const handleSubmit = (values: any) =>
+      new Promise((resolve, reject) => {
+        window.setTimeout(() => {
+          reject(new Error());
+        }, 1000);
+      });
+    wrapper = shallow(<GenericInputModal {...{ ...minimalProps, children: form, handleSubmit }} />);
+    const instance = wrapper.instance();
+    wrapper.children(SimpleForm).props().innerRef.current = {
+      validateFields: () => validateFields(true),
+      resetFields: () => resetFields(resetFieldsMock),
+    };
+    const onValidationPromise = instance.onSubmit();
+    expect(instance.state.isSubmitting).toEqual(true);
+    await onValidationPromise;
+    // For validation errors, the form should not be reset (so that the user can fix the
+    // validation error)
+    expect(resetFieldsMock).toBeCalled();
+    expect(instance.state.isSubmitting).toEqual(false);
+  });
 });

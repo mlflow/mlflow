@@ -1,13 +1,13 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
+import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 
-const localStorageKey = '_mlflow_user_setting_use_next_models_ui';
+const useOldModelsUIStorageKey = '_mlflow_user_setting_dismiss_next_model_registry_ui';
 
 const NextModelsUIContext = React.createContext<{
   usingNextModelsUI: boolean;
   setUsingNextModelsUI: (newValue: boolean) => void;
 }>({
-  usingNextModelsUI: false,
+  usingNextModelsUI: shouldShowModelsNextUI(),
   setUsingNextModelsUI: () => {},
 });
 
@@ -27,19 +27,16 @@ export const withNextModelsUIContext =
   <P,>(Component: React.ComponentType<P & { usingNextModelsUI?: boolean }>) =>
   (props: P) => {
     const [usingNextModelsUI, setUsingNextModelsUI] = useState(
-      localStorage.getItem(localStorageKey) === 'true',
+      localStorage.getItem(useOldModelsUIStorageKey) !== 'true',
     );
 
     useEffect(() => {
-      localStorage.setItem(localStorageKey, usingNextModelsUI.toString());
+      localStorage.setItem(useOldModelsUIStorageKey, (!usingNextModelsUI).toString());
     }, [usingNextModelsUI]);
 
-    const contextValue = useMemo(
-      () => ({ usingNextModelsUI, setUsingNextModelsUI }),
-      [usingNextModelsUI],
-    );
+    const contextValue = useMemo(() => ({ usingNextModelsUI, setUsingNextModelsUI }), [usingNextModelsUI]);
 
-    if (!shouldUseToggleModelsNextUI()) {
+    if (!shouldShowModelsNextUI()) {
       return <Component {...props} usingNextModelsUI={false} />;
     }
 

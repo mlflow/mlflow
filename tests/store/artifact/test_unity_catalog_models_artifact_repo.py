@@ -9,13 +9,13 @@ from requests import Response
 from mlflow import MlflowClient
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.utils._unity_catalog_utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
@@ -55,12 +55,21 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
         UnityCatalogModelsArtifactRepository(model_uri, non_databricks_uri)
 
 
-def test_uc_models_artifact_repo_with_stage_uri_raises():
-    model_uri = "models:/MyModel/Staging"
-    with mock.patch("databricks_cli.configure.provider.get_config"), pytest.raises(
+@pytest.mark.parametrize(
+    ("model_uri", "expected_error_msg"),
+    [
+        (
+            "models:/MyModel/Staging",
+            "Setting stages and loading model versions by stage is unsupported in Unity Catalog. "
+            "Instead, use aliases for flexible model deployment",
+        ),
+        ("models:/MyModel/latest", "To load the latest version of a model in Unity Catalog"),
+    ],
+)
+def test_uc_models_artifact_repo_with_stage_uri_raises(model_uri, expected_error_msg):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), pytest.raises(
         MlflowException,
-        match="If seeing this error while attempting to load a model version by stage, note that "
-        "setting stages and loading model versions by stage is unsupported in Unity Catalog",
+        match=expected_error_msg,
     ):
         UnityCatalogModelsArtifactRepository(
             artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
@@ -98,7 +107,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
         }
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
@@ -135,7 +144,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
@@ -172,7 +181,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "google.cloud.storage.Client"
@@ -233,7 +242,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("databricks_cli.configure.provider.get_config"), mock.patch.object(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
@@ -260,3 +269,21 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
         )
+
+
+def test_get_feature_dependencies_doesnt_throw():
+    import mlflow
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+
+    assert (
+        mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies(
+            model_info.model_uri
+        )
+        == ""
+    )

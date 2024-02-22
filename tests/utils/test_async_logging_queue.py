@@ -51,19 +51,15 @@ def test_single_thread_publish_consume_queue():
     tags_sent = []
     params_sent = []
 
-    run_operations = []
     for params, tags, metrics in _get_run_data():
-        run_operations.append(
-            async_logging_queue.log_batch_async(
-                run_id=run_id, metrics=metrics, tags=tags, params=params
-            )
+        async_logging_queue.log_batch_async(
+            run_id=run_id, metrics=metrics, tags=tags, params=params
         )
         metrics_sent += metrics
         tags_sent += tags
         params_sent += params
 
-    for run_operation in run_operations:
-        run_operation.wait()
+    async_logging_queue.flush()
 
     _assert_sent_received_data(
         metrics_sent,

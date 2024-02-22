@@ -21,9 +21,7 @@ export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMP
  * react-router v6's location, navigate and params being injected via props.
  */
 export const withRouterNext =
-  <Props, Params extends RouterDOMParams>(
-    Component: React.ComponentType<Props & WithRouterNextProps<Params>>,
-  ) =>
+  <Props, Params extends RouterDOMParams>(Component: React.ComponentType<Props & WithRouterNextProps<Params>>) =>
   (
     props: Omit<
       Props,
@@ -40,6 +38,7 @@ export const withRouterNext =
 
     return (
       <Component
+        /* prettier-ignore */
         params={params as Params}
         location={location}
         navigate={navigate}

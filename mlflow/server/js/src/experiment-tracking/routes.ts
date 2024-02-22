@@ -1,8 +1,4 @@
-import {
-  createLazyRouteElement,
-  createMLflowRoutePath,
-  generatePath,
-} from '../common/utils/RoutingUtils';
+import { createLazyRouteElement, createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
 import { X_AXIS_RELATIVE } from './components/MetricsPlotControls';
 import { shouldEnableDeepLearningUI } from '../common/utils/FeatureUtils';
 
@@ -66,8 +62,11 @@ class Routes {
     return RoutePaths.experimentPageSearch;
   }
 
-  static getExperimentPageRoute(experimentId: string, isComparingRuns = false) {
+  static getExperimentPageRoute(experimentId: string, isComparingRuns = false, shareState?: string) {
     const path = generatePath(RoutePaths.experimentPage, { experimentId });
+    if (shareState) {
+      return `${path}?viewStateShareKey=${shareState}`;
+    }
     if (isComparingRuns) {
       return `${path}?isComparingRuns=true`;
     }
@@ -85,19 +84,11 @@ class Routes {
     return `${path}?lifecycleFilter=${lifecycleStage}`;
   }
 
-  static getRunPageRoute(
-    experimentId: string,
-    runUuid: string,
-    artifactPath: string | null = null,
-  ) {
+  static getRunPageRoute(experimentId: string, runUuid: string, artifactPath: string | null = null) {
     if (artifactPath) {
       if (shouldEnableDeepLearningUI()) {
         // If deep learning UI features are enabled, use more versatile (and backward compatible) route
-        return this.getRunPageTabRoute(
-          experimentId,
-          runUuid,
-          ['artifacts', artifactPath].join('/'),
-        );
+        return this.getRunPageTabRoute(experimentId, runUuid, ['artifacts', artifactPath].join('/'));
       }
       return generatePath(RoutePaths.runPageWithArtifact, {
         experimentId,
@@ -177,9 +168,7 @@ class Routes {
   }
 
   static getCompareRunPageRoute(runUuids: string[], experimentIds: string[]) {
-    const queryString = `?runs=${JSON.stringify(runUuids)}&experiments=${JSON.stringify(
-      experimentIds,
-    )}`;
+    const queryString = `?runs=${JSON.stringify(runUuids)}&experiments=${JSON.stringify(experimentIds)}`;
     return `${generatePath(RoutePaths.compareRuns)}${queryString}`;
   }
 
@@ -237,7 +226,7 @@ export const getRouteDefs = () => [
       ]),
   {
     path: RoutePaths.runPageDirect,
-    element: createLazyRouteElement(() => import('./components/RunPage')),
+    element: createLazyRouteElement(() => import('./components/DirectRunPage')),
     pageId: 'mlflow.experiment.run.details.direct',
   },
   {

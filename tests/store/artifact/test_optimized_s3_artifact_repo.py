@@ -17,6 +17,7 @@ from tests.helper_functions import set_boto_credentials  # noqa: F401
 
 S3_REPOSITORY_MODULE = "mlflow.store.artifact.optimized_s3_artifact_repo"
 S3_ARTIFACT_REPOSITORY = f"{S3_REPOSITORY_MODULE}.OptimizedS3ArtifactRepository"
+DEFAULT_REGION_NAME = "us_random_region"
 
 
 @pytest.fixture
@@ -33,9 +34,8 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
     with mock.patch("boto3.client") as mock_get_s3_client:
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock
-        s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": "us-west-2"}
+        s3_client_mock.head_bucket.return_value = {"BucketRegion": "us-west-2"}
 
-        # pylint: disable=no-value-for-parameter
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
         # We get the s3 client once during initialization to get the bucket region name
@@ -84,6 +84,13 @@ def test_get_s3_client_verify_param_set_correctly(
 ):
     monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls_env)
     with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": DEFAULT_REGION_NAME},
+            }
+        }
+        mock_get_s3_client.return_value = s3_client_mock
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
         repo._get_s3_client()
         mock_get_s3_client.assert_called_with(
@@ -98,13 +105,53 @@ def test_get_s3_client_verify_param_set_correctly(
         )
 
 
-def test_get_s3_client_region_name_set_correctly(s3_artifact_root):
+@pytest.mark.parametrize("client_throws", [True, False])
+def test_get_s3_client_region_name_set_correctly(s3_artifact_root, client_throws):
+    region_name = "us_random_region_42"
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        from botocore.exceptions import ClientError
+
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        if client_throws:
+            error = ClientError(
+                {
+                    "Error": {"Code": "403", "Message": "Forbidden"},
+                    "ResponseMetadata": {
+                        "HTTPHeaders": {"x-amz-bucket-region": region_name},
+                    },
+                },
+                "head_bucket",
+            )
+            s3_client_mock.head_bucket.side_effect = error
+        else:
+            s3_client_mock.head_bucket.return_value = {"BucketRegion": region_name}
+
+        repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+        repo._get_s3_client()
+
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            region_name=region_name,
+        )
+
+
+def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_artifact_root):
     region_name = "us_random_region_42"
     with mock.patch("boto3.client") as mock_get_s3_client:
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock
-        s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": region_name}
-
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": region_name},
+            }
+        }
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
         repo._get_s3_client()
 
@@ -128,6 +175,13 @@ def test_s3_client_config_set_correctly(s3_artifact_root):
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
     with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": DEFAULT_REGION_NAME},
+            }
+        }
+        mock_get_s3_client.return_value = s3_client_mock
         repo = OptimizedS3ArtifactRepository(
             s3_artifact_root,
             access_key_id="my-id",
@@ -147,7 +201,9 @@ def test_s3_creds_passed_to_client(s3_artifact_root):
         )
 
 
-def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_bucket, tmp_path):
+def test_log_artifacts_in_parallel_when_necessary(
+    s3_artifact_root, mock_s3_bucket, tmp_path, monkeypatch
+):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
     file_a_name = "a.txt"
@@ -156,7 +212,8 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_buck
     with open(file_a_path, "w") as f:
         f.write(file_a_text)
 
-    with mock.patch(f"{S3_REPOSITORY_MODULE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", "0")
+    with mock.patch(
         f"{S3_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
     ) as multipart_upload_mock:
         repo.log_artifacts(tmp_path)
@@ -165,7 +222,7 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_buck
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_download_file_in_parallel_when_necessary(
     s3_artifact_root, file_size, is_parallel_download

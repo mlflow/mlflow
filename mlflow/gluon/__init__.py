@@ -49,24 +49,26 @@ def load_model(model_uri, ctx, dst_path=None):
     """
     Load a Gluon model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-    :param ctx: Either CPU or GPU.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+        ctx: Either CPU or GPU.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-    :return: A Gluon model instance.
+    Returns:
+        A Gluon model instance.
 
     .. code-block:: python
         :caption: Example
@@ -102,21 +104,25 @@ class _GluonModelWrapper:
         self.gluon_model = gluon_model
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,
     ):
-        """
-        :param data: Either a pandas DataFrame or a numpy array containing input array values.
-                     If the input is a DataFrame, it will be converted to an array first by a
-                     `ndarray = df.values`.
-        :param params: Additional parameters to pass to the model for inference.
+        """This is a docstring. Here is more info.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+        Args:
+            data: Either a pandas DataFrame or a numpy array containing input array values.
+                If the input is a DataFrame, it will be converted to an array first by a
+                `ndarray = df.values`.
+            params: Additional parameters to pass to the model for inference.
 
-        :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
-                 in a pandas.DataFrame. If the input is a numpy array, the predictions are returned
-                 as either a numpy.ndarray or a plain list for hybrid models.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
+        Returns:
+            Model predictions. If the input is a pandas.DataFrame, the predictions are returned
+            in a pandas.DataFrame. If the input is a numpy array, the predictions are returned
+            as either a numpy.ndarray or a plain list for hybrid models.
 
         """
         import mxnet as mx
@@ -141,10 +147,11 @@ class _GluonModelWrapper:
 
 
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
+    """Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``gluon`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``gluon`` flavor.
+
     """
     import mxnet as mx
 
@@ -169,21 +176,22 @@ def save_model(
     """
     Save a Gluon model to a path on the local file system.
 
-    :param gluon_model: Gluon model to be saved. Must be already hybridized.
-    :param path: Local path where the model is to be saved.
-    :param mlflow_model: MLflow model config this flavor is being added to.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        gluon_model: Gluon model to be saved. Must be already hybridized.
+        path: Local path where the model is to be saved.
+        mlflow_model: MLflow model config this flavor is being added to.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -284,17 +292,19 @@ def save_model(
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return [_get_pinned_requirement("mxnet")]
 
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -316,25 +326,28 @@ def log_model(
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
-    :param gluon_model: Gluon model to be saved. Must be already hybridized.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        gluon_model: Gluon model to be saved. Must be already hybridized.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -387,31 +400,33 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                         If ``False``, dataset information is not logged.
-    :param disable: If ``True``, disables the MXNet Gluon autologging integration. If ``False``,
-                    enables the MXNet Gluon autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      gluon that have not been tested against this version of the MLflow client
-                      or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during MXNet Gluon
-                   autologging. If ``False``, show all events and warnings during MXNet Gluon
-                   autologging.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
+    Args:
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the MXNet Gluon autologging integration. If ``False``,
+            enables the MXNet Gluon autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            gluon that have not been tested against this version of the MLflow client
+            or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during MXNet Gluon
+            autologging. If ``False``, show all events and warnings during MXNet Gluon
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+
     """
 
     from mxnet.gluon.contrib.estimator import Estimator
@@ -432,8 +447,6 @@ def autolog(
                 kwargs["event_handlers"] += [mlflowGluonCallback]
             else:
                 kwargs["event_handlers"] = [mlflowGluonCallback]
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     safe_patch(FLAVOR_NAME, Estimator, "fit", fit, manage_run=True)

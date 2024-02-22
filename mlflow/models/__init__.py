@@ -30,7 +30,6 @@ The built-in flavors are:
 
 For details, see `MLflow Models <../models.html>`_.
 """
-
 from mlflow.models.evaluation import (
     EvaluationArtifact,
     EvaluationMetric,
@@ -41,50 +40,9 @@ from mlflow.models.evaluation import (
     make_metric,
 )
 from mlflow.models.flavor_backend import FlavorBackend
-from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import Model, get_model_info
-from mlflow.utils import env_manager as _EnvManager
+from mlflow.models.python_api import build_docker
 from mlflow.utils.environment import infer_pip_requirements
-
-
-def build_docker(
-    model_uri=None,
-    name="mlflow-pyfunc",
-    env_manager=_EnvManager.VIRTUALENV,
-    mlflow_home=None,
-    install_mlflow=False,
-    enable_mlserver=False,
-):
-    """
-    Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
-    python_function flavor. The container serves the model referenced by ``model_uri``, if
-    specified. If ``model_uri`` is not specified, an MLflow Model directory must be mounted as a
-    volume into the /opt/ml/model directory in the container.
-
-    .. warning::
-
-        If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
-        the RFunc or Java MLeap model servers.
-
-    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
-    nginx process to be started (for instance if you deploy your container to Google Cloud Run),
-    you can disable it via the DISABLE_NGINX environment variable:
-
-    .. code:: bash
-
-        docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
-
-    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
-    'python_function' flavor.
-    """
-    get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
-        model_uri,
-        name,
-        mlflow_home=mlflow_home,
-        install_mlflow=install_mlflow,
-        enable_mlserver=enable_mlserver,
-    )
-
 
 __all__ = [
     "Model",
@@ -105,6 +63,7 @@ __all__ = [
 # Under skinny-mlflow requirements, the following packages cannot be imported
 # because of lack of numpy/pandas library, so wrap them with try...except block
 try:
+    from mlflow.models.python_api import predict
     from mlflow.models.signature import ModelSignature, infer_signature, set_signature
     from mlflow.models.utils import ModelInputExample, add_libraries_to_model, validate_schema
 
@@ -115,6 +74,7 @@ try:
         "validate_schema",
         "add_libraries_to_model",
         "set_signature",
+        "predict",
     ]
 except ImportError:
     pass

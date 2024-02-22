@@ -6,11 +6,11 @@ _logger = logging.getLogger(__name__)
 
 
 def _is_delta_table(table_name: str) -> bool:
-    """
-    Checks if a Delta table exists with the specified table name.
+    """Checks if a Delta table exists with the specified table name.
 
-    :return: True if a Delta table exists with the specified table name. False otherwise.
-    :rtype: bool
+    Returns:
+        True if a Delta table exists with the specified table name. False otherwise.
+
     """
     from pyspark.sql import SparkSession
     from pyspark.sql.utils import AnalysisException
@@ -28,10 +28,10 @@ def _is_delta_table(table_name: str) -> bool:
 
 
 def _is_delta_table_path(path: str) -> bool:
-    """
-    Checks if the specified filesystem path is a Delta table.
+    """Checks if the specified filesystem path is a Delta table.
 
-    :return: True if the specified path is a Delta table. False otherwise.
+    Returns:
+        True if the specified path is a Delta table. False otherwise.
     """
     if os.path.exists(path) and os.path.isdir(path) and "_delta_log" in os.listdir(path):
         return True
@@ -45,13 +45,16 @@ def _is_delta_table_path(path: str) -> bool:
 
 
 def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
-    """
-    Gets the latest version of the Delta table located at the specified path.
+    """Gets the latest version of the Delta table located at the specified path.
 
-    :param path: The path to the Delta table.
-    :return: The version of the Delta table, or None if it cannot be resolved (e.g. because the
-             Delta core library is not installed or the specified path does not refer to a Delta
-             table).
+    Args:
+        path: The path to the Delta table.
+
+    Returns:
+        The version of the Delta table, or None if it cannot be resolved (e.g. because the
+        Delta core library is not installed or the specified path does not refer to a Delta
+        table).
+
     """
     from pyspark.sql import SparkSession
 
@@ -69,12 +72,14 @@ def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
 
 
 def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Optional[int]:
-    """
-    Gets the latest version of the Delta table with the specified name.
+    """Gets the latest version of the Delta table with the specified name.
 
-    :param table_name: The name of the Delta table.
-    :return: The version of the Delta table, or None if it cannot be resolved (e.g. because the
-             Delta core library is not installed or no such table exists).
+    Args:
+        table_name: The name of the Delta table.
+
+    Returns:
+        The version of the Delta table, or None if it cannot be resolved (e.g. because the
+        Delta core library is not installed or no such table exists).
     """
     from pyspark.sql import SparkSession
 
@@ -95,11 +100,14 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
 
 
 def _get_delta_table_latest_version(j_delta_table) -> int:
-    """
-    Obtains the latest version of the specified Delta table Java class.
+    """Obtains the latest version of the specified Delta table Java class.
 
-    :param delta_table: A Java DeltaTable class instance.
-    :return: The version of the Delta table.
+    Args:
+        delta_table: A Java DeltaTable class instance.
+
+    Returns:
+        The version of the Delta table.
+
     """
     latest_commit_jdf = j_delta_table.history(1)
     latest_commit_row = latest_commit_jdf.head()

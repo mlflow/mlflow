@@ -24,6 +24,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.client import MlflowClient
 from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
@@ -79,9 +80,10 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor. Calls to
+        :func:`save_model()` and :func:`log_model()` produce a pip environment that, at minimum,
+        contains these requirements.
     """
     return list(
         map(
@@ -99,8 +101,9 @@ def get_default_pip_requirements():
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment as a dictionary for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment as a dictionary for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
 
     .. code-block:: python
         :caption: Example
@@ -149,83 +152,82 @@ def log_model(
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
-        .. warning::
+    .. warning:: Log the model with a signature to avoid inference errors.
+        If the model is logged without a signature, the MLflow Model Server relies on the
+        default inferred data type from NumPy. However, PyTorch often expects different
+        defaults, particularly when parsing floats. You must include the signature to ensure
+        that the model is logged with the correct data type so that the MLflow model server
+        can correctly provide valid input.
 
-            Log the model with a signature to avoid inference errors.
-            If the model is logged without a signature, the MLflow Model Server relies on the
-            default inferred data type from NumPy. However, PyTorch often expects different
-            defaults, particularly when parsing floats. You must include the signature to ensure
-            that the model is logged with the correct data type so that the MLflow model server
-            can correctly provide valid input.
+    Args:
+        pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+            ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script`` or
+            ``torch.jit.trace``.
 
-    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
-                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
-                          or ``torch.jit.trace``.
+            The model accept a single ``torch.FloatTensor`` as input and produce a single output
+            tensor.
 
-                          The model accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor.
+            If saving an eager model, any code dependencies of the model's class, including the
+            class definition itself, should be included in one of the following locations:
 
-                          If saving an eager model, any code dependencies of the
-                          model's class, including the class definition itself, should be
-                          included in one of the following locations:
+                - The package(s) listed in the model's Conda environment, specified by the
+                  ``conda_env`` parameter.
+                - One or more of the files specified by the ``code_paths`` parameter.
 
-                          - The package(s) listed in the model's Conda environment, specified
-                            by the ``conda_env`` parameter.
-                          - One or more of the files specified by the ``code_paths`` parameter.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system path when the
+            model is loaded.
+        pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
+            ``pytorch_model``. This is passed as the ``pickle_module`` parameter to
+            ``torch.save()``.  By default, this module is also used to deserialize ("unpickle") the
+            PyTorch model at load time.
+        registered_model_name: If given, create a model version under ``registered_model_name``,
+            also create a registered model if one with the given name does not exist.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function waits for five
+            minutes.  Specify 0 or None to skip waiting.
 
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
-                          ``pytorch_model``. This is passed as the ``pickle_module`` parameter
-                          to ``torch.save()``. By default, this module is also used to
-                          deserialize ("unpickle") the PyTorch model at load time.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
+        requirements_file:
 
-    :param requirements_file:
+            .. warning::
 
-        .. warning::
+                ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
 
-            ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
+            A string containing the path to requirements file. Remote URIs are resolved to absolute
+            filesystem paths. For example, consider the following ``requirements_file`` string:
 
-        A string containing the path to requirements file. Remote URIs are resolved to absolute
-        filesystem paths. For example, consider the following ``requirements_file`` string:
+            .. code-block:: python
 
-        .. code-block:: python
+                requirements_file = "s3://my-bucket/path/to/my_file"
 
-            requirements_file = "s3://my-bucket/path/to/my_file"
+            In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
+            no requirements file is added to the model.
 
-        In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
-        no requirements file is added to the model.
+        extra_files: A list containing the paths to corresponding extra files, if ``None``, no
+            extra files are added to the model. Remote URIs are resolved to absolute filesystem
+            paths. For example, consider the following ``extra_files`` list:
 
-    :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
-                      are resolved to absolute filesystem paths.
-                      For example, consider the following ``extra_files`` list -
+            .. code-block:: python
 
-                      extra_files = ["s3://my-bucket/path/to/my_file1",
-                                    "s3://my-bucket/path/to/my_file2"]
+                extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
 
-                      In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
 
-                      If ``None``, no extra files are added to the model.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param kwargs: kwargs to pass to ``torch.save`` method.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        kwargs: kwargs to pass to ``torch.save`` method.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -332,86 +334,72 @@ def save_model(
     """
     Save a PyTorch model to a path on the local file system.
 
-    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
-                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
-                          or ``torch.jit.trace``.
+    Args:
+        pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+            ``torch.nn.Module``) or a scripted model prepared via ``torch.jit.script`` or
+            ``torch.jit.trace``.
 
-                          The model accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor.
+            To save an eager model, any code dependencies of the model's class, including the class
+            definition itself, should be included in one of the following locations:
 
-                          If saving an eager model, any code dependencies of the
-                          model's class, including the class definition itself, should be
-                          included in one of the following locations:
+                - The package(s) listed in the model's Conda environment, specified by the
+                  ``conda_env`` parameter.
+                - One or more of the files specified by the ``code_paths`` parameter.
 
-                          - The package(s) listed in the model's Conda environment, specified
-                            by the ``conda_env`` parameter.
-                          - One or more of the files specified by the ``code_paths`` parameter.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system path when the
+            model is loaded.
+        pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
+            ``pytorch_model``. This is passed as the ``pickle_module`` parameter to
+            ``torch.save()``. By default, this module is also used to deserialize ("unpickle") the
+            model at loading time.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        requirements_file:
 
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
-                          ``pytorch_model``. This is passed as the ``pickle_module`` parameter
-                          to ``torch.save()``. By default, this module is also used to
-                          deserialize ("unpickle") the PyTorch model at load time.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param requirements_file:
+            .. warning::
 
-        .. warning::
+                ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
 
-            ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
+            A string containing the path to requirements file. Remote URIs are resolved to absolute
+            filesystem paths. For example, consider the following ``requirements_file`` string:
 
-        A string containing the path to requirements file. Remote URIs are resolved to absolute
-        filesystem paths. For example, consider the following ``requirements_file`` string:
+            .. code-block:: python
 
-        .. code-block:: python
+                requirements_file = "s3://my-bucket/path/to/my_file"
 
-            requirements_file = "s3://my-bucket/path/to/my_file"
+            In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
+            no requirements file is added to the model.
 
-        In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
-        no requirements file is added to the model.
+        extra_files: A list containing the paths to corresponding extra files. Remote URIs
+            are resolved to absolute filesystem paths.
+            For example, consider the following ``extra_files`` list -
 
-    :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
-                      are resolved to absolute filesystem paths.
-                      For example, consider the following ``extra_files`` list -
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
 
-                      extra_files = ["s3://my-bucket/path/to/my_file1",
-                                    "s3://my-bucket/path/to/my_file2"]
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
 
-                      In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+            If ``None``, no extra files are added to the model.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                      If ``None``, no extra files are added to the model.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param kwargs: kwargs to pass to ``torch.save`` method.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
         :caption: Example
 
         import os
-
+        import mlflow
         import torch
-        import mlflow.pytorch
 
 
-        # Class defined here
-        class LinearNNModel(torch.nn.Module):
-            ...
-
-
-        # Initialize our model, criterion and optimizer
-        ...
-
-        # Training loop
-        ...
+        model = nn.Linear(1, 1)
 
         # Save PyTorch models to current working directory
         with mlflow.start_run() as run:
@@ -446,6 +434,7 @@ def save_model(
         predict X: 8.0, y_pred: 15.92
         predict X: 12.0, y_pred: 23.96
         predict X: 30.0, y_pred: 60.13
+
     """
     import torch
 
@@ -459,7 +448,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if signature is None and input_example is not None:
-        wrapped_model = _PyTorchWrapper(pytorch_model)
+        wrapped_model = _PyTorchWrapper(pytorch_model, device="cpu")
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
     elif signature is False:
         signature = None
@@ -548,6 +537,7 @@ def save_model(
         code=code_dir_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        model_config={"device": None},
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -588,10 +578,11 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_model(path, **kwargs):
+def _load_model(path, device=None, **kwargs):
     """
-    :param path: The path to a serialized PyTorch model.
-    :param kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
+    Args:
+        path: The path to a serialized PyTorch model.
+        kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     import torch
 
@@ -625,40 +616,45 @@ def _load_model(path, **kwargs):
         model_path = path
 
     if Version(torch.__version__) >= Version("1.5.0"):
-        return torch.load(model_path, **kwargs)
+        pytorch_model = torch.load(model_path, **kwargs)
     else:
         try:
             # load the model as an eager model.
-            return torch.load(model_path, **kwargs)
+            pytorch_model = torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
             # `torch.jit.load` does not accept `pickle_module`.
             kwargs.pop("pickle_module", None)
-            return torch.jit.load(model_path, **kwargs)
+            pytorch_model = torch.jit.load(model_path, **kwargs)
+
+    pytorch_model.eval()
+    if device:
+        pytorch_model.to(device=device)
+    return pytorch_model
 
 
 def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load a PyTorch model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model, for example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see `Referencing Artifacts \
+            <https://www.mlflow.org/docs/latest/concepts.html#artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output path will be created.
+        kwargs: kwargs to pass to ``torch.load`` method.
 
-    :param kwargs: kwargs to pass to ``torch.load`` method.
-    :return: A PyTorch model.
+    Returns:
+        A PyTorch model.
 
     .. code-block:: python
         :caption: Example
@@ -667,20 +663,11 @@ def load_model(model_uri, dst_path=None, **kwargs):
         import mlflow.pytorch
 
 
-        # Class defined here
-        class LinearNNModel(torch.nn.Module):
-            ...
-
-
-        # Initialize our model, criterion and optimizer
-        ...
-
-        # Training loop
-        ...
+        model = nn.Linear(1, 1)
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model", signature=signature)
+            mlflow.pytorch.log_model(model, "model")
 
         # Inference after loading the logged model
         model_uri = f"runs:/{run.info.run_id}/model"
@@ -713,13 +700,29 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, **kwargs):
+def _load_pyfunc(path, model_config=None):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``pytorch`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``pytorch`` flavor.
     """
-    return _PyTorchWrapper(_load_model(path, **kwargs))
+    import torch
+
+    device = model_config.get("device", None) if model_config else None
+    # if CUDA is available, we use the default CUDA device.
+    # To force inference to the CPU when the GPU is available, please set
+    # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
+    # If a specific non-default device is passed in, we continue to respect that.
+    if device is None:
+        if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+            device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
+        elif torch.cuda.is_available():
+            device = _TORCH_DEFAULT_GPU_DEVICE_NAME
+        else:
+            device = _TORCH_CPU_DEVICE_NAME
+
+    return _PyTorchWrapper(_load_model(path, device=device), device=device)
 
 
 class _PyTorchWrapper:
@@ -728,33 +731,32 @@ class _PyTorchWrapper:
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
 
-    def __init__(self, pytorch_model):
+    def __init__(self, pytorch_model, device):
         self.pytorch_model = pytorch_model
+        self.device = device
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                            release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         import torch
 
-        device = params.get("device", None) if params else None
-        # if CUDA is available, we use the default CUDA device.
-        # To force inference to the CPU when the GPU is available, please set
-        # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
-        # If a specific non-default device is passed in, we continue to respect that.
-        if device is None:
-            if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
-                device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
-            elif torch.cuda.is_available():
-                device = _TORCH_DEFAULT_GPU_DEVICE_NAME
-            else:
-                device = _TORCH_CPU_DEVICE_NAME
+        if params and "device" in params:
+            raise ValueError(
+                "device' can no longer be specified as an inference parameter. "
+                "It must be specified at load time. "
+                "Please specify the device at load time, for example: "
+                "`mlflow.pyfunc.load_model(model_uri, model_config={'device': 'cuda'})`."
+            )
+
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
         elif isinstance(data, np.ndarray):
@@ -767,8 +769,7 @@ class _PyTorchWrapper:
         else:
             raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
 
-        self.pytorch_model.to(device)
-        self.pytorch_model.eval()
+        device = self.device
         with torch.no_grad():
             input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)
@@ -797,9 +798,10 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
         This function just logs a state_dict as an artifact and doesn't generate
         an :ref:`MLflow Model <models>`.
 
-    :param state_dict: state_dict to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param kwargs: kwargs to pass to ``torch.save``.
+    Args:
+        state_dict: state_dict to be saved.
+        artifact_path: Run-relative artifact path.
+        kwargs: kwargs to pass to ``torch.save``.
 
     .. code-block:: python
         :caption: Example
@@ -830,9 +832,10 @@ def save_state_dict(state_dict, path, **kwargs):
     """
     Save a state_dict to a path on the local file system
 
-    :param state_dict: state_dict to be saved.
-    :param path: Local path where the state_dict is to be saved.
-    :param kwargs: kwargs to pass to ``torch.save``.
+    Args:
+        state_dict: state_dict to be saved.
+        path: Local path where the state_dict is to be saved.
+        kwargs: kwargs to pass to ``torch.save``.
     """
     import torch
 
@@ -855,19 +858,21 @@ def load_state_dict(state_dict_uri, **kwargs):
     """
     Load a state_dict from a local file or a run.
 
-    :param state_dict_uri: The location, in URI format, of the state_dict, for example:
+    Args:
+        state_dict_uri: The location, in URI format, of the state_dict, for example:
 
-                    - ``/Users/me/path/to/local/state_dict``
-                    - ``relative/path/to/local/state_dict``
-                    - ``s3://my_bucket/path/to/state_dict``
-                    - ``runs:/<mlflow_run_id>/run-relative/path/to/state_dict``
+            - ``/Users/me/path/to/local/state_dict``
+            - ``relative/path/to/local/state_dict``
+            - ``s3://my_bucket/path/to/state_dict``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/state_dict``
 
-                    For more information about supported URI schemes, see
-                    `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                    artifact-locations>`_.
+            For more information about supported URI schemes, see `Referencing Artifacts \
+            <https://www.mlflow.org/docs/latest/concepts.html#artifact-locations>`_.
 
-    :param kwargs: kwargs to pass to ``torch.load``.
-    :return: A state_dict
+        kwargs: kwargs to pass to ``torch.load``.
+
+    Returns:
+        A state_dict
 
     .. code-block:: python
         :caption: Example
@@ -898,7 +903,13 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+    checkpoint=True,
+    checkpoint_monitor="val_loss",
+    checkpoint_mode="min",
+    checkpoint_save_best_only=True,
+    checkpoint_save_weights_only=False,
+    checkpoint_save_freq="epoch",
+):
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
@@ -923,37 +934,57 @@ def autolog(
     no notion of an "epoch".
 
     .. Note:: Only pytorch-lightning modules between versions MIN_REQ_VERSION and
-              MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
+        MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
 
-    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
-                       are logged after every epoch.
-    :param log_every_n_step: If specified, logs batch metrics once every `n` training step.
-                       By default, metrics are not logged for steps. Note that setting this to 1 can
-                       cause performance issues and is not recommended.
-                       Metrics are logged against Lightning's global step number,
-                       and when multiple optimizers are used it is assumed that all optimizers
-                       are stepped in each training step.
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                         If ``False``, dataset information is not logged.
-    :param disable: If ``True``, disables the PyTorch Lightning autologging integration.
-                    If ``False``, enables the PyTorch Lightning autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      pytorch and pytorch-lightning that have not been tested against this version
-                      of the MLflow client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
-                   Lightning autologging. If ``False``, show all events and warnings during
-                   PyTorch Lightning autologging.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    Args:
+        log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
+            are logged after every epoch.
+        log_every_n_step: If specified, logs batch metrics once every `n` training step.
+            By default, metrics are not logged for steps. Note that setting this to 1 can cause
+            performance issues and is not recommended. Metrics are logged against Lightning's global
+            step number, and when multiple optimizers are used it is assumed that all optimizers
+            are stepped in each training step.
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the PyTorch Lightning autologging integration.
+            If ``False``, enables the PyTorch Lightning autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run, which may be
+            user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            pytorch and pytorch-lightning that have not been tested against this version
+            of the MLflow client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
+            Lightning autologging. If ``False``, show all events and warnings during PyTorch
+            Lightning autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name. The registered model is
+            created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        checkpoint: Enable automatic model checkpointing, this feature only supports
+            pytorch-lightning >= 1.6.0.
+        checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
+        checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made based on
+            either the maximization or the minimization of the monitored quantity.
+        checkpoint_save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        checkpoint_save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+            saves the model after each epoch. When using integer, the callback
+            saves the model at end of this many batches. Note that if the saving isn't aligned to
+            epochs, the monitored metric may potentially be less reliable (it
+            could reflect as little as 1 batch, since the metrics get reset
+            every epoch). Defaults to `"epoch"`.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Example
 
         import os
@@ -1096,3 +1127,105 @@ if autolog.__doc__ is not None:
     autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
         "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
     )
+
+
+def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
+    """
+    If you enable "checkpoint" in autologging, during pytorch-lightning model
+    training execution, checkpointed models are logged as MLflow artifacts.
+    Using this API, you can load the checkpointed model.
+
+    If you want to load the latest checkpoint, set both `epoch` and `global_step` to None.
+    If "checkpoint_save_freq" is set to "epoch" in autologging,
+    you can set `epoch` param to the epoch of the checkpoint to load specific epoch checkpoint.
+    If "checkpoint_save_freq" is set to an integer in autologging,
+    you can set `global_step` param to the global step of the checkpoint to load specific
+    global step checkpoint.
+    `epoch` param and `global_step` can't be set together.
+
+    Args:
+        model_class: The class of the training model, the class should inherit
+            'pytorch_lightning.LightningModule'.
+        run_id: The id of the run which model is logged to. If not provided,
+            current active run is used.
+        epoch: The epoch of the checkpoint to be loaded, if you set
+            "checkpoint_save_freq" to "epoch".
+        global_step: The global step of the checkpoint to be loaded, if
+            you set "checkpoint_save_freq" to an integer.
+
+    Returns:
+        The instance of a pytorch-lightning model restored from the specified checkpoint.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.pytorch
+
+        mlflow.pytorch.autolog(checkpoint=True)
+
+        model = MyLightningModuleNet()  # A custom-pytorch lightning model
+        trainer = Trainer()
+
+        with mlflow.start_run() as run:
+            trainer.fit(net)
+
+        run_id = run.info.run_id
+
+        # load latest checkpoint model
+        latest_checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id)
+
+        # load history checkpoint model logged in second epoch
+        checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id, epoch=2)
+    """
+    from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
+
+    client = MlflowClient()
+
+    if run_id is None:
+        run = mlflow.active_run()
+        if run is None:
+            raise MlflowException(
+                "There is no active run, please provide the 'run_id' for " "'load_checkpoint' call."
+            )
+        run_id = run.info.run_id
+    else:
+        run = client.get_run(run_id)
+
+    latest_checkpoint_artifact_path = run.data.tags.get(LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
+    if latest_checkpoint_artifact_path is None:
+        raise MlflowException("There is no logged checkpoint artifact in the current run.")
+
+    checkpoint_filename = os.path.basename(latest_checkpoint_artifact_path)
+
+    if epoch is not None and global_step is not None:
+        raise MlflowException(
+            "Only one of 'epoch' and 'global_step' can be set for 'load_checkpoint'."
+        )
+    elif global_step is not None:
+        checkpoint_artifact_path = f"checkpoints/global_step_{global_step}/{checkpoint_filename}"
+    elif epoch is not None:
+        checkpoint_artifact_path = f"checkpoints/epoch_{epoch}/{checkpoint_filename}"
+    else:
+        checkpoint_artifact_path = latest_checkpoint_artifact_path
+
+    downloaded_checkpoint_filepath = client.download_artifacts(run_id, checkpoint_artifact_path)
+    return model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
+
+
+__all__ = [
+    "autolog",
+    "load_model",
+    "save_model",
+    "log_model",
+    "get_default_pip_requirements",
+    "get_default_conda_env",
+    "load_checkpoint",
+]
+
+try:
+    from mlflow.pytorch._lightning_autolog import MlflowModelCheckpointCallback  # noqa: F401
+
+    __all__.append("MLflowModelCheckpointCallback")
+except ImportError:
+    # Swallow exception if pytorch-lightning is not installed.
+    pass

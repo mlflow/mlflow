@@ -90,9 +90,7 @@ const ParallelCoordinatesPlotImpl = (props: {
     const activeData = getActiveData();
 
     // Get all (at most two) runs that are highlighted and/or selected
-    const runsToHighlight = activeData.filter((d: any) =>
-      [hoveredRunUuid, selectedRunUuid].includes(d.uuid),
-    );
+    const runsToHighlight = activeData.filter((d: any) => [hoveredRunUuid, selectedRunUuid].includes(d.uuid));
 
     // Either select them or unselect all
     if (runsToHighlight.length) {
@@ -181,9 +179,7 @@ const ParallelCoordinatesPlotImpl = (props: {
 
   const getCentroids = () => {
     const margins = parcoord.current.margin();
-    const brushedData = parcoord.current.brushed().length
-      ? parcoord.current.brushed()
-      : parcoord.current.data();
+    const brushedData = parcoord.current.brushed().length ? parcoord.current.brushed() : parcoord.current.data();
 
     return brushedData.map((d: any) => {
       const centroidPoints = parcoord.current.compute_real_centroids(d);
@@ -220,9 +216,7 @@ const ParallelCoordinatesPlotImpl = (props: {
     const [x2, y2] = endPt;
     const Dx = x2 - x1;
     const Dy = y2 - y1;
-    const delta =
-      Math.abs(Dy * x0 - Dx * y0 - x1 * y2 + x2 * y1) /
-      Math.sqrt(Math.pow(Dx, 2) + Math.pow(Dy, 2));
+    const delta = Math.abs(Dy * x0 - Dx * y0 - x1 * y2 + x2 * y1) / Math.sqrt(Math.pow(Dx, 2) + Math.pow(Dy, 2));
     if (delta <= tol) return true;
     return false;
   };
@@ -269,9 +263,7 @@ const ParallelCoordinatesPlotImpl = (props: {
       }
       const getAxesTypes = () => {
         const keys = Object.keys(data[0]);
-        const nonNullValues = keys.map((key) =>
-          data.map((d: any) => d[key]).filter((v: any) => v !== null),
-        );
+        const nonNullValues = keys.map((key) => data.map((d: any) => d[key]).filter((v: any) => v !== null));
         const types = nonNullValues.map((v: any) => {
           if (v.every((x: any) => !isNaN(x) && x !== null)) return 'number';
           return 'string';
@@ -313,12 +305,10 @@ const ParallelCoordinatesPlotImpl = (props: {
       });
 
       // Add event listeners just once
-      wrapperElement
-        .querySelector('#wrapper svg')
-        ?.addEventListener('mousemove', function mouseMoveHandler(ev: Event) {
-          const { offsetX, offsetY } = ev as MouseEvent;
-          highlightLineOnHover({ offsetX, offsetY });
-        });
+      wrapperElement.querySelector('#wrapper svg')?.addEventListener('mousemove', function mouseMoveHandler(ev: Event) {
+        const { offsetX, offsetY } = ev as MouseEvent;
+        highlightLineOnHover({ offsetX, offsetY });
+      });
 
       wrapperElement.querySelector('#wrapper svg')?.addEventListener('mouseout', () => {
         setHoveredRunUuid('');
@@ -404,14 +394,7 @@ const ParallelCoordinatesPlotImpl = (props: {
     closeContextMenu,
   ]);
 
-  return (
-    <div
-      ref={chartRef}
-      id='wrapper'
-      style={{ width: props.width, height: props.height }}
-      className={'parcoords'}
-    />
-  );
+  return <div ref={chartRef} id="wrapper" style={{ width: props.width, height: props.height }} className="parcoords" />;
 };
 
 export const ParallelCoordinatesPlot = (props: any) => {

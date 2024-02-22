@@ -1,5 +1,3 @@
-# pylint: disable=unused-wildcard-import,wildcard-import
-
 import contextlib
 import inspect
 import logging
@@ -66,17 +64,19 @@ _logger = logging.getLogger(__name__)
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
-    """
-    Given arguments explicitly passed to a function, generate a dictionary of MLflow Run
+    """Given arguments explicitly passed to a function, generate a dictionary of MLflow Run
     parameter key / value pairs.
 
-    :param fn: function whose parameters are to be logged
-    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
-                 `self` should not be part of `args`; the caller is responsible for
-                 filtering out `self` before calling this function.
-    :param kwargs: kwargs explicitly passed into fn
-    :param unlogged: parameters not to be logged
-    :return: A dictionary of MLflow Run parameter key / value pairs.
+    Args:
+        fn: function whose parameters are to be logged.
+        args: arguments explicitly passed into fn. If `fn` is defined on a class,
+            `self` should not be part of `args`; the caller is responsible for
+            filtering out `self` before calling this function.
+        kwargs: kwargs explicitly passed into fn.
+        unlogged: parameters not to be logged.
+
+    Returns:
+        A dictionary of MLflow Run parameter key / value pairs.
     """
     unlogged = unlogged or []
     param_spec = inspect.signature(fn).parameters
@@ -106,17 +106,20 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
-    """
-    Log arguments explicitly passed to a function as MLflow Run parameters to the current active
+    """Log arguments explicitly passed to a function as MLflow Run parameters to the current active
     MLflow Run.
 
-    :param fn: function whose parameters are to be logged
-    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
-                 `self` should not be part of `args`; the caller is responsible for
-                 filtering out `self` before calling this function.
-    :param kwargs: kwargs explicitly passed into fn
-    :param unlogged: parameters not to be logged
-    :return: None
+    Args:
+        fn: function whose parameters are to be logged
+        args: arguments explicitly passed into fn. If `fn` is defined on a class,
+            `self` should not be part of `args`; the caller is responsible for
+            filtering out `self` before calling this function.
+        kwargs: kwargs explicitly passed into fn
+        unlogged: parameters not to be logged
+
+    Returns:
+        None
+
     """
     params_to_log = get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged)
     mlflow.log_params(params_to_log)
@@ -140,27 +143,29 @@ class InputExampleInfo:
 def resolve_input_example_and_signature(
     get_input_example, infer_model_signature, log_input_example, log_model_signature, logger
 ):
-    """
-    Handles the logic of calling functions to gather the input example and infer the model
+    """Handles the logic of calling functions to gather the input example and infer the model
     signature.
 
-    :param get_input_example: function which returns an input example, usually sliced from a
-                              dataset. This function can raise an exception, its message will be
-                              shown to the user in a warning in the logs.
-    :param infer_model_signature: function which takes an input example and returns the signature
-                                  of the inputs and outputs of the model. This function can raise
-                                  an exception, its message will be shown to the user in a warning
-                                  in the logs.
-    :param log_input_example: whether to log errors while collecting the input example, and if it
-                              succeeds, whether to return the input example to the user. We collect
-                              it even if this parameter is False because it is needed for inferring
-                              the model signature.
-    :param log_model_signature: whether to infer and return the model signature.
-    :param logger: the logger instance used to log warnings to the user during input example
-                   collection and model signature inference.
+    Args:
+        get_input_example: Function which returns an input example, usually sliced from a
+            dataset. This function can raise an exception, its message will be
+            shown to the user in a warning in the logs.
+        infer_model_signature: Function which takes an input example and returns the signature
+            of the inputs and outputs of the model. This function can raise
+            an exception, its message will be shown to the user in a warning
+            in the logs.
+        log_input_example: Whether to log errors while collecting the input example, and if it
+            succeeds, whether to return the input example to the user. We collect
+            it even if this parameter is False because it is needed for inferring
+            the model signature.
+        log_model_signature: Whether to infer and return the model signature.
+        logger: The logger instance used to log warnings to the user during input example
+            collection and model signature inference.
 
-    :return: A tuple of input_example and signature. Either or both could be None based on the
-             values of log_input_example and log_model_signature.
+    Returns:
+        A tuple of input_example and signature. Either or both could be None based on the
+        values of log_input_example and log_model_signature.
+
     """
 
     input_example = None
@@ -260,8 +265,9 @@ class BatchMetricsLogger:
         class will batch them in order to not increase execution time too much by logging
         frequently.
 
-        :param metrics: dictionary containing key, value pairs of metrics to be logged.
-        :param step: the training step that the metrics correspond to.
+        Args:
+            metrics: Dictionary containing key, value pairs of metrics to be logged.
+            step: The training step that the metrics correspond to.
         """
         current_timestamp = time.time()
         if self.previous_training_timestamp is None:
@@ -298,7 +304,8 @@ def batch_metrics_logger(run_id):
 
     Once the context is closed, any metrics that have yet to be logged will be logged.
 
-    :param run_id: ID of the run that the metrics will be logged to.
+    Args:
+        run_id: ID of the run that the metrics will be logged to.
     """
 
     batch_metrics_logger = BatchMetricsLogger(run_id)
@@ -308,8 +315,9 @@ def batch_metrics_logger(run_id):
 
 def gen_autologging_package_version_requirements_doc(integration_name):
     """
-    :return: A document note string saying the compatibility for the specified autologging
-             integration's associated package versions.
+    Returns:
+        A document note string saying the compatibility for the specified autologging
+        integration's associated package versions.
     """
     _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
     min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(module_key)
@@ -441,12 +449,14 @@ def autologging_integration(name):
 def get_autologging_config(flavor_name, config_key, default_value=None):
     """
     Returns a desired config value for a specified autologging integration.
+
     Returns `None` if specified `flavor_name` has no recorded configs.
     If `config_key` is not set on the config object, default value is returned.
 
-    :param flavor_name: An autologging integration flavor name.
-    :param config_key: The key for the desired config value.
-    :param default_value: The default_value to return
+    Args:
+        flavor_name: An autologging integration flavor name.
+        config_key: The key for the desired config value.
+        default_value: The default_value to return.
     """
     config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
     if config is not None:
@@ -456,10 +466,11 @@ def get_autologging_config(flavor_name, config_key, default_value=None):
 
 
 def autologging_is_disabled(integration_name):
-    """
-    Returns a boolean flag of whether the autologging integration is disabled.
+    """Returns a boolean flag of whether the autologging integration is disabled.
 
-    :param integration_name: An autologging integration flavor name.
+    Args:
+        integration_name: An autologging integration flavor name.
+
     """
     explicit_disabled = get_autologging_config(integration_name, "disable", True)
     if explicit_disabled:
@@ -498,9 +509,11 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
     temporary autologging disabling, a new run will be generated that contains a sklearn model
     that holds no use for tracking purposes as it is only used during the metric evaluation phase
     of training.
-    :param flavors_to_disable: A list of flavors that need to be temporarily disabled while
-                               executing another flavor's autologging to prevent spurious run
-                               logging of unrelated models, metrics, and parameters.
+
+    Args:
+        flavors_to_disable: A list of flavors that need to be temporarily disabled while
+            executing another flavor's autologging to prevent spurious run
+            logging of unrelated models, metrics, and parameters.
     """
     enabled_flavors = []
     for flavor in flavors_to_disable:
@@ -520,9 +533,12 @@ def _get_new_training_session_class():
 
     Examples
     --------
-    >>> class Parent: pass
-    >>> class Child: pass
-    >>> class Grandchild: pass
+    >>> class Parent:
+    ...     pass
+    >>> class Child:
+    ...     pass
+    >>> class Grandchild:
+    ...     pass
     >>>
     >>> _TrainingSession = _get_new_training_session_class()
     >>> with _TrainingSession(Parent, False) as p:
@@ -539,7 +555,7 @@ def _get_new_training_session_class():
     >>>
     >>> with _TrainingSession(Child, True) as c1:
     ...     with _TrainingSession(Child, True) as c2:
-    ...             print(c1.should_log(), c2.should_log())
+    ...         print(c1.should_log(), c2.should_log())
     True False
     """
 
@@ -552,12 +568,13 @@ def _get_new_training_session_class():
         _session_stack = []
 
         def __init__(self, estimator, allow_children=True):
-            """
-            A session manager for nested autologging runs.
+            """A session manager for nested autologging runs.
 
-            :param estimator: An estimator that this session originates from.
-            :param allow_children: If True, allows autologging in child sessions.
-                                   If False, disallows autologging in all descendant sessions.
+            Args:
+                estimator: An estimator that this session originates from.
+                allow_children: If True, allows autologging in child sessions.
+                    If False, disallows autologging in all descendant sessions.
+
             """
             self.allow_children = allow_children
             self.estimator = estimator
@@ -605,11 +622,12 @@ def _get_new_training_session_class():
 
 
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
-    """
-    Get instance method first argument value (exclude the `self` argument).
-    :param method A `cls.method` object which includes the `self` argument.
-    :param call_pos_args: positional arguments excluding the first `self` argument.
-    :param call_kwargs: keywords arguments.
+    """Get instance method first argument value (exclude the `self` argument).
+
+    Args:
+        method: A `cls.method` object which includes the `self` argument.
+        call_pos_args: positional arguments excluding the first `self` argument.
+        call_kwargs: keywords arguments.
     """
     if len(call_pos_args) >= 1:
         return call_pos_args[0]
@@ -624,13 +642,14 @@ def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
 
 
 def get_method_call_arg_value(arg_index, arg_name, default_value, call_pos_args, call_kwargs):
-    """
-    Get argument value for a method call.
-    :param arg_index: the argument index in the function signature. start from 0.
-    :param arg_name: the argument name in the function signature.
-    :param default_value: default argument value.
-    :param call_pos_args: the positional argument values in the method call.
-    :param call_kwargs: the keyword argument values in the method call.
+    """Get argument value for a method call.
+
+    Args:
+        arg_index: The argument index in the function signature. Start from 0.
+        arg_name: The argument name in the function signature.
+        default_value: Default argument value.
+        call_pos_args: The positional argument values in the method call.
+        call_kwargs: The keyword argument values in the method call.
     """
     if arg_name in call_kwargs:
         return call_kwargs[arg_name]

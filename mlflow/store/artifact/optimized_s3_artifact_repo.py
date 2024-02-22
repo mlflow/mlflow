@@ -9,12 +9,12 @@ from mimetypes import guess_type
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
     CloudArtifactRepository,
     _complete_futures,
 )
@@ -24,6 +24,11 @@ from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
 _logger = logging.getLogger(__name__)
+_BUCKET_REGION = "BucketRegion"
+_RESPONSE_METADATA = "ResponseMetadata"
+_HTTP_HEADERS = "HTTPHeaders"
+_HTTP_HEADER_BUCKET_REGION = "x-amz-bucket-region"
+_BUCKET_LOCATION_NAME = "BucketLocationName"
 
 
 class OptimizedS3ArtifactRepository(CloudArtifactRepository):
@@ -55,7 +60,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._region_name = self._get_region_name()
 
     def _get_region_name(self):
-        # note: s3 client enforces path addressing style for get_bucket_location
+        from botocore.exceptions import ClientError
+
         temp_client = _get_s3_client(
             addressing_style="path",
             access_key_id=self._access_key_id,
@@ -63,7 +69,39 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             session_token=self._session_token,
             s3_endpoint_url=self._s3_endpoint_url,
         )
-        return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
+        try:
+            head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
+            # A normal response will have the region in the Bucket_Region field of the response
+            if _BUCKET_REGION in head_bucket_resp:
+                return head_bucket_resp[_BUCKET_REGION]
+            # If the bucket exists but the caller does not have permissions, the http headers
+            # are passed back as part of the metadata of a normal, non-throwing response.  In
+            # this case we use the x-amz-bucket-region field of the HTTP headers which should
+            # always be populated with the region.
+            if (
+                _RESPONSE_METADATA in head_bucket_resp
+                and _HTTP_HEADERS in head_bucket_resp[_RESPONSE_METADATA]
+                and _HTTP_HEADER_BUCKET_REGION
+                in head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS]
+            ):
+                return head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][
+                    _HTTP_HEADER_BUCKET_REGION
+                ]
+            # Directory buckets do not have a Bucket_Region and instead have a
+            # Bucket_Location_Name.  This name cannot be used as the region name
+            # however, so we warn that this has happened and allow the exception
+            # at the end to be raised.
+            if _BUCKET_LOCATION_NAME in head_bucket_resp:
+                _logger.warning(
+                    f"Directory bucket {self.bucket} found with BucketLocationName "
+                    f"{head_bucket_resp[_BUCKET_LOCATION_NAME]}."
+                )
+            raise Exception(f"Unable to get the region name for bucket {self.bucket}.")
+        except ClientError as error:
+            # If a client error occurs, we check to see if the x-amz-bucket-region field is set
+            # in the response and return that.  If it is not present, this will raise due to the
+            # key not being present.
+            return error.response[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]
 
     def _get_s3_client(self):
         return _get_s3_client(
@@ -127,7 +165,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         key = posixpath.normpath(dest_path)
         if (
             MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
-            and os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
+            and os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
         ):
             self._multipart_upload(cloud_credential_info, src_file_path, self.bucket, key)
         else:
@@ -140,7 +178,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         upload_id = response["UploadId"]
 
         # Create presigned URL for each part
-        num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
+        num_parts = math.ceil(
+            os.path.getsize(local_file) / MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        )
 
         # define helper functions for uploading data
         def _upload_part(part_number, local_file, start_byte, size):
@@ -163,13 +203,13 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             futures = {}
             for index in range(num_parts):
                 part_number = index + 1
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     _upload_part,
                     part_number=part_number,
                     local_file=local_file,
                     start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                 )
                 futures[future] = part_number
 

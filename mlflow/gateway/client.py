@@ -67,7 +67,8 @@ class MlflowGatewayClient:
         """
         Get the current value for the URI of the MLflow Gateway.
 
-        :return: The gateway URI.
+        Returns:
+            The gateway URI.
         """
         return self._gateway_uri
 
@@ -75,10 +76,14 @@ class MlflowGatewayClient:
         """
         Call a specific endpoint on the Gateway API.
 
-        :param method: The HTTP method to use.
-        :param route: The API route to call.
-        :param json_body: Optional JSON body to include in the request.
-        :return: The server's response.
+        Args:
+            method: The HTTP method to use.
+            route: The API route to call.
+            json_body: Optional JSON body to include in the request.
+
+        Returns:
+            The server's response.
+
         """
         if json_body:
             json_body = json.loads(json_body)
@@ -108,10 +113,14 @@ class MlflowGatewayClient:
         are only those that have been configured through the MLflow Gateway Server configuration
         file (set during server start or through server update commands).
 
-        :param name: The name of the route.
-        :return: The returned data structure is a serialized representation of the `Route` data
+        Args:
+            name: The name of the route.
+
+        Returns:
+            The returned data structure is a serialized representation of the `Route` data
             structure, giving information about the name, type, and model details (model name
             and provider) for the requested route endpoint.
+
         """
         route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, name])
         response = self._call_endpoint("GET", route).json()
@@ -124,11 +133,15 @@ class MlflowGatewayClient:
         """
         Search for routes in the Gateway.
 
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a prior ``search_routes()`` call.
-        :return: Returns a list of all configured and initialized `Route` data for the MLflow
+        Args:
+            page_token: Token specifying the next page of results. It should be obtained from
+                a prior ``search_routes()`` call.
+
+        Returns:
+            Returns a list of all configured and initialized `Route` data for the MLflow
             Gateway Server. The return will be a list of dictionaries that detail the name, type,
             and model details of each active route endpoint.
+
         """
         request_parameters = {"page_token": page_token} if page_token is not None else None
         response_json = self._call_endpoint(
@@ -162,28 +175,30 @@ class MlflowGatewayClient:
             route configuration is handled via updates to the route configuration YAML file that
             is specified during Gateway server start.
 
-        :param name: The name of the route. This parameter is required for all routes.
-        :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
-                           'llm/v1/embeddings'). This parameter is required for routes that are
-                           not managed by Databricks (the provider isn't 'databricks').
-        :param model: A dictionary representing the model details to be associated with the route.
-                      This parameter is required for all routes. This dictionary should define:
+        Args:
+            name: The name of the route. This parameter is required for all routes.
+            route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
+                'llm/v1/embeddings'). This parameter is required for routes that are not managed by
+                Databricks (the provider isn't 'databricks').
+            model: A dictionary representing the model details to be associated with the route.
+                This parameter is required for all routes. This dictionary should define:
 
-                      - The model name (e.g., "gpt-3.5-turbo")
-                      - The provider (e.g., "openai", "anthropic")
-                      - The configuration for the model used in the route
+                    - The model name (e.g., "gpt-3.5-turbo")
+                    - The provider (e.g., "openai", "anthropic")
+                    - The configuration for the model used in the route
 
-        :return: A serialized representation of the `Route` data structure,
-                 providing information about the name, type, and model details for the
-                 newly created route endpoint.
+        Returns:
+            A serialized representation of the `Route` data structure,
+            providing information about the name, type, and model details for the
+            newly created route endpoint.
 
-        :raises mlflow.MlflowException: If the function is not running within Databricks.
+        Raises:
+            mlflow.MlflowException: If the function is not running within Databricks.
 
         .. note::
 
             See the official Databricks documentation for MLflow Gateway for examples of supported
             model configurations and how to dynamically create new routes within Databricks.
-
 
         Example usage from within Databricks:
 
@@ -206,7 +221,6 @@ class MlflowGatewayClient:
                     },
                 },
             )
-
         """
         if not self._is_databricks_host():
             raise MlflowException(
@@ -237,9 +251,11 @@ class MlflowGatewayClient:
             route deletion is handled by removing the corresponding entry from the route
             configuration YAML file that is specified during Gateway server start.
 
-        :param name: The name of the route to delete.
+        Args:
+            name: The name of the route to delete.
 
-        :raises mlflow.MlflowException: If the function is not running within Databricks.
+        Raises:
+            mlflow.MlflowException: If the function is not running within Databricks.
 
         Example usage from within Databricks:
 
@@ -249,7 +265,6 @@ class MlflowGatewayClient:
 
             gateway_client = MlflowGatewayClient("databricks")
             gateway_client.delete_route("my-existing-route")
-
         """
         if not self._is_databricks_host():
             raise MlflowException(
@@ -267,67 +282,74 @@ class MlflowGatewayClient:
         """
         Submit a query to a configured provider route.
 
-        :param route: The name of the route to submit the query to.
-        :param data: The data to send in the query. A dictionary representing the per-route
-            specific structure required for a given provider.
-        :return: The route's response as a dictionary, standardized to the route type.
+        Args:
+            route: The name of the route to submit the query to.
+            data: The data to send in the query. A dictionary representing the per-route
+                specific structure required for a given provider.
 
-        For chat, the structure should be:
+                For chat, the structure should be:
 
-        .. code-block:: python
+                .. code-block:: python
 
-            from mlflow.gateway import MlflowGatewayClient
+                    from mlflow.gateway import MlflowGatewayClient
 
-            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+                    gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-            response = gateway_client.query(
-                "my-chat-route",
-                {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}, ...]},
-            )
+                    response = gateway_client.query(
+                        "my-chat-route",
+                        {
+                            "messages": [
+                                {"role": "user", "content": "Tell me a joke about rabbits"},
+                            ]
+                        },
+                    )
 
-        For completions, the structure should be:
+                For completions, the structure should be:
 
-        .. code-block:: python
+                .. code-block:: python
 
-            from mlflow.gateway import MlflowGatewayClient
+                    from mlflow.gateway import MlflowGatewayClient
 
-            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+                    gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-            response = gateway_client.query(
-                "my-completions-route", {"prompt": "It's one small step for"}
-            )
+                    response = gateway_client.query(
+                        "my-completions-route", {"prompt": "It's one small step for"}
+                    )
 
-        For embeddings, the structure should be:
+                For embeddings, the structure should be:
 
-        .. code-block:: python
+                .. code-block:: python
 
-            from mlflow.gateway import MlflowGatewayClient
+                    from mlflow.gateway import MlflowGatewayClient
 
-            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+                    gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-            response = gateway_client.query(
-                "my-embeddings-route",
-                {"text": ["It was the best of times", "It was the worst of times"]},
-            )
+                    response = gateway_client.query(
+                        "my-embeddings-route",
+                        {"text": ["It was the best of times", "It was the worst of times"]},
+                    )
 
-        Additional parameters that are valid for a given provider and route configuration can be
-        included with the request as shown below, using an openai completions route request as
-        an example:
+                Additional parameters that are valid for a given provider and route configuration
+                can be included with the request as shown below, using an openai completions route
+                request as an example:
 
-        .. code-block:: python
+                .. code-block:: python
 
-            from mlflow.gateway import MlflowGatewayClient
+                    from mlflow.gateway import MlflowGatewayClient
 
-            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+                    gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-            response = gateway_client.query(
-                "my-completions-route",
-                {
-                    "prompt": "Give me an example of a properly formatted pytest unit test",
-                    "temperature": 0.3,
-                    "max_tokens": 500,
-                },
-            )
+                    response = gateway_client.query(
+                        "my-completions-route",
+                        {
+                            "prompt": "Give me an example of a properly formatted pytest unit test",
+                            "temperature": 0.3,
+                            "max_tokens": 500,
+                        },
+                    )
+
+        Returns:
+            The route's response as a dictionary, standardized to the route type.
 
         """
 
@@ -360,20 +382,22 @@ class MlflowGatewayClient:
 
             This API is **only available** when running within Databricks.
 
-        :param route: The name of the route to set limits on.
-        :param limits: Limits (Array of dictionary) to set on the route. Each limit is defined by a
-                       dictionary representing the limit details to be associated with the route.
-                       This dictionary should define:
+        Args:
+            route: The name of the route to set limits on.
+            limits: Limits (Array of dictionary) to set on the route. Each limit is defined by a
+                dictionary representing the limit details to be associated with the route. This
+                dictionary should define:
 
-                       - renewal_period: a string representing the length of the window
-                         to enforce limit on (only supports "minute" for now).
-                       - calls: a non-negative integer representing the number of calls
-                         allowed per renewal_period (e.g., 10, 0, 55).
-                       - key: an optional string represents per route limit or per user
-                         limit ("user" for per user limit, "route" for per route limit, if not
-                         supplied, default to per route limit).
+                - renewal_period: a string representing the length of the window to enforce limit
+                  on (only supports "minute" for now).
+                - calls: a non-negative integer representing the number of calls allowed per
+                  renewal_period (e.g., 10, 0, 55).
+                - key: an optional string represents per route limit or per user limit ("user" for
+                  per user limit, "route" for per route limit, if not supplied, default to per
+                  route limit).
 
-        :return: The returned data structure is a serialized representation of the `Limit`
+        Returns:
+            The returned data structure is a serialized representation of the `Limit`
             data structure, giving information about the renewal_period, key, and calls.
 
         Example usage:
@@ -407,9 +431,11 @@ class MlflowGatewayClient:
 
             This API is **only available** when connected to a Databricks-hosted AI Gateway.
 
-        :param route: The name of the route to get limits of.
+        Args:
+            route: The name of the route to get limits of.
 
-        :return: The returned data structure is a serialized representation of the `Limit` data
+        Returns:
+            The returned data structure is a serialized representation of the `Limit` data
             structure, giving information about the renewal_period, key, and calls.
 
         Example usage:
@@ -421,7 +447,6 @@ class MlflowGatewayClient:
             gateway_client = MlflowGatewayClient("databricks")
 
             gateway_client.get_limits("my-new-route")
-
         """
         if not route:
             raise MlflowException("A non-empty string is required for the route.", BAD_REQUEST)

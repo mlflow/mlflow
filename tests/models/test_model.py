@@ -453,3 +453,36 @@ def test_validate_schema(sklearn_knn_model, iris_data, tmp_path):
     reloaded_model = mlflow.sklearn.load_model(sk_model_path)
     np.testing.assert_array_equal(prediction, reloaded_model.predict(X))
     validate_schema(prediction, signature.outputs)
+
+
+def test_save_load_input_example_without_conversion(tmp_path):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    input_example = {
+        "messages": [
+            {"role": "user", "content": "Hello!"},
+        ]
+    }
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=input_example,
+            example_no_conversion=True,
+        )
+        local_path = _download_artifact_from_uri(
+            f"runs:/{run.info.run_id}/test_model", output_path=tmp_path
+        )
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    assert loaded_model.saved_input_example_info["type"] == "json_object"
+    loaded_example = loaded_model.load_input_example(local_path)
+    assert loaded_example == input_example
+
+
+def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
+    mlflow.sklearn.save_model(sklearn_knn_model, tmp_path)
+    info = Model.load(tmp_path).get_model_info()
+    assert info.run_id is None
+    assert info.artifact_path is None

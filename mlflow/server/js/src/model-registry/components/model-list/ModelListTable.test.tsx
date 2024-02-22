@@ -1,9 +1,7 @@
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
-import {
-  getTableRowByCellText,
-  getTableRows,
-} from '@databricks/design-system/test-utils/enzyme';
-import { act, mountWithIntl, renderWithIntl, screen } from '../../../common/utils/TestUtils';
+import { getTableRowByCellText, getTableRows } from '@databricks/design-system/test-utils/enzyme';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
+import { renderWithIntl, act, screen } from 'common/utils/TestUtils.react17';
 import { ModelListTable, ModelListTableProps } from './ModelListTable';
 
 import { Stages } from '../../constants';
@@ -11,12 +9,11 @@ import Utils from '../../../common/utils/Utils';
 import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from '../ModelsNextUIToggleSwitch';
 import userEvent from '@testing-library/user-event';
-import { shouldUseToggleModelsNextUI } from '../../../common/utils/FeatureUtils';
+import { shouldShowModelsNextUI } from '../../../common/utils/FeatureUtils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../common/utils/FeatureUtils'),
-  // Force-enable toggling new models UI for test purposes
-  shouldUseToggleModelsNextUI: () => true,
+  shouldShowModelsNextUI: jest.fn(),
 }));
 
 const MODELS = [
@@ -57,7 +54,7 @@ describe('ModelListTable', () => {
     onSortChange: jest.fn(),
     orderByAsc: false,
     orderByKey: 'name',
-    pagination: <div data-testid='pagination' />,
+    pagination: <div data-testid="pagination" />,
     isFiltered: false,
   };
 
@@ -87,38 +84,27 @@ describe('ModelListTable', () => {
     } = getTableRows(wrapper);
     expect(
       firstRow
-        .findWhere((column: any) =>
-          column.text().includes(Utils.formatTimestamp(MODELS[0].last_updated_timestamp)),
-        )
+        .findWhere((column: any) => column.text().includes(Utils.formatTimestamp(MODELS[0].last_updated_timestamp)))
         .exists(),
     ).toBeTruthy();
   });
 
   it('checks if the model link is rendered', () => {
     const wrapper = createComponentWrapper({});
-    expect(
-      getTableRowByCellText(wrapper, 'test_model_1')
-        .find('a[href="/models/test_model_1"]')
-        .exists(),
-    ).toBeTruthy();
-    expect(
-      getTableRowByCellText(wrapper, 'test_model_2')
-        .find('a[href="/models/test_model_2"]')
-        .exists(),
-    ).toBeTruthy();
+    expect(getTableRowByCellText(wrapper, 'test_model_1').find('a[href="/models/test_model_1"]').exists()).toBeTruthy();
+    expect(getTableRowByCellText(wrapper, 'test_model_2').find('a[href="/models/test_model_2"]').exists()).toBeTruthy();
   });
 
   it('checks if the simple model version links are rendered', () => {
     const wrapper = createComponentWrapper({});
     // Model #1 contains only one version
     expect(
-      getTableRowByCellText(wrapper, 'test_model_1')
-        .find('a[href="/models/test_model_1/versions/1"]')
-        .exists(),
+      getTableRowByCellText(wrapper, 'test_model_1').find('a[href="/models/test_model_1/versions/1"]').exists(),
     ).toBeTruthy();
   });
 
   it('checks if the staged model version links are rendered', () => {
+    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => false);
     const wrapper = createComponentWrapper({});
     // Model #2 contains versions 2 and 3 in staging in production, but version 1 is not shown
     const row = getTableRowByCellText(wrapper, 'test_model_2');
@@ -132,9 +118,7 @@ describe('ModelListTable', () => {
       ...MODELS[0],
       // Create four tags for the model
       tags: [
-        ...new Array(4)
-          .fill(0)
-          .map((_, index) => ({ key: `Tag ${index + 1}`, value: `Value ${index + 1}` })),
+        ...new Array(4).fill(0).map((_, index) => ({ key: `Tag ${index + 1}`, value: `Value ${index + 1}` })),
         { key: 'Empty tag', value: undefined },
       ],
     };
@@ -158,7 +142,13 @@ describe('ModelListTable', () => {
     lessButton.simulate('click');
     expect(row.text()).not.toContain('Tag 4: Value 4');
   });
-  test('should display aliases column instead of stage when new models UI is used', async () => {
+  test('should display no results message when search results are empty', () => {
+    const wrapper = createComponentWrapper({ modelsData: [], isFiltered: true });
+    expect(wrapper.html()).toContain('No results. Try using a different keyword or adjusting your filters.');
+  });
+
+  test('should display aliases column instead of stage in new models UI', async () => {
+    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
     const TestComponent = withNextModelsUIContext(() => (
       <MemoryRouter>
         <ModelListTable {...minimalProps} />
@@ -167,19 +157,23 @@ describe('ModelListTable', () => {
     ));
     renderWithIntl(<TestComponent />);
 
-    // Assert stages column being visible and aliased versions column being absent
-    expect(screen.queryByRole('columnheader', { name: 'Staging' })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Production' })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
+    // Assert stage columns being invisible and aliased versions column being present
+    expect(screen.queryByRole('columnheader', { name: 'Staging' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Production' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Aliased versions' })).toBeInTheDocument();
 
     // Flip the "Next models UI" switch
     await act(async () => {
       userEvent.click(screen.getByRole('switch'));
     });
+    await act(async () => {
+      userEvent.click(screen.getByText('Disable'));
+    });
 
-    // Assert the opposite: stage columns should be invisible and aliased versions column should be present
-    expect(screen.queryByRole('columnheader', { name: 'Staging' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Production' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Aliased versions' })).toBeInTheDocument();
+    // Assert stages column being visible and aliased versions column being absent
+    expect(screen.queryByRole('columnheader', { name: 'Staging' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Production' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
+    jest.resetModules();
   });
 });

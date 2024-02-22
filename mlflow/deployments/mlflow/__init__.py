@@ -6,7 +6,6 @@ from mlflow import MlflowException
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
-    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
 )
 from mlflow.deployments.server.config import Endpoint
 from mlflow.deployments.server.constants import (
@@ -15,7 +14,10 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
 from mlflow.deployments.utils import resolve_endpoint_url
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -144,8 +146,11 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         """
         Gets a specified endpoint configured for the MLflow Deployments Server.
 
-        :param endpoint: The name of the endpoint to retrieve.
-        :return: An `Endpoint` object representing the endpoint.
+        Args:
+            endpoint: The name of the endpoint to retrieve.
+
+        Returns:
+            An `Endpoint` object representing the endpoint.
 
         Example:
 
@@ -195,7 +200,9 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     def list_endpoints(self) -> "List[Endpoint]":
         """
         List endpoints configured for the MLflow Deployments Server.
-        :return: A list of ``Endpoint`` objects.
+
+        Returns:
+            A list of ``Endpoint`` objects.
 
         Example:
 
@@ -214,6 +221,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                     "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
                 },
             ]
+
         """
         endpoints = []
         next_page_token = None
@@ -230,10 +238,13 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         """
         Submit a query to a configured provider endpoint.
 
-        :param deployment_name: Unused.
-        :param inputs: The inputs to the query, as a dictionary.
-        :param endpoint: The name of the endpoint to query.
-        :return: A dictionary containing the response from the endpoint.
+        Args:
+            deployment_name: Unused.
+            inputs: The inputs to the query, as a dictionary.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            A dictionary containing the response from the endpoint.
 
         Example:
 
