@@ -74,7 +74,7 @@ def update_versions(new_py_version: str) -> None:
 def validate_new_version(
     ctx: click.Context,
     param: click.Parameter,
-    value: str,  # pylint: disable=unused-argument
+    value: str,
 ) -> str:
     new = Version(value)
     current = Version(get_current_py_version())

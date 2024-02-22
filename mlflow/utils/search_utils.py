@@ -729,7 +729,7 @@ class SearchUtils:
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
             (key_type, key, ascending) = cls.parse_order_by_for_search_runs(order_by_clause)
-            # pylint: disable=cell-var-from-loop
+
             runs = sorted(
                 runs,
                 key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
@@ -939,7 +939,7 @@ class SearchExperimentsUtils(SearchUtils):
         return False
 
     @classmethod
-    def _does_experiment_match_clause(cls, experiment, sed):  # pylint: disable=arguments-renamed
+    def _does_experiment_match_clause(cls, experiment, sed):
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
@@ -964,7 +964,7 @@ class SearchExperimentsUtils(SearchUtils):
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
-    def filter(cls, experiments, filter_string):  # pylint: disable=arguments-renamed
+    def filter(cls, experiments, filter_string):
         if not filter_string:
             return experiments
         parsed = cls.parse_search_filter(filter_string)
@@ -1015,7 +1015,7 @@ class SearchExperimentsUtils(SearchUtils):
         return lambda experiment: tuple(_apply_sorter(experiment, k, asc) for (k, asc) in order_by)
 
     @classmethod
-    def sort(cls, experiments, order_by_list):  # pylint: disable=arguments-renamed
+    def sort(cls, experiments, order_by_list):
         return sorted(experiments, key=cls._get_sort_key(order_by_list))
 
 
@@ -1043,7 +1043,7 @@ class SearchModelUtils(SearchUtils):
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = {"name", "creation_timestamp", "last_updated_timestamp"}
 
     @classmethod
-    def _does_registered_model_match_clauses(cls, model, sed):  # pylint: disable=arguments-renamed
+    def _does_registered_model_match_clauses(cls, model, sed):
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
@@ -1068,7 +1068,7 @@ class SearchModelUtils(SearchUtils):
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
-    def filter(cls, registered_models, filter_string):  # pylint: disable=arguments-renamed
+    def filter(cls, registered_models, filter_string):
         """Filters a set of registered models based on a search filter string."""
         if not filter_string:
             return registered_models
@@ -1108,7 +1108,7 @@ class SearchModelUtils(SearchUtils):
         return lambda model: tuple(_apply_reversor(model, k, asc) for (k, asc) in order_by)
 
     @classmethod
-    def sort(cls, models, order_by_list):  # pylint: disable=arguments-renamed
+    def sort(cls, models, order_by_list):
         return sorted(models, key=cls._get_sort_key(order_by_list))
 
     @classmethod
@@ -1222,7 +1222,7 @@ class SearchModelVersionUtils(SearchUtils):
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN"}
 
     @classmethod
-    def _does_model_version_match_clauses(cls, mv, sed):  # pylint: disable=arguments-renamed
+    def _does_model_version_match_clauses(cls, mv, sed):
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
@@ -1250,7 +1250,7 @@ class SearchModelVersionUtils(SearchUtils):
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
-    def filter(cls, model_versions, filter_string):  # pylint: disable=arguments-renamed
+    def filter(cls, model_versions, filter_string):
         """Filters a set of model versions based on a search filter string."""
         model_versions = [mv for mv in model_versions if mv.current_stage != STAGE_DELETED_INTERNAL]
         if not filter_string:
@@ -1294,7 +1294,7 @@ class SearchModelVersionUtils(SearchUtils):
         )
 
     @classmethod
-    def sort(cls, model_versions, order_by_list):  # pylint: disable=arguments-renamed
+    def sort(cls, model_versions, order_by_list):
         return sorted(model_versions, key=cls._get_sort_key(order_by_list))
 
     @classmethod

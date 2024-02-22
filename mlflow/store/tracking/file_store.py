@@ -231,7 +231,7 @@ class FileStore(AbstractStore):
 
     def _get_experiment_tag_path(self, experiment_id, tag_name):
         _validate_experiment_id(experiment_id)
-        _validate_param_name(tag_name)
+        _validate_tag_name(tag_name)
         if not self._has_experiment(experiment_id):
             return None
         return os.path.join(

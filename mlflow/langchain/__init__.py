@@ -494,10 +494,10 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(  # pylint: disable=unused-argument
+    def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
         Args:
@@ -520,10 +520,10 @@ class _LangChainModelWrapper:
         return results[0] if return_first_element else results
 
     @experimental
-    def _predict_with_callbacks(  # pylint: disable=unused-argument
+    def _predict_with_callbacks(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
     ) -> List[str]:
@@ -592,7 +592,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Model input data and additional parameters.
@@ -707,7 +707,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
 

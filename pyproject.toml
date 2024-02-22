@@ -2,18 +2,6 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
-line-length = 100
-target-version = ['py38']
-force-exclude = '''
-/(
-    mlflow/protos/
-  | mlflow/ml_package_versions\.py$
-  | tests/protos/
-  | examples/recipes/
-)
-'''
-
 [tool.ruff]
 line-length = 100
 target-version = "py38"
@@ -63,6 +51,7 @@ select = [
   "RET504",  # unnecessary-assign
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF100",  # unused-noqa
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
   "SIM101",  # duplicate-isinstance-call
@@ -87,10 +76,10 @@ select = [
   "W",       # warning
 ]
 ignore = [
-  "E402",  # module-import-not-at-top-of-file
-  "E721",  # type-comparison
-  "E741",  # ambiguous-variable-name
-  "F811",  # redefined-while-unused
+  "E402", # module-import-not-at-top-of-file
+  "E721", # type-comparison
+  "E741", # ambiguous-variable-name
+  "F811", # redefined-while-unused
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -112,3 +101,14 @@ forced-separate = ["tests"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
+
+[tool.clint]
+exclude = [
+  "docs",
+  "examples",
+  "mlflow/protos",
+  "mlflow/ml_package_versions.py",
+  "mlflow/server/js",
+  "mlflow/store/db_migrations",
+  "tests/protos",
+]

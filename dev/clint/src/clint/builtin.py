@@ -1,10 +1,3 @@
-import astroid
-from pylint.checkers import BaseChecker
-from pylint.interfaces import IAstroidChecker
-from pylint.lint import PyLinter
-
-from pylint_plugins.errors import LAZY_BUILTIN_IMPORT, to_msgs
-
 # https://github.com/PyCQA/isort/blob/b818cec889657cb786beafe94a6641f8fc0f0e64/isort/stdlibs/py311.py
 BUILTIN_MODULES = {
     "_ast",
@@ -221,38 +214,3 @@ BUILTIN_MODULES = {
     "zlib",
     "zoneinfo",
 }
-
-
-class ImportChecker(BaseChecker):
-    __implements__ = IAstroidChecker
-
-    name = "import-checker"
-    msgs = to_msgs(LAZY_BUILTIN_IMPORT)
-    priority = -1
-
-    def __init__(self, linter: PyLinter) -> None:
-        super().__init__(linter)
-        self.stack = []
-
-    def in_function(self):
-        return bool(self.stack)
-
-    def is_builtin_module(self, name):
-        return name.split(".", 1)[0] in BUILTIN_MODULES
-
-    def visit_functiondef(self, node: astroid.FunctionDef):
-        self.stack.append(node)
-
-    def leave_functiondef(self, node: astroid.FunctionDef):  # pylint: disable=unused-argument
-        self.stack.pop()
-
-    def visit_importfrom(self, node: astroid.ImportFrom):
-        if self.in_function() and self.is_builtin_module(node.modname):
-            self.add_message(LAZY_BUILTIN_IMPORT.name, node=node, args=(node.modname,))
-
-    def visit_import(self, node: astroid.Import):
-        if self.in_function():
-            if builtin_modules := [name for name, _ in node.names if self.is_builtin_module(name)]:
-                self.add_message(
-                    LAZY_BUILTIN_IMPORT.name, node=node, args=(", ".join(builtin_modules),)
-                )

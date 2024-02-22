@@ -42,10 +42,8 @@ _logger = logging.getLogger(__name__)
 
 _pl_version = Version(pl.__version__)
 if _pl_version < Version("1.5.0"):
-    # pylint: disable-next=ungrouped-imports
     from pytorch_lightning.core.memory import ModelSummary
 else:
-    # pylint: disable-next=ungrouped-imports
     from pytorch_lightning.utilities.model_summary import ModelSummary
 
 
@@ -62,7 +60,6 @@ def _get_optimizer_name(optimizer):
     if Version(pl.__version__) < Version("1.1.0"):
         return optimizer.__class__.__name__
     else:
-        # pylint: disable-next=ungrouped-imports
         from pytorch_lightning.core.optimizer import LightningOptimizer
 
         return (
@@ -139,7 +136,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     if _pl_version >= Version("1.4.0dev"):
 
         @rank_zero_only
-        def on_train_epoch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+        def on_train_epoch_end(self, trainer, pl_module, *args):
             self._log_epoch_metrics(trainer, pl_module)
 
     # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
@@ -154,7 +151,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # pytorch-lightning >= 1.3.0
 
         @rank_zero_only
-        def on_train_epoch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+        def on_train_epoch_end(self, trainer, pl_module, *args):
             """
             Log loss and other metrics values after each train epoch
 
@@ -193,7 +190,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             self._log_epoch_metrics(trainer, pl_module)
 
     @rank_zero_only
-    def on_train_batch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+    def on_train_batch_end(self, trainer, pl_module, *args):
         """
         Log metric values after each step
 
@@ -607,7 +604,6 @@ def patched_fit(original, self, *args, **kwargs):
             _log_early_stop_metrics(early_stop_callback, client, run_id)
 
         if Version(pl.__version__) < Version("1.4.0"):
-            # pylint: disable-next=unexpected-keyword-arg
             summary = str(ModelSummary(self.model, mode="full"))
         else:
             summary = str(ModelSummary(self.model, max_depth=-1))

@@ -62,7 +62,7 @@ class DeltaDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "delta_table"
 
-    def load(self, **kwargs):  # pylint: disable=unused-argument
+    def load(self, **kwargs):
         """
         Loads the dataset source as a Delta Dataset Source.
 

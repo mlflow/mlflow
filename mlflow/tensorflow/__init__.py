@@ -7,13 +7,11 @@ TensorFlow (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-import atexit
 import importlib
 import logging
 import os
 import shutil
 import tempfile
-import warnings
 from typing import Any, Dict, NamedTuple, Optional
 
 import numpy as np
@@ -40,16 +38,11 @@ from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
     PatchFunction,
     autologging_integration,
-    batch_metrics_logger,
     get_autologging_config,
     log_fn_args_as_params,
     picklable_exception_safe_function,
     resolve_input_example_and_signature,
     safe_patch,
-)
-from mlflow.utils.autologging_utils.metrics_queue import (
-    add_to_metrics_queue,
-    flush_metrics_queue,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -71,13 +64,10 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.time import get_current_time_millis
 
 FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
-
-_LOG_EVERY_N_STEPS = 1
 
 # For tracking if the run was started by autologging.
 _AUTOLOG_RUN_ID = None
@@ -680,9 +670,7 @@ def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_s
     """
     import tensorflow as tf
 
-    loaded = tf.saved_model.load(  # pylint: disable=no-value-for-parameter
-        tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
-    )
+    loaded = tf.saved_model.load(tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir)
     loaded_sig = loaded.signatures
     if tf_signature_def_key not in loaded_sig:
         raise MlflowException(
@@ -743,9 +731,7 @@ def _load_pyfunc(path):
         tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
         tf_signature_def_key = flavor_conf["signature_def_key"]
 
-        loaded_model = tf.saved_model.load(  # pylint: disable=no-value-for-parameter
-            export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
-        )
+        loaded_model = tf.saved_model.load(export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags)
         return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
     if model_type == _MODEL_TYPE_TF2_MODULE:
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
@@ -778,7 +764,7 @@ class _TF2Wrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -834,7 +820,7 @@ class _TF2ModuleWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -870,7 +856,7 @@ class _KerasModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -914,28 +900,6 @@ def _assoc_list_to_map(lst):
     return d
 
 
-def _log_event(event):
-    """
-    Extracts metric information from the event protobuf
-    """
-    if event.WhichOneof("what") == "summary":
-        summary = event.summary
-        for v in summary.value:
-            if v.HasField("simple_value"):
-                # NB: Most TensorFlow APIs use one-indexing for epochs, while tf.Keras
-                # uses zero-indexing. Accordingly, the modular arithmetic used here is slightly
-                # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
-                # which provides metric logging hooks for tf.Keras
-                if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    add_to_metrics_queue(
-                        key=v.tag,
-                        value=v.simple_value,
-                        step=event.step,
-                        time=get_current_time_millis(),
-                        run_id=mlflow.active_run().info.run_id,
-                    )
-
-
 @picklable_exception_safe_function
 def _get_tensorboard_callback(lst):
     import tensorflow as tf
@@ -955,13 +919,13 @@ class _TensorBoardLogDir(NamedTuple):
     is_temp: bool
 
 
-def _setup_callbacks(callbacks, metrics_logger):
+def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
-    # pylint: disable=no-name-in-module
-    from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+    from mlflow.tensorflow.autologging import _TensorBoard
+    from mlflow.tensorflow.callback import MLflowCallback
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
@@ -977,7 +941,12 @@ def _setup_callbacks(callbacks, metrics_logger):
         callbacks.append(_TensorBoard(log_dir.location))
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
-    callbacks.append(__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS))
+    callbacks.append(
+        MLflowCallback(
+            log_every_epoch=log_every_epoch,
+            log_every_n_steps=log_every_n_steps,
+        )
+    )
     return callbacks, log_dir
 
 
@@ -996,8 +965,9 @@ def autolog(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
-    # pylint: disable=no-name-in-module
+    log_every_epoch=True,
+    log_every_n_steps=None,
+):
     """
     Enables autologging for ``tf.keras``.
     Note that only ``tensorflow>=2.3`` are supported.
@@ -1038,8 +1008,8 @@ def autolog(
     autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     Args:
-        every_n_iter: The frequency with which metrics should be logged. For example, a value of
-            100 will log metrics at step 0, 100, 200, etc.
+        every_n_iter: deprecated, please use ``log_every_epoch`` instead. Per ``every_n_iter``
+            steps, metrics will be logged.
         log_models: If ``True``, trained models are logged as MLflow model artifacts.
             If ``False``, trained models are not logged.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
@@ -1075,16 +1045,25 @@ def autolog(
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        log_every_epoch: If True, training metrics will be logged at the end of each epoch.
+        log_every_n_steps: If set, training metrics will be logged every `n` training steps.
+            `log_every_n_steps` must be `None` when `log_every_epoch=True`.
     """
     import tensorflow as tf
 
-    global _LOG_EVERY_N_STEPS
-    _LOG_EVERY_N_STEPS = every_n_iter
-
-    atexit.register(flush_metrics_queue)
+    if every_n_iter != 1:
+        _logger.warning(
+            "The `every_n_iter` parameter is deprecated, please use `log_every_epoch` and "
+            "`log_every_n_steps` instead. Automatically set `log_every_n_steps` to `every_n_iter`."
+        )
+        log_every_epoch = False
+        log_every_n_steps = every_n_iter
 
     if Version(tf.__version__) < Version("2.3"):
-        warnings.warn("Could not log to MLflow. TensorFlow versions below 2.3 are not supported.")
+        _logger.error(
+            "Could not log to MLflow because your Tensorflow version is below 2.3, detected "
+            f"version: {tf.__version__}."
+        )
         return
 
     @picklable_exception_safe_function
@@ -1114,7 +1093,9 @@ def autolog(
         except Exception:
             return None
 
-    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
+    def _log_early_stop_callback_metrics(callback, history):
+        from mlflow import log_metrics
+
         if callback is None or not callback.model.stop_training:
             return
 
@@ -1123,7 +1104,7 @@ def autolog(
             return
 
         stopped_epoch, restore_best_weights, _ = callback_attrs
-        metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+        log_metrics({"stopped_epoch": stopped_epoch}, synchronous=False)
 
         if not restore_best_weights or callback.best_weights is None:
             return
@@ -1138,7 +1119,7 @@ def autolog(
         # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
         # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
         restored_epoch = initial_epoch + monitored_metric.index(callback.best)
-        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+        log_metrics({"restored_epoch": restored_epoch}, synchronous=False)
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
             key: metrics[restored_index] for key, metrics in history.history.items()
@@ -1146,7 +1127,7 @@ def autolog(
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
         if metric_key is not None:
-            metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
+            log_metrics(restored_metrics, stopped_epoch + 1, synchronous=False)
 
     def _log_keras_model(history, args):
         def _infer_model_signature(input_data_slice):
@@ -1157,7 +1138,7 @@ def autolog(
             history.model.stop_training = original_stop_training
             return infer_signature(input_data_slice, model_output)
 
-        from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+        from mlflow.tensorflow.autologging import extract_tf_keras_input_example
 
         def _get_tf_keras_input_example_slice():
             input_training_data = args[0]
@@ -1198,7 +1179,7 @@ def autolog(
         def __init__(self):
             self.log_dir = None
 
-        def _patch_implementation(self, original, inst, *args, **kwargs):  # pylint: disable=arguments-differ
+        def _patch_implementation(self, original, inst, *args, **kwargs):
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
@@ -1241,77 +1222,83 @@ def autolog(
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = mlflow.active_run().info.run_id
-            with batch_metrics_logger(run_id) as metrics_logger:
-                # Check if the 'callback' argument of fit() is set positionally
-                if len(args) >= 6:
-                    # Convert the positional training function arguments to a list in order to
-                    # mutate the contents
-                    args = list(args)
-                    # Make a shallow copy of the preexisting callbacks to avoid permanently
-                    # modifying their contents for future training invocations. Introduce
-                    # TensorBoard & tf.keras callbacks if necessary
-                    callbacks = list(args[5])
-                    callbacks, self.log_dir = _setup_callbacks(callbacks, metrics_logger)
-                    # Replace the callbacks positional entry in the copied arguments and convert
-                    # the arguments back to tuple form for usage in the training function
-                    args[5] = callbacks
-                    args = tuple(args)
-                else:
-                    # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
-                    # & tf.keras callbacks if necessary
-                    callbacks = list(kwargs.get("callbacks") or [])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(callbacks, metrics_logger)
-
-                early_stop_callback = _get_early_stop_callback(callbacks)
-                _log_early_stop_callback_params(early_stop_callback)
-
-                if log_datasets:
-                    try:
-                        context_tags = context_registry.resolve_tags()
-                        source = CodeDatasetSource(tags=context_tags)
-
-                        x = kwargs["x"] if "x" in kwargs else args[0]
-                        if "y" in kwargs:
-                            y = kwargs["y"]
-                        elif len(args) >= 2:
-                            y = args[1]
-                        else:
-                            y = None
-
-                        if "validation_data" in kwargs:
-                            validation_data = kwargs["validation_data"]
-                        elif len(args) >= 8:
-                            validation_data = args[7]
-                        else:
-                            validation_data = None
-                        _log_tensorflow_dataset(x, source, "train", targets=y)
-                        if validation_data is not None:
-                            _log_tensorflow_dataset(validation_data, source, "eval")
-
-                    except Exception as e:
-                        _logger.warning(
-                            "Failed to log training dataset information to "
-                            "MLflow Tracking. Reason: %s",
-                            e,
-                        )
-
-                history = original(inst, *args, **kwargs)
-
-                if log_models:
-                    _log_keras_model(history, args)
-
-                _log_early_stop_callback_metrics(
-                    callback=early_stop_callback,
-                    history=history,
-                    metrics_logger=metrics_logger,
+            # Check if the 'callback' argument of fit() is set positionally
+            if len(args) >= 6:
+                # Convert the positional training function arguments to a list in order to
+                # mutate the contents
+                args = list(args)
+                # Make a shallow copy of the preexisting callbacks to avoid permanently
+                # modifying their contents for future training invocations. Introduce
+                # TensorBoard & tf.keras callbacks if necessary
+                callbacks = list(args[5])
+                callbacks, self.log_dir = _setup_callbacks(
+                    callbacks,
+                    log_every_epoch=log_every_epoch,
+                    log_every_n_steps=log_every_n_steps,
+                )
+                # Replace the callbacks positional entry in the copied arguments and convert
+                # the arguments back to tuple form for usage in the training function
+                args[5] = callbacks
+                args = tuple(args)
+            else:
+                # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
+                # & tf.keras callbacks if necessary
+                callbacks = list(kwargs.get("callbacks") or [])
+                kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                    callbacks,
+                    log_every_epoch=log_every_epoch,
+                    log_every_n_steps=log_every_n_steps,
                 )
 
-                flush_metrics_queue()
-                mlflow.log_artifacts(
-                    local_dir=self.log_dir.location,
-                    artifact_path="tensorboard_logs",
-                )
+            early_stop_callback = _get_early_stop_callback(callbacks)
+            _log_early_stop_callback_params(early_stop_callback)
+
+            if log_datasets:
+                try:
+                    context_tags = context_registry.resolve_tags()
+                    source = CodeDatasetSource(tags=context_tags)
+
+                    x = kwargs["x"] if "x" in kwargs else args[0]
+                    if "y" in kwargs:
+                        y = kwargs["y"]
+                    elif len(args) >= 2:
+                        y = args[1]
+                    else:
+                        y = None
+
+                    if "validation_data" in kwargs:
+                        validation_data = kwargs["validation_data"]
+                    elif len(args) >= 8:
+                        validation_data = args[7]
+                    else:
+                        validation_data = None
+                    _log_tensorflow_dataset(x, source, "train", targets=y)
+                    if validation_data is not None:
+                        _log_tensorflow_dataset(validation_data, source, "eval")
+
+                except Exception as e:
+                    _logger.warning(
+                        "Failed to log training dataset information to "
+                        "MLflow Tracking. Reason: %s",
+                        e,
+                    )
+
+            history = original(inst, *args, **kwargs)
+
+            if log_models:
+                _log_keras_model(history, args)
+
+            _log_early_stop_callback_metrics(
+                callback=early_stop_callback,
+                history=history,
+            )
+            # Ensure all data are logged.
+            mlflow.flush_async_logging()
+
+            mlflow.log_artifacts(
+                local_dir=self.log_dir.location,
+                artifact_path="tensorboard_logs",
+            )
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)
             return history

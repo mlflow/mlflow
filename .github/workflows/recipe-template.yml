@@ -49,7 +49,7 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Add problem matchers
         run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
+          echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
       - name: Install dependencies

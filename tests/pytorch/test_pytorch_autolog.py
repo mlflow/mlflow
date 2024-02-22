@@ -225,7 +225,6 @@ def test_pytorch_autolog_raises_error_when_step_logging_unsupported():
         trainer.fit(model, dm)
 
 
-# pylint: disable=unused-argument
 def test_pytorch_autolog_persists_manually_created_run():
     with mlflow.start_run() as manual_run:
         mlflow.pytorch.autolog()

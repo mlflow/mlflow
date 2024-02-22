@@ -44,7 +44,6 @@ def mock_client():
 
 
 def test_artifact_uri_factory(mock_client):
-    # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
     # We do need to set up a fake access key for the code to run though
     os.environ["AZURE_STORAGE_ACCESS_KEY"] = ""
@@ -55,7 +54,6 @@ def test_artifact_uri_factory(mock_client):
 
 @mock.patch("azure.identity.DefaultAzureCredential")
 def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_client):
-    # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it
     AzureBlobArtifactRepository(TEST_URI)
     assert mock_default_azure_credential.call_count == 1
@@ -264,7 +262,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
             return MockBlobList([blob_props_1, blob_props_2])
         else:
@@ -313,7 +311,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
         `_download_artifacts_into` subroutine without recursively listing the same artifacts at
         every level of the directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == "/":
             return MockBlobList([dir_prefix])
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(subdir_path):
@@ -355,7 +353,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
             # Return a blob that is not prefixed by the root path of the artifact store. This
             # should result in an exception being raised

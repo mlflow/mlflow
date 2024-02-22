@@ -668,6 +668,10 @@ def test_xgb_autolog_log_models_configuration(bst_params, log_models):
     assert ("model" in artifacts) == log_models
 
 
+@pytest.mark.skipif(
+    Version(xgb.__version__) > Version("2.0.3"),
+    reason="XGBoost > 2.0.3 does not support `None` data",
+)
 def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
     """
     This test verifies that `xgboost.DMatrix(None)` doesn't fail after patching.

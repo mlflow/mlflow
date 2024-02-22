@@ -4,7 +4,7 @@ import time
 from contextlib import contextmanager
 
 import sqlalchemy
-from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import sql
 

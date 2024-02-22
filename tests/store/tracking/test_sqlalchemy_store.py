@@ -2609,7 +2609,7 @@ def test_log_batch_internal_error(store: SqlAlchemyStore):
     # MlflowExceptions
     run = _run_factory(store)
 
-    def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
+    def _raise_exception_fn(*args, **kwargs):
         raise Exception("Some internal error")
 
     package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"

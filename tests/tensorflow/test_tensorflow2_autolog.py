@@ -21,12 +21,11 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+from mlflow.tensorflow.autologging import _TensorBoard
 from mlflow.tensorflow.callback import MLflowCallback
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
-    BatchMetricsLogger,
     autologging_is_disabled,
 )
 from mlflow.utils.process import _exec_cmd
@@ -110,7 +109,9 @@ def fashion_mnist_tf_dataset_eval():
 
 
 def _create_fashion_mnist_model():
-    model = tf.keras.Sequential([tf.keras.layers.Flatten(), tf.keras.layers.Dense(10)])
+    model = tf.keras.Sequential(
+        [tf.keras.Input((28, 28)), tf.keras.layers.Flatten(), tf.keras.layers.Dense(10)]
+    )
     model.compile(
         optimizer=tf.keras.optimizers.Adam(),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -194,7 +195,6 @@ def test_extra_tags_tensorflow_autolog(random_train_data, random_one_hot_labels)
 def test_tf_keras_autolog_log_models_configuration(
     random_train_data, random_one_hot_labels, log_models
 ):
-    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(log_models=log_models)
 
     data = random_train_data
@@ -365,7 +365,6 @@ def test_tf_keras_autolog_persists_manually_created_run(random_train_data, rando
 
 @pytest.fixture
 def tf_keras_random_data_run(random_train_data, random_one_hot_labels, initial_epoch):
-    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -579,7 +578,9 @@ def test_tf_keras_autolog_implicit_batch_size_works_multi_input(generate_data, b
         pytest.param(
             __GeneratorClass,
             marks=pytest.mark.skipif(
-                Version(tf.__version__).release >= (2, 16), reason="does not support"
+                Version(tf.__version__).release >= (2, 15)
+                and "TF_USE_LEGACY_KERAS" not in os.environ,
+                reason="does not support",
             ),
         ),
     ],
@@ -641,9 +642,8 @@ def test_tf_keras_autolog_succeeds_for_tf_datasets_lacking_batch_size_info():
 
 
 def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, random_one_hot_labels):
-    every_n_iter = 5
     num_training_epochs = 17
-    mlflow.tensorflow.autolog(every_n_iter=every_n_iter)
+    mlflow.tensorflow.autolog(log_every_epoch=True)
 
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
@@ -658,7 +658,7 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert {metric.step for metric in all_epoch_acc} == {0, 5, 10, 15}
+    assert len(all_epoch_acc) == num_training_epochs
 
 
 def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
@@ -671,7 +671,7 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
     produced in the boundary case where a model is trained for a single epoch, ensuring
     that we don't miss the zero index in the tf.Keras case.
     """
-    mlflow.tensorflow.autolog(every_n_iter=5)
+    mlflow.tensorflow.autolog()
 
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
@@ -686,7 +686,7 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
 def test_tf_keras_autolog_names_positional_parameters_correctly(
     random_train_data, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog(every_n_iter=5)
+    mlflow.tensorflow.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -725,7 +725,6 @@ def get_tf_keras_random_data_run_with_callback(
     initial_epoch,
     log_models,
 ):
-    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=1, log_models=log_models)
 
     data = random_train_data
@@ -813,52 +812,6 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 
     artifacts = [f.path for f in client.list_artifacts(run.info.run_id)]
     assert "tensorboard_logs" in artifacts
-
-
-@pytest.mark.parametrize("restore_weights", [True])
-@pytest.mark.parametrize("callback", ["early"])
-@pytest.mark.parametrize("patience", [0, 1, 5])
-@pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
-    callback,
-    restore_weights,
-    patience,
-    initial_epoch,
-    random_train_data,
-    random_one_hot_labels,
-):
-    patched_metrics_data = []
-
-    # Mock patching BatchMetricsLogger.record_metrics()
-    # to ensure that expected metrics are being logged.
-    original = BatchMetricsLogger.record_metrics
-
-    with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
-    ) as record_metrics_mock:
-
-        def record_metrics_side_effect(self, metrics, step=None):
-            patched_metrics_data.extend(metrics.items())
-            original(self, metrics, step)
-
-        record_metrics_mock.side_effect = record_metrics_side_effect
-        run, _, callback = get_tf_keras_random_data_run_with_callback(
-            random_train_data,
-            random_one_hot_labels,
-            callback,
-            restore_weights,
-            patience,
-            initial_epoch,
-            log_models=False,
-        )
-    patched_metrics_data = dict(patched_metrics_data)
-    original_metrics = run.data.metrics
-
-    for metric_name in original_metrics:
-        assert metric_name in patched_metrics_data
-
-    restored_epoch = int(patched_metrics_data["restored_epoch"])
-    assert restored_epoch == initial_epoch
 
 
 @pytest.mark.parametrize("log_models", [False])
@@ -1009,7 +962,6 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
 def get_text_vec_model(train_samples):
     # Taken from: https://github.com/mlflow/mlflow/issues/3910
 
-    # pylint: disable=no-name-in-module
     try:
         from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
     except ModuleNotFoundError:
@@ -1105,9 +1057,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
 
 
 def test_callback_is_picklable():
-    cb = __MLflowTfKeras2Callback(
-        metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
-    )
+    cb = MLflowCallback()
     pickle.dumps(cb)
 
     tb = _TensorBoard()
@@ -1130,33 +1080,10 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
     assert client.get_run(run.info.run_id).data.params.keys() >= fit_params.keys()
 
 
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
-)
-def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
-    """
-    Verifies that, in TensorFlow >= 2.6.0, `tensorflow.keras.Model` refers to the correct class in
-    the correct module after `mlflow.autolog()` is called, guarding against previously identified
-    compatibility issues between recent versions of TensorFlow and MLflow's internal utility for
-    setting up autologging import hooks.
-    """
-    mlflow.autolog()
-
-    import tensorflow.keras
-
-    if Version(tf.__version__).release < (2, 16):
-        from keras.api._v2.keras import Model as ModelV2
-    else:
-        from keras import Model as ModelV2
-
-    assert tensorflow.keras.Model is ModelV2
-
-
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import tensorflow  # pylint: disable=reimported  # noqa: F401
+    import tensorflow  # noqa: F401
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
@@ -1337,7 +1264,7 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
 
 
 def test_extract_tf_keras_input_example_unsupported_type_returns_None():
-    from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+    from mlflow.tensorflow.autologging import extract_tf_keras_input_example
 
     extracted_data = extract_tf_keras_input_example([1, 2, 4, 5])
     assert extracted_data is None, (
@@ -1347,7 +1274,7 @@ def test_extract_tf_keras_input_example_unsupported_type_returns_None():
 
 
 def test_extract_input_example_from_tf_input_fn_unsupported_type_returns_None():
-    from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+    from mlflow.tensorflow.autologging import extract_tf_keras_input_example
 
     extracted_data = extract_tf_keras_input_example(lambda: [1, 2, 4, 5])
     assert extracted_data is None, (
@@ -1383,3 +1310,22 @@ def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence
     with mlflow.start_run() as run:
         with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
             model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])
+
+
+def test_autolog_correct_logging_frequency(random_train_data, random_one_hot_labels):
+    logging_freq = 5
+    num_epochs = 2
+    batch_size = 10
+    mlflow.tensorflow.autolog(log_every_epoch=False, log_every_n_steps=logging_freq)
+    initial_model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        initial_model.fit(
+            random_train_data,
+            random_one_hot_labels,
+            batch_size=batch_size,
+            epochs=num_epochs,
+        )
+
+    client = MlflowClient()
+    loss_history = client.get_metric_history(run.info.run_id, "loss")
+    assert len(loss_history) == num_epochs * (len(random_train_data) // batch_size) // logging_freq
