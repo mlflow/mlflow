@@ -1176,7 +1176,7 @@ def get_metric_history_bulk_interval_handler():
         return max(steps) if steps else 0
 
     def _get_sampled_steps(run_ids, metric_key, max_results):
-        # can not fetch from request_message as the default value is 0
+        # cannot fetch from request_message as the default value is 0
         start_step = args.get("start_step")
         end_step = args.get("end_step")
         if start_step is None and end_step is None:
