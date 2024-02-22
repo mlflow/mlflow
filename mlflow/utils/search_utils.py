@@ -519,7 +519,7 @@ class SearchUtils:
         if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name not in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '{comparator}' not one of "
+                    f"Invalid comparator '{comparator}' not one of "
                     f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
                 )
             return True
@@ -932,7 +932,7 @@ class SearchExperimentsUtils(SearchUtils):
         if key_type == cls._ATTRIBUTE_IDENTIFIER:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    "Invalid comparator '{comparator}' not one of "
+                    f"Invalid comparator '{comparator}' not one of "
                     f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
                 )
             return True

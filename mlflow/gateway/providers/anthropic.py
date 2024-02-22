@@ -67,7 +67,7 @@ class AnthropicAdapter(ProviderAdapter):
         if n != 1:
             raise HTTPException(
                 status_code=422,
-                detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
+                detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
         payload = rename_payload_keys(payload, key_mapping)
