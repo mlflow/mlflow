@@ -22,7 +22,7 @@ having to worry about the underlying model or the preprocessing steps.
 
 .. figure:: ../../_static/images/tutorials/llms/transformers-pipeline-architecture.png
    :alt: Transformers Pipeline Architecture
-   :width: 70%
+   :width: 90%
    :align: center
 
    Transformers Pipeline Architecture for the Whisper Model
@@ -44,7 +44,7 @@ MLflow supports the use of the Transformers package by providing:
 
 - **Simplified Experiment Tracking**: Efficient logging of parameters, metrics, and models during the `fine-tuning process <https://huggingface.co/docs/transformers/main_classes/trainer>`_.
 - **Effortless Model Deployment**: Streamlined deployment to various production environments.
-- **Library Integration**: Integration with HuggingFace libraries like `Accelerate <https://huggingface.co/docs/accelerate/index>`_, `PEFT <https://huggingface.co/docs/peft/en/index>` for model optimization.
+- **Library Integration**: Integration with HuggingFace libraries like `Accelerate <https://huggingface.co/docs/accelerate/index>`_, `PEFT <https://huggingface.co/docs/peft/en/index>`_ for model optimization.
 - **Prompt Management**: `Save prompt templates <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_ with transformers pipelines to optimize inference with less boilerplate.
 
 **Example Use Case:**
@@ -226,7 +226,7 @@ When working with the transformers flavor in MLflow, there are several important
 
 To learn more about the nuances of the `transformers` flavor in MLflow, delve into `the comprehensive guide <guide/index.html>`_, which covers:
 
-- `Pipelines vs. Component Logging <guide/index.html#save-and-load-options-for-transformers-pipelines-vs-component-logging>`_: Explore the different approaches for saving model components or complete pipelines and understand the nuances of loading these models for various use cases.
+- `Pipelines vs. Component Logging <guide/index.html#pipelines-vs-component-logging>`_: Explore the different approaches for saving model components or complete pipelines and understand the nuances of loading these models for various use cases.
 
 - `Transformers Model as a Python Function <guide/index.html#loading-a-transformers-model-as-a-python-function>`_ : Familiarize yourself with the various ``transformers`` pipeline types compatible with the pyfunc model flavor. Understand the standardization of input and output formats in the pyfunc model implementation for the flavor, ensuring seamless integration with JSON and Pandas DataFrames.
 
@@ -242,7 +242,9 @@ To learn more about the nuances of the `transformers` flavor in MLflow, delve in
 
 - `Input Data Types for Audio Pipelines <guide/index.html#input-data-types-for-audio-pipelines>`_: Understand the specific requirements for handling audio data in transformers pipelines, including the handling of different input types like str, bytes, and np.ndarray.
 
+- `Storage-Efficient Model Logging with save_pretrained Option <guide/index.html#storage-efficient-model-logging-with-save-pretrained-option>`_: Learn how to leverage the new ``save_pretrained`` option to speed up model saving and loading for large foundational models without consuming excessive storage space.
 
+- `PEFT Models in MLflow Transformers flavor <guide/index.html#peft-models-in-mlflow-transformers-flavor>`_: PEFT (Parameter-Efficient Fine-Tuning) is natively supported in MLflow, enabling various optimization techniques like LoRA, QLoRA, and more for reducing fine-tuning cost significantly. Check out the guide and tutorials to learn more about how to leverage PEFT with MLflow.
 
 .. toctree::
     :maxdepth: 1
