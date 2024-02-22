@@ -2,6 +2,7 @@ import os
 import shutil
 import logging
 import mlflow
+from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import create_tmp_dir
 
@@ -18,7 +19,6 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
 
     def __init__(
         self,
-        client,
         run_id,
         checkpoint_file_suffix,
         monitor,
@@ -29,7 +29,6 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
     ):
         """
         Args:
-            client: An instance of `MlflowClient`.
             run_id: The id of the MLflow run which you want to log checkpoints to.
             checkpoint_file_suffix: checkpoint file suffix.
             monitor: In automatic model checkpointing, the metric name to monitor if
@@ -50,7 +49,7 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
                 could reflect as little as 1 batch, since the metrics get reset
                 every epoch). Defaults to `"epoch"`.
         """
-        self.client = client
+        self.client = MlflowClient(mlflow.get_tracking_uri())
         self.run_id = run_id
         self.checkpoint_file_suffix = checkpoint_file_suffix
         self.monitor = monitor

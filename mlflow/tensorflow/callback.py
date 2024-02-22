@@ -111,7 +111,6 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
 
     def __init__(
         self,
-        client,
         run_id,
         monitor="val_loss",
         mode="min",
@@ -192,7 +191,6 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
         Callback.__init__(self)
         _MlflowModelCheckpointCallbackBase.__init__(
             self,
-            client=client,
             run_id=run_id,
             checkpoint_file_suffix="h5",
             monitor=monitor,

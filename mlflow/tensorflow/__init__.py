@@ -974,10 +974,8 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
             for callback in callbacks
         ):
             run_id = mlflow.active_run().info.run_id
-            mlflow_client = MlflowClient(mlflow.get_tracking_uri())
             callbacks.append(
                 MlflowModelCheckpointCallback(
-                    client=mlflow_client,
                     run_id=run_id,
                     monitor=checkpoint_monitor,
                     mode=checkpoint_mode,

@@ -17,8 +17,6 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
     get_autologging_config,
 )
-from mlflow.utils.file_utils import create_tmp_dir
-from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 from mlflow.utils.checkpoint_utils import _MlflowModelCheckpointCallbackBase
 
 logging.basicConfig(level=logging.ERROR)
@@ -291,7 +289,6 @@ class MlflowModelCheckpointCallback(pl.Callback, _MlflowModelCheckpointCallbackB
 
     def __init__(
         self,
-        client,
         run_id,
         trainer,
         monitor="val_loss",
@@ -323,7 +320,6 @@ class MlflowModelCheckpointCallback(pl.Callback, _MlflowModelCheckpointCallbackB
                 every epoch). Defaults to `"epoch"`.
         """
         super().__init__(
-            client=client,
             run_id=run_id,
             checkpoint_file_suffix="pth",
             monitor=monitor,
@@ -509,7 +505,6 @@ def patched_fit(original, self, *args, **kwargs):
                 ):
                     self.callbacks += [
                         MlflowModelCheckpointCallback(
-                            client=MlflowClient(tracking_uri),
                             run_id=run_id,
                             trainer=self,
                             monitor=checkpoint_monitor,
