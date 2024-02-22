@@ -50,7 +50,7 @@ class AWSTitanAdapter(ProviderAdapter):
         if n != 1:
             raise HTTPException(
                 status_code=422,
-                detail="'n' must be '1' for AWS Titan models. Received value: '{n}'.",
+                detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
             )
 
         # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it

@@ -218,7 +218,7 @@ def save_model(
             message=(
                 f"Unrecognized serialization format: {serialization_format}. "
                 "Please specify one of the following supported formats: "
-                "{SUPPORTED_SERIALIZATION_FORMATS}."
+                f"{SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )

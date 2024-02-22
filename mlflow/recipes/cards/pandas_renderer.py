@@ -291,7 +291,7 @@ def construct_facets_html(
     protostr = base64.b64encode(proto.SerializeToString()).decode("utf-8")
     polyfills_code = get_facets_polyfills()
 
-    html_template = """
+    return f"""
         <div style="background-color: white">
         <script>{polyfills_code}</script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.3.3/webcomponents-lite.js"></script>
@@ -299,7 +299,6 @@ def construct_facets_html(
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
         </div>
     """  # noqa: E501
-    return html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
 
 
 def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> str:
