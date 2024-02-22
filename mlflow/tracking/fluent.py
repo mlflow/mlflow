@@ -898,7 +898,6 @@ def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[Run
     )
 
 
-@experimental
 def log_input(
     dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
 ) -> None:

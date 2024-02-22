@@ -490,7 +490,6 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    @experimental
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
