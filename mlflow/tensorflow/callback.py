@@ -145,8 +145,11 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
         :caption: Example
 
         from tensorflow import keras
+        import tensorflow as tf
         import mlflow
         import numpy as np
+        from mlflow.client import MlflowClient
+        from mlflow.tensorflow import MlflowModelCheckpointCallback
 
         # Prepare data for a 2-class classification.
         data = tf.random.uniform([8, 28, 28, 3])
@@ -166,16 +169,24 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
             metrics=[keras.metrics.SparseCategoricalAccuracy()],
         )
 
-        mlflow_checkpoint_callback = MlflowModelCheckpointCallback(
-        )
 
         with mlflow.start_run() as run:
+            mlflow_checkpoint_callback = MlflowModelCheckpointCallback(
+                client=MlflowClient(),
+                run_id=run.info.run_id,
+                monitor="sparse_categorical_accuracy",
+                mode="max",
+                save_best_only=True,
+                save_weights_only=False,
+                save_freq="epoch",
+            )
+
             model.fit(
                 data,
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[MLflowCallback(run)],
+                callbacks=[mlflow_checkpoint_callback],
             )
         """
         Callback.__init__(self)
