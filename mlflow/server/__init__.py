@@ -18,6 +18,7 @@ from mlflow.server.handlers import (
     gateway_proxy_handler,
     get_artifact_handler,
     get_metric_history_bulk_handler,
+    get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
     search_datasets_handler,
     upload_artifact_handler,
@@ -82,6 +83,12 @@ def serve_model_version_artifact():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk"))
 def serve_get_metric_history_bulk():
     return get_metric_history_bulk_handler()
+
+
+# Serve the "metrics/get-history-bulk-interval" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"))
+def serve_get_metric_history_bulk_interval():
+    return get_metric_history_bulk_interval_handler()
 
 
 # Serve the "experiments/search-datasets" route.

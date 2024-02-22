@@ -10,14 +10,13 @@ from typing import List, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, sql, text
+from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
 from mlflow.entities import (
     DatasetInput,
     Experiment,
-    Metric,
     Run,
     RunInputs,
     RunStatus,
@@ -27,6 +26,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.metric import MetricWithRunId
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -917,29 +917,6 @@ class SqlAlchemyStore(AbstractStore):
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
             return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
 
-    class MetricWithRunId(Metric):
-        def __init__(self, metric: Metric, run_id):
-            super().__init__(
-                key=metric.key,
-                value=metric.value,
-                timestamp=metric.timestamp,
-                step=metric.step,
-            )
-            self._run_id = run_id
-
-        @property
-        def run_id(self):
-            return self._run_id
-
-        def to_dict(self):
-            return {
-                "key": self.key,
-                "value": self.value,
-                "timestamp": self.timestamp,
-                "step": self.step,
-                "run_id": self.run_id,
-            }
-
     def get_metric_history_bulk(self, run_ids, metric_key, max_results):
         """
         Return all logged values for a given metric.
@@ -976,7 +953,42 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             return [
-                SqlAlchemyStore.MetricWithRunId(
+                MetricWithRunId(
+                    run_id=metric.run_uuid,
+                    metric=metric.to_mlflow_entity(),
+                )
+                for metric in metrics
+            ]
+
+    def get_max_step_for_metric(self, run_id, metric_key):
+        with self.ManagedSessionMaker() as session:
+            max_step = (
+                session.query(func.max(SqlMetric.step))
+                .filter(SqlMetric.run_uuid == run_id, SqlMetric.key == metric_key)
+                .scalar()
+            )
+            return max_step or 0
+
+    def get_metric_history_bulk_interval_from_steps(self, run_id, metric_key, steps, max_results):
+        with self.ManagedSessionMaker() as session:
+            metrics = (
+                session.query(SqlMetric)
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid == run_id,
+                    SqlMetric.step.in_(steps),
+                )
+                .order_by(
+                    SqlMetric.run_uuid,
+                    SqlMetric.step,
+                    SqlMetric.timestamp,
+                    SqlMetric.value,
+                )
+                .limit(max_results)
+                .all()
+            )
+            return [
+                MetricWithRunId(
                     run_id=metric.run_uuid,
                     metric=metric.to_mlflow_entity(),
                 )
