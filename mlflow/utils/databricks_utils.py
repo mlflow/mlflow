@@ -729,6 +729,15 @@ def get_databricks_env_vars(tracking_uri):
     return env_vars
 
 
+def get_databricks_runtime_major_minor_version():
+    dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
+    try:
+        dbr_version_splits = dbr_version.split(".", maxsplit=2)
+        return int(dbr_version_splits[0]), int(dbr_version_splits[1])
+    except Exception:
+        raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+
+
 def _init_databricks_cli_config_provider(entry_point):
     """
     set a custom DatabricksConfigProvider with the hostname and token of the
@@ -738,54 +747,109 @@ def _init_databricks_cli_config_provider(entry_point):
     """
     notebook_utils = entry_point.getDbutils().notebook()
 
-    class DynamicConfigProvider(DatabricksConfigProvider):
-        def get_config(self):
-            logger = entry_point.getLogger()
-            try:
-                from dbruntime.databricks_repl_context import get_context
+    dbr_major_minor_version = get_databricks_runtime_major_minor_version()
 
-                ctx = get_context()
-                if ctx and ctx.apiUrl and ctx.apiToken:
-                    return DatabricksConfig.from_token(
-                        host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
+    if dbr_major_minor_version >= (13, 2):
+
+        class DynamicConfigProvider(DatabricksConfigProvider):
+            def get_config(self):
+                logger = entry_point.getLogger()
+                try:
+                    from dbruntime.databricks_repl_context import get_context
+
+                    ctx = get_context()
+                    if ctx and ctx.apiUrl and ctx.apiToken:
+                        return DatabricksConfig.from_token(
+                            host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
+                        )
+                except Exception as e:
+                    print(  # noqa
+                        "Unexpected internal error while constructing `DatabricksConfig` "
+                        f"from REPL context: {e}",
+                        file=stderr,
                     )
-            except Exception as e:
-                print(  # noqa
-                    "Unexpected internal error while constructing `DatabricksConfig` "
-                    f"from REPL context: {e}",
-                    file=stderr,
+                # Invoking getContext() will attempt to find the credentials related to the
+                # current command execution, so it's critical that we execute it on every
+                # get_config().
+                api_url_option = notebook_utils.getContext().apiUrl()
+                api_url = api_url_option.get() if api_url_option.isDefined() else None
+                # Invoking getNonUcApiToken() will attempt to find the current credentials related
+                # to the current command execution and refresh it if its expired automatically,
+                # so it's critical that we execute it on every get_config().
+                api_token = None
+                try:
+                    api_token = entry_point.getNonUcApiToken()
+                except Exception:
+                    # Using apiToken from command context would return back the token which is not
+                    # refreshed.
+                    fallback_api_token_option = notebook_utils.getContext().apiToken()
+                    logger.logUsage(
+                        "refreshableTokenNotFound",
+                        {"api_url": api_url},
+                        None,
+                    )
+                    if fallback_api_token_option.isDefined():
+                        api_token = fallback_api_token_option.get()
+
+                ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
+
+                # Fallback to the default behavior if we were unable to find a token.
+                if api_token is None or api_url is None:
+                    return DefaultConfigProvider().get_config()
+
+                return DatabricksConfig.from_token(
+                    host=api_url, token=api_token, insecure=ssl_trust_all
                 )
-            # Invoking getContext() will attempt to find the credentials related to the
-            # current command execution, so it's critical that we execute it on every get_config().
-            api_url_option = notebook_utils.getContext().apiUrl()
-            api_url = api_url_option.get() if api_url_option.isDefined() else None
-            # Invoking getNonUcApiToken() will attempt to find the current credentials related to
-            # the current command execution and refresh it if its expired automatically,
-            # so it's critical that we execute it on every get_config().
-            api_token = None
-            try:
-                api_token = entry_point.getNonUcApiToken()
-            except Exception:
-                # Using apiToken from command context would return back the token which is not
-                # refreshed.
-                fallback_api_token_option = notebook_utils.getContext().apiToken()
-                logger.logUsage(
-                    "refreshableTokenNotFound",
-                    {"api_url": api_url},
-                    None,
+    elif dbr_major_minor_version >= (10, 3):
+
+        class DynamicConfigProvider(DatabricksConfigProvider):
+            def get_config(self):
+                try:
+                    from dbruntime.databricks_repl_context import get_context
+
+                    ctx = get_context()
+                    if ctx and ctx.apiUrl and ctx.apiToken:
+                        return DatabricksConfig.from_token(
+                            host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
+                        )
+                except Exception as e:
+                    print(  # noqa
+                        "Unexpected internal error while constructing `DatabricksConfig` "
+                        f"from REPL context: {e}",
+                        file=stderr,
+                    )
+                # Invoking getContext() will attempt to find the credentials related to the
+                # current command execution, so it's critical that we execute it on every
+                # get_config().
+                api_token_option = notebook_utils.getContext().apiToken()
+                api_url_option = notebook_utils.getContext().apiUrl()
+                ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
+
+                # Fallback to the default behavior if we were unable to find a token.
+                if not api_token_option.isDefined() or not api_url_option.isDefined():
+                    return DefaultConfigProvider().get_config()
+
+                return DatabricksConfig.from_token(
+                    host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
-                if fallback_api_token_option.isDefined():
-                    api_token = fallback_api_token_option.get()
+    else:
 
-            ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
+        class DynamicConfigProvider(DatabricksConfigProvider):
+            def get_config(self):
+                # Invoking getContext() will attempt to find the credentials related to the
+                # current command execution, so it's critical that we execute it on every
+                # get_config().
+                api_token_option = notebook_utils.getContext().apiToken()
+                api_url_option = notebook_utils.getContext().apiUrl()
+                ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
 
-            # Fallback to the default behavior if we were unable to find a token.
-            if api_token is None or api_url is None:
-                return DefaultConfigProvider().get_config()
+                # Fallback to the default behavior if we were unable to find a token.
+                if not api_token_option.isDefined() or not api_url_option.isDefined():
+                    return DefaultConfigProvider().get_config()
 
-            return DatabricksConfig.from_token(
-                host=api_url, token=api_token, insecure=ssl_trust_all
-            )
+                return DatabricksConfig.from_token(
+                    host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
+                )
 
     set_config_provider(DynamicConfigProvider())
 
