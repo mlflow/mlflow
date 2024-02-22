@@ -41,7 +41,7 @@ def _cached_get_s3_client(
     secret_access_key=None,
     session_token=None,
     region_name=None,
-):  # pylint: disable=unused-argument
+):
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
     This method is outside of the S3ArtifactRepository as it is

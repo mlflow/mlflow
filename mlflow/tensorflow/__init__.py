@@ -672,9 +672,7 @@ def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_s
     """
     import tensorflow as tf
 
-    loaded = tf.saved_model.load(  # pylint: disable=no-value-for-parameter
-        tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
-    )
+    loaded = tf.saved_model.load(tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir)
     loaded_sig = loaded.signatures
     if tf_signature_def_key not in loaded_sig:
         raise MlflowException(
@@ -735,9 +733,7 @@ def _load_pyfunc(path):
         tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
         tf_signature_def_key = flavor_conf["signature_def_key"]
 
-        loaded_model = tf.saved_model.load(  # pylint: disable=no-value-for-parameter
-            export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
-        )
+        loaded_model = tf.saved_model.load(export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags)
         return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
     if model_type == _MODEL_TYPE_TF2_MODULE:
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
@@ -770,7 +766,7 @@ class _TF2Wrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -826,7 +822,7 @@ class _TF2ModuleWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -862,7 +858,7 @@ class _KerasModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -930,7 +926,6 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
-    # pylint: disable=no-name-in-module
     from mlflow.tensorflow.autologging import _TensorBoard
     from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback
 
@@ -1018,8 +1013,7 @@ def autolog(
     checkpoint_save_best_only=True,
     checkpoint_save_weights_only=False,
     checkpoint_save_freq="epoch",
-):  # pylint: disable=unused-argument
-    # pylint: disable=no-name-in-module
+):
     """
     Enables autologging for ``tf.keras``.
     Note that only ``tensorflow>=2.3`` are supported.
@@ -1231,7 +1225,7 @@ def autolog(
         def __init__(self):
             self.log_dir = None
 
-        def _patch_implementation(self, original, inst, *args, **kwargs):  # pylint: disable=arguments-differ
+        def _patch_implementation(self, original, inst, *args, **kwargs):
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None

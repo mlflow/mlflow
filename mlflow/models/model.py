@@ -410,7 +410,6 @@ class Model:
     @experimental
     @metadata.setter
     def metadata(self, value: Optional[Dict[str, Any]]):
-        # pylint: disable=attribute-defined-outside-init
         self._metadata = value
 
     @property
@@ -432,7 +431,6 @@ class Model:
         # signature cannot be set to `False`, which is used in `log_model` and `save_model` calls
         # to disable automatic signature inference
         if value is not False:
-            # pylint: disable=attribute-defined-outside-init
             self._signature = value
 
     @property
@@ -445,7 +443,6 @@ class Model:
 
     @saved_input_example_info.setter
     def saved_input_example_info(self, value: Dict[str, Any]):
-        # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
 
     @property
@@ -461,7 +458,6 @@ class Model:
 
     @model_size_bytes.setter
     def model_size_bytes(self, value: Optional[int]):
-        # pylint: disable=attribute-defined-outside-init
         self._model_size_bytes = value
 
     def get_model_info(self):

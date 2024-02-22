@@ -511,3 +511,9 @@ MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
 MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
+
+#: Specifies whether or not to have mlflow configure logging on import.
+#: If set to True, mlflow will configure ``mlflow.<module_name>`` loggers with
+#: logging handlers and formatters.
+#: (default: ``True``)
+MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_LOGGING_CONFIGURE_LOGGING", True)

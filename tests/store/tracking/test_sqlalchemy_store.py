@@ -2704,7 +2704,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # MlflowExceptions
         run = self._run_factory()
 
-        def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
+        def _raise_exception_fn(*args, **kwargs):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"

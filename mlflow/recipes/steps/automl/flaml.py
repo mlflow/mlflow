@@ -69,8 +69,6 @@ def _create_custom_metric_flaml(
         res_df["target"] = y if task == "classification" else y.values
         return eval_metric.eval_fn(res_df, builtin_metrics)
 
-    # pylint: disable=keyword-arg-before-vararg
-    # pylint: disable=unused-argument
     def custom_metric(
         X_val,
         y_val,
@@ -94,8 +92,6 @@ def _create_custom_metric_flaml(
 
 
 def _create_sklearn_metric_flaml(metric_name: str, coeff: int, avg: str = "binary") -> callable:
-    # pylint: disable=keyword-arg-before-vararg
-    # pylint: disable=unused-argument
     def sklearn_metric(
         X_val,
         y_val,

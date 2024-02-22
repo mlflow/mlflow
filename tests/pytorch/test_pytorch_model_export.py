@@ -125,14 +125,12 @@ def get_subclassed_model_definition():
     can be invoked within a module to define the class in the module's scope.
     """
 
-    # pylint: disable=abstract-method
     class SubclassedModel(torch.nn.Module):
         def __init__(self):
             super().__init__()
             self.linear = torch.nn.Linear(4, 1)
 
         def forward(self, x):
-            # pylint: disable=arguments-differ
             return self.linear(x)
 
     return SubclassedModel
@@ -150,7 +148,6 @@ def main_scoped_subclassed_model(data):
     return model
 
 
-# pylint: disable=abstract-method
 class ModuleScopedSubclassedModel(get_subclassed_model_definition()):
     """
     A custom PyTorch model class defined in the test module scope. This is a subclass of
@@ -582,7 +579,6 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
 def test_save_model_with_wrong_codepaths_fails_correctly(
     module_scoped_subclassed_model, model_path, data
 ):
-    # pylint: disable=unused-argument
     with pytest.raises(TypeError, match="Argument code_paths should be a list, not <class 'str'>"):
         mlflow.pytorch.save_model(
             path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
@@ -630,7 +626,6 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     # `mlflow.pytorch.load_model`
     class TorchValidatorModel(pyfunc.PythonModel):
         def load_context(self, context):
-            # pylint: disable=attribute-defined-outside-init
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
         def predict(self, _, model_input, params=None):
@@ -858,12 +853,12 @@ def test_pyfunc_serve_and_score(data):
 
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, BertModel  # pylint: disable=import-error
+    from transformers import BertConfig, BertModel
 
     from mlflow.deployments import PredictionsResponse
 
     class MyBertModel(BertModel):
-        def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
+        def forward(self, *args, **kwargs):
             return super().forward(*args, **kwargs).last_hidden_state
 
     model = MyBertModel(

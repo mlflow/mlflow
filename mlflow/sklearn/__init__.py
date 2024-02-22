@@ -512,7 +512,7 @@ class _SklearnModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -705,12 +705,10 @@ class _AutologgingMetricsManager:
 
     def disable_log_post_training_metrics(self):
         class LogPostTrainingMetricsDisabledScope:
-            def __enter__(inner_self):  # pylint: disable=no-self-argument
-                # pylint: disable=attribute-defined-outside-init
+            def __enter__(inner_self):
                 inner_self.old_status = self._log_post_training_metrics_enabled
                 self._log_post_training_metrics_enabled = False
 
-            # pylint: disable=no-self-argument
             def __exit__(inner_self, exc_type, exc_val, exc_tb):
                 self._log_post_training_metrics_enabled = inner_self.old_status
 
@@ -1005,7 +1003,7 @@ def autolog(
     registered_model_name=None,
     pos_label=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
 
@@ -1308,7 +1306,7 @@ def _autolog(
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     pos_label=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Internal autologging function for scikit-learn models.
 
@@ -1429,7 +1427,7 @@ def _autolog(
         params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(autologging_client, estimator, X, y):  # pylint: disable=unused-argument
+    def _log_pretraining_metadata(autologging_client, estimator, X, y):
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine
@@ -1781,7 +1779,6 @@ def _autolog(
             if not hasattr(sklearn.utils.metaestimators, "_IffHasAttrDescriptor"):
                 return
 
-            # pylint: disable=redefined-builtin,unused-argument
             def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
                 """
                 For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not

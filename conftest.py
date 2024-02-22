@@ -215,7 +215,7 @@ def pytest_ignore_collect(path, config):
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_collection_modifyitems(session, config, items):  # pylint: disable=unused-argument
+def pytest_collection_modifyitems(session, config, items):
     # Executing `tests.server.test_prometheus_exporter` after `tests.server.test_handlers`
     # results in an error because Flask >= 2.2.0 doesn't allow calling setup method such as
     # `before_request` on the application after the first request. To avoid this issue,
@@ -228,7 +228,7 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_terminal_summary(terminalreporter, exitstatus, config):  # pylint: disable=unused-argument
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
     yield
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:

@@ -3331,7 +3331,7 @@ class MlflowClient:
         )
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
-    def get_model_version_stages(self, name: str, version: str) -> List[str]:  # pylint: disable=unused-argument
+    def get_model_version_stages(self, name: str, version: str) -> List[str]:
         """
         This is a docstring. Here is info.
 
