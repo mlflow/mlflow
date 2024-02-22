@@ -250,6 +250,17 @@ message SearchRegisteredModelsResponse {
   optional string next_page_token = 2;
 }
 
+enum DependencyType {
+  DEPENDENCY_TYPE_UNSPECIFIED = 0;
+  DATABRICKS_VECTOR_INDEX = 1;
+  DATABRICKS_MODEL_ENDPOINT = 2;
+}
+
+message Dependency {
+  optional DependencyType type = 1;
+  optional string name = 2;
+}
+
 message CreateModelVersionRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateModelVersionResponse]";
 
@@ -274,6 +285,9 @@ message CreateModelVersionRequest {
 
   // Tags associated with model version.
   repeated ModelVersionTag tags = 7;
+
+  // Additional dependencies to pass to createModelVersion including VectorSearch and Embedding endpoints
+  repeated Dependency model_version_dependencies = 8;
 }
 
 message CreateModelVersionResponse {
