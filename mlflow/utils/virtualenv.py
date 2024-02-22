@@ -285,10 +285,7 @@ def _create_virtualenv(
                 cmd = _join_commands(
                     activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}"
                 )
-                try:
-                    _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
-                except Exception as e:
-                    raise MlflowException(f"{e!r}; requirements file content: {deps}")
+                _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
     return activate_cmd
 
