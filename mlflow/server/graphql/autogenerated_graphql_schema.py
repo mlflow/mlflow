@@ -14,6 +14,39 @@ class MlflowRunStatus(graphene.Enum):
     KILLED = "KILLED"
 
 
+class MlflowModelVersionStatus(graphene.Enum):
+    PENDING_REGISTRATION = "PENDING_REGISTRATION"
+    FAILED_REGISTRATION = "FAILED_REGISTRATION"
+    READY = "READY"
+
+
+class MlflowModelVersionTag(graphene.ObjectType):
+    key = graphene.String()
+    value = graphene.String()
+
+
+class MlflowModelVersion(graphene.ObjectType):
+    name = graphene.String()
+    version = graphene.String()
+    creation_timestamp = LongString()
+    last_updated_timestamp = LongString()
+    user_id = graphene.String()
+    current_stage = graphene.String()
+    description = graphene.String()
+    source = graphene.String()
+    run_id = graphene.String()
+    status = graphene.Field(MlflowModelVersionStatus)
+    status_message = graphene.String()
+    tags = graphene.List(graphene.NonNull(MlflowModelVersionTag))
+    run_link = graphene.String()
+    aliases = graphene.List(graphene.String)
+
+
+class MlflowSearchModelVersionsResponse(graphene.ObjectType):
+    model_versions = graphene.List(graphene.NonNull(MlflowModelVersion))
+    next_page_token = graphene.String()
+
+
 class MlflowDataset(graphene.ObjectType):
     name = graphene.String()
     digest = graphene.String()
@@ -102,6 +135,13 @@ class MlflowGetExperimentResponse(graphene.ObjectType):
     experiment = graphene.Field(MlflowExperiment)
 
 
+class MlflowSearchModelVersionsInput(graphene.InputObjectType):
+    filter = graphene.String()
+    max_results = LongString()
+    order_by = graphene.List(graphene.String)
+    page_token = graphene.String()
+
+
 class MlflowGetRunInput(graphene.InputObjectType):
     run_id = graphene.String()
     run_uuid = graphene.String()
@@ -112,20 +152,27 @@ class MlflowGetExperimentInput(graphene.InputObjectType):
 
 
 class QueryType(graphene.ObjectType):
-    mlflow_get_experiment = graphene.Field(MlflowGetExperimentResponse, input=MlflowGetExperimentInput())
     mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
-
-    def resolve_mlflow_get_experiment(self, info, input):
-        input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.GetExperiment()
-        parse_dict(input_dict, request_message)
-        return mlflow.server.handlers.get_experiment_impl(request_message)
+    mlflow_search_model_versions = graphene.Field(MlflowSearchModelVersionsResponse, input=MlflowSearchModelVersionsInput())
+    mlflow_get_experiment = graphene.Field(MlflowGetExperimentResponse, input=MlflowGetExperimentInput())
 
     def resolve_mlflow_get_run(self, info, input):
         input_dict = vars(input)
         request_message = mlflow.protos.service_pb2.GetRun()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_run_impl(request_message)
+
+    def resolve_mlflow_search_model_versions(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.model_registry_pb2.SearchModelVersions()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.search_model_versions_impl(request_message)
+
+    def resolve_mlflow_get_experiment(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.GetExperiment()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.get_experiment_impl(request_message)
 
 
 class MutationType(graphene.ObjectType):
