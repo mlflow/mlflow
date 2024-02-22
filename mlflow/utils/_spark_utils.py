@@ -118,7 +118,7 @@ def _create_local_spark_session_for_loading_spark_model():
         .config("spark.executor.allowSparkContext", "true")
         # Binding "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
         # related issues (e.g. https://github.com/mlflow/mlflow/issues/5733).
-        .config("spark.driver.bindAddress", "127.0.0.1")
+        .config("spark.driver.host", "127.0.0.1")
         .config("spark.executor.allowSparkContext", "true")
         .config(
             "spark.driver.extraJavaOptions",
