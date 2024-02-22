@@ -30,7 +30,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MLflowCallback  # noqa: F401
+from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -1424,7 +1424,7 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
     .. code-block:: python
         :caption: Example
 
-        import mlflow.tensorflow
+        import mlflow
 
         mlflow.tensorflow.autolog(checkpoint=True, checkpoint_save_best_only=False)
 
@@ -1438,7 +1438,7 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
         latest_checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id)
 
         # load history checkpoint model logged in second epoch
-        checkpoint_model = mlflow.pytorch.load_checkpoint(run_id=run_id, epoch=2)
+        checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id, epoch=2)
     """
     import tensorflow as tf
 

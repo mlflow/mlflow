@@ -293,6 +293,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         self,
         client,
         run_id,
+        trainer,
         monitor="val_loss",
         mode="min",
         save_best_only=True,
@@ -331,7 +332,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
             save_weights_only=save_weights_only,
             save_freq=save_freq,
         )
-        self.trainer = None
+        self.trainer = trainer
 
     def save_checkpoint(self, filepath: str):
         # Note: `trainer.save_checkpoint` implementation contains invocation of
@@ -354,8 +355,6 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         batch,
         batch_idx,
     ) -> None:
-        if self.trainer is None:
-            self.trainer = trainer
         if isinstance(self.save_freq, int) and (
             trainer.global_step > 0 and trainer.global_step % self.save_freq == 0
         ):
@@ -367,8 +366,6 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-        if self.trainer is None:
-            self.trainer = trainer
         if self.save_freq == "epoch":
             self.check_and_save_checkpoint_if_needed(
                 current_epoch=trainer.current_epoch,
@@ -514,6 +511,7 @@ def patched_fit(original, self, *args, **kwargs):
                         MlflowModelCheckpointCallback(
                             client=MlflowClient(tracking_uri),
                             run_id=run_id,
+                            trainer=self,
                             monitor=checkpoint_monitor,
                             mode=checkpoint_mode,
                             save_best_only=checkpoint_save_best_only,

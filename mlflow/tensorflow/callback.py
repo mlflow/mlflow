@@ -140,6 +140,43 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
                 aligned to epochs, the monitored metric may potentially be less reliable (it
                 could reflect as little as 1 batch, since the metrics get reset
                 every epoch). Defaults to `"epoch"`.
+
+    .. code-block:: python
+        :caption: Example
+
+        from tensorflow import keras
+        import mlflow
+        import numpy as np
+
+        # Prepare data for a 2-class classification.
+        data = tf.random.uniform([8, 28, 28, 3])
+        label = tf.convert_to_tensor(np.random.randint(2, size=8))
+
+        model = keras.Sequential(
+            [
+                keras.Input([28, 28, 3]),
+                keras.layers.Flatten(),
+                keras.layers.Dense(2),
+            ]
+        )
+
+        model.compile(
+            loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+            optimizer=keras.optimizers.Adam(0.001),
+            metrics=[keras.metrics.SparseCategoricalAccuracy()],
+        )
+
+        mlflow_checkpoint_callback = MlflowModelCheckpointCallback(
+        )
+
+        with mlflow.start_run() as run:
+            model.fit(
+                data,
+                label,
+                batch_size=4,
+                epochs=2,
+                callbacks=[MLflowCallback(run)],
+            )
         """
         Callback.__init__(self)
         MlflowModelCheckpointCallbackBase.__init__(

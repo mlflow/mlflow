@@ -108,7 +108,7 @@ def get_default_conda_env():
     .. code-block:: python
         :caption: Example
 
-        import mlflow.pytorch
+        import mlflow
 
         # Log PyTorch model
         with mlflow.start_run() as run:
