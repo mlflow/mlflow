@@ -82,6 +82,6 @@ describe('ModelVersionTable', () => {
     expect(screen.queryByRole('columnheader', { name: 'Stage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
-    expect(screen.queryByRole('status', { name: 'champion' })).toBeInTheDocument();
+    expect(screen.queryByText(/champion/)).toBeInTheDocument();
   });
 });
