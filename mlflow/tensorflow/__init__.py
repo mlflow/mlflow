@@ -1190,9 +1190,11 @@ def autolog(
                 ):
                     batch_size = training_data._batch_size.numpy()
                 elif isinstance(training_data, tf.keras.utils.Sequence):
-                    batch_size = _infer_batch_size_from_sequence(
-                        is_single_input_model, training_data
-                    )
+                    first_batch_inputs, *_ = training_data[0]
+                    if is_single_input_model:
+                        batch_size = len(first_batch_inputs)
+                    else:
+                        batch_size = len(first_batch_inputs[0])
                 elif is_iterator(training_data):
                     batch_size, args, kwargs = _infer_batch_size_from_iterator(
                         is_single_input_model, training_data, *args, **kwargs
@@ -1305,14 +1307,6 @@ def autolog(
 
     for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True, extra_tags=extra_tags)
-
-
-def _infer_batch_size_from_sequence(is_single_input_model, training_data):
-    first_batch_inputs, *_ = training_data[0]
-    if is_single_input_model:
-        return len(first_batch_inputs)
-    else:
-        return len(first_batch_inputs[0])
 
 
 def _infer_batch_size_from_iterator(is_single_input_model, training_data, *args, **kwargs):
