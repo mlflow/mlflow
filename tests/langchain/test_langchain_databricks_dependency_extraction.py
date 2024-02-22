@@ -2,7 +2,9 @@ import sys
 from collections import defaultdict
 from unittest.mock import MagicMock
 
+import langchain
 import pytest
+from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
@@ -32,6 +34,9 @@ class MockDatabricksServingEndpointClient:
         self.task = task
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch):
     from langchain.llms import Databricks
 
@@ -64,6 +69,9 @@ class MockVectorSearchClient:
         return MockVectorSearchIndex(endpoint_name, index_name)
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.MonkeyPatch):
     from langchain.embeddings import DatabricksEmbeddings
     from langchain.vectorstores import DatabricksVectorSearch
@@ -89,6 +97,9 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     assert d.get(_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY) == ["dbdemos_vs_endpoint"]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
     from langchain.chat_models import ChatDatabricks
 
