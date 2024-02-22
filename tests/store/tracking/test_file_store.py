@@ -2382,7 +2382,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         overwrite_dataset = Dataset(
             name="name",
             digest="digest",
-            source_type="st{i}",
+            source_type=f"st{i}",
             source=f"source{i}",
             schema=f"schema{i}",
             profile=f"profile{i}",
