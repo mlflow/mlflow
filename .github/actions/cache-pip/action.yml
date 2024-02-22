@@ -5,7 +5,7 @@ runs:
   steps:
     - uses: ./.github/actions/py-cache-key
       id: py-cache-key
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       continue-on-error: true
       # https://github.com/actions/cache/issues/810
       env:
