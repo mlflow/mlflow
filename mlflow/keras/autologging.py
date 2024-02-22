@@ -34,14 +34,17 @@ def _infer_batch_size(inst, *keras_fit_args, **keras_fit_kwargs):
 
     training_data = keras_fit_kwargs["x"] if "x" in keras_fit_kwargs else keras_fit_args[0]
     if batch_size := getattr(training_data, "_batch_size", None):
-        return batch_size if isinstance(batch_size, int) else batch_size.numpy()
-    if batch_size := getattr(training_data, "batch_size", None):
-        return batch_size
-    is_single_input_model = isinstance(inst.input_shape, tuple)
-    if is_iterator(training_data):
-        batch_size, keras_fit_args, keras_fit_kwargs = _infer_batch_size_from_iterator(
-            is_single_input_model, training_data, *keras_fit_args, **keras_fit_kwargs
-        )
+        if not isinstance(batch_size, int):
+            batch_size = batch_size.numpy()
+    elif batch_size := getattr(training_data, "batch_size", None):
+        pass
+    else:
+        is_single_input_model = isinstance(inst.input_shape, tuple)
+        if is_iterator(training_data):
+            batch_size, keras_fit_args, keras_fit_kwargs = _infer_batch_size_from_iterator(
+                is_single_input_model, training_data, *keras_fit_args, **keras_fit_kwargs
+            )
+    return batch_size, keras_fit_args, keras_fit_kwargs
 
 
 def _check_existing_mlflow_callback(callbacks):
@@ -217,7 +220,7 @@ def autolog(
         def _patch_implementation(self, original, inst, *args, **kwargs):
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
-            batch_size = _infer_batch_size(inst, *args, **kwargs)
+            batch_size, args, kwargs = _infer_batch_size(inst, *args, **kwargs)
 
             if batch_size is not None:
                 mlflow.log_param("batch_size", batch_size)
