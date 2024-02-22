@@ -160,6 +160,7 @@ def get_feature_dependencies(model_dir):
         )
     return ""
 
+
 def get_model_version_dependencies(model_dir):
     """
     Gets the specified dependencies for a particular model version and formats them
@@ -167,30 +168,38 @@ def get_model_version_dependencies(model_dir):
     """
     # import here to work around circular imports
     from mlflow.langchain.databricks_dependencies import (
-    _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY, 
-    _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-    _DATABRICKS_LLM_ENDPOINT_NAME_KEY, 
-    _DATABRICKS_CHAT_ENDPOINT_NAME_KEY
-)
+        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
+        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
+        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
+        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
+    )
 
     model = _load_model(model_dir)
     model_info = model.get_model_info()
     dependencies = []
-    index_names = _fetch_langchain_dependency_from_model_info(model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY)
+    index_names = _fetch_langchain_dependency_from_model_info(
+        model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
+    )
     for index_name in index_names:
         dependencies.append({"type": "VECTOR_INDEX", "name": index_name})
-    for key in (_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY, _DATABRICKS_LLM_ENDPOINT_NAME_KEY, _DATABRICKS_CHAT_ENDPOINT_NAME_KEY):
-        endpoint_names =  _fetch_langchain_dependency_from_model_info(model_info, key)
+    for key in (
+        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
+        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
+        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
+    ):
+        endpoint_names = _fetch_langchain_dependency_from_model_info(model_info, key)
         for endpoint_name in endpoint_names:
             dependencies.append({"type": "MODEL_ENDPOINT", "name": endpoint_name})
     return dependencies
-    
+
 
 def _fetch_langchain_dependency_from_model_info(model_info, key):
-        # import here to work around circular imports
+    # import here to work around circular imports
     from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
-    return model_info.flavors.get("langchain", {}).get(_DATABRICKS_DEPENDENCY_KEY, {}).get(key, [])  
-   
+
+    return model_info.flavors.get("langchain", {}).get(_DATABRICKS_DEPENDENCY_KEY, {}).get(key, [])
+
+
 @experimental
 class UcModelRegistryStore(BaseRestStore):
     """
@@ -679,7 +688,7 @@ class UcModelRegistryStore(BaseRestStore):
                     tags=uc_model_version_tag_from_mlflow_tags(tags),
                     run_tracking_server_id=source_workspace_id,
                     feature_deps=feature_deps,
-                    model_version_dependencies = other_model_deps
+                    model_version_dependencies=other_model_deps,
                 )
             )
             model_version = self._call_endpoint(
