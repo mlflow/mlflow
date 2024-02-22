@@ -44,7 +44,7 @@ class AnthropicAdapter(ProviderAdapter):
         # Cohere uses `system` to set the system message
         # we concatenate all system messages from the user with a newline
         system_messages = [m for m in payload["messages"] if m["role"] == "system"]
-        if len(system_messages) > 0:
+        if system_messages:
             payload["system"] = "\n".join(m["content"] for m in system_messages)
 
         # remaining messages are chat history
@@ -250,24 +250,24 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 continue
 
             # No handling on "event" lines
-            prefix, content = chunk.decode("utf-8").split(":", 1)
-            if prefix != "data":
+            prefix, content = chunk.split(b":", 1)
+            if prefix != b"data":
                 continue
 
             # See https://docs.anthropic.com/claude/reference/messages-streaming
-            resp = json.loads(content)
-            if resp["type"] not in (
-                "message_start",
-                "message_delta",
-                "content_block_start",
-                "content_block_delta",
-            ):
-                continue
+            resp = json.loads(content.decode("utf-8"))
 
             # response id and model are only present in `message_start`
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
+                continue
+
+            if resp["type"] not in (
+                "message_delta",
+                "content_block_start",
+                "content_block_delta",
+            ):
                 continue
 
             index = resp.get("index")
