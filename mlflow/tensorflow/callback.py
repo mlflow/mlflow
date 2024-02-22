@@ -107,38 +107,25 @@ class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
 
 class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase):
     """Callback for automatic Keras model checkpointing to MLflow.
-    """
 
-    def __init__(
-        self,
-        run_id,
-        monitor="val_loss",
-        mode="min",
-        save_best_only=True,
-        save_weights_only=False,
-        save_freq="epoch",
-    ):
-        """
-        Args:
-            client: An instance of `MlflowClient`.
-            run_id: The id of the MLflow run which you want to log checkpoints to.
-            monitor: In automatic model checkpointing, the metric name to monitor if
-                you set `model_checkpoint_save_best_only` to True.
-            save_best_only: If True, automatic model checkpointing only saves when
-                the model is considered the "best" model according to the quantity
-                monitored and previous checkpoint model is overwritten.
-            mode: one of {"min", "max"}. In automatic model checkpointing,
-                if save_best_only=True, the decision to overwrite the current save file is made
-                based on either the maximization or the minimization of the monitored quantity.
-            save_weights_only: In automatic model checkpointing, if True, then
-                only the model’s weights will be saved. Otherwise, the optimizer states,
-                lr-scheduler states, etc are added in the checkpoint too.
-            save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
-                saves the model after each epoch. When using integer, the callback
-                saves the model at end of this many batches. Note that if the saving isn't
-                aligned to epochs, the monitored metric may potentially be less reliable (it
-                could reflect as little as 1 batch, since the metrics get reset
-                every epoch). Defaults to `"epoch"`.
+    Args:
+        monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
+        mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made
+            based on either the maximization or the minimization of the monitored quantity.
+        save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+            saves the model after each epoch. When using integer, the callback
+            saves the model at end of this many batches. Note that if the saving isn't
+            aligned to epochs, the monitored metric may potentially be less reliable (it
+            could reflect as little as 1 batch, since the metrics get reset
+            every epoch). Defaults to `"epoch"`.
 
     .. code-block:: python
         :caption: Example
@@ -147,7 +134,6 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
         import tensorflow as tf
         import mlflow
         import numpy as np
-        from mlflow.client import MlflowClient
         from mlflow.tensorflow import MlflowModelCheckpointCallback
 
         # Prepare data for a 2-class classification.
@@ -168,18 +154,15 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
             metrics=[keras.metrics.SparseCategoricalAccuracy()],
         )
 
+        mlflow_checkpoint_callback = MlflowModelCheckpointCallback(
+            monitor="sparse_categorical_accuracy",
+            mode="max",
+            save_best_only=True,
+            save_weights_only=False,
+            save_freq="epoch",
+        )
 
         with mlflow.start_run() as run:
-            mlflow_checkpoint_callback = MlflowModelCheckpointCallback(
-                client=MlflowClient(),
-                run_id=run.info.run_id,
-                monitor="sparse_categorical_accuracy",
-                mode="max",
-                save_best_only=True,
-                save_weights_only=False,
-                save_freq="epoch",
-            )
-
             model.fit(
                 data,
                 label,
@@ -187,11 +170,18 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
                 epochs=2,
                 callbacks=[mlflow_checkpoint_callback],
             )
-        """
+    """
+    def __init__(
+        self,
+        monitor="val_loss",
+        mode="min",
+        save_best_only=True,
+        save_weights_only=False,
+        save_freq="epoch",
+    ):
         Callback.__init__(self)
         _MlflowModelCheckpointCallbackBase.__init__(
             self,
-            run_id=run_id,
             checkpoint_file_suffix="h5",
             monitor=monitor,
             mode=mode,

@@ -1159,15 +1159,16 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
     .. code-block:: python
         :caption: Example
 
-        import mlflow.pytorch
+        import mlflow
 
         mlflow.pytorch.autolog(checkpoint=True)
 
         model = MyLightningModuleNet()  # A custom-pytorch lightning model
+        train_loader = create_train_dataset_loader()
         trainer = Trainer()
 
         with mlflow.start_run() as run:
-            trainer.fit(net)
+            trainer.fit(model, train_loader)
 
         run_id = run.info.run_id
 

@@ -285,42 +285,58 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
 class MlflowModelCheckpointCallback(pl.Callback, _MlflowModelCheckpointCallbackBase):
     """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
     This callback implementation only supports pytorch-lightning >= 1.6.0.
+
+    Args:
+        monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
+        mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made
+            based on either the maximization or the minimization of the monitored quantity.
+        save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+            saves the model after each epoch. When using integer, the callback
+            saves the model at end of this many batches. Note that if the saving isn't
+            aligned to epochs, the monitored metric may potentially be less reliable (it
+            could reflect as little as 1 batch, since the metrics get reset
+            every epoch). Defaults to `"epoch"`.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from mlflow.pytorch import MLflowModelCheckpointCallback
+        from pytorch_lightning import Trainer
+
+        mlflow.pytorch.autolog(checkpoint=True)
+
+        model = MyLightningModuleNet()  # A custom-pytorch lightning model
+        train_loader = create_train_dataset_loader()
+
+        mlflow_checkpoint_callback = MLflowModelCheckpointCallback()
+
+        trainer = Trainer(
+            callbacks=[mlflow_checkpoint_callback]
+        )
+
+        with mlflow.start_run() as run:
+            trainer.fit(model, train_loader)
+
     """
 
     def __init__(
         self,
-        run_id,
-        trainer,
         monitor="val_loss",
         mode="min",
         save_best_only=True,
         save_weights_only=False,
         save_freq="epoch",
     ):
-        """
-        Args:
-            client: An instance of `MlflowClient`.
-            run_id: The id of the MLflow run which you want to log checkpoints to.
-            monitor: In automatic model checkpointing, the metric name to monitor if
-                you set `model_checkpoint_save_best_only` to True.
-            save_best_only: If True, automatic model checkpointing only saves when
-                the model is considered the "best" model according to the quantity
-                monitored and previous checkpoint model is overwritten.
-            mode: one of {"min", "max"}. In automatic model checkpointing,
-                if save_best_only=True, the decision to overwrite the current save file is made
-                based on either the maximization or the minimization of the monitored quantity.
-            save_weights_only: In automatic model checkpointing, if True, then
-                only the model’s weights will be saved. Otherwise, the optimizer states,
-                lr-scheduler states, etc are added in the checkpoint too.
-            save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
-                saves the model after each epoch. When using integer, the callback
-                saves the model at end of this many batches. Note that if the saving isn't
-                aligned to epochs, the monitored metric may potentially be less reliable (it
-                could reflect as little as 1 batch, since the metrics get reset
-                every epoch). Defaults to `"epoch"`.
-        """
         super().__init__(
-            run_id=run_id,
             checkpoint_file_suffix="pth",
             monitor=monitor,
             mode=mode,
@@ -328,7 +344,7 @@ class MlflowModelCheckpointCallback(pl.Callback, _MlflowModelCheckpointCallbackB
             save_weights_only=save_weights_only,
             save_freq=save_freq,
         )
-        self.trainer = trainer
+        self.trainer = None
 
     def save_checkpoint(self, filepath: str):
         # Note: `trainer.save_checkpoint` implementation contains invocation of
@@ -341,6 +357,10 @@ class MlflowModelCheckpointCallback(pl.Callback, _MlflowModelCheckpointCallbackB
             self.save_weights_only
         )
         self.trainer.strategy.save_checkpoint(checkpoint, filepath)
+
+    @rank_zero_only
+    def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        self.trainer = trainer
 
     @rank_zero_only
     def on_train_batch_end(
@@ -505,8 +525,6 @@ def patched_fit(original, self, *args, **kwargs):
                 ):
                     self.callbacks += [
                         MlflowModelCheckpointCallback(
-                            run_id=run_id,
-                            trainer=self,
                             monitor=checkpoint_monitor,
                             mode=checkpoint_mode,
                             save_best_only=checkpoint_save_best_only,

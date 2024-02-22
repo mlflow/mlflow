@@ -976,7 +976,6 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
             run_id = mlflow.active_run().info.run_id
             callbacks.append(
                 MlflowModelCheckpointCallback(
-                    run_id=run_id,
                     monitor=checkpoint_monitor,
                     mode=checkpoint_mode,
                     save_best_only=checkpoint_save_best_only,

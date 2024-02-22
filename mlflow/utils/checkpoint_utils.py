@@ -2,7 +2,6 @@ import os
 import shutil
 import logging
 import mlflow
-from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import create_tmp_dir
 
@@ -19,7 +18,6 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
 
     def __init__(
         self,
-        run_id,
         checkpoint_file_suffix,
         monitor,
         mode,
@@ -29,7 +27,6 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
     ):
         """
         Args:
-            run_id: The id of the MLflow run which you want to log checkpoints to.
             checkpoint_file_suffix: checkpoint file suffix.
             monitor: In automatic model checkpointing, the metric name to monitor if
                 you set `model_checkpoint_save_best_only` to True.
@@ -49,8 +46,6 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
                 could reflect as little as 1 batch, since the metrics get reset
                 every epoch). Defaults to `"epoch"`.
         """
-        self.client = MlflowClient(mlflow.get_tracking_uri())
-        self.run_id = run_id
         self.checkpoint_file_suffix = checkpoint_file_suffix
         self.monitor = monitor
         self.mode = mode
@@ -124,14 +119,12 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
             checkpoint_metrics_filename = "checkpoint_metrics.json"
             checkpoint_artifact_dir = f"checkpoints/{sub_dir_name}"
 
-        self.client.set_tag(
-            self.run_id,
+        mlflow.set_tag(
             LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
             f"{checkpoint_artifact_dir}/{checkpoint_model_filename}",
         )
 
-        self.client.log_dict(
-            self.run_id,
+        mlflow.log_dict(
             {**metric_dict, "epoch": current_epoch, "global_step": global_step},
             f"{checkpoint_artifact_dir}/{checkpoint_metrics_filename}",
         )
@@ -140,7 +133,7 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         try:
             tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
             self.save_checkpoint(tmp_model_save_path)
-            self.client.log_artifact(self.run_id, tmp_model_save_path, checkpoint_artifact_dir)
+            mlflow.log_artifact(tmp_model_save_path, checkpoint_artifact_dir)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
