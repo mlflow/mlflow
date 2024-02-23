@@ -70,7 +70,11 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return compute_pandas_digest(df)
 
     def to_dict(self) -> Dict[str, str]:
-        """Create config dictionary for the dataset."""
+        """Create config dictionary for the dataset.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
+        """
         schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
         config = super().to_dict()
         config.update(

@@ -45,6 +45,9 @@ class Dataset:
 
         Subclasses should override this method to provide additional fields in the config dict,
         e.g., schema, profile, etc.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type.
         """
         return {
             "name": self.name,

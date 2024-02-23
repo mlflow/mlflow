@@ -89,7 +89,11 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
     def to_dict(self) -> Dict[str, str]:
-        """Create config dictionary for the dataset."""
+        """Create config dictionary for the dataset.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
+        """
         schema = json.dumps(self.schema.to_dict()) if self.schema else None
         config = super().to_dict()
         config.update(

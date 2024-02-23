@@ -1,5 +1,5 @@
-import json
 import hashlib
+import json
 from typing import Any, Dict, Optional
 
 from mlflow.data.dataset import Dataset
@@ -74,7 +74,12 @@ class MetaDataset(Dataset):
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
-        """Computes a digest for the dataset."""
+        """Computes a digest for the dataset.
+
+        The digest computation of `MetaDataset` is based on the dataset's name, source, source type,
+        and schema instead of the actual data. Basically we compute the sha256 hash of the config
+        dict.
+        """
         config = {
             "name": self.name,
             "source": self.source.to_json(),
@@ -89,6 +94,11 @@ class MetaDataset(Dataset):
         return self._schema
 
     def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the MetaDataset.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
+        """
         config = super().to_dict()
         if self.schema:
             schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None

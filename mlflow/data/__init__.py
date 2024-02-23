@@ -1,7 +1,8 @@
 import sys
+from contextlib import suppress
 from typing import Union
 
-from mlflow.data import dataset_registry, meta_dataset
+from mlflow.data import dataset_registry
 from mlflow.data import sources as mlflow_data_sources
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -11,6 +12,10 @@ from mlflow.entities import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
+
+with suppress(ImportError):
+    # Suppressing ImportError to pass mlflow-skinny testing.
+    from mlflow.data import meta_dataset  # noqa: F401
 
 
 @experimental
@@ -47,7 +52,7 @@ def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetS
     return dataset_source
 
 
-__all__ = ["get_source", "meta_dataset"]
+__all__ = ["get_source"]
 
 
 def _define_dataset_constructors_in_current_module():
