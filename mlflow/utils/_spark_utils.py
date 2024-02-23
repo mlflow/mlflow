@@ -116,9 +116,12 @@ def _create_local_spark_session_for_loading_spark_model():
         # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
         # a SparkSession on the workers
         .config("spark.executor.allowSparkContext", "true")
-        # Binding "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
+        # Binding "spark.driver.host" to 127.0.0.1 helps avoiding some local hostname
         # related issues (e.g. https://github.com/mlflow/mlflow/issues/5733).
-        .config("spark.driver.bindAddress", "127.0.0.1")
+        # Note that we should set "spark.driver.host" instead of "spark.driver.bindAddress",
+        # the latter one only set server binding host, but it doesn't set client side request
+        # destination host.
+        .config("spark.driver.host", "127.0.0.1")
         .config("spark.executor.allowSparkContext", "true")
         .config(
             "spark.driver.extraJavaOptions",
