@@ -1042,7 +1042,7 @@ class SqlAlchemyStore(AbstractStore):
             ]
 
     def log_param(self, run_id, param):
-        _validate_param(param.key, param.value)
+        param = _validate_param(param.key, param.value)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -1151,7 +1151,7 @@ class SqlAlchemyStore(AbstractStore):
             tag: RunTag instance to log.
         """
         with self.ManagedSessionMaker() as session:
-            _validate_tag(tag.key, tag.value)
+            tag = _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             if tag.key == MLFLOW_RUN_NAME:
@@ -1172,8 +1172,7 @@ class SqlAlchemyStore(AbstractStore):
         if not tags:
             return
 
-        for tag in tags:
-            _validate_tag(tag.key, tag.value)
+        tags = [_validate_tag(t.key, t.value) for t in tags]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1343,7 +1342,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
-        _validate_batch_log_data(metrics, params, tags)
+        metrics, params, tags = _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
 
