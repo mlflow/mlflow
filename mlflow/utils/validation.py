@@ -1,16 +1,20 @@
 """
 Utilities for validating user inputs such as metric names and parameter names.
 """
+import logging
 import numbers
 import posixpath
 import re
 from typing import List
 
-from mlflow.entities import Dataset, DatasetInput, InputTag
+from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
+from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
+
+_logger = logging.getLogger(__name__)
 
 # Regex for valid param and metric names: may only contain slashes, alphanumerics,
 # underscores, periods, dashes, and spaces.
@@ -172,8 +176,10 @@ def _validate_param(key, value):
     isn't.
     """
     _validate_param_name(key)
-    _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key)
-    _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value)
+    return Param(
+        _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value, truncate=True),
+    )
 
 
 def _validate_tag(key, value):
@@ -181,8 +187,10 @@ def _validate_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key)
-    _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value)
+    return RunTag(
+        _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value, truncate=True),
+    )
 
 
 def _validate_experiment_tag(key, value):
@@ -270,13 +278,25 @@ def _validate_tag_name(name):
         )
 
 
-def _validate_length_limit(entity_name, limit, value):
-    if value is not None and len(value) > limit:
-        raise MlflowException(
-            f"{entity_name} '{value[:250]}' had length {len(value)}, "
-            f"which exceeded length limit of {limit}",
-            error_code=INVALID_PARAMETER_VALUE,
+def _validate_length_limit(entity_name, limit, value, *, truncate=False):
+    if value is None:
+        return None
+
+    if len(value) <= limit:
+        return value
+
+    if truncate and MLFLOW_TRUNCATE_LONG_VALUES.get():
+        _logger.warning(
+            f"{entity_name} '{value[:100]}...' ({len(value)} characters) is truncated to "
+            f"{limit} characters to meet the length limit."
         )
+        return value[:limit]
+
+    raise MlflowException(
+        f"{entity_name} '{value[:250]}' had length {len(value)}, "
+        f"which exceeded length limit of {limit}",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _validate_run_id(run_id):
@@ -317,10 +337,11 @@ def _validate_batch_log_limits(metrics, params, tags):
 def _validate_batch_log_data(metrics, params, tags):
     for metric in metrics:
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-    for param in params:
-        _validate_param(param.key, param.value)
-    for tag in tags:
-        _validate_tag(tag.key, tag.value)
+    return (
+        metrics,
+        [_validate_param(p.key, p.value) for p in params],
+        [_validate_tag(t.key, t.value) for t in tags],
+    )
 
 
 def _validate_batch_log_api_req(json_req):

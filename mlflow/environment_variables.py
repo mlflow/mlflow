@@ -517,3 +517,11 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
 #: logging handlers and formatters.
 #: (default: ``True``)
 MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_LOGGING_CONFIGURE_LOGGING", True)
+
+#: If set to True, the following entities will be truncated to their maximum length:
+#: - Param value
+#: - Tag value
+#: If set to False, an exception will be raised if the length of the entity exceeds the maximum
+#: length.
+#: (default: ``True``)
+MLFLOW_TRUNCATE_LONG_VALUES = _BooleanEnvironmentVariable("MLFLOW_TRUNCATE_LONG_VALUES", True)
