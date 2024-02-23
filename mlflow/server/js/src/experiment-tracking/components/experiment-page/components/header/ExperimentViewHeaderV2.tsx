@@ -78,6 +78,55 @@ export const ExperimentViewHeaderV2 = React.memo(
       return shareButtonElement;
     };
 
+    const getInfoTooltip = () => {
+      return (
+        <div style={{ display: 'flex' }}>
+          <Tooltip
+            placement="bottomLeft"
+            dangerouslySetAntdProps={{ overlayStyle: { maxWidth: 'none' } }}
+            arrowPointAtCenter
+            title={
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flexWrap: 'nowrap',
+                }}
+                data-testid="experiment-view-header-info-tooltip-content"
+              >
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Path"
+                    description="Label for displaying the current experiment path"
+                  />
+                  : {experiment.name + ' '}
+                  <ExperimentViewCopyTitle experiment={experiment} size="md" />
+                </div>
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Experiment ID"
+                    description="Label for displaying the current experiment in view"
+                  />
+                  : {experiment.experiment_id + ' '}
+                  <ExperimentViewCopyExperimentId experiment={experiment} />
+                </div>
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Artifact Location"
+                    description="Label for displaying the experiment artifact location"
+                  />
+                  : <ExperimentViewArtifactLocation artifactLocation={experiment.artifact_location} />{' '}
+                  <ExperimentViewCopyArtifactLocation experiment={experiment} />
+                </div>
+              </div>
+            }
+          >
+            <InfoIcon css={{ color: theme.colors.textSecondary }} />
+          </Tooltip>
+        </div>
+      );
+    };
+
     const getAddDescriptionButton = () => {
       return (
         <Button
@@ -117,6 +166,8 @@ export const ExperimentViewHeaderV2 = React.memo(
         }
         /* prettier-ignore */
         titleAddOns={[
+          getInfoTooltip(),
+          feedbackFormUrl && renderFeedbackForm(),
           showAddDescriptionButton && getAddDescriptionButton(),
         ]}
         breadcrumbs={breadcrumbs}

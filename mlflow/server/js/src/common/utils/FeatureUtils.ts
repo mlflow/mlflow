@@ -19,19 +19,19 @@ export const shouldEnableArtifactBasedEvaluation = () => true;
  * Enables features related to deep learning: Phase 1.
  * Includes system metrics and sampled metrics retrieval.
  */
-export const shouldEnableDeepLearningUI = () => false;
+export const shouldEnableDeepLearningUI = () => true;
 
 /**
  * Enables features related to deep learning: Phase 2.
  * Includes run grouping and metric chart grouping.
  */
-export const shouldEnableDeepLearningUIPhase2 = () => false;
+export const shouldEnableDeepLearningUIPhase2 = () => true;
 
 /**
  * Enables features related to deep learning: Phase 3
  * Includes improved runs visibility controls, reworked hover tooltip and improved handling of charts on run details page.
  */
-export const shouldEnableDeepLearningUIPhase3 = () => false;
+export const shouldEnableDeepLearningUIPhase3 = () => true;
 
 export const shouldUseUnifiedRunCharts = () => false;
 /**
