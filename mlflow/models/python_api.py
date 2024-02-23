@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from io import StringIO
-from typing import ForwardRef, List, Literal, Optional, get_args, get_origin
+from typing import ForwardRef, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -91,14 +91,14 @@ _CONTENT_TYPE_JSON = "json"
 
 
 def predict(
-    model_uri: str,
-    input_data: Optional["PyFuncInput"] = None,  # noqa: F821
-    input_path: Optional[str] = None,
-    content_type: str = _CONTENT_TYPE_JSON,
-    output_path: Optional[str] = None,
-    env_manager: Literal["virtualenv", "local", "conda"] = _EnvManager.VIRTUALENV,
-    install_mlflow: bool = False,
-    pip_requirements_override: Optional[List[str]] = None,
+    model_uri,
+    input_data=None,
+    input_path=None,
+    content_type=_CONTENT_TYPE_JSON,
+    output_path=None,
+    env_manager=_EnvManager.VIRTUALENV,
+    install_mlflow=False,
+    pip_requirements_override=None,
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
