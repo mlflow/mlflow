@@ -97,9 +97,10 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         raise NotImplementedError()
 
     def check_and_save_checkpoint_if_needed(self, current_epoch, global_step, metric_dict):
-        # For distributed model training, trainer workers need to use the parent process
+        # For distributed model training, trainer workers need to use the driver process
         # mlflow_tracking_uri.
-        # Note that `self.mlflow_tracking_uri` is assigned in the parent process
+        # Note that `self.mlflow_tracking_uri` value is assigned in the driver process
+        # then it is pickled to trainer workers.
         mlflow.set_tracking_uri(self.mlflow_tracking_uri)
 
         if self.save_best_only:
