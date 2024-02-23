@@ -17,7 +17,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
     get_autologging_config,
 )
-from mlflow.utils.checkpoint_utils import _MlflowModelCheckpointCallbackBase
+from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
@@ -282,7 +282,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
-class MlflowModelCheckpointCallback(pl.Callback, _MlflowModelCheckpointCallbackBase):
+class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBase):
     """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
     This callback implementation only supports pytorch-lightning >= 1.6.0.
 

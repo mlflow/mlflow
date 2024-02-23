@@ -3,7 +3,7 @@ from tensorflow import keras
 from mlflow import log_metrics, log_params, log_text
 from mlflow.utils.autologging_utils import ExceptionSafeClass
 from tensorflow.keras.callbacks import Callback
-from mlflow.utils.checkpoint_utils import _MlflowModelCheckpointCallbackBase
+from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 
 class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
@@ -105,7 +105,7 @@ class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
         log_metrics(metrics, synchronous=False)
 
 
-class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase):
+class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase):
     """Callback for automatic Keras model checkpointing to MLflow.
 
     Args:
@@ -180,7 +180,7 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
         save_freq="epoch",
     ):
         Callback.__init__(self)
-        _MlflowModelCheckpointCallbackBase.__init__(
+        MlflowModelCheckpointCallbackBase.__init__(
             self,
             checkpoint_file_suffix=".h5",
             monitor=monitor,
