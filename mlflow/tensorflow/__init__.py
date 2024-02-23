@@ -1439,17 +1439,21 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
     """
     import tensorflow as tf
 
-    downloaded_checkpoint_filepath = download_checkpoint_artifact(
-        run_id=run_id, epoch=epoch, global_step=global_step
-    )
+    downloaded_checkpoint_filepath = None
 
-    if os.path.basename(downloaded_checkpoint_filepath).split(".")[-2] == "weights":
-        # the model is saved as weights only
-        if model is None:
-            raise MlflowException(
-                "The latest checkpoint is weights-only, you need to provide 'model' "
-                "argument when calling 'load_latest_checkpoint'."
-            )
-        model.load_weights(downloaded_checkpoint_filepath)
-        return model
-    return tf.keras.models.load_model(downloaded_checkpoint_filepath)
+    try:
+        downloaded_checkpoint_filepath = download_checkpoint_artifact(
+            run_id=run_id, epoch=epoch, global_step=global_step
+        )
+
+        if os.path.basename(downloaded_checkpoint_filepath).split(".")[-2] == "weights":
+            # the model is saved as weights only
+            if model is None:
+                raise MlflowException(
+                    "The latest checkpoint is weights-only, 'model' argument must be provided"
+                )
+            model.load_weights(downloaded_checkpoint_filepath)
+            return model
+        return tf.keras.models.load_model(downloaded_checkpoint_filepath)
+    finally:
+        shutil.rmtree(downloaded_checkpoint_filepath, ignore_errors=True)

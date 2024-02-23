@@ -337,7 +337,7 @@ class MlflowModelCheckpointCallback(pl.Callback, _MlflowModelCheckpointCallbackB
         save_freq="epoch",
     ):
         super().__init__(
-            checkpoint_file_suffix="pth",
+            checkpoint_file_suffix=".pth",
             monitor=monitor,
             mode=mode,
             save_best_only=save_best_only,

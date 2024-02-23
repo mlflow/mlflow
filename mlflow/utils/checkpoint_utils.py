@@ -1,9 +1,10 @@
 import os
 import shutil
 import logging
+import posixpath
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import create_tmp_dir
+from mlflow.utils.file_utils import TempDir
 
 from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 from mlflow.utils.autologging_utils import (
@@ -12,6 +13,15 @@ from mlflow.utils.autologging_utils import (
 
 
 _logger = logging.getLogger(__name__)
+
+
+_CHECKPOINT_DIR = "checkpoints"
+_CHECKPOINT_METRIC_FILENAME = "checkpoint_metrics.json"
+_CHECKPOINT_MODEL_FILENAME = "checkpoint"
+_LATEST_CHECKPOINT_PREFIX = "latest_"
+_CHECKPOINT_EPOCH_PREFIX = "epoch_"
+_CHECKPOINT_GLOBAL_STEP_PREFIX = "global_step_"
+_WEIGHT_ONLY_CHECKPOINT_SUFFIX = ".weights"
 
 
 class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
@@ -74,9 +84,9 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
             return True
 
         if self.mode == "min":
-            return new_monitor_value <= self.last_monitor_value
+            return new_monitor_value < self.last_monitor_value
 
-        return new_monitor_value >= self.last_monitor_value
+        return new_monitor_value > self.last_monitor_value
 
     def save_checkpoint(self, filepath: str):
         raise NotImplementedError()
@@ -106,25 +116,32 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
             self.last_monitor_value = new_monitor_value
 
         suffix = self.checkpoint_file_suffix
+
         if self.save_best_only:
             if self.save_weights_only:
-                checkpoint_model_filename = f"latest_checkpoint.weights.{suffix}"
+                checkpoint_model_filename = (
+                    f"{_LATEST_CHECKPOINT_PREFIX}{_CHECKPOINT_MODEL_FILENAME}"
+                    f"{_WEIGHT_ONLY_CHECKPOINT_SUFFIX}{suffix}"
+                )
             else:
-                checkpoint_model_filename = f"latest_checkpoint.{suffix}"
-            checkpoint_metrics_filename = "latest_checkpoint_metrics.json"
-            checkpoint_artifact_dir = "checkpoints"
+                checkpoint_model_filename = \
+                    f"{_LATEST_CHECKPOINT_PREFIX}{_CHECKPOINT_MODEL_FILENAME}{suffix}"
+            checkpoint_metrics_filename = \
+                f"{_LATEST_CHECKPOINT_PREFIX}{_CHECKPOINT_METRIC_FILENAME}"
+            checkpoint_artifact_dir = _CHECKPOINT_DIR
         else:
             if self.save_freq == "epoch":
-                sub_dir_name = f"epoch_{current_epoch}"
+                sub_dir_name = f"{_CHECKPOINT_EPOCH_PREFIX}{current_epoch}"
             else:
-                sub_dir_name = f"global_step_{global_step}"
+                sub_dir_name = f"{_CHECKPOINT_GLOBAL_STEP_PREFIX}{global_step}"
 
             if self.save_weights_only:
-                checkpoint_model_filename = f"checkpoint.weights.{suffix}"
+                checkpoint_model_filename = \
+                    f"{_CHECKPOINT_MODEL_FILENAME}{_WEIGHT_ONLY_CHECKPOINT_SUFFIX}{suffix}"
             else:
-                checkpoint_model_filename = f"checkpoint.{suffix}"
-            checkpoint_metrics_filename = "checkpoint_metrics.json"
-            checkpoint_artifact_dir = f"checkpoints/{sub_dir_name}"
+                checkpoint_model_filename = f"{_CHECKPOINT_MODEL_FILENAME}{suffix}"
+            checkpoint_metrics_filename = _CHECKPOINT_METRIC_FILENAME
+            checkpoint_artifact_dir = f"{_CHECKPOINT_DIR}/{sub_dir_name}"
 
         mlflow.set_tag(
             LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
@@ -136,13 +153,10 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
             f"{checkpoint_artifact_dir}/{checkpoint_metrics_filename}",
         )
 
-        tmp_dir = create_tmp_dir()
-        try:
-            tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
+        with TempDir() as tmp_dir:
+            tmp_model_save_path = os.path.join(tmp_dir.path(), checkpoint_model_filename)
             self.save_checkpoint(tmp_model_save_path)
             mlflow.log_artifact(tmp_model_save_path, checkpoint_artifact_dir)
-        finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None):
@@ -155,7 +169,8 @@ def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None):
         run = mlflow.active_run()
         if run is None:
             raise MlflowException(
-                "There is no active run, please provide the 'run_id' for " "'load_checkpoint' call."
+                "There is no active run, please provide the 'run_id' argument for "
+                "'load_checkpoint' invocation."
             )
         run_id = run.info.run_id
     else:
@@ -165,7 +180,7 @@ def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None):
     if latest_checkpoint_artifact_path is None:
         raise MlflowException("There is no logged checkpoint artifact in the current run.")
 
-    checkpoint_filename = os.path.basename(latest_checkpoint_artifact_path)
+    checkpoint_filename = posixpath.basename(latest_checkpoint_artifact_path)
 
     if epoch is not None and global_step is not None:
         raise MlflowException(

@@ -182,7 +182,7 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
         Callback.__init__(self)
         _MlflowModelCheckpointCallbackBase.__init__(
             self,
-            checkpoint_file_suffix="h5",
+            checkpoint_file_suffix=".h5",
             monitor=monitor,
             mode=mode,
             save_best_only=save_best_only,
@@ -191,7 +191,6 @@ class MlflowModelCheckpointCallback(Callback, _MlflowModelCheckpointCallbackBase
         )
         self.trainer = None
         self.current_epoch = None
-        self.global_step = None
         self._last_batch_seen = 0
         self.global_step = 0
         self.global_step_last_saving = 0
