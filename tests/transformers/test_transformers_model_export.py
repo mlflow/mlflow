@@ -4,8 +4,8 @@ import importlib.util
 import json
 import os
 import pathlib
-import shutil
 import re
+import shutil
 import textwrap
 from pathlib import Path
 from unittest import mock
