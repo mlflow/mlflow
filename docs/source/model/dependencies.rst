@@ -132,7 +132,7 @@ In this case, MLflow will install Pandas 2.0.3 in addition to the inferred depen
 .. note::
 
     Once you log the model with dependencies, it is advisable to test it in a sandbox environment to avoid any dependency
-    issues when deploying the model to production. Since MLflow 2.10.0, you can use the ``mlflow.models.predict`` API to quickly test
+    issues when deploying the model to production. Since MLflow 2.10.0, you can use the :py:func:`mlflow.models.predict()` API to quickly test
     your model in a virtual environment. Please refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>` for more details.
 
 Defining All Dependencies by Yourself
@@ -173,7 +173,7 @@ The manually defined dependencies will override the default ones MLflow detects 
 .. note::
 
     Once you log the model with dependencies, it is advisable to test it in a sandbox environment to avoid any dependency
-    issues when deploying the model to production. Since MLflow 2.10.0, you can use the ``mlflow.models.predict`` API to quickly
+    issues when deploying the model to production. Since MLflow 2.10.0, you can use the :py:func:`mlflow.models.predict()` API to quickly
     test your model in a virtual environment. Please refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>` for more details.
 
 
@@ -329,7 +329,7 @@ Testing offline prediction with a virtual environment
 You can use MLflow Models **predict** API via Python or CLI to make test predictions with your model.
 This will load your model from the model URI, create a virtual environment with the model dependencies (defined in MLflow Model),
 and run offline predictions with the model.
-Please refer to :py:func:`mlflow.models.predict` or the `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the predict API.
+Please refer to :py:func:`mlflow.models.predict()` or the `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the predict API.
 
 .. note::
 
@@ -350,7 +350,7 @@ Please refer to :py:func:`mlflow.models.predict` or the `CLI reference <../cli.h
 
         mlflow models predict -m runs:/<run_id>/model-i <input_path>
 
-Using the ``mlflow.models.predict`` API is convenient for testing your model and inference environment quickly.
+Using the :py:func:`mlflow.models.predict()` API is convenient for testing your model and inference environment quickly.
 However, it may not be a perfect simulation of the serving because it does not start the online inference server.
 
 Testing online inference endpoint with a virtual environment
@@ -426,7 +426,7 @@ The missing dependencies are listed in the error message. For example, if you se
 ********************************************************
 Now that you know the missing dependencies, you can create a new model version with the correct dependencies.
 However, creating a new model for trying new dependencies might be a bit tedious, particularly because you may need to
-iterate multiple times to find the correct solution. Instead, you can use the ``mlflow.models.predict`` API to test your change without
+iterate multiple times to find the correct solution. Instead, you can use the :py:func:`mlflow.models.predict()` API to test your change without
 actually needing to re-log the model repeatedly while troubleshooting the installation errors.
 
 To do so, use the **pip-requirements-override** option to specify pip dependencies like ``opencv-python==4.8.0``.
@@ -437,10 +437,10 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
 
         import mlflow
 
-        mlflow.model.predict(
+        mlflow.models.predict(
             model_uri="runs:/<run_id>/model",
             input_data=<input_data>,
-            pip_requirements="opencv-python==4.8.0",
+            pip_requirements_override=["opencv-python==4.8.0"],
         )
 
     .. code-tab:: bash
