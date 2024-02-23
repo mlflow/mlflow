@@ -54,6 +54,8 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         self.save_freq = save_freq
         self.last_monitor_value = None
 
+        self.mlflow_tracking_uri = mlflow.get_tracking_uri()
+
         if self.save_best_only:
             if self.monitor is None:
                 raise MlflowException(
@@ -80,6 +82,11 @@ class _MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
         raise NotImplementedError()
 
     def check_and_save_checkpoint_if_needed(self, current_epoch, global_step, metric_dict):
+        # For distributed model training, trainer workers need to use the parent process
+        # mlflow_tracking_uri.
+        # Note that `self.mlflow_tracking_uri` is assigned in the parent process
+        mlflow.set_tracking_uri(self.mlflow_tracking_uri)
+
         if self.save_best_only:
             if self.monitor not in metric_dict:
                 _logger.warning(
