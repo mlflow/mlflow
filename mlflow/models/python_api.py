@@ -107,7 +107,7 @@ def predict(
 
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
-        input_data: Input data for prediction. Must be valid input for the PyFunc model. Please refer
+        input_data: Input data for prediction. Must be valid input for the PyFunc model. Refer
             to the :py:func:`mlflow.pyfunc.PyFuncModel.predict()` for the supported input types.
         input_path: Path to a file containing input data. If provided, 'input_data' must be None.
         content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
