@@ -27,6 +27,33 @@ from mlflow.utils.autologging_utils import (
 _logger = logging.getLogger(__name__)
 
 
+def _infer_batch_size(inst, *args, **kwargs):
+    batch_size = None
+    if "batch_size" in kwargs:
+        batch_size = kwargs["batch_size"]
+    else:
+        training_data = kwargs["x"] if "x" in kwargs else args[0]
+        if _batch_size := getattr(training_data, "batch_size", None):
+            batch_size = _batch_size
+        elif _batch_size := getattr(training_data, "_batch_size", None):
+            batch_size = _batch_size if isinstance(_batch_size, int) else _batch_size.numpy()
+        elif is_iterator(training_data):
+            is_single_input_model = isinstance(inst.input_shape, tuple)
+            peek = next(training_data)
+            batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
+
+            def _restore_generator(prev_generator):
+                yield peek
+                yield from prev_generator
+
+            restored_generator = _restore_generator(training_data)
+            if "x" in kwargs:
+                kwargs["x"] = restored_generator
+            else:
+                args = (restored_generator,) + args[1:]
+    return batch_size, args, kwargs
+
+
 def _check_existing_mlflow_callback(callbacks):
     for callback in callbacks:
         if isinstance(callback, MLflowCallback):
@@ -200,31 +227,7 @@ def autolog(
         def _patch_implementation(self, original, inst, *args, **kwargs):
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
-            batch_size = None
-            if "batch_size" in kwargs:
-                batch_size = kwargs["batch_size"]
-            else:
-                training_data = kwargs["x"] if "x" in kwargs else args[0]
-                if _batch_size := getattr(training_data, "batch_size", None):
-                    batch_size = _batch_size
-                elif _batch_size := getattr(training_data, "_batch_size", None):
-                    batch_size = (
-                        _batch_size if isinstance(_batch_size, int) else _batch_size.numpy()
-                    )
-                elif is_iterator(training_data):
-                    is_single_input_model = isinstance(inst.input_shape, tuple)
-                    peek = next(training_data)
-                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
-
-                    def __restore_generator(prev_generator):
-                        yield peek
-                        yield from prev_generator
-
-                    restored_generator = __restore_generator(training_data)
-                    if "x" in kwargs:
-                        kwargs["x"] = restored_generator
-                    else:
-                        args = (restored_generator,) + args[1:]
+            batch_size, args, kwargs = _infer_batch_size(inst, *args, **kwargs)
 
             if batch_size is not None:
                 mlflow.log_param("batch_size", batch_size)
