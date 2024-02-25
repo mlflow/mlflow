@@ -22,6 +22,9 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
+// need to import like this in order to mock the FeatureUtils module
+// eslint-disable-next-line import/no-namespace
+import * as FeatureUtils from '../../common/utils/FeatureUtils';
 
 const { Text } = Typography;
 
@@ -78,6 +81,14 @@ describe('ArtifactView', () => {
     minimalStore = mockStore({
       entities: minimalEntities,
     });
+
+    // explicitly mock this as feature flags are hard-coded
+    jest.spyOn(FeatureUtils, 'shouldEnableLoggedArtifactTableView').mockReturnValue(false);
+    if (jest.isMockFunction(Utils.isModelRegistryEnabled)) {
+      // if jest.isMockFunction returns true, then .mockRestore exists
+      // @ts-expect-error TS(2339): Property 'mockRestore' does not exist on type '() => boolean'.
+      Utils.isModelRegistryEnabled.mockRestore();
+    }
   });
   const getTestArtifactNode = () => {
     // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.

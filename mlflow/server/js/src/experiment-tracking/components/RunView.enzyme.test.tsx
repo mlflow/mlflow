@@ -17,6 +17,10 @@ import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
 import { ModelVersionStatus, Stages } from '../../model-registry/constants';
 import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+// need to import like this in order to mock the FeatureUtils module
+// eslint-disable-next-line import/no-namespace
+import * as FeatureUtils from '../../common/utils/FeatureUtils';
+
 describe('RunView', () => {
   let minimalProps: any;
   let minimalStoreRaw: any;
@@ -76,6 +80,9 @@ describe('RunView', () => {
       compareExperiments: {},
     };
     minimalStore = mockStore(minimalStoreRaw);
+
+    // explicitly mock this as feature flags are hard-coded
+    jest.spyOn(FeatureUtils, 'shouldEnableDeepLearningUI').mockReturnValue(false);
   });
   test('should render with minimal props without exploding', () => {
     wrapper = mountWithIntl(

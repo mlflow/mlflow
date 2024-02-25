@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { mount } from 'enzyme';
+import { mountWithIntl } from '../../common/utils/TestUtils.enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -19,6 +19,9 @@ import { ModelVersionStatus, Stages } from '../../model-registry/constants';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
 import { RunNotFoundView } from './RunNotFoundView';
+// need to import like this in order to mock the FeatureUtils module
+// eslint-disable-next-line import/no-namespace
+import * as FeatureUtils from '../../common/utils/FeatureUtils';
 
 describe('RunPage', () => {
   let wrapper;
@@ -84,10 +87,13 @@ describe('RunPage', () => {
       },
       apis: {},
     });
+
+    // explicitly mock this as feature flags are hard-coded
+    jest.spyOn(FeatureUtils, 'shouldEnableDeepLearningUI').mockReturnValue(false);
   });
 
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <RunPage {...minimalProps} />
@@ -98,7 +104,7 @@ describe('RunPage', () => {
   });
 
   test('should display RunNotFoundView on RESOURCE_DOES_NOT_EXIST error', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <RunPage {...minimalProps} />
