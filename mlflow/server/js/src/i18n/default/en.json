@@ -747,6 +747,10 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
   },
+  "F8MqzZ": {
+    "defaultMessage": "Path",
+    "description": "Label for displaying the current experiment path"
+  },
   "FAfPOl": {
     "defaultMessage": "Stop Sequences",
     "description": "Experiment page > prompt lab > stop parameter label"
