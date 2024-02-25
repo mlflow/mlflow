@@ -19,9 +19,12 @@ import { ModelVersionStatus, Stages } from '../../model-registry/constants';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
 import { RunNotFoundView } from './RunNotFoundView';
-// need to import like this in order to mock the FeatureUtils module
-// eslint-disable-next-line import/no-namespace
-import * as FeatureUtils from '../../common/utils/FeatureUtils';
+
+// mock this as feature-flags are hard-coded
+jest.mock('../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../common/utils/FeatureUtils'),
+  shouldEnableDeepLearningUI: jest.fn(() => false),
+}));
 
 describe('RunPage', () => {
   let wrapper;
@@ -87,9 +90,6 @@ describe('RunPage', () => {
       },
       apis: {},
     });
-
-    // explicitly mock this as feature flags are hard-coded
-    jest.spyOn(FeatureUtils, 'shouldEnableDeepLearningUI').mockReturnValue(false);
   });
 
   test('should render with minimal props and store without exploding', () => {
