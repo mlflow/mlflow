@@ -1531,9 +1531,9 @@ class MlflowClient:
                     )
 
             _log_image(*args, **kwargs)
-        elif _check_types(
-            image_as_artifact_params, *args, **kwargs
-        ) and _check_required(image_as_artifact_required, *args, **kwargs):
+        elif _check_types(image_as_artifact_params, *args, **kwargs) and _check_required(
+            image_as_artifact_required, *args, **kwargs
+        ):
             # log image as artifact file
             self._log_image_as_artifact(run_id, *args, **kwargs)
         else:
