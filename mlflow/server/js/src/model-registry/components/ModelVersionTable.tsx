@@ -279,7 +279,7 @@ export const ModelVersionTable = ({
       cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
     });
     return columns;
-  }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI]);
+  }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI, aliasesByVersion]);
 
   const [sorting, setSorting] = useState<SortingState>([{ id: COLUMN_IDS.CREATION_TIMESTAMP, desc: true }]);
 
