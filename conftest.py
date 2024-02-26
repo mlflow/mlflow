@@ -274,7 +274,7 @@ def clean_up_envs():
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
             for env in conda_info["envs"]:
-                if env != root_prefix and re.search(r"mlflow-\w{16,}$", env):
+                if env != root_prefix and re.search(r"mlflow-\w{16,}$", os.path.basename(env)):
                     shutil.rmtree(env, ignore_errors=True)
 
 
