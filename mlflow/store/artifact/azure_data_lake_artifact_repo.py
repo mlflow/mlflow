@@ -72,8 +72,9 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     This repository is used with URIs of the form
     ``abfs[s]://file_system@account_name.dfs.core.windows.net/<path>/<path>``.
 
-    :param credential: Azure credential (see options in https://learn.microsoft.com/en-us/python/api/azure-core/azure.core.credentials?view=azure-python)
-                       to use to authenticate to storage
+    Args
+        credential: Azure credential (see options in https://learn.microsoft.com/en-us/python/api/azure-core/azure.core.credentials?view=azure-python)
+            to use to authenticate to storage
     """
 
     def __init__(self, artifact_uri, credential):
