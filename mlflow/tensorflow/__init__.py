@@ -1439,7 +1439,13 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
             run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
         )
 
-        if os.path.basename(downloaded_checkpoint_filepath).split(".")[-2] == "weights":
+        artifact_name = os.path.basename(downloaded_checkpoint_filepath)
+        artifact_name_splits = artifact_name.split(".")
+        if len(artifact_name_splits) < 2:
+            raise MlflowException(
+                f"The model checkpoint artifact file name '{artifact_name}' is malformed."
+            )
+        if artifact_name_splits[-2] == "weights":
             # the model is saved as weights only
             if model is None:
                 raise MlflowException(
