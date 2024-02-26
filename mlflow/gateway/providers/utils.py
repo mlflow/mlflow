@@ -22,12 +22,17 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     """
     Send an HTTP request to a specific URL path with given headers and payload.
 
-    :param headers: The headers to include in the request.
-    :param base_url: The base URL where the request will be sent.
-    :param path: The specific path of the URL to which the request will be sent.
-    :param payload: The payload (or data) to be included in the request.
-    :return: The server's response as a JSON object.
-    :raise: HTTPException if the HTTP request fails.
+    Args:
+        headers: The headers to include in the request.
+        base_url: The base URL where the request will be sent.
+        path: The specific path of the URL to which the request will be sent.
+        payload: The payload (or data) to be included in the request.
+
+    Returns:
+        The server's response as a JSON object.
+
+    Raises:
+        HTTPException if the HTTP request fails.
     """
     from fastapi import HTTPException
 
@@ -56,12 +61,18 @@ async def send_stream_request(
 ) -> AsyncGenerator[bytes, None]:
     """
     Send an HTTP request to a specific URL path with given headers and payload.
-    :param headers: The headers to include in the request.
-    :param base_url: The base URL where the request will be sent.
-    :param path: The specific path of the URL to which the request will be sent.
-    :param payload: The payload (or data) to be included in the request.
-    :return: The server's response as a JSON object.
-    :raise: HTTPException if the HTTP request fails.
+
+    Args:
+        headers: The headers to include in the request.
+        base_url: The base URL where the request will be sent.
+        path: The specific path of the URL to which the request will be sent.
+        payload: The payload (or data) to be included in the request.
+
+    Returns:
+        The server's response as a JSON object.
+
+    Raises:
+        HTTPException if the HTTP request fails.
     """
     async with _aiohttp_post(headers, base_url, path, payload) as response:
         async for line in response.content:

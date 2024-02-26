@@ -85,7 +85,9 @@ def before_run_validations(tracking_uri, backend_config):
 class DatabricksJobRunner:
     """
     Helper class for running an MLflow project as a Databricks Job.
-    :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
+
+    Args:
+        databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
            authentication information when making Databricks API requests.
     """
 
@@ -404,10 +406,12 @@ class DatabricksSubmittedRun(SubmittedRun):
     Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
     project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
     server accessible to the local client.
-    :param databricks_run_id: Run ID of the launched Databricks Job.
-    :param mlflow_run_id: ID of the MLflow project run.
-    :param databricks_job_runner: Instance of ``DatabricksJobRunner`` used to make Databricks API
-                                  requests.
+
+    Args:
+        databricks_run_id: Run ID of the launched Databricks Job.
+        mlflow_run_id: ID of the MLflow project run.
+        databricks_job_runner: Instance of ``DatabricksJobRunner`` used to make Databricks API
+            requests.
     """
 
     # How often to poll run status when waiting on a run
