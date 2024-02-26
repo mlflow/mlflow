@@ -41,7 +41,7 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
-    register_pydantic_serializer,
+    register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -462,35 +462,35 @@ def log_model(
 
 
 def _save_model(model, path, loader_fn, persist_dir):
-    register_pydantic_serializer()
-    if isinstance(model, lc_runnables_types()):
-        return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
-    else:
-        return _save_base_lcs(model, path, loader_fn, persist_dir)
+    with register_pydantic_v1_serializer_cm():
+        if isinstance(model, lc_runnables_types()):
+            return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
+        else:
+            return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
 def _load_model(local_model_path, flavor_conf):
-    register_pydantic_serializer()
-    # model_type is not accurate as the class can be subclass
-    # of supported types, we define _MODEL_LOAD_KEY to ensure
-    # which load function to use
-    model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
-    if model_load_fn == _RUNNABLE_LOAD_KEY:
-        model = _load_runnables(local_model_path, flavor_conf)
-    elif model_load_fn == _BASE_LOAD_KEY:
-        model = _load_base_lcs(local_model_path, flavor_conf)
-    else:
-        raise mlflow.MlflowException(
-            "Failed to load LangChain model. Unknown model type: "
-            f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
-        )
-    # To avoid double logging, we set model_logged to True
-    # when the model is loaded
-    if not autologging_is_disabled(FLAVOR_NAME):
-        if _update_langchain_model_config(model):
-            model.model_logged = True
-            model.run_id = get_model_info(local_model_path).run_id
-    return model
+    with register_pydantic_v1_serializer_cm():
+        # model_type is not accurate as the class can be subclass
+        # of supported types, we define _MODEL_LOAD_KEY to ensure
+        # which load function to use
+        model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
+        if model_load_fn == _RUNNABLE_LOAD_KEY:
+            model = _load_runnables(local_model_path, flavor_conf)
+        elif model_load_fn == _BASE_LOAD_KEY:
+            model = _load_base_lcs(local_model_path, flavor_conf)
+        else:
+            raise mlflow.MlflowException(
+                "Failed to load LangChain model. Unknown model type: "
+                f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
+            )
+        # To avoid double logging, we set model_logged to True
+        # when the model is loaded
+        if not autologging_is_disabled(FLAVOR_NAME):
+            if _update_langchain_model_config(model):
+                model.model_logged = True
+                model.run_id = get_model_info(local_model_path).run_id
+        return model
 
 
 class _LangChainModelWrapper:

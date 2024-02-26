@@ -1,4 +1,5 @@
 """Utility functions for mlflow.langchain."""
+import contextlib
 import json
 import logging
 import os
@@ -521,3 +522,19 @@ def register_pydantic_serializer():
         "langchain 0.0.267 and above."
     )
     cloudpickle.CloudPickler.dispatch[cls] = _CloudPicklerReducer
+
+
+def unregister_pydantic_serializer():
+    import pydantic
+
+    if Version(pydantic.__version__) >= Version("2.0.0"):
+        return
+
+    cloudpickle.CloudPickler.dispatch.pop(pydantic.fields.ModelField, None)
+
+
+@contextlib.contextmanager
+def register_pydantic_v1_serializer_cm():
+    register_pydantic_serializer()
+    yield
+    unregister_pydantic_serializer()
