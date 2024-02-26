@@ -1418,10 +1418,136 @@ class MlflowClient:
             else:
                 raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
-    def log_image(
-        self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
+    def log_image(self, run_id: str, *args, **kwargs) -> None:
+        """
+        Logs an image in MLflow.
+
+        There are two ways to log an image:
+        1. Log an image over steps using `client.log_image(run_id, key, image, step)`.
+        2. Log an image as an artifact file using `client.log_image(run_id, image, artifact_file)`.
+
+        Parameters:
+        - run_id (str): The ID of the run to log the image to.
+        - key (str): The key associated with the image. This is used to identify the image.
+        - image (numpy.ndarray or PIL.Image.Image): The image object to be logged. Supported image objects are `numpy.ndarray` and `PIL.Image.Image`.
+        - step (int, optional): The step associated with the image. Defaults to None.
+        - artifact_file (str): The path to the artifact file where the image will be saved.
+
+        Raises:
+        - TypeError: If unexpected parameters are provided. Please refer to the function documentation for required parameters.
+
+        Example usage:
+        ```python
+        import numpy as np
+        from PIL import Image
+        import mlflow
+
+        # Log an image over steps
+        run_id = "your_run_id"
+        key = "your_key"
+        image = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]], dtype=np.uint8)
+        step = 1
+        mlflow.log_image(run_id, key, image, step)
+
+        # Log an image as an artifact file
+        run_id = "your_run_id"
+        image = Image.open("path/to/image.jpg")
+        artifact_file = "path/to/artifact.jpg"
+        mlflow.log_image(run_id, image, artifact_file)
+        ```
+
+        Supported image objects:
+        - `numpy.ndarray`: Refer to the NumPy documentation for more details: https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+        - `PIL.Image.Image`: Refer to the PIL documentation for more details: https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+        """
+        import numpy as np
+        from PIL.Image import Image
+
+        image_over_steps_params = [
+            ("key", str),
+            ("image", (np.ndarray, Image)),
+            ("step", int),
+            ("timestamp", int),
+        ]
+        image_over_steps_required = ["key", "image"]
+
+        image_as_artifact_params = [
+            ("image", (np.ndarray, Image)),
+            ("artifact_file", str),
+        ]
+        image_as_artifact_required = ["image", "artifact_file"]
+
+        def _check_types(param_types, *args, **kwargs):
+            # Check args have correct types
+            for i, arg in enumerate(args):
+                if not isinstance(arg, param_types[i][1]):
+                    return False
+            # Check kwargs are correctly named, have correct types, and not duplicated
+            remaining_kwargs = dict(param_types[len(args) :])
+            for key, value in kwargs.items():
+                if key not in remaining_kwargs:
+                    return False
+                if not isinstance(value, remaining_kwargs[key]):
+                    return False
+
+                del remaining_kwargs[key]
+            return True
+
+        def _check_required(param_required, *args, **kwargs):
+            # Checks if all required parameters are present
+            return any(
+                len(args) == i and all(key in kwargs for key in param_required[i:])
+                for i in range(len(param_required))
+            )
+
+        if _check_types(image_over_steps_params, *args, **kwargs) and _check_required(
+            image_over_steps_required, *args, **kwargs
+        ):
+            # log an image over steps
+            def _log_image(
+                self,
+                key: str,
+                image: Union["numpy.ndarray", "PIL.Image.Image"],
+                step: Optional[int] = None,
+                timestamp: Optional[int] = None,
+            ) -> None:
+                timestamp = timestamp or get_current_time_millis()
+                # millisecond timestamp is used to ensure that the image is logged with a unique name
+                filename = f"images/{key}_step_{step}_timestamp_{timestamp}"
+                image_filepath = f"{filename}.png"
+                metadata_filepath = f"{filename}.json"
+
+                self._log_image_as_artifact(run_id, image, image_filepath)
+                with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
+                    json.dump(
+                        {
+                            "filepath": image_filepath,
+                            "key": key,
+                            "step": step,
+                            "timestamp": timestamp,
+                        },
+                        tmp_path,
+                    )
+
+            _log_image(*args, **kwargs)
+        elif _check_types(
+            image_as_artifact_params, *args, **kwargs
+        ) and _check_required(image_as_artifact_required, *args, **kwargs):
+            # log image as artifact file
+            self._log_image_as_artifact(run_id, *args, **kwargs)
+        else:
+            raise TypeError(
+                "Unexpected parameter(s) provided. Please refer to the function documentation for required parameters."
+            )
+
+    def _log_image_as_artifact(
+        self,
+        run_id: str,
+        image: Union["numpy.ndarray", "PIL.Image.Image"],
+        artifact_file: str,
     ) -> None:
-        """Log an image as an artifact. The following image objects are supported:
+        """
+        Log an image as an artifact. The following image objects are supported:
 
         - `numpy.ndarray`_
         - `PIL.Image.Image`_
@@ -1452,11 +1578,10 @@ class MlflowClient:
                 - H x W x 3 (an RGB channel order is assumed)
                 - H x W x 4 (an RGBA channel order is assumed)
 
-        Args:
-            run_id: String ID of the run.
-            image: Image to log.
-            artifact_file: The run-relative artifact file path in posixpath format to which
-                the image is saved (e.g. "dir/image.png").
+        :param run_id: String ID of the run.
+        :param image: Image to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the image is saved (e.g. "dir/image.png").
 
         .. code-block:: python
             :caption: Numpy Example
