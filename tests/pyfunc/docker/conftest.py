@@ -5,6 +5,7 @@ from functools import lru_cache
 import pytest
 import requests
 from packaging.version import Version
+import subprocess
 
 import docker
 import mlflow
@@ -22,19 +23,20 @@ def clean_up_docker_image():
 
     # Get all containers using the test image
     containers = docker_client.containers.list(filters={"ancestor": TEST_IMAGE_NAME})
-    _logger.warning(f"Cleaning up {len(containers)} containers")
     for container in containers:
         container.remove(force=True)
-        _logger.warning(f"Removed container {container.id}")
 
     # Clean up the image
     try:
-        _logger.warning(f"Cleaning up image {TEST_IMAGE_NAME}")
         docker_client.images.remove(TEST_IMAGE_NAME, force=True)
-        _logger.warning(f"Removed image {TEST_IMAGE_NAME}")
     except docker.errors.ImageNotFound as e:
-        _logger.warning(f"Image {TEST_IMAGE_NAME} not found: {e}")
         pass
+
+    # Clean up the build cache
+    try:
+        subprocess.run(["docker", "builder", "prune", "-a", "-f"], check=True)
+    except subprocess.CalledProcessError as e:
+        _logger.warning("Failed to clean up build cache: %s", e)
 
 
 @lru_cache(maxsize=1)
