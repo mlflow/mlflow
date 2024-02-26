@@ -75,26 +75,6 @@ LAZY_BUILTIN_IMPORT = Rule(
     "Builtin modules must be imported at the top level.",
 )
 
-# TODO: Remove this once we convert all docstrings to Google style.
-NO_RST_IGNORE = {
-    "mlflow/gateway/client.py",
-    "mlflow/gateway/providers/utils.py",
-    "mlflow/keras/callback.py",
-    "mlflow/metrics/base.py",
-    "mlflow/metrics/genai/base.py",
-    "mlflow/models/utils.py",
-    "mlflow/projects/databricks.py",
-    "mlflow/projects/kubernetes.py",
-    "mlflow/store/_unity_catalog/registry/rest_store.py",
-    "mlflow/store/artifact/azure_data_lake_artifact_repo.py",
-    "mlflow/store/artifact/gcs_artifact_repo.py",
-    "mlflow/store/model_registry/rest_store.py",
-    "mlflow/store/tracking/rest_store.py",
-    "mlflow/utils/docstring_utils.py",
-    "mlflow/utils/rest_utils.py",
-    "tests/utils/test_docstring_utils.py",
-}
-
 
 class Linter(ast.NodeVisitor):
     def __init__(self, path: str, ignore: dict[str, set[int]]):
@@ -120,9 +100,6 @@ class Linter(ast.NodeVisitor):
         return None
 
     def _no_rst(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if self.path in NO_RST_IGNORE:
-            return
-
         if (nd := self._docstring(node)) and (
             PARAM_REGEX.search(nd.s) or RETURN_REGEX.search(nd.s)
         ):

@@ -35,9 +35,10 @@ class MlflowGatewayClient:
     """
     Client for interacting with the MLflow Gateway API.
 
-    :param gateway_uri: Optional URI of the gateway. If not provided, attempts to resolve from
-        first the stored result of `set_gateway_uri()`, then the  environment variable
-        `MLFLOW_GATEWAY_URI`.
+    Args:
+        gateway_uri: Optional URI of the gateway. If not provided, attempts to resolve from
+            first the stored result of `set_gateway_uri()`, then the  environment variable
+            `MLFLOW_GATEWAY_URI`.
     """
 
     def __init__(self, gateway_uri: Optional[str] = None):
