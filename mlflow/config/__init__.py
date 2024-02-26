@@ -1,7 +1,7 @@
-from mlflow.environment_variables import MLFLOW_ENABLE_SYNCHRONOUS_LOGGING
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 
 
-def log_synchronously(enable=True):
-    """Enable or disable synchronous logging globally."""
+def enable_async_logging(enable=True):
+    """Enable or disable async logging globally."""
 
-    MLFLOW_ENABLE_SYNCHRONOUS_LOGGING.set(enable)
+    MLFLOW_ENABLE_ASYNC_LOGGING.set(enable)

@@ -1365,7 +1365,7 @@ def test_flush_async_logging():
 
 
 def test_enable_async_logging():
-    mlflow.config.log_synchronously(False)
+    mlflow.config.enable_async_logging(True)
     with mock.patch(
         "mlflow.utils.async_logging.async_logging_queue.AsyncLoggingQueue.log_batch_async"
     ) as mock_log_batch_async:
@@ -1379,7 +1379,7 @@ def test_enable_async_logging():
 
     assert mock_log_batch_async.call_count == 6
 
-    mlflow.config.log_synchronously(True)
+    mlflow.config.enable_async_logging(False)
     with mock.patch(
         "mlflow.utils.async_logging.async_logging_queue.AsyncLoggingQueue.log_batch_async"
     ) as mock_log_batch_async:
