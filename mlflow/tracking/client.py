@@ -1430,12 +1430,14 @@ class MlflowClient:
         Parameters:
         - run_id (str): The ID of the run to log the image to.
         - key (str): The key associated with the image. This is used to identify the image.
-        - image (numpy.ndarray or PIL.Image.Image): The image object to be logged. Supported image objects are `numpy.ndarray` and `PIL.Image.Image`.
+        - image (numpy.ndarray or PIL.Image.Image): The image object to be logged. Supported image objects are
+          `numpy.ndarray` and `PIL.Image.Image`.
         - step (int, optional): The step associated with the image. Defaults to None.
         - artifact_file (str): The path to the artifact file where the image will be saved.
 
         Raises:
-        - TypeError: If unexpected parameters are provided. Please refer to the function documentation for required parameters.
+        - TypeError: If unexpected parameters are provided. Please refer to the function documentation for
+          required parameters.
 
         Example usage:
         ```python
@@ -1513,7 +1515,7 @@ class MlflowClient:
                 timestamp: Optional[int] = None,
             ) -> None:
                 timestamp = timestamp or get_current_time_millis()
-                # millisecond timestamp is used to ensure that the image is logged with a unique name
+                # timestamp ensures that the image is logged with a unique name
                 filename = f"images/{key}_step_{step}_timestamp_{timestamp}"
                 image_filepath = f"{filename}.png"
                 metadata_filepath = f"{filename}.json"
@@ -1531,14 +1533,15 @@ class MlflowClient:
                     )
 
             _log_image(*args, **kwargs)
-        elif _check_types(
-            image_as_artifact_params, *args, **kwargs
-        ) and _check_required(image_as_artifact_required, *args, **kwargs):
+        elif _check_types(image_as_artifact_params, *args, **kwargs) and _check_required(
+            image_as_artifact_required, *args, **kwargs
+        ):
             # log image as artifact file
             self._log_image_as_artifact(run_id, *args, **kwargs)
         else:
             raise TypeError(
-                "Unexpected parameter(s) provided. Please refer to the function documentation for required parameters."
+                "Unexpected parameter(s) provided."
+                "Please refer to the function documentation for required parameters."
             )
 
     def _log_image_as_artifact(
