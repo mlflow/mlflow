@@ -64,6 +64,7 @@ select = [
   "T20",     # flake8-print
   "TID251",  # banned-api
   "TID252",  # relative-improt
+  "TRY302",  # useless-try-except
   "UP004",   # useless-object-inheritance
   "UP008",   # super-call-with-parameters
   "UP011",   # lru-cache-without-parameters
