@@ -618,9 +618,10 @@ langchain:
       pytest tests/langchain/test_langchain_model_export.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      if [[ $PYDANTIC_VERSION == 1.* ]]; then
+      LANGCHAIN_VERSION=$(python -c "import langchain; print(langchain.__version__)")
+      if [[ $PYDANTIC_VERSION == 1.* && "$LANGCHAIN_VERSION" >= "0.0.267"]]; then
         pip install 'pydantic>2'
-        pytest tests/langchain/ttest_langchain_model_export.py
+        pytest tests/langchain/test_langchain_model_export.py
       fi
   autologging:
     minimum: "0.1.4"
