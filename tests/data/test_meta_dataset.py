@@ -58,18 +58,18 @@ def test_create_meta_dataset_from_source_with_schema(dataset_source_class, path)
 
 
 def test_meta_dataset_digest():
-    source = HTTPDatasetSource("test:/my/test/uri")
-    dataset1 = MetaDataset(source=source)
+    http_source = HTTPDatasetSource("test:/my/test/uri")
+    dataset1 = MetaDataset(source=http_source)
     schema = Schema(
         [
             ColSpec(type=DataType.long, name="foo"),
             ColSpec(type=DataType.integer, name="bar"),
         ]
     )
-    dataset2 = MetaDataset(source=source, schema=schema)
+    dataset2 = MetaDataset(source=http_source, schema=schema)
 
     assert dataset1.digest != dataset2.digest
 
-    source = DeltaDatasetSource("fake/path/to/delta")
-    dataset3 = MetaDataset(source=source)
+    delta_source = DeltaDatasetSource("fake/path/to/delta")
+    dataset3 = MetaDataset(source=delta_source)
     assert dataset1.digest != dataset3.digest
