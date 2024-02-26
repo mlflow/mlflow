@@ -1442,9 +1442,8 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
             run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
         )
 
-        # strip the file extension
-        artifact_name_splits = downloaded_checkpoint_filepath.rsplit(".", maxsplit=1)[0]
-        if artifact_name_splits.endswith(_WEIGHT_ONLY_CHECKPOINT_SUFFIX):
+        basename = os.path.splitext(downloaded_checkpoint_filepath)[0]
+        if basename.endswith(_WEIGHT_ONLY_CHECKPOINT_SUFFIX):
             # the model is saved as weights only
             if model is None:
                 raise MlflowException(
