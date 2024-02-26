@@ -637,6 +637,12 @@ langchain:
       # For MlflowCallback text analysis
       python -m spacy download en_core_web_sm
       pytest tests/langchain/test_langchain_autolog.py
+      # test both pydantic v1 and v2
+      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
+      if [[ $PYDANTIC_VERSION == 1.* ]]; then
+        pip install 'pydantic>2'
+        pytest tests/langchain/test_langchain_autolog.py
+      fi
 
 sentence_transformers:
   package_info:

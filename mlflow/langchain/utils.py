@@ -471,3 +471,47 @@ def _load_base_lcs(
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
+
+
+def register_pydantic_serializer():
+    """
+    Helper function to pickle pydantic fields for pydantic v1.
+    Pydantic's Cython validators are not serializable.
+    https://github.com/cloudpipe/cloudpickle/issues/408
+    """
+    try:
+        import pydantic.fields
+    except ImportError:
+        return
+
+    cls = pydantic.fields.ModelField
+
+    def custom_serializer(obj):
+        return {
+            "name": obj.name,
+            # outer_type_ is the original type for ModelFields,
+            # while type_ can be updated later with the nested type
+            # like int for List[int].
+            "type_": obj.outer_type_,
+            "class_validators": obj.class_validators,
+            "model_config": obj.model_config,
+            "default": obj.default,
+            "default_factory": obj.default_factory,
+            "required": obj.required,
+            "alias": obj.alias,
+            "field_info": obj.field_info,
+        }
+
+    def custom_deserializer(kwargs):
+        return cls(**kwargs)
+
+    def _CloudPicklerReducer(obj):
+        return custom_deserializer, (custom_serializer(obj),)
+
+    logger.warning(
+        "Using custom serializer to pickle pydantic.fields.ModelField classes, "
+        "this might miss some fields and validators. To avoid this, "
+        "please upgrade pydantic to v2 using `pip install pydantic -U` with "
+        "langchain 0.0.267 and above."
+    )
+    cloudpickle.CloudPickler.dispatch[cls] = _CloudPicklerReducer

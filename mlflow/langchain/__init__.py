@@ -41,6 +41,7 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
+    register_pydantic_serializer,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -461,6 +462,7 @@ def log_model(
 
 
 def _save_model(model, path, loader_fn, persist_dir):
+    register_pydantic_serializer()
     if isinstance(model, lc_runnables_types()):
         return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
     else:
@@ -468,6 +470,7 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 
 def _load_model(local_model_path, flavor_conf):
+    register_pydantic_serializer()
     # model_type is not accurate as the class can be subclass
     # of supported types, we define _MODEL_LOAD_KEY to ensure
     # which load function to use
