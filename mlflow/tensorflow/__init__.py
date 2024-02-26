@@ -21,7 +21,6 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.client import MlflowClient
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
@@ -58,7 +57,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import get_total_file_size, TempDir, write_to
+from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -970,7 +969,6 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
         )
 
         if not any(isinstance(callback, MlflowModelCheckpointCallback) for callback in callbacks):
-            run_id = mlflow.active_run().info.run_id
             callbacks.append(
                 MlflowModelCheckpointCallback(
                     monitor=checkpoint_monitor,

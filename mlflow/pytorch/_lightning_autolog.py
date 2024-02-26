@@ -1,13 +1,11 @@
 import logging
 import os
-import shutil
 import tempfile
 import warnings
 
 from packaging.version import Version
 
 import mlflow.pytorch
-from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.pytorch import _pytorch_autolog

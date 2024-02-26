@@ -1,16 +1,14 @@
-import os
-import shutil
 import logging
+import os
 import posixpath
+
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import TempDir
-
-from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
 )
-
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
 _logger = logging.getLogger(__name__)
 
@@ -169,8 +167,8 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
 
 
 def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None, dst_path=None):
-    from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
     from mlflow.client import MlflowClient
+    from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
     client = MlflowClient()
 

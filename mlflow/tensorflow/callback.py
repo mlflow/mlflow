@@ -1,8 +1,8 @@
 from tensorflow import keras
+from tensorflow.keras.callbacks import Callback
 
 from mlflow import log_metrics, log_params, log_text
 from mlflow.utils.autologging_utils import ExceptionSafeClass
-from tensorflow.keras.callbacks import Callback
 from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 
@@ -210,10 +210,7 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
         # (controlled by `steps_per_execution` argument in `model.comple` method).
         # the following logic is similar to
         # https://github.com/keras-team/keras/blob/e6e62405fa1b4444102601636d871610d91e5783/keras/callbacks/model_checkpoint.py#L212
-        if batch <= self._last_batch_seen:  # New epoch.
-            add_batches = batch + 1  # batches are zero-indexed.
-        else:
-            add_batches = batch - self._last_batch_seen
+        add_batches = batch + 1 if batch <= self._last_batch_seen else batch - self._last_batch_seen
         self._last_batch_seen = batch
 
         self.global_step += add_batches
