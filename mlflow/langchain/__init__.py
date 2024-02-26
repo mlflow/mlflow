@@ -571,7 +571,7 @@ class _LangChainModelWrapper:
             return data
 
         if isinstance(data, pd.DataFrame):
-            return data.to_dict(orient="records")
+            return _convert_ndarray_to_list(data.to_dict(orient="records"))
 
         data = _convert_ndarray_to_list(data)
         if isinstance(self.lc_model, lc_runnables_types()):
