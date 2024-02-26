@@ -68,6 +68,7 @@ def _mock_async_request(content=TEST_CONTENT):
         yield m
 
 
+# test
 @pytest.fixture
 def model_path(tmp_path):
     return tmp_path / "model"
