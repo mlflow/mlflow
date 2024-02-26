@@ -835,7 +835,7 @@ In MLflow 2.11.0, we introduced support for tracking PEFT models in the MLflow T
 
 PEFT Models in MLflow Tutorial
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Check out the tutorial `Fine-Tuning Open-Source LLM using QLoRA with MLflow and PEFT <../tutorials/transformers_peft.ipynb>`_ for a more in-depth guide on how to use PEFT with MLflow,
+Check out the tutorial `Fine-Tuning Open-Source LLM using QLoRA with MLflow and PEFT <../tutorials/fine-tuning/transformers-peft.html>`_ for a more in-depth guide on how to use PEFT with MLflow,
 
 Format of Saved PEFT Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
