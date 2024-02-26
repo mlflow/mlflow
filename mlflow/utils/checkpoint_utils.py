@@ -130,10 +130,12 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
                     f"{_WEIGHT_ONLY_CHECKPOINT_SUFFIX}{suffix}"
                 )
             else:
-                checkpoint_model_filename = \
+                checkpoint_model_filename = (
                     f"{_LATEST_CHECKPOINT_PREFIX}{_CHECKPOINT_MODEL_FILENAME}{suffix}"
-            checkpoint_metrics_filename = \
+                )
+            checkpoint_metrics_filename = (
                 f"{_LATEST_CHECKPOINT_PREFIX}{_CHECKPOINT_METRIC_FILENAME}"
+            )
             checkpoint_artifact_dir = _CHECKPOINT_DIR
         else:
             if self.save_freq == "epoch":
@@ -142,8 +144,9 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
                 sub_dir_name = f"{_CHECKPOINT_GLOBAL_STEP_PREFIX}{global_step}"
 
             if self.save_weights_only:
-                checkpoint_model_filename = \
+                checkpoint_model_filename = (
                     f"{_CHECKPOINT_MODEL_FILENAME}{_WEIGHT_ONLY_CHECKPOINT_SUFFIX}{suffix}"
+                )
             else:
                 checkpoint_model_filename = f"{_CHECKPOINT_MODEL_FILENAME}{suffix}"
             checkpoint_metrics_filename = _CHECKPOINT_METRIC_FILENAME
@@ -165,7 +168,7 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
             mlflow.log_artifact(tmp_model_save_path, checkpoint_artifact_dir)
 
 
-def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None):
+def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None, dst_path=None):
     from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
     from mlflow.client import MlflowClient
 
@@ -193,10 +196,14 @@ def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None):
             "Only one of 'epoch' and 'global_step' can be set for 'load_checkpoint'."
         )
     elif global_step is not None:
-        checkpoint_artifact_path = f"checkpoints/global_step_{global_step}/{checkpoint_filename}"
+        checkpoint_artifact_path = (
+            f"{_CHECKPOINT_DIR}/{_CHECKPOINT_GLOBAL_STEP_PREFIX}{global_step}/{checkpoint_filename}"
+        )
     elif epoch is not None:
-        checkpoint_artifact_path = f"checkpoints/epoch_{epoch}/{checkpoint_filename}"
+        checkpoint_artifact_path = (
+            f"{_CHECKPOINT_DIR}/{_CHECKPOINT_EPOCH_PREFIX}{epoch}/{checkpoint_filename}"
+        )
     else:
         checkpoint_artifact_path = latest_checkpoint_artifact_path
 
-    return client.download_artifacts(run_id, checkpoint_artifact_path)
+    return client.download_artifacts(run_id, checkpoint_artifact_path, dst_path=dst_path)

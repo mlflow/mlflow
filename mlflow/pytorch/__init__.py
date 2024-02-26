@@ -1178,14 +1178,11 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
         # load history checkpoint model logged in second epoch
         checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id, epoch=2)
     """
-    downloaded_checkpoint_filepath = None
-    try:
+    with TempDir() as tmp_dir:
         downloaded_checkpoint_filepath = download_checkpoint_artifact(
-            run_id=run_id, epoch=epoch, global_step=global_step
+            run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
         )
         return model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
-    finally:
-        shutil.rmtree(downloaded_checkpoint_filepath, ignore_errors=True)
 
 
 __all__ = [

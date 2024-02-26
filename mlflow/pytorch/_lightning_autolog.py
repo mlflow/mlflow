@@ -319,9 +319,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
 
         mlflow_checkpoint_callback = MLflowModelCheckpointCallback()
 
-        trainer = Trainer(
-            callbacks=[mlflow_checkpoint_callback]
-        )
+        trainer = Trainer(callbacks=[mlflow_checkpoint_callback])
 
         with mlflow.start_run() as run:
             trainer.fit(model, train_loader)
@@ -353,9 +351,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         # the `barrier` invocation causes deadlock,
         # so I implement `save_checkpoint` instead of
         # calling `trainer.save_checkpoint`.
-        checkpoint = self.trainer._checkpoint_connector.dump_checkpoint(
-            self.save_weights_only
-        )
+        checkpoint = self.trainer._checkpoint_connector.dump_checkpoint(self.save_weights_only)
         self.trainer.strategy.save_checkpoint(checkpoint, filepath)
 
     @rank_zero_only
@@ -377,7 +373,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
             self.check_and_save_checkpoint_if_needed(
                 current_epoch=trainer.current_epoch,
                 global_step=trainer.global_step,
-                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()}
+                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()},
             )
 
     @rank_zero_only
@@ -386,7 +382,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
             self.check_and_save_checkpoint_if_needed(
                 current_epoch=trainer.current_epoch,
                 global_step=trainer.global_step,
-                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()}
+                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()},
             )
 
 

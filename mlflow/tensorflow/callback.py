@@ -171,6 +171,7 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
                 callbacks=[mlflow_checkpoint_callback],
             )
     """
+
     def __init__(
         self,
         monitor="val_loss",
@@ -222,7 +223,7 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
                 self.check_and_save_checkpoint_if_needed(
                     current_epoch=self.current_epoch,
                     global_step=self.global_step,
-                    metric_dict={k: float(v) for k, v in logs.items()}
+                    metric_dict={k: float(v) for k, v in logs.items()},
                 )
                 self.global_step_last_saving = self.global_step
 
@@ -231,5 +232,5 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
             self.check_and_save_checkpoint_if_needed(
                 current_epoch=self.current_epoch,
                 global_step=self.global_step,
-                metric_dict={k: float(v) for k, v in logs.items()}
+                metric_dict={k: float(v) for k, v in logs.items()},
             )

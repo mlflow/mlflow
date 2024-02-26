@@ -58,7 +58,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import get_total_file_size, write_to
+from mlflow.utils.file_utils import get_total_file_size, TempDir, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -969,10 +969,7 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
             mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_freq", "epoch"
         )
 
-        if not any(
-            isinstance(callback, MlflowModelCheckpointCallback)
-            for callback in callbacks
-        ):
+        if not any(isinstance(callback, MlflowModelCheckpointCallback) for callback in callbacks):
             run_id = mlflow.active_run().info.run_id
             callbacks.append(
                 MlflowModelCheckpointCallback(
@@ -1439,11 +1436,9 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
     """
     import tensorflow as tf
 
-    downloaded_checkpoint_filepath = None
-
-    try:
+    with TempDir() as tmp_dir:
         downloaded_checkpoint_filepath = download_checkpoint_artifact(
-            run_id=run_id, epoch=epoch, global_step=global_step
+            run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
         )
 
         if os.path.basename(downloaded_checkpoint_filepath).split(".")[-2] == "weights":
@@ -1455,5 +1450,3 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
             model.load_weights(downloaded_checkpoint_filepath)
             return model
         return tf.keras.models.load_model(downloaded_checkpoint_filepath)
-    finally:
-        shutil.rmtree(downloaded_checkpoint_filepath, ignore_errors=True)
