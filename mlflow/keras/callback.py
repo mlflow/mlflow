@@ -14,10 +14,11 @@ class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
     This callback logs model metadata at training begins, and logs training metrics every epoch or
     every n steps (defined by the user) to MLflow.
 
-    :param log_every_epoch: bool, defaults to True. If True, log metrics every epoch. If False,
-        log metrics every n steps.
-    :param log_every_n_steps: int, defaults to None. If set, log metrics every n steps. If None,
-        log metrics every epoch. Must be `None` if `log_every_epoch=True`.
+    Args:
+        log_every_epoch: bool, defaults to True. If True, log metrics every epoch. If False,
+            log metrics every n steps.
+        log_every_n_steps: int, defaults to None. If set, log metrics every n steps. If None,
+            log metrics every epoch. Must be `None` if `log_every_epoch=True`.
 
     .. code-block:: python
         :caption: Example

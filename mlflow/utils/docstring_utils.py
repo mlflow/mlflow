@@ -108,8 +108,9 @@ class ParamDocs(dict):
             >>> pd = ParamDocs(p1="doc1", p2="doc2
             doc2 second line")
             >>> docstring = '''
-            ... :param p1: {{ p1 }}
-            ... :param p2: {{ p2 }}
+            ... Args:
+            ...     p1: {{ p1 }}
+            ...     p2: {{ p2 }}
             ... '''.strip()
             >>> print(pd.format_docstring(docstring))
         """
@@ -143,14 +144,16 @@ def format_docstring(param_docs):
         >>> @format_docstring(param_docs)
         ... def func(p1, p2):
         ...     '''
-        ...     :param p1: {{ p1 }}
-        ...     :param p2: {{ p2 }}
+        ...     Args:
+        ...         p1: {{ p1 }}
+        ...         p2: {{ p2 }}
         ...     '''
         >>> import textwrap
         >>> print(textwrap.dedent(func.__doc__).strip())
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
+        Args:
+            p1: doc1
+            p2: doc2
+                doc2 second line
     """
     param_docs = ParamDocs(param_docs)
 

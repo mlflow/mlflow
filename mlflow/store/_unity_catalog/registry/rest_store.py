@@ -205,10 +205,11 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param store_uri: URI with scheme 'databricks-uc'
-    :param tracking_uri: URI of the Databricks MLflow tracking server from which to fetch
-                         run info and download run artifacts, when creating new model
-                         versions from source artifacts logged to an MLflow run.
+    Args:
+        store_uri: URI with scheme 'databricks-uc'
+        tracking_uri: URI of the Databricks MLflow tracking server from which to fetch
+            run info and download run artifacts, when creating new model
+            versions from source artifacts logged to an MLflow run.
     """
 
     def __init__(self, store_uri, tracking_uri):

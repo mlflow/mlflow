@@ -29,10 +29,11 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """
     Stores artifacts on Google Cloud Storage.
 
-    :param artifact_uri: URI of GCS bucket
-    :param client: Optional. The client to use for GCS operations; a default
-                       client object will be created if unspecified, using default
-                       credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
+    Args:
+        artifact_uri: URI of GCS bucket
+        client: Optional. The client to use for GCS operations; a default
+            client object will be created if unspecified, using default
+            credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
     def __init__(self, artifact_uri, client=None):

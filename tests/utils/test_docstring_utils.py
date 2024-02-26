@@ -119,22 +119,24 @@ Another line\n    Another indented line""",
         """
         asdf
 
-        :param p1: asdf
-        :param p2: {{ multi_line }}
-        :param p3: {{ single_line }}
-        :param p4:
+        Args
+            p1: asdf
+            p2: {{ multi_line }}
+            p3: {{ single_line }}
+            p4:
                 {{ multi_line }}
         """
 
     expected = """
         asdf
 
-        :param p1: asdf
-        :param p2: Single line
-                   Another line
-                       Another indented line
-        :param p3: hi
-        :param p4:
+        Args
+            p1: asdf
+            p2: Single line
+                Another line
+                    Another indented line
+            p3: hi
+            p4:
                 Single line
                 Another line
                     Another indented line
