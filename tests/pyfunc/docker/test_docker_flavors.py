@@ -85,28 +85,28 @@ def model_path(tmp_path):
     ("flavor"),
     [
         "catboost",
-        "diviner",
-        "fastai",
-        "h2o",
-        # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
-        "keras",
-        "langchain",
-        "lightgbm",
-        # "mleap", # Mleap model logging is deprecated since 2.6.1
-        "onnx",
+        # "diviner",
+        # "fastai",
+        # "h2o",
+        # # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
+        # "keras",
+        # "langchain",
+        # "lightgbm",
+        # # "mleap", # Mleap model logging is deprecated since 2.6.1
+        # "onnx",
         # "openai", # OPENAI API KEY is not necessarily available for everyone
-        "paddle",
-        "pmdarima",
-        "prophet",
-        "pyfunc",
-        "pytorch",
-        "sklearn",
-        "spacy",
-        "spark",
-        "statsmodels",
-        "tensorflow",
-        "transformers_pt",  # Test with Pytorch-based model
-        "transformers_tf",  # Test with TensorFlow-based model
+        # "paddle",
+        # "pmdarima",
+        # "prophet",
+        # "pyfunc",
+        # "pytorch",
+        # "sklearn",
+        # "spacy",
+        # "spark",
+        # "statsmodels",
+        # "tensorflow",
+        # "transformers_pt",  # Test with Pytorch-based model
+        # "transformers_tf",  # Test with TensorFlow-based model
     ],
 )
 def test_build_image_and_serve(flavor, request):

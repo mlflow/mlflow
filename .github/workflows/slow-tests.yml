@@ -64,5 +64,11 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          df -h
+          sudo du -sh /var/lib/*
           source .venv/bin/activate
           pytest tests/pyfunc/docker
+          df -h
+          sudo du -sh /var/lib/*
+          docker images -a
+          docker ps -a

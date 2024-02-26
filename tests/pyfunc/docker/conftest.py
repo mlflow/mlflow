@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import lru_cache
 
@@ -13,7 +14,7 @@ MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."
 RESOURCE_DIR = os.path.join(MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 docker_client = docker.from_env()
-
+_logger = logging.getLogger(__name__)
 
 @pytest.fixture(autouse=True)
 def clean_up_docker_image():
@@ -21,13 +22,18 @@ def clean_up_docker_image():
 
     # Get all containers using the test image
     containers = docker_client.containers.list(filters={"ancestor": TEST_IMAGE_NAME})
+    _logger.warning(f"Cleaning up {len(containers)} containers")
     for container in containers:
         container.remove(force=True)
+        _logger.warning(f"Removed container {container.id}")
 
     # Clean up the image
     try:
+        _logger.warning(f"Cleaning up image {TEST_IMAGE_NAME}")
         docker_client.images.remove(TEST_IMAGE_NAME, force=True)
-    except docker.errors.ImageNotFound:
+        _logger.warning(f"Removed image {TEST_IMAGE_NAME}")
+    except docker.errors.ImageNotFound as e:
+        _logger.warning(f"Image {TEST_IMAGE_NAME} not found: {e}")
         pass
 
 
