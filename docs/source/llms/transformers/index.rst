@@ -153,8 +153,8 @@ These more advanced tutorials are designed to showcase different applications of
                         Building and Serving an OpenAI-Compatible Chatbot
                     </div>
                     <p>
-                        Learn how to build an OpenAI-compatible chatbot using Transformers and 
-                        MLflow, and serve it with minimal configuration.
+                        Learn how to build an OpenAI-compatible chatbot using a local Transformers 
+                        model and MLflow, and serve it with minimal configuration.
                     </p>
                 </a>
             </div>
