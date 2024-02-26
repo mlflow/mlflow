@@ -1550,8 +1550,7 @@ class MlflowClient:
         image: Union["numpy.ndarray", "PIL.Image.Image"],
         artifact_file: str,
     ) -> None:
-        """
-        Log an image as an artifact. The following image objects are supported:
+        """Log an image as an artifact. The following image objects are supported:
 
         - `numpy.ndarray`_
         - `PIL.Image.Image`_
@@ -1582,10 +1581,11 @@ class MlflowClient:
                 - H x W x 3 (an RGB channel order is assumed)
                 - H x W x 4 (an RGBA channel order is assumed)
 
-        :param run_id: String ID of the run.
-        :param image: Image to log.
-        :param artifact_file: The run-relative artifact file path in posixpath format to which
-                              the image is saved (e.g. "dir/image.png").
+        Args:
+            run_id: String ID of the run.
+            image: Image to log.
+            artifact_file: The run-relative artifact file path in posixpath format to which
+                the image is saved (e.g. "dir/image.png").
 
         .. code-block:: python
             :caption: Numpy Example
