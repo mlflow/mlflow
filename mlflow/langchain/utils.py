@@ -11,6 +11,7 @@ from typing import NamedTuple
 import cloudpickle
 import yaml
 from packaging import version
+from packaging.version import Version
 
 import mlflow
 from mlflow.utils.class_utils import _get_class_from_string
@@ -185,7 +186,10 @@ class _SpecialChainInfo(NamedTuple):
 
 
 def _get_special_chain_info_or_none(chain):
-    for special_chain_class, loader_arg in _get_map_of_special_chain_class_to_loader_arg().items():
+    for (
+        special_chain_class,
+        loader_arg,
+    ) in _get_map_of_special_chain_class_to_loader_arg().items():
         if isinstance(chain, special_chain_class):
             return _SpecialChainInfo(loader_arg=loader_arg)
 
@@ -479,10 +483,12 @@ def register_pydantic_serializer():
     Pydantic's Cython validators are not serializable.
     https://github.com/cloudpipe/cloudpickle/issues/408
     """
-    try:
-        import pydantic.fields
-    except ImportError:
+    import pydantic
+
+    if Version(pydantic.__version__) >= Version("2.0.0"):
         return
+
+    import pydantic.fields
 
     cls = pydantic.fields.ModelField
 
