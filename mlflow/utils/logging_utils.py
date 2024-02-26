@@ -90,6 +90,7 @@ def _configure_mlflow_loggers(root_module_name):
 def eprint(*args, **kwargs):
     print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)
 
+
 class LoggerMessageFilter(logging.Filter):
     def __init__(self, module: str, filter_regex: re.Pattern):
         super().__init__()
