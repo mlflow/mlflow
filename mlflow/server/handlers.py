@@ -1042,7 +1042,7 @@ def _get_metric_history():
 @_disable_if_artifacts_only
 def get_metric_history_bulk_handler():
     MAX_HISTORY_RESULTS = 25000
-    MAX_RUN_IDS_PER_REQUEST = 20
+    MAX_RUN_IDS_PER_REQUEST = 100
     run_ids = request.args.to_dict(flat=False).get("run_id", [])
     if not run_ids:
         raise MlflowException(
@@ -1896,6 +1896,11 @@ def _search_model_versions():
             "page_token": [_assert_string],
         },
     )
+    response_message = search_model_versions_impl(request_message)
+    return _wrap_response(response_message)
+
+
+def search_model_versions_impl(request_message):
     store = _get_model_registry_store()
     model_versions = store.search_model_versions(
         filter_string=request_message.filter,
@@ -1907,7 +1912,7 @@ def _search_model_versions():
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
     if model_versions.token:
         response_message.next_page_token = model_versions.token
-    return _wrap_response(response_message)
+    return response_message
 
 
 @catch_mlflow_exception

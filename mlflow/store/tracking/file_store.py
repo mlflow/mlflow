@@ -946,7 +946,7 @@ class FileStore(AbstractStore):
 
     def log_param(self, run_id, param):
         _validate_run_id(run_id)
-        _validate_param(param.key, param.value)
+        param = _validate_param(param.key, param.value)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._log_run_param(run_info, param)
@@ -1046,7 +1046,7 @@ class FileStore(AbstractStore):
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
-        _validate_batch_log_data(metrics, params, tags)
+        metrics, params, tags = _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
         run_info = self._get_run_info(run_id)
