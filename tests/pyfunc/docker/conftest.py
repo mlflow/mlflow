@@ -17,6 +17,8 @@ docker_client = docker.from_env()
 
 @pytest.fixture(autouse=True)
 def clean_up_docker_image():
+    yield
+
     # Get all containers using the test image
     containers = docker_client.containers.list(filters={"ancestor": TEST_IMAGE_NAME})
     for container in containers:

@@ -45,7 +45,7 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.prophet.test_prophet_model_export import (
         prophet_model as prophet_raw_model,  # noqa: F401
     )
-    from tests.pyfunc.docker.conftest import (  # noqa: F401
+    from tests.pyfunc.docker.conftest import (
         MLFLOW_ROOT,
         TEST_IMAGE_NAME,
         docker_client,
