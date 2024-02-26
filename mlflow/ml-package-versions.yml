@@ -616,6 +616,12 @@ langchain:
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
+      # test both pydantic v1 and v2
+      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
+      if [[ $PYDANTIC_VERSION == 1.* ]]; then
+        pip install 'pydantic>2'
+        pytest tests/langchain/ttest_langchain_model_export.py
+      fi
   autologging:
     minimum: "0.1.4"
     maximum: "0.1.5"
@@ -641,6 +647,8 @@ langchain:
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
         pip install 'pydantic>2'
+        sleep 10
+        echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
 
