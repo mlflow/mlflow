@@ -276,7 +276,7 @@ def clean_up_envs():
         if os.name != "nt":
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
-            regex = re.compile(r"mlflow-\w{16,}")
+            regex = re.compile(r"mlflow-\w{32,}")
             for env in conda_info["envs"]:
                 if env == root_prefix:
                     continue
