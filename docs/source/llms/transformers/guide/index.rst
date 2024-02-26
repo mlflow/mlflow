@@ -350,12 +350,11 @@ The transformers flavor has two different primary mechanisms for saving and load
 
 **Pipelines**
 
-Pipelines in the context of the Transformers library are high-level objects that combine pre-trained models and tokenizers 
+Pipelines, in the context of the Transformers library, are high-level objects that combine pre-trained models and tokenizers 
 (as well as other components, depending on the task type) to perform a specific task. They abstract away much of the preprocessing 
 and postprocessing work involved in using the models. 
 
-For example, a text classification pipeline would handle the tokenization of text, passing the tokens through a model, and then 
-interpreting the logits to produce a human-readable classification.
+For example, a text classification pipeline would handle the tokenization of text, passing the tokens through a model, and then interpret the logits to produce a human-readable classification.
 
 When logging a pipeline with MLflow, you're essentially saving this high-level abstraction, which can be loaded and used directly 
 for inference with minimal setup. This is ideal for end-to-end tasks where the preprocessing and postprocessing steps are standard 
@@ -692,12 +691,16 @@ Storage-Efficient Model Logging with ``save_pretrained`` Option
 Avoiding Redundant Model Copy by Setting ``save_pretrained=False``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When MLflow logs an ML model, it always saves a copy of the model weight to the artifact store.
-However, this is not optimal when you use a pretrained model from HuggingFace Hub as it is i.e. without any modification to the model weight, but just changing other assets such as prompt and parameters. For such a case, those copy of model weight is redundant and takes up unnecessary storage space.
+Typically, when MLflow logs an ML model, it saves a copy of the model weight to the artifact store.
+However, this is not optimal when you use a pretrained model from HuggingFace Hub and have no intention of fine-tuning or otherwise manipulating the model or its weights before logging it. For this very common case, copying the (typically very large) model weights is redundant while developing prompts, testing inference parameters, and otherwise is little more than an unnecessary waste of storage space.
 
-To address this issue, MLflow 2.11.0 introduced a new argument ``save_pretrained`` in the :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. When it is set to ``False``, MLflow will not save the copy of the pretrained model weight, but only the reference to the HuggingFace Hub, namely, a repository name and a commit hash. When loading back such *refernce-only* model, MLflow will check the repository name and commit hash from the saved metadata, and download the model weight from the HuggingFace Hub, or use the cached model from HuggingFace local cache directory. The ``save_pretrained`` argument is set to ``True`` by default and doesn't change the model saving behavior
+To address this issue, MLflow 2.11.0 introduced a new argument ``save_pretrained`` in the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` APIs. When with argument is set to ``False``, MLflow will forego saving the pretrained model weights, opting instead to store a reference to the underlying repository entry on the HuggingFace Hub; specifically, the  repository name and the unique commit hash of the model weights are stored when your components or pipeline are logged. When loading back such a *refernce-only* model, MLflow will check the repository name and commit hash from the saved metadata, and either download the model weight from the HuggingFace Hub or use the locally cached model from your HuggingFace local cache directory.
 
-A good analogy is file *copy* vs *symlink*. The default behavior is copy: MLflow creates a copy of the model weight, but with ``save_pretrained=False``, MLflow just logs a link to the HuggingFace Hub repository. This will save storage space and reduce the logging latency significantly, particularly for large models like LLMs.
+A good analogy for this feature is the comparison between a file *copy* and a *symlink* operation. The default behavior for the transformers flavor is to perform a copy, materializing the model weight files in your artifact store that is associated with the run that the model is logged to. By setting ``save_pretrained=False``, MLflow will log a link to the HuggingFace Hub repository, effectively building in symlink functionality to the run. This will save storage space and reduce the logging latency significantly, particularly for large models like LLMs.
+
+.. note:
+
+    By default, the ``save_pretrained`` argument is set to ``True`` and doesn't change the model saving behavior.
 
 Example Usage
 ^^^^^^^^^^^^^
@@ -719,7 +722,7 @@ Here is the example of using ``save_pretrained`` argument for logging a model
             save_pretrained=False,
         )
 
-MLflow will not save the copy of Dolly-v2-7B model weight, instead logs the following metadata as a reference to the HuggingFace Hub model. This will save storage space about 15GB and reduce the logging latency significantly as well.
+In the above example, MLflow will not save a copy of the **Dolly-v2-7B** model's weights and will instead log the following metadata as a reference to the HuggingFace Hub model. This will save roughly 15GB of storage space and reduce the logging latency significantly as well for each run that you initiate during development.
 ```
 source_model_name: "databricks/dolly-v2-7b"
 source_model_revision: "d632f0c8b75b1ae5b26b250d25bfba4e99cb7c6f"
@@ -732,9 +735,9 @@ Caveats of Reference-Only Models
 
 While the ``save_pretrained`` argument is useful for saving storage space and reducing logging latency, it has the following caveats to be aware of:
 
-* **Change in Model Unavailability**: If you are using a model from other users' repository, themodel may be deleted or become private in the HuggingFace Hub. In such case, MLflow cannot load the model back. For production use cases, it is recommended to save the copy model weight to the artifact store once for your production model.
+* **Change in Model Unavailability**: If you are using a model from other users' repository, the model may be deleted or become private in the HuggingFace Hub. In such cases, MLflow cannot load the model back. For production use cases, it is recommended to save the copy model weight to the artifact store prior to moving from development or staging to production for your model.
 
-* **HuggingFace Hub Access**: The model downloading from the HuggingFace Hub might be slow or unstable due to the network condition or the HuggingFace Hub service condition. MLflow doesn't provide any retry mechanism or robust error handling for the model downloading.
+* **HuggingFace Hub Access**: Downloading a model from the HuggingFace Hub might be slow or unstable due to the network condition or the HuggingFace Hub service status. MLflow doesn't provide any retry mechanism or robust error handling for the model downloading. As such, you should not rely on this functionality for your final production-candidate run.
 
 * **Limited Databricks Integration**: If you are using Databricks, be aware that the model saved with `save_pretrained=False` cannot be registered to the legacy `Workspace Model Registry <https://docs.databricks.com/en/machine-learning/manage-model-lifecycle/workspace-model-registry.html>`_. If you want to register the reference-only Transformer model, please use `Unity Catalog <https://docs.databricks.com/en/machine-learning/manage-model-lifecycle/index.html>`_ instead, or download the model weight in advance using :py:func:`mlflow.transformers.persist_pretrained_model()` API as described in the next section.
 
@@ -743,7 +746,11 @@ While the ``save_pretrained`` argument is useful for saving storage space and re
 Persist the Model Weight to the Existing Reference-Only Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you want to update the reference-only model to the one contains the model weight, you can use :py:func:`mlflow.transformers.persist_pretrained_model()` API. This API will download the model weight from the HuggingFace Hub, save it to the artifact location, and update the metadata of the given reference-only model. After this operation, the model will be equivalent to the one saved with `save_pretrained=True` and be ready for the production use.
+If you want to update the reference-only model to an instance that contains the model weight, you can use the :py:func:`mlflow.transformers.persist_pretrained_model()` API. This API will download the model weight from the HuggingFace Hub, save it to the artifact location, and update the metadata of the given reference-only model. After this operation, the model will be equivalent to the one saved with `save_pretrained=True` and be ready for the production use.
+
+.. tip::
+
+    The :py:func:`mlflow.transformers.persist_pretrained_model()` API **does NOT require re-logging a model** but efficiently update the existing model and metadata in-place.
 
 .. code-block:: python
 
@@ -781,9 +788,21 @@ PEFT Models in MLflow Transformers flavor
     The PEFT model is supported in MLflow 2.11.0 and above and is still in the experimental stage. The API and behavior may change in future releases. Moreover, the `PEFT <https://huggingface.co/docs/peft/en/index>`_ library is under active development, so not all features
     and adapter types might be supported in MLflow.
 
-`PEFT <https://huggingface.co/docs/peft/en/index>`_ is a library developed by HuggingFace🤗, that provides various optimization methods for pretrained models available on the HuggingFace Hub. With PEFT, you can easily apply various optimization techniques like LoRA, QLoRA, to reduce the cost of fine-tuning Transformers models.
+`PEFT <https://huggingface.co/docs/peft/en/index>`_ is a library developed by HuggingFace🤗, that provides various optimization methods for pretrained models available on the HuggingFace Hub. With PEFT, you can easily apply various optimization techniques like LoRA and QLoRA to reduce the cost of fine-tuning Transformers models.
 
-In MLflow 2.11.0, we introduced support for PEFT models in the Transformers flavor. You can log and load PEFT models using the same APIs as other Transformers models, such as :py:func:`mlflow.transformers.log_model()` and :py:func:`mlflow.transformers.load_model()`.
+For example, `LoRA (Low-Rank Adaptation) <https://huggingface.co/docs/peft/main/en/conceptual_guides/lora>`_ is a method that approximate the weight updates of fine-tuning process with two smaller matrices through low-rank decomposition. LoRA typically shrinks the number of parameters to train to only 0.01% ~ a few % of the full model fine-tuning (depending on the configuration), which significantly accelerates the fine-tuning process and reduces the memory footprint, such that you can even `train a Mistral/Llama2 7B model on a single Nvidia A10G GPU in an hour <llms/transformers/tutorial/fine-tuning/transformers-peft.html>`_.
+By using PEFT, you can apply LoRA to your Transformers model with only a few lines of code:
+
+.. code-block:: python
+
+    from peft import LoraConfig, get_peft_model
+
+    base_model = AutoModelForCausalLM.from_pretrained(...)
+    lora_config = LoraConfig(...)
+    peft_model = get_peft_model(base_model, lora_config)
+
+
+In MLflow 2.11.0, we introduced support for tracking PEFT models in the MLflow Transformers flavor. You can log and load PEFT models using the same APIs as other Transformers models, such as :py:func:`mlflow.transformers.log_model()` and :py:func:`mlflow.transformers.load_model()`.
 
 .. code-block:: python
 
@@ -820,7 +839,7 @@ Check out the tutorial `Fine-Tuning Open-Source LLM using QLoRA with MLflow and 
 
 Format of Saved PEFT Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-When saving PEFT models, MLflow only saves the PEFT adapter and the configuration, but not the base model weight. This is the same behavior as the Transformer's `save_pretrained() <https://huggingface.co/docs/transformers/v4.38.1/en/main_classes/model#transformers.PreTrainedModel.save_pretrained>`_ method and is super efficient in terms of storage space and logging latency. One difference is that MLflow alsot saves the HuggingFace Hub repository name and version for the base model in the model metadata, so that it can load the same base model when loading the PEFT model. Concretely, the following artifacts are saved in MLflow for PEFT models:
+When saving PEFT models, MLflow only saves the PEFT adapter and the configuration, but not the base model's weights. This is the same behavior as the Transformer's `save_pretrained() <https://huggingface.co/docs/transformers/v4.38.1/en/main_classes/model#transformers.PreTrainedModel.save_pretrained>`_ method and is highly efficient in terms of storage space and logging latency. One difference is that MLflow will also save the HuggingFace Hub repository name and version for the base model in the model metadata, so that it can load the same base model when loading the PEFT model. Concretely, the following artifacts are saved in MLflow for PEFT models:
 
 * The PEFT adapter weight under the ``/peft`` directory.
 * The PEFT configuration as a JSON file under the ``/peft`` directory.
@@ -828,6 +847,6 @@ When saving PEFT models, MLflow only saves the PEFT adapter and the configuratio
 
 Limitations of PEFT Models in MLflow
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Since the model saving/loading behavior for PEFT models is similar to that with ``save_pretrained=False``, :ref:`the same caveats <caveats-of-save-pretrained>` apply to PEFT models. For example, the base model weight may be deleted or become private in the HuggingFace Hub, and PEFT models cannot be registered to the legacy Databricks Workspace Model Registry.
+Since the model saving/loading behavior for PEFT models is similar to that of ``save_pretrained=False``, :ref:`the same caveats <caveats-of-save-pretrained>` apply to PEFT models. For example, the base model weight may be deleted or become private in the HuggingFace Hub, and PEFT models cannot be registered to the legacy Databricks Workspace Model Registry.
 
 To save the base model weight for PEFT models, you can use the :py:func:`mlflow.transformers.persist_pretrained_model()` API. This will download the base model weight from the HuggingFace Hub and save it to the artifact location, updating the metadata of the given PEFT model. Please refer to :ref:`this section <persist-pretrained-guide>` for the detailed usage of this API.
