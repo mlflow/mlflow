@@ -44,7 +44,10 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
-from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
+from mlflow.utils.checkpoint_utils import (
+    _WEIGHT_ONLY_CHECKPOINT_SUFFIX,
+    download_checkpoint_artifact,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -1439,13 +1442,9 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
             run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
         )
 
-        artifact_name = os.path.basename(downloaded_checkpoint_filepath)
-        artifact_name_splits = artifact_name.split(".")
-        if len(artifact_name_splits) < 2:
-            raise MlflowException(
-                f"The model checkpoint artifact file name '{artifact_name}' is malformed."
-            )
-        if artifact_name_splits[-2] == "weights":
+        # strip the file extension
+        artifact_name_splits = downloaded_checkpoint_filepath.rsplit(".", maxsplit=1)[0]
+        if artifact_name_splits.endswith(_WEIGHT_ONLY_CHECKPOINT_SUFFIX):
             # the model is saved as weights only
             if model is None:
                 raise MlflowException(
