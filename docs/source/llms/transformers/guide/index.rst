@@ -790,7 +790,7 @@ PEFT Models in MLflow Transformers flavor
 
 `PEFT <https://huggingface.co/docs/peft/en/index>`_ is a library developed by HuggingFace🤗, that provides various optimization methods for pretrained models available on the HuggingFace Hub. With PEFT, you can easily apply various optimization techniques like LoRA and QLoRA to reduce the cost of fine-tuning Transformers models.
 
-For example, `LoRA (Low-Rank Adaptation) <https://huggingface.co/docs/peft/main/en/conceptual_guides/lora>`_ is a method that approximate the weight updates of fine-tuning process with two smaller matrices through low-rank decomposition. LoRA typically shrinks the number of parameters to train to only 0.01% ~ a few % of the full model fine-tuning (depending on the configuration), which significantly accelerates the fine-tuning process and reduces the memory footprint, such that you can even `train a Mistral/Llama2 7B model on a single Nvidia A10G GPU in an hour <llms/transformers/tutorial/fine-tuning/transformers-peft.html>`_.
+For example, `LoRA (Low-Rank Adaptation) <https://huggingface.co/docs/peft/main/en/conceptual_guides/lora>`_ is a method that approximate the weight updates of fine-tuning process with two smaller matrices through low-rank decomposition. LoRA typically shrinks the number of parameters to train to only 0.01% ~ a few % of the full model fine-tuning (depending on the configuration), which significantly accelerates the fine-tuning process and reduces the memory footprint, such that you can even `train a Mistral/Llama2 7B model on a single Nvidia A10G GPU in an hour <../tutorials/fine-tuning/transformers-peft.html>`_.
 By using PEFT, you can apply LoRA to your Transformers model with only a few lines of code:
 
 .. code-block:: python
