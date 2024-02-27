@@ -1424,9 +1424,11 @@ class MlflowClient:
         Logs an image in MLflow, supporting two use cases:
 
         1. Time-Stepped Image Logging: Ideal for tracking changes or progressions through iterative
-           processes (e.g., during model training phases).
-        2. Artifact File Image Logging: Best suited for static image logging where the image is
-           saved directly as a file artifact.
+            processes (e.g., during model training phases).
+            - Usage: `log_image(key, image, step, timestamp)`
+        2. Legacy Artifact File Image Logging: Best suited for static image logging where the image
+            is saved directly as a file artifact.
+            - Usage: `log_image(image, artifact_file)`
 
         The following image formats are supported:
         - `numpy.ndarray`_

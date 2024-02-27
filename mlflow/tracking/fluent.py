@@ -66,9 +66,7 @@ from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_
 if TYPE_CHECKING:
     import matplotlib
     import matplotlib.figure
-    import numpy
     import pandas
-    import PIL
     import plotly
 
 
@@ -1199,10 +1197,19 @@ def log_figure(
     MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs)
 
 
-def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
+def log_image(*args, **kwargs) -> None:
     """
-    Log an image as an artifact. The following image objects are supported:
+    Logs an image in MLflow, supporting two use cases:
 
+    1. Time-Stepped Image Logging: Ideal for tracking changes or progressions through iterative
+        processes (e.g., during model training phases).
+        - Usage: `log_image(key, image, step, timestamp)`
+
+    2. Legacy Artifact File Image Logging: Best suited for static image logging where the image
+        is saved directly as a file artifact.
+        - Usage: `log_image(image, artifact_file)`
+
+    The following image formats are supported:
     - `numpy.ndarray`_
     - `PIL.Image.Image`_
 
@@ -1233,36 +1240,71 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
             - H x W x 4 (an RGBA channel order is assumed)
 
     Args:
-        image: Image to log.
-        artifact_file: The run-relative artifact file path in posixpath format to which
-            the image is saved (e.g. "dir/image.png").
+        key: Image name. This string may only contain alphanumerics, underscores
+            (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+            All backend stores will support keys up to length 250, but some may
+            support larger keys.
+        image: The image object to be logged.
+        step: Integer training step (iteration) at which the image was saved.
+            Defaults to 0.
+        timestamp: Time when this image was saved. Defaults to the current system time.
+        artifact_file: Legacy. Specifies the path, in POSIX format, where the image
+            will be stored as an artifact relative to the run's root directory (for
+            example, "dir/image.png"). This parameter is kept for backward compatibility
+            and should not be used together with `key`, `step`, or `timestamp`.
+        *args: Positional arguments placeholder. Please refer to the documentation above.
+        **kwargs: Keyword arguments placeholder. Please refer to the documentation above.
 
     .. code-block:: python
-        :test:
-        :caption: Numpy Example
+        :caption: Time-stepped image logging numpy example
 
         import mlflow
         import numpy as np
 
         image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
-        with mlflow.start_run():
-            mlflow.log_image(image, "image.png")
+        run = mlflow.create_run(experiment_id="0")
+        mlflow.log_image(run.info.run_id, "dogs", image, step=3)
 
     .. code-block:: python
-        :test:
-        :caption: Pillow Example
+        :caption: Time-stepped image logging pillow example
 
         import mlflow
         from PIL import Image
 
         image = Image.new("RGB", (100, 100))
 
-        with mlflow.start_run():
-            mlflow.log_image(image, "image.png")
+        run = mlflow.create_run(experiment_id="0")
+        mlflow.log_image(run.info.run_id, "dogs", image, step=3)
+
+    .. code-block:: python
+        :caption: Legacy artifact file image logging numpy example
+
+        import mlflow
+        import numpy as np
+
+        image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+        run = mlflow.create_run(experiment_id="0")
+        mlflow.log_image(run.info.run_id, image, "image.png")
+
+    .. code-block:: python
+        :caption: Legacy artifact file image logging pillow example
+
+        import mlflow
+        from PIL import Image
+
+        image = Image.new("RGB", (100, 100))
+
+        run = mlflow.create_run(experiment_id="0")
+        mlflow.log_image(run.info.run_id, image, "image.png")
+
+    Raises:
+        TypeError: If unexpected parameters are provided. Please refer to the function
+        documentation for required parameters.
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file)
+    MlflowClient().log_image(run_id, *args, **kwargs)
 
 
 @experimental
