@@ -91,7 +91,7 @@ models below, you can pass a raw payload dict.
     :header-rows: 1
     :class: wrap-table
 
-    * - Supported Model Type
+    * - Supported Request Format
       - Description
       - Example
     * - OpenAI Chat
