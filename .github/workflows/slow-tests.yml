@@ -1,0 +1,69 @@
+# A daily job to run slow tests with MLFLOW_RUN_SLOW_TESTS environment variable set to true.
+name: MLflow Slow Tests
+
+on:
+  pull_request:
+    paths:
+      # Run this workflow in PR when relevant files change
+      - ".github/workflows/slow-tests.yml"
+      - "tests/pyfunc/docker/test_docker.py"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+  schedule:
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  MLFLOW_RUN_SLOW_TESTS: "true"
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          source ./dev/install-common-deps.sh --ml
+          python -m pip install langchain_experimental
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          pytest tests/pyfunc/docker
