@@ -80,60 +80,6 @@ JSON Input
 You can either pass a flat dictionary corresponding to the desired model payload or wrap the
 payload in a dict with a dict key that specifies your payload format. 
 
-Raw Payload Dict
-^^^^^^^^^^^^^^^^
-
-If your payload is in a format that your mlflow served model will accept and it's in the supported
-models below, you can pass a raw payload dict.
-
-.. list-table::
-    :widths: 20 40 40
-    :header-rows: 1
-    :class: wrap-table
-
-    * - Supported Request Format
-      - Description
-      - Example
-    * - OpenAI Chat
-      - `OpenAI chat request payload <https://platform.openai.com/docs/api-reference/chat/create>`_.†
-      - 
-        .. code-block:: python
-
-          {
-            "messages": [
-              {
-                "role": "user", 
-                "content": "Tell a joke!"
-              }
-            ], 
-            "temperature": 0.0
-          }
-
-† Note that the ``model`` argument **should not** be included when using the OpenAI APIs, due to its configuration being set by the MLflow model instance. All other parameters can be freely used, provided that they are defined within the ``params`` argument within the logged model signature.
-
-.. code-block:: python
-  :caption: Example
-
-  # Prerequisite: serve a Pyfunc model accepts OpenAI-compatible chat requests on localhost:5678 that defines
-  #   `temperature` and `max_tokens` as parameters within the logged model signature
-
-  import json
-  import requests
-
-  payload = json.dumps(
-      {
-          "messages": [{"role": "user", "content": "Tell a joke!"}],
-          "temperature": 0.5,
-          "max_tokens": 20,
-      }
-  )
-  requests.post(
-      url=f"http://localhost:5678/invocations",
-      data=payload,
-      headers={"Content-Type": "application/json"},
-  )
-  print(requests.json())
-
 Wrapped Payload Dict
 ^^^^^^^^^^^^^^^^^^^^
 If your model format is not supported above or you want to avoid transforming your input data to 
@@ -219,6 +165,60 @@ a valid :ref:`Model Signature <model-signature>` with ``params`` must be defined
     In particular, Deep Learning models are typically strict about input types and will need a model schema in order
     for the model to score correctly. For complex data types, see :ref:`encoding-complex-data` below.
 
+Raw Payload Dict
+^^^^^^^^^^^^^^^^
+
+If your payload is in a format that your mlflow served model will accept and it's in the supported
+models below, you can pass a raw payload dict.
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - Supported Request Format
+      - Description
+      - Example
+    * - OpenAI Chat
+      - `OpenAI chat request payload <https://platform.openai.com/docs/api-reference/chat/create>`_.†
+      - 
+        .. code-block:: python
+
+          {
+            "messages": [
+              {
+                "role": "user", 
+                "content": "Tell a joke!"
+              }
+            ], 
+            "temperature": 0.0
+          }
+
+† Note that the ``model`` argument **should not** be included when using the OpenAI APIs, due to its configuration being set by the MLflow model instance. All other parameters can be freely used, provided that they are defined within the ``params`` argument within the logged model signature.
+
+.. code-block:: python
+  :caption: Example
+
+  # Prerequisite: serve a Pyfunc model accepts OpenAI-compatible chat requests on localhost:5678 that defines
+  #   `temperature` and `max_tokens` as parameters within the logged model signature
+
+  import json
+  import requests
+
+  payload = json.dumps(
+      {
+          "messages": [{"role": "user", "content": "Tell a joke!"}],
+          "temperature": 0.5,
+          "max_tokens": 20,
+      }
+  )
+  requests.post(
+      url=f"http://localhost:5678/invocations",
+      data=payload,
+      headers={"Content-Type": "application/json"},
+  )
+  print(requests.json())
+
 .. _encoding-complex-data:
 
 Encoding complex data
@@ -251,7 +251,6 @@ Example requests:
         {"a": 1, "b": "2020-02-01T12:34:56Z"},
         {"a": 2, "b": "2021-03-01T00:00:00Z"}
     ]'
-
 
 .. _serving_frameworks:
 
