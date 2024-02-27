@@ -1472,6 +1472,8 @@ class MlflowClient:
                 will be stored as an artifact relative to the run's root directory (for
                 example, "dir/image.png"). This parameter is kept for backward compatibility
                 and should not be used together with `key`, `step`, or `timestamp`.
+            *args: Positional arguments placeholder. Please refer to the documentation above.
+            **kwargs: Keyword arguments placeholder. Please refer to the documentation above.
 
         .. code-block:: python
             :caption: Time-stepped image logging numpy example
