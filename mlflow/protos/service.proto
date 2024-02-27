@@ -417,8 +417,6 @@ service MlflowService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc logInputs (LogInputs) returns (LogInputs.Response) {
     option (rpc) = {
       endpoints: [{
@@ -525,9 +523,6 @@ message RunData {
   repeated RunTag tags = 3;
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // Run inputs.
 message RunInputs {
   // Dataset inputs to the Run.
@@ -614,9 +609,6 @@ message Experiment {
   repeated ExperimentTag tags = 7;
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // DatasetInput. Represents a dataset and input tags.
 message DatasetInput {
   // A list of tags for the dataset input, e.g. a “context” tag with value “training”
@@ -626,9 +618,6 @@ message DatasetInput {
   optional Dataset dataset = 2 [(validate_required) = true];
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // Tag for an input.
 message InputTag {
   // The tag key.
@@ -637,9 +626,6 @@ message InputTag {
   optional string value = 2 [(validate_required) = true];
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // Dataset. Represents a reference to data used for training, testing, or evaluation during
 // the model development process.
 message Dataset {
@@ -1164,8 +1150,6 @@ message LogModel {
   }
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
 message LogInputs {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";

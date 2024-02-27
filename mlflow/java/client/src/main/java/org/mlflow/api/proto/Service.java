@@ -5599,8 +5599,6 @@ public final class Service {
   }
   /**
    * <pre>
-   * .. note::
-   *     Experimental: This API may change or be removed in a future release without warning.
    * Run inputs.
    * </pre>
    *
@@ -5913,8 +5911,6 @@ public final class Service {
     }
     /**
      * <pre>
-     * .. note::
-     *     Experimental: This API may change or be removed in a future release without warning.
      * Run inputs.
      * </pre>
      *
@@ -12959,8 +12955,6 @@ public final class Service {
   }
   /**
    * <pre>
-   * .. note::
-   *     Experimental: This API may change or be removed in a future release without warning.
    * DatasetInput. Represents a dataset and input tags.
    * </pre>
    *
@@ -13341,8 +13335,6 @@ public final class Service {
     }
     /**
      * <pre>
-     * .. note::
-     *     Experimental: This API may change or be removed in a future release without warning.
      * DatasetInput. Represents a dataset and input tags.
      * </pre>
      *
@@ -14134,8 +14126,6 @@ public final class Service {
   }
   /**
    * <pre>
-   * .. note::
-   *     Experimental: This API may change or be removed in a future release without warning.
    * Tag for an input.
    * </pre>
    *
@@ -14527,8 +14517,6 @@ public final class Service {
     }
     /**
      * <pre>
-     * .. note::
-     *     Experimental: This API may change or be removed in a future release without warning.
      * Tag for an input.
      * </pre>
      *
@@ -15161,8 +15149,6 @@ public final class Service {
   }
   /**
    * <pre>
-   * .. note::
-   *     Experimental: This API may change or be removed in a future release without warning.
    * Dataset. Represents a reference to data used for training, testing, or evaluation during
    * the model development process.
    * </pre>
@@ -15898,8 +15884,6 @@ public final class Service {
     }
     /**
      * <pre>
-     * .. note::
-     *     Experimental: This API may change or be removed in a future release without warning.
      * Dataset. Represents a reference to data used for training, testing, or evaluation during
      * the model development process.
      * </pre>
@@ -59933,11 +59917,6 @@ public final class Service {
         int index);
   }
   /**
-   * <pre>
-   * .. note::
-   *     Experimental: This API may change or be removed in a future release without warning.
-   * </pre>
-   *
    * Protobuf type {@code mlflow.LogInputs}
    */
   public static final class LogInputs extends
@@ -60747,11 +60726,6 @@ public final class Service {
       return builder;
     }
     /**
-     * <pre>
-     * .. note::
-     *     Experimental: This API may change or be removed in a future release without warning.
-     * </pre>
-     *
      * Protobuf type {@code mlflow.LogInputs}
      */
     public static final class Builder extends
