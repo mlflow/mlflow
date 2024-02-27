@@ -106,7 +106,7 @@ models below, you can pass a raw payload dict.
 .. code-block:: python
   :caption: Example
 
-  # Prerequisite: serve an OpenAI model on localhost:5678 that defines
+  # Prerequisite: serve a Pyfunc model accepts OpenAI-compatible chat requests on localhost:5678 that defines
   #   `temperature` and `max_tokens` as parameters within the logged model signature
 
   import json
