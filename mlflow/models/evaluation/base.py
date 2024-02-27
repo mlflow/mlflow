@@ -417,15 +417,12 @@ def _hash_uint64_ndarray_as_bytes(array):
 
 def _hash_ndarray_as_bytes(nd_array):
     nd_array = np.array(nd_array, copy=False)
+    flat_array = nd_array.ravel()
 
-    if all(isinstance(item, np.ndarray) for item in nd_array):
-        flat_array = np.concatenate(nd_array)
-    else:
-        flat_array = nd_array.flatten(order="C")
+    hash_value = _hash_uint64_ndarray_as_bytes(pd.util.hash_array(flat_array))
+    hash_shape = _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype=np.uint64))
 
-    return _hash_uint64_ndarray_as_bytes(
-        pd.util.hash_array(flat_array)
-    ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
+    return hash_value + hash_shape
 
 
 def _hash_data_as_bytes(data):

@@ -135,11 +135,9 @@ def _extract_predict_fn(model, raw_model):
 
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
-    y_flat = np.array(y.tolist()).flatten()
-    y_pred_flat = np.array(y_pred.tolist()).flatten()
-    sample_weights_flat = (
-        np.array(sample_weights.tolist()).flatten() if sample_weights is not None else None
-    )
+    y_flat = np.array(y).flatten()
+    y_pred_flat = np.array(y_pred).flatten()
+    sample_weights_flat = np.array(sample_weights).flatten() if sample_weights is not None else None
 
     sum_on_target = (
         (y_flat * sample_weights_flat).sum() if sample_weights is not None else sum(y_flat)

@@ -383,27 +383,23 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         import numpy as np
 
-        predictions_2d = np.atleast_2d(predictions)
-        original_shape = np.array(predictions).shape
+        abs_error = np.abs(error)
 
-        abs_error_2d = np.atleast_2d(error)
-        flat_abs_error = abs_error_2d.flatten()
-        worst_k_indices = np.argsort(flat_abs_error)[-worst_k:][::-1]
-        worst_k_row_indices = worst_k_indices // predictions_2d.shape[1]
+        is_multidimensional = np.array(predictions).ndim > 1
+
+        worst_k_indices = np.argsort(abs_error)[-worst_k:][::-1]
+
+        worst_k_row_indices = worst_k_indices if is_multidimensional else worst_k_indices
 
         result_df = dataframe.iloc[worst_k_row_indices].copy()
 
-        if len(original_shape) > 1:
-            result_df["prediction"] = [
-                predictions_2d[i].reshape(original_shape[1:]) for i in worst_k_row_indices
-            ]
-        else:
-            result_df["prediction"] = [predictions[i] for i in worst_k_row_indices]
-
-        result_df["absolute_error"] = flat_abs_error[worst_k_indices]
+        result_df["prediction"] = [predictions[i] for i in worst_k_row_indices]
+        result_df["absolute_error"] = abs_error[worst_k_indices]
 
         front_columns = ["absolute_error", "prediction", target_col]
         reordered_columns = front_columns + [
             col for col in result_df.columns if col not in front_columns
         ]
-        return result_df[reordered_columns].reset_index(drop=True)
+        result_df = result_df[reordered_columns]
+
+        return result_df.reset_index(drop=True)
