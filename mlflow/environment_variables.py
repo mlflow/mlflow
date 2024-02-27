@@ -525,3 +525,7 @@ MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_LOGGING_CONFIGURE
 #: length.
 #: (default: ``True``)
 MLFLOW_TRUNCATE_LONG_VALUES = _BooleanEnvironmentVariable("MLFLOW_TRUNCATE_LONG_VALUES", True)
+
+# Whether to run slow tests with pytest. Default to False in normal runs,
+# but set to True in the weekly slow test jobs.
+_MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", False)
