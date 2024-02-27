@@ -34,7 +34,7 @@ class SampleDataset(Dataset):
             hash_md5.update(hash_part)
         return base64.b64encode(hash_md5.digest()).decode("ascii")
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
+    def to_dict(self) -> Dict[str, str]:
         """
         Args:
             base_dict: A string dictionary of base information about the
@@ -46,11 +46,14 @@ class SampleDataset(Dataset):
             digest, source, source type, schema (optional), profile
             (optional).
         """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
-            "profile": json.dumps(self.profile),
-        }
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def data_list(self) -> List[int]:
