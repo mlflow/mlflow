@@ -149,5 +149,5 @@ def test_log_image_numpy_raises_exception_for_invalid_channel_length():
 
 
 def test_log_image_raises_exception_for_unsupported_image_object_type():
-    with mlflow.start_run(), pytest.raises(TypeError, match="Unexpected parameter(s) provided."):
+    with mlflow.start_run(), pytest.raises(TypeError, match="Unexpected parameter\(s\) provided"):
         mlflow.log_image("not_image", "image.png")
