@@ -17,13 +17,13 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     get_config,
     set_config_provider,
 )
+
+import time
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
-
-MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependency-token"
 
 def _use_repl_context_if_available(name):
     """Creates a decorator to insert a short circuit that returns the specified REPL context
@@ -164,7 +164,10 @@ def is_in_databricks_job():
         return False
 
 def is_in_databricks_serving_environment():
-    return "MODEL_VERSION_ID" in os.environ
+    # choose 2 fairly specific environment variable that should always be configured 
+    # in Databricks Model Serving and unlikely to be configured elsewhere 
+    return "MODEL_SERVING_CONTAINER_EXPOSED_IP" in os.environ and "MAX_MODEL_LOADING_TIMEOUT" in os.environ
+
 
 
 def is_in_databricks_repo():
@@ -423,9 +426,16 @@ def _fail_malformed_databricks_auth(profile):
         "https://github.com/databricks/databricks-cli." % profile
     )
 
+def _fail_model_serving_creds_env(exception):
+    raise MlflowException(
+        "Unable to read Oauth credentials from file mount for Databricks "
+        f"Model Serving dependency, failed with exception: {exception}"
+    )
+
 # Helper function to attempt to read OAuth Token from
 # mounted file in Databricks Model Serving environment
 def _get_model_dependency_oauth_token(should_retry=True):
+    MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependency-token"
     try:
         with open(MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH, "r") as f:
             json_data = f.read()
@@ -439,7 +449,7 @@ def _get_model_dependency_oauth_token(should_retry=True):
 
 
 
-def get_databricks_host_creds(server_uri=None, get_creds_for_model_serving_dep=False):
+def get_databricks_host_creds(server_uri=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
@@ -459,14 +469,41 @@ def get_databricks_host_creds(server_uri=None, get_creds_for_model_serving_dep=F
         MlflowHostCreds which includes the hostname and authentication information necessary to
         talk to the Databricks server.
     """
-    
+    # Since we do not record OAuth expiration time in OAuth file, perform periodic refresh of OAuth cache here.
+    # As currently configured (02/24) OAuth token in model serving environment guaranteed to have at least 30 min 
+    # remaining on TTL at any point in time but refresh at higher rate here to be safe and in case those values change in the future. 
+    OAUTH_CACHE_REFRESH_DURATION = 10 * 60
+    OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
+    OAUTH_CACHE_EXPIRATION_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"
+
     profile, path = get_db_info_from_uri(server_uri)
     config = ProfileConfigProvider(profile).get_config() if profile else get_config()
     insecure = hasattr(config, "insecure") and config.insecure
 
-    # helper method for default host creds behavior if not fetching OAuth token for model serving dependency
-    def _get_databricks_host_creds():
-     # if a path is specified, that implies a Databricks tracking URI of the form:
+
+
+    # helper method for
+    if is_in_databricks_serving_environment():
+        # check if dependency is cached in env var before reading from file
+        oauth_token = ""
+        if OAUTH_CACHE_ENV_VAR in os.environ and OAUTH_CACHE_EXPIRATION_ENV_VAR in os.environ \
+           and os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] < time.time():
+           oauth_token = os.environ[OAUTH_CACHE_ENV_VAR]
+        else:
+            try:
+                oauth_token =_get_model_dependency_oauth_token()
+                os.environ[OAUTH_CACHE_ENV_VAR] = oauth_token
+                os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] = time.time() + OAUTH_CACHE_REFRESH_DURATION
+            except Exception as e :
+                _fail_model_serving_creds_env(e)
+        return MlflowHostCreds(
+            config.host, 
+            token=_oauth_token,
+            ignore_tls_verification=insecure
+        )
+     # default host creds behavior if not fetching OAuth token for model serving dependency
+    else:
+        # if a path is specified, that implies a Databricks tracking URI of the form:
         # databricks://profile-name/path-specifier
         if (not config or not config.host) and path:
             dbutils = _get_dbutils()
@@ -490,21 +527,6 @@ def get_databricks_host_creds(server_uri=None, get_creds_for_model_serving_dep=F
             return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
         _fail_malformed_databricks_auth(profile)
 
-
-    if is_in_databricks_serving_environment() and get_creds_for_model_serving_dep:
-        try:
-            
-            return MlflowHostCreds(
-                config.host, 
-                token=_get_model_dependency_oauth_token(),
-                ignore_tls_verification=insecure
-            )
-        except Exception as e :
-            _logger.warning("Unable to read Oauth credentials from file mount for Databricks Model Serving dependency, "
-                "defaulting to fetching PAT token. ")
-            return _get_databricks_host_creds()
-    else:
-       return _get_databricks_host_creds()
 
 
 
