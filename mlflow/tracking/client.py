@@ -1460,8 +1460,10 @@ class MlflowClient:
         ```
 
         Supported image objects:
-        - `numpy.ndarray`: Refer to the NumPy documentation for more details: https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
-        - `PIL.Image.Image`: Refer to the PIL documentation for more details: https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+        - `numpy.ndarray`: Refer to the NumPy documentation for more details:
+            https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+        - `PIL.Image.Image`: Refer to the PIL documentation for more details:
+            https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
         """
         import numpy as np
         from PIL.Image import Image
@@ -1500,7 +1502,7 @@ class MlflowClient:
             # Checks if all required parameters are present
             return any(
                 len(args) >= i and all(key in kwargs for key in param_required[i:])
-                for i in range(len(param_required)+1)
+                for i in range(len(param_required) + 1)
             )
 
         if _check_types(image_over_steps_params, *args, **kwargs) and _check_required(
