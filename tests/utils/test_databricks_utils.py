@@ -101,7 +101,6 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 
 
-
 @mock.patch("mlflow.utils.databricks_utils.get_config")
 def test_databricks_params_model_serving_oauth_cache(get_config, monkeypatch):
     monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
@@ -114,15 +113,15 @@ def test_databricks_params_model_serving_oauth_cache(get_config, monkeypatch):
     assert params.host == "host"
     assert params.token == "token"
 
+
 @pytest.fixture
 def oauth_file(tmp_path):
-    token_contents = {
-        "OAUTH_TOKEN": [{"oauthTokenValue": "token"}]
-    }
+    token_contents = {"OAUTH_TOKEN": [{"oauthTokenValue": "token"}]}
     oauth_file = tmp_path.joinpath("model-dependencies-oauth-token")
-    with open(oauth_file, 'w') as f:
+    with open(oauth_file, "w") as f:
         json.dump(token_contents, f)
     return oauth_file
+
 
 @mock.patch("mlflow.utils.databricks_utils.get_config")
 def test_databricks_params_model_serving_read_oauth(get_config, monkeypatch, oauth_file):
@@ -130,13 +129,14 @@ def test_databricks_params_model_serving_read_oauth(get_config, monkeypatch, oau
     monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
     get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
     print("TESTTT", databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
-    with mock.patch("mlflow.utils.databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)):
+    with mock.patch(
+        "mlflow.utils.databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
         params = databricks_utils.get_databricks_host_creds()
         assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token"
         assert float(os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"]) > time.time()
         assert params.host == "host"
         assert params.token == "token"
-
 
 
 def test_get_workspace_info_from_databricks_secrets():
