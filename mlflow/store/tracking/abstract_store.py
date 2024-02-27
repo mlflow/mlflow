@@ -5,7 +5,7 @@ from mlflow.entities import DatasetInput, ViewType
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils.annotations import developer_stable, experimental
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
 
@@ -490,7 +490,6 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    @experimental
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.

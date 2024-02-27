@@ -1,10 +1,8 @@
 from typing import Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class CodeDatasetSource(DatasetSource):
     def __init__(
         self,

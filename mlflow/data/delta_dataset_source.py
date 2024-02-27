@@ -11,7 +11,6 @@ from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogSer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils._unity_catalog_utils import get_full_name_from_sc
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_in_databricks_runtime
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -30,7 +29,6 @@ DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class DeltaDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored at in a delta table.
