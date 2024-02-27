@@ -1573,7 +1573,7 @@ class MlflowClient:
                 self,
                 key: str,
                 image: Union["numpy.ndarray", "PIL.Image.Image"],
-                step: Optional[int] = None,
+                step: Optional[int] = 0,
                 timestamp: Optional[int] = None,
             ) -> None:
                 timestamp = timestamp or get_current_time_millis()
@@ -1603,7 +1603,7 @@ class MlflowClient:
         else:
             raise TypeError(
                 "Unexpected parameter(s) provided. "
-                "The `log_image` function can be used in two ways: either as "
+                "The `log_image` function can be used in one of two ways: either as "
                 "`log_image(image, artifact_path)` or as `log_image(key, image, step)`. "
                 "Please refer to the function documentation for additional details."
             )
