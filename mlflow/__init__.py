@@ -34,6 +34,7 @@ __version__ = VERSION
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
+    config,  # noqa: F401
     data,  # noqa: F401
     exceptions,  # noqa: F401
     models,  # noqa: F401
