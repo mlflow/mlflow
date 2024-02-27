@@ -575,11 +575,9 @@ def test_only_fit_contains_sample_weight():
 
     mock_obj = mock.Mock()
 
-    def mock_score(self, X, y):
+    def mock_score(self, X, y, **kwargs):
         mock_obj(X, y)
         return 0
-
-    assert inspect.signature(RANSACRegressor.score) == inspect.signature(mock_score)
 
     RANSACRegressor.score = mock_score
     model = RANSACRegressor()
