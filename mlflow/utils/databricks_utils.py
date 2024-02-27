@@ -163,7 +163,7 @@ def is_in_databricks_job():
     except Exception:
         return False
 
-def is_in_databricks_serving_environment():
+def is_in_databricks_model_serving_environment():
     # choose 2 fairly specific environment variable that should always be configured 
     # in Databricks Model Serving and unlikely to be configured elsewhere 
     return "MODEL_SERVING_CONTAINER_EXPOSED_IP" in os.environ and "MAX_MODEL_LOADING_TIMEOUT" in os.environ
@@ -436,9 +436,8 @@ def _fail_model_serving_creds_env(exception):
 def _get_model_dependency_oauth_token(should_retry=True):
     MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependency-token"
     try:
-        with open(MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH, "r") as f:
-            json_data = f.read()
-            oauth_dict = json.loads(json_data)
+        with open(MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH) as f:
+            oauth_dict = json.load(f)
             return oauth_dict["OAUTH_TOKEN"][0]["oauthTokenValue"]
     except Exception as e:
         if should_retry:
@@ -479,8 +478,8 @@ def get_databricks_host_creds(server_uri=None):
     config = ProfileConfigProvider(profile).get_config() if profile else get_config()
     insecure = hasattr(config, "insecure") and config.insecure
 
-    # helper method for
-    if is_in_databricks_serving_environment():
+    # if in model serving environment databricks attempt to fetch OAuth token from container 
+    if is_in_databricks_model_serving_environment():
         # check if dependency is cached in env var before reading from file
         oauth_token = ""
         if OAUTH_CACHE_ENV_VAR in os.environ and OAUTH_CACHE_EXPIRATION_ENV_VAR in os.environ \
