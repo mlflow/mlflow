@@ -433,8 +433,9 @@ def _fail_model_serving_creds_env(exception):
 
 # Helper function to attempt to read OAuth Token from
 # mounted file in Databricks Model Serving environment
+# constant defined outside function for testing override
+MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
 def _get_model_dependency_oauth_token(should_retry=True):
-    MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependency-token"
     try:
         with open(MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH) as f:
             oauth_dict = json.load(f)
@@ -478,18 +479,18 @@ def get_databricks_host_creds(server_uri=None):
     config = ProfileConfigProvider(profile).get_config() if profile else get_config()
     insecure = hasattr(config, "insecure") and config.insecure
 
-    # if in model serving environment databricks attempt to fetch OAuth token from container 
+    # if in model serving environment databricks attempt to fetch model dependency OAuth token
     if is_in_databricks_model_serving_environment():
         # check if dependency is cached in env var before reading from file
         oauth_token = ""
         if OAUTH_CACHE_ENV_VAR in os.environ and OAUTH_CACHE_EXPIRATION_ENV_VAR in os.environ \
-           and os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] < time.time():
+           and float(os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR]) > time.time():
            oauth_token = os.environ[OAUTH_CACHE_ENV_VAR]
         else:
             try:
                 oauth_token =_get_model_dependency_oauth_token()
                 os.environ[OAUTH_CACHE_ENV_VAR] = oauth_token
-                os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] = time.time() + OAUTH_CACHE_REFRESH_DURATION
+                os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] = str(time.time() + OAUTH_CACHE_REFRESH_DURATION)
             except Exception as e :
                 _fail_model_serving_creds_env(e)
         return MlflowHostCreds(

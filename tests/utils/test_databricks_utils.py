@@ -18,6 +18,9 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.uri import construct_db_uri_from_profile
 
 from tests.helper_functions import mock_method_chain
+import time
+import os
+import json
 
 
 def test_no_throw():
@@ -96,6 +99,44 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
     get_config.return_value = None
     with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
+
+
+
+@mock.patch("mlflow.utils.databricks_utils.get_config")
+def test_databricks_params_model_serving_oauth_cache(get_config, monkeypatch):
+    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
+    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
+
+    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
+    params = databricks_utils.get_databricks_host_creds()
+    assert params.host == "host"
+    assert params.token == "token"
+
+@pytest.fixture
+def oauth_file(tmp_path):
+    token_contents = {
+        "OAUTH_TOKEN": [{"oauthTokenValue": "token"}]
+    }
+    oauth_file = tmp_path.joinpath("model-dependencies-oauth-token")
+    with open(oauth_file, 'w') as f:
+        json.dump(token_contents, f)
+    return oauth_file
+
+@mock.patch("mlflow.utils.databricks_utils.get_config")
+def test_databricks_params_model_serving_read_oauth(get_config, monkeypatch, oauth_file):
+    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
+    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
+    print("TESTTT", databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
+    with mock.patch("mlflow.utils.databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)):
+        params = databricks_utils.get_databricks_host_creds()
+        assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token"
+        assert float(os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"]) > time.time()
+        assert params.host == "host"
+        assert params.token == "token"
+
 
 
 def test_get_workspace_info_from_databricks_secrets():
@@ -223,6 +264,16 @@ def test_is_in_databricks_runtime(monkeypatch):
 
     monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
     assert not databricks_utils.is_in_databricks_runtime()
+
+
+def test_is_in_databricks_model_serving_environment(monkeypatch):
+    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
+    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    assert databricks_utils.is_in_databricks_model_serving_environment()
+
+    # both environment variables needed to verify environment
+    monkeypatch.delenv("MAX_MODEL_LOADING_TIMEOUT")
+    assert not databricks_utils.is_in_databricks_model_serving_environment()
 
 
 def test_get_repl_id():
