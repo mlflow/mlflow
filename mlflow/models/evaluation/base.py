@@ -100,9 +100,9 @@ class EvaluationMetric:
                             behavior section for what metrics will be returned based on the type of
                             model (i.e. classifier or regressor).
                         kwargs: Includes a list of args that are used to compute the metric. These
-                            args could information coming from input data, model outputs or
-                            parameters specified in the `evaluator_config` argument of the
-                            `mlflow.evaluate` API.
+                            args could be information coming from input data, model outputs,
+                            other metrics, or parameters specified in the `evaluator_config`
+                            argument of the `mlflow.evaluate` API.
 
                     Returns: MetricValue with per-row scores, per-row justifications, and aggregate
                         results.
@@ -118,7 +118,13 @@ class EvaluationMetric:
     '''
 
     def __init__(
-        self, eval_fn, name, greater_is_better, long_name=None, version=None, metric_details=None
+        self,
+        eval_fn,
+        name,
+        greater_is_better,
+        long_name=None,
+        version=None,
+        metric_details=None,
     ):
         self.eval_fn = eval_fn
         self.name = name
@@ -178,6 +184,10 @@ def make_metric(
                             that are used to compute the metric. These args could information coming
                             from input data, model outputs or parameters specified in the
                             `evaluator_config` argument of the `mlflow.evaluate` API.
+                        kwargs: Includes a list of args that are used to compute the metric. These
+                            args could be information coming from input data, model outputs,
+                            other metrics, or parameters specified in the `evaluator_config`
+                            argument of the `mlflow.evaluate` API.
 
                     Returns: MetricValue with per-row scores, per-row justifications, and aggregate
                         results.
@@ -468,9 +478,14 @@ def _hash_array_like_obj_as_bytes(data):
         data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
-        # convert numpy array of lists into numpy array of numpy arrays
+        # convert numpy array of lists into numpy array of the string representation of the lists
         # because lists are not hashable
         hashable = np.array(str(val) for val in data)
+        return _hash_ndarray_as_bytes(hashable)
+    elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], np.ndarray):
+        # convert numpy array of numpy arrays into 2d numpy arrays
+        # because numpy array of numpy arrays are not hashable
+        hashable = np.array(data.tolist())
         return _hash_ndarray_as_bytes(hashable)
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
@@ -509,7 +524,14 @@ class EvaluationDataset:
     SPARK_DATAFRAME_LIMIT = 10000
 
     def __init__(
-        self, data, *, targets=None, name=None, path=None, feature_names=None, predictions=None
+        self,
+        data,
+        *,
+        targets=None,
+        name=None,
+        path=None,
+        feature_names=None,
+        predictions=None,
     ):
         """
         The values of the constructor arguments comes from the `evaluate` call.
@@ -1758,7 +1780,8 @@ def evaluate(
 
     if data is None:
         raise MlflowException(
-            message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
+            message="The data argument cannot be None.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     _EnvManager.validate(env_manager)

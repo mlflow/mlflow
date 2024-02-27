@@ -164,7 +164,7 @@ def _inspect_original_var_name(var, fallback_name):
 
         frame = inspect.currentframe().f_back
         while frame is not None:
-            arg_info = inspect.getargvalues(frame)  # pylint: disable=deprecated-method
+            arg_info = inspect.getargvalues(frame)
 
             fixed_args = [arg_info.locals[arg_name] for arg_name in arg_info.args]
             varlen_args = list(arg_info.locals[arg_info.varargs]) if arg_info.varargs else []

@@ -173,17 +173,19 @@ def train(
     preprocessing together with the VGG16 Keras model. The resulting model can be applied
     directly to image base64 encoded image data.
 
-    :param image_height: Height of the input image in pixels.
-    :param image_width: Width of the input image in pixels.
-    :param image_files: List of image files to be used for training.
-    :param labels: List of labels for the image files.
-    :param domain: Dictionary representing the domain of the response.
-                   Provides mapping label-name -> label-id.
-    :param epochs: Number of epochs to train the model for.
-    :param batch_size: Batch size used during training.
-    :param test_ratio: Fraction of dataset to be used for validation. This data will not be used
-                       during training.
-    :param seed: Random seed. Used e.g. when splitting the dataset into train / validation.
+    Args:
+        image_height: Height of the input image in pixels.
+        image_width: Width of the input image in pixels.
+        image_files: List of image files to be used for training.
+        labels: List of labels for the image files.
+        domain: Dictionary representing the domain of the response.
+            Provides mapping label-name -> label-id.
+        epochs: Number of epochs to train the model for.
+        batch_size: Batch size used during training.
+        test_ratio: Fraction of dataset to be used for validation. This data will not be used
+            during training.
+        seed: Random seed. Used e.g. when splitting the dataset into train / validation.
+
     """
     assert len(set(labels)) == len(domain)
 

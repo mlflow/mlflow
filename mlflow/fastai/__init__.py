@@ -75,7 +75,7 @@ def get_default_pip_requirements(include_cloudpickle=False):
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):  # pylint: disable=unused-argument
+def get_default_conda_env(include_cloudpickle=False):
     """
     Returns:
         The default Conda environment for MLflow Models produced by calls to
@@ -353,7 +353,7 @@ class _FastaiModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -438,7 +438,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enable automatic logging from Fastai to MLflow.
 
@@ -630,9 +630,7 @@ def autolog(
                 # Add the new callback
                 self.add_cb(mlflowFastaiCallback)
 
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     def fit(original, self, *args, **kwargs):
         unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]

@@ -33,7 +33,7 @@ if save_as_type == "tf1-estimator":
         tf.saved_model.save(model, tmp.path())
         if task_type == "save_model":
             save_path = args.save_path
-            # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+
             mlflow.tensorflow.save_model(
                 tf_saved_model_dir=tmp.path(),
                 tf_meta_graph_tags=["serve"],
@@ -43,7 +43,6 @@ if save_as_type == "tf1-estimator":
             )
         elif task_type == "log_model":
             with mlflow.start_run() as run:
-                # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                 mlflow.tensorflow.log_model(
                     tf_saved_model_dir=tmp.path(),
                     tf_meta_graph_tags=["serve"],

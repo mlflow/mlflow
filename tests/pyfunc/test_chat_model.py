@@ -1,4 +1,6 @@
 import json
+import pathlib
+import pickle
 from typing import List
 
 import pytest
@@ -26,36 +28,50 @@ DEFAULT_PARAMS = {
 }
 
 
+def get_mock_response(messages, params):
+    return {
+        "id": "123",
+        "model": "MyChatModel",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": json.dumps([m.to_dict() for m in messages]),
+                },
+                "finish_reason": "stop",
+            },
+            {
+                "index": 1,
+                "message": {
+                    "role": "user",
+                    "content": json.dumps(params.to_dict()),
+                },
+                "finish_reason": "stop",
+            },
+        ],
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 10,
+            "total_tokens": 20,
+        },
+    }
+
+
 class TestChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
-        mock_response = {
-            "id": "123",
-            "model": "MyChatModel",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": json.dumps([m.to_dict() for m in messages]),
-                    },
-                    "finish_reason": "stop",
-                },
-                {
-                    "index": 1,
-                    "message": {
-                        "role": "user",
-                        "content": json.dumps(params.to_dict()),
-                    },
-                    "finish_reason": "stop",
-                },
-            ],
-            "usage": {
-                "prompt_tokens": 10,
-                "completion_tokens": 10,
-                "total_tokens": 20,
-            },
-        }
+        mock_response = get_mock_response(messages, params)
         return ChatResponse(**mock_response)
+
+
+class ChatModelWithContext(mlflow.pyfunc.ChatModel):
+    def load_context(self, context):
+        predict_path = pathlib.Path(context.artifacts["predict_fn"])
+        self.predict_fn = pickle.loads(predict_path.read_bytes())
+
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        message = ChatMessage(role="assistant", content=self.predict_fn())
+        return ChatResponse(**get_mock_response([message], params))
 
 
 def test_chat_model_save_load(tmp_path):
@@ -82,6 +98,30 @@ def test_chat_model_save_throws_with_signature(tmp_path):
                 Schema([ColSpec(name="test", type=DataType.string)]),
             ),
         )
+
+
+def mock_predict():
+    return "hello"
+
+
+def test_chat_model_with_context_saves_successfully(tmp_path):
+    model_path = tmp_path / "model"
+    predict_path = tmp_path / "predict.pkl"
+    predict_path.write_bytes(pickle.dumps(mock_predict))
+
+    model = ChatModelWithContext()
+    mlflow.pyfunc.save_model(
+        python_model=model,
+        path=model_path,
+        artifacts={"predict_fn": str(predict_path)},
+    )
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+    messages = [{"role": "user", "content": "test"}]
+
+    response = loaded_model.predict({"messages": messages})
+    expected_response = json.dumps([{"role": "assistant", "content": "hello"}])
+    assert response["choices"][0]["message"]["content"] == expected_response
 
 
 @pytest.mark.parametrize(

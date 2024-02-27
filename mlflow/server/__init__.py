@@ -18,11 +18,12 @@ from mlflow.server.handlers import (
     gateway_proxy_handler,
     get_artifact_handler,
     get_metric_history_bulk_handler,
+    get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
     search_datasets_handler,
     upload_artifact_handler,
 )
-from mlflow.utils.os import is_windows
+from mlflow.utils.os import get_entry_points, is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 
@@ -84,6 +85,12 @@ def serve_get_metric_history_bulk():
     return get_metric_history_bulk_handler()
 
 
+# Serve the "metrics/get-history-bulk-interval" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"))
+def serve_get_metric_history_bulk_interval():
+    return get_metric_history_bulk_interval_handler()
+
+
 # Serve the "experiments/search-datasets" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
@@ -142,7 +149,7 @@ def serve():
 
 
 def _find_app(app_name: str) -> str:
-    apps = importlib.metadata.entry_points().get("mlflow.app", [])
+    apps = get_entry_points("mlflow.app")
     for app in apps:
         if app.name == app_name:
             return app.value
@@ -177,7 +184,7 @@ def get_app_client(app_name: str, *args, **kwargs):
     Returns:
         An app client instance.
     """
-    clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
+    clients = get_entry_points("mlflow.app.client")
     for client in clients:
         if client.name == app_name:
             cls = client.load()

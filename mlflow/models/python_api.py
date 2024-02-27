@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from io import StringIO
-from typing import ForwardRef, List, Optional, get_args, get_origin
+from typing import ForwardRef, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -91,14 +91,14 @@ _CONTENT_TYPE_JSON = "json"
 
 
 def predict(
-    model_uri: str,
-    input_data: Optional["PyFuncInput"] = None,  # noqa: F821
-    input_path: Optional[str] = None,
-    content_type: str = _CONTENT_TYPE_JSON,
-    output_path: Optional[str] = None,
-    env_manager: _EnvManager = _EnvManager.VIRTUALENV,
-    install_mlflow: bool = False,
-    pip_requirements_override: Optional[List[str]] = None,
+    model_uri,
+    input_data=None,
+    input_path=None,
+    content_type=_CONTENT_TYPE_JSON,
+    output_path=None,
+    env_manager=_EnvManager.VIRTUALENV,
+    install_mlflow=False,
+    pip_requirements_override=None,
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
@@ -107,15 +107,16 @@ def predict(
 
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
-        input_data: Input data for prediction. Must be valid input for the PyFunc model.
+        input_data: Input data for prediction. Must be valid input for the PyFunc model. Refer
+            to the :py:func:`mlflow.pyfunc.PyFuncModel.predict()` for the supported input types.
         input_path: Path to a file containing input data. If provided, 'input_data' must be None.
         content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
         output_path: File to output results to as json. If not provided, output to stdout.
         env_manager: Specify a way to create an environment for MLmodel inference:
 
-            - virtualenv (default): use virtualenv (and pyenv for Python version management)
-            - local: use the local environment
-            - conda: use conda
+            - "virtualenv" (default): use virtualenv (and pyenv for Python version management)
+            - "local": use the local environment
+            - "conda": use conda
 
         install_mlflow: If specified and there is a conda or virtualenv environment to be activated
             mlflow will be installed into the environment after it has been activated. The version
@@ -132,14 +133,14 @@ def predict(
 
         run_id = "..."
 
-        mlflow.pyfunc.predict(
+        mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
             input_data={"x": 1, "y": 2},
             content_type="json",
         )
 
         # Run prediction with additional pip dependencies
-        mlflow.pyfunc.predict(
+        mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
             input_data='{"x": 1, "y": 2}',
             content_type="json",

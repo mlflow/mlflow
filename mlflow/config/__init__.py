@@ -19,11 +19,11 @@ def enable_async_logging(enable=True):
         mlflow.config.enable_async_logging(True)
 
         with mlflow.start_run():
-            mlflow.log_param("a", 1) # This will be logged asynchronously
+            mlflow.log_param("a", 1)  # This will be logged asynchronously
 
         mlflow.config.enable_async_logging(False)
         with mlflow.start_run():
-            mlflow.log_param("a", 1) # This will be logged synchronously
+            mlflow.log_param("a", 1)  # This will be logged synchronously
     """
 
     MLFLOW_ENABLE_ASYNC_LOGGING.set(enable)

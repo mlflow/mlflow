@@ -1,5 +1,3 @@
-# pylint: disable=unused-argument
-
 import importlib
 import logging
 import sys

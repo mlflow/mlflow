@@ -220,14 +220,29 @@ def create_runnable_sequence():
 
 
 def test_autolog_manage_run():
-    mlflow.langchain.autolog(log_models=True)
+    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
     run = mlflow.start_run()
     with _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         model.invoke("MLflow")
     assert mlflow.active_run() is not None
     assert MlflowClient().get_run(run.info.run_id).data.metrics != {}
+    assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
+    assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
     mlflow.end_run()
+
+
+def test_autolog_manage_run_no_active_run():
+    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
+    assert mlflow.active_run() is None
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        model.invoke("MLflow")
+    assert mlflow.active_run() is None
+    run = MlflowClient().get_run(model.run_id)
+    assert run.data.metrics != {}
+    assert run.data.tags["test_tag"] == "test"
+    assert run.data.tags["mlflow.autologging"] == "langchain"
 
 
 def test_llmchain_autolog():

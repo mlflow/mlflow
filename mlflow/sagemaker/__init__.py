@@ -332,11 +332,11 @@ def _deploy(
                 :caption: Example
                     "AsyncInferenceConfig": {
                         "ClientConfig": {
-                            "MaxConcurrentInvocationsPerInstance": 4  # pylint: disable=line-too-long
+                            "MaxConcurrentInvocationsPerInstance": 4
                         },
                         "OutputConfig": {
-                            "S3OutputPath": "s3://<path-to-output-bucket>",  # pylint: disable=line-too-long
-                            "NotificationConfig": {},  # pylint: disable=line-too-long
+                            "S3OutputPath": "s3://<path-to-output-bucket>",
+                            "NotificationConfig": {},
                         },
                     }
         serverless_config: An optional dictionary specifying the serverless configuration
@@ -1069,7 +1069,7 @@ def push_model_to_sagemaker(
     _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
 
 
-def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
+def run_local(name, model_uri, flavor=None, config=None):
     """
     Serve the model locally in a SageMaker compatible Docker container.
 
@@ -1694,7 +1694,7 @@ def _update_sagemaker_endpoint(
         role: SageMaker execution ARN role.
         sage_client: A boto3 client for SageMaker.
         s3_client: A boto3 client for S3.
-        variant_name: The name to assign to the new production variant if it doesn't already exist. # pylint: disable=line-too-long
+        variant_name: The name to assign to the new production variant if it doesn't already exist.
         async_inference_config: A dictionary specifying the async inference configuration to use.
             For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html.
             Defaults to ``None``.
@@ -2328,7 +2328,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return {"name": app_name, "flavor": flavor}
 
-    def update_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):  # pylint: disable=signature-differs
+    def update_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
         """
         Update a deployment on AWS SageMaker. This function can replace or add a new model to
         an existing SageMaker endpoint. By default, this function replaces the existing model
@@ -2764,7 +2764,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         self,
         deployment_name=None,
         inputs=None,
-        endpoint=None,  # pylint: disable=unused-argument
+        endpoint=None,
         params: Optional[Dict[str, Any]] = None,
     ):
         """

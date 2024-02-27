@@ -2,9 +2,9 @@ import base64
 import gc
 import importlib.util
 import json
-import logging
 import os
 import pathlib
+import shutil
 import textwrap
 from unittest import mock
 
@@ -39,17 +39,12 @@ from mlflow.transformers import (
     _build_pipeline_from_model_input,
     _fetch_model_card,
     _generate_base_flavor_configuration,
-    _get_base_model_architecture,
     _get_instance_type,
-    _get_or_infer_task_type,
-    _infer_transformers_task_type,
     _is_model_distributed_in_memory,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
-    _TransformersModel,
     _TransformersWrapper,
     _validate_llm_inference_task_type,
-    _validate_transformers_task_type,
     _write_card_data,
     _write_license_information,
     get_default_conda_env,
@@ -88,8 +83,6 @@ image_file_path = pathlib.Path(pathlib.Path(__file__).parent.parent, "datasets",
 # - Text2TextGeneration pipeline tests
 # - Conversational pipeline tests
 
-_logger = logging.getLogger(__name__)
-
 
 @pytest.fixture(autouse=True)
 def force_gc():
@@ -103,7 +96,14 @@ def force_gc():
 
 @pytest.fixture
 def model_path(tmp_path):
-    return tmp_path.joinpath("model")
+    model_path = tmp_path.joinpath("model")
+    yield model_path
+
+    # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
+    # by default. This is useful for debugging during local testing, but in CI it just wastes the
+    # disk space.
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        shutil.rmtree(model_path, ignore_errors=True)
 
 
 @pytest.fixture
@@ -169,36 +169,16 @@ def test_dependencies_tensorflow(small_seq2seq_pipeline):
     assert pip_in_conda.intersection(expected_conda) == expected_conda
 
 
-def test_task_inference(small_seq2seq_pipeline):
-    expected_task = "text-classification"
-    assert _infer_transformers_task_type(small_seq2seq_pipeline) == expected_task
-
-    assert (
-        _infer_transformers_task_type(
-            _TransformersModel.from_dict(**{"model": small_seq2seq_pipeline.model})
-        )
-        == expected_task
-    )
-    with pytest.raises(MlflowException, match="The provided model type"):
-        _infer_transformers_task_type(small_seq2seq_pipeline.tokenizer)
-
-
-def test_transformers_task_validation():
-    with pytest.raises(MlflowException, match="The task provided is invalid. 'fake-task' is not"):
-        _validate_transformers_task_type("fake-task")
-    _validate_transformers_task_type("image-classification")
-
-
-def test_inference_task_validation():
+def test_inference_task_validation(small_seq2seq_pipeline, text_generation_pipeline):
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/invalid' is not"
     ):
-        _validate_llm_inference_task_type("llm/v1/invalid", "text-generation")
+        _validate_llm_inference_task_type("llm/v1/invalid", text_generation_pipeline)
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/completions' is not"
     ):
-        _validate_llm_inference_task_type("llm/v1/completions", "text-classification")
-    _validate_llm_inference_task_type("llm/v1/completions", "text-generation")
+        _validate_llm_inference_task_type("llm/v1/completions", small_seq2seq_pipeline)
+    _validate_llm_inference_task_type("llm/v1/completions", text_generation_pipeline)
 
 
 def test_instance_extraction(small_qa_pipeline):
@@ -221,19 +201,9 @@ def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
 
 
 def test_component_multi_modal_model_ineligible_for_pyfunc(component_multi_modal):
-    components = _TransformersModel.from_dict(**component_multi_modal)
-    task = _infer_transformers_task_type(components)
-
-    pipeline = _build_pipeline_from_model_input(components, task=task)
+    task = transformers.pipelines.get_task(component_multi_modal["model"].name_or_path)
+    pipeline = _build_pipeline_from_model_input(component_multi_modal, task)
     assert not _should_add_pyfunc_to_model(pipeline)
-
-
-def test_model_architecture_extraction(small_seq2seq_pipeline):
-    assert _get_base_model_architecture(small_seq2seq_pipeline) == "lordtt13/emo-mobilebert"
-    assert (
-        _get_base_model_architecture({"model": small_seq2seq_pipeline.model})
-        == "lordtt13/emo-mobilebert"
-    )
 
 
 def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_pipeline):
@@ -251,31 +221,15 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
         _FRAMEWORK_KEY: "pt",
     }
-    seq_conf_infer_task = _generate_base_flavor_configuration(
-        small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)[0]
-    )
-    assert seq_conf_infer_task == expected_seq_pipeline_conf
-    seq_conf_specify_task = _generate_base_flavor_configuration(
-        small_seq2seq_pipeline, "text-classification"
-    )
-    assert seq_conf_specify_task == expected_seq_pipeline_conf
-    qa_conf_infer_task = _generate_base_flavor_configuration(
-        small_qa_pipeline, _get_or_infer_task_type(small_qa_pipeline)[0]
-    )
-    assert qa_conf_infer_task == expected_qa_pipeline_conf
-    qa_conf_specify_task = _generate_base_flavor_configuration(
-        small_qa_pipeline, "question-answering"
-    )
-    assert qa_conf_specify_task == expected_qa_pipeline_conf
-    with pytest.raises(MlflowException, match="The task provided is invalid. 'magic' is not"):
-        _generate_base_flavor_configuration(small_qa_pipeline, "magic")
+    conf = _generate_base_flavor_configuration(small_seq2seq_pipeline)
+    assert conf == expected_seq_pipeline_conf
+    conf = _generate_base_flavor_configuration(small_qa_pipeline)
+    assert conf == expected_qa_pipeline_conf
 
 
 def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
     generated = _build_pipeline_from_model_input(
-        _TransformersModel.from_dict(
-            **{"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer}
-        ),
+        {"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer},
         "question-answering",
     )
     assert isinstance(generated, type(small_qa_pipeline))
@@ -288,10 +242,7 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
         model.update({"image_processor": small_vision_model.feature_extractor})
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
-    generated = _build_pipeline_from_model_input(
-        _TransformersModel.from_dict(**model),
-        "image-classification",
-    )
+    generated = _build_pipeline_from_model_input(model, task="image-classification")
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
     if IS_NEW_FEATURE_EXTRACTION_API:
@@ -299,14 +250,6 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
     else:
         compare_type = generated.feature_extractor
     assert isinstance(compare_type, transformers.MobileNetV2ImageProcessor)
-
-
-def test_pipeline_construction_fails_with_invalid_type(small_vision_model):
-    with pytest.raises(
-        MlflowException,
-        match="The model type submitted is not compatible with the transformers flavor: ",
-    ):
-        _TransformersModel.from_dict(**{"model": small_vision_model.feature_extractor})
 
 
 def test_saving_with_invalid_dict_as_model(model_path):
@@ -914,6 +857,9 @@ def test_transformers_pt_model_save_dependencies_without_accelerate(
     assert "torch" in pip_requirements
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
+)
 def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline,
 ):
@@ -1000,54 +946,6 @@ def test_invalid_model_type_without_registered_name_does_not_save(model_path):
 
     with pytest.raises(MlflowException, match="The submitted model type"):
         mlflow.transformers.save_model(transformers_model=invalid_pipeline, path=model_path)
-
-
-@flaky()
-def test_invalid_task_inference_raises_error(model_path):
-    from transformers import Pipeline
-
-    def softmax(outputs):
-        maxes = np.max(outputs, axis=-1, keepdims=True)
-        shifted_exp = np.exp(outputs - maxes)
-        return shifted_exp / shifted_exp.sum(axis=-1, keepdims=True)
-
-    class PairClassificationPipeline(Pipeline):
-        def _sanitize_parameters(self, **kwargs):
-            preprocess_kwargs = {}
-            if "second_text" in kwargs:
-                preprocess_kwargs["second_text"] = kwargs["second_text"]
-            return preprocess_kwargs, {}, {}
-
-        # pylint: disable=arguments-renamed,arguments-differ
-        def preprocess(self, text, second_text=None):
-            return self.tokenizer(text, text_pair=second_text, return_tensors=self.framework)
-
-        # pylint: disable=arguments-differ,arguments-renamed
-        def _forward(self, model_inputs):
-            return self.model(**model_inputs)
-
-        # pylint: disable=arguments-differ
-        def postprocess(self, model_outputs):
-            logits = model_outputs.logits[0].numpy()
-            probabilities = softmax(logits)
-
-            best_class = np.argmax(probabilities)
-            label = self.model.config.id2label[best_class]
-            score = probabilities[best_class].item()
-            logits = logits.tolist()
-            return {"label": label, "score": score, "logits": logits}
-
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(
-        "sgugger/finetuned-bert-mrpc"
-    )
-    dummy_pipeline = PairClassificationPipeline(model=model)
-
-    with pytest.raises(
-        MlflowException, match="The task provided is invalid. '' is not a supported"
-    ):
-        mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
-    dummy_pipeline.task = "text-classification"
-    mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
 
 
 def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi_modal):
@@ -1216,7 +1114,7 @@ def test_text2text_generation_pipeline_with_model_configs(
 
 
 def test_text2text_generation_pipeline_with_model_config_and_params(
-    text2text_generation_pipeline, tmp_path
+    text2text_generation_pipeline, model_path
 ):
     data = "muppet keyboard type"
     model_config = {
@@ -1236,7 +1134,6 @@ def test_text2text_generation_pipeline_with_model_config_and_params(
         parameters,
     )
 
-    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
@@ -1258,7 +1155,9 @@ def test_text2text_generation_pipeline_with_model_config_and_params(
     assert res == pyfunc_loaded.predict(data, {"extra_param": "extra_value"})
 
 
-def test_text2text_generation_pipeline_with_params_success(text2text_generation_pipeline, tmp_path):
+def test_text2text_generation_pipeline_with_params_success(
+    text2text_generation_pipeline, model_path
+):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5, "do_sample": True}
     generated_output = mlflow.transformers.generate_signature_output(
@@ -1270,7 +1169,6 @@ def test_text2text_generation_pipeline_with_params_success(text2text_generation_
         parameters,
     )
 
-    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
@@ -1285,7 +1183,7 @@ def test_text2text_generation_pipeline_with_params_success(text2text_generation_
 
 
 def test_text2text_generation_pipeline_with_params_with_errors(
-    text2text_generation_pipeline, tmp_path
+    text2text_generation_pipeline, model_path
 ):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param", "do_sample": True}
@@ -1293,7 +1191,6 @@ def test_text2text_generation_pipeline_with_params_with_errors(
         text2text_generation_pipeline, data
     )
 
-    model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
@@ -2755,7 +2652,7 @@ def test_extraction_of_base_flavor_config(dtype):
         use_fast=True,
     )
 
-    parsed = mlflow.transformers._generate_base_flavor_configuration(full_config_pipeline, task)
+    parsed = mlflow.transformers._generate_base_flavor_configuration(full_config_pipeline)
 
     assert parsed == {
         "task": "translation_en_to_fr",
@@ -3643,7 +3540,7 @@ def test_model_on_single_device():
     assert not _is_model_distributed_in_memory(mock_model)
 
 
-def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
+def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path, model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -3662,10 +3559,10 @@ def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
         MlflowException,
         match="The model that is attempting to be saved has been loaded into memory",
     ):
-        mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+        mlflow.transformers.save_model(transformers_model=pipeline, path=model_path)
 
 
-def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
+def test_basic_model_with_accelerate_homogeneous_mapping_works(model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -3679,9 +3576,9 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
     )
     pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
 
-    mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+    mlflow.transformers.save_model(transformers_model=pipeline, path=model_path)
 
-    loaded = mlflow.transformers.load_model(str(tmp_path / "model"))
+    loaded = mlflow.transformers.load_model(model_path)
     text = "Apples are delicious"
     assert loaded(text) == pipeline(text)
 

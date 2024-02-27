@@ -84,11 +84,12 @@ class ParamDocs(dict):
         Returns:
             A new `ParamDocs` instance with the formatted param docs.
 
-        Examples
-        --------
-        >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
-        >>> pd.format(doc1="foo", doc2="bar")
-        ParamDocs({'p1': 'foo', 'p2': 'bar'})
+        .. code-block:: text
+            :caption: Example
+
+            >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
+            >>> pd.format(doc1="foo", doc2="bar")
+            ParamDocs({'p1': 'foo', 'p2': 'bar'})
         """
         replacements = _replace_keys_with_placeholders(kwargs)
         return ParamDocs({k: _replace_all(v, replacements) for k, v in self.items()})
@@ -97,21 +98,21 @@ class ParamDocs(dict):
         """
         Formats placeholders in `docstring`.
 
-        Examples
-        --------
-        >>> pd = ParamDocs(p1="doc1", p2="doc2
-        doc2 second line")
-        >>> docstring = '''
-        ... :param p1: {{ p1 }}
-        ... :param p2: {{ p2 }}
-        ... '''.strip()
-        >>> print(pd.format_docstring(docstring))
-
         Args:
-            p1:
-                {{ p1 }}
-            p2:
-                {{ p2 }}
+            p1: {{ p1 }}
+            p2: {{ p2 }}
+
+        .. code-block:: text
+            :caption: Example
+
+            >>> pd = ParamDocs(p1="doc1", p2="doc2
+            doc2 second line")
+            >>> docstring = '''
+            ... Args:
+            ...     p1: {{ p1 }}
+            ...     p2: {{ p2 }}
+            ... '''.strip()
+            >>> print(pd.format_docstring(docstring))
         """
         if docstring is None:
             return None
@@ -135,20 +136,24 @@ def format_docstring(param_docs):
     Returns:
         A decorator to apply the formatting.
 
-    Examples:
+    .. code-block:: text
+        :caption: Example
+
         >>> param_docs = {"p1": "doc1", "p2": "doc2
         doc2 second line"}
         >>> @format_docstring(param_docs)
         ... def func(p1, p2):
         ...     '''
-        ...     :param p1: {{ p1 }}
-        ...     :param p2: {{ p2 }}
+        ...     Args:
+        ...         p1: {{ p1 }}
+        ...         p2: {{ p2 }}
         ...     '''
         >>> import textwrap
         >>> print(textwrap.dedent(func.__doc__).strip())
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
+        Args:
+            p1: doc1
+            p2: doc2
+                doc2 second line
     """
     param_docs = ParamDocs(param_docs)
 
@@ -216,7 +221,7 @@ section of the model's conda environment (``conda.yaml``) file.
     - ``extra_pip_requirements``
 
 `This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
-``pip_requirements`` and ``extra_pip_requirements``."""
+``pip_requirements`` and ``extra_pip_requirements``."""  # noqa: E501
         ),
         "signature": (
             """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`

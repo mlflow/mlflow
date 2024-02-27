@@ -32,8 +32,6 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
-# pylint: disable=unused-argument
-
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
 # http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module

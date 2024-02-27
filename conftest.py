@@ -1,6 +1,7 @@
 import json
 import os
 import posixpath
+import re
 import shutil
 import subprocess
 import sys
@@ -215,7 +216,7 @@ def pytest_ignore_collect(path, config):
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_collection_modifyitems(session, config, items):  # pylint: disable=unused-argument
+def pytest_collection_modifyitems(session, config, items):
     # Executing `tests.server.test_prometheus_exporter` after `tests.server.test_handlers`
     # results in an error because Flask >= 2.2.0 doesn't allow calling setup method such as
     # `before_request` on the application after the first request. To avoid this issue,
@@ -228,7 +229,7 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_terminal_summary(terminalreporter, exitstatus, config):  # pylint: disable=unused-argument
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
     yield
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
@@ -263,6 +264,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):  # pylint: di
 
 @pytest.fixture(scope="module", autouse=True)
 def clean_up_envs():
+    """
+    Clean up virtualenvs and conda environments created during tests to save disk space.
+    """
     yield
 
     if "GITHUB_ACTIONS" in os.environ:
@@ -272,8 +276,11 @@ def clean_up_envs():
         if os.name != "nt":
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
+            regex = re.compile(r"mlflow-\w{32,}")
             for env in conda_info["envs"]:
-                if env != root_prefix:
+                if env == root_prefix:
+                    continue
+                if regex.fullmatch(os.path.basename(env)):
                     shutil.rmtree(env, ignore_errors=True)
 
 

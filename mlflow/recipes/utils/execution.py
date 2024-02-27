@@ -616,4 +616,4 @@ steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/scoring-datas
 
 clean:
 	rm -rf $(split_objects) $(transform_objects) $(train_objects) $(evaluate_objects) $(predict_objects)
-"""
+"""  # noqa: E501

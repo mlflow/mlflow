@@ -14,7 +14,6 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pyspark
@@ -22,7 +21,6 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a Spark dataset (e.g. data derived from a Spark Table / file directory or Delta
@@ -57,24 +55,21 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         # and deterministic than hashing DataFrame records
         return compute_spark_df_digest(self._df)
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source type.
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
 
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
         """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
-            if self.schema
-            else None,
-            "profile": json.dumps(self.profile),
-        }
+        schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def df(self):
@@ -201,7 +196,6 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
-@experimental
 def load_delta(
     path: Optional[str] = None,
     table_name: Optional[str] = None,
@@ -261,7 +255,6 @@ def load_delta(
     )
 
 
-@experimental
 def from_spark(
     df: "pyspark.sql.DataFrame",
     path: Optional[str] = None,

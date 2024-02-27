@@ -3,10 +3,8 @@ from typing import Any, Dict, Optional
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class SparkDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored in a spark table.
@@ -31,7 +29,7 @@ class SparkDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "spark"
 
-    def load(self, **kwargs):  # pylint: disable=unused-argument
+    def load(self, **kwargs):
         """Loads the dataset source as a Spark Dataset Source.
 
         Returns:

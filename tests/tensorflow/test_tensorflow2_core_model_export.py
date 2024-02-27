@@ -10,7 +10,6 @@ import mlflow.tensorflow
 from mlflow.models import Model, infer_signature
 
 
-# pylint: disable=abstract-method
 class ToyModel(tf.Module):
     def __init__(self, w, b):
         super().__init__()

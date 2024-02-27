@@ -23,7 +23,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../experiment-tracking/types';
+import { KeyValueEntity, ModelEntity, ModelVersionInfoEntity, ModelAliasMap } from '../../experiment-tracking/types';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteringModelDocUrl } from '../../common/constants';
@@ -57,6 +57,7 @@ type ModelVersionTableProps = {
   modelEntity?: ModelEntity;
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
+  aliases?: ModelAliasMap
 };
 
 type ModelVersionColumnDef = ColumnDef<ModelVersionInfoEntity> & {
@@ -82,7 +83,18 @@ export const ModelVersionTable = ({
   modelEntity,
   onMetadataUpdated,
   usingNextModelsUI,
+  aliases
 }: ModelVersionTableProps) => {
+  const aliasesByVersion = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    aliases?.forEach(({ alias, version }) => {
+      if (!result[version]) {
+        result[version] = [];
+      }
+      result[version].push(alias);
+    })
+    return result;
+  }, [aliases]);
   const versions = useMemo(
     () =>
       activeStageOnly
@@ -226,11 +238,12 @@ export const ModelVersionTable = ({
           }),
           meta: { styles: { flex: 2 }, multiline: true },
           cell: ({ getValue, row: { original } }) => {
+            const mvAliases = aliasesByVersion[original.version] || [];
             return (
               <ModelVersionTableAliasesCell
                 modelName={modelName}
                 version={original.version}
-                aliases={getValue() as string[]}
+                aliases={mvAliases}
                 onAddEdit={() => {
                   showEditAliasesModal?.(original.version);
                 }}
@@ -266,7 +279,7 @@ export const ModelVersionTable = ({
       cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
     });
     return columns;
-  }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI]);
+  }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI, aliasesByVersion]);
 
   const [sorting, setSorting] = useState<SortingState>([{ id: COLUMN_IDS.CREATION_TIMESTAMP, desc: true }]);
 

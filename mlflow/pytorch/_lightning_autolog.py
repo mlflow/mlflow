@@ -15,6 +15,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
     get_autologging_config,
 )
+from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
@@ -34,13 +35,12 @@ from pytorch_lightning.utilities import rank_zero_only
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
 
+_logger = logging.getLogger(__name__)
 
 _pl_version = Version(pl.__version__)
 if _pl_version < Version("1.5.0"):
-    # pylint: disable-next=ungrouped-imports
     from pytorch_lightning.core.memory import ModelSummary
 else:
-    # pylint: disable-next=ungrouped-imports
     from pytorch_lightning.utilities.model_summary import ModelSummary
 
 
@@ -57,7 +57,6 @@ def _get_optimizer_name(optimizer):
     if Version(pl.__version__) < Version("1.1.0"):
         return optimizer.__class__.__name__
     else:
-        # pylint: disable-next=ungrouped-imports
         from pytorch_lightning.core.optimizer import LightningOptimizer
 
         return (
@@ -134,7 +133,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     if _pl_version >= Version("1.4.0dev"):
 
         @rank_zero_only
-        def on_train_epoch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+        def on_train_epoch_end(self, trainer, pl_module, *args):
             self._log_epoch_metrics(trainer, pl_module)
 
     # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
@@ -149,7 +148,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # pytorch-lightning >= 1.3.0
 
         @rank_zero_only
-        def on_train_epoch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+        def on_train_epoch_end(self, trainer, pl_module, *args):
             """
             Log loss and other metrics values after each train epoch
 
@@ -188,7 +187,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             self._log_epoch_metrics(trainer, pl_module)
 
     @rank_zero_only
-    def on_train_batch_end(self, trainer, pl_module, *args):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+    def on_train_batch_end(self, trainer, pl_module, *args):
         """
         Log metric values after each step
 
@@ -279,6 +278,110 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             {key: float(value) for key, value in trainer.callback_metrics.items()}
         )
         self.metrics_logger.flush()
+
+
+class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBase):
+    """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
+    This callback implementation only supports pytorch-lightning >= 1.6.0.
+
+    Args:
+        monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
+        mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made
+            based on either the maximization or the minimization of the monitored quantity.
+        save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+            saves the model after each epoch. When using integer, the callback
+            saves the model at end of this many batches. Note that if the saving isn't
+            aligned to epochs, the monitored metric may potentially be less reliable (it
+            could reflect as little as 1 batch, since the metrics get reset
+            every epoch). Defaults to `"epoch"`.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from mlflow.pytorch import MLflowModelCheckpointCallback
+        from pytorch_lightning import Trainer
+
+        mlflow.pytorch.autolog(checkpoint=True)
+
+        model = MyLightningModuleNet()  # A custom-pytorch lightning model
+        train_loader = create_train_dataset_loader()
+
+        mlflow_checkpoint_callback = MLflowModelCheckpointCallback()
+
+        trainer = Trainer(callbacks=[mlflow_checkpoint_callback])
+
+        with mlflow.start_run() as run:
+            trainer.fit(model, train_loader)
+
+    """
+
+    def __init__(
+        self,
+        monitor="val_loss",
+        mode="min",
+        save_best_only=True,
+        save_weights_only=False,
+        save_freq="epoch",
+    ):
+        super().__init__(
+            checkpoint_file_suffix=".pth",
+            monitor=monitor,
+            mode=mode,
+            save_best_only=save_best_only,
+            save_weights_only=save_weights_only,
+            save_freq=save_freq,
+        )
+        self.trainer = None
+
+    def save_checkpoint(self, filepath: str):
+        # Note: `trainer.save_checkpoint` implementation contains invocation of
+        # `self.strategy.barrier("Trainer.save_checkpoint")`,
+        # in DDP training, this callback is only invoked in rank 0 process,
+        # the `barrier` invocation causes deadlock,
+        # so I implement `save_checkpoint` instead of
+        # calling `trainer.save_checkpoint`.
+        checkpoint = self.trainer._checkpoint_connector.dump_checkpoint(self.save_weights_only)
+        self.trainer.strategy.save_checkpoint(checkpoint, filepath)
+
+    @rank_zero_only
+    def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        self.trainer = trainer
+
+    @rank_zero_only
+    def on_train_batch_end(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        outputs,
+        batch,
+        batch_idx,
+    ) -> None:
+        if isinstance(self.save_freq, int) and (
+            trainer.global_step > 0 and trainer.global_step % self.save_freq == 0
+        ):
+            self.check_and_save_checkpoint_if_needed(
+                current_epoch=trainer.current_epoch,
+                global_step=trainer.global_step,
+                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()},
+            )
+
+    @rank_zero_only
+    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        if self.save_freq == "epoch":
+            self.check_and_save_checkpoint_if_needed(
+                current_epoch=trainer.current_epoch,
+                global_step=trainer.global_step,
+                metric_dict={k: float(v) for k, v in trainer.callback_metrics.items()},
+            )
 
 
 # PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics
@@ -390,6 +493,45 @@ def patched_fit(original, self, *args, **kwargs):
                 )
             ]
 
+        model_checkpoint = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "checkpoint", True)
+        if model_checkpoint:
+            # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.6.0
+            if _pl_version >= Version("1.6.0"):
+                checkpoint_monitor = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
+                )
+                checkpoint_mode = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_mode", "min"
+                )
+                checkpoint_save_best_only = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_best_only", True
+                )
+                checkpoint_save_weights_only = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_weights_only", False
+                )
+                checkpoint_save_freq = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_freq", "epoch"
+                )
+
+                if not any(
+                    isinstance(callbacks, MlflowModelCheckpointCallback)
+                    for callbacks in self.callbacks
+                ):
+                    self.callbacks += [
+                        MlflowModelCheckpointCallback(
+                            monitor=checkpoint_monitor,
+                            mode=checkpoint_mode,
+                            save_best_only=checkpoint_save_best_only,
+                            save_weights_only=checkpoint_save_weights_only,
+                            save_freq=checkpoint_save_freq,
+                        )
+                    ]
+            else:
+                warnings.warn(
+                    "Automatic model checkpointing is disabled because this feature only "
+                    "supports pytorch-lightning >= 1.6.0."
+                )
+
         client.flush(synchronous=False)
 
         result = original(self, *args, **kwargs)
@@ -398,7 +540,6 @@ def patched_fit(original, self, *args, **kwargs):
             _log_early_stop_metrics(early_stop_callback, client, run_id)
 
         if Version(pl.__version__) < Version("1.4.0"):
-            # pylint: disable-next=unexpected-keyword-arg
             summary = str(ModelSummary(self.model, mode="full"))
         else:
             summary = str(ModelSummary(self.model, max_depth=-1))

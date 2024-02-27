@@ -1,10 +1,10 @@
+from __future__ import annotations
+
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
-import torch
-from transformers import AutoTokenizer, StoppingCriteria
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
@@ -15,13 +15,18 @@ from mlflow.types.llm import (
     COMPLETIONS_MODEL_OUTPUT_SCHEMA,
 )
 
+if TYPE_CHECKING:
+    import torch
+
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
 # future Databricks Provisioned Throughput support of more model architectures for inference.
 _METADATA_LLM_INFERENCE_TASK_KEY = "task"
 
-_LLM_INFERENCE_TASK_COMPLETIONS = "llm/v1/completions"
-_LLM_INFERENCE_TASK_CHAT = "llm/v1/chat"
+_LLM_INFERENCE_TASK_PREFIX = "llm/v1"
+_LLM_INFERENCE_TASK_COMPLETIONS = f"{_LLM_INFERENCE_TASK_PREFIX}/completions"
+_LLM_INFERENCE_TASK_CHAT = f"{_LLM_INFERENCE_TASK_PREFIX}/chat"
+
 
 _LLM_INFERENCE_OBJECT_NAME = {
     _LLM_INFERENCE_TASK_COMPLETIONS: "text_completion",
@@ -114,17 +119,10 @@ def preprocess_llm_inference_params(
     return updated_data, params
 
 
-class _StopSequenceMatchCriteria(StoppingCriteria):
-    def __init__(self, stop_sequence_ids):
-        self.stop_sequence_ids = stop_sequence_ids
-
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        last_ids = input_ids[:, -len(self.stop_sequence_ids) :].tolist()
-        return self.stop_sequence_ids in last_ids
-
-
 def _get_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
     """Return a list of Hugging Face stopping criteria objects for the given stop sequences."""
+    from transformers import AutoTokenizer, StoppingCriteria
+
     if stop is None or model_name is None:
         return None
 
@@ -137,6 +135,18 @@ def _get_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Op
 
     def _get_slow_token_ids(seq: str):
         return tokenizer.convert_tokens_to_ids(tokenizer._tokenize(seq))
+
+    # NB: We need to define this as an inner class to avoid importing
+    # transformers in the global scope that confuses autologging
+    class _StopSequenceMatchCriteria(StoppingCriteria):
+        def __init__(self, stop_sequence_ids):
+            self.stop_sequence_ids = stop_sequence_ids
+
+        def __call__(
+            self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
+        ) -> bool:
+            last_ids = input_ids[:, -len(self.stop_sequence_ids) :].tolist()
+            return self.stop_sequence_ids in last_ids
 
     stopping_criteria = []
     for stop_sequence in stop:

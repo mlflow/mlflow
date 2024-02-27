@@ -19,7 +19,10 @@ def transform(stdout: str, is_maintainer: bool) -> str:
                 )
                 line = f"{line}. Run {command} to fix this error."
             else:
-                line = f"{line}. See https://docs.astral.sh/ruff/rules/{m.group(1)} for how to fix this error."
+                line = (
+                    f"{line}. See https://docs.astral.sh/ruff/rules/{m.group(1)} for how to fix "
+                    f"this error."
+                )
         transformed.append(line)
     return "\n".join(transformed)
 

@@ -28,10 +28,16 @@ _logger = logging.getLogger(__name__)
 
 
 def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
+    import pandas as pd
+
     args_dict = {}
     for arg in grading_context_columns:
         if arg in eval_values:
-            args_dict[arg] = eval_values[arg][indx]
+            args_dict[arg] = (
+                eval_values[arg].iloc[indx]
+                if isinstance(eval_values[arg], pd.Series)
+                else eval_values[arg][indx]
+            )
         else:
             raise MlflowException(
                 f"{arg} does not exist in the eval function {list(eval_values.keys())}."
@@ -114,7 +120,8 @@ def make_genai_metric(
             ``grading_context_columns`` are used by the LLM as a judge as additional information to
             compute the metric. The columns are extracted from the input dataset or output
             predictions based on ``col_mapping`` in the ``evaluator_config`` passed to
-            :py:func:`mlflow.evaluate()`.  include_input: (Optional) Whether to include the input
+            :py:func:`mlflow.evaluate()`. They can also be the name of other evaluated metrics.
+        include_input: (Optional) Whether to include the input
             when computing the metric.
         parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
             set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend

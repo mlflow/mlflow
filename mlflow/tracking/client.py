@@ -1130,7 +1130,6 @@ class MlflowClient:
             run_id, metrics, params, tags, synchronous=synchronous
         )
 
-    @experimental
     def log_inputs(
         self,
         run_id: str,
@@ -3331,7 +3330,7 @@ class MlflowClient:
         )
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
-    def get_model_version_stages(self, name: str, version: str) -> List[str]:  # pylint: disable=unused-argument
+    def get_model_version_stages(self, name: str, version: str) -> List[str]:
         """
         This is a docstring. Here is info.
 
@@ -3555,7 +3554,7 @@ class MlflowClient:
             )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException("Could not find any model version for {stage} stage")
+                raise MlflowException(f"Could not find any model version for {stage} stage")
             version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)
 

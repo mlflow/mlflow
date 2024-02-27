@@ -14,7 +14,6 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -70,24 +69,21 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return compute_pandas_digest(self._df)
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source type.
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
 
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
         """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
-            if self.schema
-            else None,
-            "profile": json.dumps(self.profile),
-        }
+        schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def df(self) -> pd.DataFrame:
@@ -165,7 +161,6 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
-@experimental
 def from_pandas(
     df: pd.DataFrame,
     source: Union[str, DatasetSource] = None,

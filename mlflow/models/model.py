@@ -4,19 +4,37 @@ import os
 import uuid
 import warnings
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, Union
+from pathlib import Path
+from pprint import pformat
+from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
 
 import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _add_or_overwrite_requirements,
+    _get_requirements_from_file,
+    _remove_requirements,
+    _write_requirements_to_file,
+)
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    get_uri_scheme,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -268,10 +286,8 @@ class Model:
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
-        if run_id:
-            self.run_id = run_id
-            self.artifact_path = artifact_path
-
+        self.run_id = run_id
+        self.artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
@@ -394,7 +410,6 @@ class Model:
     @experimental
     @metadata.setter
     def metadata(self, value: Optional[Dict[str, Any]]):
-        # pylint: disable=attribute-defined-outside-init
         self._metadata = value
 
     @property
@@ -416,7 +431,6 @@ class Model:
         # signature cannot be set to `False`, which is used in `log_model` and `save_model` calls
         # to disable automatic signature inference
         if value is not False:
-            # pylint: disable=attribute-defined-outside-init
             self._signature = value
 
     @property
@@ -429,7 +443,6 @@ class Model:
 
     @saved_input_example_info.setter
     def saved_input_example_info(self, value: Dict[str, Any]):
-        # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
 
     @property
@@ -445,7 +458,6 @@ class Model:
 
     @model_size_bytes.setter
     def model_size_bytes(self, value: Optional[int]):
-        # pylint: disable=attribute-defined-outside-init
         self._model_size_bytes = value
 
     def get_model_info(self):
@@ -549,6 +561,7 @@ class Model:
 
         return cls(**model_dict)
 
+    @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
     def log(
         cls,
@@ -572,32 +585,8 @@ class Model:
             registered_model_name: If given, create a model version under
                 ``registered_model_name``, also creating a registered model if
                 one with the given name does not exist.
-            signature: :py:class:`ModelSignature` describes model input
-                and output :py:class:`Schema <mlflow.types.Schema>`. The model signature
-                can be :py:func:`inferred <infer_signature>` from datasets representing
-                valid model input (e.g. the training dataset) and valid model output
-                (e.g. model predictions generated on the training dataset), for example:
-
-                .. code-block:: python
-
-                    from mlflow.models import infer_signature
-
-                    train = df.drop_column("target_label")
-                    signature = infer_signature(train, model.predict(train))
-
-            input_example: one or several instances of valid model input. The input example is
-                used as a hint of what data to feed the model. It will be converted to
-                a Pandas DataFrame and then serialized to json using the Pandas
-                split-oriented format, or a numpy array where the example will be
-                serialized to json by converting it to a list. If input example is a
-                tuple, then the first element must be a valid model input, and the
-                second element must be a valid params dictionary that can optionally
-                be used during model inference. Bytes are base64-encoded. When the
-                ``signature`` parameter is ``None``, the input example is used to infer
-                a model's signature. If an input example containing params is provided,
-                and signature is inferred from the input example, then params will be
-                used as default params during model inference if no extra params are
-                passed at inference time.
+            signature: {{ signature }}
+            input_example: {{ input_example }}
             await_registration_for: Number of seconds to wait for the model version to finish
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
@@ -617,14 +606,14 @@ class Model:
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             tracking_uri = _resolve_tracking_uri()
-            if (
-                (tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks")
-                and kwargs.get("signature") is None
-                and kwargs.get("input_example") is None
+            # We check signature presence here as some flavors have a default signature as a
+            # fallback when not provided by user, which is set during flavor's save_model() call.
+            if mlflow_model.signature is None and (
+                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
@@ -705,3 +694,109 @@ def get_model_info(model_uri: str) -> ModelInfo:
         mlflow_version=model_meta.mlflow_version,
         metadata=model_meta.metadata,
     )
+
+
+class Files(NamedTuple):
+    requirements: Path
+    conda: Path
+
+
+def get_model_requirements_files(resolved_uri: str) -> Files:
+    requirements_txt_file = _download_artifact_from_uri(
+        artifact_uri=append_to_uri_path(resolved_uri, _REQUIREMENTS_FILE_NAME)
+    )
+    conda_yaml_file = _download_artifact_from_uri(
+        artifact_uri=append_to_uri_path(resolved_uri, _CONDA_ENV_FILE_NAME)
+    )
+
+    return Files(
+        Path(requirements_txt_file),
+        Path(conda_yaml_file),
+    )
+
+
+def update_model_requirements(
+    model_uri: str,
+    operation: Literal["add", "remove"],
+    requirement_list: List[str],
+) -> None:
+    """
+    Add or remove requirements from a model's conda.yaml and requirements.txt files.
+
+    The process involves downloading these two files from the model artifacts
+    (if they're non-local), updating them with the specified requirements,
+    and then overwriting the existing files. Should the artifact repository
+    associated with the model artifacts disallow overwriting, this function will
+    fail.
+
+    Note that model registry URIs (i.e. URIs in the form ``models:/``) are not
+    supported, as artifacts in the model registry are intended to be read-only.
+
+    If adding requirements, the function will overwrite any existing requirements
+    that overlap, or else append the new requirements to the existing list.
+
+    If removing requirements, the function will ignore any version specifiers,
+    and remove all the specified package names. Any requirements that are not
+    found in the existing files will be ignored.
+
+    Args:
+        model_uri (str): The location, in URI format, of the MLflow model. For example:
+
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``mlflow-artifacts:/path/to/model``
+
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+
+        operation (Literal["add", "remove]): The operation to perform.
+            Must be one of "add" or "remove".
+
+        requirement_list (List[str]): A list of requirements to add or remove from the model.
+            For example: ["numpy==1.20.3", "pandas>=1.3.3"]
+    """
+    if ModelsArtifactRepository.is_models_uri(model_uri):
+        raise MlflowException(
+            f'Failed to set requirements on "{model_uri}". '
+            + "Model URIs with the `models:/` scheme are not supported.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    resolved_uri = model_uri
+    if RunsArtifactRepository.is_runs_uri(model_uri):
+        resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+
+    _logger.info(f"Retrieving model requirements files from {resolved_uri}...")
+    local_paths = get_model_requirements_files(resolved_uri)
+    conda_yaml_path = local_paths.conda
+    requirements_txt_path = local_paths.requirements
+
+    old_conda_reqs = _get_requirements_from_file(conda_yaml_path)
+    old_requirements_reqs = _get_requirements_from_file(requirements_txt_path)
+
+    if operation == "add":
+        updated_conda_reqs = _add_or_overwrite_requirements(requirement_list, old_conda_reqs)
+        updated_requirements_reqs = _add_or_overwrite_requirements(
+            requirement_list, old_requirements_reqs
+        )
+    else:
+        updated_conda_reqs = _remove_requirements(requirement_list, old_conda_reqs)
+        updated_requirements_reqs = _remove_requirements(requirement_list, old_requirements_reqs)
+
+    _write_requirements_to_file(conda_yaml_path, updated_conda_reqs)
+    _write_requirements_to_file(requirements_txt_path, updated_requirements_reqs)
+
+    # just print conda reqs here to avoid log spam
+    # it should be the same as requirements.txt anyway
+    _logger.info(
+        "Done updating requirements!\n\n"
+        f"Old requirements:\n{pformat([str(req) for req in old_conda_reqs])}\n\n"
+        f"Updated requirements:\n{pformat(updated_conda_reqs)}\n"
+    )
+
+    _logger.info(f"Uploading updated requirements files to {resolved_uri}...")
+    _upload_artifact_to_uri(conda_yaml_path, resolved_uri)
+    _upload_artifact_to_uri(requirements_txt_path, resolved_uri)

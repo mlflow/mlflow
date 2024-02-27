@@ -11,6 +11,7 @@ def get_model_signature(model):
     input_shape = model.input_shape
     input_dtype = model.input_dtype
     output_shape = model.output_shape
+    output_dtype = model.compute_dtype
 
     if isinstance(input_shape, list):
         input_schema = Schema(
@@ -26,12 +27,12 @@ def get_model_signature(model):
     if isinstance(output_shape, list):
         output_schema = Schema(
             [
-                TensorSpec(np.dtype(input_dtype), replace_none_in_shape(shape))
+                TensorSpec(np.dtype(output_dtype), replace_none_in_shape(shape))
                 for shape in output_shape
             ]
         )
     else:
         output_schema = Schema(
-            [TensorSpec(np.dtype(input_dtype), replace_none_in_shape(output_shape))]
+            [TensorSpec(np.dtype(output_dtype), replace_none_in_shape(output_shape))]
         )
     return ModelSignature(inputs=input_schema, outputs=output_schema)

@@ -390,8 +390,8 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    remote_model_path=None,  # pylint: disable=unused-argument
-    store_license=False,  # pylint: disable=unused-argument
+    remote_model_path=None,
+    store_license=False,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -668,7 +668,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):  # pylint: disable=unused-argument
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
     """
     Load the Johnsnowlabs MLflow model from the path.
 
