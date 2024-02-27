@@ -1130,7 +1130,6 @@ class MlflowClient:
             run_id, metrics, params, tags, synchronous=synchronous
         )
 
-    @experimental
     def log_inputs(
         self,
         run_id: str,

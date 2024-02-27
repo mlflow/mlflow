@@ -12,12 +12,10 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFu
 from mlflow.data.schema import TensorDatasetSchema
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a NumPy dataset for use with MLflow Tracking.
@@ -153,7 +151,6 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
-@experimental
 def from_numpy(
     features: Union[np.ndarray, Dict[str, np.ndarray]],
     source: Union[str, DatasetSource] = None,

@@ -15,12 +15,10 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a TensorFlow dataset for use with MLflow Tracking.

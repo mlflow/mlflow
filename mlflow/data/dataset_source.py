@@ -2,10 +2,7 @@ import json
 from abc import abstractmethod
 from typing import Any, Dict
 
-from mlflow.utils.annotations import experimental
 
-
-@experimental
 class DatasetSource:
     """
     Represents the source of a dataset used in MLflow Tracking, providing information such as
