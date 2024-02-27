@@ -11,6 +11,7 @@ import { RunsChartType, RunsChartsBarCardConfig, RunsChartsParallelCardConfig } 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../common/utils/FeatureUtils'),
   shouldEnableDeepLearningUI: jest.fn(),
+  shouldEnableShareExperimentViewByTags: jest.fn(() => false),
 }));
 
 // Mock the chart component to save time on rendering

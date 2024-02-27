@@ -5,6 +5,11 @@ import type { RunRowType } from '../utils/experimentPage.row-types';
 import type { UpdateExperimentSearchFacetsFn } from '../../../types';
 import { SingleRunData } from '../utils/experimentPage.row-utils';
 
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  shouldEnableShareExperimentViewByTags: jest.fn(() => false),
+}));
+
 describe('useAutoExpandRunRows', () => {
   const updateSearchFacetsMock = jest.fn();
   const TestComponent = ({
