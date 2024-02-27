@@ -593,7 +593,6 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
 ):
     from tensorflow.keras.layers import Dense
     from tensorflow.keras.models import Sequential
-    # test
 
     data = np.array([[1, 2, 3], [3, 2, 1], [2, 2, 2], [10, 20, 30], [30, 20, 10], [20, 20, 20]])
     target = np.array([[1], [3], [2], [11], [13], [12]])
