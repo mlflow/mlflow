@@ -1540,8 +1540,10 @@ class MlflowClient:
             self._log_image_as_artifact(run_id, *args, **kwargs)
         else:
             raise TypeError(
-                "Unexpected parameter(s) provided."
-                "Please refer to the function documentation for required parameters."
+                "Unexpected parameter(s) provided. "
+                "The `log_image` function can be used in two ways: either as "
+                "`log_image(image, artifact_path)` or as `log_image(key, image, step)`. "
+                "Please refer to the function documentation for additional details."
             )
 
     def _log_image_as_artifact(
