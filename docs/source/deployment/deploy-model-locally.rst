@@ -99,7 +99,15 @@ models below, you can pass a raw payload dict.
       - 
         .. code-block:: python
 
-          {"messages": [{"role": "user", "content": "Tell a joke!"}], "temperature": 0.0}
+          {
+            "messages": [
+              {
+                "role": "user", 
+                "content": "Tell a joke!"
+              }
+            ], 
+            "temperature": 0.0
+          }
 
 † Note that the ``model`` argument **should not** be included when using the OpenAI APIs, due to its configuration being set by the MLflow model instance. All other parameters can be freely used, provided that they are defined within the ``params`` argument within the logged model signature.
 
