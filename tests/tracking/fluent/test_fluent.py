@@ -15,6 +15,7 @@ import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow import MlflowClient
+from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     LifecycleStage,
@@ -1271,6 +1272,21 @@ def test_log_input(tmp_path):
     assert len(dataset_inputs[0].tags) == 1
     assert dataset_inputs[0].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
     assert dataset_inputs[0].tags[0].value == "train"
+
+
+def test_log_input_metadata_only():
+    source_uri = "test:/my/test/uri"
+    source = HTTPDatasetSource(url=source_uri)
+    dataset = mlflow.data.meta_dataset.MetaDataset(source=source)
+
+    with start_run() as run:
+        mlflow.log_input(dataset, "train")
+    dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest is not None
+    assert dataset_inputs[0].dataset.source_type == "http"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"url": source_uri}
 
 
 def test_get_parent_run():
