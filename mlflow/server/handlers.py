@@ -1042,7 +1042,7 @@ def _get_metric_history():
 @_disable_if_artifacts_only
 def get_metric_history_bulk_handler():
     MAX_HISTORY_RESULTS = 25000
-    MAX_RUN_IDS_PER_REQUEST = 20
+    MAX_RUN_IDS_PER_REQUEST = 100
     run_ids = request.args.to_dict(flat=False).get("run_id", [])
     if not run_ids:
         raise MlflowException(

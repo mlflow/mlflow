@@ -1016,13 +1016,16 @@ def _enforce_pyspark_dataframe_schema(
     DataFrame that are declared in the model's input schema. Any extra columns in the original
     DataFrame are dropped.Note that this function does not modify the original DataFrame.
 
-    :param original_pf_input: Original input PySpark DataFrame.
-    :param pf_input_as_pandas: Input DataFrame converted to pandas.
-    :param input_schema: Expected schema of the input DataFrame.
-    :param flavor: Optional model flavor. If specified, it is used to handle specific behaviors
-                   for different model flavors. Currently, only the '_FEATURE_STORE_FLAVOR' is
-                   handled specially.
-    :return: New PySpark DataFrame that conforms to the model's input schema.
+    Args:
+        original_pf_input: Original input PySpark DataFrame.
+        pf_input_as_pandas: Input DataFrame converted to pandas.
+        input_schema: Expected schema of the input DataFrame.
+        flavor: Optional model flavor. If specified, it is used to handle specific behaviors
+            for different model flavors. Currently, only the '_FEATURE_STORE_FLAVOR' is
+            handled specially.
+
+    Returns:
+        New PySpark DataFrame that conforms to the model's input schema.
     """
     if not HAS_PYSPARK:
         raise MlflowException("PySpark is not installed. Cannot handle a PySpark DataFrame.")

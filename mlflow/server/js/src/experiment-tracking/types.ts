@@ -21,7 +21,7 @@ export interface KeyValueEntity {
   getValue(): string;
 }
 
-type ModelAliasMap = { alias: string; version: string }[];
+export type ModelAliasMap = { alias: string; version: string }[];
 type ModelVersionAliasList = string[];
 
 /**

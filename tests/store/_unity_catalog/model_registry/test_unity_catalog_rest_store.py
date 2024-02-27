@@ -193,6 +193,165 @@ def local_model_dir(tmp_path):
     return tmp_path
 
 
+@pytest.fixture
+def langchain_local_model_dir(tmp_path):
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
+    )
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+        "flavors": {
+            "langchain": {
+                "databricks_dependency": {
+                    "databricks_vector_search_index_name": ["index1", "index2"],
+                    "databricks_embeddings_endpoint_name": ["embedding_endpoint"],
+                    "databricks_llm_endpoint_name": ["llm_endpoint"],
+                    "databricks_chat_endpoint_name": ["chat_endpoint"],
+                }
+            }
+        },
+    }
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+    return tmp_path
+
+
+@pytest.fixture
+def langchain_local_model_dir_no_dependencies(tmp_path):
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
+    )
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+        "flavors": {"langchain": {}},
+    }
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+    return tmp_path
+
+
+def test_create_model_version_with_langchain_dependencies(store, langchain_local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(langchain_local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+    ]
+
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ) as optimized_s3_artifact_repo_class_mock, mock.patch.dict("sys.modules", {"boto3": {}}):
+        store.create_model_version(name=model_name, source=source, tags=tags)
+        # Verify that s3 artifact repo mock was called with expected args
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
+            artifact_uri=storage_location,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        )
+
+
+def test_create_model_version_with_langchain_no_dependencies(
+    store, langchain_local_model_dir_no_dependencies
+):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(langchain_local_model_dir_no_dependencies)
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+            tags=tags,
+            model_version_dependencies=None,
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ) as optimized_s3_artifact_repo_class_mock, mock.patch.dict("sys.modules", {"boto3": {}}):
+        store.create_model_version(name=model_name, source=source, tags=tags)
+        # Verify that s3 artifact repo mock was called with expected args
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
+            artifact_uri=storage_location,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            tags=tags,
+            model_version_dependencies=None,
+        )
+
+
 def test_create_model_version_nonexistent_directory(store, tmp_path):
     fake_directory = str(tmp_path.joinpath("myfakepath"))
     with pytest.raises(
@@ -525,6 +684,7 @@ def get_request_mock(
     description=None,
     run_id=None,
     tags=None,
+    model_version_dependencies=None,
 ):
     def request_mock(
         host_creds,
@@ -555,6 +715,7 @@ def get_request_mock(
                         run_tracking_server_id=run_workspace_id,
                         tags=uc_tags,
                         feature_deps="",
+                        model_version_dependencies=model_version_dependencies,
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -611,6 +772,7 @@ def _assert_create_model_version_endpoints_called(
     description=None,
     extra_headers=None,
     tags=None,
+    model_version_dependencies=None,
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
@@ -628,6 +790,7 @@ def _assert_create_model_version_endpoints_called(
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
                 tags=uc_tags,
                 feature_deps="",
+                model_version_dependencies=model_version_dependencies,
             ),
         ),
         (

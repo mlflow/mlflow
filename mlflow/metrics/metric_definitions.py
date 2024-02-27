@@ -36,17 +36,23 @@ def _validate_text_data(data, metric_name, col_specifier):
     return True
 
 
-def _validate_list_str_data(data, metric_name, col_specifier):
-    """Validates that the data is a list of lists of strings and is non-empty"""
+def _validate_array_like_id_data(data, metric_name, col_specifier):
+    """Validates that the data is a list of lists/np.ndarrays of strings/ints and is non-empty"""
     if data is None or len(data) == 0:
         return False
 
     for index, value in data.items():
-        if not isinstance(value, list) or not all(isinstance(val, str) for val in value):
+        if not (
+            (isinstance(value, list) and all(isinstance(val, (str, int)) for val in value))
+            or (
+                isinstance(value, np.ndarray)
+                and (np.issubdtype(value.dtype, str) or np.issubdtype(value.dtype, int))
+            )
+        ):
             _logger.warning(
-                f"Cannot calculate metric '{metric_name}' for non-list of string inputs. "
-                f"Non-list of strings found for {col_specifier} on row {index}. Skipping metric "
-                f"logging."
+                f"Cannot calculate metric '{metric_name}' for non-arraylike of string or int "
+                f"inputs. Non-arraylike of strings/ints found for {col_specifier} on row "
+                f"{index}, value {value}. Skipping metric logging."
             )
             return False
 
@@ -345,9 +351,9 @@ def _precision_at_k_eval_fn(k):
         return noop
 
     def _fn(predictions, targets):
-        if not _validate_list_str_data(
+        if not _validate_array_like_id_data(
             predictions, "precision_at_k", predictions_col_specifier
-        ) or not _validate_list_str_data(targets, "precision_at_k", targets_col_specifier):
+        ) or not _validate_array_like_id_data(targets, "precision_at_k", targets_col_specifier):
             return
 
         scores = []
@@ -430,9 +436,9 @@ def _ndcg_at_k_eval_fn(k):
     def _fn(predictions, targets):
         from sklearn.metrics import ndcg_score
 
-        if not _validate_list_str_data(
+        if not _validate_array_like_id_data(
             predictions, "ndcg_at_k", predictions_col_specifier
-        ) or not _validate_list_str_data(targets, "ndcg_at_k", targets_col_specifier):
+        ) or not _validate_array_like_id_data(targets, "ndcg_at_k", targets_col_specifier):
             return
 
         scores = []
@@ -469,9 +475,9 @@ def _recall_at_k_eval_fn(k):
         return noop
 
     def _fn(predictions, targets):
-        if not _validate_list_str_data(
+        if not _validate_array_like_id_data(
             predictions, "precision_at_k", predictions_col_specifier
-        ) or not _validate_list_str_data(targets, "precision_at_k", targets_col_specifier):
+        ) or not _validate_array_like_id_data(targets, "precision_at_k", targets_col_specifier):
             return
 
         scores = []

@@ -44,9 +44,10 @@ class RestStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param get_host_creds: Method to be invoked prior to every REST request to get the
-      :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
-      is a function so that we can obtain fresh credentials in the case of expiry.
+    Args:
+        get_host_creds: Method to be invoked prior to every REST request to get the
+            :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
+            is a function so that we can obtain fresh credentials in the case of expiry.
     """
 
     def _get_response_from_method(self, method):

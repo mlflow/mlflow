@@ -1,4 +1,5 @@
 import random
+import time
 
 import numpy as np
 import optuna
@@ -20,6 +21,12 @@ from transformers import (
 )
 
 import mlflow
+
+
+# TODO: Remove this fixture once https://github.com/huggingface/transformers/pull/29096 is merged
+@pytest.fixture(autouse=True)
+def set_mlflow_tracking_uri_env_var(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", mlflow.get_tracking_uri())
 
 
 @pytest.fixture
@@ -497,6 +504,7 @@ def test_trainer_hyperparameter_tuning_does_not_log_sklearn_model(
     exp = mlflow.set_experiment(experiment_name="hyperparam_trainer")
 
     transformers_hyperparameter_trainer.train()
+    time.sleep(5)  # wait for async logging to finish
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 3.0
@@ -523,6 +531,7 @@ def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
     exp = mlflow.set_experiment(experiment_name="hyperparam_trainer_functional")
 
     transformers_hyperparameter_functional.train()
+    time.sleep(5)  # wait for async logging to finish
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0

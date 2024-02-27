@@ -29,7 +29,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MLflowCallback  # noqa: F401
+from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -44,6 +44,10 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
+from mlflow.utils.checkpoint_utils import (
+    _WEIGHT_ONLY_CHECKPOINT_SUFFIX,
+    download_checkpoint_artifact,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -56,7 +60,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import get_total_file_size, write_to
+from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -925,7 +929,7 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
     input list, and returns the new list and appropriate log directory.
     """
     from mlflow.tensorflow.autologging import _TensorBoard
-    from mlflow.tensorflow.callback import MLflowCallback
+    from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
@@ -941,12 +945,43 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
         callbacks.append(_TensorBoard(log_dir.location))
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
+
     callbacks.append(
         MLflowCallback(
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
         )
     )
+
+    model_checkpoint = get_autologging_config(mlflow.tensorflow.FLAVOR_NAME, "checkpoint", True)
+    if model_checkpoint:
+        checkpoint_monitor = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
+        )
+        checkpoint_mode = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_mode", "min"
+        )
+        checkpoint_save_best_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_best_only", True
+        )
+        checkpoint_save_weights_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_weights_only", False
+        )
+        checkpoint_save_freq = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_freq", "epoch"
+        )
+
+        if not any(isinstance(callback, MlflowModelCheckpointCallback) for callback in callbacks):
+            callbacks.append(
+                MlflowModelCheckpointCallback(
+                    monitor=checkpoint_monitor,
+                    mode=checkpoint_mode,
+                    save_best_only=checkpoint_save_best_only,
+                    save_weights_only=checkpoint_save_weights_only,
+                    save_freq=checkpoint_save_freq,
+                )
+            )
+
     return callbacks, log_dir
 
 
@@ -967,6 +1002,12 @@ def autolog(
     extra_tags=None,
     log_every_epoch=True,
     log_every_n_steps=None,
+    checkpoint=True,
+    checkpoint_monitor="val_loss",
+    checkpoint_mode="min",
+    checkpoint_save_best_only=True,
+    checkpoint_save_weights_only=False,
+    checkpoint_save_freq="epoch",
 ):
     """
     Enables autologging for ``tf.keras``.
@@ -1346,3 +1387,68 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targ
         return
 
     mlflow.log_input(dataset, context)
+
+
+def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
+    """
+    If you enable "checkpoint" in autologging, during Keras model
+    training execution, checkpointed models are logged as MLflow artifacts.
+    Using this API, you can load the checkpointed model.
+
+    If you want to load the latest checkpoint, set both `epoch` and `global_step` to None.
+    If "checkpoint_save_freq" is set to "epoch" in autologging,
+    you can set `epoch` param to the epoch of the checkpoint to load specific epoch checkpoint.
+    If "checkpoint_save_freq" is set to an integer in autologging,
+    you can set `global_step` param to the global step of the checkpoint to load specific
+    global step checkpoint.
+    `epoch` param and `global_step` can't be set together.
+
+    Args:
+        model: A Keras model, this argument is required
+            only when the saved checkpoint is "weight-only".
+        run_id: The id of the run which model is logged to. If not provided,
+            current active run is used.
+        epoch: The epoch of the checkpoint to be loaded, if you set
+            "checkpoint_save_freq" to "epoch".
+        global_step: The global step of the checkpoint to be loaded, if
+            you set "checkpoint_save_freq" to an integer.
+
+    Returns:
+        The instance of a Keras model restored from the specified checkpoint.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        mlflow.tensorflow.autolog(checkpoint=True, checkpoint_save_best_only=False)
+
+        model = create_tf_keras_model()  # Create a Keras model
+        with mlflow.start_run() as run:
+            model.fit(data, label, epoch=10)
+
+        run_id = run.info.run_id
+
+        # load latest checkpoint model
+        latest_checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id)
+
+        # load history checkpoint model logged in second epoch
+        checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id, epoch=2)
+    """
+    import tensorflow as tf
+
+    with TempDir() as tmp_dir:
+        downloaded_checkpoint_filepath = download_checkpoint_artifact(
+            run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
+        )
+
+        fname = os.path.splitext(downloaded_checkpoint_filepath)[0]
+        if fname.endswith(_WEIGHT_ONLY_CHECKPOINT_SUFFIX):
+            # the model is saved as weights only
+            if model is None:
+                raise MlflowException(
+                    "The latest checkpoint is weights-only, 'model' argument must be provided"
+                )
+            model.load_weights(downloaded_checkpoint_filepath)
+            return model
+        return tf.keras.models.load_model(downloaded_checkpoint_filepath)
