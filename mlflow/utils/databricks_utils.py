@@ -1,11 +1,12 @@
 import functools
+import json
 import logging
 import os
 import subprocess
+import time
 from sys import stderr
 from typing import Optional, TypeVar
 
-import json
 import mlflow.utils
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
@@ -17,8 +18,6 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     get_config,
     set_config_provider,
 )
-
-import time
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
@@ -476,9 +475,10 @@ def get_databricks_host_creds(server_uri=None):
         MlflowHostCreds which includes the hostname and authentication information necessary to
         talk to the Databricks server.
     """
-    # Since we do not record OAuth expiration time in OAuth file, perform periodic refresh of OAuth cache here.
-    # As currently configured (02/24) OAuth token in model serving environment guaranteed to have at least 30 min
-    # remaining on TTL at any point in time but refresh at higher rate here to be safe and in case those values change in the future.
+    # Since we do not record OAuth expiration time in OAuth file, perform periodic refresh
+    # of OAuth cache here. As currently configured (02/24) OAuth token in model serving environment
+    # guaranteed to have at least 30 min remaining on TTL at any point in time but refresh at higher
+    # rate here to be safe and in case those values change in the future.
     OAUTH_CACHE_REFRESH_DURATION = 10 * 60
     OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
     OAUTH_CACHE_EXPIRATION_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"

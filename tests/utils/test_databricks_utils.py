@@ -1,5 +1,8 @@
 import builtins
+import json
+import os
 import sys
+import time
 from unittest import mock
 
 import pytest
@@ -18,9 +21,6 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.uri import construct_db_uri_from_profile
 
 from tests.helper_functions import mock_method_chain
-import time
-import os
-import json
 
 
 def test_no_throw():
@@ -128,7 +128,6 @@ def test_databricks_params_model_serving_read_oauth(get_config, monkeypatch, oau
     monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
     monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
     get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
-    print("TESTTT", databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
     with mock.patch(
         "mlflow.utils.databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
     ):
@@ -253,7 +252,6 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         "host", None, None, insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    result = databricks_utils.get_databricks_host_creds()
     with pytest.raises(Exception, match="You haven't configured the CLI yet"):
         databricks_utils.get_databricks_host_creds()
 
