@@ -1,12 +1,12 @@
 .. _local_model_deployment:
-
+ 
 Deploy MLflow Model as a Local Inference Server
 ===============================================
 
 MLflow allows you to deploy your model as a locally using just a single command.
 This approach is ideal for lightweight applications or for testing your model locally before moving it to a staging or production environment.
 
-If you are new to MLflow model deployment, please read the guide on `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments.
+If you are new to MLflow model deployment, please read the guide on `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments. 
 
 
 Deploying Inference Server
@@ -77,7 +77,13 @@ CSV input must be a valid pandas.DataFrame CSV representation. For example:
 JSON Input
 **********
 
-JSON input must be a dictionary with exactly one of the following fields, further specifying the input data's type and encoding:
+You can either pass a flat dictionary corresponding to the desired model payload or wrap the
+payload in a dict with a dict key that specifies your payload format. 
+
+Wrapped Payload Dict
+^^^^^^^^^^^^^^^^^^^^
+If your model format is not supported above or you want to avoid transforming your input data to 
+the required payload format, you can leverage the dict payload structures below.
 
 .. list-table::
     :widths: 20 40 40
@@ -89,16 +95,56 @@ JSON input must be a dictionary with exactly one of the following fields, furthe
       - Example
     * - ``dataframe_split``
       - Pandas DataFrames in the ``split`` orientation.
-      - ``{"dataframe_split": pandas_df.to_dict(orient='split')}``
+      - 
+        .. code-block:: python
+
+          {"dataframe_split": pandas_df.to_dict(orient="split")}
+
     * - ``dataframe_records``
       - Pandas DataFrame in the ``records`` orientation. **We do not recommend using this format because it is not guaranteed to preserve column ordering.**
-      - ``{"dataframe_records": pandas_df.to_dict(orient='records')}``
+      - 
+        .. code-block:: python
+          
+          {"dataframe_records": pandas_df.to_dict(orient="records")}
+
     * - ``instances``
       - Tensor input formatted as described in `TF Serving's API docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs will be cast to Numpy arrays.
-      - ``{"instances": [1.0, 2.0, 5.0]}``
+      - 
+        .. code-block:: python
+
+          {"instances": [1.0, 2.0, 5.0]}
+
     * - ``inputs``
       - Same as ``instances`` but with a different key.
-      - ``{"inputs": [["I", "have", "a",  "pen"], ["I" "have", "an", "apple"]]}``
+      - 
+        .. code-block:: python
+
+          {"inputs": [["Cheese"], ["and", "Crackers"]]}
+
+.. code-block:: python
+  :caption: Example
+
+  # Prerequisite: serve a custom pyfunc OpenAI model (not mlflow.openai) on localhost:5678
+  #   that defines inputs in the below format and params of `temperature` and `max_tokens`
+
+  import json
+  import requests
+
+  payload = json.dumps(
+      {
+          "inputs": {"messages": [{"role": "user", "content": "Tell a joke!"}]},
+          "params": {
+              "temperature": 0.5,
+              "max_tokens": 20,
+          },
+      }
+  )
+  requests.post(
+      url=f"http://localhost:5678/invocations",
+      data=payload,
+      headers={"Content-Type": "application/json"},
+  )
+  print(requests.json())
 
 The JSON input can also include an optional ``params`` field for passing additional parameters.
 Valid parameter types are ``Union[DataType, List[DataType], None]``, where DataType is
@@ -118,6 +164,55 @@ a valid :ref:`Model Signature <model-signature>` with ``params`` must be defined
     a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
     In particular, Deep Learning models are typically strict about input types and will need a model schema in order
     for the model to score correctly. For complex data types, see :ref:`encoding-complex-data` below.
+
+Raw Payload Dict
+^^^^^^^^^^^^^^^^
+
+If your payload is in a format that your mlflow served model will accept and it's in the supported
+models below, you can pass a raw payload dict.
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - Supported Request Format
+      - Description
+      - Example
+    * - OpenAI Chat
+      - `OpenAI chat request payload <https://platform.openai.com/docs/api-reference/chat/create>`_.†
+      - 
+        .. code-block:: python
+
+          {
+              "messages": [{"role": "user", "content": "Tell a joke!"}],  # noqa
+              "temperature": 0.0,
+          }
+
+† Note that the ``model`` argument **should not** be included when using the OpenAI APIs, due to its configuration being set by the MLflow model instance. All other parameters can be freely used, provided that they are defined within the ``params`` argument within the logged model signature.
+
+.. code-block:: python
+  :caption: Example
+
+  # Prerequisite: serve a Pyfunc model accepts OpenAI-compatible chat requests on localhost:5678 that defines
+  #   `temperature` and `max_tokens` as parameters within the logged model signature
+
+  import json
+  import requests
+
+  payload = json.dumps(
+      {
+          "messages": [{"role": "user", "content": "Tell a joke!"}],
+          "temperature": 0.5,
+          "max_tokens": 20,
+      }
+  )
+  requests.post(
+      url=f"http://localhost:5678/invocations",
+      data=payload,
+      headers={"Content-Type": "application/json"},
+  )
+  print(requests.json())
 
 .. _encoding-complex-data:
 
@@ -151,7 +246,6 @@ Example requests:
         {"a": 1, "b": "2020-02-01T12:34:56Z"},
         {"a": 2, "b": "2021-03-01T00:00:00Z"}
     ]'
-
 
 .. _serving_frameworks:
 
