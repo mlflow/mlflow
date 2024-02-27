@@ -102,6 +102,15 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
 
 
 @mock.patch("mlflow.utils.databricks_utils.get_config")
+def test_databricks_model_serving_throws(get_config, monkeypatch):
+    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
+    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
+    with pytest.raises(MlflowException, match ="Unable to read Oauth credentials"):
+        databricks_utils.get_databricks_host_creds()
+
+
+@mock.patch("mlflow.utils.databricks_utils.get_config")
 def test_databricks_params_model_serving_oauth_cache(get_config, monkeypatch):
     monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
     monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
