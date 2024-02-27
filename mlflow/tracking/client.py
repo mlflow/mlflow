@@ -1499,8 +1499,8 @@ class MlflowClient:
         def _check_required(param_required, *args, **kwargs):
             # Checks if all required parameters are present
             return any(
-                len(args) == i and all(key in kwargs for key in param_required[i:])
-                for i in range(len(param_required))
+                len(args) >= i and all(key in kwargs for key in param_required[i:])
+                for i in range(len(param_required)+1)
             )
 
         if _check_types(image_over_steps_params, *args, **kwargs) and _check_required(
@@ -1516,7 +1516,7 @@ class MlflowClient:
             ) -> None:
                 timestamp = timestamp or get_current_time_millis()
                 # timestamp ensures that the image is logged with a unique name
-                filename = f"images/{key}_step_{step}_timestamp_{timestamp}"
+                filename = f"images/{key}/{key}_step_{step}_timestamp_{timestamp}"
                 image_filepath = f"{filename}.png"
                 metadata_filepath = f"{filename}.json"
 
