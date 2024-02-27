@@ -1421,49 +1421,105 @@ class MlflowClient:
 
     def log_image(self, run_id: str, *args, **kwargs) -> None:
         """
-        Logs an image in MLflow.
+        Logs an image in MLflow, supporting two use cases:
 
-        There are two ways to log an image:
-        1. Log an image over steps using `client.log_image(run_id, key, image, step)`.
-        2. Log an image as an artifact file using `client.log_image(run_id, image, artifact_file)`.
+        1. Time-Stepped Image Logging: Ideal for tracking changes or progressions through iterative
+           processes (e.g., during model training phases).
+        2. Artifact File Image Logging: Best suited for static image logging where the image is
+           saved directly as a file artifact.
 
-        Parameters:
-        - run_id (str): The ID of the run to log the image to.
-        - key (str): The key associated with the image. This is used to identify the image.
-        - image (numpy.ndarray or PIL.Image.Image): The image object to be logged. Supported image objects are
-          `numpy.ndarray` and `PIL.Image.Image`.
-        - step (int, optional): The step associated with the image. Defaults to None.
-        - artifact_file (str): The path to the artifact file where the image will be saved.
+        The following image formats are supported:
+        - `numpy.ndarray`_
+        - `PIL.Image.Image`_
+
+        .. _numpy.ndarray:
+            https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+        .. _PIL.Image.Image:
+            https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+        Numpy array support
+            - data type (( ) represents a valid value range):
+
+                - bool
+                - integer (0 ~ 255)
+                - unsigned integer (0 ~ 255)
+                - float (0.0 ~ 1.0)
+
+                .. warning::
+
+                    - Out-of-range integer values will be **clipped** to [0, 255].
+                    - Out-of-range float values will be **clipped** to [0, 1].
+
+            - shape (H: height, W: width):
+
+                - H x W (Grayscale)
+                - H x W x 1 (Grayscale)
+                - H x W x 3 (an RGB channel order is assumed)
+                - H x W x 4 (an RGBA channel order is assumed)
+
+        Args:
+            run_id: String ID of run.
+            key: Image name. This string may only contain alphanumerics, underscores
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
+            image: The image object to be logged.
+            step: Integer training step (iteration) at which the image was saved.
+                Defaults to 0.
+            timestamp: Time when this image was saved. Defaults to the current system time.
+            artifact_file: Legacy. Specifies the path, in POSIX format, where the image
+                will be stored as an artifact relative to the run's root directory (for
+                example, "dir/image.png"). This parameter is kept for backward compatibility
+                and should not be used together with `key`, `step`, or `timestamp`.
+
+        .. code-block:: python
+            :caption: Time-stepped image logging numpy example
+
+            import mlflow
+            import numpy as np
+
+            image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, "dogs", image, step=3)
+
+        .. code-block:: python
+            :caption: Time-stepped image logging pillow example
+
+            import mlflow
+            from PIL import Image
+
+            image = Image.new("RGB", (100, 100))
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, "dogs", image, step=3)
+
+        .. code-block:: python
+            :caption: Legacy artifact file image logging numpy example
+
+            import mlflow
+            import numpy as np
+
+            image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
+
+        .. code-block:: python
+            :caption: Legacy artifact file image logging pillow example
+
+            import mlflow
+            from PIL import Image
+
+            image = Image.new("RGB", (100, 100))
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
 
         Raises:
-        - TypeError: If unexpected parameters are provided. Please refer to the function documentation for
-          required parameters.
-
-        Example usage:
-        ```python
-        import numpy as np
-        from PIL import Image
-        import mlflow
-
-        # Log an image over steps
-        run_id = "your_run_id"
-        key = "your_key"
-        image = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]], dtype=np.uint8)
-        step = 1
-        mlflow.log_image(run_id, key, image, step)
-
-        # Log an image as an artifact file
-        run_id = "your_run_id"
-        image = Image.open("path/to/image.jpg")
-        artifact_file = "path/to/artifact.jpg"
-        mlflow.log_image(run_id, image, artifact_file)
-        ```
-
-        Supported image objects:
-        - `numpy.ndarray`: Refer to the NumPy documentation for more details:
-            https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
-        - `PIL.Image.Image`: Refer to the PIL documentation for more details:
-            https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+            TypeError: If unexpected parameters are provided. Please refer to the function
+            documentation for required parameters.
         """
         import numpy as np
         from PIL.Image import Image
