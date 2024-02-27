@@ -40,7 +40,7 @@ export const shouldUseUnifiedRunCharts = () => false;
 export const shouldEnablePromptLab = () => true;
 
 export const shouldUsePathRouting = () => false;
-export const shouldEnableShareExperimentViewByTags = () => false;
+export const shouldEnableShareExperimentViewByTags = () => true;
 
 /**
  * A flag determining if we should display the new models UI.
