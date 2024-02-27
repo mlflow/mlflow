@@ -433,8 +433,8 @@ def _fail_malformed_databricks_auth(profile):
 def _fail_model_serving_creds_env(exception):
     raise MlflowException(
         "Unable to read Oauth credentials from file mount for Databricks "
-        f"Model Serving dependency, failed with exception: {exception}"
-    )
+        f"Model Serving dependency failed"
+    ) from exception
 
 
 # Helper function to attempt to read OAuth Token from
