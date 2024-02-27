@@ -25,6 +25,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -623,7 +624,7 @@ def get_parent_run(run_id: str) -> Optional[Run]:
     return MlflowClient().get_parent_run(run_id)
 
 
-def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
+def log_param(key: str, value: Any, synchronous: Optional[bool] = None) -> Any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
@@ -636,7 +637,8 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
             values up to length 6000, but some may support larger values.
         synchronous: *Experimental* If True, blocks until the parameter is logged successfully. If
             False, logs the parameter asynchronously and returns a future representing the logging
-            operation.
+            operation. If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`,
+            which defaults to False if not set.
 
     Returns:
         When `synchronous=True`, returns parameter value. When `synchronous=False`, returns an
@@ -655,6 +657,7 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
             value = mlflow.log_param("learning_rate", 0.02, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
+    synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
 
 
@@ -687,7 +690,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
-def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOperations]:
+def set_tag(key: str, value: Any, synchronous: Optional[bool] = None) -> Optional[RunOperations]:
     """
     Set a tag under the current run. If no run is active, this method will create a new active
     run.
@@ -700,6 +703,8 @@ def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOpera
             up to length 5000, but some may support larger values.
         synchronous: *Experimental* If True, blocks until the tag is logged successfully. If False,
             logs the tag asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -721,6 +726,7 @@ def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOpera
             mlflow.set_tag("release.version", "2.2.1", synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
+    synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
 
 
@@ -754,7 +760,7 @@ def log_metric(
     key: str,
     value: float,
     step: Optional[int] = None,
-    synchronous: bool = True,
+    synchronous: Optional[bool] = None,
     timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
 ) -> Optional[RunOperations]:
@@ -776,7 +782,8 @@ def log_metric(
         timestamp: Time when this metric was calculated. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the metric is logged
             successfully. If False, logs the metric asynchronously and
-            returns a future representing the logging operation.
+            returns a future representing the logging operation. If None, read from environment
+            variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
     Returns:
         When `synchronous=True`, returns None.
@@ -798,6 +805,7 @@ def log_metric(
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
     run_id = run_id or _get_or_start_run().info.run_id
+    synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_metric(
         run_id,
         key,
@@ -811,7 +819,7 @@ def log_metric(
 def log_metrics(
     metrics: Dict[str, float],
     step: Optional[int] = None,
-    synchronous: bool = True,
+    synchronous: Optional[bool] = None,
     run_id: Optional[str] = None,
 ) -> Optional[RunOperations]:
     """
@@ -827,7 +835,8 @@ def log_metrics(
             Metrics. If unspecified, each metric is logged at step zero.
         synchronous: *Experimental* If True, blocks until the metrics are logged
             successfully. If False, logs the metrics asynchronously and
-            returns a future representing the logging operation.
+            returns a future representing the logging operation. If None, read from environment
+            variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -853,12 +862,15 @@ def log_metrics(
     run_id = run_id or _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
+    synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
         run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
     )
 
 
-def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
+def log_params(
+    params: Dict[str, Any], synchronous: Optional[bool] = None
+) -> Optional[RunOperations]:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
@@ -868,7 +880,8 @@ def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[Run
             not)
         synchronous: *Experimental* If True, blocks until the parameters are logged
             successfully. If False, logs the parameters asynchronously and
-            returns a future representing the logging operation.
+            returns a future representing the logging operation. If None, read from environment
+            variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -893,6 +906,7 @@ def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[Run
     """
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
+    synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
         run_id=run_id, metrics=[], params=params_arr, tags=[], synchronous=synchronous
     )
@@ -963,7 +977,7 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
+def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = None) -> Optional[RunOperations]:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
@@ -973,6 +987,8 @@ def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOper
             not)
         synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -1001,6 +1017,7 @@ def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOper
     """
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
+    synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
         run_id=run_id, metrics=[], params=[], tags=tags_arr, synchronous=synchronous
     )
