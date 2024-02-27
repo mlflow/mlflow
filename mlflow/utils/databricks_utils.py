@@ -169,7 +169,6 @@ def is_in_databricks_serving_environment():
     return "MODEL_SERVING_CONTAINER_EXPOSED_IP" in os.environ and "MAX_MODEL_LOADING_TIMEOUT" in os.environ
 
 
-
 def is_in_databricks_repo():
     try:
         return get_git_repo_relative_path() is not None
@@ -480,8 +479,6 @@ def get_databricks_host_creds(server_uri=None):
     config = ProfileConfigProvider(profile).get_config() if profile else get_config()
     insecure = hasattr(config, "insecure") and config.insecure
 
-
-
     # helper method for
     if is_in_databricks_serving_environment():
         # check if dependency is cached in env var before reading from file
@@ -498,7 +495,7 @@ def get_databricks_host_creds(server_uri=None):
                 _fail_model_serving_creds_env(e)
         return MlflowHostCreds(
             config.host, 
-            token=_oauth_token,
+            token=oauth_token,
             ignore_tls_verification=insecure
         )
      # default host creds behavior if not fetching OAuth token for model serving dependency
