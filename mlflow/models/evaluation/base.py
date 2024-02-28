@@ -1,5 +1,3 @@
-from ast import List
-from functools import partial
 import json
 import keyword
 import logging
@@ -16,7 +14,6 @@ from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
-import requests
 from types import FunctionType
 from typing import Any, Dict
 
@@ -59,6 +56,8 @@ class _ModelType:
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
     RETRIEVER = "retriever"
+    CHAT = "chat"
+    COMPLETION = "completion"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -72,6 +71,8 @@ class _ModelType:
             cls.TEXT_SUMMARIZATION,
             cls.TEXT,
             cls.RETRIEVER,
+            cls.CHAT,
+            cls.COMPLETION,
         )
 
 
@@ -1269,7 +1270,6 @@ def evaluate(
     env_manager="local",
     model_config=None,
     baseline_config=None,
-    endpoint_type=None,
     inference_params=None,
     headers=None,
 ):
@@ -1499,7 +1499,7 @@ def evaluate(
 
             - A pyfunc model instance
             - A URI referring to a pyfunc model
-            - A URI referring to a REST API endpoint of a served ML model
+            - A URI referring to a Chat or Completion model endpoint
             - A callable function: This function should be able to take in model input and
               return predictions. It should follow the signature of the
               :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
@@ -1777,9 +1777,12 @@ def evaluate(
     from mlflow.utils import env_manager as _EnvManager
 
     # Some arguments are currently only supported for passing a REST API endpoint as the model.
-    is_model_endpoint_url = isinstance(model, str) and (model.startswith("http://") or model.startswith("https://"))
+    # TODO: We should support inference_params for other model types at least.
+    is_model_endpoint_url = isinstance(model, str) and (
+        model.startswith("http://") or model.startswith("https://")
+    )
     if not is_model_endpoint_url:
-        params_only_supported_for_endpoint_model = ["endpoint_type", "inference_params", "headers"]
+        params_only_supported_for_endpoint_model = ["inference_params", "headers"]
         for param in params_only_supported_for_endpoint_model:
             if locals()[param] is not None:
                 raise MlflowException(
@@ -1862,9 +1865,10 @@ def evaluate(
             )
 
     if isinstance(model, str):
-        if model.startswith("http://") or model.startswith("https://"):
+        if is_model_endpoint_url:
             from mlflow.models.evaluation.llm_utils import get_model_from_llm_endpoint_url
-            model = get_model_from_llm_endpoint_url(model, endpoint_type, inference_params, headers)
+
+            model = get_model_from_llm_endpoint_url(model, model_type, inference_params, headers)
         else:
             model = _load_model_or_server(model, env_manager, model_config)
     elif env_manager != _EnvManager.LOCAL:
@@ -1915,8 +1919,9 @@ def evaluate(
         model = _get_model_from_function(model)
     else:
         raise MlflowException(
-            message="The model argument must be a string URI referring to an MLflow model or MLflow "
-            "Deployment Server, an instance of `mlflow.pyfunc.PyFuncModel`, a function, or None.",
+            message="The model argument must be a string URI referring to an MLflow model, "
+            "a hosted Chat or Completion endpoint, an instance of `mlflow.pyfunc.PyFuncModel`, "
+            "a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

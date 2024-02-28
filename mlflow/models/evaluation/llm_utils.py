@@ -1,34 +1,37 @@
+from __future__ import annotations
+
 from abc import abstractmethod
-import pandas as pd
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 import requests
-from typing import Any, Dict, List, Optional
 
+import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import _ModelType
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-from mlflow.pyfunc import PythonModel
 
-LLM_V1_PREFIX = "llm/v1/"
-LLM_ENDPOINT_TYPE_CHAT = "chat"
-LLM_ENDPOINT_TYPE_COMPLETION = "completion"
-SUPPORTED_ENDPOINT_TYPES = [LLM_ENDPOINT_TYPE_CHAT, LLM_ENDPOINT_TYPE_COMPLETION]
-
+if TYPE_CHECKING:
+    import pandas as pd
 
 HINT_MSG = (
-    "Invalid response format:\n{response}\n MLflow Evaluation expects OpenAI-compatible response "
-    "format for chat and completion models. Please refer to OpenAI documentation: "
+    "Invalid response format:\n{response}\n MLflow Evaluation expects OpenAI-compatible "
+    "response format for chat and completion models. Please refer to OpenAI documentation: "
     "https://platform.openai.com/docs/api-reference/introduction for the expected format.\n\n"
-    "HINT: If your endpoint has a different response format, you can still use  it for evaluation by "
-    "defining a custom prediction function. For more details, please refer to the MLflow documentation: "
+    "HINT: If your endpoint has a different response format, you can still use  it for evaluation "
+    "by defining a custom prediction function. For more details, please refer to: "
     "https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#evaluating-with-a-custom-function "
 )
 
-class _ServedLLMEndpointModel(PythonModel):
-    """
-    """
-    def __init__(self,
-                 endpoint: str,
-                 default_params: Optional[Dict[str, Any]] = None,
-                 headers: Optional[Dict[str, str]] = None):
+
+class _ServedLLMEndpointModel(mlflow.pyfunc.PythonModel):
+    """ """
+
+    def __init__(
+        self,
+        endpoint: str,
+        default_params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ):
         self.endpoint = endpoint
         self.default_params = default_params or {}
         self.headers = headers or {}
@@ -41,19 +44,25 @@ class _ServedLLMEndpointModel(PythonModel):
     def extract_output(self, response) -> str:
         pass
 
-    def predict(self, context, model_input: pd.DataFrame, params: Optional[Dict[str, Any]] = None) -> List[str]:
+    def predict(
+        self, context, model_input: pd.DataFrame, params: Optional[Dict[str, Any]] = None
+    ) -> List[str]:
         headers = {"Content-Type": "application/json", **(self.headers or {})}
         params = {**self.default_params, **(params or {})}
 
-        if not "inputs" in model_input.columns:
-            raise MlflowException(f"Invalid input column: {model_input.columns}. The input column for "
-                                "evaluating a chat or completion model endpoint must be named 'inputs'")
+        if "inputs" not in model_input.columns:
+            raise MlflowException(
+                f"Invalid input column: {model_input.columns}. The input column for "
+                "evaluating a chat or completion model endpoint must be named 'inputs'"
+            )
 
         predictions = []
         for input_data in model_input["inputs"]:
             if not isinstance(input_data, str):
-                raise MlflowException(f"Invalid input column type: {type(input_data), input_data}. The input column for "
-                                    "evaluating a served LLM model must contain string values only")
+                raise MlflowException(
+                    f"Invalid input column type: {type(input_data), input_data}. The input column "
+                    "for evaluating a served LLM model must contain only string values."
+                )
 
             request = self.convert_input(input_data, params)
 
@@ -69,12 +78,14 @@ class _ServedLLMEndpointModel(PythonModel):
 class _ServedChatEndpointModel(_ServedLLMEndpointModel):
     def convert_input(self, input_data: str, params) -> Dict[str, Any]:
         return {
-            "messages": [{
-                "content": input_data,
-                "role": "user",
-                "name": "User",
-            }],
-            **params
+            "messages": [
+                {
+                    "content": input_data,
+                    "role": "user",
+                    "name": "User",
+                }
+            ],
+            **params,
         }
 
     def extract_output(self, response) -> str:
@@ -87,25 +98,24 @@ class _ServedChatEndpointModel(_ServedLLMEndpointModel):
 
 class _ServedCompletionEndpointModel(_ServedLLMEndpointModel):
     def convert_input(self, input_data: str, params) -> Dict[str, Any]:
-        return {
-            "prompt": input_data,
-            **params
-        }
+        return {"prompt": input_data, **params}
 
     def extract_output(self, response) -> str:
         try:
             text = response["choices"][0]["text"]
         except TypeError as e:
-            raise MlflowException(HINT_MSG.format(response=response),
-                                  error_code=INTERNAL_ERROR) from e
+            raise MlflowException(
+                HINT_MSG.format(response=response), error_code=INTERNAL_ERROR
+            ) from e
         return text
 
 
 def get_model_from_llm_endpoint_url(
     endpoint: str,
-    endpoint_type: str,
-    params: Optional[Dict[str, Any]]=None,
-    headers: Optional[Dict[str, str]]=None):
+    model_type: _ModelType,
+    params: Optional[Dict[str, Any]] = None,
+    headers: Optional[Dict[str, str]] = None,
+):
     """
 
     Args:
@@ -114,16 +124,14 @@ def get_model_from_llm_endpoint_url(
     """
     from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
 
-    # Also accepts endpoint type with "llm/v1/" prefix e.g. "llm/v1/chat"
-    if endpoint_type.startswith(LLM_V1_PREFIX):
-        endpoint_type = endpoint_type[len(LLM_V1_PREFIX):]
-
-    if endpoint_type == LLM_ENDPOINT_TYPE_CHAT:
+    if model_type == _ModelType.CHAT:
         python_model = _ServedChatEndpointModel(endpoint, params, headers)
-    elif endpoint_type == LLM_ENDPOINT_TYPE_COMPLETION:
+    elif model_type == _ModelType.COMPLETION:
         python_model = _ServedCompletionEndpointModel(endpoint, params, headers)
     else:
-        raise MlflowException(f"Invalid endpoint type: {endpoint_type}. Please specify one of "
-                                f"{SUPPORTED_ENDPOINT_TYPES + [LLM_V1_PREFIX + t for t in SUPPORTED_ENDPOINT_TYPES]}")
+        raise MlflowException(
+            f"Invalid model type: '{model_type}'. Please specify {_ModelType.CHAT} or "
+            f"{_ModelType.COMPLETION} to use a endpoint URL for model to evaluate."
+        )
 
     return _PythonModelPyfuncWrapper(python_model, None, None)
