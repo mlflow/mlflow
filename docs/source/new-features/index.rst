@@ -12,6 +12,28 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
+                        ChatModel Pyfunc Subclass Added
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        <p>
+                        OpenAI-compatible chat models are now easier than ever to build in MLflow! 
+                        <a href="../python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatModel">ChatModel</a> is a new
+                        Pyfunc subclass that makes it easy to deploy and serve chat models with MLflow.</p>
+                        
+                        <p>
+                        Check out the
+                        <a href="../llms/transformers/tutorials/conversational/pyfunc-chat-model.html">new tutorial</a> 
+                        on building an OpenAI-compatible chat model using TinyLlama-1.1B-Chat!</p>
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.11.0">released in 2.11.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
                         MLflow Site Overhaul 
                     </div>
                     <img class="card-image" src="../_static/images/logos/homepage.png" alt="MLflow"></img>
