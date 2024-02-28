@@ -1580,7 +1580,6 @@ _DUMMY_CHAT_RESPONSE = {
             "message": {
                 "content": "This is a response",
                 "role": "assistant",
-                "name": "Assistant",
             },
             "finish_reason": "length",
         }
@@ -1637,7 +1636,7 @@ def test_evaluate_on_chat_model_endpoint(mock_post):
         mock.call(
             "https://some-chat-model-endpoint",
             json={
-                "messages": [{"content": "What is MLflow?", "role": "user", "name": "User"}],
+                "messages": [{"content": "What is MLflow?", "role": "user"}],
                 "max_tokens": 10,
                 "temperature": 0.5,
             },
@@ -1646,7 +1645,7 @@ def test_evaluate_on_chat_model_endpoint(mock_post):
         mock.call(
             "https://some-chat-model-endpoint",
             json={
-                "messages": [{"content": "What is Spark?", "role": "user", "name": "User"}],
+                "messages": [{"content": "What is Spark?", "role": "user"}],
                 "max_tokens": 10,
                 "temperature": 0.5,
             },

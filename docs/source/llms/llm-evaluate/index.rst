@@ -522,7 +522,7 @@ request and response format <https://platform.openai.com/docs/api-reference/intr
 Passing Inference Parameters and Headers
 ****************************************
 
-You can pass additional inference parameters such as ``max_tokens``, ``temperature``, ``n``, to the model endpoint by setting the ``inference_parameters`` argument in :py:func:`mlflow.evaluate()`. The ``inference_parameters`` argument is a dictionary that contains the parameters to be passed to the model endpoint. The specified parameters are used for all the input record in the evaluation dataset.
+You can pass additional inference parameters such as ``max_tokens``, ``temperature``, ``n``, to the model endpoint by setting the ``inference_params`` argument in :py:func:`mlflow.evaluate()`. The ``inference_params`` argument is a dictionary that contains the parameters to be passed to the model endpoint. The specified parameters are used for all the input record in the evaluation dataset.
 
 Additionally, you can pass custom headers to the model endpoint by setting the ``headers`` argument in :py:func:`mlflow.evaluate()`. This is useful when the model endpoint requires custom headers for authentication or other purposes.
 
@@ -558,7 +558,7 @@ Examples
             # By specifying the "chat" model type, MOLflow automatically format the input text to the chat request format,
             # and extract the answer text from the chat response.
             model_type="chat",
-            inference_parameters={"max_tokens": 100, "temperature": 0.0},
+            inference_params={"max_tokens": 100, "temperature": 0.0},
             headers={"Authorization": "Bearer YOUR API KEY"},
             extra_metrics=[mlflow.metrics.exact_match()],
         )
@@ -583,7 +583,7 @@ Examples
             # Specify the URL of an OpenAI-compatible chat/completion endpoint
             model="https://example.com/serving-endpoints/databricks-mpt-30b-instruct/invocations",
             data=eval_data,
-            inference_parameters={"max_tokens": 100, "temperature": 0.0},
+            inference_params={"max_tokens": 100, "temperature": 0.0},
             headers={"Authorization": "Bearer YOUR API KEY"},
             # By specifying the "completion" model type, MOLflow automatically format the input text to the completion request format,
             # and extract the generated text from the completion response.

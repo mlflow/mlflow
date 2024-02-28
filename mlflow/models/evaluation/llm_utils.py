@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -9,9 +7,6 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import _ModelType
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 HINT_MSG = (
     "Invalid response format:\n{response}\n MLflow Evaluation expects OpenAI-compatible "
@@ -44,9 +39,7 @@ class _ServedLLMEndpointModel(mlflow.pyfunc.PythonModel):
     def extract_output(self, response) -> str:
         pass
 
-    def predict(
-        self, context, model_input: pd.DataFrame, params: Optional[Dict[str, Any]] = None
-    ) -> List[str]:
+    def predict(self, context, model_input, params=None) -> List[str]:
         headers = {"Content-Type": "application/json", **(self.headers or {})}
         params = {**self.default_params, **(params or {})}
 
@@ -82,7 +75,6 @@ class _ServedChatEndpointModel(_ServedLLMEndpointModel):
                 {
                     "content": input_data,
                     "role": "user",
-                    "name": "User",
                 }
             ],
             **params,
@@ -116,11 +108,14 @@ def get_model_from_llm_endpoint_url(
     params: Optional[Dict[str, Any]] = None,
     headers: Optional[Dict[str, str]] = None,
 ):
-    """
+    """Returns a PythonModel instance that wraps a chat or completion model endpoint.
 
     Args:
-
-    Returns:
+        endpoint: The URL of the endpoint to use for model evaluation.
+        model_type: The type of the model endpoint. Must be one of _ModelType.CHAT or
+                    _ModelType.COMPLETION.
+        params: Additional parameters to pass to the model for inference.
+        headers: Additional headers to include in the request to the endpoint.
     """
     from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
 
