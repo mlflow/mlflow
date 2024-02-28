@@ -140,9 +140,8 @@ def test_databricks_params_model_serving_oauth_cache_expired(monkeypatch, oauth_
         assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token2"
         assert float(os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"]) > time.time()
         assert params.host == "host"
-        # should use token2 from oauthfile, rather than token from cache 
+        # should use token2 from oauthfile, rather than token from cache
         assert params.token == "token2"
-
 
 
 def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
