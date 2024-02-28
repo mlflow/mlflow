@@ -433,7 +433,7 @@ def _fail_malformed_databricks_auth(profile):
 def _fail_model_serving_creds_env(exception):
     raise MlflowException(
         "Unable to read Oauth credentials from file mount for Databricks "
-        f"Model Serving dependency failed"
+        "Model Serving dependency failed"
     ) from exception
 
 
@@ -491,7 +491,7 @@ def _model_serving_env_databricks_host_creds():
     # Since we do not record OAuth expiration time in OAuth file, perform periodic refresh
     # of OAuth environment variable cache here. As currently configured (02/24) OAuth token
     # in model serving environment is guaranteed to have at least 30 min remaining on TTL
-    # at any point in time but refresh at higher rate of every 10 min here to be safe 
+    # at any point in time but refresh at higher rate of every 10 min here to be safe
     # and in case those values change in the future.
     OAUTH_CACHE_REFRESH_DURATION_SEC = 10 * 60
     OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
@@ -512,13 +512,13 @@ def _model_serving_env_databricks_host_creds():
         os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] = str(
             time.time() + OAUTH_CACHE_REFRESH_DURATION_SEC
         )
-        
+
     return MlflowHostCreds(
         os.environ[MODEL_SERVING_HOST_ENV_VAR],
-        token=oauth_token, 
+        token=oauth_token,
         ignore_tls_verification=True
     )
-    
+
 
 def get_databricks_host_creds(server_uri=None):
     """
@@ -530,8 +530,8 @@ def get_databricks_host_creds(server_uri=None):
     Databricks Secret Manager, we will query for a secret in the scope "<scope>" for secrets with
     keys of the form "<prefix>-host" and "<prefix>-token". Note that this prefix *cannot* be empty
     if trying to authenticate with this method. If found, those host credentials will be used. This
-    method will throw an exception if sufficient auth cannot be found. If called, within a Databricks
-    Model Serving environment, this method will attempt to read the OAuth token from where it would 
+    method will throw an exception if sufficient auth cannot be found. If called, within Databricks
+    Model Serving environment, this method will attempt to read the OAuth token from where it would
     expect to find it in the serving environment.
 
     Args:
