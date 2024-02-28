@@ -481,9 +481,9 @@ def _model_serving_env_databricks_host_creds():
     # Since we do not record OAuth expiration time in OAuth file, perform periodic refresh
     # of OAuth environment variable cache here. As currently configured (02/24) OAuth token
     # in model serving environment is guaranteed to have at least 30 min remaining on TTL
-    # at any point in time but refresh at higher rate of every 10 min here to be safe
-    # and in case those values change in the future.
-    OAUTH_CACHE_REFRESH_DURATION_SEC = 10 * 60
+    # at any point in time but refresh at higher rate of every 5 min here to be safe
+    # and conform with refresh logic for Brickstore tables.
+    OAUTH_CACHE_REFRESH_DURATION_SEC = 5 * 60
     OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
     OAUTH_CACHE_EXPIRATION_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"
     MODEL_SERVING_HOST_ENV_VAR = "DATABRICKS_MODEL_SERVING_HOST_URL"

@@ -110,10 +110,9 @@ def test_databricks_model_serving_throws(monkeypatch):
 
 def test_databricks_params_model_serving_oauth_cache(monkeypatch):
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
-    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
-
     params = databricks_utils.get_databricks_host_creds()
     assert params.host == "host"
     assert params.token == "token"
@@ -121,11 +120,29 @@ def test_databricks_params_model_serving_oauth_cache(monkeypatch):
 
 @pytest.fixture
 def oauth_file(tmp_path):
-    token_contents = {"OAUTH_TOKEN": [{"oauthTokenValue": "token"}]}
+    token_contents = {"OAUTH_TOKEN": [{"oauthTokenValue": "token2"}]}
     oauth_file = tmp_path.joinpath("model-dependencies-oauth-token")
     with open(oauth_file, "w") as f:
         json.dump(token_contents, f)
     return oauth_file
+
+
+def test_databricks_params_model_serving_oauth_cache_expired(monkeypatch, oauth_file):
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() - 5))
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        # cache should get updated with new token
+        assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token2"
+        assert float(os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"]) > time.time()
+        assert params.host == "host"
+        # should use token2 from oauthfile, rather than token from cache 
+        assert params.token == "token2"
+
 
 
 def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
@@ -135,10 +152,10 @@ def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
         "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
     ):
         params = databricks_utils.get_databricks_host_creds()
-        assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token"
+        assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token2"
         assert float(os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"]) > time.time()
         assert params.host == "host"
-        assert params.token == "token"
+        assert params.token == "token2"
 
 
 def test_get_workspace_info_from_databricks_secrets():
