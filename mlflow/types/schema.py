@@ -647,10 +647,10 @@ class ColSpec:
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.type, (DataType, Array, Object)):
+        if not isinstance(self.type, (DataType, Array, Object, Map)):
             raise TypeError(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
-                "mlflow.types.schema.Object or str for the 'type' "
+                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the 'type' "
                 f"argument, but got {self.type.__class__}"
             )
 

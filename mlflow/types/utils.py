@@ -107,7 +107,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     return dtype
 
 
-def _infer_datatype(data: Any) -> Union[DataType, Array, Object]:
+def _infer_datatype(data: Any) -> Union[DataType, Array, Object, Map]:
     if isinstance(data, dict):
         properties = []
         for k, v in data.items():
