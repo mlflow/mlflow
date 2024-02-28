@@ -1579,6 +1579,8 @@ def evaluate(
             - ``'text-summarization'``
             - ``'text'``
             - ``'retriever'``
+            - ``'chat'``
+            - ``'completion'``
 
             If no ``model_type`` is specified, then you must provide a a list of
             metrics to compute via the ``extra_metrics`` param.
@@ -1587,6 +1589,20 @@ def evaluate(
                 ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
                 ``'retriever'`` are experimental and may be changed or removed in a
                 future release.
+
+            .. note::
+                The ``chat`` and ``completion`` model types are specifically for evaluating
+                a hosted chat or completion model endpoint such as `Databricks Foundation Model APIs
+                <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_.
+                Please refer to :ref:`Evaluating with a Model Endpoint URL
+                <llm-eval-model-endpoint>` for more information.
+
+        inference_params: (Optional) A dictionary of inference parameters to be passed to the model
+            when making predictions, such as ``{"max_tokens": 100}``. This is only used when
+            the ``model`` is an endpoint URI.
+
+        headers: (Optional) A dictionary of headers used for making an HTTP request to the model
+            endpoint. This is only used when the ``model`` is an endpoint URI.
 
         dataset_path: (Optional) The path where the data is stored. Must not contain double
             quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
