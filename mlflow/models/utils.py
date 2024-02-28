@@ -13,7 +13,7 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Object, Property
+from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.types.utils import (
     TensorsNotSupportedException,
     _infer_param_schema,
@@ -1085,6 +1085,8 @@ def _enforce_array(data: Any, arr: Array, required=True):
         data_enforced = [_enforce_object(x, arr.dtype) for x in data]
     elif isinstance(arr.dtype, Array):
         data_enforced = [_enforce_array(x, arr.dtype) for x in data]
+    elif isinstance(arr.dtype, Map):
+        data_enforced = [_enforce_map(x, arr.dtype) for x in data]
     else:
         raise MlflowException(
             f"Failed to enforce schema of data `{data}` with dtype `{arr}`. "
@@ -1105,6 +1107,8 @@ def _enforce_property(data: Any, property: Property):
         return _enforce_array(data, property.dtype)
     if isinstance(property.dtype, Object):
         return _enforce_object(data, property.dtype)
+    if isinstance(property.dtype, Map):
+        return _enforce_map(data, property.dtype)
     raise MlflowException(
         f"Failed to enforce schema of data `{data}` with dtype `{property.dtype}`"
     )
@@ -1144,6 +1148,36 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
                 f"received type {type(v).__name__}"
             ) from e
     return data
+
+
+def _enforce_map(data: Any, map_type: Map, required=True):
+    if not required and data is None:
+        return None
+
+    if not isinstance(data, dict):
+        raise MlflowException(f"Expected data to be a dict, got {type(data).__name__}")
+
+    if not all(isinstance(k, str) for k in data):
+        raise MlflowException(f"Expected all keys in the map type data are string type.")
+
+    if isinstance(map_type.value_type, DataType):
+        data_enforced = {k: _enforce_datatype(x, arr.dtype) for k, v in data.items()}
+    elif isinstance(map_type.value_type, Object):
+        data_enforced = {k: _enforce_object(x, arr.dtype) for k, v in data.items()}
+    elif isinstance(map_type.value_type, Array):
+        data_enforced = {k: _enforce_array(x, arr.dtype) for k, v in data.items()}
+    elif isinstance(map_type.value_type, Map):
+        data_enforced = {k: _enforce_map(x, arr.dtype) for k, v in data.items()}
+    else:
+        raise MlflowException(
+            f"Failed to enforce schema of data `{data}` with map type `{map_type}`. "
+        )
+
+    # Keep input data type
+    if isinstance(data, np.ndarray):
+        data_enforced = np.array(data_enforced)
+
+    return data_enforced
 
 
 def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
