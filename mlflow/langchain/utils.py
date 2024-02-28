@@ -492,8 +492,6 @@ def register_pydantic_serializer():
 
     import pydantic.fields
 
-    cls = pydantic.fields.ModelField
-
     def custom_serializer(obj):
         return {
             "name": obj.name,
@@ -506,12 +504,13 @@ def register_pydantic_serializer():
             "default": obj.default,
             "default_factory": obj.default_factory,
             "required": obj.required,
+            "final": obj.final,
             "alias": obj.alias,
             "field_info": obj.field_info,
         }
 
     def custom_deserializer(kwargs):
-        return cls(**kwargs)
+        return pydantic.fields.ModelField(**kwargs)
 
     def _CloudPicklerReducer(obj):
         return custom_deserializer, (custom_serializer(obj),)
@@ -522,7 +521,7 @@ def register_pydantic_serializer():
         "please upgrade pydantic to v2 using `pip install pydantic -U` with "
         "langchain 0.0.267 and above."
     )
-    cloudpickle.CloudPickler.dispatch[cls] = _CloudPicklerReducer
+    cloudpickle.CloudPickler.dispatch[pydantic.fields.ModelField] = _CloudPicklerReducer
 
 
 def unregister_pydantic_serializer():
