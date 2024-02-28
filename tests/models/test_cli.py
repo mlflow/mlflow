@@ -43,6 +43,7 @@ from mlflow.utils.process import ShellCommandException
 
 from tests.helper_functions import (
     PROTOBUF_REQUIREMENT,
+    PYTHON_RAPIDJSON_REQUIREMENT,
     RestEndpoint,
     get_safe_port,
     pyfunc_build_image,
@@ -60,11 +61,6 @@ install_mlflow = ["--install-mlflow"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
 gunicorn_options = "--timeout 60 -w 5"
-
-# Pin python-rapidjson as v1.15 drops support for python 3.8
-# https://github.com/python-rapidjson/python-rapidjson/commit/47052cf7b62ff718d17a1d6dfc243c7a66fae8f9
-# This is the dependency of mlserver
-PYTHON_RAPIDJSON_REQUIREMENT = "python-rapidjson!=1.15"
 
 
 def env_with_tracking_uri():
@@ -576,7 +572,13 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model,
+                "model",
+                extra_pip_requirements=[
+                    "/opt/mlflow",
+                    PROTOBUF_REQUIREMENT,
+                    PYTHON_RAPIDJSON_REQUIREMENT,
+                ],
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model")

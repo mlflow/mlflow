@@ -26,7 +26,12 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    PROTOBUF_REQUIREMENT,
+    PYTHON_RAPIDJSON_REQUIREMENT,
+    get_safe_port,
+    pyfunc_serve_and_score_model,
+)
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -415,6 +420,7 @@ def test_mlflow_models_serve(enable_mlserver):
                     "mlserver>=1.2.0,!=1.3.1",
                     "mlserver-mlflow>=1.2.0,!=1.3.1",
                     PROTOBUF_REQUIREMENT,
+                    PYTHON_RAPIDJSON_REQUIREMENT,
                 ],
             )
         else:

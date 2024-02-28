@@ -18,12 +18,8 @@ from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.version import VERSION
 
+from tests.helper_functions import PYTHON_RAPIDJSON_REQUIREMENT
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
-
-# Pin python-rapidjson as v1.15 drops support for python 3.8
-# https://github.com/python-rapidjson/python-rapidjson/commit/47052cf7b62ff718d17a1d6dfc243c7a66fae8f9
-# This is the dependency of mlserver
-PYTHON_RAPIDJSON_REQUIREMENT = "python-rapidjson!=1.15"
 
 
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):

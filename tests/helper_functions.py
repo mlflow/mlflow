@@ -33,6 +33,9 @@ from mlflow.utils.file_utils import read_yaml, write_yaml
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
 PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
+# Pin mlserver's dependency python-rapidjson, v1.15 drops support for python 3.8
+# https://github.com/python-rapidjson/python-rapidjson/commit/47052cf7b62ff718d17a1d6dfc243c7a66fae8f9
+PYTHON_RAPIDJSON_REQUIREMENT = "python-rapidjson!=1.15"
 
 _logger = logging.getLogger(__name__)
 
