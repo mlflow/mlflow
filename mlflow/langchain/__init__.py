@@ -470,11 +470,11 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 
 def _load_model(local_model_path, flavor_conf):
+    # model_type is not accurate as the class can be subclass
+    # of supported types, we define _MODEL_LOAD_KEY to ensure
+    # which load function to use
+    model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
     with register_pydantic_v1_serializer_cm():
-        # model_type is not accurate as the class can be subclass
-        # of supported types, we define _MODEL_LOAD_KEY to ensure
-        # which load function to use
-        model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
         if model_load_fn == _RUNNABLE_LOAD_KEY:
             model = _load_runnables(local_model_path, flavor_conf)
         elif model_load_fn == _BASE_LOAD_KEY:
@@ -484,13 +484,13 @@ def _load_model(local_model_path, flavor_conf):
                 "Failed to load LangChain model. Unknown model type: "
                 f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
             )
-        # To avoid double logging, we set model_logged to True
-        # when the model is loaded
-        if not autologging_is_disabled(FLAVOR_NAME):
-            if _update_langchain_model_config(model):
-                model.model_logged = True
-                model.run_id = get_model_info(local_model_path).run_id
-        return model
+    # To avoid double logging, we set model_logged to True
+    # when the model is loaded
+    if not autologging_is_disabled(FLAVOR_NAME):
+        if _update_langchain_model_config(model):
+            model.model_logged = True
+            model.run_id = get_model_info(local_model_path).run_id
+    return model
 
 
 class _LangChainModelWrapper:

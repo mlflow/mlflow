@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import types
+import warnings
 from functools import lru_cache
 from importlib.util import find_spec
 from typing import NamedTuple
@@ -515,7 +516,7 @@ def register_pydantic_serializer():
     def _CloudPicklerReducer(obj):
         return custom_deserializer, (custom_serializer(obj),)
 
-    logger.warning(
+    warnings.warn(
         "Using custom serializer to pickle pydantic.fields.ModelField classes, "
         "this might miss some fields and validators. To avoid this, "
         "please upgrade pydantic to v2 using `pip install pydantic -U` with "
@@ -535,6 +536,8 @@ def unregister_pydantic_serializer():
 
 @contextlib.contextmanager
 def register_pydantic_v1_serializer_cm():
-    register_pydantic_serializer()
-    yield
-    unregister_pydantic_serializer()
+    try:
+        register_pydantic_serializer()
+        yield
+    finally:
+        unregister_pydantic_serializer()
