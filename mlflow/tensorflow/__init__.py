@@ -121,9 +121,9 @@ def get_global_custom_objects():
         A live reference to the global dictionary of custom objects.
     """
     try:
-        from tensorflow import keras
+        from tensorflow.keras.saving import get_custom_objects
 
-        return keras.saving.get_custom_objects()
+        return get_custom_objects()
     except Exception:
         pass
 
