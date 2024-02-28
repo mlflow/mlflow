@@ -188,14 +188,6 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-      - name: Install pydantic no-binary for langchain
-        if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
-        run: |
-          pip uninstall pydantic -y
-          # 0.0.267 is the minimum version that supports Pydantic v2
-          # We need to install from source because cythonized pydantic 
-          # objects can't be serialized https://github.com/cloudpipe/cloudpickle/issues/408
-          pip install pydantic --no-binary :all:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
