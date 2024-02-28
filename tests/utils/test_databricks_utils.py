@@ -101,23 +101,21 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_model_serving_throws(get_config, monkeypatch):
+def test_databricks_model_serving_throws(monkeypatch):
     monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
     monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     with pytest.raises(MlflowException, match="Unable to read Oauth credentials"):
         databricks_utils.get_databricks_host_creds()
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_model_serving_oauth_cache(get_config, monkeypatch):
+def test_databricks_params_model_serving_oauth_cache(monkeypatch):
     monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
     monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
 
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
     params = databricks_utils.get_databricks_host_creds()
     assert params.host == "host"
     assert params.token == "token"
@@ -132,13 +130,12 @@ def oauth_file(tmp_path):
     return oauth_file
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_model_serving_read_oauth(get_config, monkeypatch, oauth_file):
+def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
     monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
     monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     with mock.patch(
-        "mlflow.utils.databricks_utils.MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
     ):
         params = databricks_utils.get_databricks_host_creds()
         assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token"
