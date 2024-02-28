@@ -440,6 +440,7 @@ def _fail_model_serving_creds_env(exception):
 # constant defined outside function for testing override
 _MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
 
+
 # Helper function to attempt to read OAuth Token from
 # mounted file in Databricks Model Serving environment
 def _get_model_dependency_oauth_token(should_retry=True):
@@ -481,9 +482,7 @@ def _default_databricks_host_creds(server_uri):
             ignore_tls_verification=insecure,
         )
     elif config.token:
-        return MlflowHostCreds(
-            config.host, token=config.token, ignore_tls_verification=insecure
-        )
+        return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
 
 
@@ -514,9 +513,7 @@ def _model_serving_env_databricks_host_creds():
         )
 
     return MlflowHostCreds(
-        os.environ[MODEL_SERVING_HOST_ENV_VAR],
-        token=oauth_token,
-        ignore_tls_verification=True
+        os.environ[MODEL_SERVING_HOST_ENV_VAR], token=oauth_token, ignore_tls_verification=True
     )
 
 
@@ -544,7 +541,7 @@ def get_databricks_host_creds(server_uri=None):
     """
     # if in model serving environment databricks attempt to fetch model dependency OAuth token
     if is_in_databricks_model_serving_environment():
-      return  _model_serving_env_databricks_host_creds()
+        return _model_serving_env_databricks_host_creds()
     # default host creds behavior if not fetching OAuth token for model serving dependency
     else:
         return _default_databricks_host_creds(server_uri)
