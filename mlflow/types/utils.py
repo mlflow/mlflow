@@ -12,6 +12,7 @@ from mlflow.types import DataType
 from mlflow.types.schema import (
     Array,
     ColSpec,
+    Map,
     Object,
     ParamSchema,
     ParamSpec,
@@ -154,7 +155,7 @@ def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
 
         if result is None:
             result = Array(dtype)
-        elif isinstance(result.dtype, (Array, Object)):
+        elif isinstance(result.dtype, (Array, Object, Map)):
             try:
                 result = Array(result.dtype._merge(dtype))
             except MlflowException as e:
@@ -485,7 +486,6 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
 
 def _infer_spark_type(x, data=None, col_name=None) -> DataType:
     import pyspark.sql.types
-    from pyspark.sql.functions import col, collect_list
 
     if isinstance(x, pyspark.sql.types.NumericType):
         if isinstance(x, pyspark.sql.types.IntegralType):
@@ -520,43 +520,13 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
             ]
         )
     elif isinstance(x, pyspark.sql.types.MapType):
-        if data is None or col_name is None:
-            raise MlflowException("Cannot infer schema for MapType without data and column name.")
-        # Map MapType to StructType
-        # Note that MapType assumes all values are of same type,
-        # if they're not then spark picks the first item's type
-        # and tries to convert rest to that type.
-        # e.g.
-        # >>> spark.createDataFrame([{"col": {"a": 1, "b": "b"}}]).show()
-        # +-------------------+
-        # |                col|
-        # +-------------------+
-        # |{a -> 1, b -> null}|
-        # +-------------------+
-        if isinstance(x.valueType, pyspark.sql.types.MapType):
-            raise MlflowException(
-                "Please construct spark DataFrame with schema using StructType "
-                "for dictionary/map fields, MLflow schema inference only supports "
-                "scalar, array and struct types."
-            )
+        if data is None:
+            raise MlflowException("Cannot infer schema for MapType without data.")
 
-        merged_keys = (
-            data.selectExpr(f"map_keys({col_name}) as keys")
-            .agg(collect_list(col("keys")).alias("merged_keys"))
-            .head()
-            .merged_keys
-        )
-        keys = {key for sublist in merged_keys for key in sublist}
-        return Object(
-            properties=[
-                Property(
-                    name=k,
-                    dtype=_infer_spark_type(x.valueType),
-                )
-                for k in keys
-            ]
-        )
+        if not isinstance(x.keyType, pyspark.sql.types.StringType):
+            raise MlflowException("Mlflow doesn't support Map type with non-string key type.")
 
+        return Map(value_type=_infer_spark_type(x.valueType))
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unsupported Spark Type '{type(x)}' for MLflow schema."
