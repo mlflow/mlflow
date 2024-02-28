@@ -7,7 +7,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -200,7 +200,7 @@ def test_list_artifacts(mlflow_artifact_repo):
         endpoint = "/mlflow-artifacts/artifacts"
         url, _ = mlflow_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
         mock_get.assert_called_once_with(
-            _get_default_host_creds(url),
+            get_default_host_creds(url),
             endpoint,
             "GET",
             params={"path": ""},

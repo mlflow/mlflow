@@ -14,7 +14,7 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
 )
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import http_request_safe
 
 
@@ -33,7 +33,7 @@ class AuthServiceClient:
         self.tracking_uri = tracking_uri
 
     def _request(self, endpoint, method, **kwargs):
-        host_creds = _get_default_host_creds(self.tracking_uri)
+        host_creds = get_default_host_creds(self.tracking_uri)
         resp = http_request_safe(host_creds, endpoint, method, **kwargs)
         return resp.json()
 
