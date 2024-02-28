@@ -20,6 +20,11 @@ from mlflow.version import VERSION
 
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
 
+# Pin python-rapidjson as v1.15 drops support for python 3.8
+# https://github.com/python-rapidjson/python-rapidjson/commit/47052cf7b62ff718d17a1d6dfc243c7a66fae8f9
+# This is the dependency of mlserver
+PYTHON_RAPIDJSON_REQUIREMENT = "python-rapidjson!=1.15"
+
 
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
     actual_dockerfile = actual_dockerfile_path.read_text().replace(
@@ -38,16 +43,19 @@ def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_p
     )
 
 
-def save_model(tmp_path):
+def save_model(tmp_path, enable_mlserver=False):
     knn_model = sklearn.neighbors.KNeighborsClassifier()
     model_path = os.path.join(tmp_path, "model")
+    pip_requirements = [
+        f"mlflow=={get_released_mlflow_version()}",
+        f"scikit-learn=={sklearn.__version__}",
+    ]
+    if enable_mlserver:
+        pip_requirements.append(PYTHON_RAPIDJSON_REQUIREMENT)
     mlflow.sklearn.save_model(
         knn_model,
         path=model_path,
-        pip_requirements=[
-            f"mlflow=={get_released_mlflow_version()}",
-            f"scikit-learn=={sklearn.__version__}",
-        ],  # Skip requirements inference for speed up
+        pip_requirements=pip_requirements,  # Skip requirements inference for speed up
     )
     return model_path
 
@@ -81,7 +89,8 @@ class Param:
     ],
 )
 def test_build_image(tmp_path, params):
-    model_uri = save_model(tmp_path) if params.specify_model_uri else None
+    enable_mlserver = params.enable_mlserver is True
+    model_uri = save_model(tmp_path, enable_mlserver) if params.specify_model_uri else None
 
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=params.env_manager)
 

@@ -61,6 +61,11 @@ install_mlflow = ["--install-mlflow"] if not no_conda else []
 extra_options = no_conda + install_mlflow
 gunicorn_options = "--timeout 60 -w 5"
 
+# Pin python-rapidjson as v1.15 drops support for python 3.8
+# https://github.com/python-rapidjson/python-rapidjson/commit/47052cf7b62ff718d17a1d6dfc243c7a66fae8f9
+# This is the dependency of mlserver
+PYTHON_RAPIDJSON_REQUIREMENT = "python-rapidjson!=1.15"
+
 
 def env_with_tracking_uri():
     return {**os.environ, "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()}
@@ -647,7 +652,13 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model,
+                "model",
+                extra_pip_requirements=[
+                    "/opt/mlflow",
+                    PROTOBUF_REQUIREMENT,
+                    PYTHON_RAPIDJSON_REQUIREMENT,
+                ],
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
@@ -673,7 +684,9 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
 
 def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
     model_path = tmp_path.joinpath("model")
-    mlflow.sklearn.save_model(sk_model, model_path, extra_pip_requirements=["/opt/mlflow"])
+    mlflow.sklearn.save_model(
+        sk_model, model_path, extra_pip_requirements=["/opt/mlflow", PYTHON_RAPIDJSON_REQUIREMENT]
+    )
     image_name = pyfunc_build_image(model_uri=None)
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
