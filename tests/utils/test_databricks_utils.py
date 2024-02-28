@@ -102,16 +102,14 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
 
 
 def test_databricks_model_serving_throws(monkeypatch):
-    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
-    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     with pytest.raises(MlflowException, match="Unable to read Oauth credentials"):
         databricks_utils.get_databricks_host_creds()
 
 
 def test_databricks_params_model_serving_oauth_cache(monkeypatch):
-    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
-    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
@@ -131,8 +129,7 @@ def oauth_file(tmp_path):
 
 
 def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
-    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
-    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     with mock.patch(
         "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
@@ -271,12 +268,10 @@ def test_is_in_databricks_runtime(monkeypatch):
 
 
 def test_is_in_databricks_model_serving_environment(monkeypatch):
-    monkeypatch.setenv("MODEL_SERVING_CONTAINER_EXPOSED_IP", "127.0.0.1")
-    monkeypatch.setenv("MAX_MODEL_LOADING_TIMEOUT", "600")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
     assert databricks_utils.is_in_databricks_model_serving_environment()
 
-    # both environment variables needed to verify environment
-    monkeypatch.delenv("MAX_MODEL_LOADING_TIMEOUT")
+    monkeypatch.delenv("DATABRICKS_MODEL_SERVING_ENV")
     assert not databricks_utils.is_in_databricks_model_serving_environment()
 
 

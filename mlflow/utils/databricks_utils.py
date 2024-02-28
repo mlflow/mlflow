@@ -165,13 +165,7 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    # choose 2 fairly specific environment variable that should always be configured
-    # in Databricks Model Serving and unlikely to be configured elsewhere
-    return (
-        "MODEL_SERVING_CONTAINER_EXPOSED_IP" in os.environ
-        and "MAX_MODEL_LOADING_TIMEOUT" in os.environ
-    )
-
+    return "DATABRICKS_MODEL_SERVING_ENV" in os.environ
 
 def is_in_databricks_repo():
     try:
@@ -430,12 +424,6 @@ def _fail_malformed_databricks_auth(profile):
     )
 
 
-def _fail_model_serving_creds_env(exception):
-    raise MlflowException(
-        "Unable to read Oauth credentials from file mount for Databricks "
-        "Model Serving dependency failed"
-    ) from exception
-
 
 # constant defined outside function for testing override
 _MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
@@ -451,10 +439,13 @@ def _get_model_dependency_oauth_token(should_retry=True):
     except Exception as e:
         # sleep and retry in case of any race conditions with OAuth refreshing
         if should_retry:
-            time.sleep(0.1)
+            time.sleep(0.5)
             return _get_model_dependency_oauth_token(should_retry=False)
         else:
-            _fail_model_serving_creds_env(e)
+            raise MlflowException(
+                "Unable to read Oauth credentials from file mount for Databricks "
+                "Model Serving dependency failed"
+            ) from e 
 
 
 def _default_databricks_host_creds(server_uri):
