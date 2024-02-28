@@ -23,7 +23,7 @@ from mlflow.store.artifact.artifact_repo import (
     verify_artifact_path,
 )
 from mlflow.store.artifact.cloud_artifact_repo import _complete_futures, _compute_num_chunks
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
@@ -37,7 +37,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     @property
     def _host_creds(self):
-        return _get_default_host_creds(self.artifact_uri)
+        return get_default_host_creds(self.artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
@@ -84,7 +84,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         url, tail = self.artifact_uri.split(endpoint, maxsplit=1)
         root = tail.lstrip("/")
         params = {"path": posixpath.join(root, path) if path else root}
-        host_creds = _get_default_host_creds(url)
+        host_creds = get_default_host_creds(url)
         resp = http_request(host_creds, endpoint, "GET", params=params)
         augmented_raise_for_status(resp)
         file_infos = []
@@ -115,7 +115,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         url, _ = self.artifact_uri.split("/mlflow-artifacts", maxsplit=1)
-        host_creds = _get_default_host_creds(url)
+        host_creds = get_default_host_creds(url)
         base_endpoint = "/mlflow-artifacts/mpu/create"
         endpoint = posixpath.join(base_endpoint, artifact_path) if artifact_path else base_endpoint
         params = {
@@ -128,7 +128,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
         url, _ = self.artifact_uri.split("/mlflow-artifacts", maxsplit=1)
-        host_creds = _get_default_host_creds(url)
+        host_creds = get_default_host_creds(url)
         base_endpoint = "/mlflow-artifacts/mpu/complete"
         endpoint = posixpath.join(base_endpoint, artifact_path) if artifact_path else base_endpoint
         params = {
@@ -141,7 +141,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
         url, _ = self.artifact_uri.split("/mlflow-artifacts", maxsplit=1)
-        host_creds = _get_default_host_creds(url)
+        host_creds = get_default_host_creds(url)
         base_endpoint = "/mlflow-artifacts/mpu/abort"
         endpoint = posixpath.join(base_endpoint, artifact_path) if artifact_path else base_endpoint
         params = {
