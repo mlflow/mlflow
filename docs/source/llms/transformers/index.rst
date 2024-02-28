@@ -148,6 +148,17 @@ These more advanced tutorials are designed to showcase different applications of
                 </a>
             </div>
             <div class="simple-card">
+                <a href="tutorials/conversational/pyfunc-chat-model.html">
+                    <div class="header">
+                        Building and Serving an OpenAI-Compatible Chatbot
+                    </div>
+                    <p>
+                        Learn how to build an OpenAI-compatible chatbot using a local Transformers 
+                        model and MLflow, and serve it with minimal configuration.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="tutorials/fine-tuning/transformers-fine-tuning.html">
                     <div class="header">
                         Fine tuning a transformers Foundation Model
@@ -190,6 +201,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/audio-transcription/whisper.ipynb" class="notebook-download-btn">Download the Audio Transcription Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/translation/component-translation.ipynb" class="notebook-download-btn">Download the Translation Notebook</a><br>        
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/conversational/conversational-model.ipynb" class="notebook-download-btn">Download the Chat Conversational Notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/conversational/pyfunc-chat-model.ipynb" class="notebook-download-btn">Download the "Building and Serving an OpenAI-Compatible Chatbot" Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning.ipynb" class="notebook-download-btn">Download the Fine Tuning Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/prompt-templating/prompt-templating.ipynb" class="notebook-download-btn">Download the Prompt Templating Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.ipynb" class="notebook-download-btn">Download the Custom PyFunc transformers Notebook</a><br>
@@ -202,6 +214,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     tutorials/audio-transcription/whisper.ipynb
     tutorials/translation/component-translation.ipynb
     tutorials/conversational/conversational-model.ipynb
+    tutorials/conversational/pyfunc-chat-model.ipynb
     tutorials/fine-tuning/transformers-fine-tuning.ipynb
     tutorials/prompt-templating/prompt-templating.ipynb
 
