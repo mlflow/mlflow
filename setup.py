@@ -134,7 +134,7 @@ setup(
             "mlserver-mlflow>=1.2.0,!=1.3.1",
             # Pin mlserver's dependency python-rapidjson, v1.15 drops support for python 3.8
             # https://github.com/python-rapidjson/python-rapidjson/commit/47052cf7b62ff718d17a1d6dfc243c7a66fae8f9
-            "'python-rapidjson!=1.15'",
+            "python-rapidjson!=1.15",
             "virtualenv",
             # Required for exporting metrics from the MLflow server to Prometheus
             # as part of the MLflow server monitoring add-on
