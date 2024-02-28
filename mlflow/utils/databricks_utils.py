@@ -460,7 +460,7 @@ def _get_model_dependency_oauth_token(should_retry=True):
 def _default_databricks_host_creds(server_uri):
     profile, path = get_db_info_from_uri(server_uri)
     config = ProfileConfigProvider(profile).get_config() if profile else get_config()
-    insecure = hasattr(config, "insecure") and config.insecure
+    insecure = getattr(config, "insecure", False)
     # if a path is specified, that implies a Databricks tracking URI of the form:
     # databricks://profile-name/path-specifier
     if (not config or not config.host) and path:
