@@ -117,7 +117,8 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
         )
 
     steps = {}
-    for step in os.listdir(steps_path):
+    # ignore hidden files
+    for step in filter(lambda x: not x.startswith("."), os.listdir(steps_path)):
         config = steps_conf.get(step)
         # load model from the folder of the step
         runnable = _load_model_from_path(os.path.join(steps_path, step), config)

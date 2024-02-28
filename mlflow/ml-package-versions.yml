@@ -624,6 +624,7 @@ langchain:
       LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
       if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
         pip install 'pydantic>2'
+        echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain/test_langchain_model_export.py
       fi
   autologging:
