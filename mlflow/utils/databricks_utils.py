@@ -167,6 +167,7 @@ def is_in_databricks_job():
 def is_in_databricks_model_serving_environment():
     return "DATABRICKS_MODEL_SERVING_ENV" in os.environ
 
+
 def is_in_databricks_repo():
     try:
         return get_git_repo_relative_path() is not None
@@ -424,7 +425,6 @@ def _fail_malformed_databricks_auth(profile):
     )
 
 
-
 # constant defined outside function for testing override
 _MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
 
@@ -445,7 +445,7 @@ def _get_model_dependency_oauth_token(should_retry=True):
             raise MlflowException(
                 "Unable to read Oauth credentials from file mount for Databricks "
                 "Model Serving dependency failed"
-            ) from e 
+            ) from e
 
 
 def _default_databricks_host_creds(server_uri):
