@@ -683,6 +683,10 @@ def _enforce_unnamed_col_schema(pf_input: PyFuncInput, input_schema: Schema):
             new_pf_input[x] = pd.Series(
                 [_enforce_array(arr, input_types[i]) for arr in pf_input[x]], name=x
             )
+        elif isinstance(input_types[i], Map):
+            new_pf_input[x] = pd.Series(
+                [_enforce_map(map_data, input_types[i]) for map_data in pf_input[x]], name=x
+            )
     return new_pf_input
 
 
@@ -713,6 +717,10 @@ def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
         elif isinstance(input_type, Array):
             new_pf_input[name] = pd.Series(
                 [_enforce_array(arr, input_type, required) for arr in pf_input[name]], name=name
+            )
+        elif isinstance(input_type, Map):
+            new_pf_input[name] = pd.Series(
+                [_enforce_map(map_data, input_type, required) for map_data in pf_input[name]], name=name
             )
     return new_pf_input
 
@@ -1161,13 +1169,13 @@ def _enforce_map(data: Any, map_type: Map, required=True):
         raise MlflowException(f"Expected all keys in the map type data are string type.")
 
     if isinstance(map_type.value_type, DataType):
-        data_enforced = {k: _enforce_datatype(x, arr.dtype) for k, v in data.items()}
+        data_enforced = {k: _enforce_datatype(v, map_type.value_type) for k, v in data.items()}
     elif isinstance(map_type.value_type, Object):
-        data_enforced = {k: _enforce_object(x, arr.dtype) for k, v in data.items()}
+        data_enforced = {k: _enforce_object(v, map_type.value_type) for k, v in data.items()}
     elif isinstance(map_type.value_type, Array):
-        data_enforced = {k: _enforce_array(x, arr.dtype) for k, v in data.items()}
+        data_enforced = {k: _enforce_array(v, map_type.value_type) for k, v in data.items()}
     elif isinstance(map_type.value_type, Map):
-        data_enforced = {k: _enforce_map(x, arr.dtype) for k, v in data.items()}
+        data_enforced = {k: _enforce_map(v, map_type.value_type) for k, v in data.items()}
     else:
         raise MlflowException(
             f"Failed to enforce schema of data `{data}` with map type `{map_type}`. "

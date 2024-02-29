@@ -449,7 +449,7 @@ class Array:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object, Map or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (Array, DataType, Object)):
+        if not isinstance(self.dtype, (Array, DataType, Object, Map)):
             raise MlflowException(
                 "Expected mlflow.types.schema.Array, mlflow.types.schema.Datatype, "
                 "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the "
@@ -583,7 +583,7 @@ class Map:
             return cls(value_type=Object.from_json_dict(**kwargs["values"]))
         if kwargs["values"]["type"] == ARRAY_TYPE:
             return cls(value_type=Array.from_json_dict(**kwargs["values"]))
-        if kwargs["values"]["type"] == ARRAY_TYPE:
+        if kwargs["values"]["type"] == MAP_TYPE:
             return cls(value_type=Map.from_json_dict(**kwargs["values"]))
         return cls(value_type=kwargs["values"]["type"])
 
@@ -708,7 +708,7 @@ class ColSpec:
         """
         if not {"type"} <= set(kwargs.keys()):
             raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
-        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE]:
+        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
         optional = kwargs.pop("optional", None)
@@ -723,6 +723,10 @@ class ColSpec:
                 type=Object.from_json_dict(**kwargs),
                 optional=optional,
                 required=required,
+            )
+        if kwargs["type"] == MAP_TYPE:
+            return cls(
+                name=name, type=Map.from_json_dict(**kwargs), optional=optional, required=required
             )
 
 
