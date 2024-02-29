@@ -509,7 +509,7 @@ Please don't forget to set the target deployment client by using :py:func:`mlflo
 
 .. hint::
 
-    When you want to use an external endpoint **not** hosted by an MLflow Deployments Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
+    When you want to use an endpoint **not** hosted by an MLflow Deployments Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
 
 Supported Input Data Formats
 ****************************
@@ -555,38 +555,35 @@ The input data can be either of the following format when using an URI of the ML
                 ]
             }
 
-      - In this format, the dictionary should have the correct request format for your model endpoint.
+      - In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the `MLflow Deployments documentation <../deployments/index.html#standard-query-parameters>`_ for more information about the request format for different model endpoint types.
 
-    * - A (nested) list of input strings.
+    * - A list of input strings.
       - 
         .. code-block:: python
 
             [
-                ["What is MLflow?"],
-                ["What is Spark?"],
+                "What is MLflow?",
+                "What is Spark?",
             ]
 
-      - The :py:func:`mlflow.evaluate()` will also accepts a list input. One notable requirement is that the each
-        list element i.e. input string needs to be wrapped in another list, so they can be passed as a single prediction request to the model endpoint.
+      - The :py:func:`mlflow.evaluate()` also accepts a list input.
 
-    * - A (nested) list of input strings.
+    * - A list of request payload (dictionary).
       - 
         .. code-block:: python
 
             [
-                [
-                    {
-                        "messages": [
-                            {"role": "system", "content": "Please answer."},
-                            {"role": "user", "content": "What is MLflow?"},
-                        ],
-                        "max_tokens": 100,
-                    },
-                    # ... more dictionary records
-                ]
+                {
+                    "messages": [
+                        {"role": "system", "content": "Please answer."},
+                        {"role": "user", "content": "What is MLflow?"},
+                    ],
+                    "max_tokens": 100,
+                },
+                # ... more dictionary records
             ]
 
-      - Similar requirements as the above list format apply here as well.
+      - Similarly to Pandas DataFrame input, the dictionary should have the correct request format for your model endpoint.
 
 
 
@@ -597,7 +594,7 @@ You can pass additional inference parameters such as ``max_tokens``, ``temperatu
 
 .. note::
 
-    When your input is a dictionary format tha represents request payload, it can also include the parameters like ``max_tokens``. If there are overlapping parameters in both the ``inference_params`` and the input data, the values in the ``inference_params`` will take precedence.
+    When your input is a dictionary format that represents request payload, it can also include the parameters like ``max_tokens``. If there are overlapping parameters in both the ``inference_params`` and the input data, the values in the ``inference_params`` will take precedence.
 
 Examples
 ********

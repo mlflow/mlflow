@@ -1646,31 +1646,29 @@ _TEST_GT_LIST = [
         ),
         # List of string
         (
-            [[q] for q in _TEST_QUERY_LIST],
+            _TEST_QUERY_LIST,
             None,
             _TEST_GT_LIST,
         ),
         # List of string with feature_names
         (
-            [[q] for q in _TEST_QUERY_LIST],
+            _TEST_QUERY_LIST,
             ["question"],
             _TEST_GT_LIST,
         ),
         # List of string with feature_names and w/o targets
         (
-            [[q] for q in _TEST_QUERY_LIST],
+            _TEST_QUERY_LIST,
             ["question"],
             None,
         ),
         # List of dictionary with feature_names
         (
             [
-                [
-                    {
-                        "messages": [{"content": q, "role": "user"}],
-                        "max_tokens": 10,
-                    }
-                ]
+                {
+                    "messages": [{"content": q, "role": "user"}],
+                    "max_tokens": 10,
+                }
                 for q in _TEST_QUERY_LIST
             ],
             None,
@@ -1693,6 +1691,7 @@ def test_evaluate_on_chat_model_endpoint(mock_deploy_client, input_data, feature
             inference_params={"max_tokens": 10, "temperature": 0.5},
         )
 
+    # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
     expected_calls = [
         mock.call(
@@ -1713,10 +1712,16 @@ def test_evaluate_on_chat_model_endpoint(mock_deploy_client, input_data, feature
         ),
     ]
     assert all(call in call_args_list for call in expected_calls)
+
+    # Validate the evaluation metrics
     expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean"}
     if targets:
         expected_metrics_subset.add("exact_match/v1")
     assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
 _DUMMY_COMPLETION_RESPONSE = {
@@ -1736,26 +1741,11 @@ _DUMMY_COMPLETION_RESPONSE = {
 @pytest.mark.parametrize(
     ("input_data", "feature_names"),
     [
-        (
-            pd.DataFrame({"inputs": _TEST_QUERY_LIST}),
-            None,
-        ),
-        (
-            pd.DataFrame({"question": _TEST_QUERY_LIST}),
-            ["question"],
-        ),
-        (
-            pd.DataFrame({"inputs": [{"prompt": q} for q in _TEST_QUERY_LIST]}),
-            None,
-        ),
-        (
-            [[q] for q in _TEST_QUERY_LIST],
-            None,
-        ),
-        (
-            [[{"prompt": q}] for q in _TEST_QUERY_LIST],
-            None,
-        ),
+        (pd.DataFrame({"inputs": _TEST_QUERY_LIST}), None),
+        (pd.DataFrame({"question": _TEST_QUERY_LIST}), ["question"]),
+        (pd.DataFrame({"inputs": [{"prompt": q} for q in _TEST_QUERY_LIST]}), None),
+        (_TEST_QUERY_LIST, None),
+        ([{"prompt": q} for q in _TEST_QUERY_LIST], None),
     ],
 )
 @mock.patch("mlflow.deployments.get_deploy_client")
@@ -1772,18 +1762,25 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
             feature_names=feature_names,
         )
 
+    # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
     expected_calls = [
         mock.call(endpoint="completions", inputs={"prompt": "What is MLflow?", "max_tokens": 10}),
         mock.call(endpoint="completions", inputs={"prompt": "What is Spark?", "max_tokens": 10}),
     ]
     assert all(call in call_args_list for call in expected_calls)
+
+    # Validate the evaluation metrics
     expected_metrics_subset = {
         "toxicity/v1/ratio",
         "ari_grade_level/v1/mean",
         "flesch_kincaid_grade_level/v1/mean",
     }
     assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
 @pytest.mark.parametrize(

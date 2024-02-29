@@ -120,7 +120,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         deployment_uri: The URI of the deployment endpoint.
         payload: The input payload to send to the endpoint.
         eval_parameters: The evaluation parameters to send to the endpoint.
-        construct_payload: Whether to wrap the payload in a expected key by the endpoint,
+        wrap_payload: Whether to wrap the payload in a expected key by the endpoint,
             e.g. "prompt" for completions or "messages" for chat. If False, the specified
             payload is directly sent to the endpoint combined with the eval_parameters.
     Returns:

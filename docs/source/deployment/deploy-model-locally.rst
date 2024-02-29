@@ -104,7 +104,7 @@ the required payload format, you can leverage the dict payload structures below.
       - Pandas DataFrame in the ``records`` orientation. **We do not recommend using this format because it is not guaranteed to preserve column ordering.**
       - 
         .. code-block:: python
-
+          
           {"dataframe_records": pandas_df.to_dict(orient="records")}
 
     * - ``instances``

@@ -429,7 +429,7 @@ def _is_empty_list_or_array(data):
     if isinstance(data, list):
         return len(data) == 0
     elif isinstance(data, np.ndarray):
-        return data.size == 0 or data.ndim == 0
+        return data.size == 0
     return False
 
 
@@ -459,6 +459,8 @@ def _hash_array_of_dict_as_bytes(data):
             result += _hash_array_of_dict_as_bytes(elm)
         elif isinstance(elm, dict):
             result += _hash_dict_as_bytes(elm)
+        else:
+            result += _hash_data_as_bytes(elm)
     return result
 
 
@@ -1181,6 +1183,10 @@ def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
         from pyspark.sql import DataFrame as SparkDataFrame
 
     if isinstance(data, list):
+        # If the list is flat, we assume each element is an independent sample.
+        if not isinstance(data[0], (list, np.ndarray)):
+            data = [[elm] for elm in data]
+
         return mlflow.data.from_numpy(
             np.array(data), targets=np.array(targets) if targets else None
         )
