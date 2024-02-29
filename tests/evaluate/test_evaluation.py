@@ -1620,7 +1620,7 @@ def test_evaluate_on_chat_model_endpoint(mock_deploy_client):
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
     expected_calls = [
         mock.call(
-            endpoint="endpoints:/chat",
+            endpoint="chat",
             inputs={
                 "messages": [{"content": "What is MLflow?", "role": "user"}],
                 "max_tokens": 10,
@@ -1628,7 +1628,7 @@ def test_evaluate_on_chat_model_endpoint(mock_deploy_client):
             },
         ),
         mock.call(
-            endpoint="endpoints:/chat",
+            endpoint="chat",
             inputs={
                 "messages": [{"content": "What is Spark?", "role": "user"}],
                 "max_tokens": 10,
@@ -1677,10 +1677,8 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client):
 
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
     expected_calls = [
-        mock.call(endpoint="endpoints:/completions", inputs={"prompt": "Hi", "max_tokens": 10}),
-        mock.call(
-            endpoint="endpoints:/completions", inputs={"prompt": "Buenos días", "max_tokens": 10}
-        ),
+        mock.call(endpoint="completions", inputs={"prompt": "Hi", "max_tokens": 10}),
+        mock.call(endpoint="completions", inputs={"prompt": "Buenos días", "max_tokens": 10}),
     ]
     assert all(call in call_args_list for call in expected_calls)
     expected_metrics_subset = {

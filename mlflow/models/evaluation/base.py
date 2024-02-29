@@ -1250,12 +1250,12 @@ def _get_model_from_function(fn):
 def _get_model_from_deployment_endpoint_uri(
     endpoint_uri: str, params: Optional[Dict[str, Any]] = None
 ):
-    from mlflow.metrics.genai.model_utils import _call_deployments_api
+    from mlflow.metrics.genai.model_utils import _call_deployments_api, _parse_model_uri
     from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
 
     class ModelFromDeploymentEndpoint(mlflow.pyfunc.PythonModel):
-        def __init__(self, endpoint_uri, params):
-            self.endpoint_uri = endpoint_uri
+        def __init__(self, endpoint, params):
+            self.endpoint = endpoint
             self.params = params
 
         def predict(self, context, model_input: pd.DataFrame):
@@ -1273,12 +1273,15 @@ def _get_model_from_deployment_endpoint_uri(
                         "evaluating an Mlflow deployment endpoint must contain only string values."
                     )
 
-                prediction = _call_deployments_api(self.endpoint_uri, input_data, self.params)
+                prediction = _call_deployments_api(self.endpoint, input_data, self.params)
                 predictions.append(prediction)
 
             return pd.Series(predictions)
 
-    python_model = ModelFromDeploymentEndpoint(endpoint_uri, params)
+    prefix, endpoint = _parse_model_uri(endpoint_uri)
+    params = params or {}
+
+    python_model = ModelFromDeploymentEndpoint(endpoint, params)
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 

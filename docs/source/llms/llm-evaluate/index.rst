@@ -410,7 +410,7 @@ In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one
 
    * Has ``data`` as the only argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
    * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
-3. An MLflow Deployment endpoint URI pointing to a local Mlflow Deployment Server or `Databricks Foundation Models <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_. 
+3. An MLflow Deployment endpoint URI pointing to a local `MLflow Deployment Server <../deployments/index.html>`_ or `Databricks Foundation Models <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_. 
 4. Set ``model=None``, and put model outputs in ``data``. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
@@ -505,6 +505,8 @@ Evaluating with a MLflow Deployment Endpoint
 For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the MLflow Deployment endpoint URI to the ``model`` argument.
 This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow Deployment Server <../deployments/index.html>`_ or `Databricks Foundation Model APIs <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html#language-MLflow%C2%A0Deployments%C2%A0SDK>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
 
+Please don't forget to set the target deployment client by using :py:func:`mlflow.deployments.set_deployments_target` before calling :py:func:`mlflow.evaluate()` with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like ``MlflowException: No deployments target has been set...``.
+
 .. hint::
 
     When you want to use an external endpoint **not** hosted by a MLflow Deployment Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
@@ -521,6 +523,11 @@ Examples
 
 .. code-block:: python
 
+    from mlflow.deployments import set_deployments_target
+
+    # Point the client to the local MLflow Deployment Server
+    set_deployments_target("http://localhost:5000")
+
     eval_data = pd.DataFrame(
         {
             # Input data must be a string column and named "inputs".
@@ -536,8 +543,6 @@ Examples
         }
     )
 
-    # Point the client to the local MLflow Deployment Server
-    set_deployments_target("http://localhost:5000")
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
@@ -552,6 +557,11 @@ Examples
 
 
 .. code-block:: python
+
+    from mlflow.deployments import set_deployments_target
+
+    # Point the client to Databricks Foundation Model APIs
+    set_deployments_target("databricks")
 
     eval_data = pd.DataFrame(
         {
