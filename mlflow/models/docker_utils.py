@@ -32,6 +32,8 @@ RUN pip install virtualenv
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
 FROM {base_image}
 
+RUN apt-get -y update && apt-get install -y --no-install-recommends gcc
+
 {setup_python_venv}
 
 {setup_java}
