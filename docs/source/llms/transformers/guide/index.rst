@@ -13,8 +13,17 @@ interpreted as a generic Python function for inference via :py:func:`mlflow.pyfu
 You can also use the :py:func:`mlflow.transformers.load_model()` function to load a saved or logged MLflow
 Model with the ``transformers`` flavor in the native transformers formats.
 
-Input and Output types for PyFunc
----------------------------------
+This page explains the detailed features and configurations of the MLflow ``transformers`` flavor. For the general introduction about the MLflow's Transformer integration, please refer to the `MLflow Transformers Flavor <../index.html>`_ page.
+
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
+
+Loading a Transformers Model as a Python Function
+-------------------------------------------------
+
+Supported Transformers Pipeline types
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``transformers`` :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` simplifies
 and standardizes both the inputs and outputs of pipeline inference. This conformity allows for serving
@@ -52,8 +61,6 @@ data type inputs and outputs.
     Similarly, if your use case requires the use of raw tensor outputs or processing of outputs through an external ``processor`` module, load the
     model components directly as a ``dict`` by calling :py:func:`mlflow.transformers.load_model()` and specify the ``return_type`` argument as 'components'.
 
-Supported transformers Pipeline types for Pyfunc
-------------------------------------------------
 
 ================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
@@ -88,9 +95,106 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
+Example of loading a transformers model as a python function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is
+loaded as a ``pyfunc`` and used to generate a response from a passed-in list of strings.
+
+.. code-block:: python
+
+    import mlflow
+    import transformers
+
+    # Read a pre-trained conversation pipeline from HuggingFace hub
+    conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
+
+    # Define the signature
+    signature = mlflow.models.infer_signature(
+        "Hi there, chatbot!",
+        mlflow.transformers.generate_signature_output(
+            conversational_pipeline, "Hi there, chatbot!"
+        ),
+    )
+
+    # Log the pipeline
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=conversational_pipeline,
+            artifact_path="chatbot",
+            task="conversational",
+            signature=signature,
+            input_example="A clever and witty question",
+        )
+
+    # Load the saved pipeline as pyfunc
+    chatbot = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # Ask the chatbot a question
+    response = chatbot.predict("What is machine learning?")
+
+    print(response)
+
+    # >> [It's a new thing that's been around for a while.]
+
+
+Saving Transformer Pipelines with an OpenAI-Compatible Inference Interface
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+    This feature is only available in MLflow 2.11.0 and above.
+
+
+MLflow's native transformers integration allows you to pass in the ``task`` param when saving a model 
+with :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()`. Originally, this param 
+accepts any of the `Transformers pipeline task types <https://huggingface.co/tasks>`_, but in MLflow 2.11.0
+and above, we've added a few more MLflow-specific keys for ``text-generation`` pipelines.
+
+For ``text-generation`` pipelines, instead of specifying ``text-generation`` as the task type, you can provide 
+one of two string literals conforming to the `MLflow Deployments Server's endpoint_type specification <https://mlflow.org/docs/latest/llms/deployments/index.html#general-configuration-parameters>`_ 
+(``"llm/v1/embeddings"`` can be specified as a task on models saved with :py:func:`mlflow.sentence_transformers.save_model()`):
+
+- ``"llm/v1/chat"`` for chat-style applications
+- ``"llm/v1/completions"`` for generic completions
+
+For example:
+
+.. code-block:: python
+
+    from transformers import pipeline
+
+    import mlflow
+
+    generator = pipeline(
+        "text-generation",
+        "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    )
+
+    mlflow.transformers.save_model(
+        path="tinyllama-chat",
+        task="llm/v1/chat",
+        transformers_model=generator,
+    )
+
+When one of these keys is specified, MLflow will automatically handle everything required to serve a chat
+or completions model. This includes:
+
+- Setting a chat/completions compatible signature on the model
+- Performing data pre- and post-processing to ensure the inputs and outputs conform to 
+  the `Chat/Completions API spec <https://mlflow.org/docs/latest/llms/deployments/index.html#chat>`_, 
+  which is compatible with OpenAI's API spec.
+
+Note that these modifications only apply when the model is loaded with :py:func:`mlflow.pyfunc.load_model()` (e.g. when 
+serving the model with the ``mlflow models serve`` CLI tool). If you want to load just the base pipeline, you can
+always do so via :py:func:`mlflow.transformers.load_model()`.
+
+Check out the `notebook tutorial <../tutorials/conversational/pyfunc-chat-model.html>`_ to see this feature in action!
+
+
 
 Saving Prompt Templates with Transformer Pipelines
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------------------
 
 .. note::
 
@@ -155,8 +259,8 @@ template will be used to format user inputs before passing them into the pipelin
 For a more in-depth guide, check out the `Prompt Templating notebook <../tutorials/prompt-templating/prompt-templating.ipynb>`_!
 
 
-Using model_config and model signature params for `transformers` inference
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using model_config and Model Signature Params for Inference
+-----------------------------------------------------------
 
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
@@ -294,54 +398,33 @@ params that may be needed to compute the predictions for their specific samples.
     result = pyfunc_loaded.predict(data, params=params)
 
 
-Example of loading a transformers model as a python function
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pipelines vs. Component Logging
+-------------------------------
 
-In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is
-loaded as a ``pyfunc`` and used to generate a response from a passed-in list of strings.
+The transformers flavor has two different primary mechanisms for saving and loading models: pipelines and components.
 
-.. code-block:: python
+**Pipelines**
 
-    import mlflow
-    import transformers
+Pipelines, in the context of the Transformers library, are high-level objects that combine pre-trained models and tokenizers 
+(as well as other components, depending on the task type) to perform a specific task. They abstract away much of the preprocessing 
+and postprocessing work involved in using the models. 
 
-    # Read a pre-trained conversation pipeline from HuggingFace hub
-    conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
+For example, a text classification pipeline would handle the tokenization of text, passing the tokens through a model, and then interpret the logits to produce a human-readable classification.
 
-    # Define the signature
-    signature = mlflow.models.infer_signature(
-        "Hi there, chatbot!",
-        mlflow.transformers.generate_signature_output(
-            conversational_pipeline, "Hi there, chatbot!"
-        ),
-    )
+When logging a pipeline with MLflow, you're essentially saving this high-level abstraction, which can be loaded and used directly 
+for inference with minimal setup. This is ideal for end-to-end tasks where the preprocessing and postprocessing steps are standard 
+for the task at hand.
 
-    # Log the pipeline
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model=conversational_pipeline,
-            artifact_path="chatbot",
-            task="conversational",
-            signature=signature,
-            input_example="A clever and witty question",
-        )
+**Components**
 
-    # Load the saved pipeline as pyfunc
-    chatbot = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+Components refer to the individual parts that can make up a pipeline, such as the model itself, the tokenizer, and any additional 
+processors, extractors, or configuration needed for a specific task. Logging components with MLflow allows for more flexibility and 
+customization. You can log individual components when your project needs to have more control over the preprocessing and postprocessing 
+steps or when you need to access the individual components in a bespoke manner that diverges from how the pipeline abstraction would call them.
 
-    # Ask the chatbot a question
-    response = chatbot.predict("What is machine learning?")
-
-    print(response)
-
-    # >> [It's a new thing that's been around for a while.]
-
-
-Save and Load options for transformers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``transformers`` flavor for MLflow provides support for saving either components of a model or a pipeline object that contains the customized components in
-an easy to use interface that is optimized for inference.
+For example, you might log the components separately if you have a custom tokenizer or if you want to apply some special postprocessing 
+to the model outputs. When loading the components, you can then reconstruct the pipeline with your custom components or use the components 
+individually as needed.
 
 .. note::
     MLflow by default uses a 500 MB `max_shard_size` to save the model object in :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. You can use the environment variable `MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE` to override the value.
@@ -350,7 +433,7 @@ an easy to use interface that is optimized for inference.
     For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.
 
 Logging a components-based model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The example below shows logging components of a ``transformers`` model via a dictionary mapping of specific named components. The names of the keys within the submitted dictionary
 must be in the set: ``{"model", "tokenizer", "feature_extractor", "image_processor"}``. Processor type objects (some image processors, audio processors, and multi-modal processors)
@@ -402,7 +485,7 @@ After logging, the components are automatically inserted into the appropriate ``
 
 
 Saving a pipeline and loading components
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some use cases can benefit from the simplicity of defining a solution as a pipeline, but need the component-level access for performing a micro-services based deployment strategy
 where pre / post-processing is performed on containers that do not house the model itself. For this paradigm, a pipeline can be loaded as its constituent parts, as shown below.
@@ -454,8 +537,9 @@ where pre / post-processing is performed on containers that do not house the mod
     # >> [{'translation_text': "Les transformateurs rendent l'utilisation de modèles Deep Learning facile et amusante!"}]
 
 
+
 Automatic Metadata and ModelCard logging
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------
 
 In order to provide as much information as possible for saved models, the ``transformers`` flavor will automatically fetch the ``ModelCard`` for any model or pipeline that
 is saved that has a stored card on the HuggingFace hub. This card will be logged as part of the model artifact, viewable at the same directory level as the ``MLmodel`` file and
@@ -474,7 +558,7 @@ in order to determine what restrictions exist regarding the use of the model.
   Model license information was introduced in **MLflow 2.10.0**. Previous versions do not include license information for models.
 
 Automatic Signature inference
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 For pipelines that support ``pyfunc``, there are 3 means of attaching a model signature to the ``MLmodel`` file.
 
@@ -485,8 +569,8 @@ For pipelines that support ``pyfunc``, there are 3 means of attaching a model si
 * Do nothing. The ``transformers`` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
 
 
-Scalability for inference
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Scale Inference with Overriding Pytorch dtype
+---------------------------------------------
 
 A common configuration for lowering the total memory pressure for pytorch models within ``transformers`` pipelines is to modify the
 processing data type. This is achieved through setting the ``torch_dtype`` argument when creating a ``Pipeline``.
@@ -593,8 +677,8 @@ Result:
 .. note:: Overriding the data type for a pipeline when loading as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` is not supported.
     The value set for ``torch_dtype`` during ``save_model()`` or ``log_model()`` will persist when loading as `pyfunc`.
 
-Input data types for audio pipelines
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Input Data Types for Audio Pipelines
+------------------------------------
 
 Note that passing raw data to an audio pipeline (raw bytes) requires two separate elements of the same effective library.
 In order to use the bitrate transposition and conversion of the audio bytes data into numpy nd.array format, the library `ffmpeg` is required.
@@ -649,3 +733,175 @@ This input format requires that both the bitrate has been set prior to conversio
     must have the model saved with a signature configuration that reflects this schema. Failure to do so will result in type casting errors due to the default signature for
     audio transformers pipelines being set as expecting ``binary`` (``bytes``) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
     or the other as an allowed input type.
+
+.. _transformers-save-pretrained-guide:
+
+Storage-Efficient Model Logging with ``save_pretrained`` Option
+---------------------------------------------------------------
+
+.. warning::
+
+    The ``save_pretrained`` argument is only available in MLflow 2.11.0 and above, and still in experimental stage. The API and behavior may change in future releases. Moreover, this feature is intended for advanced users who are familiar with Transformers and MLflow, understanding :ref:`the potential risks <caveats-of-save-pretrained>` of using this feature.
+
+Avoiding Redundant Model Copy by Setting ``save_pretrained=False``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Typically, when MLflow logs an ML model, it saves a copy of the model weight to the artifact store.
+However, this is not optimal when you use a pretrained model from HuggingFace Hub and have no intention of fine-tuning or otherwise manipulating the model or its weights before logging it. For this very common case, copying the (typically very large) model weights is redundant while developing prompts, testing inference parameters, and otherwise is little more than an unnecessary waste of storage space.
+
+To address this issue, MLflow 2.11.0 introduced a new argument ``save_pretrained`` in the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` APIs. When with argument is set to ``False``, MLflow will forego saving the pretrained model weights, opting instead to store a reference to the underlying repository entry on the HuggingFace Hub; specifically, the  repository name and the unique commit hash of the model weights are stored when your components or pipeline are logged. When loading back such a *refernce-only* model, MLflow will check the repository name and commit hash from the saved metadata, and either download the model weight from the HuggingFace Hub or use the locally cached model from your HuggingFace local cache directory.
+
+A good analogy for this feature is the comparison between a file *copy* and a *symlink* operation. The default behavior for the transformers flavor is to perform a copy, materializing the model weight files in your artifact store that is associated with the run that the model is logged to. By setting ``save_pretrained=False``, MLflow will log a link to the HuggingFace Hub repository, effectively building in symlink functionality to the run. This will save storage space and reduce the logging latency significantly, particularly for large models like LLMs.
+
+.. note:
+
+    By default, the ``save_pretrained`` argument is set to ``True`` and doesn't change the model saving behavior.
+
+Example Usage
+^^^^^^^^^^^^^
+
+Here is the example of using ``save_pretrained`` argument for logging a model
+
+.. code-block:: python
+
+    import transformers
+
+    pipeline = transformers.pipeline(
+        task="text-generation", model="databricks/dolly-v2-7b", torch_dtype="torch.float16"
+    )
+
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=pipeline,
+            artifact_path="dolly",
+            save_pretrained=False,
+        )
+
+In the above example, MLflow will not save a copy of the **Dolly-v2-7B** model's weights and will instead log the following metadata as a reference to the HuggingFace Hub model. This will save roughly 15GB of storage space and reduce the logging latency significantly as well for each run that you initiate during development.
+```
+source_model_name: "databricks/dolly-v2-7b"
+source_model_revision: "d632f0c8b75b1ae5b26b250d25bfba4e99cb7c6f"
+```
+
+.. _caveats-of-save-pretrained:
+
+Caveats of Reference-Only Models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+While the ``save_pretrained`` argument is useful for saving storage space and reducing logging latency, it has the following caveats to be aware of:
+
+* **Change in Model Unavailability**: If you are using a model from other users' repository, the model may be deleted or become private in the HuggingFace Hub. In such cases, MLflow cannot load the model back. For production use cases, it is recommended to save the copy model weight to the artifact store prior to moving from development or staging to production for your model.
+
+* **HuggingFace Hub Access**: Downloading a model from the HuggingFace Hub might be slow or unstable due to the network condition or the HuggingFace Hub service status. MLflow doesn't provide any retry mechanism or robust error handling for the model downloading. As such, you should not rely on this functionality for your final production-candidate run.
+
+* **Limited Databricks Integration**: If you are using Databricks, be aware that the model saved with `save_pretrained=False` cannot be registered to the legacy `Workspace Model Registry <https://docs.databricks.com/en/machine-learning/manage-model-lifecycle/workspace-model-registry.html>`_. If you want to register the reference-only Transformer model, please use `Unity Catalog <https://docs.databricks.com/en/machine-learning/manage-model-lifecycle/index.html>`_ instead, or download the model weight in advance using :py:func:`mlflow.transformers.persist_pretrained_model()` API as described in the next section.
+
+.. _persist-pretrained-guide:
+
+Persist the Model Weight to the Existing Reference-Only Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you want to update the reference-only model to an instance that contains the model weight, you can use the :py:func:`mlflow.transformers.persist_pretrained_model()` API. This API will download the model weight from the HuggingFace Hub, save it to the artifact location, and update the metadata of the given reference-only model. After this operation, the model will be equivalent to the one saved with `save_pretrained=True` and be ready for the production use.
+
+.. tip::
+
+    The :py:func:`mlflow.transformers.persist_pretrained_model()` API **does NOT require re-logging a model** but efficiently update the existing model and metadata in-place.
+
+.. code-block:: python
+
+    import mlflow
+    import transformers
+
+    pipeline = transformers.pipeline(
+        task="text-generation", model="databricks/dolly-v2-7b", torch_dtype="torch.float16"
+    )
+
+    # Save the reference-only Transformer model
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=pipeline,
+            artifact_path="dolly",
+            save_pretrained=False,
+        )
+
+    # Model weight is not saved to the artifact store
+    assert not os.path.exists(model_info.artifact_path + "/model")
+
+    # This will download the model weight from the HuggingFace Hub and save it
+    # to the artifact location
+    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+
+    assert os.path.exists(model_info.artifact_path + "/model")
+
+
+PEFT Models in MLflow Transformers flavor
+-----------------------------------------
+
+.. warning::
+
+
+    The PEFT model is supported in MLflow 2.11.0 and above and is still in the experimental stage. The API and behavior may change in future releases. Moreover, the `PEFT <https://huggingface.co/docs/peft/en/index>`_ library is under active development, so not all features
+    and adapter types might be supported in MLflow.
+
+`PEFT <https://huggingface.co/docs/peft/en/index>`_ is a library developed by HuggingFace🤗, that provides various optimization methods for pretrained models available on the HuggingFace Hub. With PEFT, you can easily apply various optimization techniques like LoRA and QLoRA to reduce the cost of fine-tuning Transformers models.
+
+For example, `LoRA (Low-Rank Adaptation) <https://huggingface.co/docs/peft/main/en/conceptual_guides/lora>`_ is a method that approximate the weight updates of fine-tuning process with two smaller matrices through low-rank decomposition. LoRA typically shrinks the number of parameters to train to only 0.01% ~ a few % of the full model fine-tuning (depending on the configuration), which significantly accelerates the fine-tuning process and reduces the memory footprint, such that you can even `train a Mistral/Llama2 7B model on a single Nvidia A10G GPU in an hour <../tutorials/fine-tuning/transformers-peft.html>`_.
+By using PEFT, you can apply LoRA to your Transformers model with only a few lines of code:
+
+.. code-block:: python
+
+    from peft import LoraConfig, get_peft_model
+
+    base_model = AutoModelForCausalLM.from_pretrained(...)
+    lora_config = LoraConfig(...)
+    peft_model = get_peft_model(base_model, lora_config)
+
+
+In MLflow 2.11.0, we introduced support for tracking PEFT models in the MLflow Transformers flavor. You can log and load PEFT models using the same APIs as other Transformers models, such as :py:func:`mlflow.transformers.log_model()` and :py:func:`mlflow.transformers.load_model()`.
+
+.. code-block:: python
+
+    import mlflow
+    from peft import LoraConfig, get_peft_model
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    model_id = "databricks/dolly-v2-7b"
+    base_model = AutoModelForCausalLM.from_pretrained(model_id)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+    peft_config = LoraConfig(...)
+    peft_model = get_peft_model(base_model, peft_config)
+
+    with mlflow.start_run():
+        # Your training code here
+        ...
+
+        # Log the PEFT model
+        model_info = mlflow.transformers.log_model(
+            transformers_model={
+                "model": peft_model,
+                "tokenizer": tokenizer,
+            },
+            artifact_path="peft_model",
+        )
+
+    # Load the PEFT model
+    loaded_model = mlflow.transformers.load_model(model_info.model_uri)
+
+PEFT Models in MLflow Tutorial
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Check out the tutorial `Fine-Tuning Open-Source LLM using QLoRA with MLflow and PEFT <../tutorials/fine-tuning/transformers-peft.html>`_ for a more in-depth guide on how to use PEFT with MLflow,
+
+Format of Saved PEFT Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+When saving PEFT models, MLflow only saves the PEFT adapter and the configuration, but not the base model's weights. This is the same behavior as the Transformer's `save_pretrained() <https://huggingface.co/docs/transformers/v4.38.1/en/main_classes/model#transformers.PreTrainedModel.save_pretrained>`_ method and is highly efficient in terms of storage space and logging latency. One difference is that MLflow will also save the HuggingFace Hub repository name and version for the base model in the model metadata, so that it can load the same base model when loading the PEFT model. Concretely, the following artifacts are saved in MLflow for PEFT models:
+
+* The PEFT adapter weight under the ``/peft`` directory.
+* The PEFT configuration as a JSON file under the ``/peft`` directory.
+* The HuggingFace Hub repository name and commit hash for the base model in the ``MLModel`` metadata file.
+
+Limitations of PEFT Models in MLflow
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Since the model saving/loading behavior for PEFT models is similar to that of ``save_pretrained=False``, :ref:`the same caveats <caveats-of-save-pretrained>` apply to PEFT models. For example, the base model weight may be deleted or become private in the HuggingFace Hub, and PEFT models cannot be registered to the legacy Databricks Workspace Model Registry.
+
+To save the base model weight for PEFT models, you can use the :py:func:`mlflow.transformers.persist_pretrained_model()` API. This will download the base model weight from the HuggingFace Hub and save it to the artifact location, updating the metadata of the given PEFT model. Please refer to :ref:`this section <persist-pretrained-guide>` for the detailed usage of this API.

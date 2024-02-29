@@ -1,13 +1,14 @@
-import type { ReactNode } from 'react';
 import React from 'react';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../../design-system/DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventProps } from '../../design-system/types';
 export declare const BANNER_MIN_HEIGHT = 68;
 export declare const BANNER_MAX_HEIGHT = 82;
 export type BannerLevel = 'info' | 'warning' | 'error';
-export interface BannerProps {
+export interface BannerProps extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     level: BannerLevel;
-    message: ReactNode;
-    description?: ReactNode;
-    ctaText?: ReactNode;
+    message: string;
+    description?: string;
+    ctaText?: string;
     onAccept?: () => void;
     closable?: boolean;
     onClose?: () => void;

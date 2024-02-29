@@ -5,22 +5,13 @@ from functools import partial
 from pathlib import Path
 from typing import Union
 
-from mlflow.environment_variables import (
-    MLFLOW_TRACKING_AUTH,
-    MLFLOW_TRACKING_AWS_SIGV4,
-    MLFLOW_TRACKING_CLIENT_CERT_PATH,
-    MLFLOW_TRACKING_INSECURE_TLS,
-    MLFLOW_TRACKING_SERVER_CERT_PATH,
-    MLFLOW_TRACKING_TOKEN,
-    MLFLOW_TRACKING_URI,
-)
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.utils import rest_utils
-from mlflow.utils.credentials import read_mlflow_creds
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
@@ -138,23 +129,8 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 
-def _get_default_host_creds(store_uri):
-    creds = read_mlflow_creds()
-    return rest_utils.MlflowHostCreds(
-        host=store_uri,
-        username=creds.username,
-        password=creds.password,
-        token=MLFLOW_TRACKING_TOKEN.get(),
-        aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
-        auth=MLFLOW_TRACKING_AUTH.get(),
-        ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
-        client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
-        server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
-    )
-
-
 def _get_rest_store(store_uri, **_):
-    return RestStore(partial(_get_default_host_creds, store_uri))
+    return RestStore(partial(get_default_host_creds, store_uri))
 
 
 def _get_databricks_rest_store(store_uri, **_):

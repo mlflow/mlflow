@@ -109,7 +109,7 @@ tensorflow:
     maximum: "2.15.0.post1"
     requirements:
       # Requirements to run tests for keras
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
+      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
       "< 2.7.0": ["pandas>=1.3.5,<2.0"]
       ">= 2.7.0": ["pandas<2.0"]
       # TensorFlow == 2.6.5 are incompatible with SQLAlchemy 2.x due to
@@ -534,6 +534,7 @@ transformers:
           "torch",
           "torchvision",
           "tensorflow",
+          "peft", # optimized fine-tuning library developed by Hugging Face
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
@@ -571,6 +572,9 @@ transformers:
           "setfit",
           "optuna",
         ]
+      # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
+      # to check nltk availability. This function is only available in transformers>=4.34.0.
+      "< 4.34": ["sentence-transformers<2.4.0"]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
@@ -616,6 +620,13 @@ langchain:
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
+      # test both pydantic v1 and v2
+      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
+      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
+      if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
+        pip install 'pydantic>2'
+        pytest tests/langchain/test_langchain_model_export.py
+      fi
   autologging:
     minimum: "0.1.4"
     maximum: "0.1.5"
@@ -637,6 +648,14 @@ langchain:
       # For MlflowCallback text analysis
       python -m spacy download en_core_web_sm
       pytest tests/langchain/test_langchain_autolog.py
+      # test both pydantic v1 and v2
+      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
+      if [[ $PYDANTIC_VERSION == 1.* ]]; then
+        pip install 'pydantic>2'
+        sleep 10
+        echo "Testing langchain autolog with pydantic v2"
+        pytest tests/langchain/test_langchain_autolog.py
+      fi
 
 sentence_transformers:
   package_info:

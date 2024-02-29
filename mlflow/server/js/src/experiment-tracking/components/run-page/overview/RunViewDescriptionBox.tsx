@@ -44,6 +44,7 @@ export const RunViewDescriptionBox = ({
           description="Run page > Overview > Description section > Section title"
         />
         <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewdescriptionbox.tsx_46"
           size="small"
           type="tertiary"
           aria-label={intl.formatMessage({

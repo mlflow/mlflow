@@ -8,6 +8,7 @@ from tests.transformers.helper import (
     load_fill_mask_pipeline,
     load_ner_pipeline,
     load_ner_pipeline_aggregation,
+    load_peft_pipeline,
     load_small_conversational_model,
     load_small_multi_modal_pipeline,
     load_small_qa_pipeline,
@@ -122,3 +123,8 @@ def audio_classification_pipeline():
 @pytest.fixture
 def feature_extraction_pipeline():
     return load_feature_extraction_pipeline()
+
+
+@pytest.fixture
+def peft_pipeline():
+    return load_peft_pipeline()

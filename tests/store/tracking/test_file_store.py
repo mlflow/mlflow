@@ -1522,7 +1522,7 @@ def test_log_param_enforces_value_immutability(store):
     assert run.data.params[param_name] == "value1"
 
 
-def test_log_param_max_length_value(store):
+def test_log_param_max_length_value(store, monkeypatch):
     param_name = "new param"
     param_value = "x" * 6000
     _, exp_data, _ = _create_root(store)
@@ -1530,8 +1530,12 @@ def test_log_param_max_length_value(store):
     store.log_param(run_id, Param(param_name, param_value))
     run = store.get_run(run_id)
     assert run.data.params[param_name] == param_value
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     with pytest.raises(MlflowException, match="exceeded length"):
         store.log_param(run_id, Param(param_name, "x" * 6001))
+
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
+    store.log_param(run_id, Param(param_name, "x" * 6001))
 
 
 def test_weird_metric_names(store):
@@ -1798,7 +1802,7 @@ def test_log_batch(store):
     _verify_logged(store, run_id, metric_entities, param_entities, tag_entities)
 
 
-def test_log_batch_max_length_value(store):
+def test_log_batch_max_length_value(store, monkeypatch):
     param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
     expected_param_entities = [
         Param("long param", "x" * 6000),
@@ -1814,9 +1818,13 @@ def test_log_batch_max_length_value(store):
     store.log_batch(run.info.run_id, (), param_entities, ())
     _verify_logged(store, run.info.run_id, (), expected_param_entities, ())
 
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     param_entities = [Param("long param", "x" * 6001), Param("short param", "xyz")]
     with pytest.raises(MlflowException, match="exceeded length"):
         store.log_batch(run.info.run_id, (), param_entities, ())
+
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
+    store.log_batch(run.info.run_id, (), param_entities, ())
 
 
 def test_log_batch_internal_error(store):

@@ -7,7 +7,7 @@
 
 import React from 'react';
 import _ from 'lodash';
-import { Button, Select, Switch, Tooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
+import { Button, LegacySelect, Switch, Tooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -189,7 +189,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
               description="Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
             />
           </div>
-          <Select
+          <LegacySelect
             placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Please select metric',
               description:
@@ -202,11 +202,11 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
             css={styles.axisSelector}
           >
             {this.getAllMetricKeys().map((key) => (
-              <Select.Option value={key.value} key={key.key}>
+              <LegacySelect.Option value={key.value} key={key.key}>
                 {key.title}
-              </Select.Option>
+              </LegacySelect.Option>
             ))}
-          </Select>
+          </LegacySelect>
         </div>
         <div className="inline-control">
           <div className="control-label">
@@ -220,6 +220,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
         </div>
         <div className="inline-control">
           <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_222"
             css={{
               textAlign: 'justify',
               textAlignLast: 'left',

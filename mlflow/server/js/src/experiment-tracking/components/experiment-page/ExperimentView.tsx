@@ -18,7 +18,7 @@ import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
 import {
-  shouldEnableDeepLearningUIPhase2,
+  shouldEnableExperimentPageCompactHeader,
   shouldEnableShareExperimentViewByTags,
 } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
@@ -98,8 +98,6 @@ export const ExperimentView = () => {
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 
-  const useDeepLearningUIPhase2 = shouldEnableDeepLearningUIPhase2();
-
   if (usingNewViewStateModel && !isViewInitialized) {
     // In the new view state model, wait for search facets to initialize
     return <LegacySkeleton />;
@@ -116,7 +114,7 @@ export const ExperimentView = () => {
   const isLoading = isLoadingExperiment || !experiments[0];
 
   const renderExperimentHeader = () =>
-    useDeepLearningUIPhase2 ? (
+    shouldEnableExperimentPageCompactHeader() ? (
       <>
         <ExperimentViewHeaderV2
           experiment={firstExperiment}

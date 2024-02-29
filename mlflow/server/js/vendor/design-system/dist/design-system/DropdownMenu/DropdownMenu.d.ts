@@ -1,4 +1,4 @@
-import type { Interpolation, CSSObject } from '@emotion/react';
+import type { CSSObject, Interpolation } from '@emotion/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import React from 'react';
 import type { Theme } from '../../theme';

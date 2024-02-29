@@ -80,7 +80,7 @@ export const RunViewMetricChart = ({
 
   const runUuidsArray = useMemo(() => [runInfo.run_uuid], [runInfo]);
   const metricKeys = useMemo(() => [metricKey], [metricKey]);
-  const [range, setRange] = useState<[number | string, number | string] | undefined>(undefined);
+  const [xRange, setRange] = useState<[number | string, number | string] | undefined>(undefined);
   const { theme } = useDesignSystemTheme();
 
   const [stepRange, setStepRange] = useState<[number, number] | undefined>(undefined);
@@ -129,12 +129,18 @@ export const RunViewMetricChart = ({
     return () => {};
   }, [chartRefreshManager, refresh, isInViewport]);
 
+  const yRange = useRef<[number, number] | undefined>(undefined);
+
   const chartLayoutUpdated = ({ layout }: Readonly<Figure>) => {
     // Remove saved range if chart is back to default viewport
     if (layout.xaxis?.autorange === true) {
       setRange(undefined);
       updateStepRange(undefined);
     }
+
+    const newYRange = layout.yaxis?.range;
+    yRange.current = newYRange ? [...(newYRange as [number, number])] : undefined;
+
     // If the custom range is used, memoize it
     if (layout.xaxis?.autorange === false && layout.xaxis?.range) {
       setRange([...(layout.xaxis.range as [number, number])]);
@@ -185,7 +191,11 @@ export const RunViewMetricChart = ({
         metricsHistory={metricsHistory}
         runInfo={runInfo}
         onUpdate={chartLayoutUpdated}
-        range={range}
+        // X-axis is stateful since it's used for sampling recalculation. For Y-axis,
+        // the immediate value is sufficient. It will not kick off rerender, but in those
+        // cases the plotly will use last known range.
+        xRange={xRange}
+        yRange={yRange.current}
       />
     );
   };

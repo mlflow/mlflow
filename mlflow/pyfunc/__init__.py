@@ -257,7 +257,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.pyfunc.model import (
     ChatModel,
     PythonModel,
-    PythonModelContext,  # noqa: F401
+    PythonModelContext,
     _log_warning_if_params_not_in_predict_signature,
     _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
@@ -2063,7 +2063,12 @@ def save_model(
             # output is not coercable to ChatResponse
             messages = [ChatMessage(**m) for m in input_example["messages"]]
             params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
-            output = python_model.predict(None, messages, params)
+
+            # call load_context() first, as predict may depend on it
+            _logger.info("Predicting on input example to validate output")
+            context = PythonModelContext(artifacts, model_config)
+            python_model.load_context(context)
+            output = python_model.predict(context, messages, params)
             if not isinstance(output, ChatResponse):
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "

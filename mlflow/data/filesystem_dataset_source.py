@@ -2,10 +2,8 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class FileSystemDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored on a filesystem, e.g. a local UNIX filesystem,

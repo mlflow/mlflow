@@ -108,8 +108,9 @@ class ParamDocs(dict):
             >>> pd = ParamDocs(p1="doc1", p2="doc2
             doc2 second line")
             >>> docstring = '''
-            ... :param p1: {{ p1 }}
-            ... :param p2: {{ p2 }}
+            ... Args:
+            ...     p1: {{ p1 }}
+            ...     p2: {{ p2 }}
             ... '''.strip()
             >>> print(pd.format_docstring(docstring))
         """
@@ -143,14 +144,16 @@ def format_docstring(param_docs):
         >>> @format_docstring(param_docs)
         ... def func(p1, p2):
         ...     '''
-        ...     :param p1: {{ p1 }}
-        ...     :param p2: {{ p2 }}
+        ...     Args:
+        ...         p1: {{ p1 }}
+        ...         p2: {{ p2 }}
         ...     '''
         >>> import textwrap
         >>> print(textwrap.dedent(func.__doc__).strip())
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
+        Args:
+            p1: doc1
+            p2: doc2
+                doc2 second line
     """
     param_docs = ParamDocs(param_docs)
 
@@ -269,6 +272,40 @@ Currently, only the following pipeline types are supported:
 - `summarization <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline>`_
 - `text2text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline>`_
 - `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
+"""
+        ),
+        "save_pretrained": (
+            """If set to ``False``, MLflow will not save the Transformer model weight files,
+instead only saving the reference to the HuggingFace Hub model repository and its commit hash.
+This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
+it to MLflow without modifying the model weights. In such case, specifying this flag to
+``False`` will save the storage space and reduce time to save the model. Please refer to the
+:ref:`Storage-Efficient Model Logging <transformers-save-pretrained-guide>` for more detailed usage.
+
+
+.. warning::
+
+    If the model is saved with ``save_pretrained`` set to ``False``, the model cannot be
+    registered to the MLflow Model Registry. In order to convert the model to the one that
+    can be registered, you can use :py:func:`mlflow.transformers.persist_pretrained_model()`
+    to download the model weights from the HuggingFace Hub and save it in the existing model
+    artifacts. Please refer to :ref:`Transformers flavor documentation <persist-pretrained-guide>`
+    for more detailed usage.
+
+    .. code-block:: python
+
+        import mlflow.transformers
+
+        model_uri = "YOUR_MODEL_URI_LOGGED_WITH_SAVE_PRETRAINED_FALSE"
+        model = mlflow.transformers.persist_pretrained_model(model_uri)
+        mlflow.register_model(model_uri, "model_name")
+
+.. important::
+
+    When you save the `PEFT <https://huggingface.co/docs/peft/en/index>`_ model, MLflow will
+    override the `save_pretrained` flag to `False` and only store the PEFT adapter weights. The
+    base model weights are not saved but the reference to the HuggingFace repository and
+    its commit hash are logged instead.
 """
         ),
     }

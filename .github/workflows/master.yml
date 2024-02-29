@@ -277,9 +277,8 @@ jobs:
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py \
-            --ignore tests/pyfunc/docker/test_docker_flavors.py
 
-          # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
+          # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
 
   sagemaker:

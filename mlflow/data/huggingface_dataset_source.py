@@ -1,13 +1,11 @@
 from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import datasets
 
 
-@experimental
 class HuggingFaceDatasetSource(DatasetSource):
     """Represents the source of a Hugging Face dataset used in MLflow Tracking."""
 

@@ -50,7 +50,7 @@ export const getSampledMetricHistoryBulkAction =
     // If we are refreshing, fetch data for all run UUIDs.
     const runUuidsToFetch = isRefreshing ? runUuids : difference(runUuids, skippedRunUuids);
 
-    if (!runUuidsToFetch.length) {
+    if (!runUuidsToFetch.length || !decodeURIComponent(metricKey)) {
       return;
     }
 

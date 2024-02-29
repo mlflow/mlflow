@@ -1,6 +1,7 @@
 """MLflow autologging support for Keras 3."""
 
 import logging
+from itertools import tee
 
 import keras
 import numpy as np
@@ -14,6 +15,7 @@ from mlflow.keras.callback import MLflowCallback
 from mlflow.keras.save import log_model
 from mlflow.keras.utils import get_model_signature
 from mlflow.tracking.context import registry as context_registry
+from mlflow.utils import is_iterator
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     PatchFunction,
@@ -24,19 +26,6 @@ from mlflow.utils.autologging_utils import (
 )
 
 _logger = logging.getLogger(__name__)
-
-
-def _infer_batch_size(*keras_fit_args, **keras_fit_kwargs):
-    if "batch_size" in keras_fit_kwargs:
-        return keras_fit_kwargs["batch_size"]
-
-    training_data = keras_fit_kwargs["x"] if "x" in keras_fit_kwargs else keras_fit_args[0]
-    batch_size = getattr(training_data, "batch_size", None) or getattr(
-        training_data, "_batch_size", None
-    )
-    if batch_size:
-        return batch_size
-    return None
 
 
 def _check_existing_mlflow_callback(callbacks):
@@ -209,10 +198,34 @@ def autolog(
         def __init__(self):
             pass
 
+        def _infer_batch_size(self, inst, *args, **kwargs):
+            batch_size = None
+            if "batch_size" in kwargs:
+                batch_size = kwargs["batch_size"]
+            else:
+                training_data = kwargs["x"] if "x" in kwargs else args[0]
+                if _batch_size := getattr(training_data, "batch_size", None):
+                    batch_size = _batch_size
+                elif _batch_size := getattr(training_data, "_batch_size", None):
+                    batch_size = (
+                        _batch_size if isinstance(_batch_size, int) else _batch_size.numpy()
+                    )
+                elif is_iterator(training_data):
+                    is_single_input_model = isinstance(inst.input_shape, tuple)
+                    training_data, training_data_copy = tee(training_data)
+                    peek = next(training_data_copy)
+                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
+
+                    if "x" in kwargs:
+                        kwargs["x"] = training_data
+                    else:
+                        args = (training_data,) + args[1:]
+            return batch_size, args, kwargs
+
         def _patch_implementation(self, original, inst, *args, **kwargs):
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
-            batch_size = _infer_batch_size(*args, **kwargs)
+            batch_size, args, kwargs = self._infer_batch_size(inst, *args, **kwargs)
 
             if batch_size is not None:
                 mlflow.log_param("batch_size", batch_size)

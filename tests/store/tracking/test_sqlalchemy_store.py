@@ -1162,7 +1162,7 @@ def test_log_null_param(store: SqlAlchemyStore):
     reason="large string parameters are sent as TEXT/NTEXT; "
     "see tests/db/compose.yml for details",
 )
-def test_log_param_max_length_value(store: SqlAlchemyStore):
+def test_log_param_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
     tkey = "blahmetric"
     tval = "x" * 6000
@@ -1170,8 +1170,12 @@ def test_log_param_max_length_value(store: SqlAlchemyStore):
     store.log_param(run.info.run_id, param)
     run = store.get_run(run.info.run_id)
     assert run.data.params[tkey] == str(tval)
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     with pytest.raises(MlflowException, match="exceeded length"):
         store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
+
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
+    store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
 
 
 def test_set_experiment_tag(store: SqlAlchemyStore):
@@ -1214,7 +1218,7 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
         store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
 
 
-def test_set_tag(store: SqlAlchemyStore):
+def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
 
     tkey = "test tag"
@@ -1226,8 +1230,13 @@ def test_set_tag(store: SqlAlchemyStore):
     # Overwriting tags is allowed
     store.set_tag(run.info.run_id, new_tag)
     # test setting tags that are too long fails.
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
         store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
+    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+
     # test can set tags that are somewhat long
     store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
     run = store.get_run(run.info.run_id)
@@ -2755,15 +2764,19 @@ def test_log_batch_null_metrics(store: SqlAlchemyStore):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_log_batch_params_max_length_value(store: SqlAlchemyStore):
+def test_log_batch_params_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
     param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
     expected_param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
     store.log_batch(run.info.run_id, [], param_entities, [])
     _verify_logged(store, run.info.run_id, [], expected_param_entities, [])
     param_entities = [Param("long param", "x" * 6001)]
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     with pytest.raises(MlflowException, match="exceeded length"):
         store.log_batch(run.info.run_id, [], param_entities, [])
+
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
+    store.log_batch(run.info.run_id, [], param_entities, [])
 
 
 def test_upgrade_cli_idempotence(store: SqlAlchemyStore):

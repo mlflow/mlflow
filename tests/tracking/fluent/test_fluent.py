@@ -15,6 +15,7 @@ import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow import MlflowClient
+from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     LifecycleStage,
@@ -1273,6 +1274,21 @@ def test_log_input(tmp_path):
     assert dataset_inputs[0].tags[0].value == "train"
 
 
+def test_log_input_metadata_only():
+    source_uri = "test:/my/test/uri"
+    source = HTTPDatasetSource(url=source_uri)
+    dataset = mlflow.data.meta_dataset.MetaDataset(source=source)
+
+    with start_run() as run:
+        mlflow.log_input(dataset, "train")
+    dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest is not None
+    assert dataset_inputs[0].dataset.source_type == "http"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"url": source_uri}
+
+
 def test_get_parent_run():
     with mlflow.start_run() as parent:
         mlflow.log_param("a", 1)
@@ -1363,6 +1379,36 @@ def test_flush_async_logging():
 
         metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
         assert len(metric_history) == 100
+
+
+def test_enable_async_logging():
+    mlflow.config.enable_async_logging(True)
+    with mock.patch(
+        "mlflow.utils.async_logging.async_logging_queue.AsyncLoggingQueue.log_batch_async"
+    ) as mock_log_batch_async:
+        with mlflow.start_run():
+            mlflow.log_metric("dummy", 1)
+            mlflow.log_param("dummy", 1)
+            mlflow.set_tag("dummy", 1)
+            mlflow.log_metrics({"dummy": 1})
+            mlflow.log_params({"dummy": 1})
+            mlflow.set_tags({"dummy": 1})
+
+    assert mock_log_batch_async.call_count == 6
+
+    mlflow.config.enable_async_logging(False)
+    with mock.patch(
+        "mlflow.utils.async_logging.async_logging_queue.AsyncLoggingQueue.log_batch_async"
+    ) as mock_log_batch_async:
+        with mlflow.start_run():
+            mlflow.log_metric("dummy", 1)
+            mlflow.log_param("dummy", 1)
+            mlflow.set_tag("dummy", 1)
+            mlflow.log_metrics({"dummy": 1})
+            mlflow.log_params({"dummy": 1})
+            mlflow.set_tags({"dummy": 1})
+
+    mock_log_batch_async.assert_not_called()
 
 
 def test_set_tag_async():

@@ -18,6 +18,13 @@ global.clearImmediate = (id) => {
 //
 window.URL.createObjectURL = function createObjectURL() {};
 
+const testPath = expect.getState().testPath;
+if (!testPath?.includes('.enzyme.')) {
+  jest.mock('enzyme', () => {
+    throw new Error('Enzyme is deprecated. Please use React Testing Library. go/deprecateenzyme');
+  });
+}
+
 // Mock loadMessages which uses require.context from webpack which is unavailable in node.
 jest.mock('./i18n/loadMessages', () => ({
   __esModule: true,

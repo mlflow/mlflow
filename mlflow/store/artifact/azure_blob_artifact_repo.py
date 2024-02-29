@@ -14,7 +14,7 @@ from mlflow.entities.multipart_upload import (
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 
 
 def encode_base64(data: Union[str, bytes]) -> str:
@@ -58,14 +58,14 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
                 conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
-                connection_verify=_get_default_host_creds(artifact_uri).verify,
+                connection_verify=get_default_host_creds(artifact_uri).verify,
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
             account_url = f"https://{account}.{api_uri_suffix}"
             self.client = BlobServiceClient(
                 account_url=account_url,
                 credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
-                connection_verify=_get_default_host_creds(artifact_uri).verify,
+                connection_verify=get_default_host_creds(artifact_uri).verify,
             )
         else:
             try:
@@ -80,7 +80,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             self.client = BlobServiceClient(
                 account_url=account_url,
                 credential=DefaultAzureCredential(),
-                connection_verify=_get_default_host_creds(artifact_uri).verify,
+                connection_verify=get_default_host_creds(artifact_uri).verify,
             )
 
     @staticmethod

@@ -432,3 +432,185 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
     },
   },
 };
+
+/**
+ * Object mapping runUuids to mock metric history for each run.
+ * This is used to test generating aggregate history for run groups,
+ * for example in `createValueAggregatedMetricHistory()`.
+ *
+ * The "base" metric for run 1 is [5,4,3,2,1] and [0,1,2,3,5] for run 2.
+ * The "metric" metric is `base - 2` for run 1, and `base + 2` for run 2.
+ */
+
+export const MOCK_RUN_UUIDS_TO_HISTORY_MAP = {
+  '11ab92332f8c4ed28cac10fbfb8e0ecc': {
+    runUuid: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+    metric: {
+      metricsHistory: [
+        {
+          key: 'metric',
+          value: 3,
+          timestamp: 1706499312509,
+          step: 0,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'metric',
+          value: 2,
+          timestamp: 1706499312755,
+          step: 1,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'metric',
+          value: 1,
+          timestamp: 1706499312952,
+          step: 2,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'metric',
+          value: 0,
+          timestamp: 1706499313139,
+          step: 3,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'metric',
+          value: -1,
+          timestamp: 1706499313326,
+          step: 4,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+      ],
+      loading: false,
+      refreshing: false,
+    },
+    base: {
+      metricsHistory: [
+        {
+          key: 'base',
+          value: 5,
+          timestamp: 1706499312374,
+          step: 0,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'base',
+          value: 4,
+          timestamp: 1706499312614,
+          step: 1,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'base',
+          value: 3,
+          timestamp: 1706499312863,
+          step: 2,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'base',
+          value: 2,
+          timestamp: 1706499313042,
+          step: 3,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+        {
+          key: 'base',
+          value: 1,
+          timestamp: 1706499313238,
+          step: 4,
+          run_id: '11ab92332f8c4ed28cac10fbfb8e0ecc',
+        },
+      ],
+      loading: false,
+      refreshing: false,
+    },
+  },
+  a9b89d3b2bf54d9ba8ae539dbffa9a4c: {
+    runUuid: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+    metric: {
+      metricsHistory: [
+        {
+          key: 'metric',
+          value: 3,
+          timestamp: 1706499310846,
+          step: 0,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'metric',
+          value: 4,
+          timestamp: 1706499311022,
+          step: 1,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'metric',
+          value: 5,
+          timestamp: 1706499311240,
+          step: 2,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'metric',
+          value: 6,
+          timestamp: 1706499311435,
+          step: 3,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'metric',
+          value: 7,
+          timestamp: 1706499311609,
+          step: 4,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+      ],
+      loading: false,
+      refreshing: false,
+    },
+    base: {
+      metricsHistory: [
+        {
+          key: 'base',
+          value: 1,
+          timestamp: 1706499310738,
+          step: 0,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'base',
+          value: 2,
+          timestamp: 1706499310937,
+          step: 1,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'base',
+          value: 3,
+          timestamp: 1706499311144,
+          step: 2,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'base',
+          value: 4,
+          timestamp: 1706499311337,
+          step: 3,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+        {
+          key: 'base',
+          value: 5,
+          timestamp: 1706499311522,
+          step: 4,
+          run_id: 'a9b89d3b2bf54d9ba8ae539dbffa9a4c',
+        },
+      ],
+      loading: false,
+      refreshing: false,
+    },
+  },
+};
