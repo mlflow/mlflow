@@ -439,7 +439,7 @@ def _is_array_has_dict(nd_array):
 
     # It is less likely the array or list contains heterogeneous elements, so just checking the
     # first element to avoid performance overhead.
-    elm = nd_array[0]
+    elm = nd_array.item(0)
     if isinstance(elm, (list, np.ndarray)):
         return _is_array_has_dict(elm)
     elif isinstance(elm, dict):
