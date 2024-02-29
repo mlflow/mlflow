@@ -16,7 +16,7 @@ Find out about the details of major features, changes, and deprecations below.
                     </div>
                     <img class="card-image" src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace transformers"></img>
                     <div class="body">
-                        <p>The <a href="https://www.mlflow.org/docs/latest/llms/transformers/index.html">transformers flavor</a> 
+                        <p>The <a href="../llms/transformers/index.html">transformers flavor</a> 
                         in MLflow has gotten a significant feature overhaul.</p>
                         <ul>
                             <li>All supported pipeline types can now be logged without restriction</li>
@@ -90,7 +90,7 @@ Find out about the details of major features, changes, and deprecations below.
                     </div>
                     <img class="card-image" src="../_static/images/logos/mistral-ai-logo.svg" alt="Mistral AI" style="max-height: 5rem"></img>
                     <div class="body">
-                        The <a href="https://www.mlflow.org/docs/latest/llms/deployments/index.html">MLflow Deployments Server</a> can now 
+                        The <a href="../llms/deployments/index.html">MLflow Deployments Server</a> can now 
                         accept <a href="https://mistral.ai/">Mistral AI</a> endpoints. Give their models a try today! 
                     </div>
                     <div class="tag">
