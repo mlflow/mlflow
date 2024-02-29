@@ -21,9 +21,25 @@ Find out about the details of major features, changes, and deprecations below.
                         <ul>
                             <li>All supported pipeline types can now be logged without restriction</li>
                             <li>Pipelines using foundation models can now be logged without copying the large model weights</li>
-                            <li><a href="https://huggingface.co/docs/peft/en/index">PEFT</a> is now supported!</li>
                         </ul>
                     </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.11.0">released in 2.11.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        PEFT (Parameter-Efficient Fine-Tuning) support
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"></img>
+                    <div class="body">
+                        MLflow now natively supports PEFT (Parameter-Efficient Fine-Tuning) models in the Transformers flavor. PEFT 
+                        unlocks significantly efficient model fine-tuning like LoRA, QLoRA, and Prompt Tuning. Check it out to 
+                        build your own cutting-edge models with MLflow and PEFT!
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../llms/transformers/guide/index.html#peft-models-in-mlflow-transformers-flavor">Learn more</a></div>
                     <div class="tag">
                         <a href="https://github.com/mlflow/mlflow/releases/tag/v2.11.0">released in 2.11.0</a>
                     </div>
@@ -40,7 +56,7 @@ Find out about the details of major features, changes, and deprecations below.
                         OpenAI-compatible chat models are now easier than ever to build in MLflow! 
                         <a href="../python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatModel">ChatModel</a> is a new
                         Pyfunc subclass that makes it easy to deploy and serve chat models with MLflow.</p>
-                        
+
                         <p>
                         Check out the
                         <a href="../llms/transformers/tutorials/conversational/pyfunc-chat-model.html">new tutorial</a> 

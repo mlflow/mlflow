@@ -1,8 +1,9 @@
 import { keyBy } from 'lodash';
-import { renderWithIntl, fastFillInput, act, screen } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, fastFillInput, screen } from 'common/utils/TestUtils.react18';
 import { KeyValueEntity } from '../../../types';
 import { RunViewParamsTable } from './RunViewParamsTable';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import userEvent from '@testing-library/user-event-14';
 
 const testRunUuid = 'test-run-uuid';
 
@@ -42,16 +43,23 @@ describe('RunViewParamsTable', () => {
 
     expect(screen.getAllByRole('row')).toHaveLength(10); // 9 rows + 1 header row
 
-    await act(async () => {
-      fastFillInput(screen.getByRole('textbox'), 'param_a');
-    });
+    await fastFillInput(screen.getByRole('textbox'), 'param_a');
 
     expect(screen.getAllByRole('row')).toHaveLength(4); // 3 rows + 1 header row
 
-    await act(async () => {
-      fastFillInput(screen.getByRole('textbox'), 'param_xyz');
-    });
+    await userEvent.clear(screen.getByRole('textbox'));
+    await fastFillInput(screen.getByRole('textbox'), 'pArAM_a');
+
+    expect(screen.getAllByRole('row')).toHaveLength(4); // 3 rows + 1 header row
+
+    await userEvent.clear(screen.getByRole('textbox'));
+    await fastFillInput(screen.getByRole('textbox'), 'param_xyz');
 
     expect(screen.getByText('No parameters match the search filter')).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByRole('textbox'));
+    await fastFillInput(screen.getByRole('textbox'), '9.0');
+
+    expect(screen.getAllByRole('row')).toHaveLength(2); // 1 row + 1 header row
   });
 });

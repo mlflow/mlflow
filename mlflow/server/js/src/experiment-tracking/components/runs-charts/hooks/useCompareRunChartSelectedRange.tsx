@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { findChartStepsByTimestampForRuns } from '../utils/findChartStepsByTimestamp';
 import { SampledMetricsByRunUuidState } from '../../../types';
 import { isNumber, isString } from 'lodash';
+import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
 
 /**
  * Hook used in compare run charts. It's responsible for converting selected range
@@ -13,7 +14,7 @@ import { isNumber, isString } from 'lodash';
  * @param runUuids List of run UUIDs in compare chart
  */
 export const useCompareRunChartSelectedRange = (
-  xAxisKey: 'step' | 'time' | 'time-relative',
+  xAxisKey: RunsChartsLineChartXAxisType,
   metricKey: string,
   sampledMetricsByRunUuid: SampledMetricsByRunUuidState,
   runUuids: string[],
@@ -25,7 +26,7 @@ export const useCompareRunChartSelectedRange = (
     if (!range) {
       return undefined;
     }
-    if (xAxisKey === 'time' && isString(range[0]) && isString(range[1])) {
+    if (xAxisKey === RunsChartsLineChartXAxisType.TIME && isString(range[0]) && isString(range[1])) {
       // If we're dealing with absolute time-based chart axis, find corresponding steps based on timestamp
       const bounds = findChartStepsByTimestampForRuns(
         sampledMetricsByRunUuid,
@@ -36,7 +37,12 @@ export const useCompareRunChartSelectedRange = (
       return bounds;
     }
 
-    if (xAxisKey === 'time-relative' && offsetTimestamp && isNumber(range[0]) && isNumber(range[1])) {
+    if (
+      xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE &&
+      offsetTimestamp &&
+      isNumber(range[0]) &&
+      isNumber(range[1])
+    ) {
       // If we're dealing with absolute time-based chart axis, find corresponding steps based on timestamp
       const bounds = findChartStepsByTimestampForRuns(
         sampledMetricsByRunUuid,
@@ -47,12 +53,15 @@ export const useCompareRunChartSelectedRange = (
       return bounds;
     }
 
-    if (xAxisKey === 'step' && isNumber(range[0]) && isNumber(range[1])) {
+    if (xAxisKey === RunsChartsLineChartXAxisType.STEP && isNumber(range[0]) && isNumber(range[1])) {
       // If we're dealing with step-based chart axis, use those steps but incremented/decremented
       const lowerBound = Math.floor(range[0]);
       const upperBound = Math.ceil(range[1]);
       return lowerBound && upperBound ? [lowerBound - 1, upperBound + 1] : undefined;
     }
+
+    // return undefined for xAxisKey === 'metric' because there isn't
+    // necessarily a mapping between value range and step range
     return undefined;
   }, [xAxisKey, metricKey, range, sampledMetricsByRunUuid, runUuids, offsetTimestamp]);
 

@@ -1,3 +1,4 @@
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 import Routes from './routes';
 
 jest.mock('../common/utils/RoutingUtils', () => ({
@@ -25,9 +26,10 @@ describe('experiment tracking page routes', () => {
   });
 
   test('yields correct route paths for run page routes', () => {
+    const artifactRoute = shouldEnableDeepLearningUI() ? 'artifacts' : 'artifactPath';
     expect(Routes.getRunPageRoute('1234', 'run_uuid_1')).toEqual('/experiments/1234/runs/run_uuid_1');
     expect(Routes.getRunPageRoute('1234', 'run_uuid_1', 'sample/path/to/artifact')).toEqual(
-      '/experiments/1234/runs/run_uuid_1/artifactPath/sample/path/to/artifact',
+      `/experiments/1234/runs/run_uuid_1/${artifactRoute}/sample/path/to/artifact`,
     );
     expect(Routes.getCompareRunPageRoute(['run_uuid_1', 'run_uuid_2'], ['123', '124'])).toEqual(
       '/compare-runs?runs=["run_uuid_1","run_uuid_2"]&experiments=["123","124"]',

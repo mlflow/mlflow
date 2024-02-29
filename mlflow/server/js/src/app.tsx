@@ -13,13 +13,15 @@ import { DesignSystemContainer } from './common/components/DesignSystemContainer
 import { ConfigProvider } from 'antd';
 import { LegacySkeleton } from '@databricks/design-system';
 import { shouldUsePathRouting } from './common/utils/FeatureUtils';
-import { MlflowRouter } from './MlflowRouter';
+// eslint-disable-next-line no-useless-rename
+import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const i18n = useI18nInit();
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
 
   if (!i18n) {

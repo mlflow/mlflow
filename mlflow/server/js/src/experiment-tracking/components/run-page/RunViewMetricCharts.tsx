@@ -174,6 +174,7 @@ export const RunViewMetricCharts = ({
                 })}
               />
               <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewmetriccharts.tsx_176"
                 icon={
                   anyRunRefreshing ? <Spinner size="small" css={{ marginRight: theme.spacing.sm }} /> : <RefreshIcon />
                 }

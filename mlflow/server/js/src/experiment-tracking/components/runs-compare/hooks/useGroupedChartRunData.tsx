@@ -4,9 +4,10 @@ import invariant from 'invariant';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import {
   createAggregatedMetricHistory,
+  createValueAggregatedMetricHistory,
   type SyntheticMetricHistory,
 } from '../../experiment-page/utils/experimentPage.group-row-utils';
-import { uniq, type Dictionary, compact } from 'lodash';
+import { uniq, type Dictionary, compact, pick, isNil } from 'lodash';
 import type { SampledMetricsByRun } from '../../runs-charts/hooks/useSampledMetricHistory';
 import type { MetricHistoryByName } from '../../../types';
 
@@ -16,6 +17,7 @@ export interface UseGroupedChartRunDataParams {
   aggregateFunction?: RunGroupingAggregateFunction;
   metricKeys: string[];
   sampledDataResultsByRunUuid: Dictionary<SampledMetricsByRun>;
+  selectedXAxisMetricKey?: string;
 }
 
 /**
@@ -29,6 +31,7 @@ export const useGroupedChartRunData = ({
   aggregateFunction,
   metricKeys,
   sampledDataResultsByRunUuid,
+  selectedXAxisMetricKey,
 }: UseGroupedChartRunDataParams) => {
   return useMemo(() => {
     if (!enabled || !aggregateFunction) {
@@ -43,26 +46,32 @@ export const useGroupedChartRunData = ({
         metricKeys.forEach((metricKey) => {
           invariant(group.groupParentInfo, 'groupParentInfo should be defined');
 
-          const metricsHistoryInGroup = compact(
-            group.groupParentInfo.runUuids.flatMap((runUuid) => {
-              const metricsHistory = sampledDataResultsByRunUuid[runUuid]?.[metricKey]?.metricsHistory;
-              return metricsHistory;
-            }),
-          );
+          let aggregatedMetricsHistoryForMetric;
+          if (!isNil(selectedXAxisMetricKey)) {
+            aggregatedMetricsHistoryForMetric = createValueAggregatedMetricHistory(
+              pick(sampledDataResultsByRunUuid, group.groupParentInfo.runUuids),
+              metricKey,
+              selectedXAxisMetricKey,
+            );
+          } else {
+            const metricsHistoryInGroup = compact(
+              group.groupParentInfo.runUuids.flatMap((runUuid) => {
+                const metricsHistory = sampledDataResultsByRunUuid[runUuid]?.[metricKey]?.metricsHistory;
+                return metricsHistory;
+              }),
+            );
 
-          // Get all step numbers from all runs in the group
-          const steps = uniq(metricsHistoryInGroup.map((h) => h.step));
+            // Get all step numbers from all runs in the group
+            const steps = uniq(metricsHistoryInGroup.map((h) => h.step));
 
-          const aggregatedMetricsHistoryForMetric = createAggregatedMetricHistory(
-            steps,
-            metricKey,
-            metricsHistoryInGroup,
-          );
+            aggregatedMetricsHistoryForMetric = createAggregatedMetricHistory(steps, metricKey, metricsHistoryInGroup);
+          }
+
           aggregatedMetricsHistory[metricKey] = aggregatedMetricsHistoryForMetric;
         });
         const metricsHistory = metricKeys.reduce<MetricHistoryByName>((acc, key) => {
           const history = aggregatedMetricsHistory[key][aggregateFunction];
-          if (history) {
+          if (history && history.length > 0) {
             acc[key] = history;
           }
           return acc;
@@ -78,5 +87,5 @@ export const useGroupedChartRunData = ({
     const ungroupedRuns = ungroupedRunsData.filter(({ belongsToGroup }) => belongsToGroup === false);
 
     return [...perGroupData, ...ungroupedRuns];
-  }, [metricKeys, sampledDataResultsByRunUuid, ungroupedRunsData, enabled, aggregateFunction]);
+  }, [metricKeys, sampledDataResultsByRunUuid, ungroupedRunsData, enabled, aggregateFunction, selectedXAxisMetricKey]);
 };

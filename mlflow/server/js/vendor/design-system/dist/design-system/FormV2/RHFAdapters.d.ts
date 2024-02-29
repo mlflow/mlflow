@@ -6,8 +6,8 @@ import type { Control, FieldPath, FieldValues, UseControllerProps } from 'react-
 import type { CheckboxProps } from '../Checkbox';
 import type { DialogComboboxContentProps, DialogComboboxOptionListProps, DialogComboboxProps, DialogComboboxTriggerProps } from '../DialogCombobox';
 import type { InputProps, PasswordProps, TextAreaProps } from '../Input';
+import type { SelectProps } from '../LegacySelect';
 import type { RadioGroupProps } from '../Radio';
-import type { SelectProps } from '../Select';
 import type { SelectV2ContentProps, SelectV2OptionProps, SelectV2Props, SelectV2TriggerProps } from '../SelectV2';
 import type { SwitchProps } from '../Switch';
 import type { TypeaheadComboboxInputProps } from '../TypeaheadCombobox/TypeaheadComboboxInput';
@@ -44,7 +44,7 @@ interface RHFControlledSelectV2Props<TFieldValues extends FieldValues = FieldVal
         onChange: (value: string) => void;
     }) => React.ReactNode;
     triggerProps?: Pick<SelectV2TriggerProps, 'minWidth' | 'maxWidth' | 'disabled' | 'style' | 'className'>;
-    contentProps?: Pick<SelectV2ContentProps, 'maxHeight' | 'minHeight' | 'loading' | 'style' | 'className'>;
+    contentProps?: Pick<SelectV2ContentProps, 'maxHeight' | 'minHeight' | 'loading' | 'style' | 'className' | 'width'>;
     optionProps?: Pick<SelectV2OptionProps, 'disabled' | 'disabledReason' | 'style' | 'className'>;
 }
 declare function RHFControlledSelectV2<TFieldValues extends FieldValues>({ name, control, rules, options, validationState, children, width, triggerProps, contentProps, optionProps, ...restProps }: React.PropsWithChildren<RHFControlledSelectV2Props<TFieldValues>> & HTMLAttributes<HTMLDivElement>): import("@emotion/react/jsx-runtime").JSX.Element;

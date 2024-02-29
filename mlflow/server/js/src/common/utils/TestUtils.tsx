@@ -5,8 +5,6 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 
 import React, { useRef } from 'react';
-import { IntlProvider } from 'react-intl';
-import { shallow, mount } from 'enzyme';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
 import { ReduxState } from '../../redux-types';
 import { Provider } from 'react-redux';
@@ -33,28 +31,6 @@ export const defaultProviderProps = {
   defaultLocale: DEFAULT_LOCALE,
   messages: {},
 };
-
-export function mountWithIntl(node: React.ReactElement, providerProps = {}) {
-  return mount(node, {
-    wrappingComponent: IntlProvider,
-    wrappingComponentProps: {
-      ...defaultProviderProps,
-      ...providerProps,
-    },
-  });
-}
-
-export function shallowWithIntl(node: React.ReactElement, providerProps = {}) {
-  const mergedProviderProps = {
-    ...defaultProviderProps,
-    ...providerProps,
-  };
-  return shallow(<IntlProvider {...mergedProviderProps}>{node}</IntlProvider>).dive();
-}
-
-export function shallowWithInjectIntl(node: React.ReactElement, providerProps = {}) {
-  return shallowWithIntl(node, providerProps).dive().dive().dive();
-}
 
 /**
  * A simple seedable PRNG, used e.g. to replace Math.random() for deterministic testing.

@@ -26,7 +26,7 @@ export declare function removeMultiSelectOption<P, S, C>(getSelect: () => ReactW
  * options so not all may options may be rendered in the DOM. If this is causing
  * you issues, please let #help-frontend know.
  */
-export declare function multiSelect<P, S, C>(getSelect: () => ReactWrapper<P, S, C>, options: string[]): Promise<void>;
+export declare function multiSelect<P, S, C>(getSelect: () => ReactWrapper<P, S, C>, options: (string | RegExp)[]): Promise<void>;
 /**
  * Selects options from the dropdown menu for a <Select/> component without a
  * mode. The provided string must match an option label exactly. There is a known
@@ -34,7 +34,7 @@ export declare function multiSelect<P, S, C>(getSelect: () => ReactWrapper<P, S,
  * options so not all may options may be rendered in the DOM. If this is causing
  * you issues, please let #help-frontend know.
  */
-export declare function singleSelect<P, S, C>(getSelect: () => ReactWrapper<P, S, C>, option: string): Promise<void>;
+export declare function singleSelect<P, S, C>(getSelect: () => ReactWrapper<P, S, C>, option: string | RegExp): Promise<void>;
 /**
  * Opens the dropdown menu for the <Select/> by clicking. Will throw an error if
  * the menu is already opened or if the menu is unable to be opened.

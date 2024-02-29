@@ -15,8 +15,10 @@ import contextlib
 import functools
 import logging
 import os
+import warnings
 from typing import Any, Dict, List, Optional, Union
 
+import cloudpickle
 import pandas as pd
 import yaml
 from packaging.version import Version
@@ -90,7 +92,9 @@ def get_default_pip_requirements():
         Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
         that, at a minimum, contains these requirements.
     """
-    return [_get_pinned_requirement("langchain")]
+    # pin pydantic and cloudpickle version as they are used in langchain
+    # model saving and loading
+    return list(map(_get_pinned_requirement, ["langchain", "pydantic", "cloudpickle"]))
 
 
 def get_default_conda_env():
@@ -462,6 +466,13 @@ def log_model(
 
 
 def _save_model(model, path, loader_fn, persist_dir):
+    if Version(cloudpickle.__version__) < Version("2.1.0"):
+        warnings.warn(
+            "If you are constructing a custom LangChain model, "
+            "please upgrade cloudpickle to version 2.1.0 or later "
+            "using `pip install cloudpickle>=2.1.0` "
+            "to ensure the model can be loaded correctly."
+        )
     with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)

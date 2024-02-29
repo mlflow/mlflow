@@ -11,7 +11,7 @@ import {
   SortDescendingIcon,
 } from '@databricks/design-system';
 import React, { useMemo, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { middleTruncateStr } from '../../../../../common/utils/StringUtils';
 import { COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC, SORT_DELIMITER_SYMBOL } from '../../../../constants';
 import { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
@@ -29,6 +29,7 @@ export const ExperimentViewRunsSortSelector = React.memo(
     const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
     const updateUIState = useUpdateExperimentViewUIState();
+    const intl = useIntl();
 
     const { sortOptions } = props;
     const { orderByKey, orderByAsc } = props;
@@ -87,17 +88,19 @@ export const ExperimentViewRunsSortSelector = React.memo(
           sortOptionLabel = extractedKeyName[1];
         }
       }
+      return `${intl.formatMessage({
+        defaultMessage: 'Sort',
+        description: 'Sort by default option for sort by select dropdown for experiment runs',
+      })}: ${sortOptionLabel}`;
+    }, [currentSortSelectValue, orderByKey, sortOptions, intl]);
+
+    const sortLabelElement = useMemo(() => {
       return (
         <span css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {orderByAsc ? <SortAscendingIcon /> : <SortDescendingIcon />}{' '}
-          <FormattedMessage
-            defaultMessage="Sort"
-            description="Sort by default option for sort by select dropdown for experiment runs"
-          />
-          : {sortOptionLabel}
+          {orderByAsc ? <SortAscendingIcon /> : <SortDescendingIcon />} {currentSortSelectLabel}
         </span>
       );
-    }, [currentSortSelectValue, orderByAsc, orderByKey, sortOptions]);
+    }, [currentSortSelectLabel, orderByAsc]);
 
     const handleChange = (updatedValue: string) => {
       onSortKeyChanged({ value: updatedValue });
@@ -111,8 +114,12 @@ export const ExperimentViewRunsSortSelector = React.memo(
     const [open, setOpen] = useState(false);
 
     return (
-      <DialogCombobox label={currentSortSelectLabel} onOpenChange={setOpen} open={open}>
-        <DialogComboboxTrigger onClear={handleClear} data-test-id="sort-select-dropdown" />
+      <DialogCombobox label={sortLabelElement} onOpenChange={setOpen} open={open}>
+        <DialogComboboxTrigger
+          onClear={handleClear}
+          data-test-id="sort-select-dropdown"
+          aria-label={currentSortSelectLabel}
+        />
         <DialogComboboxContent minWidth={250}>
           <DialogComboboxOptionList>
             <DialogComboboxOptionListSearch>

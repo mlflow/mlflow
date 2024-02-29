@@ -17,12 +17,13 @@ type OwnProps = {
 type Props = OwnProps & typeof PageContainer.defaultProps;
 
 export function PageContainer(props: Props) {
+  const { usesFullHeight, ...restProps } = props;
   return (
     // @ts-expect-error TS(2322): Type '{ height: string; display: string; flexDirec... Remove this comment to see the full error message
-    <PageWrapper css={props.usesFullHeight ? styles.useFullHeightLayout : styles.wrapper}>
+    <PageWrapper css={usesFullHeight ? styles.useFullHeightLayout : styles.wrapper}>
       {/* @ts-expect-error TS(2322): Type '{ css: { flexShrink: number; }; }' is not as... Remove this comment to see the full error message */}
       <Spacer css={styles.fixedSpacer} />
-      {props.usesFullHeight ? props.children : <div {...props} css={styles.container} />}
+      {usesFullHeight ? props.children : <div {...restProps} css={styles.container} />}
     </PageWrapper>
   );
 }

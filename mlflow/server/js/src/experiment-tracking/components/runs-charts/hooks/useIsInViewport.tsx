@@ -23,7 +23,14 @@ export const useIsInViewport = ({ enabled = true }: { enabled?: boolean } = {}) 
       setIsInViewport(entry.isIntersecting);
     });
 
-    intersectionObserver.observe(internalElementRef.current);
+    // Run intersection observer as a macrotask, makes it wait for the next tick
+    // before start observing the element to make sure the observer will register the element
+    setTimeout(() => {
+      if (internalElementRef.current) {
+        intersectionObserver.observe(internalElementRef.current);
+      }
+    });
+
     return () => intersectionObserver.disconnect();
   }, [enabled]);
 

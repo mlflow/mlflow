@@ -215,7 +215,12 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
     <div ref={ctaRef} css={styles.columnContainer} className={visible ? '' : CLASS_IS_HIDDEN}>
       {visible && (
         <div css={styles.buttonContainer}>
-          <Button css={styles.button} type="link" onClick={onClick}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunstableaddcolumncta.tsx_218"
+            css={styles.button}
+            type="link"
+            onClick={onClick}
+          >
             <PlusCircleIcon css={styles.buttonIcon} />
             <div css={styles.caption}>
               <FormattedMessage

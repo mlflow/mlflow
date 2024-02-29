@@ -1,5 +1,3 @@
-import { shouldEnableExperimentDatasetTracking } from '../../../common/utils/FeatureUtils';
-
 export const EVALUATION_ARTIFACTS_TEXT_COLUMN_WIDTH = {
   // Default width of "group by" columns
   initialWidthGroupBy: 200,

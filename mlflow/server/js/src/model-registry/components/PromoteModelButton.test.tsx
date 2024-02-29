@@ -6,7 +6,7 @@ import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import { findAntdOption, act, screen, within, fastFillInput, renderWithIntl } from 'common/utils/TestUtils.react17';
 import { PromoteModelButton } from './PromoteModelButton';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { Services as ModelRegistryService } from '../../model-registry/services';
+import { Services as ModelRegistryService } from '../services';
 import { ModelVersionStatus, Stages } from '../constants';
 import { ReduxState } from '../../redux-types';
 import { ModelRegistryRoutes } from '../routes';

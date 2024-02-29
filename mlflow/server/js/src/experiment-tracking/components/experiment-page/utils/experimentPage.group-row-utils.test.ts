@@ -1,9 +1,15 @@
 import invariant from 'invariant';
-import { createRunsGroupByKey, getGroupedRowRenderMetadata } from './experimentPage.group-row-utils';
+import {
+  createAggregatedMetricHistory,
+  createRunsGroupByKey,
+  createValueAggregatedMetricHistory,
+  getGroupedRowRenderMetadata,
+} from './experimentPage.group-row-utils';
 import { parseRunsGroupByKey } from './experimentPage.group-row-utils';
 import { RunGroupingAggregateFunction, RunGroupingMode } from './experimentPage.row-types';
 import { SingleRunData } from './experimentPage.row-utils';
-import { get } from 'lodash';
+import { get, flatMap } from 'lodash';
+import { MOCK_RUN_UUIDS_TO_HISTORY_MAP } from '../fixtures/experiment-runs.fixtures';
 
 describe('createRunsGroupByKey', () => {
   it('should return an empty string if mode is undefined', () => {
@@ -230,7 +236,9 @@ describe('getGroupedRowRenderMetadata', () => {
       });
       expect(groupedRunsMetadata).toHaveLength(4);
 
-      expect(get(groupedRunsMetadata, '0.aggregatedMetricEntities')).toEqual([{ key: 'metric1', value: result }]);
+      expect(get(groupedRunsMetadata, '0.aggregatedMetricEntities')).toEqual([
+        { key: 'metric1', value: result, maxStep: 0 },
+      ]);
     });
 
     it.each([
@@ -250,7 +258,9 @@ describe('getGroupedRowRenderMetadata', () => {
       });
       expect(groupedRunsMetadata).toHaveLength(4);
 
-      expect(get(groupedRunsMetadata, '0.aggregatedParamEntities')).toEqual([{ key: 'param_number', value: result }]);
+      expect(get(groupedRunsMetadata, '0.aggregatedParamEntities')).toEqual([
+        { key: 'param_number', maxStep: 0, value: result },
+      ]);
     });
   });
 
@@ -327,5 +337,56 @@ describe('getGroupedRowRenderMetadata', () => {
       expect(get(groupedRunsMetadata, '5.groupId')).toEqual('dataset.dataset.dataset_beta.321');
       expect(get(groupedRunsMetadata, '5.runUuids')).toEqual(['run4']);
     });
+  });
+});
+
+describe('metric history aggregation', () => {
+  it('correctly generates aggregated metrics', () => {
+    // for metric vs metric plotting
+    const {
+      min: valuesMin,
+      max: valuesMax,
+      average: valuesAvg,
+    } = createValueAggregatedMetricHistory(
+      MOCK_RUN_UUIDS_TO_HISTORY_MAP,
+      'metric', // metricKey
+      'base', // selectedXAxisMetricKey
+    );
+
+    // for metric vs step plotting
+    const metricsHistoryInGroup = flatMap(MOCK_RUN_UUIDS_TO_HISTORY_MAP, (obj) => {
+      return obj['metric'].metricsHistory;
+    });
+    const steps = [0, 1, 2, 3, 4];
+    const {
+      min: stepMin,
+      max: stepMax,
+      average: stepAvg,
+    } = createAggregatedMetricHistory(steps, 'metric', metricsHistoryInGroup);
+
+    /**
+     * the mock metric object is constructed such that the min and max
+     * are -2 and +2 with respect to the base. however, the base differs
+     * from run to run, for example:
+     *
+     * run1 (metric is +2): base = [1, 2, 3, 4, 5], metric = [3, 4, 5, 6, 7]
+     * run2 (metric is -2): base = [5, 4, 3, 2, 1], metric = [3, 2, 1, 0, -1]
+     *
+     * therefore, when `metric` is plotted with `base` as the x-axis, we should
+     * see min/max consistently being +/- 2 vs. average.
+     *
+     * with `steps` as the x-axis, we should see the range expand from +/- 0 to +/- 8.
+     *
+     * the asserts below should illustrate the differences between the two
+     * aggregators.
+     */
+    expect(valuesAvg.map((e) => e.value)).toEqual([1, 2, 3, 4, 5]);
+    expect(stepAvg.map((e) => e.value)).toEqual([3, 3, 3, 3, 3]);
+
+    expect(valuesMin.map((e) => e.value)).toEqual([-1, 0, 1, 2, 3]);
+    expect(stepMin.map((e) => e.value)).toEqual([3, 2, 1, 0, -1]);
+
+    expect(valuesMax.map((e) => e.value)).toEqual([3, 4, 5, 6, 7]);
+    expect(stepMax.map((e) => e.value)).toEqual([3, 4, 5, 6, 7]);
   });
 });

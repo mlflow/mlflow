@@ -1,12 +1,12 @@
 import { css } from '@emotion/react';
-import React__default, { useState, useEffect, forwardRef } from 'react';
-import { a2 as MegaphoneIcon, W as WarningIcon, l as DangerIcon, u as useDesignSystemTheme, B as Button$1, C as CloseIcon, d as Tooltip, T as Typography, a9 as primitiveColors, f as Input, _ as CursorIcon, a1 as FaceSmileIcon, a0 as FaceNeutralIcon, $ as FaceFrownIcon, h as CheckIcon, r as ChevronLeftIcon, b as ChevronRightIcon, aa as dropdownItemStyles, c as useDesignSystemContext, n as dropdownContentStyles, ab as dropdownSeparatorStyles } from './DropdownMenu-4ad8ab33.js';
+import React__default, { useRef, useEffect, useState, forwardRef } from 'react';
+import { Z as MegaphoneIcon, W as WarningIcon, k as DangerIcon, u as useDesignSystemTheme, G as useDesignSystemEventComponentCallbacks, E as DesignSystemEventProviderComponentTypes, F as DesignSystemEventProviderAnalyticsEventTypes, B as Button$1, C as CloseIcon, T as Typography, a4 as primitiveColors, f as Input, U as CursorIcon, Y as FaceSmileIcon, X as FaceNeutralIcon, V as FaceFrownIcon, e as CheckIcon, o as ChevronLeftIcon, b as ChevronRightIcon } from './Stepper-456afc57.js';
+export { y as Stepper } from './Stepper-456afc57.js';
 import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
-import { ContextMenu as ContextMenu$1, ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
 import * as RadixSlider from '@radix-ui/react-slider';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import 'antd';
-import '@radix-ui/react-dropdown-menu';
+import '@ant-design/icons';
 import 'lodash/isNil';
 import 'lodash/endsWith';
 import 'lodash/isBoolean';
@@ -15,7 +15,72 @@ import 'lodash/isString';
 import 'lodash/mapValues';
 import 'lodash/memoize';
 import '@emotion/unitless';
-import '@ant-design/icons';
+
+// Define a module-global observer and a WeakMap on elements to hold callbacks
+let sharedObserver = null;
+const entryCallbackMap = new WeakMap();
+const ensureSharedObserverExists = () => {
+  if (!sharedObserver) {
+    sharedObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const entryCallback = entryCallbackMap.get(entry.target);
+          if (entryCallback) {
+            entryCallback();
+            entryCallbackMap.delete(entry.target);
+          }
+        }
+      });
+    });
+  }
+};
+function observeElement(element, callback) {
+  var _sharedObserver;
+  ensureSharedObserverExists();
+  entryCallbackMap.set(element, callback);
+  (_sharedObserver = sharedObserver) === null || _sharedObserver === void 0 || _sharedObserver.observe(element);
+  return () => {
+    if (element) {
+      var _sharedObserver2;
+      (_sharedObserver2 = sharedObserver) === null || _sharedObserver2 === void 0 || _sharedObserver2.unobserve(element);
+      entryCallbackMap.delete(element);
+    }
+  };
+}
+/**
+ * Checks if the element was viewed and calls the onView callback.
+ * NOTE: This hook only triggers the onView callback once for the element.
+ * @param onView - callback to be called when the element is viewed
+ * @typeParam T - extends Element to specify the type of element being observed
+ */
+const useNotifyOnFirstView = _ref => {
+  let {
+    onView
+  } = _ref;
+  const isViewedRef = useRef(false);
+  const elementRef = useRef(null);
+  useEffect(() => {
+    const element = elementRef.current;
+    // If already viewed or element is not available, do nothing
+    if (!element || isViewedRef.current) {
+      return;
+    }
+    const callback = () => {
+      isViewedRef.current = true;
+      onView();
+    };
+
+    // If IntersectionObserver is not available, assume that the element is visible
+    if (!window.IntersectionObserver) {
+      callback();
+      return;
+    }
+    return observeElement(element, callback);
+  }, [onView]);
+  return {
+    elementRef
+  };
+};
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const {
@@ -65,12 +130,13 @@ const useStyles = (props, theme) => {
   return {
     banner: /*#__PURE__*/css("max-height:", BANNER_MAX_HEIGHT, "px;display:flex;align-items:center;width:100%;padding:8px;box-sizing:border-box;background-color:", colorScheme.backgroundDefaultColor, ";" + (process.env.NODE_ENV === "production" ? "" : ";label:banner;")),
     iconContainer: /*#__PURE__*/css("display:flex;color:", colorScheme.textColor, ";align-self:", props.description ? 'flex-start' : 'center', ";box-sizing:border-box;max-width:60px;padding-top:4px;padding-bottom:4px;padding-right:", theme.spacing.xs, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:iconContainer;")),
-    mainContent: /*#__PURE__*/css("flex-direction:column;align-self:", props.description ? 'flex-start' : 'center', ";display:flex;box-sizing:border-box;padding-right:", theme.spacing.sm, "px;padding-top:2px;padding-bottom:2px;min-width:", theme.spacing.lg, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:mainContent;")),
-    messageTextBlock: /*#__PURE__*/css("&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:messageTextBlock;")),
-    descriptionBlock: /*#__PURE__*/css("&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:descriptionBlock;")),
+    mainContent: /*#__PURE__*/css("flex-direction:column;align-self:", props.description ? 'flex-start' : 'center', ";display:flex;box-sizing:border-box;padding-right:", theme.spacing.sm, "px;padding-top:2px;padding-bottom:2px;min-width:", theme.spacing.lg, "px;width:100%;" + (process.env.NODE_ENV === "production" ? "" : ";label:mainContent;")),
+    messageTextBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:messageTextBlock;")),
+    descriptionBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:descriptionBlock;")),
     rightContainer: _ref$1,
-    closeIconContainer: /*#__PURE__*/css("display:flex;padding:", theme.spacing.xs, "px ", theme.spacing.xs, "px ", theme.spacing.xs, "px ", theme.spacing.xs, "px;margin-left:", theme.spacing.xs, "px;box-sizing:border-box;line-height:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIconContainer;")),
-    closeIcon: /*#__PURE__*/css("color:", colorScheme.textColor, "!important;cursor:pointer;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIcon;")),
+    closeIconContainer: /*#__PURE__*/css("display:flex;margin-left:", theme.spacing.xs, "px;box-sizing:border-box;line-height:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIconContainer;")),
+    closeButton: /*#__PURE__*/css("cursor:pointer;background:none;border:none;margin:0;&&{height:24px!important;width:24px!important;padding:", theme.spacing.xs, "px!important;}&&:hover{background-color:transparent!important;}" + (process.env.NODE_ENV === "production" ? "" : ";label:closeButton;")),
+    closeIcon: /*#__PURE__*/css("color:", colorScheme.textColor, "!important;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIcon;")),
     actionButtonContainer: /*#__PURE__*/css("margin-right:", theme.spacing.xs, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButtonContainer;")),
     // Override design system colors to show the use the action text color for text and border.
     // Also overrides text for links.
@@ -97,18 +163,29 @@ const Banner = props => {
     onAccept,
     closable,
     onClose,
-    closeButtonAriaLabel
+    closeButtonAriaLabel,
+    componentId,
+    analyticsEvents
   } = props;
   const [closed, setClosed] = React__default.useState(false);
-  const [showingDescriptionEllipses, setShowingDescriptionEllipses] = React__default.useState(false);
-  const [showingMessageEllipses, setShowingMessageEllipses] = React__default.useState(false);
   const {
     theme
   } = useDesignSystemTheme();
   const styles = useStyles(props, theme);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Banner,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnView]
+  });
+  const {
+    elementRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView
+  });
   const actionButton = onAccept && ctaText ? jsx("div", {
     css: styles.actionButtonContainer,
     children: jsx(Button$1, {
+      componentId: `${componentId}.accept`,
       onClick: onAccept,
       css: styles.actionButton,
       size: "small",
@@ -117,7 +194,9 @@ const Banner = props => {
   }) : null;
   const close = closable !== false ? jsx("div", {
     css: styles.closeIconContainer,
-    children: jsx("a", {
+    children: jsx(Button$1, {
+      componentId: `${componentId}.close`,
+      css: styles.closeButton,
       onClick: () => {
         if (onClose) {
           onClose();
@@ -131,31 +210,9 @@ const Banner = props => {
       })
     })
   }) : null;
-  const messageElement = jsx(Text, {
-    size: "md",
-    ellipsis: {
-      onEllipsis: setShowingMessageEllipses
-    },
-    bold: true,
-    css: styles.messageTextBlock,
-    children: message
-  });
-  const descriptionElement = jsx(Paragraph, {
-    ellipsis: {
-      rows: 2,
-      onEllipsis: setShowingDescriptionEllipses
-    },
-    withoutMargins: true,
-    css: styles.descriptionBlock,
-    children: description
-  });
-  const descriptionElementWithConditionalTooltip = showingDescriptionEllipses ? jsx(Tooltip, {
-    title: description,
-    placement: "bottom",
-    children: descriptionElement
-  }) : descriptionElement;
   return jsx(Fragment, {
     children: !closed && jsxs("div", {
+      ref: elementRef,
       css: styles.banner,
       className: "banner",
       "data-testid": props['data-testid'],
@@ -164,11 +221,18 @@ const Banner = props => {
         children: levelToIconMap[level]
       }), jsxs("div", {
         css: styles.mainContent,
-        children: [showingMessageEllipses ? jsx(Tooltip, {
+        children: [jsx(Text, {
+          size: "md",
+          bold: true,
+          css: styles.messageTextBlock,
           title: message,
-          placement: "bottom",
-          children: messageElement
-        }) : messageElement, description && descriptionElementWithConditionalTooltip]
+          children: message
+        }), description && jsx(Paragraph, {
+          withoutMargins: true,
+          css: styles.descriptionBlock,
+          title: description,
+          children: description
+        })]
       }), jsxs("div", {
         css: styles.rightContainer,
         children: [actionButton, close]
@@ -255,6 +319,7 @@ const ChatInput = _ref => {
       },
       ...textAreaProps
     }), jsx(Button$1, {
+      componentId: "codegen_design-system_src_development_chatui_chatinput.tsx_83",
       size: "small",
       css: chatInputStyles.button,
       icon: jsx(CursorIcon, {}),
@@ -388,6 +453,7 @@ const Feedback = _ref => {
       }), jsxs("div", {
         css: feedbackStyles.feedbackOptions,
         children: [jsx(Button$1, {
+          componentId: "codegen_design-system_src_development_chatui_feedback.tsx_57",
           icon: jsx(FaceSmileIcon, {}),
           onClick: () => {
             onFeedback('Better');
@@ -395,6 +461,7 @@ const Feedback = _ref => {
           },
           children: "Better"
         }), jsx(Button$1, {
+          componentId: "codegen_design-system_src_development_chatui_feedback.tsx_66",
           icon: jsx(FaceNeutralIcon, {}),
           onClick: () => {
             onFeedback('Same');
@@ -402,6 +469,7 @@ const Feedback = _ref => {
           },
           children: "Same"
         }), jsx(Button$1, {
+          componentId: "codegen_design-system_src_development_chatui_feedback.tsx_75",
           icon: jsx(FaceFrownIcon, {}),
           onClick: () => {
             onFeedback('Worse');
@@ -411,6 +479,7 @@ const Feedback = _ref => {
         })]
       })]
     }), jsx(Button$1, {
+      componentId: "codegen_design-system_src_development_chatui_feedback.tsx_86",
       icon: jsx(CloseIcon, {}),
       onClick: () => setIsVisible(false)
     })]
@@ -686,192 +755,6 @@ const ChatUI = {
   ChatInput: ChatInput$1
 };
 
-const Root$2 = ContextMenu$1;
-const Trigger = ContextMenuTrigger;
-const ItemIndicator = ContextMenuItemIndicator;
-const Group = ContextMenuGroup;
-const RadioGroup = ContextMenuRadioGroup;
-const Arrow = ContextMenuArrow;
-const Sub = ContextMenuSub;
-const SubTrigger = _ref => {
-  let {
-    children,
-    ...props
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuSubTrigger, {
-    ...props,
-    css: dropdownItemStyles(theme),
-    children: children
-  });
-};
-const Content = _ref2 => {
-  let {
-    children,
-    minWidth,
-    ...childrenProps
-  } = _ref2;
-  const {
-    getPopupContainer
-  } = useDesignSystemContext();
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuPortal, {
-    container: getPopupContainer && getPopupContainer(),
-    children: jsx(ContextMenuContent, {
-      ...childrenProps,
-      css: [dropdownContentStyles(theme), {
-        minWidth
-      }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
-      children: children
-    })
-  });
-};
-const SubContent = _ref3 => {
-  let {
-    children,
-    minWidth,
-    ...childrenProps
-  } = _ref3;
-  const {
-    getPopupContainer
-  } = useDesignSystemContext();
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuPortal, {
-    container: getPopupContainer && getPopupContainer(),
-    children: jsx(ContextMenuSubContent, {
-      ...childrenProps,
-      css: [dropdownContentStyles(theme), {
-        minWidth
-      }, process.env.NODE_ENV === "production" ? "" : ";label:SubContent;"],
-      children: children
-    })
-  });
-};
-const Item = _ref4 => {
-  let {
-    children,
-    ...props
-  } = _ref4;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuItem, {
-    ...props,
-    css: dropdownItemStyles(theme),
-    children: children
-  });
-};
-const CheckboxItem = _ref5 => {
-  let {
-    children,
-    ...props
-  } = _ref5;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsxs(ContextMenuCheckboxItem, {
-    ...props,
-    css: dropdownItemStyles(theme),
-    children: [jsx(ContextMenuItemIndicator, {
-      css: itemIndicatorStyles(theme),
-      children: jsx(CheckIcon, {})
-    }), !props.checked && jsx("div", {
-      style: {
-        width: theme.general.iconFontSize + theme.spacing.xs
-      }
-    }), children]
-  });
-};
-const RadioItem = _ref6 => {
-  let {
-    children,
-    ...props
-  } = _ref6;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsxs(ContextMenuRadioItem, {
-    ...props,
-    css: [dropdownItemStyles(theme), {
-      '&[data-state="unchecked"]': {
-        paddingLeft: theme.general.iconFontSize + theme.spacing.xs + theme.spacing.sm
-      }
-    }, process.env.NODE_ENV === "production" ? "" : ";label:RadioItem;"],
-    children: [jsx(ContextMenuItemIndicator, {
-      css: itemIndicatorStyles(theme),
-      children: jsx(CheckIcon, {})
-    }), children]
-  });
-};
-const Label = _ref7 => {
-  let {
-    children,
-    ...props
-  } = _ref7;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuLabel, {
-    ...props,
-    css: /*#__PURE__*/css({
-      color: theme.colors.textSecondary,
-      padding: `${theme.spacing.sm - 2}px ${theme.spacing.sm}px`
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Label;"),
-    children: children
-  });
-};
-const Hint = _ref8 => {
-  let {
-    children
-  } = _ref8;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("span", {
-    css: /*#__PURE__*/css({
-      display: 'inline-flex',
-      marginLeft: 'auto',
-      paddingLeft: theme.spacing.sm
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Hint;"),
-    children: children
-  });
-};
-const Separator$1 = () => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuSeparator, {
-    css: dropdownSeparatorStyles(theme)
-  });
-};
-const itemIndicatorStyles = theme => /*#__PURE__*/css({
-  display: 'inline-flex',
-  paddingRight: theme.spacing.xs
-}, process.env.NODE_ENV === "production" ? "" : ";label:itemIndicatorStyles;");
-const ContextMenu = {
-  Root: Root$2,
-  Trigger,
-  Label,
-  Item,
-  Group,
-  RadioGroup,
-  CheckboxItem,
-  RadioItem,
-  Arrow,
-  Separator: Separator$1,
-  Sub,
-  SubTrigger,
-  SubContent,
-  Content,
-  Hint
-};
-
 function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref = process.env.NODE_ENV === "production" ? {
   name: "1tciq3q",
@@ -1069,5 +952,5 @@ var Toolbar = /*#__PURE__*/Object.freeze({
   ToggleItem: ToggleItem
 });
 
-export { Arrow, BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, ChatUI, CheckboxItem, Content, ContextMenu, Group, Hint, Item, ItemIndicator, Label, RadioGroup, RadioItem, Root$2 as Root, Separator$1 as Separator, Slider, Sub, SubContent, SubTrigger, Toolbar, Trigger, itemIndicatorStyles };
+export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, ChatUI, Slider, Toolbar };
 //# sourceMappingURL=development.js.map

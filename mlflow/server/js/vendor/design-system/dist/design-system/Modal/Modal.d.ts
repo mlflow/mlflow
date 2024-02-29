@@ -43,9 +43,9 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
      */
     zIndex?: AntDModalProps['zIndex'];
     /** The OK button props */
-    okButtonProps?: ButtonProps;
+    okButtonProps?: Omit<ButtonProps, 'componentId' | 'analyticsEvents'>;
     /** The cancel button props */
-    cancelButtonProps?: ButtonProps;
+    cancelButtonProps?: Omit<ButtonProps, 'componentId' | 'analyticsEvents'>;
     /** Custom modal content render function. While custom rendering is discouraged in general, this prop can be used to wrap the modal contents in a React context. */
     modalRender?: (node: React.ReactNode) => React.ReactNode;
     /** Specify which button to autofocus, only works with default footer */

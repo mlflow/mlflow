@@ -46,7 +46,11 @@ export const PromptLabOnboarding = ({ onDismissed }: { onDismissed?: () => void 
               description='"Learn more" button in the modal for the prompt engineering onboarding'
             />
           </Button> */}
-          <Button onClick={closeModal} type="primary">
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_promptlabonboarding.tsx_58"
+            onClick={closeModal}
+            type="primary"
+          >
             <FormattedMessage
               defaultMessage="Try it now"
               description='"Try it now" button in the modal for the prompt engineering onboarding'

@@ -7,9 +7,8 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_START_TIME,
 } from '../../../constants';
-import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
+import { SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
-import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
 import type { DatasetSummary, ExperimentViewRunsCompareMode, ChartSectionConfig } from '../../../types';
 
 const getDefaultSelectedColumns = () => {
@@ -17,11 +16,8 @@ const getDefaultSelectedColumns = () => {
     // "Source" and "Model" columns are visible by default
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET),
   ];
-
-  if (shouldEnableExperimentDatasetTracking()) {
-    result.push(makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET));
-  }
 
   return result;
 };
@@ -133,7 +129,7 @@ export class SearchExperimentRunsFacetsState {
   /**
    * Currently configured charts for comparing runs, if any.
    */
-  compareRunCharts?: SerializedRunsCompareCardConfigCard[];
+  compareRunCharts?: SerializedRunsChartsCardConfigCard[];
 
   /**
    * Sections for grouping compare runs charts

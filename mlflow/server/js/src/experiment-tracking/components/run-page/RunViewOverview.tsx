@@ -5,7 +5,7 @@ import { CollapsibleSection } from '../../../common/components/CollapsibleSectio
 import { Descriptions } from '../../../common/components/Descriptions';
 import { EditableNote } from '../../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../../common/components/EditableTagsTableView';
-import { shouldEnableDeepLearningUI, shouldEnableExperimentDatasetTracking } from '../../../common/utils/FeatureUtils';
+import { shouldEnableDeepLearningUI } from '../../../common/utils/FeatureUtils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { capitalizeFirstLetter } from '../../../common/utils/StringUtils';
 import Utils from '../../../common/utils/Utils';
@@ -341,7 +341,12 @@ export const RunViewOverview = ({
               {!showNoteEditor && (
                 <>
                   {' '}
-                  <Button type="link" onClick={startEditingDescription} data-test-id="edit-description-button">
+                  <Button
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewoverview.tsx_411"
+                    type="link"
+                    onClick={startEditingDescription}
+                    data-test-id="edit-description-button"
+                  >
                     <FormattedMessage
                       defaultMessage="Edit"
                       // eslint-disable-next-line max-len
@@ -364,58 +369,57 @@ export const RunViewOverview = ({
             showEditor={showNoteEditor}
           />
         </CollapsibleSection>
-        {shouldEnableExperimentDatasetTracking() && (
-          <CollapsibleSection
-            defaultCollapsed
-            title={renderSectionTitle(
-              intl.formatMessage({
-                defaultMessage: 'Datasets',
-                description:
-                  // eslint-disable-next-line max-len
-                  'Label for the collapsible area to display the datasets used during the experiment run',
-              }),
-              datasets ? datasets.length : 0,
-            )}
-            onChange={handleCollapseChange('parameters')}
-            data-test-id="run-parameters-section"
-          >
-            <div css={{ marginLeft: '16px' }}>
-              {datasets &&
-                datasets.map((dataset: RunDatasetWithTags) => (
-                  <div
-                    key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
+        <CollapsibleSection
+          defaultCollapsed
+          title={renderSectionTitle(
+            intl.formatMessage({
+              defaultMessage: 'Datasets',
+              description:
+                // eslint-disable-next-line max-len
+                'Label for the collapsible area to display the datasets used during the experiment run',
+            }),
+            datasets ? datasets.length : 0,
+          )}
+          onChange={handleCollapseChange('parameters')}
+          data-test-id="run-parameters-section"
+        >
+          <div css={{ marginLeft: '16px' }}>
+            {datasets &&
+              datasets.map((dataset: RunDatasetWithTags) => (
+                <div
+                  key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
+                  css={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Button
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewoverview.tsx_460"
+                    type="link"
                     css={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
+                      textAlign: 'left',
+                    }}
+                    onClick={() => {
+                      setSelectedDatasetWithRun({
+                        datasetWithTags: dataset,
+                        runData: {
+                          experimentId: experimentId,
+                          runUuid: runUuid,
+                          runName: runName,
+                          datasets: datasets,
+                          tags: tags,
+                        },
+                      });
+                      setIsDrawerOpen(true);
                     }}
                   >
-                    <Button
-                      type="link"
-                      css={{
-                        textAlign: 'left',
-                      }}
-                      onClick={() => {
-                        setSelectedDatasetWithRun({
-                          datasetWithTags: dataset,
-                          runData: {
-                            experimentId: experimentId,
-                            runUuid: runUuid,
-                            runName: runName,
-                            datasets: datasets,
-                            tags: tags,
-                          },
-                        });
-                        setIsDrawerOpen(true);
-                      }}
-                    >
-                      <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink />
-                    </Button>
-                  </div>
-                ))}
-            </div>
-          </CollapsibleSection>
-        )}
+                    <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink />
+                  </Button>
+                </div>
+              ))}
+          </div>
+        </CollapsibleSection>
         <CollapsibleSection
           defaultCollapsed
           title={renderSectionTitle(

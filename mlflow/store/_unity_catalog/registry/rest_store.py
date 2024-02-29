@@ -8,6 +8,7 @@ from contextlib import contextmanager
 import mlflow
 from mlflow.entities import Run
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     CreateModelVersionRequest,
@@ -572,18 +573,7 @@ class UcModelRegistryStore(BaseRestStore):
         # Import Model here instead of in the top level, to avoid circular import; the
         # mlflow.models.model module imports from MLflow tracking, which triggers an import of
         # this file during store registry initialization
-        from mlflow.models.model import Model
-
-        try:
-            model = Model.load(local_model_path)
-        except Exception as e:
-            raise MlflowException(
-                "Unable to load model metadata. Ensure the source path of the model "
-                "being registered points to a valid MLflow model directory "
-                "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
-                "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
-                "specifying both input and output type specifications."
-            ) from e
+        model = _load_model(local_model_path)
         signature_required_explanation = (
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
@@ -601,6 +591,46 @@ class UcModelRegistryStore(BaseRestStore):
                 "Model passed for registration contained a signature that includes only inputs. "
                 f"{signature_required_explanation}"
             )
+
+    def _download_model_weights_if_not_saved(self, local_model_path):
+        """
+        Transformers models can be saved without the base model weights by setting
+        `save_pretrained=False` when saving or logging the model. Such 'weight-less'
+        model cannot be directly deployed to model serving, so here we download the
+        weights proactively from the HuggingFace hub and save them to the model directory.
+        """
+        model = _load_model(local_model_path)
+        flavor_conf = model.flavors.get("transformers")
+
+        if not flavor_conf:
+            return
+
+        from mlflow.transformers.flavor_config import FlavorKey
+        from mlflow.transformers.model_io import _MODEL_BINARY_FILE_NAME
+
+        if (
+            FlavorKey.MODEL_BINARY in flavor_conf
+            and os.path.exists(os.path.join(local_model_path, _MODEL_BINARY_FILE_NAME))
+            and FlavorKey.MODEL_REVISION not in flavor_conf
+        ):
+            # Model weights are already saved
+            return
+
+        _logger.info(
+            "You are attempting to register a transformers model that does not have persisted "
+            "model weights. Attempting to fetch the weights so that the model can be registered "
+            "within Unity Catalog."
+        )
+        try:
+            mlflow.transformers.persist_pretrained_model(local_model_path)
+        except Exception as e:
+            raise MlflowException(
+                "Failed to download the model weights from the HuggingFace hub and cannot register "
+                "the model in the Unity Catalog. Please ensure that the model was saved with the "
+                "correct reference to the HuggingFace hub repository and that you have access to "
+                "fetch model weights from the defined repository.",
+                error_code=INTERNAL_ERROR,
+            ) from e
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
@@ -679,6 +709,7 @@ class UcModelRegistryStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, self.spark)
         with self._local_model_dir(source, local_model_path) as local_model_dir:
             self._validate_model_signature(local_model_dir)
+            self._download_model_weights_if_not_saved(local_model_dir)
             feature_deps = get_feature_dependencies(local_model_dir)
             other_model_deps = get_model_version_dependencies(local_model_dir)
             req_body = message_to_json(

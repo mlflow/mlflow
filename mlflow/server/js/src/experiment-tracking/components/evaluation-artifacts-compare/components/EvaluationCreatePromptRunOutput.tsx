@@ -83,6 +83,7 @@ export const EvaluationCreatePromptRunOutput = ({
       <div css={{ marginBottom: theme.spacing.md }}>
         <Tooltip title={evaluateButtonTooltip}>
           <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcreatepromptrunoutput.tsx_85"
             data-testid="button-evaluate"
             icon={<PlayIcon />}
             onClick={onEvaluateClick}
@@ -97,6 +98,7 @@ export const EvaluationCreatePromptRunOutput = ({
         </Tooltip>
         {isEvaluating && (
           <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcreatepromptrunoutput.tsx_99"
             data-testid="button-cancel"
             icon={<StopIcon />}
             onClick={onCancelClick}

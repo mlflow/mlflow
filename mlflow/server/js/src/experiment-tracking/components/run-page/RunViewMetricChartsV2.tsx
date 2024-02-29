@@ -1,162 +1,64 @@
-import {
-  Button,
-  Empty,
-  Input,
-  RefreshIcon,
-  SearchIcon,
-  Spacer,
-  Spinner,
-  useDesignSystemTheme,
-  Accordion,
-} from '@databricks/design-system';
+import { Input, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { compact, mapValues, values } from 'lodash';
-import { useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { ReduxState } from '../../../redux-types';
-import { RunInfoEntity, RunViewMetricConfig } from '../../types';
-import { normalizeChartMetricKey } from '../../utils/MetricsUtils';
-import { useChartMoveUpDownFunctionsV2, useOrderedChartsV2 } from '../runs-charts/hooks/useOrderedChartsV2';
+import type { RunInfoEntity } from '../../types';
+
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { RunViewChartTooltipBody } from './RunViewChartTooltipBody';
-import { ChartRefreshManager, useChartRefreshManager } from './useChartRefreshManager';
+import { RunsChartType, RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
+import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
+import type { ExperimentRunsChartsUIConfiguration } from '../experiment-page/models/ExperimentPageUIStateV2';
+import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
+import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
 import {
-  MLFLOW_MODEL_METRIC_NAME,
-  MLFLOW_MODEL_METRIC_PREFIX,
-  MLFLOW_SYSTEM_METRIC_NAME,
-  MLFLOW_SYSTEM_METRIC_PREFIX,
-} from 'experiment-tracking/constants';
-import MetricChartsAccordion from '../MetricChartsAccordion';
-import { RunViewMetricChartsSection } from './RunViewMetricChartsSection';
-import { RunsCompareCardConfig } from '../runs-compare/runs-compare.types';
+  RunsChartsUIConfigurationContextProvider,
+  useConfirmChartCardConfigurationFn,
+  useInsertRunsChartsFn,
+  useRemoveRunsChartFn,
+  useReorderRunsChartsFn,
+} from '../runs-charts/hooks/useRunsChartsUIConfiguration';
+import { MLFLOW_MODEL_METRIC_NAME, MLFLOW_SYSTEM_METRIC_NAME, MLFLOW_SYSTEM_METRIC_PREFIX } from '../../constants';
+import LocalStorageUtils from '../../../common/utils/LocalStorageUtils';
+import { RunsChartsFullScreenModal } from '../runs-charts/components/RunsChartsFullScreenModal';
 
-const { systemMetricChartsEmpty, modelMetricChartsEmpty } = defineMessages({
-  systemMetricChartsEmpty: {
-    defaultMessage: 'No system metrics recorded',
-    description: 'Run page > Charts tab > System charts section > empty label',
-  },
-  modelMetricChartsEmpty: {
-    defaultMessage: 'No model metrics recorded',
-    description: 'Run page > Charts tab > Model charts section > empty label',
-  },
-});
-
-const EmptyMetricsFiltered = () => (
-  <Empty
-    title={
-      <FormattedMessage
-        defaultMessage="No matching metric keys"
-        description="Run page > Charts tab > No matching metric keys"
-      />
-    }
-    description={
-      <FormattedMessage
-        defaultMessage="All metrics in this section are filtered. Clear the search filter to see hidden metrics."
-        description="Run page > Charts tab > No matching metric keys > description"
-      />
-    }
-  />
-);
-
-const EmptyMetricsNotRecorded = ({ label }: { label: React.ReactNode }) => <Empty title={label} description={null} />;
-
-const metricKeyMatchesFilter = (filter: string, metricKey: string) =>
-  metricKey.toLowerCase().startsWith(filter.toLowerCase()) ||
-  normalizeChartMetricKey(metricKey).toLowerCase().startsWith(filter.toLowerCase());
-
-/**
- * Internal component that displays a single page with sections of charts
- */
-const RunViewMetricChartsPage = ({
-  metricConfigs,
-  search,
-  runInfo,
-  chartRefreshManager,
-  onReorderChart,
-  onInsertChart,
-}: {
-  metricConfigs: RunViewMetricConfig[];
-  search: string;
-  runInfo: RunInfoEntity;
-  onReorderChart: (sourceChartKey: string, targetChartKey: string) => void;
-  onInsertChart: (sourceChartKey: string, targetSectionKey: string) => void;
-  chartRefreshManager: ChartRefreshManager;
-}) => {
-  const filteredMetricConfigs = metricConfigs.filter((metricConfig) =>
-    metricKeyMatchesFilter(search, metricConfig.metricKey),
-  );
-
-  const { canMoveDown, canMoveUp, moveChartDown, moveChartUp } = useChartMoveUpDownFunctionsV2(
-    filteredMetricConfigs,
-    onReorderChart,
-  );
-
-  const sections = useMemo(() => {
-    const sectionSet = new Set<string>();
-    filteredMetricConfigs.forEach((metricConfig: RunViewMetricConfig) => {
-      if (search === '') {
-        sectionSet.add(RunsCompareCardConfig.extractChartSectionName(metricConfig.metricKey)); // Extract section key from metricKey
-      } else {
-        sectionSet.add(metricConfig.sectionKey);
-      }
-    });
-    return Array.from(sectionSet).sort();
-  }, [filteredMetricConfigs, search]);
-
-  // Move model metrics to the end
-  const modelMetricsIndex = sections.findIndex((section) => section === MLFLOW_MODEL_METRIC_NAME);
-  if (modelMetricsIndex !== -1) {
-    sections.splice(modelMetricsIndex, 1);
-    sections.push(MLFLOW_MODEL_METRIC_NAME);
-  }
-
-  return filteredMetricConfigs.length ? (
-    <MetricChartsAccordion>
-      {sections.map((sectionKey) => {
-        const groupMetricConfigs = filteredMetricConfigs.filter(
-          (metricConfig) => metricConfig.sectionKey === sectionKey,
-        );
-        return (
-          <Accordion.Panel header={sectionKey + ` (${groupMetricConfigs.length})`} key={sectionKey}>
-            <RunViewMetricChartsSection
-              section={sectionKey}
-              metricConfigs={groupMetricConfigs}
-              onInsertChart={onInsertChart}
-              onReorderChart={onReorderChart}
-              canMoveUp={canMoveUp}
-              canMoveDown={canMoveDown}
-              moveChartDown={moveChartDown}
-              moveChartUp={moveChartUp}
-              runInfo={runInfo}
-              chartRefreshManager={chartRefreshManager}
-            />
-          </Accordion.Panel>
-        );
-      })}
-    </MetricChartsAccordion>
-  ) : (
-    <EmptyMetricsFiltered />
-  );
-};
-
-/**
- * Component displaying metric charts for a single run
- */
-export const RunViewMetricChartsV2 = ({
-  runInfo,
-  metricKeys,
-  mode,
-}: {
+interface RunViewMetricChartsV2Props {
   metricKeys: string[];
   runInfo: RunInfoEntity;
   /**
    * Whether to display model or system metrics. This affects labels and tooltips.
    */
   mode: 'model' | 'system';
+}
+
+/**
+ * Component displaying metric charts for a single run
+ */
+export const RunViewMetricChartsV2Impl = ({
+  runInfo,
+  metricKeys,
+  mode,
+  chartUIState,
+  updateChartsUIState,
+}: RunViewMetricChartsV2Props & {
+  chartUIState: ExperimentRunsChartsUIConfiguration;
+  updateChartsUIState: (
+    stateSetter: (state: ExperimentRunsChartsUIConfiguration) => ExperimentRunsChartsUIConfiguration,
+  ) => void;
 }) => {
-  const chartRefreshManager = useChartRefreshManager();
+  const { theme } = useDesignSystemTheme();
+  const [search, setSearch] = useState('');
+  const { formatMessage } = useIntl();
+
+  const { compareRunCharts, compareRunSections } = chartUIState;
+
+  const [fullScreenChart, setFullScreenChart] = useState<
+    { config: RunsChartsCardConfig; title: string; subtitle: ReactNode } | undefined
+  >(undefined);
 
   const metricsForRun = useSelector(({ entities }: ReduxState) => {
     return mapValues(entities.sampledMetricsByRunUuid[runInfo.run_uuid], (metricsByRange) => {
@@ -168,94 +70,211 @@ export const RunViewMetricChartsV2 = ({
     });
   });
 
-  const [search, setSearch] = useState('');
-  const { formatMessage } = useIntl();
+  const tooltipContextValue = useMemo(() => ({ runInfo, metricsForRun }), [runInfo, metricsForRun]);
 
-  // Add group infomation to metricKey
-  const metricConfigs = metricKeys.map((key: string) => {
-    const section = RunsCompareCardConfig.extractChartSectionName(key);
-    return { metricKey: key, sectionKey: section };
-  });
+  const { paramsByRunUuid, latestMetricsByRunUuid } = useSelector((state: ReduxState) => ({
+    paramsByRunUuid: state.entities.paramsByRunUuid,
+    latestMetricsByRunUuid: state.entities.latestMetricsByRunUuid,
+  }));
 
-  const { orderedMetricConfigs, onReorderChart, onInsertChart } = useOrderedChartsV2(
-    metricConfigs,
-    'RunView' + mode,
-    runInfo.run_uuid,
+  const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsChartsCardConfig | null>(null);
+
+  const reorderCharts = useReorderRunsChartsFn();
+
+  const addNewChartCard = (metricSectionId: string) => (type: RunsChartType) =>
+    setConfiguredCardConfig(RunsChartsCardConfig.getEmptyChartCardByType(type, false, undefined, metricSectionId));
+
+  const insertCharts = useInsertRunsChartsFn();
+
+  const startEditChart = (chartCard: RunsChartsCardConfig) => setConfiguredCardConfig(chartCard);
+
+  const removeChart = useRemoveRunsChartFn();
+
+  const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();
+
+  const submitForm = (configuredCard: Partial<RunsChartsCardConfig>) => {
+    confirmChartCardConfiguration(configuredCard);
+
+    // Hide the modal
+    setConfiguredCardConfig(null);
+  };
+
+  // Create a single run data object to be used in charts
+  const chartData: RunsChartsRunData[] = useMemo(
+    () => [
+      {
+        displayName: runInfo.run_name,
+        metrics: latestMetricsByRunUuid[runInfo.run_uuid] || {},
+        params: paramsByRunUuid[runInfo.run_uuid] || {},
+        metricHistory: {},
+        uuid: runInfo.run_uuid,
+        color: theme.colors.primary,
+        runInfo,
+      },
+    ],
+    [runInfo, latestMetricsByRunUuid, paramsByRunUuid, theme],
   );
 
-  const noMetricsRecorded = !metricKeys.length;
-  const allMetricsFilteredOut =
-    !noMetricsRecorded && !metricKeys.some((metricKey) => metricKeyMatchesFilter(search, metricKey));
-  const showConfigArea = !noMetricsRecorded;
-  const { theme } = useDesignSystemTheme();
-  const showCharts = !noMetricsRecorded && !allMetricsFilteredOut;
+  useEffect(() => {
+    if ((!compareRunSections || !compareRunCharts) && chartData.length > 0) {
+      const { resultChartSet, resultSectionSet } = RunsChartsCardConfig.getBaseChartAndSectionConfigs({
+        runsData: chartData,
+        enabledSectionNames: [mode === 'model' ? MLFLOW_MODEL_METRIC_NAME : MLFLOW_SYSTEM_METRIC_NAME],
+        // Filter only model or system metrics
+        filterMetricNames: (name) => {
+          const isSystemMetric = name.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX);
+          return mode === 'model' ? !isSystemMetric : isSystemMetric;
+        },
+      });
 
-  const tooltipContext = useMemo(() => ({ runInfo, metricsForRun }), [runInfo, metricsForRun]);
+      updateChartsUIState((current) => ({
+        ...current,
+        compareRunCharts: resultChartSet,
+        compareRunSections: resultSectionSet,
+      }));
+    }
+  }, [compareRunCharts, compareRunSections, chartData, mode, updateChartsUIState]);
 
-  const anyRunRefreshing = useSelector((store: ReduxState) => {
-    return values(store.entities.sampledMetricsByRunUuid[runInfo.run_uuid]).some((metricsByRange) =>
-      values(metricsByRange).some(({ refreshing }) => refreshing),
-    );
-  });
+  /**
+   * Update charts with the latest metrics if new are found
+   */
+  useEffect(() => {
+    updateChartsUIState((current) => {
+      if (!current.compareRunCharts || !current.compareRunSections) {
+        return current;
+      }
+      const { resultChartSet, resultSectionSet, isResultUpdated } = RunsChartsCardConfig.updateChartAndSectionConfigs({
+        compareRunCharts: current.compareRunCharts,
+        compareRunSections: current.compareRunSections,
+        runsData: chartData,
+        isAccordionReordered: current.isAccordionReordered,
+        // Filter only model or system metrics
+        filterMetricNames: (name) => {
+          const isSystemMetric = name.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX);
+          return mode === 'model' ? !isSystemMetric : isSystemMetric;
+        },
+      });
+
+      if (!isResultUpdated) {
+        return current;
+      }
+      return {
+        ...current,
+        compareRunCharts: resultChartSet,
+        compareRunSections: resultSectionSet,
+      };
+    });
+  }, [chartData, updateChartsUIState, mode]);
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div css={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div css={{ flexShrink: 0 }}>
-          {showConfigArea && (
-            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-              <Input
-                role="searchbox"
-                prefix={<SearchIcon />}
-                value={search}
-                allowClear
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={formatMessage({
-                  defaultMessage: 'Search metric charts',
-                  description: 'Run page > Charts tab > Filter metric charts input > placeholder',
-                })}
-              />
-              <Button
-                icon={
-                  anyRunRefreshing ? <Spinner size="small" css={{ marginRight: theme.spacing.sm }} /> : <RefreshIcon />
-                }
-                onClick={() => {
-                  if (!anyRunRefreshing) {
-                    chartRefreshManager.refreshAllCharts();
-                  }
-                }}
-              >
-                <FormattedMessage
-                  defaultMessage="Refresh"
-                  description="Run page > Charts tab > Refresh all charts button label"
-                />
-              </Button>
-            </div>
-          )}
-          <Spacer />
-        </div>
-        {noMetricsRecorded && (
-          <EmptyMetricsNotRecorded
-            label={<FormattedMessage {...(mode === 'model' ? modelMetricChartsEmpty : systemMetricChartsEmpty)} />}
-          />
-        )}
-        {allMetricsFilteredOut && <EmptyMetricsFiltered />}
-        {/* Scroll charts independently from filter box */}
-        <div css={{ flex: 1, overflow: 'auto' }}>
-          <RunsChartsTooltipWrapper contextData={tooltipContext} component={RunViewChartTooltipBody} hoverOnly>
-            {showCharts && (
-              <RunViewMetricChartsPage
-                metricConfigs={orderedMetricConfigs}
-                runInfo={runInfo}
-                search={search}
-                onReorderChart={onReorderChart}
-                onInsertChart={onInsertChart}
-                chartRefreshManager={chartRefreshManager}
-              />
-            )}
-          </RunsChartsTooltipWrapper>
-        </div>{' '}
+    <div
+      css={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        css={{
+          paddingBottom: theme.spacing.md,
+          display: 'flex',
+          gap: theme.spacing.sm,
+          flex: '0 0 auto',
+        }}
+      >
+        <Input
+          role="searchbox"
+          prefix={<SearchIcon />}
+          value={search}
+          allowClear
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={formatMessage({
+            defaultMessage: 'Search metric charts',
+            description: 'Run page > Charts tab > Filter metric charts input > placeholder',
+          })}
+        />
+        {/* TODO: implement refreshing charts */}
       </div>
-    </DndProvider>
+      <div
+        css={{
+          flex: 1,
+          overflow: 'auto',
+        }}
+      >
+        <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunViewChartTooltipBody}>
+          <DndProvider backend={HTML5Backend}>
+            <RunsChartsSectionAccordion
+              compareRunSections={compareRunSections}
+              compareRunCharts={compareRunCharts}
+              reorderCharts={reorderCharts}
+              insertCharts={insertCharts}
+              chartData={chartData}
+              startEditChart={startEditChart}
+              removeChart={removeChart}
+              addNewChartCard={addNewChartCard}
+              search={search}
+              supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR]}
+              setFullScreenChart={setFullScreenChart}
+            />
+          </DndProvider>
+        </RunsChartsTooltipWrapper>
+      </div>
+      {configuredCardConfig && (
+        <RunsChartsConfigureModal
+          chartRunData={chartData}
+          metricKeyList={metricKeys}
+          paramKeyList={[]}
+          config={configuredCardConfig}
+          onSubmit={submitForm}
+          onCancel={() => setConfiguredCardConfig(null)}
+          supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR]}
+        />
+      )}
+      <RunsChartsFullScreenModal
+        fullScreenChart={fullScreenChart}
+        onCancel={() => setFullScreenChart(undefined)}
+        chartData={chartData}
+        tooltipContextValue={tooltipContextValue}
+        tooltipComponent={RunViewChartTooltipBody}
+      />
+    </div>
+  );
+};
+
+export const RunViewMetricChartsV2 = (props: RunViewMetricChartsV2Props) => {
+  const persistenceIdentifier = `${props.runInfo.run_uuid}-${props.mode}`;
+
+  const localStore = useMemo(
+    () => LocalStorageUtils.getStoreForComponent('RunPage', persistenceIdentifier),
+    [persistenceIdentifier],
+  );
+
+  const [chartUIState, updateChartsUIState] = useState<ExperimentRunsChartsUIConfiguration>(() => {
+    const defaultChartState = {
+      isAccordionReordered: false,
+      compareRunCharts: undefined,
+      compareRunSections: undefined,
+    };
+    try {
+      const persistedChartState = localStore.getItem('chartUIState');
+
+      if (!persistedChartState) {
+        return defaultChartState;
+      }
+      return JSON.parse(persistedChartState);
+    } catch {
+      return defaultChartState;
+    }
+  });
+
+  useEffect(() => {
+    localStore.setItem('chartUIState', JSON.stringify(chartUIState));
+  }, [chartUIState, localStore]);
+
+  return (
+    <RunsChartsUIConfigurationContextProvider updateChartsUIState={updateChartsUIState}>
+      <RunViewMetricChartsV2Impl {...props} chartUIState={chartUIState} updateChartsUIState={updateChartsUIState} />
+    </RunsChartsUIConfigurationContextProvider>
   );
 };
