@@ -1,11 +1,13 @@
 import logging
+import re
 import sys
+from io import StringIO
 
 import pytest
 
 import mlflow
 from mlflow.utils import logging_utils
-from mlflow.utils.logging_utils import eprint
+from mlflow.utils.logging_utils import eprint, suppress_logs
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -106,3 +108,22 @@ def test_debug_logs_emitted_correctly_when_configured():
     logger.setLevel(logging.DEBUG)
     logger.debug("test debug")
     assert "test debug" in stream.content
+
+
+def test_suppress_logs():
+    module = "test_logger"
+    logger = logging.getLogger(module)
+
+    message = "This message should be suppressed."
+
+    capture_stream = StringIO()
+    stream_handler = logging.StreamHandler(capture_stream)
+    logger.addHandler(stream_handler)
+
+    logger.error(message)
+    assert message in capture_stream.getvalue()
+
+    capture_stream.truncate(0)
+    with suppress_logs(module, re.compile("This .* be suppressed.")):
+        logger.error(message)
+    assert len(capture_stream.getvalue()) == 0
