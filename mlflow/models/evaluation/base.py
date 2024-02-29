@@ -425,9 +425,50 @@ def _hash_uint64_ndarray_as_bytes(array):
     return struct.pack(f">{array.size}Q", *array)
 
 
+def _is_empty_list_or_array(data):
+    if isinstance(data, list):
+        return len(data) == 0
+    elif isinstance(data, np.ndarray):
+        return data.size == 0 or data.ndim == 0
+    return False
+
+
+def _is_array_has_dict(nd_array):
+    if _is_empty_list_or_array(nd_array):
+        return False
+
+    # It is less likely the array or list contains heterogeneous elements, so just checking the
+    # first element to avoid performance overhead.
+    elm = nd_array[0]
+    if isinstance(elm, (list, np.ndarray)):
+        return _is_array_has_dict(elm)
+    elif isinstance(elm, dict):
+        return True
+
+    return False
+
+
+def _hash_array_of_dict_as_bytes(data):
+    # NB: If an array or list contains dictionary element, it can't be hashed with
+    # pandas.util.hash_array. Hence we need to manually hash the elements here. This is
+    # particularly for the LLM use case where the input can be a list of dictionary
+    # (chat/completion payloads), so doesn't handle more complex case like nested lists.
+    result = b""
+    for elm in data:
+        if isinstance(elm, (list, np.ndarray)):
+            result += _hash_array_of_dict_as_bytes(elm)
+        elif isinstance(elm, dict):
+            result += _hash_dict_as_bytes(elm)
+    return result
+
+
 def _hash_ndarray_as_bytes(nd_array):
     if not isinstance(nd_array, np.ndarray):
         nd_array = np.array(nd_array)
+
+    if _is_array_has_dict(nd_array):
+        return _hash_array_of_dict_as_bytes(nd_array)
+
     return _hash_uint64_ndarray_as_bytes(
         pd.util.hash_array(nd_array.flatten(order="C"))
     ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
@@ -1140,7 +1181,9 @@ def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
         from pyspark.sql import DataFrame as SparkDataFrame
 
     if isinstance(data, list):
-        return mlflow.data.from_numpy(np.array(data), targets=np.array(targets))
+        return mlflow.data.from_numpy(
+            np.array(data), targets=np.array(targets) if targets else None
+        )
     elif isinstance(data, np.ndarray):
         return mlflow.data.from_numpy(data, targets=targets)
     elif isinstance(data, pd.DataFrame):
@@ -1247,6 +1290,19 @@ def _get_model_from_function(fn):
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
+def _is_model_deployment_endpoint_uri(model: Any) -> bool:
+    if not isinstance(model, str):
+        return False
+
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    try:
+        schema, path = _parse_model_uri(model)
+        return schema == "endpoints"
+    except MlflowException:
+        return False
+
+
 def _get_model_from_deployment_endpoint_uri(
     endpoint_uri: str, params: Optional[Dict[str, Any]] = None
 ):
@@ -1259,21 +1315,34 @@ def _get_model_from_deployment_endpoint_uri(
             self.params = params
 
         def predict(self, context, model_input: pd.DataFrame):
-            if "inputs" not in model_input.columns:
+            if len(model_input.columns) != 1:
                 raise MlflowException(
-                    f"Invalid input column: {model_input.columns}. The input column for "
-                    "evaluating an MLflow deployment endpoint must be named 'inputs'"
+                    f"The number of input columns must be 1, but got {model_input.columns}. "
+                    "Multi-column input is not supported for evaluating an MLflow Deployments "
+                    "endpoint. Please include the input text or payload in a single column.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
+            input_column = model_input.columns[0]
 
             predictions = []
-            for input_data in model_input["inputs"]:
-                if not isinstance(input_data, str):
+            for data in model_input[input_column]:
+                if isinstance(data, str):
+                    # If the input data is a string, we will construct the request payload from it.
+                    prediction = _call_deployments_api(self.endpoint, data, self.params)
+                elif isinstance(data, dict):
+                    # If the input data is a dictionary, we will directly use it as the request
+                    # payload, with adding the inference parameters if provided.
+                    prediction = _call_deployments_api(
+                        self.endpoint, data, self.params, wrap_payload=False
+                    )
+                else:
                     raise MlflowException(
-                        f"Invalid input column type: {type(input_data)}. The input column for "
-                        "evaluating an MLflow deployment endpoint must contain only string values."
+                        f"Invalid input column type: {type(data)}. The input data must be either "
+                        "a string or a dictionary contains the request payload for evaluating an "
+                        "MLflow Deployments endpoint.",
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
 
-                prediction = _call_deployments_api(self.endpoint, input_data, self.params)
                 predictions.append(prediction)
 
             return pd.Series(predictions)
@@ -1532,7 +1601,7 @@ def evaluate(
 
             - A pyfunc model instance
             - A URI referring to a pyfunc model
-            - A URI referring to an MLflow Deployment endpoint e.g. ``"endpoints:/my-chat"``
+            - A URI referring to an MLflow Deployments endpoint e.g. ``"endpoints:/my-chat"``
             - A callable function: This function should be able to take in model input and
               return predictions. It should follow the signature of the
               :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
@@ -1623,7 +1692,7 @@ def evaluate(
 
         inference_params: (Optional) A dictionary of inference parameters to be passed to the model
             when making predictions, such as ``{"max_tokens": 100}``. This is only used when
-            the ``model`` is an MLflow Deployment endpoint URI e.g. ``"endpoints:/my-chat"``
+            the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
 
         dataset_path: (Optional) The path where the data is stored. Must not contain double
             quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
@@ -1815,11 +1884,11 @@ def evaluate(
 
     # Inference params are currently only supported for passing a deployment endpoint as the model.
     # TODO: We should support inference_params for other model types
-    is_model_endpoint_url = isinstance(model, str) and model.startswith("endpoints:/")
-    if not is_model_endpoint_url and inference_params is not None:
+
+    if inference_params is not None and not _is_model_deployment_endpoint_uri(model):
         raise MlflowException(
             message="The inference_params argument can only be specified when the model "
-            "is an MLflow Deployments endpoint URI like `endpoints:/xxx`",
+            "is an MLflow Deployments endpoint URI like `endpoints:/my-chat`",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1897,7 +1966,7 @@ def evaluate(
             )
 
     if isinstance(model, str):
-        if is_model_endpoint_url:
+        if _is_model_deployment_endpoint_uri(model):
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
             model = _load_model_or_server(model, env_manager, model_config)
@@ -1950,7 +2019,7 @@ def evaluate(
     else:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
-            "an MLflow deployment endpoint, an instance of `mlflow.pyfunc.PyFuncModel`, "
+            "an MLflow deployments endpoint, an instance of `mlflow.pyfunc.PyFuncModel`, "
             "a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )

@@ -410,7 +410,7 @@ In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one
 
    * Has ``data`` as the only argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
    * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
-3. An MLflow Deployment endpoint URI pointing to a local `MLflow Deployment Server <../deployments/index.html>`_ or `Databricks Foundation Models <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_. 
+3. An MLflow Deployments endpoint URI pointing to a local `MLflow Deployments Server <../deployments/index.html>`_ or `Databricks Foundation Models API and External Models <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_. 
 4. Set ``model=None``, and put model outputs in ``data``. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
@@ -499,33 +499,118 @@ up OpenAI authentication to run the code below.
 
 .. _llm-eval-model-endpoint:
 
-Evaluating with a MLflow Deployment Endpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Evaluating with an MLflow Deployments Endpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the MLflow Deployment endpoint URI to the ``model`` argument.
-This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow Deployment Server <../deployments/index.html>`_ or `Databricks Foundation Model APIs <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html#language-MLflow%C2%A0Deployments%C2%A0SDK>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
+For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the MLflow Deployments endpoint URI to the ``model`` argument.
+This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow Deployments Server <../deployments/index.html>`_ or `Databricks Foundation Models API and External Models <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
 
 Please don't forget to set the target deployment client by using :py:func:`mlflow.deployments.set_deployments_target` before calling :py:func:`mlflow.evaluate()` with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like ``MlflowException: No deployments target has been set...``.
 
 .. hint::
 
-    When you want to use an external endpoint **not** hosted by a MLflow Deployment Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
+    When you want to use an external endpoint **not** hosted by an MLflow Deployments Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
+
+Supported Input Data Formats
+****************************
+
+The input data can be either of the following format when using an URI of the MLflow Deployment Endpoint as the model:
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - Data Format
+      - Example
+      - Additional Notes
+
+    * - A pandas DataFrame with a string column.
+      - 
+        .. code-block:: python
+
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                ]
+            }
+
+      - For this input format, MLflow will construct the appropriate request payload to the model endpoint type. For example, if your model is a chat endpoint (``llm/v1/chat``), MLflow will wrap your input string with the chat messages format like ``{"messages": [{"role": "user", "content": "What is MLflow?"}]}``. If you want to customize the request payload e.g. including system prompt, please use the next format.
+
+    * - A pandas DataFrame with a dictionary column.
+      - 
+        .. code-block:: python
+
+            {
+                "inputs": [
+                    {
+                        "messages": [
+                            {"role": "system", "content": "Please answer."},
+                            {"role": "user", "content": "What is MLflow?"},
+                        ],
+                        "max_tokens": 100,
+                    },
+                    # ... more dictionary records
+                ]
+            }
+
+      - In this format, the dictionary should have the correct request format for your model endpoint.
+
+    * - A (nested) list of input strings.
+      - 
+        .. code-block:: python
+
+            [
+                ["What is MLflow?"],
+                ["What is Spark?"],
+            ]
+
+      - The :py:func:`mlflow.evaluate()` will also accepts a list input. One notable requirement is that the each
+        list element i.e. input string needs to be wrapped in another list, so they can be passed as a single prediction request to the model endpoint.
+
+    * - A (nested) list of input strings.
+      - 
+        .. code-block:: python
+
+            [
+                [
+                    {
+                        "messages": [
+                            {"role": "system", "content": "Please answer."},
+                            {"role": "user", "content": "What is MLflow?"},
+                        ],
+                        "max_tokens": 100,
+                    },
+                    # ... more dictionary records
+                ]
+            ]
+
+      - Similar requirements as the above list format apply here as well.
+
+
 
 Passing Inference Parameters
 ****************************
 
 You can pass additional inference parameters such as ``max_tokens``, ``temperature``, ``n``, to the model endpoint by setting the ``inference_params`` argument in :py:func:`mlflow.evaluate()`. The ``inference_params`` argument is a dictionary that contains the parameters to be passed to the model endpoint. The specified parameters are used for all the input record in the evaluation dataset.
 
+.. note::
+
+    When your input is a dictionary format tha represents request payload, it can also include the parameters like ``max_tokens``. If there are overlapping parameters in both the ``inference_params`` and the input data, the values in the ``inference_params`` will take precedence.
+
 Examples
 ********
 
-**Chat Endpoint hosted by a local** `MLflow Deployment Server <../deployments/index.html>`_
+**Chat Endpoint hosted by a local** `MLflow Deployments Server <../deployments/index.html>`_
 
 .. code-block:: python
 
+    import mlflow
     from mlflow.deployments import set_deployments_target
+    import pandas as pd
 
-    # Point the client to the local MLflow Deployment Server
+    # Point the client to the local MLflow Deployments Server
     set_deployments_target("http://localhost:5000")
 
     eval_data = pd.DataFrame(
@@ -553,14 +638,16 @@ Examples
             model_type="question-answering",
         )
 
-**Completion Endpoint hosted on** `Databricks Foundation Model APIs <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html#language-MLflow%C2%A0Deployments%C2%A0SDK>`_
+**Completion Endpoint hosted on** `Databricks Foundation Models API and External Models <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_
 
 
 .. code-block:: python
 
+    import mlflow
     from mlflow.deployments import set_deployments_target
+    import pandas as pd
 
-    # Point the client to Databricks Foundation Model APIs
+    # Point the client to Databricks Foundation Models API / External Models
     set_deployments_target("databricks")
 
     eval_data = pd.DataFrame(
