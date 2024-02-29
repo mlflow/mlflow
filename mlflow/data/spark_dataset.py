@@ -3,10 +3,12 @@ import logging
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
+from packaging.version import Version
+
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
-from mlflow.data.digest_utils import compute_spark_df_digest
+from mlflow.data.digest_utils import get_normalized_md5_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
@@ -53,7 +55,15 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         # Retrieve a semantic hash of the DataFrame's logical plan, which is much more efficient
         # and deterministic than hashing DataFrame records
-        return compute_spark_df_digest(self._df)
+        import numpy as np
+        import pyspark
+
+        # Spark 3.1.0+ has a semanticHash() method on DataFrame
+        if Version(pyspark.__version__) >= Version("3.1.0"):
+            semantic_hash = self._df.semanticHash()
+        else:
+            semantic_hash = self._df._jdf.queryExecution().analyzed().semanticHash()
+        return get_normalized_md5_digest([np.int64(semantic_hash)])
 
     def to_dict(self) -> Dict[str, str]:
         """Create config dictionary for the dataset.
