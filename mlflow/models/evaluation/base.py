@@ -1270,7 +1270,7 @@ def _get_model_from_deployment_endpoint_uri(
                 if not isinstance(input_data, str):
                     raise MlflowException(
                         f"Invalid input column type: {type(input_data)}. The input column for "
-                        "evaluating an Mlflow deployment endpoint must contain only string values."
+                        "evaluating an MLflow deployment endpoint must contain only string values."
                     )
 
                 prediction = _call_deployments_api(self.endpoint, input_data, self.params)
