@@ -1141,7 +1141,7 @@ def test_property_from_dict_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object, Map or ",
     ):
         Property.from_json_dict(**{"p": {"type": "invalid_type"}})
 
@@ -1154,7 +1154,7 @@ def test_property_from_dict_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object, Map or ",
     ):
         Property.from_json_dict(**{"p": {"type": "array", "items": {"type": "invalid_type"}}})
 
@@ -1264,7 +1264,7 @@ def test_array_from_dict_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object or ",
+        match=r"Unsupported type 'invalid_type', expected instance of DataType, Array, Object, Map or ",
     ):
         Array.from_json_dict(**{"type": "array", "items": {"type": "invalid_type"}})
 
