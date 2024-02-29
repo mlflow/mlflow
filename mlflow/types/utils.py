@@ -520,9 +520,6 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
             ]
         )
     elif isinstance(x, pyspark.sql.types.MapType):
-        if data is None:
-            raise MlflowException("Cannot infer schema for MapType without data.")
-
         if not isinstance(x.keyType, pyspark.sql.types.StringType):
             raise MlflowException("Mlflow doesn't support Map type with non-string key type.")
 
