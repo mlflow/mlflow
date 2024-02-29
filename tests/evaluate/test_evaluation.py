@@ -1591,6 +1591,56 @@ _DUMMY_CHAT_RESPONSE = {
     },
 }
 
+
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_chat_model_endpoint(mock_deploy_client):
+    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+
+    with mlflow.start_run():
+        eval_result = mlflow.evaluate(
+            model="endpoints:/chat",
+            data=pd.DataFrame(
+                {
+                    "inputs": [
+                        "What is MLflow?",
+                        "What is Spark?",
+                    ],
+                    "ground_truth": [
+                        "MLflow is an open-source platform for machine learning (ML).",
+                        "Apache Spark is an open-source, distributed computing system.",
+                    ],
+                }
+            ),
+            model_type="question-answering",
+            targets="ground_truth",
+            inference_params={"max_tokens": 10, "temperature": 0.5},
+        )
+
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(
+            endpoint="endpoints:/chat",
+            inputs={
+                "messages": [{"content": "What is MLflow?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+        mock.call(
+            endpoint="endpoints:/chat",
+            inputs={
+                "messages": [{"content": "What is Spark?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+    ]
+    assert all(call in call_args_list for call in expected_calls)
+    expected_metrics_subset = {"exact_match/v1", "toxicity/v1/ratio", "ari_grade_level/v1/mean"}
+    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+
+
 _DUMMY_COMPLETION_RESPONSE = {
     "id": "1",
     "object": "text_completion",
@@ -1605,65 +1655,14 @@ _DUMMY_COMPLETION_RESPONSE = {
 }
 
 
-@mock.patch("mlflow.models.evaluation.llm_utils.requests.post")
-def test_evaluate_on_chat_model_endpoint(mock_post):
-    mock_post.return_value.json.return_value = _DUMMY_CHAT_RESPONSE
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_completion_model_endpoint(mock_deploy_client):
+    mock_deploy_client.return_value.predict.return_value = _DUMMY_COMPLETION_RESPONSE
+    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/completions"}
 
     with mlflow.start_run():
         eval_result = mlflow.evaluate(
-            "https://some-chat-model-endpoint",
-            data=pd.DataFrame(
-                {
-                    "inputs": [
-                        "What is MLflow?",
-                        "What is Spark?",
-                    ],
-                    "ground_truth": [
-                        "MLflow is an open-source platform for machine learning (ML).",
-                        "Apache Spark is an open-source, distributed computing system.",
-                    ],
-                }
-            ),
-            model_type="chat",
-            extra_metrics=[mlflow.metrics.exact_match()],
-            targets="ground_truth",
-            inference_params={"max_tokens": 10, "temperature": 0.5},
-            headers={"Authorization": "Bearer some"},
-        )
-
-    call_args_list = mock_post.call_args_list
-    expected_calls = [
-        mock.call(
-            "https://some-chat-model-endpoint",
-            json={
-                "messages": [{"content": "What is MLflow?", "role": "user"}],
-                "max_tokens": 10,
-                "temperature": 0.5,
-            },
-            headers={"Content-Type": "application/json", "Authorization": "Bearer some"},
-        ),
-        mock.call(
-            "https://some-chat-model-endpoint",
-            json={
-                "messages": [{"content": "What is Spark?", "role": "user"}],
-                "max_tokens": 10,
-                "temperature": 0.5,
-            },
-            headers={"Content-Type": "application/json", "Authorization": "Bearer some"},
-        ),
-    ]
-    assert all(call in call_args_list for call in expected_calls)
-    expected_metrics_subset = {"exact_match/v1", "toxicity/v1/ratio", "ari_grade_level/v1/mean"}
-    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
-
-
-@mock.patch("mlflow.models.evaluation.llm_utils.requests.post")
-def test_evaluate_on_completion_model_endpoint(mock_post):
-    mock_post.return_value.json.return_value = _DUMMY_COMPLETION_RESPONSE
-
-    with mlflow.start_run():
-        eval_result = mlflow.evaluate(
-            "https://some-completion-model-endpoint",
+            model="endpoints:/completions",
             data=pd.DataFrame(
                 {
                     "inputs": [
@@ -1673,20 +1672,14 @@ def test_evaluate_on_completion_model_endpoint(mock_post):
                 }
             ),
             inference_params={"max_tokens": 10},
-            model_type="completion",
+            model_type="text",
         )
 
-    call_args_list = mock_post.call_args_list
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
     expected_calls = [
+        mock.call(endpoint="endpoints:/completions", inputs={"prompt": "Hi", "max_tokens": 10}),
         mock.call(
-            "https://some-completion-model-endpoint",
-            json={"prompt": "Hi", "max_tokens": 10},
-            headers={"Content-Type": "application/json"},
-        ),
-        mock.call(
-            "https://some-completion-model-endpoint",
-            json={"prompt": "Buenos días", "max_tokens": 10},
-            headers={"Content-Type": "application/json"},
+            endpoint="endpoints:/completions", inputs={"prompt": "Buenos días", "max_tokens": 10}
         ),
     ]
     assert all(call in call_args_list for call in expected_calls)
@@ -1696,34 +1689,3 @@ def test_evaluate_on_completion_model_endpoint(mock_post):
         "flesch_kincaid_grade_level/v1/mean",
     }
     assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
-
-
-@mock.patch("mlflow.models.evaluation.llm_utils.requests.post")
-def test_model_from_llm_endpoint_url_unsupported_response_format(mock_post):
-    mock_post.return_value.json.return_value = {"unsupported": "response_format"}
-
-    with pytest.raises(mlflow.exceptions.MlflowException, match="Invalid response format"):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                "https://some-chat-model-endpoint",
-                data=pd.DataFrame(
-                    {
-                        "inputs": [
-                            "Hi",
-                            "Buenos días",
-                        ]
-                    }
-                ),
-                inference_params={"max_tokens": 10},
-                model_type="chat",
-            )
-
-
-def test_model_from_llm_endpoint_url_invalid_model_type():
-    with pytest.raises(mlflow.exceptions.MlflowException, match="Invalid model type: 'text'"):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                "https://some-chat-model-endpoint",
-                data=pd.DataFrame({"inputs": ["Hi"]}),
-                model_type="text",
-            )

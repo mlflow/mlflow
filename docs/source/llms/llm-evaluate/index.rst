@@ -410,7 +410,7 @@ In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one
 
    * Has ``data`` as the only argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
    * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
-3. An endpoint URL pointing to a deployed model or managed model endpoint such as `Databricks Foundation Model APIs <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_.
+3. An MLflow Deployment endpoint URI pointing to a local Mlflow Deployment Server or `Databricks Foundation Models <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_. 
 4. Set ``model=None``, and put model outputs in ``data``. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
@@ -499,37 +499,25 @@ up OpenAI authentication to run the code below.
 
 .. _llm-eval-model-endpoint:
 
-Evaluating with a Model Endpoint URL
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Evaluating with a MLflow Deployment Endpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the endpoint URL to the ``model`` argument.
-This is particularly useful when you want to evaluate a deployed model or proprietary model endpoint, without implementing custom prediction logic to wrap it as
-an MLflow model or a python function.
-
-Supported Endpoint Types
-************************
-
-Currently, MLflow only support **chat** and **completion** model endpoint for this evaluation method, and the endpoint should have `OpenAI-compatible
-request and response format <https://platform.openai.com/docs/api-reference/introduction>`_. Not all parameters don't need to be equal to OpenAI's, but the following
-
-- For ``chat`` model, request must accepts ``messages`` field, which is a list of message object that has ``role``, ``content`` and ``name``. The response must have ``choices`` field that contains the list of messages where the first message is the model response.
-- For ``completion`` model, request must accepts ``prompt`` field with a single string value, and the response must have ``choices`` field that contains the generated text.
+For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the MLflow Deployment endpoint URI to the ``model`` argument.
+This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow Deployment Server <../deployments/index.html>`_ or `Databricks Foundation Model APIs <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html#language-MLflow%C2%A0Deployments%C2%A0SDK>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
 
 .. hint::
 
-    When your model endpoint is **not** OpenAI-compatible, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
+    When you want to use an external endpoint **not** hosted by a MLflow Deployment Server or Databricks, you can create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide and use it as the ``model`` argument.
 
-Passing Inference Parameters and Headers
-****************************************
+Passing Inference Parameters
+****************************
 
 You can pass additional inference parameters such as ``max_tokens``, ``temperature``, ``n``, to the model endpoint by setting the ``inference_params`` argument in :py:func:`mlflow.evaluate()`. The ``inference_params`` argument is a dictionary that contains the parameters to be passed to the model endpoint. The specified parameters are used for all the input record in the evaluation dataset.
-
-Additionally, you can pass custom headers to the model endpoint by setting the ``headers`` argument in :py:func:`mlflow.evaluate()`. This is useful when the model endpoint requires custom headers for authentication or other purposes.
 
 Examples
 ********
 
-**Chat Endpoint**
+**Chat Endpoint hosted by a local** `MLflow Deployment Server <../deployments/index.html>`_
 
 .. code-block:: python
 
@@ -548,22 +536,20 @@ Examples
         }
     )
 
+    # Point the client to the local MLflow Deployment Server
+    set_deployments_target("http://localhost:5000")
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
-            # Pass the URL of an OpenAI-compatible chat endpoint
-            model="https://example.com/serving-endpoints/databricks-mixtral-8x7b-instruct/invocations",
+            model="endpoiints:/my-chat-endpoint",
             data=eval_data,
             targets="ground_truth",
-            # By specifying the "chat" model type, MOLflow automatically format the input text to the chat request format,
-            # and extract the answer text from the chat response.
-            model_type="chat",
             inference_params={"max_tokens": 100, "temperature": 0.0},
-            headers={"Authorization": "Bearer YOUR API KEY"},
-            extra_metrics=[mlflow.metrics.exact_match()],
+            model_type="question-answering",
         )
 
-**Completion Endpoint**
+**Completion Endpoint hosted on** `Databricks Foundation Model APIs <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html#language-MLflow%C2%A0Deployments%C2%A0SDK>`_
+
 
 .. code-block:: python
 
@@ -580,20 +566,11 @@ Examples
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
-            # Specify the URL of an OpenAI-compatible chat/completion endpoint
-            model="https://example.com/serving-endpoints/databricks-mpt-30b-instruct/invocations",
+            model="endpoints:/databricks-mpt-7b-instruct",
             data=eval_data,
             inference_params={"max_tokens": 100, "temperature": 0.0},
-            headers={"Authorization": "Bearer YOUR API KEY"},
-            # By specifying the "completion" model type, MOLflow automatically format the input text to the completion request format,
-            # and extract the generated text from the completion response.
-            model_type="completion",
+            model_type="text",
         )
-
-.. note::
-
-    The direct evaluation of model endpoint doesn't have a retry mechanism or interval setting, but just sequentially sending a prediction request to the endpoint. If you want to have a more robust evaluation, please create a custom Python function following the :ref:`Evaluating with a Custom Function <llm-eval-custom-function>` guide.
-
 
 .. _llm-eval-static-dataset:
 

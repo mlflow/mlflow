@@ -15,7 +15,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -56,8 +56,6 @@ class _ModelType:
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
     RETRIEVER = "retriever"
-    CHAT = "chat"
-    COMPLETION = "completion"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -71,8 +69,6 @@ class _ModelType:
             cls.TEXT_SUMMARIZATION,
             cls.TEXT,
             cls.RETRIEVER,
-            cls.CHAT,
-            cls.COMPLETION,
         )
 
 
@@ -1251,6 +1247,41 @@ def _get_model_from_function(fn):
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
+def _get_model_from_deployment_endpoint_uri(
+    endpoint_uri: str, params: Optional[Dict[str, Any]] = None
+):
+    from mlflow.metrics.genai.model_utils import _call_deployments_api
+    from mlflow.pyfunc.model import _PythonModelPyfuncWrapper
+
+    class ModelFromDeploymentEndpoint(mlflow.pyfunc.PythonModel):
+        def __init__(self, endpoint_uri, params):
+            self.endpoint_uri = endpoint_uri
+            self.params = params
+
+        def predict(self, context, model_input: pd.DataFrame):
+            if "inputs" not in model_input.columns:
+                raise MlflowException(
+                    f"Invalid input column: {model_input.columns}. The input column for "
+                    "evaluating an MLflow deployment endpoint must be named 'inputs'"
+                )
+
+            predictions = []
+            for input_data in model_input["inputs"]:
+                if not isinstance(input_data, str):
+                    raise MlflowException(
+                        f"Invalid input column type: {type(input_data)}. The input column for "
+                        "evaluating an Mlflow deployment endpoint must contain only string values."
+                    )
+
+                prediction = _call_deployments_api(self.endpoint_uri, input_data, self.params)
+                predictions.append(prediction)
+
+            return pd.Series(predictions)
+
+    python_model = ModelFromDeploymentEndpoint(endpoint_uri, params)
+    return _PythonModelPyfuncWrapper(python_model, None, None)
+
+
 def evaluate(
     model=None,
     data=None,
@@ -1271,7 +1302,6 @@ def evaluate(
     model_config=None,
     baseline_config=None,
     inference_params=None,
-    headers=None,
 ):
     '''
     Evaluate the model performance on given data and selected metrics.
@@ -1499,7 +1529,7 @@ def evaluate(
 
             - A pyfunc model instance
             - A URI referring to a pyfunc model
-            - A URI referring to a Chat or Completion model endpoint
+            - A URI referring to an MLflow Deployment endpoint e.g. ``"endpoints:/my-chat"``
             - A callable function: This function should be able to take in model input and
               return predictions. It should follow the signature of the
               :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method. Here's an example
@@ -1579,8 +1609,6 @@ def evaluate(
             - ``'text-summarization'``
             - ``'text'``
             - ``'retriever'``
-            - ``'chat'``
-            - ``'completion'``
 
             If no ``model_type`` is specified, then you must provide a a list of
             metrics to compute via the ``extra_metrics`` param.
@@ -1590,19 +1618,9 @@ def evaluate(
                 ``'retriever'`` are experimental and may be changed or removed in a
                 future release.
 
-            .. note::
-                The ``chat`` and ``completion`` model types are specifically for evaluating
-                a hosted chat or completion model endpoint such as `Databricks Foundation Model APIs
-                <https://docs.databricks.com/en/machine-learning/foundation-models/index.html>`_.
-                Please refer to :ref:`Evaluating with a Model Endpoint URL
-                <llm-eval-model-endpoint>` for more information.
-
         inference_params: (Optional) A dictionary of inference parameters to be passed to the model
             when making predictions, such as ``{"max_tokens": 100}``. This is only used when
-            the ``model`` is an endpoint URI.
-
-        headers: (Optional) A dictionary of headers used for making an HTTP request to the model
-            endpoint. This is only used when the ``model`` is an endpoint URI.
+            the ``model`` is an MLflow Deployment endpoint URI e.g. ``"endpoints:/my-chat"``
 
         dataset_path: (Optional) The path where the data is stored. Must not contain double
             quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
@@ -1792,20 +1810,15 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
-    # Some arguments are currently only supported for passing a REST API endpoint as the model.
-    # TODO: We should support inference_params for other model types at least.
-    is_model_endpoint_url = isinstance(model, str) and (
-        model.startswith("http://") or model.startswith("https://")
-    )
-    if not is_model_endpoint_url:
-        params_only_supported_for_endpoint_model = ["inference_params", "headers"]
-        for param in params_only_supported_for_endpoint_model:
-            if locals()[param] is not None:
-                raise MlflowException(
-                    message=f"The {param} argument can only be specified when the model "
-                    "is a string URI referring to a REST API endpoint of a served ML model.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+    # Inference params are currently only supported for passing a deployment endpoint as the model.
+    # TODO: We should support inference_params for other model types
+    is_model_endpoint_url = isinstance(model, str) and model.startswith("endpoints:/")
+    if not is_model_endpoint_url and inference_params is not None:
+        raise MlflowException(
+            message="The inference_params argument can only be specified when the model "
+            "is an MLflow Deployments endpoint URI like `endpoints:/xxx`",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if evaluator_config is not None:
         col_mapping = evaluator_config.get("col_mapping", {})
@@ -1882,9 +1895,7 @@ def evaluate(
 
     if isinstance(model, str):
         if is_model_endpoint_url:
-            from mlflow.models.evaluation.llm_utils import get_model_from_llm_endpoint_url
-
-            model = get_model_from_llm_endpoint_url(model, model_type, inference_params, headers)
+            model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
             model = _load_model_or_server(model, env_manager, model_config)
     elif env_manager != _EnvManager.LOCAL:
@@ -1936,7 +1947,7 @@ def evaluate(
     else:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
-            "a hosted Chat or Completion endpoint, an instance of `mlflow.pyfunc.PyFuncModel`, "
+            "an MLflow deployment endpoint, an instance of `mlflow.pyfunc.PyFuncModel`, "
             "a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )

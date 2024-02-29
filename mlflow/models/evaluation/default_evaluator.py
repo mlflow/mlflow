@@ -1774,7 +1774,7 @@ class DefaultEvaluator(ModelEvaluator):
                 rougeL(),
                 rougeLsum(),
             ]
-        elif self.model_type in (_ModelType.TEXT, _ModelType.CHAT, _ModelType.COMPLETION):
+        elif self.model_type == _ModelType.TEXT:
             builtin_metrics = text_metrics
         elif self.model_type == _ModelType.RETRIEVER:
             # default k to 3 if not specified
