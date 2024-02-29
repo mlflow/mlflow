@@ -14,8 +14,7 @@ import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
 import { COLUMN_SORT_BY_ASC, SORT_DELIMITER_SYMBOL } from '../../../../constants';
 import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
 import {
-  shouldEnableDeepLearningUIPhase2,
-  shouldEnableExperimentDatasetTracking,
+  shouldEnableRunGrouping,
   shouldEnableShareExperimentViewByTags,
 } from '../../../../../common/utils/FeatureUtils';
 import { ExperimentViewRunsModeSwitch } from './ExperimentViewRunsModeSwitch';
@@ -67,7 +66,6 @@ export const ExperimentViewRunsControls = React.memo(
     isLoading,
   }: ExperimentViewRunsControlsProps) => {
     const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-    const rowGroupingEnabled = shouldEnableShareExperimentViewByTags() && shouldEnableDeepLearningUIPhase2();
 
     const [pageViewMode, setPageViewMode] = useExperimentPageViewMode();
 
@@ -184,7 +182,7 @@ export const ExperimentViewRunsControls = React.memo(
                   />
                 )}
 
-                {!isComparingRuns && shouldEnableExperimentDatasetTracking() && multipleDatasetsArePresent && (
+                {!isComparingRuns && multipleDatasetsArePresent && (
                   <ToggleButton onClick={toggleExpandedRows}>
                     <FormattedMessage
                       defaultMessage="Expand rows"
@@ -192,7 +190,7 @@ export const ExperimentViewRunsControls = React.memo(
                     />
                   </ToggleButton>
                 )}
-                {rowGroupingEnabled && (
+                {shouldEnableRunGrouping() && (
                   <ExperimentViewRunsGroupBySelector
                     groupBy={uiState.groupBy}
                     onChange={(groupBy) => {

@@ -38,6 +38,7 @@ describe('RunPage', () => {
     const state: DeepPartial<ReduxState> = {
       entities: merge(
         {
+          artifactRootUriByRunUuid: {},
           runInfosByUuid: {},
           experimentsById: {},
           tagsByRunUuid: {},

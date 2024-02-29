@@ -2,10 +2,7 @@ import { Button, ChevronDownIcon, ColumnsIcon, Dropdown, Input, SearchIcon, Tree
 import { Theme } from '@emotion/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import {
-  shouldEnableExperimentDatasetTracking,
-  shouldEnableShareExperimentViewByTags,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { UpdateExperimentSearchFacetsFn } from '../../../../types';
@@ -53,9 +50,7 @@ const getAttributeColumns = (isComparing: boolean) => {
     result.unshift(ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME);
   }
 
-  if (shouldEnableExperimentDatasetTracking()) {
-    result.unshift(ATTRIBUTE_COLUMN_LABELS.DATASET);
-  }
+  result.unshift(ATTRIBUTE_COLUMN_LABELS.DATASET);
 
   return result;
 };
@@ -313,6 +308,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
         onVisibleChange={onChangeColumnSelectorVisible}
       >
         <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_315"
           ref={buttonRef}
           style={{ display: 'flex', alignItems: 'center' }}
           data-testid="column-selection-dropdown"

@@ -27,7 +27,12 @@ export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelV
       }}
     >
       {aliases.length < 1 ? (
-        <Button size="small" type="link" onClick={onAddEdit}>
+        <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversiontablealiasescell.tsx_30"
+          size="small"
+          type="link"
+          onClick={onAddEdit}
+        >
           <FormattedMessage
             defaultMessage="Add"
             description="Model registry > model version table > aliases column > 'add' button label"
@@ -38,7 +43,12 @@ export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelV
           {aliases.map((alias) => (
             <ModelVersionAliasTag value={alias} key={alias} css={{ marginTop: theme.spacing.xs / 2 }} />
           ))}
-          <Button size="small" icon={<PencilIcon />} onClick={onAddEdit} />
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversiontablealiasescell.tsx_41"
+            size="small"
+            icon={<PencilIcon />}
+            onClick={onAddEdit}
+          />
         </>
       )}
     </div>

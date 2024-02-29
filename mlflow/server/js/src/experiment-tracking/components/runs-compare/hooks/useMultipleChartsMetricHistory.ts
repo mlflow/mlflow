@@ -1,8 +1,8 @@
-import { max } from 'lodash';
+import { max, isNil } from 'lodash';
 import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
-import { RunsCompareCardConfig, RunsCompareChartType, RunsCompareLineCardConfig } from '../runs-compare.types';
+import { RunsChartsCardConfig, RunsChartType, RunsChartsLineCardConfig } from '../../runs-charts/runs-charts.types';
 import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHistory';
 import type { ReduxState } from '../../../../redux-types';
 import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
@@ -13,7 +13,7 @@ import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
  * When metric history is available, it enriches runs and returns them.
  */
 export const useMultipleChartsMetricHistory = (
-  cardsConfig: RunsCompareCardConfig[],
+  cardsConfig: RunsChartsCardConfig[],
   chartRunData: RunsChartsRunData[],
   enabled = true,
 ) => {
@@ -24,8 +24,8 @@ export const useMultipleChartsMetricHistory = (
     () =>
       cardsConfig.filter(
         // For the time being, only line charts require metric history
-        (c) => c.type === RunsCompareChartType.LINE,
-      ) as RunsCompareLineCardConfig[],
+        (c) => c.type === RunsChartType.LINE,
+      ) as RunsChartsLineCardConfig[],
     [cardsConfig],
   );
 
@@ -53,7 +53,16 @@ export const useMultipleChartsMetricHistory = (
     }
 
     return Array.from(
-      new Set(cardsRequiringMetricHistory.map((card) => card.selectedMetricKeys ?? [card.metricKey]).flat()),
+      new Set(
+        cardsRequiringMetricHistory
+          .map((card) => {
+            const yAxisKeys = card.selectedMetricKeys ?? [card.metricKey];
+            const xAxisKeys = !card.selectedXAxisMetricKey ? [] : [card.selectedXAxisMetricKey];
+
+            return yAxisKeys.concat(xAxisKeys);
+          })
+          .flat(),
+      ),
     );
   }, [cardsRequiringMetricHistory, usingV2ChartImprovements]);
 

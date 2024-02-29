@@ -5,7 +5,7 @@ import { getLanguage } from '../../../common/utils/FileUtils';
 import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
-import { shouldEnableDeepLearningUIPhase2 } from 'common/utils/FeatureUtils';
+import { shouldEnableLoggedArtifactTableView } from 'common/utils/FeatureUtils';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
 
@@ -70,7 +70,7 @@ class ShowArtifactTextView extends Component<Props, State> {
         height: '100%',
         padding: theme.spacing.xs,
         borderColor: theme.colors.borderDecorative,
-        border: shouldEnableDeepLearningUIPhase2() ? 'none' : 'inherit',
+        border: shouldEnableLoggedArtifactTableView() ? 'none' : 'inherit',
       };
       const renderedContent = this.state.text ? prettifyArtifactText(language, this.state.text) : this.state.text;
 

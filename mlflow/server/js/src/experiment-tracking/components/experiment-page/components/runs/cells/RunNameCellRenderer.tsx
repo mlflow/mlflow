@@ -8,9 +8,11 @@ import { RunRowType } from '../../../utils/experimentPage.row-types';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import invariant from 'invariant';
 import { RunColorPill } from '../../RunColorPill';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../../common/utils/FeatureUtils';
 
 export interface RunNameCellRendererProps extends ICellRendererParams {
   data: RunRowType;
+  isComparingRuns?: boolean;
   onExpand: (runUuid: string, childrenIds?: string[]) => void;
 }
 
@@ -22,7 +24,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
     return <GroupParentCellRenderer {...props} />;
   }
   const { onExpand, data } = props;
-  const { runName, experimentId, runUuid, runDateAndNestInfo, color } = data;
+  const { runName, experimentId, runUuid, runDateAndNestInfo, color, hidden } = data;
 
   // If we are not rendering a group, assert existence of necessary fields
   invariant(experimentId, 'experimentId should be set for run rows');
@@ -44,6 +46,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
         >
           {renderingAsParent && (
             <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_runnamecellrenderer.tsx_46"
               css={styles.expanderButton}
               size="small"
               onClick={() => {
@@ -57,7 +60,11 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
         </div>
       </div>
       <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink}>
-        <RunColorPill color={!belongsToGroup ? color : 'transparent'} />
+        <RunColorPill
+          color={!belongsToGroup ? color : 'transparent'}
+          hidden={shouldUseNewRunRowsVisibilityModel() && !belongsToGroup && props.isComparingRuns && hidden}
+          data-testid="experiment-view-table-run-color"
+        />
         <span css={styles.runName}>{runName}</span>
       </Link>
     </div>

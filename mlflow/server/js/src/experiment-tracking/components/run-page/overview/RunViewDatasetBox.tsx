@@ -6,6 +6,7 @@ import {
   DatasetWithRunType,
   ExperimentViewDatasetDrawer,
 } from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import { getStableColorForRun } from '../../../utils/RunNameUtils';
 
 /**
  * Renders single dataset, either in overview table cell or within a dropdown
@@ -56,6 +57,7 @@ export const RunViewDatasetBox = ({
         runName: runInfo.run_name,
         datasets: datasets,
         tags: tags,
+        color: getStableColorForRun(runInfo.run_uuid),
       },
     });
     setIsDrawerOpen(true);
@@ -67,7 +69,12 @@ export const RunViewDatasetBox = ({
       {remainingDatasets.length ? (
         <DropdownMenu.Root modal={false}>
           <DropdownMenu.Trigger asChild>
-            <Button size="small">+{remainingDatasets.length}</Button>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewdatasetbox.tsx_70"
+              size="small"
+            >
+              +{remainingDatasets.length}
+            </Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content>
             {remainingDatasets.map((datasetWithTags) => {

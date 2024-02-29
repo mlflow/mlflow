@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { RunInfoEntity } from '../../../types';
 import { chartColors, ChartStoryWrapper, getRandomRunName, stableNormalRandom } from './RunsCharts.stories-common';
 import { RunsMetricsLinePlot, RunsMetricsLinePlotProps } from './RunsMetricsLinePlot';
+import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 
 export default {
   title: 'Runs charts/Metrics/Line plot',
@@ -94,6 +95,7 @@ const MetricsRunWrapper = ({
         onUnhover={clear}
         lineShape={polyLine ? 'linear' : 'spline'}
         xAxisKey={xAxisKey}
+        selectedXAxisMetricKey=""
         width={width}
         height={height}
       />
@@ -104,7 +106,9 @@ const MetricsRunWrapper = ({
 export const TwoRuns = () => <MetricsRunWrapper runsData={DATA.slice(0, 2)} />;
 export const TenRuns = () => <MetricsRunWrapper runsData={DATA} />;
 export const TenRunsStatic = () => <MetricsRunWrapper runsData={DATA} />;
-export const TenRunsInTimeDomain = () => <MetricsRunWrapper runsData={DATA} xAxisKey="time" />;
+export const TenRunsInTimeDomain = () => (
+  <MetricsRunWrapper runsData={DATA} xAxisKey={RunsChartsLineChartXAxisType.TIME} />
+);
 export const TenRunsNegative = () => <MetricsRunWrapper runsData={NEGATIVE_DATA} disableLog />;
 
 TwoRuns.storyName = '2 runs (auto-size)';

@@ -76,7 +76,11 @@ export class SearchBox extends React.Component<Props, State> {
           data-test-id="search-box"
         />
         <span data-test-id="search-button">
-          <Button onClick={this.triggerSearch} data-test-id="search-button">
+          <Button
+            componentId="codegen_mlflow_app_src_shared_building_blocks_searchbox.tsx_79"
+            onClick={this.triggerSearch}
+            data-test-id="search-button"
+          >
             <FormattedMessage
               defaultMessage="Search"
               description="String for the search button to search objects in MLflow"

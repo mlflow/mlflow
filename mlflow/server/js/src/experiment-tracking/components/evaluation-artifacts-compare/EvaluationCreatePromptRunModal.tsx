@@ -460,7 +460,10 @@ export const EvaluationCreatePromptRunModal = ({
       onOk={closeModal}
       footer={
         <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-          <Button onClick={closeModal}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_589"
+            onClick={closeModal}
+          >
             <FormattedMessage
               defaultMessage="Cancel"
               description="Experiment page > new run modal > cancel button label"
@@ -468,6 +471,7 @@ export const EvaluationCreatePromptRunModal = ({
           </Button>
           <Tooltip title={createRunButtonTooltip}>
             <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
               onClick={onHandleSubmit}
               data-testid="button-create-run"
               type="primary"
@@ -566,7 +570,12 @@ export const EvaluationCreatePromptRunModal = ({
                     description="Experiment page > new run modal > prompt template input label"
                   />
                 </FormUI.Label>
-                <Button onClick={() => setViewExamplesModalOpen(true)} style={{ marginLeft: 'auto' }} size="small">
+                <Button
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_695"
+                  onClick={() => setViewExamplesModalOpen(true)}
+                  style={{ marginLeft: 'auto' }}
+                  size="small"
+                >
                   <FormattedMessage
                     defaultMessage="View Examples"
                     description="Experiment page > new run modal > prompt examples button"
@@ -607,7 +616,11 @@ export const EvaluationCreatePromptRunModal = ({
             </div>
           ))}
           <div css={{ marginBottom: 2 * theme.spacing.md }}>
-            <Button icon={<PlusIcon />} onClick={handleAddVariableToTemplate}>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_736"
+              icon={<PlusIcon />}
+              onClick={handleAddVariableToTemplate}
+            >
               <FormattedMessage
                 defaultMessage="Add new variable"
                 description='Experiment page > new run modal > "add new variable" button label'

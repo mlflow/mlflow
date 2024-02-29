@@ -209,7 +209,12 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
           suffix={
             <div css={styles.searchInputSuffix}>
               {text && (
-                <Button onClick={onClear} type="link" data-test-id="clear-button">
+                <Button
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_runssearchautocomplete.tsx_212"
+                  onClick={onClear}
+                  type="link"
+                  data-test-id="clear-button"
+                >
                   <CloseIcon />
                 </Button>
               )}

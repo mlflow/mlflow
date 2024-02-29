@@ -86,6 +86,8 @@ export const REGISTERED_MODELS_SEARCH_NAME_FIELD = 'name';
 
 export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
 
+export const MODEL_SCHEMA_TENSOR_TYPE = 'tensor';
+
 export const AntdTableSortOrder = {
   ASC: 'ascend',
   DESC: 'descend',

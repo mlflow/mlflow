@@ -22,10 +22,11 @@ import { RowActionsCellRenderer } from '../components/runs/cells/RowActionsCellR
 import { RowActionsHeaderCellRenderer } from '../components/runs/cells/RowActionsHeaderCellRenderer';
 import { RunNameCellRenderer } from '../components/runs/cells/RunNameCellRenderer';
 import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRenderer';
-import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
 import { DatasetsCellRenderer } from '../components/runs/cells/DatasetsCellRenderer';
 import { RunDatasetWithTags } from '../../../types';
 import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetricValueCell';
+import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
 
 const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
   context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
@@ -37,7 +38,19 @@ const RUN_NAME_COLUMN_WIDTH = 190;
 /**
  * Width for "run actions" column.
  */
-const RUN_ACTIONS_COLUMN_WIDTH = 105;
+const BASE_RUN_ACTIONS_COLUMN_WIDTH = 105;
+const VISIBILITY_TOGGLE_WIDTH = 32;
+
+/**
+ * Calculates width for "actions" column. "compactMode" should be set to true
+ * for compare runs mode when checkboxes are hidden.
+ */
+const getActionsColumnWidth = (isComparingRuns?: boolean) => {
+  if (!shouldUseNewRunRowsVisibilityModel()) {
+    return BASE_RUN_ACTIONS_COLUMN_WIDTH;
+  }
+  return isComparingRuns ? BASE_RUN_ACTIONS_COLUMN_WIDTH : BASE_RUN_ACTIONS_COLUMN_WIDTH - VISIBILITY_TOGGLE_WIDTH;
+};
 
 /*
  * Functions used to generate grid field names for params, metrics and prefixes
@@ -106,7 +119,9 @@ export interface UseRunsColumnDefinitionsParams {
   selectedColumns: string[];
   onExpand: (parentUuid: string, childrenIds: string[]) => void;
   onTogglePin: (runUuid: string) => void;
-  onToggleVisibility: (runUuidOrToggle: string) => void;
+  onToggleVisibility:
+    | ((runUuidOrToggle: string) => void)
+    | ((mode: RUNS_VISIBILITY_MODE, runOrGroupUuid: string) => void);
   compareExperiments: boolean;
   metricKeyList: string[];
   paramKeyList: string[];
@@ -116,6 +131,7 @@ export interface UseRunsColumnDefinitionsParams {
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows?: boolean;
   allRunsHidden?: boolean;
+  runsHiddenMode?: RUNS_VISIBILITY_MODE;
 }
 
 /**
@@ -130,11 +146,8 @@ export const getAdjustableAttributeColumns = (isComparingExperiments = false) =>
     ATTRIBUTE_COLUMN_LABELS.SOURCE,
     ATTRIBUTE_COLUMN_LABELS.VERSION,
     ATTRIBUTE_COLUMN_LABELS.MODELS,
+    ATTRIBUTE_COLUMN_LABELS.DATASET,
   ];
-
-  if (shouldEnableExperimentDatasetTracking()) {
-    result.push(ATTRIBUTE_COLUMN_LABELS.DATASET);
-  }
 
   if (isComparingExperiments) {
     result.push(ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME);
@@ -207,6 +220,7 @@ export const useRunsColumnDefinitions = ({
   isComparingRuns,
   expandRows,
   allRunsHidden,
+  runsHiddenMode,
 }: UseRunsColumnDefinitionsParams) => {
   const cumulativeColumns = useCumulativeColumnKeys({
     metricKeyList,
@@ -229,9 +243,9 @@ export const useRunsColumnDefinitions = ({
       cellRenderer: 'RowActionsCellRenderer',
       cellRendererParams: { onTogglePin, onToggleVisibility },
       pinned: 'left',
-      minWidth: RUN_ACTIONS_COLUMN_WIDTH,
-      width: RUN_ACTIONS_COLUMN_WIDTH,
-      maxWidth: RUN_ACTIONS_COLUMN_WIDTH,
+      minWidth: getActionsColumnWidth(isComparingRuns),
+      width: getActionsColumnWidth(isComparingRuns),
+      maxWidth: getActionsColumnWidth(isComparingRuns),
       resizable: false,
     });
 
@@ -243,7 +257,7 @@ export const useRunsColumnDefinitions = ({
       pinned: 'left',
       sortable: true,
       cellRenderer: 'RunNameCellRenderer',
-      cellRendererParams: { onExpand },
+      cellRendererParams: { onExpand, isComparingRuns },
       equals: (runA: RunRowType, runB: RunRowType) =>
         runA?.rowUuid === runB?.rowUuid && runA?.groupParentInfo?.expanderOpen === runB?.groupParentInfo?.expanderOpen,
       headerComponentParams: {
@@ -282,19 +296,17 @@ export const useRunsColumnDefinitions = ({
     });
 
     // Datasets column - guarded by a feature flag
-    if (shouldEnableExperimentDatasetTracking()) {
-      columns.push({
-        headerName: ATTRIBUTE_COLUMN_LABELS.DATASET,
-        colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET),
-        headerTooltip: ATTRIBUTE_COLUMN_LABELS.DATASET,
-        sortable: false,
-        field: 'datasets',
-        cellRenderer: 'DatasetsCellRenderer',
-        cellRendererParams: { onDatasetSelected, expandRows },
-        cellClass: 'is-multiline-cell',
-        initialWidth: 300,
-      });
-    }
+    columns.push({
+      headerName: ATTRIBUTE_COLUMN_LABELS.DATASET,
+      colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET),
+      headerTooltip: ATTRIBUTE_COLUMN_LABELS.DATASET,
+      sortable: false,
+      field: 'datasets',
+      cellRenderer: 'DatasetsCellRenderer',
+      cellRendererParams: { onDatasetSelected, expandRows },
+      cellClass: 'is-multiline-cell',
+      initialWidth: 300,
+    });
 
     // Duration column
     columns.push({
