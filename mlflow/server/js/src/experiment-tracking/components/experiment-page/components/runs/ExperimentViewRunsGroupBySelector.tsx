@@ -165,7 +165,12 @@ const GroupBySelectorBody = ({
             }
           >
             <DropdownMenu.Trigger asChild>
-              <Button icon={<GearIcon />} css={{ minWidth: 32 }} aria-label="Change aggregation function" />
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_168"
+                icon={<GearIcon />}
+                css={{ minWidth: 32 }}
+                aria-label="Change aggregation function"
+              />
             </DropdownMenu.Trigger>
           </Tooltip>
           <DropdownMenu.Content align="start" side="right">
@@ -304,6 +309,7 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger asChild>
           <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_306"
             icon={<ListBorderIcon />}
             style={{ display: 'flex', alignItems: 'center' }}
             data-testid="column-selection-dropdown"

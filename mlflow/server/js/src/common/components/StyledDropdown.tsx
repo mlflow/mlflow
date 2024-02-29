@@ -35,7 +35,12 @@ export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions
         trigger={triggers}
         overlay={dropdownOptions}
       >
-        <Button className="StyledDropdown-button" size={buttonSize} css={classNames.button}>
+        <Button
+          componentId="codegen_mlflow_app_src_common_components_styleddropdown.tsx_38"
+          className="StyledDropdown-button"
+          size={buttonSize}
+          css={classNames.button}
+        >
           <span>{title}</span> <img className="StyledDropdown-chevron" src={expandIcon} alt="Expand" />
         </Button>
       </Dropdown>

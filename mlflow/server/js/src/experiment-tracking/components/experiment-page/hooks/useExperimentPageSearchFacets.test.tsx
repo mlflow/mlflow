@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-for-react-18';
 import { useExperimentPageSearchFacets, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import {
   MemoryRouter,
@@ -9,8 +9,9 @@ import {
   useSearchParams,
 } from '../../../../common/utils/RoutingUtils';
 import { useEffect } from 'react';
-import { screen, renderWithIntl } from 'common/utils/TestUtils.react17';
-import userEvent from '@testing-library/user-event';
+import { screen, renderWithIntl } from 'common/utils/TestUtils.react18';
+import userEvent from '@testing-library/user-event-14';
+import { createExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
 
 describe('useExperimentPageSearchFacets', () => {
   const mountHook = (initialPath = '/') =>
@@ -50,9 +51,9 @@ describe('useExperimentPageSearchFacets', () => {
   test('return correct data for multiple compared experiments', () => {
     const { result } = mountHook('/compare-experiments?experiments=%5B%22444%22%2C%22555%22%5D&orderByKey=foo');
     expect(result.current).toEqual([
-      {
+      expect.objectContaining({
         orderByKey: 'foo',
-      },
+      }),
       ['444', '555'],
     ]);
   });
@@ -60,9 +61,9 @@ describe('useExperimentPageSearchFacets', () => {
   test('return empty list when facing invalid compare experiment IDs', () => {
     const { result } = mountHook('/compare-experiments?experiments=__invalid_array__&orderByKey=foo');
     expect(result.current).toEqual([
-      {
+      expect.objectContaining({
         orderByKey: 'foo',
-      },
+      }),
       [
         /* empty */
       ],
@@ -72,9 +73,9 @@ describe('useExperimentPageSearchFacets', () => {
   test('ignore unrelated parameters', () => {
     const { result } = mountHook('/experiments/123?orderByKey=foo&o=123456');
     expect(result.current).toEqual([
-      {
+      expect.objectContaining({
         orderByKey: 'foo',
-      },
+      }),
       ['123'],
     ]);
   });
@@ -123,19 +124,27 @@ describe('useExperimentPageSearchFacets', () => {
     // Initial render
     expect(changeFacetsSpy).toHaveBeenCalledTimes(1);
 
-    await act(async () => {
-      userEvent.click(screen.getByText('Change order'));
-    });
+    await userEvent.click(screen.getByText('Change order'));
 
     // Should trigger re-render because of change in orderByKey
     expect(changeFacetsSpy).toHaveBeenCalledTimes(2);
 
-    await act(async () => {
-      userEvent.click(screen.getByText('Change other parameter'));
-    });
+    await userEvent.click(screen.getByText('Change other parameter'));
 
     // Should not trigger re-render because of change in unrelated search param
     expect(changeFacetsSpy).toHaveBeenCalledTimes(2);
+  });
+
+  test('fills gaps when only partial facets are provided', async () => {
+    const { result } = mountHook('/experiments/123?orderByKey=foo&o=123456');
+
+    expect(result.current).toEqual([
+      {
+        ...createExperimentPageSearchFacetsStateV2(),
+        orderByKey: 'foo',
+      },
+      ['123'],
+    ]);
   });
 });
 

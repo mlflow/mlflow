@@ -1,15 +1,21 @@
 import { Button, CloseIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { MetricHistoryByName, RunInfoEntity } from '../../types';
-import type { RunsChartsTooltipBodyProps } from '../runs-charts/hooks/useRunsChartsTooltip';
+import {
+  containsMultipleRunsTooltipData,
+  RunsChartsTooltipMode,
+  type RunsChartsTooltipBodyProps,
+} from '../runs-charts/hooks/useRunsChartsTooltip';
 import { getStableColorForRun } from '../../utils/RunNameUtils';
 import { isSystemMetricKey, normalizeChartMetricKey, normalizeMetricChartTooltipValue } from '../../utils/MetricsUtils';
 import Utils from '../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { first, isUndefined } from 'lodash';
-import type { RunsMetricsLinePlotHoverData } from '../runs-charts/components/RunsMetricsLinePlot';
+import type {
+  RunsCompareMultipleTracesTooltipData,
+  RunsMetricsSingleTraceTooltipData,
+} from '../runs-charts/components/RunsMetricsLinePlot';
 import type { RunsMetricsBarPlotHoverData } from '../runs-charts/components/RunsMetricsBarPlot';
-
-type RunViewChartTooltipHoverData = RunsMetricsLinePlotHoverData | RunsMetricsBarPlotHoverData;
+import { RunsMultipleTracesTooltipBody } from '../runs-charts/components/RunsMultipleTracesTooltipBody';
 
 /**
  * Tooltip body displayed when hovering over run view metric charts
@@ -18,22 +24,30 @@ export const RunViewChartTooltipBody = ({
   contextData: { runInfo, metricsForRun },
   hoverData,
   chartData: { metricKey },
-  closeContextMenu,
   isHovering,
+  mode,
 }: RunsChartsTooltipBodyProps<
   { runInfo: RunInfoEntity; metricsForRun: MetricHistoryByName },
   { metricKey: string },
-  RunViewChartTooltipHoverData
+  RunsMetricsBarPlotHoverData | RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
-  const { theme } = useDesignSystemTheme();
+  const singleTraceHoverData = containsMultipleRunsTooltipData(hoverData) ? hoverData.hoveredDataPoint : hoverData;
 
-  if (!hoverData.metricEntity) {
+  if (
+    mode === RunsChartsTooltipMode.MultipleTracesWithScanline &&
+    containsMultipleRunsTooltipData(hoverData) &&
+    isHovering
+  ) {
+    return <RunsMultipleTracesTooltipBody hoverData={hoverData} />;
+  }
+
+  if (!singleTraceHoverData?.metricEntity) {
     return null;
   }
 
-  const { timestamp, step, value } = hoverData.metricEntity;
+  const { timestamp, step, value } = singleTraceHoverData.metricEntity;
 
-  const metricContainsHistory = metricsForRun?.[metricKey].length > 1;
+  const metricContainsHistory = metricsForRun?.[metricKey]?.length > 1;
   const isSystemMetric = isSystemMetricKey(metricKey);
   const displayTimestamp = metricContainsHistory && isSystemMetric && !isUndefined(timestamp);
   const displayStep = metricContainsHistory && !isSystemMetric && !isUndefined(step);

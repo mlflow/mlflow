@@ -22,7 +22,7 @@ from mlflow.gateway.utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import get_uri_scheme
@@ -61,7 +61,7 @@ class MlflowGatewayClient:
         if self._is_databricks_host():
             return get_databricks_host_creds(self._gateway_uri)
         else:
-            return _get_default_host_creds(self._gateway_uri)
+            return get_default_host_creds(self._gateway_uri)
 
     @property
     def gateway_uri(self):

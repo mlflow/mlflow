@@ -14,6 +14,7 @@ jest.mock('../../../model-registry/actions', () => ({
   createRegisteredModelApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
   createModelVersionApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
   searchModelVersionsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
+  getWorkspaceModelRegistryDisabledSettingApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
 }));
 const runUuid = 'testRunUuid';
 const experimentId = 'testExperimentId';

@@ -32,6 +32,7 @@ export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyB
       }}
     >
       <Button
+        componentId="codegen_mlflow_app_src_shared_building_blocks_copybutton.tsx_35"
         type="primary"
         onClick={handleClick}
         onMouseLeave={handleMouseLeave}

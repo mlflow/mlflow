@@ -26,7 +26,13 @@ export const ModelVersionViewAliasEditor = ({
     <>
       {EditAliasesModal}
       {aliases.length < 1 ? (
-        <Button size="small" type="link" onClick={onAddEdit} title="Add aliases">
+        <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversionviewaliaseditor.tsx_29"
+          size="small"
+          type="link"
+          onClick={onAddEdit}
+          title="Add aliases"
+        >
           Add
         </Button>
       ) : (
@@ -34,7 +40,13 @@ export const ModelVersionViewAliasEditor = ({
           {aliases.map((alias) => (
             <ModelVersionAliasTag compact value={alias} key={alias} />
           ))}
-          <Button size="small" icon={<PencilIcon />} onClick={onAddEdit} title="Edit aliases" />
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversionviewaliaseditor.tsx_37"
+            size="small"
+            icon={<PencilIcon />}
+            onClick={onAddEdit}
+            title="Edit aliases"
+          />
         </div>
       )}
     </>

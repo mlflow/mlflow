@@ -5,7 +5,7 @@ import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState } from 'react';
-import { shouldEnableDeepLearningUIPhase2 } from 'common/utils/FeatureUtils';
+import { shouldEnableLoggedArtifactTableView } from 'common/utils/FeatureUtils';
 
 /**
  * Mode switcher for the run details page.
@@ -14,14 +14,15 @@ export const RunViewModeSwitch = () => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
   const currentTab = useRunViewActiveTab();
-  const featureFlag = shouldEnableDeepLearningUIPhase2();
-  const [removeTabMargin, setRemoveTabMargin] = useState(featureFlag && currentTab === RunPageTabName.ARTIFACTS);
+  const [removeTabMargin, setRemoveTabMargin] = useState(
+    shouldEnableLoggedArtifactTableView() && currentTab === RunPageTabName.ARTIFACTS,
+  );
 
   const onTabChanged = (newTabKey: string) => {
     if (!experimentId || !runUuid || currentTab === newTabKey) {
       return;
     }
-    if (featureFlag && newTabKey === RunPageTabName.ARTIFACTS) {
+    if (shouldEnableLoggedArtifactTableView() && newTabKey === RunPageTabName.ARTIFACTS) {
       setRemoveTabMargin(true);
     } else {
       setRemoveTabMargin(false);

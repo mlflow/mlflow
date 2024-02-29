@@ -1,5 +1,7 @@
+import contextlib
 import logging
 import logging.config
+import re
 import sys
 
 # Logging format example:
@@ -87,3 +89,31 @@ def _configure_mlflow_loggers(root_module_name):
 
 def eprint(*args, **kwargs):
     print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)
+
+
+class LoggerMessageFilter(logging.Filter):
+    def __init__(self, module: str, filter_regex: re.Pattern):
+        super().__init__()
+        self._pattern = filter_regex
+        self._module = module
+
+    def filter(self, record):
+        if record.name == self._module and self._pattern.search(record.msg):
+            return False
+        return True
+
+
+@contextlib.contextmanager
+def suppress_logs(module: str, filter_regex: re.Pattern):
+    """
+    Context manager that suppresses log messages from the specified module that match the specified
+    regular expression. This is useful for suppressing expected log messages from third-party
+    libraries that are not relevant to the current test.
+    """
+    logger = logging.getLogger(module)
+    filter = LoggerMessageFilter(module=module, filter_regex=filter_regex)
+    logger.addFilter(filter)
+    try:
+        yield
+    finally:
+        logger.removeFilter(filter)

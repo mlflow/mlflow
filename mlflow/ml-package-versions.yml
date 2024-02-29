@@ -534,6 +534,7 @@ transformers:
           "torch",
           "torchvision",
           "tensorflow",
+          "peft", # optimized fine-tuning library developed by Hugging Face
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
@@ -619,6 +620,14 @@ langchain:
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
+      # test both pydantic v1 and v2
+      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
+      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
+      if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
+        pip install 'pydantic>2'
+        echo "Testing langchain model export with pydantic v2"
+        pytest tests/langchain/test_langchain_model_export.py
+      fi
   autologging:
     minimum: "0.1.4"
     maximum: "0.1.5"
@@ -640,6 +649,14 @@ langchain:
       # For MlflowCallback text analysis
       python -m spacy download en_core_web_sm
       pytest tests/langchain/test_langchain_autolog.py
+      # test both pydantic v1 and v2
+      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
+      if [[ $PYDANTIC_VERSION == 1.* ]]; then
+        pip install 'pydantic>2'
+        sleep 10
+        echo "Testing langchain autolog with pydantic v2"
+        pytest tests/langchain/test_langchain_autolog.py
+      fi
 
 sentence_transformers:
   package_info:

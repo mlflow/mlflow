@@ -420,7 +420,12 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
 
   renderDescriptionEditIcon() {
     return (
-      <Button data-test-id="descriptionEditButton" type="link" onClick={this.startEditingDescription}>
+      <Button
+        componentId="codegen_mlflow_app_src_model-registry_components_modelversionview.tsx_516"
+        data-test-id="descriptionEditButton"
+        type="link"
+        onClick={this.startEditingDescription}
+      >
         <FormattedMessage
           defaultMessage="Edit"
           description="Text for the edit button next to the description section title on

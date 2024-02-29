@@ -4,8 +4,10 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import shutil
 import textwrap
+from pathlib import Path
 from unittest import mock
 
 import huggingface_hub
@@ -31,17 +33,9 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
     _CARD_DATA_FILE_NAME,
     _CARD_TEXT_FILE_NAME,
-    _FRAMEWORK_KEY,
-    _INSTANCE_TYPE_KEY,
-    _MODEL_PATH_OR_NAME_KEY,
-    _PIPELINE_MODEL_TYPE_KEY,
-    _TASK_KEY,
     _build_pipeline_from_model_input,
     _fetch_model_card,
-    _generate_base_flavor_configuration,
-    _get_instance_type,
     _is_model_distributed_in_memory,
-    _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersWrapper,
     _validate_llm_inference_task_type,
@@ -63,9 +57,8 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
+from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
-transformers_version = Version(transformers.__version__)
-_IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 _IS_PIPELINE_DTYPE_SUPPORTED_VERSION = Version(transformers.__version__) >= Version("4.26.1")
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
@@ -134,39 +127,40 @@ def sound_file_for_test():
 
 @pytest.fixture
 def raw_audio_file():
+    return read_raw_audio_file()
+
+
+def read_raw_audio_file():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
     return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
 
 
-def test_dependencies_pytorch(small_qa_pipeline):
-    pip_requirements = get_default_pip_requirements(small_qa_pipeline.model)
-    expected_requirments = {"transformers", "torch", "torchvision"}
-    assert {package.split("=")[0] for package in pip_requirements}.intersection(
-        expected_requirments
-    ) == expected_requirments
-    conda_requirements = get_default_conda_env(small_qa_pipeline.model)
-    pip_in_conda = {
-        package.split("=")[0] for package in conda_requirements["dependencies"][2]["pip"]
-    }
-    expected_conda = {"mlflow"}
-    expected_conda.update(expected_requirments)
-    assert pip_in_conda.intersection(expected_conda) == expected_conda
+@pytest.mark.parametrize(
+    ("pipeline", "expected_requirements"),
+    [
+        ("small_qa_pipeline", {"transformers", "torch", "torchvision"}),
+        ("small_seq2seq_pipeline", {"transformers", "tensorflow"}),
+        pytest.param(
+            "peft_pipeline",
+            {"peft", "transformers", "torch", "torchvision"},
+            marks=SKIP_IF_PEFT_NOT_AVAILABLE,
+        ),
+    ],
+)
+def test_default_requirements(pipeline, expected_requirements, request):
+    if "torch" in expected_requirements and importlib.util.find_spec("accelerate"):
+        expected_requirements.add("accelerate")
 
+    model = request.getfixturevalue(pipeline).model
+    pip_requirements = get_default_pip_requirements(model)
+    conda_requirements = get_default_conda_env(model)["dependencies"][2]["pip"]
 
-def test_dependencies_tensorflow(small_seq2seq_pipeline):
-    pip_requirements = get_default_pip_requirements(small_seq2seq_pipeline.model)
-    expected_requirments = {"transformers", "tensorflow"}
-    assert {package.split("=")[0] for package in pip_requirements}.intersection(
-        expected_requirments
-    ) == expected_requirments
-    conda_requirements = get_default_conda_env(small_seq2seq_pipeline.model)
-    pip_in_conda = {
-        package.split("=")[0] for package in conda_requirements["dependencies"][2]["pip"]
-    }
-    expected_conda = {"mlflow"}
-    expected_conda.update(expected_requirments)
-    assert pip_in_conda.intersection(expected_conda) == expected_conda
+    def _strip_requirements(requirements):
+        return {req.split("==")[0] for req in requirements}
+
+    assert _strip_requirements(pip_requirements) == expected_requirements
+    assert _strip_requirements(conda_requirements) == (expected_requirements | {"mlflow"})
 
 
 def test_inference_task_validation(small_seq2seq_pipeline, text_generation_pipeline):
@@ -179,11 +173,6 @@ def test_inference_task_validation(small_seq2seq_pipeline, text_generation_pipel
     ):
         _validate_llm_inference_task_type("llm/v1/completions", small_seq2seq_pipeline)
     _validate_llm_inference_task_type("llm/v1/completions", text_generation_pipeline)
-
-
-def test_instance_extraction(small_qa_pipeline):
-    assert _get_instance_type(small_qa_pipeline) == "QuestionAnsweringPipeline"
-    assert _get_instance_type(small_qa_pipeline.model) == "MobileBertForQuestionAnswering"
 
 
 @pytest.mark.parametrize(
@@ -204,27 +193,6 @@ def test_component_multi_modal_model_ineligible_for_pyfunc(component_multi_modal
     task = transformers.pipelines.get_task(component_multi_modal["model"].name_or_path)
     pipeline = _build_pipeline_from_model_input(component_multi_modal, task)
     assert not _should_add_pyfunc_to_model(pipeline)
-
-
-def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_pipeline):
-    expected_seq_pipeline_conf = {
-        _TASK_KEY: "text-classification",
-        _INSTANCE_TYPE_KEY: "TextClassificationPipeline",
-        _PIPELINE_MODEL_TYPE_KEY: "TFMobileBertForSequenceClassification",
-        _MODEL_PATH_OR_NAME_KEY: "lordtt13/emo-mobilebert",
-        _FRAMEWORK_KEY: "tf",
-    }
-    expected_qa_pipeline_conf = {
-        _TASK_KEY: "question-answering",
-        _INSTANCE_TYPE_KEY: "QuestionAnsweringPipeline",
-        _PIPELINE_MODEL_TYPE_KEY: "MobileBertForQuestionAnswering",
-        _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
-        _FRAMEWORK_KEY: "pt",
-    }
-    conf = _generate_base_flavor_configuration(small_seq2seq_pipeline)
-    assert conf == expected_seq_pipeline_conf
-    conf = _generate_base_flavor_configuration(small_qa_pipeline)
-    assert conf == expected_qa_pipeline_conf
 
 
 def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
@@ -434,54 +402,6 @@ def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_p
     result = loaded("MLflow is a really neat tool!")
     assert result[0]["label"] == "happy"
     assert result[0]["score"] > 0.5
-
-
-def test_component_saving_multi_modal(component_multi_modal, model_path):
-    if IS_NEW_FEATURE_EXTRACTION_API:
-        processor = component_multi_modal["image_processor"]
-        expected = {"tokenizer", "processor", "image_processor"}
-    else:
-        processor = component_multi_modal["feature_extractor"]
-        expected = {"tokenizer", "processor", "feature_extractor"}
-
-    mlflow.transformers.save_model(
-        transformers_model=component_multi_modal,
-        path=model_path,
-        processor=processor,
-    )
-    components_dir = model_path.joinpath("components")
-    contents = {item.name for item in components_dir.iterdir()}
-    assert contents.intersection(expected) == expected
-
-    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
-    flavor_config = mlmodel["flavors"]["transformers"]
-    assert set(flavor_config["components"]).issubset(expected)
-
-
-def test_extract_pipeline_components(small_vision_model, small_qa_pipeline):
-    components_vision = _record_pipeline_components(small_vision_model)
-    if IS_NEW_FEATURE_EXTRACTION_API:
-        component_list = ["feature_extractor", "image_processor"]
-    else:
-        component_list = ["feature_extractor"]
-
-    assert components_vision["components"] == component_list
-    components_qa = _record_pipeline_components(small_qa_pipeline)
-    assert components_qa["tokenizer_type"] == "MobileBertTokenizerFast"
-    assert components_qa["components"] == ["tokenizer"]
-
-
-def test_extract_multi_modal_components(small_multi_modal_pipeline):
-    components_multi = _record_pipeline_components(small_multi_modal_pipeline)
-    if IS_NEW_FEATURE_EXTRACTION_API:
-        assert components_multi["image_processor_type"] == "ViltImageProcessor"
-        assert components_multi["components"] == ["tokenizer", "image_processor"]
-    elif transformers_version >= Version(_IMAGE_PROCESSOR_API_CHANGE_VERSION):
-        assert components_multi["feature_extractor_type"] == "ViltFeatureExtractor"
-        assert components_multi["components"] == ["feature_extractor", "tokenizer"]
-    else:
-        assert components_multi["feature_extractor_type"] == "ViltImageProcessor"
-        assert components_multi["components"] == ["feature_extractor", "tokenizer"]
 
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):
@@ -2475,195 +2395,6 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
     assert "\n\n" in inference[0]
 
 
-@pytest.mark.parametrize(
-    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
-)
-@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
-@flaky()
-def test_extraction_of_torch_dtype_from_pipeline(dtype):
-    pipe = transformers.pipeline(
-        task="translation_en_to_fr",
-        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
-        framework="pt",
-        torch_dtype=dtype,
-    )
-
-    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
-
-    assert parsed == dtype
-
-
-@flaky()
-def test_extraction_of_torch_dtype_from_model():
-    model = transformers.T5ForConditionalGeneration.from_pretrained(
-        "t5-small", torch_dtype=torch.float16
-    )
-    tokenizer = transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100)
-    pipe = transformers.pipeline(
-        task="translation_en_to_fr",
-        model=model,
-        tokenizer=tokenizer,
-        framework="pt",
-    )
-
-    # Pipeline doesn't inherit model's dtype (or doesn't have dtype attribute prior to 4.26.1)
-    if _IS_PIPELINE_DTYPE_SUPPORTED_VERSION:
-        assert pipe.torch_dtype is None
-
-    # If Pytorch is not installed, return None
-    with mock.patch.dict("sys.modules", {"torch": None}):
-        parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
-        assert parsed is None
-
-    # Extract it from model config if available
-    model.config.torch_dtype = torch.bfloat16
-    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
-    assert parsed == torch.bfloat16
-
-    # Extract it from param if model config is not available
-    model.config.torch_dtype = None
-    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
-    assert parsed == torch.float16
-
-
-@flaky()
-def test_extraction_of_torch_dtype_returns_none_if_default():
-    model = transformers.T5ForConditionalGeneration.from_pretrained("t5-small")
-    assert model.dtype == torch.float32
-    assert model.config.torch_dtype is None
-
-    pipe = transformers.pipeline(
-        task="translation_en_to_fr",
-        model=model,
-        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
-        framework="pt",
-    )
-
-    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
-    assert parsed is None
-
-
-@flaky()
-def test_extraction_of_torch_dtype_return_none_when_pytorch_is_not_installed():
-    model = transformers.T5ForConditionalGeneration.from_pretrained(
-        "t5-small", torch_dtype=torch.float16
-    )
-    tokenizer = transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100)
-    pipe = transformers.pipeline(
-        task="translation_en_to_fr",
-        model=model,
-        tokenizer=tokenizer,
-        framework="pt",
-    )
-
-    with mock.patch.dict("sys.modules", {"torch": None}):
-        parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
-        assert parsed is None
-
-
-@pytest.mark.parametrize(
-    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
-)
-@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
-def test_extraction_of_torch_dtype_from_components(dtype, model_path):
-    components = {
-        "model": transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-        "tokenizer": transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
-        "torch_dtype": dtype,
-    }
-
-    mlflow.transformers.save_model(transformers_model=components, path=model_path)
-
-    base_loaded = mlflow.transformers.load_model(model_path)
-    assert base_loaded.torch_dtype == dtype
-    assert base_loaded.framework == "pt"
-    assert base_loaded.model.dtype == dtype
-
-
-@pytest.mark.parametrize(
-    ("dtype", "expected"),
-    [
-        ("torch.float16", torch.float16),
-        ("torch.bfloat16", torch.bfloat16),
-        ("torch.float32", torch.float32),
-        ("torch.float64", torch.float64),
-        ("torch.int32", torch.int32),
-        ("torch.int64", torch.int64),
-        ("float16", torch.float16),
-        ("bfloat16", torch.bfloat16),
-        ("float32", torch.float32),
-        ("float64", torch.float64),
-        ("int32", torch.int32),
-        ("int64", torch.int64),
-        ("float", torch.float32),
-        ("double", torch.float64),
-        ("int", torch.int32),
-    ],
-)
-def test_deserialize_torch_dtype(dtype, expected):
-    parsed = mlflow.transformers._deserialize_torch_dtype(dtype)
-    assert isinstance(parsed, torch.dtype)
-    assert parsed == expected
-
-
-@mock.patch.dict("sys.modules", {"torch": None})
-def test_deserialize_torch_dtype_torch_not_installed_raise():
-    with pytest.raises(MlflowException, match="Unable to determine if the value"):
-        mlflow.transformers._deserialize_torch_dtype("torch.float16")
-
-
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        "torch.float128",
-        "torch.",
-        "numpy.float32",
-        "string",
-    ],
-)
-def test_deserialize_torch_dtype_invalid_value(dtype):
-    with pytest.raises(MlflowException, match="The value '"):
-        mlflow.transformers._deserialize_torch_dtype(dtype)
-
-
-@pytest.mark.parametrize(
-    "dtype", [torch.bfloat16, torch.float16, torch.float64, torch.float, torch.cfloat]
-)
-@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
-@flaky()
-def test_extraction_of_base_flavor_config(dtype):
-    task = "translation_en_to_fr"
-
-    # Many of the 'full configuration' arguments specified are not stored as instance arguments
-    # for a pipeline; rather, they are only used when acquiring the pipeline components from
-    # the huggingface hub at initial pipeline creation. If a pipeline is specified, it is
-    # irrelevant to store these.
-    full_config_pipeline = transformers.pipeline(
-        task=task,
-        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
-        framework="pt",
-        torch_dtype=dtype,
-        device_map="auto",
-        use_auth_token=True,
-        trust_remote_code=True,
-        revision="main",
-        use_fast=True,
-    )
-
-    parsed = mlflow.transformers._generate_base_flavor_configuration(full_config_pipeline)
-
-    assert parsed == {
-        "task": "translation_en_to_fr",
-        "instance_type": "TranslationPipeline",
-        "source_model_name": "t5-small",
-        "pipeline_model_type": "T5ForConditionalGeneration",
-        "framework": "pt",
-        "torch_dtype": str(dtype),
-    }
-
-
 @pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
@@ -3821,3 +3552,103 @@ def test_text_generation_task_chat_serve(text_generation_pipeline):
         and output_dict["usage"]["completion_tokens"] < 10
     )
     assert output_dict["usage"]["prompt_tokens"] < 20
+
+
+HF_COMMIT_HASH_PATTERN = re.compile(r"^[a-z0-9]{40}$")
+
+
+@pytest.mark.parametrize(
+    ("model_fixture", "input_example", "components"),
+    [
+        ("text2text_generation_pipeline", "What is MLflow?", {"tokenizer"}),
+        ("text_generation_pipeline", "What is MLflow?", {"tokenizer"}),
+        (
+            "small_vision_model",
+            image_url,
+            {"feature_extractor", "image_processor"}
+            if IS_NEW_FEATURE_EXTRACTION_API
+            else {"feature_extractor"},
+        ),
+        (
+            "component_multi_modal",
+            {"text": "What is MLflow?", "image": image_url},
+            {"image_processor", "tokenizer"}
+            if IS_NEW_FEATURE_EXTRACTION_API
+            else {"feature_extractor", "tokenizer"},
+        ),
+        ("fill_mask_pipeline", "The quick brown <mask> jumps over the lazy dog.", {"tokenizer"}),
+        ("whisper_pipeline", read_raw_audio_file, {"feature_extractor", "tokenizer"}),
+        ("feature_extraction_pipeline", "What is MLflow?", {"tokenizer"}),
+    ],
+)
+def test_save_and_load_pipeline_without_save_pretrained_false(
+    model_fixture, input_example, components, model_path, request
+):
+    pipeline = request.getfixturevalue(model_fixture)
+    model = pipeline["model"] if isinstance(pipeline, dict) else pipeline.model
+
+    mlflow.transformers.save_model(
+        transformers_model=pipeline,
+        path=model_path,
+        save_pretrained=False,
+    )
+
+    # No weights should be saved
+    assert not model_path.joinpath("model").exists()
+    assert not model_path.joinpath("components").exists()
+
+    # Validate the contents of MLModel file
+    mlmodel = Model.load(str(model_path.joinpath("MLmodel")))
+    flavor_conf = mlmodel.flavors["transformers"]
+    assert "model_binary" not in flavor_conf
+    assert flavor_conf["source_model_name"] == model.name_or_path
+    assert HF_COMMIT_HASH_PATTERN.match(flavor_conf["source_model_revision"])
+    assert set(flavor_conf["components"]) == components
+    for c in components:
+        component = pipeline[c] if isinstance(pipeline, dict) else getattr(pipeline, c)
+        assert flavor_conf[f"{c}_name"] == getattr(component, "name_or_path", model.name_or_path)
+        assert HF_COMMIT_HASH_PATTERN.match(flavor_conf[f"{c}_revision"])
+
+    # Validate pyfunc load and prediction (if pyfunc supported)
+    if "python_function" in mlmodel.flavors:
+        if callable(input_example):
+            input_example = input_example()
+        mlflow.pyfunc.load_model(model_path).predict(input_example)
+
+
+# Patch tempdir just to verify the invocation
+@mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
+def test_persist_pretrained_model(mock_tmpdir, small_seq2seq_pipeline):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=small_seq2seq_pipeline,
+            artifact_path="model",
+            save_pretrained=False,
+            pip_requirements=["mlflow"],  # For speed up logging
+        )
+
+    artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
+    model_path = artifact_path / "model"
+    tokenizer_path = artifact_path / "components" / "tokenizer"
+
+    original_config = Model.load(artifact_path).flavors["transformers"]
+    assert "model_binary" not in original_config
+    assert "source_model_revision" in original_config
+    assert not model_path.exists()
+    assert not tokenizer_path.exists()
+
+    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+
+    mock_tmpdir.assert_called_once()
+    updated_config = Model.load(model_info.model_uri).flavors["transformers"]
+    assert "model_binary" in updated_config
+    assert "source_model_revision" not in updated_config
+    assert model_path.exists()
+    assert (model_path / "tf_model.h5").exists()
+    assert tokenizer_path.exists()
+    assert (tokenizer_path / "tokenizer.json").exists()
+
+    # Repeat persisting the model will no-op
+    mock_tmpdir.reset_mock()
+    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+    mock_tmpdir.assert_not_called()

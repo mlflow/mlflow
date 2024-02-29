@@ -64,7 +64,12 @@ export const RunViewTagsBox = ({
       }}
     >
       {visibleTagEntities.length < 1 ? (
-        <Button size="small" type="link" onClick={showEditModal}>
+        <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_67"
+          size="small"
+          type="link"
+          onClick={showEditModal}
+        >
           <FormattedMessage defaultMessage="Add" description="Run page > Overview > Tags cell > 'Add' button label" />
         </Button>
       ) : (
@@ -73,7 +78,13 @@ export const RunViewTagsBox = ({
             <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal />
           ))}
           <Tooltip title={editTagsLabel}>
-            <Button aria-label={editTagsLabel} size="small" icon={<PencilIcon />} onClick={showEditModal} />
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_76"
+              aria-label={editTagsLabel}
+              size="small"
+              icon={<PencilIcon />}
+              onClick={showEditModal}
+            />
           </Tooltip>
         </>
       )}

@@ -64,6 +64,8 @@ export declare enum ValidSemanticColors {
     BorderWarning = "borderWarning",
     CodeBackground = "codeBackground",
     OverlayOverlay = "overlayOverlay",
+    ProgressFill = "progressFill",
+    ProgressTrack = "progressTrack",
     Skeleton = "skeleton",
     TableBackgroundSelectedDefault = "tableBackgroundSelectedDefault",
     TableBackgroundSelectedHover = "tableBackgroundSelectedHover",

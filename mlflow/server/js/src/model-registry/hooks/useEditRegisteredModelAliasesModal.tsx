@@ -125,13 +125,22 @@ export const useEditRegisteredModelAliasesModal = ({
       visible={showModal}
       footer={
         <div>
-          <Button onClick={() => setShowModal(false)}>
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_131"
+            onClick={() => setShowModal(false)}
+          >
             <FormattedMessage
               defaultMessage="Cancel"
               description="Model registry > model version alias editor > Cancel editing aliases"
             />
           </Button>
-          <Button loading={false} type="primary" disabled={isInvalid} onClick={save}>
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_137"
+            loading={false}
+            type="primary"
+            disabled={isInvalid}
+            onClick={save}
+          >
             <FormattedMessage
               defaultMessage="Save aliases"
               description="Model registry > model version alias editor > Confirm change of aliases"

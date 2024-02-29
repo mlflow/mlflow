@@ -8,11 +8,11 @@
 import React, { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 
-import { Select, Typography, Row, Col } from '@databricks/design-system';
+import { LegacySelect, Typography, Row, Col } from '@databricks/design-system';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { LazyPlot } from './LazyPlot';
 
-const { Option, OptGroup } = Select;
+const { Option, OptGroup } = LegacySelect;
 
 type Props = {
   runUuids: string[];
@@ -42,7 +42,7 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }: P
   };
 
   const renderSelector = (onChange: any, selectedValue: any) => (
-    <Select
+    <LegacySelect
       css={{ width: '100%', marginBottom: '16px' }}
       placeholder="Select"
       onChange={onChange}
@@ -62,7 +62,7 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }: P
           </Option>
         ))}
       </OptGroup>
-    </Select>
+    </LegacySelect>
   );
 
   const getBoxPlotData = () => {

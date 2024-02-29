@@ -10,11 +10,11 @@ export const ExperimentViewDatasetSchemaTable = ({
   schema,
   filter,
 }: ExperimentViewDatasetSchemaTableProps): JSX.Element => {
-  const hasFilter = (name: string, type: string) => {
+  const hasFilter = (name?: string, type?: string) => {
     return (
       filter === '' ||
-      name.toLowerCase().includes(filter.toLowerCase()) ||
-      type.toLowerCase().includes(filter.toLowerCase())
+      name?.toLowerCase().includes(filter.toLowerCase()) ||
+      type?.toLowerCase().includes(filter.toLowerCase())
     );
   };
 
