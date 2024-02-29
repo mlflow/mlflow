@@ -720,7 +720,8 @@ def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
             )
         elif isinstance(input_type, Map):
             new_pf_input[name] = pd.Series(
-                [_enforce_map(map_data, input_type, required) for map_data in pf_input[name]], name=name
+                [_enforce_map(map_data, input_type, required) for map_data in pf_input[name]],
+                name=name,
             )
     return new_pf_input
 

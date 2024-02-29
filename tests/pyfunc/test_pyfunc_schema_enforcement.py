@@ -2573,75 +2573,91 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
             Schema([ColSpec(Map(value_type=DataType.long), name="simple_map")]),
         ),
         (
-                {
-                    "simple_map": [
-                        {"a": 3, "b": 4},
-                        {},
-                        {"c": 5},
-                    ]
-                },
-                Schema([ColSpec(Map(value_type=DataType.long))]),  # Unnamed column
+            {
+                "simple_map": [
+                    {"a": 3, "b": 4},
+                    {},
+                    {"c": 5},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=DataType.long))]),  # Unnamed column
         ),
         (
-                {
-                    "nested_map": [
-                        {"a": {"a1": 3, "a2": 4}, "b": {"b1": 5}},
-                        {},
-                        {"c": {}},
-                    ]
-                },
-                Schema([ColSpec(Map(value_type=Map(value_type=DataType.long)), name="nested_map")]),
+            {
+                "nested_map": [
+                    {"a": {"a1": 3, "a2": 4}, "b": {"b1": 5}},
+                    {},
+                    {"c": {}},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=Map(value_type=DataType.long)), name="nested_map")]),
         ),
         (
-                {
-                    "array_in_map": [
-                        {"a": [1, 2, 3], "b": [4, 5]},
-                        {},
-                        {"c": []},
-                    ]
-                },
-                Schema([ColSpec(Map(value_type=Array(dtype=DataType.long)), name="array_in_map")]),
+            {
+                "array_in_map": [
+                    {"a": [1, 2, 3], "b": [4, 5]},
+                    {},
+                    {"c": []},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=Array(dtype=DataType.long)), name="array_in_map")]),
         ),
         (
-                {
-                    "object_in_map": [
-                        {"a": {"key1": "a1", "key2": 1}, "b": {"key1": "b1"}},
-                        {},
-                        {"c": {"key1": "c1"}},
-                    ]
-                },
-                Schema([ColSpec(Map(value_type=Object(
-                            [
-                                Property("key1", DataType.string),
-                                Property("key2", DataType.long, required=False),
-                            ]
-                        )), name="object_in_map")]),
+            {
+                "object_in_map": [
+                    {"a": {"key1": "a1", "key2": 1}, "b": {"key1": "b1"}},
+                    {},
+                    {"c": {"key1": "c1"}},
+                ]
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Map(
+                            value_type=Object(
+                                [
+                                    Property("key1", DataType.string),
+                                    Property("key2", DataType.long, required=False),
+                                ]
+                            )
+                        ),
+                        name="object_in_map",
+                    )
+                ]
+            ),
         ),
         (
-                {
-                    "map_in_array": [
-                        [{"a": 3, "b": 4}, {"c": 5}],
-                        [],
-                        [{"d": 6}],
-                    ]
-                },
-                Schema([ColSpec(Array(dtype=Map(value_type=DataType.long)), name="map_in_array")]),
+            {
+                "map_in_array": [
+                    [{"a": 3, "b": 4}, {"c": 5}],
+                    [],
+                    [{"d": 6}],
+                ]
+            },
+            Schema([ColSpec(Array(dtype=Map(value_type=DataType.long)), name="map_in_array")]),
         ),
         (
-                {
-                    "map_in_object": [
-                        {"key1": {"a": 3, "b": 4}, "key2": {"c": 5}},
-                        {"key1": {"d": 6}},
-                    ]
-                },
-                Schema([ColSpec(Object(
+            {
+                "map_in_object": [
+                    {"key1": {"a": 3, "b": 4}, "key2": {"c": 5}},
+                    {"key1": {"d": 6}},
+                ]
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Object(
                             [
                                 Property("key1", Map(value_type=DataType.long)),
                                 Property("key2", Map(value_type=DataType.long), required=False),
                             ]
-                        ), name="map_in_object")]),
+                        ),
+                        name="map_in_object",
+                    )
+                ]
+            ),
         ),
-    ]
+    ],
 )
 def test_pyfunc_model_schema_enforcement_map_type(data, schema):
     class MyModel(mlflow.pyfunc.PythonModel):

@@ -286,8 +286,8 @@ class Property:
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {prop.dtype}")
 
         if (
-                isinstance(self.dtype, (Array, Object, Map))
-                and self.dtype.__class__ is prop.dtype.__class__
+            isinstance(self.dtype, (Array, Object, Map))
+            and self.dtype.__class__ is prop.dtype.__class__
         ):
             obj = self.dtype._merge(prop.dtype)
             return Property(name=self.name, dtype=obj, required=required)
@@ -515,8 +515,8 @@ class Array:
             )
 
         if (
-                isinstance(self.dtype, (Array, Object, Map))
-                and self.dtype.__class__ is arr.dtype.__class__
+            isinstance(self.dtype, (Array, Object, Map))
+            and self.dtype.__class__ is arr.dtype.__class__
         ):
             return Array(dtype=self.dtype._merge(arr.dtype))
 
@@ -524,11 +524,13 @@ class Array:
 
 
 class Map:
+    """
+    Specification used to represent a json-convertible map with string type keys.
+    """
+
     def __init__(self, value_type: Union["Array", "Map", DataType, Object, str]):
         try:
-            self._value_type = (
-                DataType[value_type] if isinstance(value_type, str) else value_type
-            )
+            self._value_type = DataType[value_type] if isinstance(value_type, str) else value_type
         except KeyError:
             raise MlflowException(
                 f"Unsupported value type '{value_type}', expected instance of DataType, Array, "
@@ -589,9 +591,7 @@ class Map:
 
     def _merge(self, map_type: "Map") -> "Map":
         if not isinstance(map_type, Map):
-            raise MlflowException(
-                f"Can't merge map with non-map type: {type(map_type).__name__}"
-            )
+            raise MlflowException(f"Can't merge map with non-map type: {type(map_type).__name__}")
         if self == map_type:
             return deepcopy(self)
         if isinstance(self.value_type, DataType):
@@ -603,8 +603,8 @@ class Map:
             )
 
         if (
-                isinstance(self.value_type, (Array, Object, Map))
-                and self.value_type.__class__ is map_type.value_type.__class__
+            isinstance(self.value_type, (Array, Object, Map))
+            and self.value_type.__class__ is map_type.value_type.__class__
         ):
             return Map(value_type=self.value_type._merge(map_type.value_type))
 
