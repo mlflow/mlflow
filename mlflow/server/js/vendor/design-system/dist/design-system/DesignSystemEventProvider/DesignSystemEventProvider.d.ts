@@ -3,6 +3,7 @@ export type DesignSystemEventTypeMapping<V> = {
     [K in DesignSystemEventProviderAnalyticsEventTypes]: V;
 };
 export declare enum DesignSystemEventProviderComponentTypes {
+    Banner = "banner",
     Button = "button",
     Input = "input"
 }

@@ -1,4 +1,4 @@
-import { FormUI, InfoIcon, Input, Tooltip, Select, useDesignSystemTheme } from '@databricks/design-system';
+import { FormUI, InfoIcon, Input, Tooltip, LegacySelect, useDesignSystemTheme } from '@databricks/design-system';
 import { usePromptEvaluationParameters } from './hooks/usePromptEvaluationParameters';
 import { FormattedMessage } from 'react-intl';
 import { LineSmoothSlider } from '../LineSmoothSlider';
@@ -66,7 +66,7 @@ export const EvaluationCreatePromptParameters = ({
               />
             )}
             {parameterDef.type === 'list' && (
-              <Select
+              <LegacySelect
                 allowClear
                 mode="tags"
                 style={{ width: '100%' }}

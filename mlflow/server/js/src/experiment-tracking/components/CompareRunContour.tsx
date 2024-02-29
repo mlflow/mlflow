@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'html... Remove this comment to see the full error message
 import { AllHtmlEntities } from 'html-entities';
-import { Switch, Select, Spacer } from '@databricks/design-system';
+import { Switch, LegacySelect, Spacer } from '@databricks/design-system';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
@@ -20,7 +20,7 @@ import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 
-const { Option, OptGroup } = Select;
+const { Option, OptGroup } = LegacySelect;
 
 type CompareRunContourProps = {
   runInfos: any[]; // TODO: PropTypes.instanceOf(RunInfo)
@@ -303,7 +303,7 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
 
   renderSelect(axis: any) {
     return (
-      <Select
+      <LegacySelect
         css={styles.select}
         id={axis + '-axis-selector'}
         aria-label={`${axis} axis`}
@@ -329,7 +329,7 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
             </Option>
           ))}
         </OptGroup>
-      </Select>
+      </LegacySelect>
     );
   }
 

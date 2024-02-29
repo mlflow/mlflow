@@ -23,13 +23,22 @@ export const ModelsNextUIPromoModal = ({
     onCancel={onClose}
     footer={
       <>
-        <Button href={modelStagesMigrationGuideLink} rel="noopener" target="_blank">
+        <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_modelsnextuipromomodal.tsx_26"
+          href={modelStagesMigrationGuideLink}
+          rel="noopener"
+          target="_blank"
+        >
           <FormattedMessage
             defaultMessage="Learn more"
             description="Model registry > OSS Promo modal for model version aliases > learn more link"
           />
         </Button>
-        <Button type="primary" onClick={onTryItNow}>
+        <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_modelsnextuipromomodal.tsx_32"
+          type="primary"
+          onClick={onTryItNow}
+        >
           <FormattedMessage
             defaultMessage="Try it now"
             description="Model registry > OSS Promo modal for model version aliases > try it now button label"

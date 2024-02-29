@@ -57,6 +57,7 @@ export const EvaluationCellEvaluateButton = ({
   }
   return (
     <Button
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcellevaluatebutton.tsx_59"
       loading={isLoading}
       disabled={disabled}
       size="small"

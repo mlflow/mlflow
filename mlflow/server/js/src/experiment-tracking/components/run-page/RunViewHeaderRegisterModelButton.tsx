@@ -56,6 +56,7 @@ export function LoggedModelsDropdownContent({
                     to={Routes.getRunPageTabRoute(experimentId, runUuid, 'artifacts/' + model.path)}
                   >
                     <Button
+                      componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_58"
                       type="link"
                       size="small"
                       onClick={(e) => {
@@ -87,6 +88,7 @@ export function LoggedModelsDropdownContent({
                 </span>
                 <DropdownMenu.HintColumn>
                   <Button
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_89"
                     type="link"
                     size="small"
                     onClick={(e) => {
@@ -186,7 +188,11 @@ export const RunViewHeaderRegisterModelButton = ({
             }
           >
             <DropdownMenu.Trigger asChild>
-              <Button type="primary" endIcon={<ChevronDownIcon />}>
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_195"
+                type="primary"
+                endIcon={<ChevronDownIcon />}
+              >
                 <FormattedMessage
                   defaultMessage="Register model"
                   description="Run page > Header > Register model dropdown > Button label when some models are not registered"
@@ -222,7 +228,11 @@ export const RunViewHeaderRegisterModelButton = ({
         target="_blank"
         css={{ marginLeft: theme.spacing.sm }}
       >
-        <Button endIcon={<NewWindowIcon />} type="link">
+        <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_231"
+          endIcon={<NewWindowIcon />}
+          type="link"
+        >
           Model registered
         </Button>
       </Link>

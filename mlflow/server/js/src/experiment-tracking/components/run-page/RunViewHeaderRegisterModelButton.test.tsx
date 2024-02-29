@@ -9,6 +9,7 @@ import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/des
 
 jest.mock('../../../model-registry/actions', () => ({
   searchRegisteredModelsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
+  getWorkspaceModelRegistryDisabledSettingApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
 }));
 
 const runUuid = 'testRunUuid';

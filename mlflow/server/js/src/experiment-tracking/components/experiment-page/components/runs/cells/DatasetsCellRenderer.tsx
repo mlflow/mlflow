@@ -4,7 +4,6 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../../constants';
 import type { RunDatasetWithTags } from '../../../../../types';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
-import { shouldEnableExperimentDatasetTracking } from '../../../../../../common/utils/FeatureUtils';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../../utils/experimentPage.common-utils';
 const MAX_DATASETS_VISIBLE = 3;
 
@@ -46,14 +45,23 @@ const SingleDataset = ({
       >
         {inPopover ? (
           <Popover.Close asChild>
-            <Button type="link" onClick={onDatasetSelected}>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_datasetscellrenderer.tsx_49"
+              type="link"
+              onClick={onDatasetSelected}
+            >
               <span css={{ fontSize: 12 }}>
                 {dataset.name} ({dataset.digest})
               </span>
             </Button>
           </Popover.Close>
         ) : (
-          <Button type="link" onClick={onDatasetSelected}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_datasetscellrenderer.tsx_56"
+            type="link"
+            onClick={onDatasetSelected}
+            data-testid="open-dataset-drawer"
+          >
             <span>
               {dataset.name} ({dataset.digest})
             </span>
@@ -169,7 +177,11 @@ export const DatasetsCellRenderer = React.memo(
             {moreItemsToShow > 0 && (
               <Popover.Root modal={false}>
                 <Popover.Trigger asChild>
-                  <Button size="small" style={{ borderRadius: '8px', width: '40px' }}>
+                  <Button
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_datasetscellrenderer.tsx_172"
+                    size="small"
+                    style={{ borderRadius: '8px', width: '40px' }}
+                  >
                     <Typography.Text color="secondary">+{moreItemsToShow}</Typography.Text>
                   </Button>
                 </Popover.Trigger>
@@ -201,7 +213,7 @@ export const DatasetsCellRenderer = React.memo(
 );
 
 export const getDatasetsCellHeight = (datasetColumnShown: boolean, row: { data: RunRowType }) => {
-  if (shouldEnableExperimentDatasetTracking() && datasetColumnShown) {
+  if (datasetColumnShown) {
     const { data } = row;
 
     // Display at least 1, but at most 5 text lines in the cell.

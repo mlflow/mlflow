@@ -124,7 +124,12 @@ export class EditableTagsTableViewImpl extends Component<Props> {
               />
             </Form.Item>
             <Form.Item>
-              <Button loading={isRequestPending} htmlType="submit" data-testid="add-tag-button">
+              <Button
+                componentId="codegen_mlflow_app_src_common_components_editabletagstableview.tsx_127"
+                loading={isRequestPending}
+                htmlType="submit"
+                data-testid="add-tag-button"
+              >
                 <FormattedMessage
                   defaultMessage="Add"
                   description="Add button text in editable tags table view in MLflow"

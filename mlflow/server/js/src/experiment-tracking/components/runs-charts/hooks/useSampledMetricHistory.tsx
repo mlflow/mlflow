@@ -1,4 +1,4 @@
-import { keyBy } from 'lodash';
+import { chunk, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { ReduxState, ThunkDispatch } from '../../../../redux-types';
@@ -14,7 +14,9 @@ export type SampledMetricsByRun = {
   [metricKey: string]: SampledMetricData;
 };
 
+const SAMPLED_METRIC_HISTORY_API_RUN_LIMIT = 100;
 /**
+ *
  * Automatically fetches sampled metric history for runs, used in run runs charts.
  * After updating list of metrics or runs, optimizes the request and fetches
  * only the missing entries.
@@ -67,9 +69,12 @@ export const useSampledMetricHistory = (params: {
   });
 
   const refreshFn = useCallback(() => {
-    metricKeys.forEach((metricKey) =>
-      dispatch(getSampledMetricHistoryBulkAction(runUuids, metricKey, maxResults, range, true)),
-    );
+    metricKeys.forEach((metricKey) => {
+      chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).forEach((runUuidsChunk) => {
+        const action = getSampledMetricHistoryBulkAction(runUuidsChunk, metricKey, maxResults, range, true);
+        dispatch(action);
+      });
+    });
   }, [dispatch, maxResults, runUuids, metricKeys, range]);
 
   useEffect(() => {
@@ -78,9 +83,12 @@ export const useSampledMetricHistory = (params: {
       return;
     }
 
-    metricKeys.forEach((metricKey) =>
-      dispatch(getSampledMetricHistoryBulkAction(runUuids, metricKey, maxResults, range)),
-    );
+    metricKeys.forEach((metricKey) => {
+      chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).forEach((runUuidsChunk) => {
+        const action = getSampledMetricHistoryBulkAction(runUuidsChunk, metricKey, maxResults, range);
+        dispatch(action);
+      });
+    });
   }, [dispatch, maxResults, runUuids, metricKeys, range, enabled]);
 
   return { isLoading, isRefreshing, resultsByRunUuid, refresh: refreshFn };

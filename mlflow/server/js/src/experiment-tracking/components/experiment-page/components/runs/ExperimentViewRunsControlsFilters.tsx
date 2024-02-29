@@ -18,15 +18,15 @@ import {
   Tooltip,
   useDesignSystemTheme,
   DropdownMenu,
+  ToggleButton,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import {
-  shouldEnableArtifactBasedEvaluation,
-  shouldEnableDeepLearningUIPhase2,
+  shouldEnableExperimentPageCompactHeader,
   shouldEnablePromptLab,
   shouldEnableShareExperimentViewByTags,
 } from 'common/utils/FeatureUtils';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
@@ -46,7 +46,7 @@ import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
 import type { ExperimentStoreEntities, DatasetSummary } from '../../../../types';
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
 import { CreateNotebookRunModal } from 'experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
-import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
+import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
@@ -112,14 +112,10 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             description: 'Linked model dropdown option to show deleted experiment runs',
           });
 
-    const currentStartTimeFilterLabel = (
-      <>
-        <FormattedMessage
-          defaultMessage="Time created"
-          description="Label for the start time select dropdown for experiment runs view"
-        />
-      </>
-    );
+    const currentStartTimeFilterLabel = intl.formatMessage({
+      defaultMessage: 'Time created',
+      description: 'Label for the start time select dropdown for experiment runs view',
+    });
 
     // Show preview sidebar only on table view and artifact view
     const displaySidebarToggleButton = compareRunsMode === undefined || compareRunsMode === 'ARTIFACT';
@@ -147,16 +143,6 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     };
 
     const hasDatasets = datasetSummaries !== undefined;
-    const previewIcon = () => {
-      return (
-        <Tag style={{ marginLeft: '4px' }} color="turquoise">
-          <FormattedMessage
-            defaultMessage="Experimental"
-            description="Experimental badge shown for features which are experimental"
-          />
-        </Tag>
-      );
-    };
 
     const searchFilterChange = (newSearchFilter: string) => {
       if (usingNewViewStateModel) {
@@ -227,12 +213,10 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           </DialogCombobox>
 
           <DialogCombobox
-            label={
-              <FormattedMessage
-                defaultMessage="State"
-                description="Filtering label to filter experiments based on state of active or deleted"
-              />
-            }
+            label={intl.formatMessage({
+              defaultMessage: 'State',
+              description: 'Filtering label to filter experiments based on state of active or deleted',
+            })}
             value={[currentLifecycleFilterValue]}
           >
             <DialogComboboxTrigger allowClear={false} data-testid="lifecycle-filter" />
@@ -280,12 +264,10 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             </DialogComboboxContent>
           </DialogCombobox>
           <DialogCombobox
-            label={
-              <FormattedMessage
-                defaultMessage="Datasets"
-                description="Filtering label to filter runs based on datasets used"
-              />
-            }
+            label={intl.formatMessage({
+              defaultMessage: 'Datasets',
+              description: 'Filtering label to filter runs based on datasets used',
+            })}
             value={datasetsFilter.map((datasetSummary) => datasetSummary.name)}
             multiSelect
           >
@@ -339,10 +321,21 @@ export const ExperimentViewRunsControlsFilters = React.memo(
         <div css={styles.controlBar}>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <Button icon={<OverflowIcon />} />
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_338"
+                icon={<OverflowIcon />}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'More options',
+                  description: 'Experiment page > control bar > more options button accessible label',
+                })}
+              />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
-              <DropdownMenu.Item className="csv-button" onClick={onDownloadCsv}>
+              <DropdownMenu.Item
+                className="csv-button"
+                onClick={onDownloadCsv}
+                css={{ display: 'flex', gap: theme.spacing.sm }}
+              >
                 <DownloadIcon />
                 {`Download ${runsData.runInfos.length} runs`}
               </DropdownMenu.Item>
@@ -355,24 +348,26 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             experimentId={experimentId}
           />
 
-          {!isComparingExperiments && !shouldEnableDeepLearningUIPhase2() && (
+          {!isComparingExperiments && !shouldEnableExperimentPageCompactHeader() && (
             /* 
           When comparing experiments, elements that are hidden upon 
           maximization are not displayed anyway so let's hide the button then
          */
             <Tooltip
               key={viewState.viewMaximized.toString()}
-              title={
-                <FormattedMessage
-                  defaultMessage="Click to {isMaximized, select, true {restore} other {maximize}} the view"
-                  description="Experiment page > control bar > expanded view toggle button tooltip"
-                  values={{
-                    isMaximized: viewState.viewMaximized,
-                  }}
-                />
-              }
+              title={intl.formatMessage(
+                {
+                  defaultMessage: 'Click to {isMaximized, select, true {restore} other {maximize}} the view',
+                  description: 'Experiment page > control bar > expanded view toggle button tooltip',
+                },
+                {
+                  isMaximized: viewState.viewMaximized,
+                },
+              )}
+              useAsLabel
             >
               <ToggleIconButton
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_380"
                 pressed={viewMaximized}
                 icon={viewMaximized ? <FullscreenExitIcon /> : <FullscreenIcon />}
                 onClick={() => {
@@ -386,16 +381,16 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               />
             </Tooltip>
           )}
-          {shouldEnableArtifactBasedEvaluation() && displaySidebarToggleButton && (
+          {displaySidebarToggleButton && (
             <Tooltip
-              title={
-                <FormattedMessage
-                  defaultMessage="Toggle the preview sidepane"
-                  description="Experiment page > control bar > expanded view toggle button tooltip"
-                />
-              }
+              title={intl.formatMessage({
+                defaultMessage: 'Toggle the preview sidepane',
+                description: 'Experiment page > control bar > expanded view toggle button tooltip',
+              })}
+              useAsLabel
             >
               <ToggleIconButton
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_403"
                 pressed={viewState.previewPaneVisible}
                 icon={<SidebarIcon />}
                 onClick={() => updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })}
@@ -407,7 +402,11 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           {shouldEnablePromptLab() && !isComparingExperiments && (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <Button type="primary" icon={<PlusIcon />}>
+                <Button
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_415"
+                  type="primary"
+                  icon={<PlusIcon />}
+                >
                   <FormattedMessage
                     defaultMessage="New run"
                     description="Button used to pop up a modal to create a new run"
@@ -420,8 +419,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   <FormattedMessage
                     defaultMessage="using Prompt Engineering"
                     description="String for creating a new run with prompt engineering modal"
-                  />{' '}
-                  {previewIcon()}
+                  />
+                  <PreviewBadge />
                 </DropdownMenu.Item>
                 <DropdownMenu.Item onSelect={() => setCreateRunWithNotebookModalOpenValue(true)}>
                   {' '}

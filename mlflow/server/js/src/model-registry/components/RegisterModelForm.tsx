@@ -6,12 +6,12 @@
  */
 
 import React from 'react';
-import { Form, Input, Select } from '@databricks/design-system';
+import { Form, Input, LegacySelect } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import './RegisterModelForm.css';
 
-const { Option, OptGroup } = Select;
+const { Option, OptGroup } = LegacySelect;
 
 const CREATE_NEW_MODEL_LABEL = 'Create New Model';
 // Include 'CREATE_NEW_MODEL_LABEL' as part of the value for filtering to work properly. Also added
@@ -95,7 +95,7 @@ export class RegisterModelForm extends React.Component<Props, State> {
           name={SELECTED_MODEL_FIELD}
           rules={[{ required: true, message: 'Please select a model or create a new one.' }]}
         >
-          <Select
+          <LegacySelect
             dropdownClassName="model-select-dropdown"
             onChange={this.handleModelSelectChange}
             placeholder="Select a model"
@@ -108,7 +108,7 @@ export class RegisterModelForm extends React.Component<Props, State> {
               <i className="fa fa-plus fa-fw" style={{ fontSize: 13 }} /> {CREATE_NEW_MODEL_LABEL}
             </Option>
             <OptGroup label="Models">{Object.values(modelByName).map((model) => this.renderModel(model))}</OptGroup>
-          </Select>
+          </LegacySelect>
         </Form.Item>
 
         {/* Name the new model when "+ Create new model" is selected */}

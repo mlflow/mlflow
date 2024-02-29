@@ -12,6 +12,7 @@ export interface RadioProps extends Omit<AntDRadioProps, 'prefixCls' | 'type' | 
 }
 export interface RadioGroupProps extends Omit<AntDRadioGroupProps, 'optionType' | 'buttonStyle' | 'size' | 'prefixCls' | 'skipGroup'>, DangerouslySetAntdProps<AntDRadioGroupProps>, HTMLDataAttributes {
     layout?: 'vertical' | 'horizontal';
+    name?: string;
 }
 interface OrientedRadioGroupProps extends Omit<RadioGroupProps, 'layout'> {
 }

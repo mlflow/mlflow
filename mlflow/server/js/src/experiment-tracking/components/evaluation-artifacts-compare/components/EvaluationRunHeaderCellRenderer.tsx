@@ -12,7 +12,7 @@ import { Link } from '../../../../common/utils/RoutingUtils';
 import ExperimentRoutes from '../../../routes';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { EvaluationRunHeaderModelIndicator } from './EvaluationRunHeaderModelIndicator';
-import { shouldEnableExperimentDatasetTracking, shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
+import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import { EvaluationRunHeaderDatasetIndicator } from './EvaluationRunHeaderDatasetIndicator';
 import type { RunDatasetWithTags } from '../../../types';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
@@ -109,13 +109,19 @@ export const EvaluationRunHeaderCellRenderer = ({
         </Link>
         <div css={{ flexBasis: theme.spacing.sm }} />
 
-        <Button onClick={() => onHideRun(run.runUuid)} size="small" icon={<VisibleIcon />} />
+        <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadercellrenderer.tsx_112"
+          onClick={() => onHideRun(run.runUuid)}
+          size="small"
+          icon={<VisibleIcon />}
+        />
         <div css={{ flex: 1 }} />
         {shouldEnablePromptLab() && canEvaluateInRunColumn(run) && (
           <>
             <div css={{ flexBasis: theme.spacing.sm }} />
             <Tooltip title={evaluateAllTooltipContent}>
               <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadercellrenderer.tsx_118"
                 disabled={!evaluateAllButtonEnabled}
                 size="small"
                 onClick={() => evaluateAllClick(run)}
@@ -140,7 +146,11 @@ export const EvaluationRunHeaderCellRenderer = ({
         {shouldEnablePromptLab() && canEvaluateOnRun(run) && (
           <DropdownMenu.Root modal={false}>
             <DropdownMenu.Trigger asChild>
-              <Button size="small" icon={<OverflowIcon />} />
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadercellrenderer.tsx_143"
+                size="small"
+                icon={<OverflowIcon />}
+              />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
               <DropdownMenu.Item onClick={() => onDuplicateRun(run)}>
@@ -157,9 +167,7 @@ export const EvaluationRunHeaderCellRenderer = ({
       {shouldEnablePromptLab() && canEvaluateOnRun(run) ? (
         <EvaluationRunHeaderModelIndicator run={run} />
       ) : (
-        shouldEnableExperimentDatasetTracking() && (
-          <EvaluationRunHeaderDatasetIndicator run={run} onDatasetSelected={onDatasetSelected} />
-        )
+        <EvaluationRunHeaderDatasetIndicator run={run} onDatasetSelected={onDatasetSelected} />
       )}
     </EvaluationTableHeader>
   );

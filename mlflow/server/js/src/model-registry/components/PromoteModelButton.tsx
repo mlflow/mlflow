@@ -162,7 +162,12 @@ export const PromoteModelButton = (props: PromoteModelButtonImplProps) => {
 
   return (
     <div className="promote-model-btn-wrapper">
-      <Button className="promote-model-btn" type="primary" onClick={showRegisterModal}>
+      <Button
+        componentId="codegen_mlflow_app_src_model-registry_components_promotemodelbutton.tsx_165"
+        className="promote-model-btn"
+        type="primary"
+        onClick={showRegisterModal}
+      >
         <FormattedMessage
           defaultMessage="Promote model"
           description="Button text to pomote the model to a different registered model"

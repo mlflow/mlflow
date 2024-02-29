@@ -1,9 +1,10 @@
 import { first, last, orderBy } from 'lodash';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import { RunViewMetricConfig } from '../../../types';
 
 const STORAGE_ITEM_KEY = 'ChartOrder';
+const SECTION_STORAGE_ITEM_KEY = 'SectionExpanded';
 
 const includesKey = (sourceOrder: RunViewMetricConfig[], comparedMetricKey: string) =>
   sourceOrder.some(({ metricKey }) => metricKey === comparedMetricKey);
@@ -144,4 +145,35 @@ export const useOrderedChartsV2 = (
   }, [currentOrder, metricConfigs]);
 
   return { orderedMetricConfigs, onReorderChart, onInsertChart };
+};
+
+export const useSectionExpanded = (sectionKeys: string[], storageNamespace: string, storageKey: string) => {
+  const localStorageStore = useRef(LocalStorageUtils.getStoreForComponent(storageNamespace, storageKey));
+
+  const [expandedSections, setExpandedSections] = useState<string[]>(() => {
+    try {
+      const sectionsExpanded = localStorageStore.current.getItem(SECTION_STORAGE_ITEM_KEY);
+      if (sectionsExpanded) {
+        return JSON.parse(sectionsExpanded);
+      } else {
+        localStorageStore.current.setItem(SECTION_STORAGE_ITEM_KEY, JSON.stringify(sectionKeys));
+        return sectionKeys;
+      }
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorageStore.current.setItem(SECTION_STORAGE_ITEM_KEY, JSON.stringify(expandedSections));
+  }, [expandedSections]);
+
+  const onToggleSection = (key: string | string[]) => {
+    const newExpandedSections = sectionKeys.filter((sectionKey: string) => {
+      return (typeof key === 'string' && sectionKey === key) || (Array.isArray(key) && key.includes(sectionKey));
+    });
+    setExpandedSections(newExpandedSections);
+  };
+
+  return { expandedSections, onToggleSection };
 };

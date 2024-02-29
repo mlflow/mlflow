@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Control, useController } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
-import { PlusIcon, Select, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { PlusIcon, LegacySelect, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 
 /**
@@ -125,7 +125,7 @@ export function TagKeySelectDropdown({
   };
 
   return (
-    <Select
+    <LegacySelect
       allowClear
       ref={selectRef}
       dangerouslySetAntdProps={{
@@ -147,10 +147,10 @@ export function TagKeySelectDropdown({
       validationState={fieldState.error ? 'error' : undefined}
     >
       {allAvailableTags.map((tag) => (
-        <Select.Option value={tag} key={tag}>
+        <LegacySelect.Option value={tag} key={tag}>
           {tag}
-        </Select.Option>
+        </LegacySelect.Option>
       ))}
-    </Select>
+    </LegacySelect>
   );
 }
