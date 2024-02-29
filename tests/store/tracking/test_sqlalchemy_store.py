@@ -272,14 +272,13 @@ def _verify_logged(store, run_id, metrics, params, tags):
     assert set(run.data.params.items()) == {(param.key, param.value) for param in params}
 
 
-class estSqlAlchemyStoreMigratedDB:
-    def test_default_experiment(store: SqlAlchemyStore):
-        experiments = store.search_experiments()
-        assert len(experiments) == 1
+def test_default_experiment(store: SqlAlchemyStore):
+    experiments = store.search_experiments()
+    assert len(experiments) == 1
 
-        first = experiments[0]
-        assert first.experiment_id == "0"
-        assert first.name == "Default"
+    first = experiments[0]
+    assert first.experiment_id == "0"
+    assert first.name == "Default"
 
 
 def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
