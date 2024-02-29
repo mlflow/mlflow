@@ -1182,10 +1182,6 @@ def _enforce_map(data: Any, map_type: Map, required=True):
             f"Failed to enforce schema of data `{data}` with map type `{map_type}`. "
         )
 
-    # Keep input data type
-    if isinstance(data, np.ndarray):
-        data_enforced = np.array(data_enforced)
-
     return data_enforced
 
 
