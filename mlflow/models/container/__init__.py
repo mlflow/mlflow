@@ -95,7 +95,10 @@ def _install_pyfunc_deps(
     # dependency of mlflow on pip and we expect mlflow to be part of the environment.
     server_deps = ["gunicorn[gevent]"]
     if enable_mlserver:
-        server_deps = ["'mlserver>=1.2.0,!=1.3.1'", "'mlserver-mlflow>=1.2.0,!=1.3.1'"]
+        server_deps = [
+            "'mlserver>=1.2.0,!=1.3.1,<1.4.0'",
+            "'mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0'",
+        ]
 
     install_server_deps = [f"pip install {' '.join(server_deps)}"]
     if Popen(["bash", "-c", " && ".join(activate_cmd + install_server_deps)]).wait() != 0:
