@@ -471,7 +471,7 @@ def _save_model(model, path, loader_fn, persist_dir):
             "If you are constructing a custom LangChain model, "
             "please upgrade cloudpickle to version 2.1.0 or later "
             "using `pip install cloudpickle>=2.1.0` "
-            "to ensure the model can be loaded correctly. "
+            "to ensure the model can be loaded correctly."
         )
     with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
