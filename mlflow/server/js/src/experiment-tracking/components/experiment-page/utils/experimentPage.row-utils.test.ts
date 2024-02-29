@@ -1,14 +1,17 @@
 import {
-  shouldEnableDeepLearningUIPhase2,
+  shouldEnableRunGrouping,
   shouldEnableShareExperimentViewByTags,
+  shouldUseNewRunRowsVisibilityModel,
 } from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
-import { prepareRunsGridData } from './experimentPage.row-utils';
+import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
+import { SingleRunData, prepareRunsGridData } from './experimentPage.row-utils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../../common/utils/FeatureUtils'),
   shouldEnableShareExperimentViewByTags: jest.fn().mockImplementation(() => false),
-  shouldEnableDeepLearningUIPhase2: jest.fn().mockImplementation(() => false),
+  shouldEnableRunGrouping: jest.fn().mockImplementation(() => false),
+  shouldUseNewRunRowsVisibilityModel: jest.fn().mockImplementation(() => false),
 }));
 
 const LOGGED_MODEL = { LOGGED_MODEL: true };
@@ -417,7 +420,8 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
   beforeEach(() => {
     // Enable run grouping by switching the flag
     jest.mocked(shouldEnableShareExperimentViewByTags).mockImplementation(() => true);
-    jest.mocked(shouldEnableDeepLearningUIPhase2).mockImplementation(() => true);
+    jest.mocked(shouldEnableRunGrouping).mockImplementation(() => true);
+    jest.mocked(shouldUseNewRunRowsVisibilityModel).mockImplementation(() => false);
   });
 
   test('it creates proper row set for runs grouped by a tag', () => {
@@ -439,12 +443,14 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
         aggregatedMetricData: {
           met1: {
             key: 'met1',
+            maxStep: 0,
             value: 111.123456789,
           },
         },
         aggregatedParamData: {
           p1: {
             key: 'p1',
+            maxStep: 0,
             value: 123,
           },
         },
@@ -462,6 +468,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
         aggregatedMetricData: {
           met1: {
             key: 'met1',
+            maxStep: 0,
             value: 222,
           },
         },
@@ -555,41 +562,90 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
     expect(runsGridData[3].rowUuid).toEqual('tag.testtag1.testval3');
   });
 
-  test('it properly marks entire group as hidden when all its runs are hidden', () => {
-    const runsGridData = prepareRunsGridData({
-      ...commonPrepareRunsGridDataParams,
-      groupBy: 'tag.min.testtag1',
-      groupsExpanded: {
-        'tag.testtag1.testval1': false,
-        'tag.testtag1.testval2': false,
-        'tag.testtag1.testval3': false,
-        'tag.testtag1': false,
-      },
-      // Mark all runs in "remaining runs" group as hidden
-      runsHidden: ['run1_4', 'run2_1', 'run2_2'],
+  describe('Configurable runs visibility mode', () => {
+    beforeEach(() => {
+      jest.mocked(shouldUseNewRunRowsVisibilityModel).mockImplementation(() => true);
     });
-    expect(runsGridData).toHaveLength(4);
 
-    // Expect "remaining runs" group to be hidden
-    expect(runsGridData[3].hidden).toEqual(true);
-  });
+    const fiftyRuns: SingleRunData[] = new Array(50).fill(0).map((_, i) => ({
+      runInfo: { experiment_id: '1', run_uuid: `run1_${i}` } as any,
+      datasets: [],
+      metrics: [],
+      params: [],
+      tags: {},
+    }));
 
-  test('it properly marks entire group as visible when not all its runs are hidden', () => {
-    const runsGridData = prepareRunsGridData({
-      ...commonPrepareRunsGridDataParams,
-      groupBy: 'tag.min.testtag1',
-      groupsExpanded: {
-        'tag.testtag1.testval1': false,
-        'tag.testtag1.testval2': false,
-        'tag.testtag1.testval3': false,
-        'tag.testtag1': false,
-      },
-      // Mark few runs in "remaining runs" group as hidden
-      runsHidden: ['run1_4', 'run2_2'],
+    const userSelectedRunsHidden = ['run1_4', 'run1_22'];
+
+    test.each([10, 20] as const)('it correctly marks first %d runs as visible regardless of the order', (amount) => {
+      let runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE[`FIRST_${amount}_RUNS`],
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+      });
+      expect(runsGridData.length).toBe(50);
+      expect(runsGridData.slice(0, amount).every((r) => r.hidden)).toBe(false);
+      expect(runsGridData.slice(amount).every((r) => r.hidden)).toBe(true);
+
+      const fiftyRunsReversed = [...fiftyRuns].reverse();
+
+      runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
+        runUuidsMatchingFilter: fiftyRunsReversed.map((r) => r.runInfo.run_uuid),
+        runData: fiftyRunsReversed,
+        runsHidden: userSelectedRunsHidden,
+      });
+      expect(runsGridData.length).toBe(50);
+      expect(runsGridData.slice(0, amount).every((r) => r.hidden)).toBe(false);
+      expect(runsGridData.slice(amount).every((r) => r.hidden)).toBe(true);
     });
-    expect(runsGridData).toHaveLength(4);
 
-    // Expect "remaining runs" group to be visible
-    expect(runsGridData[3].hidden).toEqual(false);
+    test('it correctly marks specific runs as hidden', () => {
+      const runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.CUSTOM,
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+      });
+      expect(runsGridData.length).toBe(50);
+
+      for (const resultingRow of runsGridData) {
+        if (userSelectedRunsHidden.includes(resultingRow.runUuid)) {
+          expect(resultingRow.hidden).toBe(true);
+        } else {
+          expect(resultingRow.hidden).toBe(false);
+        }
+      }
+    });
+
+    test('it correctly marks all runs as hidden', () => {
+      const runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.HIDEALL,
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+      });
+      expect(runsGridData.length).toBe(50);
+
+      expect(runsGridData.every((r) => r.hidden)).toBe(true);
+    });
+
+    test('it correctly marks all runs as visible', () => {
+      const runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.SHOWALL,
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+      });
+      expect(runsGridData.length).toBe(50);
+
+      expect(runsGridData.every((r) => r.hidden)).toBe(false);
+    });
   });
 });

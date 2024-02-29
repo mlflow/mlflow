@@ -1,6 +1,7 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { compact, minBy } from 'lodash';
-import { Config, Dash, Data, Layout, LayoutAxis } from 'plotly.js';
+import { compact, isEqual, minBy } from 'lodash';
+import { Config, Dash, Data as PlotlyData, Datum, Layout, LayoutAxis, TypedArray } from 'plotly.js';
+import { Figure } from 'react-plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { MetricEntity } from '../../../types';
@@ -20,17 +21,29 @@ import {
   lineDashStyles,
   containsDuplicateXValues,
   createFadedTraceColor,
+  getChartAxisLabelDescriptor,
+  RunsChartsLineChartXAxisType,
 } from './RunsCharts.common';
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
+import { shouldEnableDeepLearningUI, shouldEnableDeepLearningUIPhase3 } from 'common/utils/FeatureUtils';
+import { useRunsMultipleTracesTooltipData } from '../hooks/useRunsChartsMultipleTracesTooltip';
 
-type LineChartTraceData = Data & { uuid?: string };
+export type LineChartTraceData = PlotlyData & {
+  x?: number[] | undefined;
+  y?: number[];
+  uuid?: string;
+  metricKey?: string;
+};
+
+// Display markers only if there are less than 60 points in the single data trace
+const MARKER_DISPLAY_THRESHOLD = 60;
 
 const getDataTraceForRun = ({
   runEntry,
   metricKey,
   xAxisKey,
+  selectedXAxisMetricKey,
   useDefaultHoverBox,
   lineSmoothness,
   lineShape,
@@ -39,6 +52,7 @@ const getDataTraceForRun = ({
   runEntry: Omit<RunsChartsRunData, 'metrics' | 'params'>;
   metricKey: RunsMetricsLinePlotProps['metricKey'];
   xAxisKey: RunsMetricsLinePlotProps['xAxisKey'];
+  selectedXAxisMetricKey: RunsMetricsLinePlotProps['selectedXAxisMetricKey'];
   useDefaultHoverBox: RunsMetricsLinePlotProps['useDefaultHoverBox'];
   lineSmoothness: RunsMetricsLinePlotProps['lineSmoothness'];
   lineShape: RunsMetricsLinePlotProps['lineShape'];
@@ -49,14 +63,28 @@ const getDataTraceForRun = ({
   }
 
   const sortedMetricsHistory = runEntry.metricsHistory[metricKey]?.sort((a, b) =>
-    xAxisKey === 'step' ? a.step - b.step : a.timestamp - b.timestamp,
+    xAxisKey === RunsChartsLineChartXAxisType.STEP ? a.step - b.step : a.timestamp - b.timestamp,
   );
 
-  const xValues = prepareMetricHistoryByAxisType(sortedMetricsHistory, xAxisKey);
+  let xValues;
+  let yValues;
+  if (xAxisKey === RunsChartsLineChartXAxisType.METRIC) {
+    const xValuesWithSteps = prepareXAxisDataForMetricType(runEntry.metricsHistory[selectedXAxisMetricKey]);
+    const stepOrder = xValuesWithSteps.map(({ step }) => step);
+    const yValueHistory = orderBySteps(sortedMetricsHistory ?? [], stepOrder);
+
+    xValues = xValuesWithSteps.map(({ value }) => value);
+    yValues = orderBySteps(yValueHistory, stepOrder).map(({ value }) => normalizeChartValue(value));
+  } else {
+    xValues = prepareMetricHistoryByAxisType(sortedMetricsHistory, xAxisKey);
+    yValues = sortedMetricsHistory?.map(({ value }) => normalizeChartValue(value));
+  }
 
   // If there are any duplicate X values, use linear line shape
   // to avoid bending splines in the wrong direction
   const optimizedLineShape = containsDuplicateXValues(xValues) ? 'linear' : lineShape;
+
+  const shouldDisplayMarkers = xValues.length < MARKER_DISPLAY_THRESHOLD;
 
   return {
     // Let's add UUID to each run so it can be distinguished later (e.g. on hover)
@@ -64,19 +92,17 @@ const getDataTraceForRun = ({
     name: runEntry.runInfo?.run_name || '',
     x: xValues,
     // The actual value is on Y axis
-    y: EMA(
-      sortedMetricsHistory?.map((e) => normalizeChartValue(e.value)),
-      lineSmoothness,
-    ),
+    y: EMA(yValues ?? [], lineSmoothness),
     // Save the metric history
     metricHistory: sortedMetricsHistory,
+    metricKey,
     hovertext: runEntry.runInfo?.run_name || '',
     text: 'x',
     textposition: 'outside',
     textfont: {
       size: 11,
     },
-    mode: 'lines+markers',
+    mode: shouldDisplayMarkers ? 'lines+markers' : 'lines',
     hovertemplate: useDefaultHoverBox ? createTooltipTemplate(runEntry.runInfo?.run_name || '') : undefined,
     hoverinfo: useDefaultHoverBox ? undefined : 'none',
     hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
@@ -85,7 +111,7 @@ const getDataTraceForRun = ({
     marker: {
       color: runEntry.color,
     },
-  } as Data;
+  } as LineChartTraceData;
 };
 
 const getBandTraceForRun = ({
@@ -93,11 +119,13 @@ const getBandTraceForRun = ({
   metricKey,
   lineShape,
   xAxisKey,
+  selectedXAxisMetricKey,
 }: {
   runEntry: Omit<RunsChartsRunData, 'metrics' | 'params'>;
   metricKey: RunsMetricsLinePlotProps['metricKey'];
   lineShape: RunsMetricsLinePlotProps['lineShape'];
-  xAxisKey: 'step' | 'time' | 'time-relative';
+  xAxisKey: RunsChartsLineChartXAxisType;
+  selectedXAxisMetricKey: RunsMetricsLinePlotProps['selectedXAxisMetricKey'];
 }): LineChartTraceData => {
   if (!runEntry.aggregatedMetricsHistory) {
     return {};
@@ -106,22 +134,34 @@ const getBandTraceForRun = ({
   // Get upper and lower boundaries to draw a band
   const { max, min } = runEntry.aggregatedMetricsHistory[metricKey];
 
-  // Reverse one of the arrays so that the band is drawn correctly
-  const minReversed = min.slice().reverse();
+  let xMins, xMaxes, yMins, yMaxes;
+  if (xAxisKey === RunsChartsLineChartXAxisType.METRIC) {
+    if (!runEntry.metricsHistory) {
+      return {};
+    }
+    const xValuesWithSteps = prepareXAxisDataForMetricType(runEntry.metricsHistory[selectedXAxisMetricKey]);
+    const stepOrder = xValuesWithSteps.map((e) => e.step);
+    const xValues = xValuesWithSteps.map((e) => e.value);
 
-  const xValues = [
-    ...prepareMetricHistoryByAxisType(minReversed, xAxisKey),
-    null,
-    ...prepareMetricHistoryByAxisType(max, xAxisKey),
-  ];
+    yMins = orderBySteps(min, stepOrder)
+      .map(({ value }) => normalizeChartValue(value))
+      .reverse();
+    yMaxes = orderBySteps(max, stepOrder).map(({ value }) => normalizeChartValue(value));
+    xMins = xValues.slice().reverse();
+    xMaxes = xValues;
+  } else {
+    // Reverse one of the arrays so that the band is drawn correctly
+    const minReversed = min.slice().reverse();
+    xMins = prepareMetricHistoryByAxisType(minReversed, xAxisKey);
+    xMaxes = prepareMetricHistoryByAxisType(max, xAxisKey);
+    yMins = minReversed.map(({ value }) => normalizeChartValue(value));
+    yMaxes = max.map(({ value }) => normalizeChartValue(value));
+  }
 
-  const bandValues = [
-    ...minReversed.map((e) => normalizeChartValue(e.value)),
-    // Place a null value in the middle to create a gap, otherwise Plotly will
-    // connect the lines and the fill will be drawn incorrectly
-    null,
-    ...max.map((e) => normalizeChartValue(e.value)),
-  ];
+  // Place a null value in the middle to create a gap, otherwise Plotly will
+  // connect the lines and the fill will be drawn incorrectly
+  const xValues = [...xMins, null, ...xMaxes];
+  const bandValues = [...yMins, null, ...yMaxes];
 
   return {
     name: runEntry.runInfo?.run_name || '',
@@ -134,16 +174,51 @@ const getBandTraceForRun = ({
     line: { color: 'transparent', shape: lineShape },
     fill: 'tozeroy',
     type: 'scatter',
-  } as Data;
+  } as LineChartTraceData;
 };
 
-export interface RunsMetricsLinePlotHoverData {
+/**
+ * This function takes a list of metric entities and returns a copy ordered by
+ * the step order provided. This is used in metric-type X axes, where the Y values
+ * need to be ordered by the X values.
+ *
+ * For example:
+ * dataPoints = [{step: 0, value: 1}, {step: 1, value: 2}, {step: 2, value: 3}]
+ * stepOrder = [2, 0, 1]
+ * return = [{step: 2, value: 3}, {step: 0, value: 1}, {step: 1, value: 2}]
+ */
+const orderBySteps = (dataPoints: MetricEntity[], stepOrder: number[]) => {
+  const stepIndexes = stepOrder.reduce((acc, step, idx) => {
+    acc[step] = idx;
+    return acc;
+  }, {} as Record<number, number>);
+
+  return dataPoints.slice().sort((a, b) => stepIndexes[a.step] - stepIndexes[b.step]);
+};
+
+export interface RunsMetricsSingleTraceTooltipData {
   xValue: string | number;
   yValue: number;
   index: number;
   label: string;
+  traceUuid?: string;
   metricEntity?: MetricEntity;
 }
+
+export interface RunsCompareMultipleTracesTooltipData {
+  tooltipLegendItems: {
+    uuid: string;
+    color?: string;
+    dashStyle?: Dash;
+    displayName: string;
+    value?: string | number;
+  }[];
+  xValue: string | number;
+  xAxisKey: RunsChartsLineChartXAxisType;
+  xAxisKeyLabel: string;
+  hoveredDataPoint?: RunsMetricsSingleTraceTooltipData;
+}
+
 export interface RunsMetricsLinePlotProps extends RunsPlotsCommonProps {
   /**
    * Determines which metric are we comparing by
@@ -175,7 +250,12 @@ export interface RunsMetricsLinePlotProps extends RunsPlotsCommonProps {
   /**
    * Choose X axis mode - numeric step or absolute time
    */
-  xAxisKey?: 'step' | 'time' | 'time-relative';
+  xAxisKey?: RunsChartsLineChartXAxisType;
+
+  /**
+   * Name of the metric to use for the X axis. Used when xAxisKey is set to 'metric'
+   */
+  selectedXAxisMetricKey: string;
 
   /**
    * Array of runs data with corresponding values
@@ -183,9 +263,14 @@ export interface RunsMetricsLinePlotProps extends RunsPlotsCommonProps {
   runsData: Omit<RunsChartsRunData, 'metrics' | 'params'>[];
 
   /**
-   * Currently visible range on x-axis
+   * Currently visible range on x-axis.
    */
-  range?: [number | string, number | string];
+  xRange?: [number | string, number | string];
+
+  /**
+   * Currently visible range on y-axis
+   */
+  yRange?: [number | string, number | string];
 
   /**
    * If set to true, only x-axis can be zoomed by dragging
@@ -207,6 +292,9 @@ export const createTooltipTemplate = (runName: string) =>
 
 /**
  * Prepares dataset's X axis according to selected visualization type: step, time-wall and time-relative
+ *
+ * NOTE: metric-type X axes are handled by `prepareXAxisDataForMetricType()`, since we need to retain
+ *       step information in order to format the Y axis data correctly.
  */
 const prepareMetricHistoryByAxisType = (
   metricHistory?: MetricEntity[],
@@ -215,16 +303,43 @@ const prepareMetricHistoryByAxisType = (
   if (!metricHistory) {
     return [];
   }
-  if (axisType === 'time-relative') {
+  if (axisType === RunsChartsLineChartXAxisType.TIME_RELATIVE) {
     const { timestamp: minTimestamp } = minBy(metricHistory, 'timestamp') || {};
     if (minTimestamp) {
-      return metricHistory.map((e) => (e.timestamp - minTimestamp) / 1000); // Milliseconds -> seconds
+      return metricHistory.map(({ timestamp }) => (timestamp - minTimestamp) / 1000); // Milliseconds -> seconds
     }
-  } else if (axisType === 'time') {
-    return metricHistory.map((e) => e.timestamp);
+  } else if (axisType === RunsChartsLineChartXAxisType.TIME) {
+    return metricHistory.map(({ timestamp }) => timestamp);
   }
 
-  return metricHistory.map((e) => e.step);
+  return metricHistory.map(({ step }) => step);
+};
+
+/**
+ * Prepares dataset's X axis when axisType is 'metric'. This is separate from
+ * `prepareMetricHistoryByAxisType` because we need to keep track of the `step`
+ * in addition to the `value`, so that the Y axis data can be associated to the
+ * correct X datapoint.
+ */
+const prepareXAxisDataForMetricType = (
+  metricHistory?: MetricEntity[],
+): Array<{
+  value: number | undefined;
+  step: number;
+}> => {
+  if (!metricHistory) {
+    return [];
+  }
+
+  return metricHistory
+    .map((datapoint) => ({
+      value: normalizeChartValue(datapoint.value),
+      step: datapoint.step,
+    }))
+    .sort((a, b) => {
+      // sort by value in ascending order
+      return Number(a.value) - Number(b.value);
+    });
 };
 
 /**
@@ -238,11 +353,12 @@ export const RunsMetricsLinePlot = React.memo(
     metricKey,
     selectedMetricKeys,
     scaleType = 'linear',
-    xAxisKey = 'step',
+    xAxisKey = RunsChartsLineChartXAxisType.STEP,
+    selectedXAxisMetricKey = '',
     lineSmoothness = 70,
     className,
     margin = runsChartDefaultMargin,
-    lineShape = 'spline',
+    lineShape = 'linear',
     onUpdate,
     onHover,
     onUnhover,
@@ -250,12 +366,15 @@ export const RunsMetricsLinePlot = React.memo(
     height,
     useDefaultHoverBox = true,
     selectedRunUuid,
-    range,
+    xRange,
+    yRange,
     lockXAxisZoom,
+    fullScreen,
   }: RunsMetricsLinePlotProps) => {
     const { theme } = useDesignSystemTheme();
 
     const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+    const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
 
     const plotData = useMemo(() => {
       if (!usingV2ChartImprovements) {
@@ -265,6 +384,7 @@ export const RunsMetricsLinePlot = React.memo(
             runEntry,
             metricKey,
             xAxisKey,
+            selectedXAxisMetricKey,
             useDefaultHoverBox,
             lineSmoothness,
             lineShape,
@@ -276,17 +396,21 @@ export const RunsMetricsLinePlot = React.memo(
       const metricKeys = selectedMetricKeys ?? [metricKey];
       return runsData
         .map((runEntry) =>
-          metricKeys.map((mk, idx) =>
-            getDataTraceForRun({
-              runEntry,
-              metricKey: mk,
-              xAxisKey,
-              useDefaultHoverBox,
-              lineSmoothness,
-              lineShape,
-              lineDash: lineDashStyles[idx % lineDashStyles.length],
+          metricKeys
+            // Discard creating traces for metrics that don't have any history for a given run
+            .filter((metricKey) => runEntry.metricsHistory?.[metricKey])
+            .map((metricKey, idx) => {
+              return getDataTraceForRun({
+                runEntry,
+                metricKey,
+                xAxisKey,
+                selectedXAxisMetricKey,
+                useDefaultHoverBox,
+                lineSmoothness,
+                lineShape,
+                lineDash: lineDashStyles[idx % lineDashStyles.length],
+              });
             }),
-          ),
         )
         .flat();
     }, [
@@ -298,6 +422,7 @@ export const RunsMetricsLinePlot = React.memo(
       useDefaultHoverBox,
       usingV2ChartImprovements,
       selectedMetricKeys,
+      selectedXAxisMetricKey,
     ]);
 
     const bandsData = useMemo(() => {
@@ -311,10 +436,11 @@ export const RunsMetricsLinePlot = React.memo(
               metricKey,
               lineShape,
               xAxisKey,
+              selectedXAxisMetricKey,
             }),
           ),
         );
-    }, [lineShape, metricKey, runsData, selectedMetricKeys, xAxisKey]);
+    }, [lineShape, metricKey, runsData, selectedMetricKeys, xAxisKey, selectedXAxisMetricKey]);
 
     const plotDataWithBands = useMemo(() => [...bandsData, ...plotData], [plotData, bandsData]);
 
@@ -331,23 +457,12 @@ export const RunsMetricsLinePlot = React.memo(
     );
 
     const xAxisKeyLabel = useMemo(() => {
-      if (xAxisKey === 'time') {
-        return formatMessage({
-          defaultMessage: 'Time',
-          description: 'Label for X axis in compare runs metrics when values are displayed by absolute time',
-        });
+      if (xAxisKey === RunsChartsLineChartXAxisType.METRIC) {
+        return selectedXAxisMetricKey;
       }
-      if (xAxisKey === 'time-relative') {
-        return formatMessage({
-          defaultMessage: 'Time (s)',
-          description: 'Label for X axis in compare runs metrics when values are displayed by relative time in seconds',
-        });
-      }
-      return formatMessage({
-        defaultMessage: 'Step',
-        description: 'Label for X axis in compare runs metrics when values are displayed by metric history step',
-      });
-    }, [formatMessage, xAxisKey]);
+
+      return formatMessage(getChartAxisLabelDescriptor(xAxisKey));
+    }, [formatMessage, xAxisKey, selectedXAxisMetricKey]);
 
     const yAxisParams: Partial<LayoutAxis> = useMemo(
       () => ({
@@ -367,18 +482,27 @@ export const RunsMetricsLinePlot = React.memo(
         tickfont: { size: 11, color: theme.colors.textSecondary },
       },
       yaxis: yAxisParams,
+      showlegend: false,
     });
 
     useEffect(() => {
-      setLayout((current) => ({
-        ...current,
-        width: width || layoutWidth,
-        height: height || layoutHeight,
-        margin,
-        yaxis: yAxisParams,
-        showlegend: false,
-      }));
+      setLayout((current) => {
+        const updatedLayout = {
+          ...current,
+          width: width || layoutWidth,
+          height: height || layoutHeight,
+          margin,
+          yaxis: yAxisParams,
+          showlegend: false,
+        };
+        if (isEqual(updatedLayout, current)) {
+          return current;
+        }
+        return updatedLayout;
+      });
     }, [layoutWidth, layoutHeight, margin, yAxisParams, width, height, xAxisKeyLabel]);
+
+    const containsMultipleMetricKeys = useMemo(() => (selectedMetricKeys?.length || 0) > 1, [selectedMetricKeys]);
 
     const hoverCallback = useCallback(
       ({ points, event }) => {
@@ -394,7 +518,7 @@ export const RunsMetricsLinePlot = React.memo(
         // Extract metric entity
         const metricEntity = hoveredPointData.metricHistory?.[hoveredPoint.pointIndex];
 
-        const data: RunsMetricsLinePlotHoverData = {
+        const data: RunsMetricsSingleTraceTooltipData = {
           // Value of the "x" axis (time, step)
           xValue: hoveredPoint.x,
           // Value of the "y" axis
@@ -431,23 +555,50 @@ export const RunsMetricsLinePlot = React.memo(
     const immediateLayout = layout;
     if (immediateLayout.xaxis) {
       immediateLayout.xaxis.title = xAxisKeyLabel;
-      immediateLayout.xaxis.type = xAxisKey === 'time' ? 'date' : undefined;
-      if (range) {
-        immediateLayout.xaxis.range = [...range];
+      immediateLayout.xaxis.type = xAxisKey === RunsChartsLineChartXAxisType.TIME ? 'date' : undefined;
+      if (xRange) {
+        immediateLayout.xaxis.range = [...xRange];
       }
     }
     immediateLayout.template = { layout: themedPlotlyLayout };
+
+    if (yRange && immediateLayout.yaxis) {
+      immediateLayout.yaxis.range = yRange;
+      immediateLayout.yaxis.automargin = true;
+      immediateLayout.yaxis.tickformat = 'f';
+    }
+
+    const legendLabelData = useMemo(
+      () => getLineChartLegendData(runsData, selectedMetricKeys, metricKey),
+      [runsData, selectedMetricKeys, metricKey],
+    );
+
+    const {
+      scanlineElement,
+      initHandler,
+      updateHandler: updateHandlerMultipleRuns,
+      onPointHover: hoverCallbackMultipleRuns,
+      onPointUnhover: unhoverCallbackMultipleRuns,
+    } = useRunsMultipleTracesTooltipData({
+      legendLabelData,
+      plotData,
+      runsData,
+      containsMultipleMetricKeys,
+      onHover,
+      onUnhover: unhoverCallback,
+      xAxisKeyLabel,
+      xAxisKey,
+      setHoveredPointIndex,
+      disabled: !usingMultipleRunsHoverTooltip,
+    });
 
     /**
      * Unfortunately plotly.js memorizes first onHover callback given on initial render,
      * so in order to achieve updated behavior we need to wrap its most recent implementation
      * in the immutable callback.
      */
-    const mutableHoverCallback = useMutableChartHoverCallback(hoverCallback);
-
-    const legendLabelData = useMemo(
-      () => getLineChartLegendData(runsData, selectedMetricKeys, metricKey),
-      [runsData, selectedMetricKeys, metricKey],
+    const mutableHoverCallback = useMutableChartHoverCallback(
+      usingMultipleRunsHoverTooltip ? hoverCallbackMultipleRuns : hoverCallback,
     );
 
     const chart = (
@@ -460,17 +611,26 @@ export const RunsMetricsLinePlot = React.memo(
           data={plotDataWithBands}
           useResizeHandler={!isDynamicSizeSupported}
           css={commonRunsChartStyles.chart(theme)}
-          onUpdate={onUpdate}
+          onUpdate={(figure: Readonly<Figure>, graphDiv: Readonly<HTMLElement>) => {
+            if (usingMultipleRunsHoverTooltip) {
+              updateHandlerMultipleRuns(figure, graphDiv);
+            }
+            onUpdate?.(figure, graphDiv);
+          }}
           layout={immediateLayout}
           config={PLOT_CONFIG}
           onHover={mutableHoverCallback}
-          onUnhover={unhoverCallback}
+          onUnhover={usingMultipleRunsHoverTooltip ? unhoverCallbackMultipleRuns : unhoverCallback}
+          onInitialized={initHandler}
         />
+        {scanlineElement}
       </div>
     );
 
     return usingV2ChartImprovements ? (
-      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
+      <RunsMetricsLegendWrapper labelData={legendLabelData} fullScreen={fullScreen}>
+        {chart}
+      </RunsMetricsLegendWrapper>
     ) : (
       chart
     );

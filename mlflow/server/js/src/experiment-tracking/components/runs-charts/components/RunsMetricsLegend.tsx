@@ -30,12 +30,12 @@ export type LegendLabelData = {
   label: string;
   color: string;
   dashStyle?: Dash;
+  uuid?: string;
+  metricKey?: string;
 };
+
 const TraceLabel: React.FC<LegendLabelData> = ({ label, color, dashStyle }) => {
   const { theme } = useDesignSystemTheme();
-
-  const strokeDasharray = dashStyle ? getDashArray(dashStyle) : undefined;
-  const pathYOffset = theme.typography.fontSizeSm / 2;
 
   return (
     <div
@@ -48,23 +48,7 @@ const TraceLabel: React.FC<LegendLabelData> = ({ label, color, dashStyle }) => {
         maxWidth: '100%',
       }}
     >
-      <svg
-        css={{
-          height: theme.typography.fontSizeSm,
-          width: STROKE_WIDTH * 8,
-          marginRight: theme.spacing.xs,
-          flexShrink: 0,
-        }}
-      >
-        <path
-          d={`M0,${pathYOffset}h${STROKE_WIDTH * 8}`}
-          style={{
-            strokeWidth: STROKE_WIDTH,
-            stroke: color,
-            strokeDasharray,
-          }}
-        />
-      </svg>
+      <TraceLabelColorIndicator color={color} dashStyle={dashStyle} />
       <Typography.Text
         color="secondary"
         size="sm"
@@ -76,11 +60,41 @@ const TraceLabel: React.FC<LegendLabelData> = ({ label, color, dashStyle }) => {
   );
 };
 
+export const TraceLabelColorIndicator: React.FC<Pick<LegendLabelData, 'color' | 'dashStyle'>> = ({
+  color,
+  dashStyle,
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const strokeDasharray = dashStyle ? getDashArray(dashStyle) : undefined;
+  const pathYOffset = theme.typography.fontSizeSm / 2;
+
+  return (
+    <svg
+      css={{
+        height: theme.typography.fontSizeSm,
+        width: STROKE_WIDTH * 8,
+        marginRight: theme.spacing.xs,
+        flexShrink: 0,
+      }}
+    >
+      <path
+        d={`M0,${pathYOffset}h${STROKE_WIDTH * 8}`}
+        style={{
+          strokeWidth: STROKE_WIDTH,
+          stroke: color,
+          strokeDasharray,
+        }}
+      />
+    </svg>
+  );
+};
 type RunsMetricsLegendProps = {
   labelData: LegendLabelData[];
+  height: number;
+  fullScreen?: boolean;
 };
 
-const RunsMetricsLegend: React.FC<RunsMetricsLegendProps> = ({ labelData }) => {
+const RunsMetricsLegend: React.FC<RunsMetricsLegendProps> = ({ labelData, height, fullScreen }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -88,10 +102,12 @@ const RunsMetricsLegend: React.FC<RunsMetricsLegendProps> = ({ labelData }) => {
       css={{
         display: 'flex',
         flexWrap: 'wrap',
-        height: theme.spacing.md * 2,
-        overflowY: 'scroll',
+        height,
+        alignContent: fullScreen ? 'flex-start' : 'normal',
+        gap: fullScreen ? theme.spacing.sm : 0,
+        overflowY: 'auto',
         overflowX: 'hidden',
-        marginTop: theme.spacing.sm,
+        marginTop: fullScreen ? theme.spacing.lg : theme.spacing.sm,
       }}
     >
       {labelData.map((labelDatum) => (

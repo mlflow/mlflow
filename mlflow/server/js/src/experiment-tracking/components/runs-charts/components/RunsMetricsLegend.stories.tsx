@@ -16,8 +16,8 @@ const createData = (withDashStyle: boolean): LegendLabelData[] => {
   return data;
 };
 
-export const WithDashStyles = () => <RunsMetricsLegend labelData={createData(true)} />;
-export const NoDashStyles = () => <RunsMetricsLegend labelData={createData(false)} />;
+export const WithDashStyles = () => <RunsMetricsLegend labelData={createData(true)} height={500} />;
+export const NoDashStyles = () => <RunsMetricsLegend labelData={createData(false)} height={500} />;
 
 WithDashStyles.storyName = 'With dash styles';
 NoDashStyles.storyName = 'No dash styles';

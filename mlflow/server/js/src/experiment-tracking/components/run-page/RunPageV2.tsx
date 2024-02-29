@@ -24,7 +24,7 @@ import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import DeleteRunModal from '../modals/DeleteRunModal';
 import Routes from '../../routes';
 import { RunViewMetricChartsV2 } from './RunViewMetricChartsV2';
-import { shouldEnableDeepLearningUIPhase2 } from 'common/utils/FeatureUtils';
+import { shouldUseUnifiedRunCharts } from 'common/utils/FeatureUtils';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -80,13 +80,17 @@ export const RunPageV2 = () => {
   const renderActiveTab = () => {
     switch (activeTab) {
       case RunPageTabName.MODEL_METRIC_CHARTS:
-        if (shouldEnableDeepLearningUIPhase2()) {
-          return <RunViewMetricChartsV2 mode="model" metricKeys={modelMetricKeys} runInfo={runInfo} />;
+        if (shouldUseUnifiedRunCharts()) {
+          return <RunViewMetricChartsV2 key="model" mode="model" metricKeys={modelMetricKeys} runInfo={runInfo} />;
         } else {
           return <RunViewMetricCharts mode="model" metricKeys={modelMetricKeys} runInfo={runInfo} />;
         }
       case RunPageTabName.SYSTEM_METRIC_CHARTS:
-        return <RunViewMetricCharts mode="system" metricKeys={systemMetricKeys} runInfo={runInfo} />;
+        if (shouldUseUnifiedRunCharts()) {
+          return <RunViewMetricChartsV2 key="system" mode="system" metricKeys={systemMetricKeys} runInfo={runInfo} />;
+        } else {
+          return <RunViewMetricCharts mode="system" metricKeys={systemMetricKeys} runInfo={runInfo} />;
+        }
       case RunPageTabName.ARTIFACTS:
         return <RunViewArtifactTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
     }

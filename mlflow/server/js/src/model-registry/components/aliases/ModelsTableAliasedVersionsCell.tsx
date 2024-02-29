@@ -44,7 +44,11 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
       {otherAliases.length > 0 && (
         <DropdownMenu.Root modal={false}>
           <DropdownMenu.Trigger asChild>
-            <Button size="small" css={{ borderRadius: 12, marginLeft: theme.spacing.xs }}>
+            <Button
+              componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelstablealiasedversionscell.tsx_47"
+              size="small"
+              css={{ borderRadius: 12, marginLeft: theme.spacing.xs }}
+            >
               +{aliases.length - 1}
             </Button>
           </DropdownMenu.Trigger>

@@ -11,15 +11,15 @@ import type {
   UpdateExperimentSearchFacetsFn,
 } from '../../types';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
-import { RunsCompareCardConfig } from './runs-compare.types';
-import type { RunsCompareChartType, SerializedRunsCompareCardConfigCard } from './runs-compare.types';
-import { RunsCompareAddChartMenu } from './RunsCompareAddChartMenu';
+import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
+import type { RunsChartType, SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
+import { RunsChartsAddChartMenu } from '../runs-charts/components/RunsChartsAddChartMenu';
 import { RunsCompareCharts } from './RunsCompareCharts';
-import { RunsCompareConfigureModal } from './RunsCompareConfigureModal';
+import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
 import { getUUID } from '../../../common/utils/ActionUtils';
 import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import { AUTOML_EVALUATION_METRIC_TAG, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME } from '../../constants';
-import { RunsCompareTooltipBody } from './RunsCompareTooltipBody';
+import { RunsChartsTooltipBody } from '../runs-charts/components/RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
 import { shouldEnableDeepLearningUI, shouldEnableShareExperimentViewByTags } from '../../../common/utils/FeatureUtils';
@@ -32,7 +32,7 @@ export interface RunsCompareProps {
   metricKeyList: string[];
   paramKeyList: string[];
   experimentTags: Record<string, KeyValueEntity>;
-  compareRunCharts?: SerializedRunsCompareCardConfigCard[];
+  compareRunCharts?: SerializedRunsChartsCardConfigCard[];
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
   // Provided by redux connect().
   paramsByRunUuid: Record<string, Record<string, KeyValueEntity>>;
@@ -66,14 +66,14 @@ export const RunsCompareImpl = ({
 
   const { theme } = useDesignSystemTheme();
   const [initiallyLoaded, setInitiallyLoaded] = useState(false);
-  const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsCompareCardConfig | null>(null);
+  const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsChartsCardConfig | null>(null);
 
-  const addNewChartCard = useCallback((type: RunsCompareChartType) => {
+  const addNewChartCard = useCallback((type: RunsChartType) => {
     // TODO: pass existing runs data and get pre-configured initial setup for every chart type
-    setConfiguredCardConfig(RunsCompareCardConfig.getEmptyChartCardByType(type, true));
+    setConfiguredCardConfig(RunsChartsCardConfig.getEmptyChartCardByType(type, true));
   }, []);
 
-  const startEditChart = useCallback((chartCard: RunsCompareCardConfig) => {
+  const startEditChart = useCallback((chartCard: RunsChartsCardConfig) => {
     setConfiguredCardConfig(chartCard);
   }, []);
 
@@ -124,13 +124,13 @@ export const RunsCompareImpl = ({
       if (usingNewViewStateModel) {
         updateUIState((current) => ({
           ...current,
-          compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
+          compareRunCharts: RunsChartsCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
         }));
       } else {
         updateSearchFacets(
           (current) => ({
             ...current,
-            compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
+            compareRunCharts: RunsChartsCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
           }),
           { replaceHistory: true },
         );
@@ -160,9 +160,9 @@ export const RunsCompareImpl = ({
     [stateSetterFn],
   );
 
-  const submitForm = (configuredCard: Partial<RunsCompareCardConfig>) => {
+  const submitForm = (configuredCard: Partial<RunsChartsCardConfig>) => {
     // TODO: implement validation
-    const serializedCard = RunsCompareCardConfig.serialize({
+    const serializedCard = RunsChartsCardConfig.serialize({
       ...configuredCard,
       uuid: getUUID(),
     });
@@ -190,7 +190,7 @@ export const RunsCompareImpl = ({
     setConfiguredCardConfig(null);
   };
 
-  const removeChart = (configToDelete: RunsCompareCardConfig) => {
+  const removeChart = (configToDelete: RunsChartsCardConfig) => {
     stateSetterFn((current: ExperimentPageUIStateV2) => ({
       ...current,
       compareRunCharts: current.compareRunCharts?.filter((setup) => setup.uuid !== configToDelete.uuid),
@@ -248,9 +248,9 @@ export const RunsCompareImpl = ({
   return (
     <div css={styles.wrapper(theme)} data-testid="experiment-view-compare-runs-chart-area">
       <div css={styles.controlsWrapper(theme)}>
-        <RunsCompareAddChartMenu onAddChart={addNewChartCard} />
+        <RunsChartsAddChartMenu onAddChart={addNewChartCard} />
       </div>
-      <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunsCompareTooltipBody}>
+      <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunsChartsTooltipBody}>
         <RunsCompareCharts
           chartRunData={chartData}
           cardsConfig={compareRunCharts || []}
@@ -262,7 +262,7 @@ export const RunsCompareImpl = ({
         />
       </RunsChartsTooltipWrapper>
       {configuredCardConfig && (
-        <RunsCompareConfigureModal
+        <RunsChartsConfigureModal
           chartRunData={chartData}
           metricKeyList={metricKeyList}
           paramKeyList={paramKeyList}

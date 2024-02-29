@@ -34,7 +34,11 @@ export const EvaluationTableActionsCellRenderer = ({
           />
         }
       >
-        <Button icon={<PlusIcon />} onClick={onAddNewInputs} />
+        <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationtableactionscellrenderer.tsx_37"
+          icon={<PlusIcon />}
+          onClick={onAddNewInputs}
+        />
       </Tooltip>
     </div>
   );

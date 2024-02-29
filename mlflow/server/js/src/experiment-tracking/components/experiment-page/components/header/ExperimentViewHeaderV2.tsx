@@ -50,7 +50,12 @@ export const ExperimentViewHeaderV2 = React.memo(
     const renderFeedbackForm = () => {
       const feedbackLink = (
         <a href={feedbackFormUrl} target="_blank" rel="noreferrer" css={{ display: 'flex', alignItems: 'center' }}>
-          <Button css={{ marginLeft: theme.spacing.sm }} type="link" size="small">
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheaderv2.tsx_100"
+            css={{ marginLeft: theme.spacing.sm }}
+            type="link"
+            size="small"
+          >
             <FormattedMessage
               defaultMessage="Provide Feedback"
               description="Link to a survey for users to give feedback"
@@ -73,9 +78,59 @@ export const ExperimentViewHeaderV2 = React.memo(
       return shareButtonElement;
     };
 
+    const getInfoTooltip = () => {
+      return (
+        <div style={{ display: 'flex' }}>
+          <Tooltip
+            placement="bottomLeft"
+            dangerouslySetAntdProps={{ overlayStyle: { maxWidth: 'none' } }}
+            arrowPointAtCenter
+            title={
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flexWrap: 'nowrap',
+                }}
+                data-testid="experiment-view-header-info-tooltip-content"
+              >
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Path"
+                    description="Label for displaying the current experiment path"
+                  />
+                  : {experiment.name + ' '}
+                  <ExperimentViewCopyTitle experiment={experiment} size="md" />
+                </div>
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Experiment ID"
+                    description="Label for displaying the current experiment in view"
+                  />
+                  : {experiment.experiment_id + ' '}
+                  <ExperimentViewCopyExperimentId experiment={experiment} />
+                </div>
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Artifact Location"
+                    description="Label for displaying the experiment artifact location"
+                  />
+                  : <ExperimentViewArtifactLocation artifactLocation={experiment.artifact_location} />{' '}
+                  <ExperimentViewCopyArtifactLocation experiment={experiment} />
+                </div>
+              </div>
+            }
+          >
+            <InfoIcon css={{ color: theme.colors.textSecondary }} />
+          </Tooltip>
+        </div>
+      );
+    };
+
     const getAddDescriptionButton = () => {
       return (
         <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheaderv2.tsx_271"
           size="small"
           onClick={() => {
             setEditing(true);
@@ -111,6 +166,8 @@ export const ExperimentViewHeaderV2 = React.memo(
         }
         /* prettier-ignore */
         titleAddOns={[
+          getInfoTooltip(),
+          feedbackFormUrl && renderFeedbackForm(),
           showAddDescriptionButton && getAddDescriptionButton(),
         ]}
         breadcrumbs={breadcrumbs}

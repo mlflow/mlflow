@@ -273,7 +273,7 @@ class Utils {
     return /(.*?[@/][^?]*git.*?)[:/]([^#]+)(?:#(.*))?/;
   }
 
-  static getGitRepoUrl(sourceName: any) {
+  static getGitRepoUrl(sourceName: any, branchName = 'master') {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
@@ -282,23 +282,23 @@ class Utils {
     if (gitHubMatch) {
       url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}`;
       if (gitHubMatch[3]) {
-        url += `/tree/master/${gitHubMatch[3]}`;
+        url += `/tree/${branchName}/${gitHubMatch[3]}`;
       }
     } else if (gitLabMatch) {
       url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}`;
       if (gitLabMatch[3]) {
-        url += `/-/tree/master/${gitLabMatch[3]}`;
+        url += `/-/tree/${branchName}/${gitLabMatch[3]}`;
       }
     } else if (bitbucketMatch) {
       url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}`;
       if (bitbucketMatch[3]) {
-        url += `/src/master/${bitbucketMatch[3]}`;
+        url += `/src/${branchName}/${bitbucketMatch[3]}`;
       }
     } else if (gitMatch) {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = baseUrl.replace(/git@/, 'https://') + '/' + repoDir.replace(/.git/, '');
       if (fileDir) {
-        url += `/tree/master/${fileDir}`;
+        url += `/tree/${branchName}/${fileDir}`;
       }
     }
     return url;
@@ -454,10 +454,10 @@ class Utils {
    * @param queryParams Query params to add to certain source type links.
    * @param runUuid ID of the MLflow run to add to certain source (revision) links.
    */
-  static renderSource(tags: any, queryParams: any, runUuid: any) {
+  static renderSource(tags: any, queryParams: any, runUuid: any, branchName = 'master') {
     const sourceName = Utils.getSourceName(tags);
     let res = Utils.formatSource(tags);
-    const gitRepoUrlOrNull = Utils.getGitRepoUrl(sourceName);
+    const gitRepoUrlOrNull = Utils.getGitRepoUrl(sourceName, branchName);
     if (gitRepoUrlOrNull) {
       res = (
         <a target="_top" href={gitRepoUrlOrNull}>

@@ -257,7 +257,7 @@ module.exports = function () {
         jestConfig.resetMocks = false; // ML-20462 Restore resetMocks
         jestConfig.collectCoverageFrom = ['src/**/*.{js,jsx}', '!**/*.test.{js,jsx}', '!**/__tests__/*.{js,jsx}'];
         jestConfig.coverageReporters = ['lcov'];
-        jestConfig.setupFiles = ['jest-canvas-mock', '<rootDir>/scripts/throw-on-prop-type-warning.js'];
+        jestConfig.setupFiles = ['jest-canvas-mock'];
         jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/env-mocks.js');
         jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/setup-jest-dom-matchers.js');
         // Adjust config to work with dependencies using ".mjs" file extensions

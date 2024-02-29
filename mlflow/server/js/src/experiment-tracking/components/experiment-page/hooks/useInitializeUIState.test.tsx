@@ -2,10 +2,14 @@ import { act, renderHook } from '@testing-library/react-for-react-18';
 import { useInitializeUIState } from './useInitializeUIState';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
-import { type ExperimentPageUIStateV2, createExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import {
+  type ExperimentPageUIStateV2,
+  createExperimentPageUIStateV2,
+  RUNS_VISIBILITY_MODE,
+} from '../models/ExperimentPageUIStateV2';
 import { createExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
 import { shouldEnableShareExperimentViewByTags } from '../../../../common/utils/FeatureUtils';
-import { RunsCompareChartType } from '../../runs-compare/runs-compare.types';
+import { RunsChartType } from '../../runs-charts/runs-charts.types';
 
 const experimentIds = ['experiment_1'];
 
@@ -64,7 +68,8 @@ describe('useInitializeUIState', () => {
       viewMaximized: true,
       runsExpanded: { run_2: true },
       runsHidden: ['run_3'],
-      compareRunCharts: [{ type: RunsCompareChartType.BAR, deleted: false, isGenerated: true }],
+      runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
+      compareRunCharts: [{ type: RunsChartType.BAR, deleted: false, isGenerated: true }],
       isAccordionReordered: false,
       groupBy: '',
       groupsExpanded: {},
@@ -92,6 +97,7 @@ describe('useInitializeUIState', () => {
       viewMaximized: false,
       runsExpanded: { run_4: true },
       runsHidden: ['run_3'],
+      runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
       compareRunCharts: [],
       isAccordionReordered: false,
       groupBy: '',

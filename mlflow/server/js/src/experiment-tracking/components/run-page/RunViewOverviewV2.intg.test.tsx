@@ -11,6 +11,7 @@ import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import type { KeyValueEntity } from '../../types';
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 
 jest.mock('../../../common/components/Prompt', () => ({
   Prompt: jest.fn(() => <div />),
@@ -191,11 +192,12 @@ describe('RunViewOverview integration', () => {
 
     const modelsCell = screen.getByRole('cell', { name: /sklearn/ });
 
+    // in the new tab-based run view, artifacts have a slightly different path
+    // see getRunPageRoute() in src/experiment-tracking/routes.ts for more details
+    const artifactStr = shouldEnableDeepLearningUI() ? 'artifacts' : 'artifactPath';
+    const pathRegex = new RegExp(`test-run-uuid/${artifactStr}/path/to/model$`);
     expect(modelsCell).toBeInTheDocument();
-    expect(within(modelsCell).getByRole('link')).toHaveAttribute(
-      'href',
-      expect.stringMatching(/test-run-uuid\/artifactPath\/path\/to\/model$/),
-    );
+    expect(within(modelsCell).getByRole('link')).toHaveAttribute('href', expect.stringMatching(pathRegex));
     expect(within(modelsCell).getByRole('button', { name: '+1' })).toBeInTheDocument();
     await act(async () => {
       userEvent.click(within(modelsCell).getByRole('button', { name: '+1' }));
