@@ -690,7 +690,8 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
     input_names = input_schema.input_names()
     input_dict = input_schema.input_dict()
-    new_pf_input = pf_input.loc[:, pf_input.columns.isin(input_names)].copy()
+    keep_cols = [col for col in input_names if col in pf_input.columns]
+    new_pf_input = pf_input[keep_cols].copy()
     for name in input_names:
         input_type = input_dict[name].type
         required = input_dict[name].required
