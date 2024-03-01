@@ -1585,11 +1585,13 @@ class MlflowClient:
                 if is_int:
                     raise ValueError(
                         "Integer pixel values out of acceptable range [0, 255]. "
+                        f"Found minimum value {x.min()} and maximum value {x.max()}. "
                         "Ensure all pixel values are within the specified range."
                     )
                 else:
                     raise ValueError(
                         "Float pixel values out of acceptable range [0.0, 1.0]. "
+                        f"Found minimum value {x.min()} and maximum value {x.max()}. "
                         "Ensure all pixel values are within the specified range."
                     )
 

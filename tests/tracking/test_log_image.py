@@ -155,7 +155,7 @@ def test_log_image_raises_exception_for_unsupported_image_object_type():
         mlflow.log_image("not_image", "image.png")
 
 
-def test_log_image_steps():
+def test_log_image_with_steps():
     import numpy as np
     from PIL import Image
 
@@ -168,8 +168,9 @@ def test_log_image_steps():
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
-        assert len(files) == 2
 
+        # .png file for the image, and .json file for metadata
+        assert len(files) == 2
         for file in files:
             assert file.startswith("dog_step_0")
             logged_path = os.path.join(run_artifact_dir, file)
@@ -185,7 +186,7 @@ def test_log_image_steps():
                     assert metadata["timestamp"] <= get_current_time_millis()
 
 
-def test_log_image_timestamp():
+def test_log_image_with_timestamp():
     import numpy as np
     from PIL import Image
 
@@ -198,8 +199,9 @@ def test_log_image_timestamp():
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
-        assert len(files) == 2
 
+        # .png file for the image, and .json file for metadata
+        assert len(files) == 2
         for file in files:
             assert file.startswith("dog_step_0")
             logged_path = os.path.join(run_artifact_dir, file)
@@ -215,7 +217,11 @@ def test_log_image_timestamp():
                     assert metadata["timestamp"] == 100
 
 
-def test_duplicated_log_image():
+def test_duplicated_log_image_with_step():
+    """
+    Mlflow will save both files if there are multiple calls to log_image
+    with the same key and step.
+    """
     import numpy as np
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
@@ -232,8 +238,11 @@ def test_duplicated_log_image():
         assert len(files) == 4
 
 
-def test_multiple_log_image_same_timestamp():
-    # It will overwrite if the user wants the exact same timestamp for the logged images
+def test_duplicated_log_image_with_timestamp():
+    """
+    Mlflow will save both files if there are multiple calls to log_image
+    with the same key, step, and timestamp.
+    """
     import numpy as np
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
