@@ -1458,8 +1458,8 @@ class MlflowClient:
 
                 .. warning::
 
-                    - Out-of-range integer values will be **clipped** to [0, 255].
-                    - Out-of-range float values will be **clipped** to [0.0, 1.0].
+                    - Out-of-range integer values will raise ValueError.
+                    - Out-of-range float values will raise ValueError.
 
             - shape (H: height, W: width):
 
@@ -1487,9 +1487,9 @@ class MlflowClient:
             import numpy as np
 
             image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
-            client = mlflow.MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_image(run.info.run_id, image, key="dogs", step=3)
+            with mlflow.start_run() as run:
+                client = mlflow.MlflowClient()
+                client.log_image(run.info.run_id, image, key="dogs", step=3)
 
         .. code-block:: python
             :caption: Time-stepped image logging pillow example
@@ -1498,9 +1498,9 @@ class MlflowClient:
             from PIL import Image
 
             image = Image.new("RGB", (100, 100))
-            client = mlflow.MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_image(run.info.run_id, image, key="dogs", step=3)
+            with mlflow.start_run() as run:
+                client = mlflow.MlflowClient()
+                client.log_image(run.info.run_id, image, key="dogs", step=3)
 
         .. code-block:: python
             :caption: Legacy artifact file image logging numpy example
@@ -1509,9 +1509,9 @@ class MlflowClient:
             import numpy as np
 
             image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
-            client = mlflow.MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_image(run.info.run_id, image, "image.png")
+            with mlflow.start_run() as run:
+                client = mlflow.MlflowClient()
+                client.log_image(run.info.run_id, image, "image.png")
 
         .. code-block:: python
             :caption: Legacy artifact file image logging pillow example
@@ -1520,9 +1520,9 @@ class MlflowClient:
             from PIL import Image
 
             image = Image.new("RGB", (100, 100))
-            client = mlflow.MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_image(run.info.run_id, image, "image.png")
+            with mlflow.start_run() as run:
+                client = mlflow.MlflowClient()
+                client.log_image(run.info.run_id, image, "image.png")
         """
         if artifact_file is not None and any(arg is not None for arg in [key, step, timestamp]):
             raise TypeError(
@@ -1535,12 +1535,11 @@ class MlflowClient:
                 "Invalid arguments: Please specify exactly one of `artifact_file` or `key`. Use "
                 "`key` to log dynamic image charts or `artifact_file` for saving static images. "
             )
-        elif artifact_file is not None:
-            # log_image(image, artifact_file)
+
+        if artifact_file is not None:
             self._log_image_as_artifact(run_id, image, artifact_file)
 
         elif key is not None:
-            # log_image(image, key=key, step=0)
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
             # timestamp ensures that the image is logged with a unique name
@@ -1582,12 +1581,16 @@ class MlflowClient:
             low = 0
             high = 255 if is_int else 1
             if x.min() < low or x.max() > high:
-                msg = (
-                    "Out-of-range values are detected. "
-                    f"Clipping array (dtype: '{x.dtype}') to [{low}, {high}]"
-                )
-                _logger.warning(msg)
-                x = np.clip(x, low, high)
+                if is_int:
+                    raise ValueError(
+                        "Integer pixel value out of acceptable range [0, 255]. "
+                        "Ensure all pixel values are within the specified range."
+                    )
+                else:
+                    raise ValueError(
+                        "Float pixel values out of acceptable range [0.0, 1.0]. "
+                        "Ensure all pixel values are within the specified range."
+                    )
 
             # float or bool
             if not is_int:

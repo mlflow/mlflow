@@ -1236,8 +1236,8 @@ def log_image(
 
             .. warning::
 
-                - Out-of-range integer values will be **clipped** to [0, 255].
-                - Out-of-range float values will be **clipped** to [0.0, 1.0].
+                - Out-of-range integer values will raise ValueError.
+                - Out-of-range float values will raise ValueError.
 
         - shape (H: height, W: width):
 
