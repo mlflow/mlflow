@@ -35,8 +35,9 @@ Find out about the details of major features, changes, and deprecations below.
                     </div>
                     <img class="card-image" src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"></img>
                     <div class="body">
-                        MLflow now natively supports PEFT (Parameter-Efficient Fine-Tuning) models in the Transformers flavor. PEFT 
-                        unlocks significantly efficient model fine-tuning like LoRA, QLoRA, and Prompt Tuning. Check it out to 
+                        MLflow now natively supports <a href="../llms/transformers/guide/index.html#peft-models-in-mlflow-transformers-flavor">PEFT (Parameter-Efficient Fine-Tuning)</a>
+                        models in the Transformers flavor. PEFT unlocks significantly more efficient model fine-tuning processes such as LoRA, QLoRA, and Prompt Tuning. Check out 
+                        <a href="../llms/transformers/tutorials/fine-tuning/transformers-peft.html">the new QLoRA fine-tuning tutorial</a> to learn how to 
                         build your own cutting-edge models with MLflow and PEFT!
                     </div>
                     <div class="doc"><a class="icon bell" href="../llms/transformers/guide/index.html#peft-models-in-mlflow-transformers-flavor">Learn more</a></div>
@@ -86,11 +87,12 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
-                        Automated model checkpointing support added for Deep Learning model training
+                        Automated model checkpointing for Deep Learning model training
                     </div>
                     <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
-                        When performing training of Deep Learning models with PyTorch Lightning or Keras, model checkpoint saving 
+                        When performing training of Deep Learning models with <a href="../python_api/mlflow.pytorch.html#mlflow.pytorch.autolog">PyTorch Lightning</a> 
+                        or <a href="../python_api/mlflow.tensorflow.html#mlflow.tensorflow.autolog">Tensorflow with Keras</a>, model checkpoint saving 
                         is enabled, allowing for state storage during long-running training events and the ability to resume if 
                         an issue is encountered during training. 
                     </div>
