@@ -259,6 +259,10 @@
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
   },
+  "46xd2Z": {
+    "defaultMessage": "Compare",
+    "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
+  },
   "47QsAK": {
     "defaultMessage": "{fieldName} are empty",
     "description": "Default text in data table where items are empty in the model\n                  comparison page"
@@ -294,6 +298,10 @@
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
+  },
+  "4tpkvx": {
+    "defaultMessage": "Show change from baseline",
+    "description": "Runs charts > components > cards > RunsChartsDifferenceChartCard > Show change from baseline toggle label"
   },
   "4yjF8O": {
     "defaultMessage": "Show all runs",
@@ -538,6 +546,10 @@
   "9fVZg8": {
     "defaultMessage": "Delete",
     "description": "Text for disabled delete button due to active versions on model view page header"
+  },
+  "9g0sMx": {
+    "defaultMessage": "Show change from baseline",
+    "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show change from baseline toggle"
   },
   "9mAGv0": {
     "defaultMessage": "Model name",
@@ -983,6 +995,10 @@
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
   },
+  "LKAZ2n": {
+    "defaultMessage": "Disable grouped runs to compare",
+    "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
+  },
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
@@ -994,6 +1010,10 @@
   "Li72QU": {
     "defaultMessage": "Add",
     "description": "Key-value tag table cell > 'add' button label"
+  },
+  "LiW/yM": {
+    "defaultMessage": "Download as SVG",
+    "description": "Experiment page > compare runs tab > chart header > download as SVG option"
   },
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
@@ -1022,6 +1042,10 @@
   "MhtxHm": {
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
+  },
+  "Mm7PVx": {
+    "defaultMessage": "baseline",
+    "description": "Runs charts > components > charts > DifferenceViewPlot > baseline tag"
   },
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
@@ -1503,6 +1527,10 @@
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
   },
+  "ZgAOhX": {
+    "defaultMessage": "Chart name",
+    "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
+  },
   "ZoIjun": {
     "defaultMessage": "Duration",
     "description": "Run page > Overview > Run duration section label"
@@ -1631,6 +1659,10 @@
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
   },
+  "c5AQYh": {
+    "defaultMessage": "Compare by",
+    "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
+  },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
@@ -1679,6 +1711,10 @@
     "defaultMessage": "Save aliases",
     "description": "Model registry > model version alias editor > Confirm change of aliases"
   },
+  "csNr/8": {
+    "defaultMessage": "Disable grouped runs to compare parameters, tag, or attributes",
+    "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > disable group runs tooltip message"
+  },
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
@@ -1702,6 +1738,10 @@
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
+  },
+  "dOI9Wp": {
+    "defaultMessage": "Enable auto-refresh",
+    "description": "String for the auto-refresh button that refreshes the runs list automatically"
   },
   "dQY7H0": {
     "defaultMessage": "No system metrics recorded",
@@ -1730,6 +1770,10 @@
   "dwTTNK": {
     "defaultMessage": "Are you sure you want to navigate away? Your pending text changes will be lost.",
     "description": "Prompt text for navigating away before saving changes in editable note in MLflow"
+  },
+  "e7GTKi": {
+    "defaultMessage": "Show differences only",
+    "description": "Runs charts > components > cards > RunsChartsDifferenceChartCard > Show differences only toggle label"
   },
   "e7K2T3": {
     "defaultMessage": "Show all runs",
@@ -2155,6 +2199,10 @@
     "defaultMessage": "Registered on {registeredDate}",
     "description": "Label to display at what date the model was registered"
   },
+  "nWeQCU": {
+    "defaultMessage": "Show differences only",
+    "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show differences only toggle"
+  },
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
@@ -2339,6 +2387,10 @@
     "defaultMessage": "Copy experiment id",
     "description": "Copy tooltip to copy experiment id from experiment runs table header"
   },
+  "s0233x": {
+    "defaultMessage": "Set as baseline",
+    "description": "Runs charts > components > charts > DifferenceViewPlot > Set as baseline dropdown option"
+  },
   "s2L+xL": {
     "defaultMessage": "Error loading shared view state: share key \"{viewStateShareKey}\" does not exist",
     "description": "Experiment page > share viewstate > error > share key does not exist"
@@ -2346,6 +2398,10 @@
   "s35HDG": {
     "defaultMessage": "Used by {runNames} {hasMore, select, true {and other runs} other {}}",
     "description": "Experiment page > artifact compare view > label indicating which runs are using particular input field"
+  },
+  "s5ygFF": {
+    "defaultMessage": "Download as PNG",
+    "description": "Experiment page > compare runs tab > chart header > download as PNG option"
   },
   "sByLVU": {
     "defaultMessage": "No runs logged",
