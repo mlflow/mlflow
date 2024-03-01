@@ -11,6 +11,7 @@ import posixpath
 import sys
 import tempfile
 import urllib
+import uuid
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
@@ -1540,8 +1541,6 @@ class MlflowClient:
             self._log_image_as_artifact(run_id, image, artifact_file)
 
         elif key is not None:
-            import uuid
-
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
             filename = f"images/{key}/{key}_step_{step}_{uuid.uuid4()}"

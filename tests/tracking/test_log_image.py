@@ -1,3 +1,4 @@
+import json
 import os
 import posixpath
 
@@ -155,8 +156,6 @@ def test_log_image_raises_exception_for_unsupported_image_object_type():
 
 
 def test_log_image_steps():
-    import json
-
     import numpy as np
     from PIL import Image
 
@@ -187,8 +186,6 @@ def test_log_image_steps():
 
 
 def test_log_image_timestamp():
-    import json
-
     import numpy as np
     from PIL import Image
 
@@ -269,10 +266,11 @@ def test_log_image_raises_exception_for_unexpected_arguments_used(args):
     import numpy as np
 
     exception = "The `artifact_file` parameter cannot be used in conjunction"
-    with mlflow.start_run(), pytest.raises(TypeError, match=exception):
-        if isinstance(args, dict):
+    if isinstance(args, dict):
+        with mlflow.start_run(), pytest.raises(TypeError, match=exception):
             mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png", **args)
-        elif isinstance(args, list):
+    elif isinstance(args, list):
+        with mlflow.start_run(), pytest.raises(TypeError, match=exception):
             mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png", *args)
 
 
