@@ -114,11 +114,14 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
 
 
 def _call_deployments_api(deployment_uri, payload, eval_parameters):
+    from pydantic import BaseModel
+
     from mlflow.deployments import get_deploy_client
 
     client = get_deploy_client()
 
     endpoint = client.get_endpoint(deployment_uri)
+    endpoint = endpoint.dict() if isinstance(endpoint, BaseModel) else endpoint
     endpoint_type = endpoint.get("task", endpoint.get("endpoint_type"))
 
     if endpoint_type == "llm/v1/completions":
