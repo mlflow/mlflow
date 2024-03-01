@@ -7,6 +7,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
+from mlflow.transformers.torch_utils import _deserialize_torch_dtype
 
 _logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
 
     load_kwargs["device"] = device
     if torch_dtype := flavor_conf.get(FlavorKey.TORCH_DTYPE):
-        load_kwargs[FlavorKey.TORCH_DTYPE] = torch_dtype
+        load_kwargs[FlavorKey.TORCH_DTYPE] = _deserialize_torch_dtype(torch_dtype)
 
     if model := _try_load_model_with_device(cls, model_name_or_path, load_kwargs):
         return model
