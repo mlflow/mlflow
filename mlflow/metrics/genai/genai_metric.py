@@ -275,8 +275,8 @@ def make_genai_metric(
         if not isinstance(eval_model, str):
             raise MlflowException(
                 message="The model argument must be a string URI referring to an openai model "
-                "(openai:/gpt-3.5-turbo) or  gateway (gateway:/my-route), "
-                f"passed {eval_model} instead",
+                "(openai:/gpt-3.5-turbo) or an MLflow Deployments endpoint "
+                f"(endpoints:/my-endpoint), passed {eval_model} instead",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
