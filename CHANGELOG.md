@@ -1,5 +1,90 @@
 # CHANGELOG
 
+## 2.11.0 (2024-03-01)
+
+MLflow 2.11.0 includes several major features and improvements
+
+With the MLflow 2.11.0 release, we're excited to bring a series of large and impactful features that span both GenAI and Deep Learning use cases.
+
+- The MLflow Tracking UI got an overhaul to better support the review and comparison of training runs for Deep Learning workloads. From grouping to large-scale metric plotting throughout
+  the iterations of a DL model's training cycle, there are a large number of quality of life improvements to enhance your Deep Learning MLOps workflow.  
+
+- Support for the popular [PEFT](https://www.mlflow.org/docs/latest/llms/transformers/guide/index.html#peft-models-in-mlflow-transformers-flavor) library from HuggingFace is now available
+  in the `mlflow.transformers` flavor. In addition to PEFT support, we've removed the restrictions on Pipeline types
+  that can be logged to MLflow, as well as the ability to, when developing and testing models, log a transformers pipeline without copying foundational model weights. These
+  enhancements strive to make the transformers flavor more useful for cutting-edge GenAI models, new pipeline types, and to simplify the development process of prompt engineering, fine-tuning,
+  and to make iterative development faster and cheaper. Give the updated flavor a try today! (#11240, @B-Step62)
+
+- We've added support to both [PyTorch](https://www.mlflow.org/docs/latest/python_api/mlflow.pytorch.html#mlflow.pytorch.autolog) and
+  [TensorFlow](https://www.mlflow.org/docs/latest/python_api/mlflow.tensorflow.html#mlflow.tensorflow.autolog) for automatic model weights checkpointing (including resumption from a
+  previous state) for the auto logging implementations within both flavors. This highly requested feature allows you to automatically configure long-running Deep Learning training
+  runs to keep a safe storage of your best epoch, eliminating the risk of a failure late in training from losing the state of the model optimization. (#11197, #10935, @WeichenXu123)
+
+- We've added a new interface to Pyfunc for GenAI workloads. The new `ChatModel` interface allows for interacting with a deployed GenAI chat model as you would with any other provider.
+  The simplified interface (no longer requiring conformance to a Pandas DataFrame input type) strives to unify the API interface experience. (#10820, @daniellok-db)
+
+- We now support Keras 3. This large overhaul of the Keras library introduced new fundamental changes to how Keras integrates with different DL frameworks, bringing with it
+  a host of new functionality and interoperability. To learn more, see the [Keras 3.0 Tutorial](https://www.mlflow.org/docs/latest/deep-learning/keras/quickstart/quickstart_keras.html)
+  to start using the updated model flavor today! (#10830, @chenmoneygithub)
+
+- [Mistral AI](https://mistral.ai/) has been added as a native [provider](https://www.mlflow.org/docs/latest/llms/deployments/index.html#providers) for the MLflow Deployments Server. You can
+  now create proxied connections to the Mistral AI services for completions and embeddings with their powerful GenAI models. (#11020, @thnguyendn)
+
+- We've added compatibility support for the OpenAI 1.x SDK. Whether you're using an OpenAI LLM for model evaluation or calling OpenAI within a LangChain model, you'll now be able to
+  utilize the 1.x family of the OpenAI SDK without having to point to deprecated legacy APIs. (#11123, @harupy) 
+
+Features:
+
+- [UI] Revamp the MLflow Tracking UI for Deep Learning workflows, offering a more intuitive and efficient user experience (#11233, @daniellok-db)
+- [Data] Introduce the ability to log datasets without loading them into memory, optimizing resource usage and processing time (#11172, @chenmoneygithub)
+- [Models] Introduce logging frequency controls for TensorFlow, aligning it with Keras for consistent performance monitoring (#11094, @chenmoneygithub)
+- [Models] Add PySpark DataFrame support in `mlflow.pyfunc.predict`, enhancing data compatibility and analysis options for batch inference (#10939, @ernestwong-db)
+- [Models] Introduce new CLI commands for updating model requirements, facilitating easier maintenance, validation and updating of models without having to re-log (#11061, @daniellok-db)
+- [Models] Update Embedding API for sentence transformers to ensure compatibility with OpenAI format, broadening model application scopes (#11019, @lu-wang-dl)
+- [Models] Improve input and signature support for text-generation models, optimizing for Chat and Completions tasks (#11027, @es94129)
+- [Models] Enable chat and completions task outputs in the text-generation pipeline, expanding interactive capabilities (#10872, @es94129)
+- [Tracking] Add node id to system metrics for enhanced logging in multi-node setups, improving diagnostics and monitoring (#11021, @chenmoneygithub)
+- [Tracking] Implement `mlflow.config.enable_async_logging` for asynchronous logging, improving log handling and system performance (#11138, @chenmoneygithub)
+- [Evaluate] Enhance model evaluation with endpoint URL support, streamlining performance assessments and integrations (#11262, @B-Step62)
+- [Deployments] Implement chat & chat streaming support for Cohere, enhancing interactive model deployment capabilities (#10976, @gabrielfu)
+- [Deployments] Enable Cohere streaming support, allowing real-time interaction functionalities for the MLflow Deployments server with the Cohere provider (#10856, @gabrielfu)
+- [Docker / Scoring] Optimize Docker images for model serving, ensuring more efficient deployment and scalability (#10954, @B-Step62)
+- [Scoring] Support completions (`prompt`) and embeddings (`input`) format inputs in the scoring server, increasing model interaction flexibility (#10958, @es94129)
+
+Bug Fixes:
+
+- [Model Registry] Correct the oversight of not utilizing the default credential file in model registry setups (#11261, @B-Step62)
+- [Model Registry] Address the visibility issue of aliases in the model versions table within the registered model detail page (#11223, @smurching)
+- [Models] Ensure `load_context()` is called when enforcing `ChatModel` outputs so that all required external references are included in the model object instance (#11150, @daniellok-db)
+- [Models] Rectify the keras output dtype in signature mismatches, ensuring data consistency and accuracy (#11230, @chenmoneygithub)
+- [Models] Resolve spark model loading failures, enhancing model reliability and accessibility (#11227, @WeichenXu123)
+- [Models] Eliminate false warnings for missing signatures in Databricks, improving the user experience and model validation processes (#11181, @B-Step62)
+- [Models] Implement a timeout for signature/requirement inference during Transformer model logging, optimizing the logging process and avoiding delays (#11037, @B-Step62)
+- [Models] Address the missing dtype issue for transformer pipelines, ensuring data integrity and model accuracy (#10979, @B-Step62)
+- [Models] Correct non-idempotent predictions due to in-place updates to model-config, stabilizing model outputs (#11014, @B-Step62)
+- [Models] Fix an issue where specifying `torch.dtype` as a string was not being applied correctly to the underlying transformers model (#11297, #11295, @harupy)
+- [Tracking] Fix `mlflow.evaluate` `col_mapping` bug for non-LLM/custom metrics, ensuring accurate evaluation and metric calculation (#11156, @sunishsheth2009)
+- [Tracking] Resolve the `TensorInfo` TypeError exception message issue, ensuring clarity and accuracy in error reporting for users (#10953, @leecs0503)
+- [Tracking] Enhance `RestException` objects to be picklable, improving their usability in distributed computing scenarios where serialization is essential (#10936, @WeichenXu123)
+- [Tracking] Address the handling of unrecognized response error codes, ensuring robust error processing and improved user feedback in edge cases (#10918, @chenmoneygithub)
+- [Spark] Update hardcoded `io.delta:delta-spark_2.12:3.0.0` dependency to the correct scala version, aligning dependencies with project requirements (#11149, @WeichenXu123)
+- [Server-infra] Adapt to newer versions of python by avoiding `importlib.metadata.entry_points().get`, enhancing compatibility and stability (#10752, @raphaelauv)
+- [Server-infra / Tracking] Introduce an environment variable to disable mlflow configuring logging on import, improving configurability and user control (#11137, @jmahlik)
+- [Auth] Enhance auth validation for `mlflow.login()`, streamlining the authentication process and improving security (#11039, @chenmoneygithub)
+
+Documentation Updates:
+
+- [Docs] Introduce a comprehensive notebook demonstrating the use of ChatModel with Transformers and Pyfunc, providing users with practical insights and guidelines for leveraging these models (#11239, @daniellok-db)
+- [Tracking / Docs] Stabilize the dataset logging APIs, removing the experimental status (#11229, @dbczumar)
+- [Docs] Revise and update the documentation on authentication database configuration, offering clearer instructions and better support for setting up secure authentication mechanisms (#11176, @gabrielfu)
+- [Docs] Publish a new guide and tutorial for MLflow data logging and `log_input`, enriching the documentation with actionable advice and examples for effective data handling (#10956, @BenWilson2)
+- [Docs] Upgrade the documentation visuals by replacing low-resolution and poorly dithered GIFs with high-quality HTML5 videos, significantly enhancing the learning experience (#11051, @BenWilson2)
+- [Docs / Examples] Correct the compatibility matrix for OpenAI in MLflow Deployments Server documentation, providing users with accurate integration details and supporting smoother deployments (#11015, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#11284, #11096, #11285, #11245, #11254, #11252, #11250, #11249, #11234, #11248, #11242, #11244, #11236, #11208, #11220, #11222, #11221, #11219, #11218, #11210, #11209, #11207, #11196, #11194, #11177, #11205, #11183, #11192, #11179, #11178, #11175, #11174, #11166, #11162, #11151, #11168, #11167, #11153, #11158, #11143, #11141, #11119, #11123, #11124, #11117, #11121, #11078, #11097, #11079, #11095, #11082, #11071, #11076, #11070, #11072, #11073, #11069, #11058, #11034, #11046, #10951, #11055, #11045, #11035, #11044, #11043, #11031, #11030, #11023, #10932, #10986, #10949, #10943, #10928, #10929, #10925, #10924, #10911, @harupy; #11289, @BenWilson2; #11290, #11145, #11125, #11098, #11053, #11006, #11001, #11011, #11007, #10985, #10944, #11231, @daniellok-db; #11276, #11280, #11275, #11263, #11247, #11257, #11258, #11256, #11224, #11211, #11182, #11059, #11056, #11048, #11008, #10923, @serena-ruan; #11129, #11086, @victorsun123; #11292, #11004, #11204, #11148, #11165, #11146, #11115, #11099, #11092, #11029, #10983, @B-Step62; #11189, #11191, #11022, #11160, #11110, #11088, #11042, #10879, #10832, #10831, #10888, #10908, @michael-berk; #10627, #11217, #11200, #10969, @liangz1; #11215, #11173, #11000, #10931, @edwardfeng-db; #11188, #10711, @TomeHirata; #11186, @xhochy; #10916, @annzhang-db; #11131, #11010, #11060, @WeichenXu123; #11063, #10981, #10889, ##11269, @chenmoneygithub; #11054, #10921, @smurching; #11018, @mingyangge-db; #10989, @minkj1992; #10796, @kriscon-db; #10984, @eltociear; #10982, @holzman; #10972, @bmuskalla; #10959, @prithvikannan; #10941, @mahesh-venkatachalam; #10915, @Cokral; #10904, @dannyfriar; #11134, @WP-LKL; #11287, @serkef;
+
 ## 2.10.2 (2024-02-09)
 
 MLflow 2.10.2 includes several major features and improvements
