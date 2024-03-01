@@ -295,7 +295,7 @@ def _save_model_with_class_artifacts_params(
             raise MlflowException(
                 "Failed to serialize Python model. Please audit your "
                 "class variables (e.g. in `__init__()`).\n\n"
-                "Full serialization error: {e}"
+                f"Full serialization error: {e}"
             ) from None
         else:
             raise e
