@@ -145,6 +145,13 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
     if torch_dtype := flavor_conf.get(FlavorKey.TORCH_DTYPE):
         load_kwargs[FlavorKey.TORCH_DTYPE] = torch_dtype
 
+    if torch_dtype := flavor_conf.get(FlavorKey.TORCH_DTYPE):
+        import torch
+
+        attr = torch_dtype.rsplit(".", 1)[-1]
+        if attr := getattr(torch, attr):
+            load_kwargs[FlavorKey.TORCH_DTYPE] = attr
+
     if model := _try_load_model_with_device(cls, model_name_or_path, load_kwargs):
         return model
     _logger.warning(
