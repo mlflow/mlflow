@@ -34,7 +34,7 @@ protobuf:
 
 pytz:
   pip_release: pytz
-  max_major_version: 2023
+  max_major_version: 2024
 
 requests:
   pip_release: requests

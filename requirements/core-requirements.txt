@@ -11,7 +11,7 @@ pandas<3
 querystring_parser<2
 sqlalchemy<3,>=1.4.0
 gunicorn<22; platform_system != 'Windows'
-waitress<3; platform_system == 'Windows'
+waitress<4; platform_system == 'Windows'
 scikit-learn<2
 pyarrow<16,>=4.0.0
 markdown<4,>=3.3

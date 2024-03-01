@@ -113,27 +113,41 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
     return _parse_chat_response_format(resp)
 
 
-def _call_deployments_api(deployment_uri, payload, eval_parameters):
+def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload=True):
+    """Call the deployment endpoint with the given payload and parameters.
+
+    Args:
+        deployment_uri: The URI of the deployment endpoint.
+        payload: The input payload to send to the endpoint.
+        eval_parameters: The evaluation parameters to send to the endpoint.
+        wrap_payload: Whether to wrap the payload in a expected key by the endpoint,
+            e.g. "prompt" for completions or "messages" for chat. If False, the specified
+            payload is directly sent to the endpoint combined with the eval_parameters.
+    Returns:
+        The unpacked response from the endpoint.
+    """
+    from pydantic import BaseModel
+
     from mlflow.deployments import get_deploy_client
 
     client = get_deploy_client()
 
     endpoint = client.get_endpoint(deployment_uri)
+    # TODO: Standardize the return type of `get_endpoint` and remove this check
+    endpoint = endpoint.dict() if isinstance(endpoint, BaseModel) else endpoint
     endpoint_type = endpoint.get("task", endpoint.get("endpoint_type"))
 
     if endpoint_type == "llm/v1/completions":
-        completions_payload = {
-            "prompt": payload,
-            **eval_parameters,
-        }
-        response = client.predict(endpoint=deployment_uri, inputs=completions_payload)
+        if wrap_payload:
+            payload = {"prompt": payload}
+        chat_inputs = {**payload, **eval_parameters}
+        response = client.predict(endpoint=deployment_uri, inputs=chat_inputs)
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":
-        chat_payload = {
-            "messages": [{"role": "user", "content": payload}],
-            **eval_parameters,
-        }
-        response = client.predict(endpoint=deployment_uri, inputs=chat_payload)
+        if wrap_payload:
+            payload = {"messages": [{"role": "user", "content": payload}]}
+        completion_inputs = {**payload, **eval_parameters}
+        response = client.predict(endpoint=deployment_uri, inputs=completion_inputs)
         return _parse_chat_response_format(response)
 
     else:

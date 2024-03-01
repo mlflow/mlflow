@@ -317,41 +317,39 @@ The following tags are set automatically by MLflow, when appropriate:
 .. note:: 
     ``mlflow.note.content`` is an exceptional case where the tag is **not set automatically** and can be overridden by the user to include additional information about the run.
 
-+-------------------------------+----------------------------------------------------------------------------------------+
-| Key                           | Description                                                                            |
-+===============================+========================================================================================+
-| ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is **not set automatically** and  |
-|                               | can be overridden by the user to include additional information about the run. The     |
-|                               | content is displayed on the run's page under the Notes section.                        |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.user``               | Identifier of the user who created the run.                                            |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.type``        | Source type. Possible values: ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,                |
-|                               | ``"LOCAL"``, and ``"UNKNOWN"``                                                         |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook)          |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.git.commit``  | Commit hash of the executed code, if in a git repository.                              |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.git.branch``  | Name of the branch of the executed code, if in a git repository.                       |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.git.repoURL`` | URL that the executed code was cloned from.                                            |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.env``        | The runtime context used by the MLflow project.                                        |
-|                               | Possible values: ``"docker"`` and ``"conda"``.                                         |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.log-model.history``  | Model metadata collected by log-model calls. Includes the serialized                   |
-|                               | form of the MLModel model files logged to a run, although the exact format and         |
-|                               | information captured is subject to change.                                             |
-+-------------------------------+----------------------------------------------------------------------------------------+
+.. list-table::
+   :widths: 25 75
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``mlflow.note.content``
+     - A descriptive note about this run. This reserved tag is **not set automatically** and can be overridden by the user to include additional information about the run. The content is displayed on the run's page under the Notes section.
+   * - ``mlflow.parentRunId``
+     - The ID of the parent run, if this is a nested run.
+   * - ``mlflow.user``
+     - Identifier of the user who created the run.
+   * - ``mlflow.source.type``
+     - Source type. Possible values: ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``, ``"LOCAL"``, and ``"UNKNOWN"``
+   * - ``mlflow.source.name``
+     - Source identifier (e.g., GitHub URL, local Python filename, name of notebook)
+   * - ``mlflow.source.git.commit``
+     - Commit hash of the executed code, if in a git repository. This tag is only logged when the code is executed as a Python script like ``python train.py`` or as a project. If the code is executed in a notebook, this tag is not logged.
+   * - ``mlflow.source.git.branch``
+     - Name of the branch of the executed code, if in a git repository. This tag is only logged within the context of `MLflow Projects <../projects.html>`_ and `MLflow Recipe <../recipes.html>`_.
+   * - ``mlflow.source.git.repoURL``
+     - URL that the executed code was cloned from. This tag is only logged within the context of `MLflow Projects <../projects.html>`_ and `MLflow Recipe <../recipes.html>`_.
+   * - ``mlflow.project.env``
+     - The runtime context used by the MLflow project. Possible values: ``"docker"`` and ``"conda"``.
+   * - ``mlflow.project.entryPoint``
+     - Name of the project entry point associated with the current run, if any.
+   * - ``mlflow.docker.image.name``
+     - Name of the Docker image used to execute this run.
+   * - ``mlflow.docker.image.id``
+     - ID of the Docker image used to execute this run.
+   * - ``mlflow.log-model.history``
+     - Model metadata collected by log-model calls. Includes the serialized form of the MLModel model files logged to a run, although the exact format and information captured is subject to change.
+
 
 Custom Tags
 ~~~~~~~~~~~
