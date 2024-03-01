@@ -673,22 +673,13 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     for i, x in enumerate(input_names):
         if isinstance(input_types[i], DataType):
             new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
-        # If the input_type is objects/arrays, we assume pf_input must be a pandas DataFrame.
+        # If the input_type is objects/arrays/maps, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
-        elif isinstance(input_types[i], Object):
+        else:
             new_pf_input[x] = pd.Series(
-                [_enforce_object(obj, input_types[i]) for obj in pf_input[x]], name=x
-            )
-        elif isinstance(input_types[i], Array):
-            new_pf_input[x] = pd.Series(
-                [_enforce_array(arr, input_types[i]) for arr in pf_input[x]], name=x
-            )
-        elif isinstance(input_types[i], Map):
-            new_pf_input[x] = pd.Series(
-                [_enforce_map(map_data, input_types[i]) for map_data in pf_input[x]], name=x
+                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]], name=x
             )
     return pd.DataFrame(new_pf_input)
-
 
 
 def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
@@ -709,20 +700,11 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
                 continue
         if isinstance(input_type, DataType):
             new_pf_input[name] = _enforce_mlflow_datatype(name, pf_input[name], input_type)
-        # If the input_type is objects/arrays, we assume pf_input must be a pandas DataFrame.
+        # If the input_type is objects/arrays/maps, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
-        elif isinstance(input_type, Object):
+        else:
             new_pf_input[name] = pd.Series(
-                [_enforce_object(obj, input_type, required) for obj in pf_input[name]], name=name
-            )
-        elif isinstance(input_type, Array):
-            new_pf_input[name] = pd.Series(
-                [_enforce_array(arr, input_type, required) for arr in pf_input[name]], name=name
-            )
-        elif isinstance(input_type, Map):
-            new_pf_input[name] = pd.Series(
-                [_enforce_map(map_data, input_type, required) for map_data in pf_input[name]],
-                name=name,
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
             )
     return pd.DataFrame(new_pf_input)
 
