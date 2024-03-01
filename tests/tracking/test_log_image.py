@@ -219,7 +219,7 @@ def test_log_image_with_timestamp():
 
 def test_duplicated_log_image_with_step():
     """
-    Mlflow will save both files if there are multiple calls to log_image
+    MLflow will save both files if there are multiple calls to log_image
     with the same key and step.
     """
     import numpy as np
@@ -240,7 +240,7 @@ def test_duplicated_log_image_with_step():
 
 def test_duplicated_log_image_with_timestamp():
     """
-    Mlflow will save both files if there are multiple calls to log_image
+    MLflow will save both files if there are multiple calls to log_image
     with the same key, step, and timestamp.
     """
     import numpy as np
