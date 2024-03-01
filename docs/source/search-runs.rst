@@ -147,7 +147,6 @@ To showcase this functionality, let's look at the below code examples.
 Second, let's try filtering the runs for our really bad models: ``metrics.loss > 0.8``.
 
 .. code-block:: python
-  
   import mlflow
 
   bad_runs = mlflow.search_runs(
