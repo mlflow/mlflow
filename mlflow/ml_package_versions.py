@@ -8,11 +8,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.24.1",
-            "maximum": "1.4.0"
+            "maximum": "1.4.1.post1"
         },
         "autologging": {
             "minimum": "0.24.1",
-            "maximum": "1.4.0"
+            "maximum": "1.4.1.post1"
         }
     },
     "pytorch": {
@@ -21,11 +21,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.9.0",
-            "maximum": "2.1.2"
+            "maximum": "2.2.1"
         },
         "autologging": {
             "minimum": "1.9.0",
-            "maximum": "2.1.2"
+            "maximum": "2.2.1"
         }
     },
     "pytorch-lightning": {
@@ -34,7 +34,20 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.4.9",
-            "maximum": "2.1.3"
+            "maximum": "2.2.0.post0"
+        }
+    },
+    "keras": {
+        "package_info": {
+            "pip_release": "keras"
+        },
+        "models": {
+            "minimum": "3.0.2",
+            "maximum": "3.0.5"
+        },
+        "autologging": {
+            "minimum": "3.0.2",
+            "maximum": "3.0.5"
         }
     },
     "tensorflow": {
@@ -69,11 +82,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.1.1",
-            "maximum": "4.2.0"
+            "maximum": "4.3.0"
         },
         "autologging": {
             "minimum": "3.1.1",
-            "maximum": "4.2.0"
+            "maximum": "4.3.0"
         }
     },
     "catboost": {
@@ -82,7 +95,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.0",
-            "maximum": "1.2.2"
+            "maximum": "1.2.3"
         }
     },
     "gluon": {
@@ -104,11 +117,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.7.13"
+            "maximum": "2.7.14"
         },
         "autologging": {
             "minimum": "2.4.1",
-            "maximum": "2.7.13"
+            "maximum": "2.7.14"
         }
     },
     "onnx": {
@@ -126,7 +139,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.7.2"
+            "maximum": "3.7.4"
         }
     },
     "statsmodels": {
@@ -148,11 +161,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.0",
-            "maximum": "3.5.0"
+            "maximum": "3.5.1"
         },
         "autologging": {
             "minimum": "3.0.0",
-            "maximum": "3.5.0"
+            "maximum": "3.5.1"
         }
     },
     "mleap": {
@@ -169,7 +182,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "prophet"
         },
         "models": {
-            "minimum": "1.0.1",
+            "minimum": "1.1.1",
             "maximum": "1.1.5"
         }
     },
@@ -224,11 +237,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.37.1"
+            "maximum": "4.37.2"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.37.1"
+            "maximum": "4.37.2"
         }
     },
     "openai": {
@@ -237,7 +250,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.27.2",
-            "maximum": "0.28.1"
+            "maximum": "1.13.3"
         }
     },
     "langchain": {
@@ -246,11 +259,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.244",
-            "maximum": "0.1.3"
+            "maximum": "0.1.9"
         },
         "autologging": {
-            "minimum": "0.1.0",
-            "maximum": "0.1.3"
+            "minimum": "0.1.4",
+            "maximum": "0.1.9"
         }
     },
     "sentence_transformers": {
@@ -259,7 +272,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.2",
-            "maximum": "2.2.2"
+            "maximum": "2.4.0"
         }
     },
     "johnsnowlabs": {
@@ -268,20 +281,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.2.2"
-        }
-    },
-    "keras": {
-        "package_info": {
-            "pip_release": "keras"
-        },
-        "models": {
-            "minimum": "3.0.2",
-            "maximum": "3.0.2",
-        },
-        "autologging": {
-            "minimum": "3.0.2",
-            "maximum": "3.0.2",
+            "maximum": "5.2.8"
         }
     }
 }
