@@ -163,8 +163,6 @@ Parameters:
         # with a static dataset and using `extra_metrics`
         mlflow.evaluate(
             data=data,
-            predictions="retrieved_docs",
-            targets="ground_truth_docs",
             predictions="predictions_param",
             targets="targets_param",
             model_type="retriever",
