@@ -334,11 +334,11 @@ The following tags are set automatically by MLflow, when appropriate:
    * - ``mlflow.source.name``
      - Source identifier (e.g., GitHub URL, local Python filename, name of notebook)
    * - ``mlflow.source.git.commit``
-     - Commit hash of the executed code, if in a git repository.
+     - Commit hash of the executed code, if in a git repository. This tag is only logged when the code is executed as a Python script like ``python train.py`` or as a project. If the code is executed in a notebook, this tag is not logged.
    * - ``mlflow.source.git.branch``
-     - Name of the branch of the executed code, if in a git repository.
+     - Name of the branch of the executed code, if in a git repository. This tag is only logged within the context of `MLflow Projects <../projects.html>`_ and `MLflow Recipe <../recipes.html>`_.
    * - ``mlflow.source.git.repoURL``
-     - URL that the executed code was cloned from.
+     - URL that the executed code was cloned from. This tag is only logged within the context of `MLflow Projects <../projects.html>`_ and `MLflow Recipe <../recipes.html>`_.
    * - ``mlflow.project.env``
      - The runtime context used by the MLflow project. Possible values: ``"docker"`` and ``"conda"``.
    * - ``mlflow.project.entryPoint``
