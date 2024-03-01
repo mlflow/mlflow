@@ -1544,9 +1544,7 @@ class MlflowClient:
 
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
-            # timestamp ensures that the image is logged with a unique name
-
-            filename = f"images/{key}/{key}_step_{step}_{uuid.uuid4()!s}"
+            filename = f"images/{key}/{key}_step_{step}_{uuid.uuid4()}"
             image_filepath = f"{filename}.png"
             metadata_filepath = f"{filename}.json"
             self._log_image_as_artifact(run_id, image, image_filepath)
