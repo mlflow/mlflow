@@ -47,7 +47,7 @@ gunicorn:
 
 waitress:
   pip_release: waitress
-  max_major_version: 2
+  max_major_version: 3
   markers: "platform_system == 'Windows'"
 
 scikit-learn:
