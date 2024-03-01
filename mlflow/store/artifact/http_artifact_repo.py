@@ -150,7 +150,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         augmented_raise_for_status(resp)
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
-        uri, endpoint = self._construct_mpu_uri_and_path_(
+        uri, endpoint = self._construct_mpu_uri_and_path(
             "/mlflow-artifacts/mpu/abort", artifact_path
         )
         host_creds = get_default_host_creds(uri)
