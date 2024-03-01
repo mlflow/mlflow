@@ -295,7 +295,18 @@ def _save_model_with_class_artifacts_params(
             raise MlflowException(
                 "Failed to serialize Python model. Please audit your "
                 "class variables (e.g. in `__init__()`) for any "
-                f"unpicklable objects.\n\nFull serialization error: {e}"
+                "unpicklable objects. If you're trying to save an external model "
+                "in your custom pyfunc, Please use the `artifacts` parameter "
+                "in `mlflow.pyfunc.save_model()`, and load your external model "
+                "in the `load_context()` method instead. For example:\n\n"
+                "class MyModel(mlflow.pyfunc.PythonModel):\n"
+                "    def load_context(self, context):\n"
+                "        model_path = context.artifacts['my_model_path']\n"
+                "        // custom load logic here\n"
+                "        self.model = load_model(model_path)\n\n"
+                "For more information, see our full tutorial at: "
+                "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
+                f"\n\nFull serialization error: {e}"
             ) from None
         else:
             raise e
