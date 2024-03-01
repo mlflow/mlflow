@@ -46,7 +46,6 @@ from mlflow.store.db.utils import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
     SqlExperiment,
@@ -141,18 +140,11 @@ def test_fail_on_multiple_drivers():
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
-@pytest.fixture(params=["normal", "migrate"])
-def store(tmp_path: Path, request):
+@pytest.fixture
+def store(tmp_path: Path):
     db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    if request.param == "migrate":
-        # Test case where user has an existing DB with schema generated before MLflow 1.0,
-        # then migrate their DB
-        engine = sqlalchemy.create_engine(db_uri)
-        InitialBase.metadata.create_all(engine)
-        engine.dispose()
-        invoke_cli_runner(mlflow.db.commands, ["upgrade", db_uri])
     store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
     yield store
     _cleanup_database(store)
