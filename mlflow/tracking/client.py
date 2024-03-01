@@ -1540,23 +1540,27 @@ class MlflowClient:
             self._log_image_as_artifact(run_id, image, artifact_file)
 
         elif key is not None:
+            import uuid
+
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
             # timestamp ensures that the image is logged with a unique name
-            filename = f"images/{key}/{key}_step_{step}_timestamp_{timestamp}"
+
+            filename = f"images/{key}/{key}_step_{step}_{uuid.uuid4()!s}"
             image_filepath = f"{filename}.png"
             metadata_filepath = f"{filename}.json"
             self._log_image_as_artifact(run_id, image, image_filepath)
             with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
-                json.dump(
-                    {
-                        "filepath": image_filepath,
-                        "key": key,
-                        "step": step,
-                        "timestamp": timestamp,
-                    },
-                    tmp_path,
-                )
+                with open(tmp_path, "w+") as f:
+                    json.dump(
+                        {
+                            "filepath": image_filepath,
+                            "key": key,
+                            "step": step,
+                            "timestamp": timestamp,
+                        },
+                        f,
+                    )
 
     def _log_image_as_artifact(
         self,
@@ -1583,7 +1587,7 @@ class MlflowClient:
             if x.min() < low or x.max() > high:
                 if is_int:
                     raise ValueError(
-                        "Integer pixel value out of acceptable range [0, 255]. "
+                        "Integer pixel values out of acceptable range [0, 255]. "
                         "Ensure all pixel values are within the specified range."
                     )
                 else:
