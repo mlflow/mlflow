@@ -284,8 +284,22 @@ def _save_model_with_class_artifacts_params(
     if callable(python_model):
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = "python_model.pkl"
-    with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-        cloudpickle.dump(python_model, out)
+
+    try:
+        with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
+            cloudpickle.dump(python_model, out)
+    except Exception as e:
+        # cloudpickle sometimes raises TypeError instead of PicklingError.
+        # catching generic Exception and checking message to handle both cases.
+        if "cannot pickle" in str(e).lower():
+            raise MlflowException(
+                "Failed to serialize Python model. Please audit your "
+                "class variables (e.g. in `__init__()`).\n\n"
+                "Full serialization error: {e}"
+            ) from None
+        else:
+            raise e
+
     custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
 
     if artifacts:
