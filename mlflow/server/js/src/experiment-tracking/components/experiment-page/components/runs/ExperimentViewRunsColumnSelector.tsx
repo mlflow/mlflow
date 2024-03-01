@@ -2,14 +2,11 @@ import { Button, ChevronDownIcon, ColumnsIcon, Dropdown, Input, SearchIcon, Tree
 import { Theme } from '@emotion/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
-import { UpdateExperimentSearchFacetsFn } from '../../../../types';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
-import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import {
   extractCanonicalSortKey,
   isCanonicalSortKeyOfType,
@@ -94,19 +91,14 @@ export interface ExperimentViewRunsColumnSelectorProps {
 /**
  * A component displaying the searchable column list - implementation.
  */
-export const ExperimentViewRunsColumnSelectorImpl = React.memo(
+export const ExperimentViewRunsColumnSelector = React.memo(
   ({
     runsData,
     columnSelectorVisible,
     onChangeColumnSelectorVisible,
-    updateUIState,
     selectedColumns,
-  }: ExperimentViewRunsColumnSelectorProps & {
-    updateUIState:
-      | UpdateExperimentSearchFacetsFn
-      | ((setter: (state: ExperimentPageUIStateV2) => ExperimentPageUIStateV2) => void);
-    selectedColumns: string[];
-  }) => {
+  }: ExperimentViewRunsColumnSelectorProps) => {
+    const updateUIState = useUpdateExperimentViewUIState();
     const experimentIds = useExperimentIds();
     const [filter, setFilter] = useState('');
 
@@ -119,7 +111,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
 
     const setCheckedColumns = useCallback(
       (updateFn: (existingCheckedColumns: string[]) => string[]) =>
-        updateUIState((facets: ExperimentPageUIStateV2) => {
+        updateUIState((facets: ExperimentPageUIState) => {
           const newColumns = updateFn(facets.selectedColumns);
           const uniqueNewColumns = Array.from(new Set(newColumns));
           return { ...facets, selectedColumns: uniqueNewColumns };
@@ -324,34 +316,6 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
     );
   },
 );
-
-/**
- * A component displaying the searchable column list.
- * This is a thin layer wrapping the implementation to optimize search state rerenders.
- */
-export const ExperimentViewRunsColumnSelector = (props: ExperimentViewRunsColumnSelectorProps) => {
-  /* eslint-disable react-hooks/rules-of-hooks */
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-  if (usingNewViewStateModel) {
-    const updateUIState = useUpdateExperimentViewUIState();
-    return (
-      <ExperimentViewRunsColumnSelectorImpl
-        {...props}
-        selectedColumns={props.selectedColumns}
-        updateUIState={updateUIState}
-      />
-    );
-  }
-  // TODO(ML-35962): UI state from props/context, remove updateSearchFacets after migration to new view state model
-  const { updateSearchFacets, searchFacetsState } = useFetchExperimentRuns();
-  return (
-    <ExperimentViewRunsColumnSelectorImpl
-      {...props}
-      selectedColumns={searchFacetsState.selectedColumns}
-      updateUIState={updateSearchFacets}
-    />
-  );
-};
 
 const styles = {
   dropdown: (theme: Theme) => ({

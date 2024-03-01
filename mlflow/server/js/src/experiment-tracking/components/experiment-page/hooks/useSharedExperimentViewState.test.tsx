@@ -3,9 +3,9 @@ import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUt
 
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { useSharedExperimentViewState } from './useSharedExperimentViewState';
-import { createExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { ExperimentEntity } from '../../../types';
-import { createExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { isNil, omitBy } from 'lodash';
 import { IntlProvider } from 'react-intl';
 
@@ -20,8 +20,8 @@ jest.mock('./useExperimentPageSearchFacets', () => ({
   useUpdateExperimentPageSearchFacets: jest.fn(),
 }));
 
-const testUIState = { ...createExperimentPageUIStateV2(), selectedColumns: ['metrics.m2'], viewMaximized: true };
-const testFacetsState = { ...createExperimentPageSearchFacetsStateV2(), orderByKey: 'metrics.m1', orderByAsc: true };
+const testUIState = { ...createExperimentPageUIState(), selectedColumns: ['metrics.m2'], viewMaximized: true };
+const testFacetsState = { ...createExperimentPageSearchFacetsState(), orderByKey: 'metrics.m1', orderByAsc: true };
 
 const testSerializedShareViewState = JSON.stringify({
   ...testUIState,

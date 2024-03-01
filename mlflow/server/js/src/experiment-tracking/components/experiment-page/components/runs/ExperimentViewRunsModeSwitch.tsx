@@ -1,9 +1,8 @@
 import { Button, Popover, Tabs, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
@@ -14,7 +13,7 @@ const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
 export interface ExperimentViewRunsModeSwitchProps {
   compareRunsMode: ExperimentViewRunsCompareMode;
   setCompareRunsMode: (newCompareRunsMode: ExperimentViewRunsCompareMode) => void;
-  viewState: SearchExperimentRunsViewState;
+  viewState: ExperimentPageViewState;
   runsAreGrouped?: boolean;
 }
 
@@ -78,22 +77,13 @@ const ChartViewButtonTooltip: React.FC<{
 /**
  * Allows switching between "table", "chart" and "evaluation" modes of experiment view
  */
-export const ExperimentViewRunsModeSwitch = ({
-  compareRunsMode: compareRunsModeFromProps,
-  setCompareRunsMode,
-  viewState,
-  runsAreGrouped,
-}: ExperimentViewRunsModeSwitchProps) => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-  const [viewModeFromURL, setViewModeInURL] = useExperimentPageViewMode();
-
-  // In the new view state model, use the view mode serialized in the URL
-  const compareRunsMode = usingNewViewStateModel ? compareRunsModeFromProps : viewModeFromURL;
+export const ExperimentViewRunsModeSwitch = ({ viewState, runsAreGrouped }: ExperimentViewRunsModeSwitchProps) => {
+  const [compareRunsMode, setViewModeInURL] = useExperimentPageViewMode();
 
   const isComparingRuns = compareRunsMode !== undefined;
   const { classNamePrefix } = useDesignSystemTheme();
 
-  const activeTab = (usingNewViewStateModel ? viewModeFromURL : compareRunsMode) || 'TABLE';
+  const activeTab = compareRunsMode || 'TABLE';
 
   return (
     <Tabs
@@ -106,11 +96,7 @@ export const ExperimentViewRunsModeSwitch = ({
       activeKey={activeTab}
       onChange={(tabKey) => {
         const newValue = (tabKey === 'TABLE' ? undefined : tabKey) as ExperimentViewRunsCompareMode;
-        if (usingNewViewStateModel) {
-          setViewModeInURL(newValue);
-        } else {
-          setCompareRunsMode(newValue);
-        }
+        setViewModeInURL(newValue);
       }}
     >
       <Tabs.TabPane

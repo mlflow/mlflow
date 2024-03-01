@@ -6,7 +6,9 @@ import { ReactComponent as ChartContourIcon } from '../../../../common/static/ch
 import { ReactComponent as ChartLineIcon } from '../../../../common/static/chart-line.svg';
 import { ReactComponent as ChartParallelIcon } from '../../../../common/static/chart-parallel.svg';
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
+import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { RunsChartType } from '../runs-charts.types';
+import { shouldEnableDifferenceViewCharts } from 'common/utils/FeatureUtils';
 
 export interface RunsChartsAddChartMenuProps {
   onAddChart: (type: RunsChartType) => void;
@@ -81,6 +83,17 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
               <ChartContourIcon />
             </DropdownMenu.IconWrapper>
             Contour chart
+          </DropdownMenu.Item>
+        )}
+        {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
+          <DropdownMenu.Item
+            onClick={() => onAddChart(RunsChartType.DIFFERENCE)}
+            data-testid="experiment-view-compare-runs-chart-type-difference"
+          >
+            <DropdownMenu.IconWrapper css={styles.iconWrapper}>
+              <ChartDifferenceIcon />
+            </DropdownMenu.IconWrapper>
+            Difference view
           </DropdownMenu.Item>
         )}
       </DropdownMenu.Content>

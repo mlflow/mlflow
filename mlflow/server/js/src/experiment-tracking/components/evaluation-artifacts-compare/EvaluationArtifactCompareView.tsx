@@ -20,13 +20,13 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataReducer';
-import { SearchExperimentRunsViewState } from '../experiment-page/models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { EvaluationArtifactCompareTable } from './components/EvaluationArtifactCompareTable';
 import { useEvaluationArtifactColumns } from './hooks/useEvaluationArtifactColumns';
 import { useEvaluationArtifactTableData } from './hooks/useEvaluationArtifactTableData';
 import { useEvaluationArtifactTables } from './hooks/useEvaluationArtifactTables';
-import type { RunDatasetWithTags, UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../types';
+import type { RunDatasetWithTags, UpdateExperimentViewStateFn } from '../../types';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { PreviewSidebar } from '../../../common/components/PreviewSidebar';
 import { useEvaluationArtifactViewState } from './hooks/useEvaluationArtifactViewState';
@@ -46,14 +46,14 @@ import {
   EvaluationArtifactViewEmptyState,
   shouldDisplayEvaluationArtifactEmptyState,
 } from './EvaluationArtifactViewEmptyState';
+import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
 
 const MAX_RUNS_TO_COMPARE = 10;
 
 interface EvaluationArtifactCompareViewProps {
   comparedRuns: RunRowType[];
-  viewState: SearchExperimentRunsViewState;
+  viewState: ExperimentPageViewState;
   updateViewState: UpdateExperimentViewStateFn;
-  updateSearchFacets: UpdateExperimentSearchFacetsFn;
   onDatasetSelected: (dataset: RunDatasetWithTags, run: RunRowType) => void;
 }
 
@@ -62,13 +62,13 @@ interface EvaluationArtifactCompareViewProps {
  */
 export const EvaluationArtifactCompareViewImpl = ({
   comparedRuns,
-  updateSearchFacets,
   onDatasetSelected,
   viewState,
   updateViewState,
 }: EvaluationArtifactCompareViewProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const updateUIState = useUpdateExperimentViewUIState();
 
   const visibleRuns = useMemo(
     () => comparedRuns.filter(({ hidden }) => !hidden).slice(0, MAX_RUNS_TO_COMPARE),
@@ -215,11 +215,11 @@ export const EvaluationArtifactCompareViewImpl = ({
 
   const handleHideRun = useCallback(
     (runUuid: string) =>
-      updateSearchFacets((existingFacets) => ({
+      updateUIState((existingFacets) => ({
         ...existingFacets,
         runsHidden: [...existingFacets.runsHidden, runUuid],
       })),
-    [updateSearchFacets],
+    [updateUIState],
   );
 
   // Make sure that there's at least one "group by" column selected

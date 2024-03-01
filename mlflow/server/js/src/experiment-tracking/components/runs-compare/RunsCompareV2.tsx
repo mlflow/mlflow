@@ -1,16 +1,7 @@
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
-import type { Theme } from '@emotion/react';
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { connect, useSelector } from 'react-redux';
-import type {
-  ExperimentStoreEntities,
-  KeyValueEntity,
-  MetricEntitiesByName,
-  MetricHistoryByName,
-  ChartSectionConfig,
-  UpdateExperimentSearchFacetsFn,
-  RunInfoEntity,
-} from '../../types';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { KeyValueEntity, MetricEntitiesByName, ChartSectionConfig } from '../../types';
 import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
 import type { RunsChartType, SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
 import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
@@ -21,7 +12,7 @@ import { RunsChartsTooltipBody } from '../runs-charts/components/RunsChartsToolt
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
-import { ExperimentPageUIStateV2, RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
 import { ReduxState } from 'redux-types';
@@ -63,12 +54,14 @@ const createRunDataTrace = (
   run: RunRowType,
   latestMetricsByRunUuid: Record<string, MetricEntitiesByName>,
   paramsByRunUuid: Record<string, Record<string, KeyValueEntity>>,
+  tagsByRunUuid: Record<string, Record<string, KeyValueEntity>>,
 ) => ({
   uuid: run.runUuid,
   displayName: run.runInfo?.run_name || run.runUuid,
   runInfo: run.runInfo,
   metrics: latestMetricsByRunUuid[run.runUuid] || {},
   params: paramsByRunUuid[run.runUuid] || {},
+  tags: tagsByRunUuid[run.runUuid] || {},
   color: run.color,
   pinned: run.pinned,
   pinnable: run.pinnable,
@@ -85,6 +78,7 @@ const createGroupDataTrace = (
   allRunRows: RunRowType[],
   latestMetricsByRunUuid: Record<string, MetricEntitiesByName>,
   paramsByRunUuid: Record<string, Record<string, KeyValueEntity>>,
+  tagsByRunUuid: Record<string, Record<string, KeyValueEntity>>,
 ) => {
   // Latest aggregated metrics in groups does not contain step or timestamps.
   // For step, we're using maxStep which will help determine the chart type.
@@ -106,6 +100,8 @@ const createGroupDataTrace = (
     groupParentInfo: run.groupParentInfo,
     metrics: metricsData,
     params: run.groupParentInfo?.aggregatedParamData || {},
+    // TODO: add tags for groups
+    tags: {},
     color: run.color,
     pinned: run.pinned,
     pinnable: run.pinnable,
@@ -137,9 +133,10 @@ export const RunsCompareV2Impl = ({
   // Updater function for charts UI state
   const updateChartsUIState = useUpdateRunsChartsUIConfiguration();
 
-  const { paramsByRunUuid, latestMetricsByRunUuid } = useSelector((state: ReduxState) => ({
+  const { paramsByRunUuid, latestMetricsByRunUuid, tagsByRunUuid } = useSelector((state: ReduxState) => ({
     paramsByRunUuid: state.entities.paramsByRunUuid,
     latestMetricsByRunUuid: state.entities.latestMetricsByRunUuid,
+    tagsByRunUuid: state.entities.tagsByRunUuid,
   }));
   const { theme } = useDesignSystemTheme();
   const [initiallyLoaded, setInitiallyLoaded] = useState(false);
@@ -184,23 +181,25 @@ export const RunsCompareV2Impl = ({
       return comparedRuns
         .filter((run) => run.runInfo)
         .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
-        .map<RunsChartsRunData>((run) => createRunDataTrace(run, latestMetricsByRunUuid, paramsByRunUuid));
+        .map<RunsChartsRunData>((run) =>
+          createRunDataTrace(run, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid),
+        );
     }
 
     const groupChartDataEntries = comparedRuns
       .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
       .filter((run) => run.groupParentInfo && !isRemainingRunsGroup(run.groupParentInfo))
       .map<RunsChartsRunData>((group) =>
-        createGroupDataTrace(group, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid),
+        createGroupDataTrace(group, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid),
       );
 
     const remainingRuns = comparedRuns
       .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
       .filter((run) => !run.groupParentInfo && !run.runDateAndNestInfo?.belongsToGroup)
-      .map((run) => createRunDataTrace(run, latestMetricsByRunUuid, paramsByRunUuid));
+      .map((run) => createRunDataTrace(run, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid));
 
     return [...groupChartDataEntries, ...remainingRuns];
-  }, [groupBy, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid]);
+  }, [groupBy, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid]);
 
   const { isLoading: isMetricHistoryLoading } = useMultipleChartsMetricHistory(
     compareRunCharts || [],
@@ -253,7 +252,7 @@ export const RunsCompareV2Impl = ({
 
   const onTogglePin = useCallback(
     (runUuid: string) => {
-      updateUIState((existingFacets: ExperimentPageUIStateV2) => ({
+      updateUIState((existingFacets: ExperimentPageUIState) => ({
         ...existingFacets,
         runsPinned: !existingFacets.runsPinned.includes(runUuid)
           ? [...existingFacets.runsPinned, runUuid]
@@ -271,7 +270,7 @@ export const RunsCompareV2Impl = ({
         toggleRunVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuid);
         return;
       }
-      updateUIState((existingFacets: ExperimentPageUIStateV2) => ({
+      updateUIState((existingFacets: ExperimentPageUIState) => ({
         ...existingFacets,
         runsHidden: [...existingFacets.runsHidden, runUuid],
       }));

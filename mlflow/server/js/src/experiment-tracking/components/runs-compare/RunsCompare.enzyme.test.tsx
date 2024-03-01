@@ -2,16 +2,17 @@ import { shouldEnableDeepLearningUI } from '../../../common/utils/FeatureUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { renderWithIntl, act, fireEvent, screen, within } from 'common/utils/TestUtils.react17';
 import { MetricEntitiesByName } from '../../types';
-import { SearchExperimentRunsFacetsState } from '../experiment-page/models/SearchExperimentRunsFacetsState';
+// import { SearchExperimentRunsFacetsState } from '../experiment-page/models/SearchExperimentRunsFacetsState';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { RunsCompare } from './RunsCompare';
 import { RunsChartType, RunsChartsBarCardConfig, RunsChartsParallelCardConfig } from '../runs-charts/runs-charts.types';
+import { createExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
+import { ExperimentPageUIStateContextProvider } from '../experiment-page/contexts/ExperimentPageUIStateContext';
 
 // Force-enable drag and drop for this test
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../common/utils/FeatureUtils'),
   shouldEnableDeepLearningUI: jest.fn(),
-  shouldEnableShareExperimentViewByTags: jest.fn(() => false),
 }));
 
 // Mock the chart component to save time on rendering
@@ -55,16 +56,16 @@ describe('RunsCompare', () => {
       isGenerated: true,
     },
   ];
-  let currentSearchFacets = {} as SearchExperimentRunsFacetsState;
+  let currentUIState = createExperimentPageUIState();
 
-  const updateSearchFacets = jest.fn().mockImplementation((facetsTransformer) => {
-    currentSearchFacets = facetsTransformer(currentSearchFacets);
+  const updateUIState = jest.fn().mockImplementation((facetsTransformer) => {
+    currentUIState = facetsTransformer(currentUIState);
   });
 
   beforeEach(() => {
     jest.mocked(shouldEnableDeepLearningUI).mockReturnValue(true);
-    currentSearchFacets.compareRunCharts = testCharts;
-    updateSearchFacets.mockClear();
+    currentUIState.compareRunCharts = testCharts;
+    updateUIState.mockClear();
   });
 
   const createComponentMock = ({
@@ -73,15 +74,16 @@ describe('RunsCompare', () => {
   }: { comparedRuns?: RunRowType[]; latestMetricsByRunUuid?: Record<string, MetricEntitiesByName> } = {}) => {
     return renderWithIntl(
       <MockedReduxStoreProvider state={{ entities: { paramsByRunUuid: {}, latestMetricsByRunUuid } }}>
-        <RunsCompare
-          comparedRuns={comparedRuns}
-          experimentTags={{}}
-          isLoading={false}
-          metricKeyList={[]}
-          paramKeyList={[]}
-          compareRunCharts={currentSearchFacets.compareRunCharts}
-          updateSearchFacets={updateSearchFacets}
-        />
+        <ExperimentPageUIStateContextProvider setUIState={updateUIState}>
+          <RunsCompare
+            comparedRuns={comparedRuns}
+            experimentTags={{}}
+            isLoading={false}
+            metricKeyList={[]}
+            paramKeyList={[]}
+            compareRunCharts={currentUIState.compareRunCharts}
+          />
+        </ExperimentPageUIStateContextProvider>
       </MockedReduxStoreProvider>,
     );
   };
@@ -96,7 +98,7 @@ describe('RunsCompare', () => {
       createComponentMock();
     });
 
-    expect(updateSearchFacets).not.toHaveBeenCalled();
+    expect(updateUIState).not.toHaveBeenCalled();
 
     const betaChartArea = getChartArea('metric-beta');
     const alphaChartArea = getChartArea('metric-alpha');
@@ -104,7 +106,7 @@ describe('RunsCompare', () => {
 
     const betaHandle = within(betaChartArea).getByTestId('experiment-view-compare-runs-card-drag-handle');
 
-    expect(currentSearchFacets.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
+    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
       'chart-parallel',
       'chart-alpha',
       'chart-beta',
@@ -119,7 +121,7 @@ describe('RunsCompare', () => {
     });
 
     // Verify that the charts are reordered, and the "beta" chart is now in the "alpha" chart position
-    expect(currentSearchFacets.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
+    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
       'chart-parallel',
       'chart-beta',
       'chart-alpha',
@@ -136,7 +138,7 @@ describe('RunsCompare', () => {
     });
 
     // Verify that the charts are reordered, and the "gamma" chart is now in the "beta" chart position
-    expect(currentSearchFacets.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
+    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
       'chart-parallel',
       'chart-gamma',
       'chart-alpha',
@@ -149,13 +151,13 @@ describe('RunsCompare', () => {
       createComponentMock();
     });
 
-    expect(updateSearchFacets).not.toHaveBeenCalled();
+    expect(updateUIState).not.toHaveBeenCalled();
 
     const parallelChartArea = getChartArea('Parallel Coordinates');
     const parallelChartHandle = within(parallelChartArea).getByTestId('experiment-view-compare-runs-card-drag-handle');
     const betaChartArea = getChartArea('metric-beta');
 
-    expect(currentSearchFacets.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
+    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
       'chart-parallel',
       'chart-alpha',
       'chart-beta',
@@ -170,8 +172,8 @@ describe('RunsCompare', () => {
     });
 
     // Confirm that the charts has not been reordered
-    expect(updateSearchFacets).not.toHaveBeenCalled();
-    expect(currentSearchFacets.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
+    expect(updateUIState).not.toHaveBeenCalled();
+    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
       'chart-parallel',
       'chart-alpha',
       'chart-beta',
@@ -180,7 +182,7 @@ describe('RunsCompare', () => {
   });
 
   test('initializes correct chart types for given initial runs data', async () => {
-    currentSearchFacets.compareRunCharts = undefined;
+    currentUIState.compareRunCharts = undefined;
 
     await act(async () => {
       createComponentMock({
@@ -201,9 +203,9 @@ describe('RunsCompare', () => {
       });
     });
 
-    expect(updateSearchFacets).toHaveBeenCalled();
+    expect(updateUIState).toHaveBeenCalled();
 
-    expect(currentSearchFacets.compareRunCharts).toEqual([
+    expect(currentUIState.compareRunCharts).toEqual([
       // "metric-with-history" should be initialized as a line chart since there's at least one run with the history
       expect.objectContaining({
         metricKey: 'metric-with-history',

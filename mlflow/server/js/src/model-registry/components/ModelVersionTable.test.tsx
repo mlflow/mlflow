@@ -76,7 +76,7 @@ describe('ModelVersionTable', () => {
       modelName: modelName,
       usingNextModelsUI: true,
       modelVersions: [mockModelVersionDetailed(modelName, 1, Stages.NONE, ModelVersionStatus.READY)],
-      aliases: [{alias: 'champion', version: '1'}]
+      aliases: [{ alias: 'champion', version: '1' }],
     };
     renderWithProviders(<ModelVersionTable {...props} />);
     expect(screen.queryByRole('columnheader', { name: 'Stage' })).not.toBeInTheDocument();

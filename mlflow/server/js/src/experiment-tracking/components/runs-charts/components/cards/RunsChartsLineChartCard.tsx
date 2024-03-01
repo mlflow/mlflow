@@ -27,6 +27,7 @@ import { useCompareRunChartSelectedRange } from '../../hooks/useCompareRunChartS
 import { MetricHistoryByName } from 'experiment-tracking/types';
 import { parseRunsGroupByKey } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 
 const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
   if (!cardConfig.selectedMetricKeys || cardConfig.selectedMetricKeys.length === 0) {
@@ -236,6 +237,8 @@ export const RunsChartsLineChartCard = ({
     ? sampledData
     : slicedRuns;
 
+  const [downloadHandler, setDownloadHandler] = useChartImageDownloadHandler();
+
   const chartBody = (
     <div
       css={[
@@ -268,6 +271,7 @@ export const RunsChartsLineChartCard = ({
           xRange={xRange}
           yRange={yRange.current}
           fullScreen={fullScreen}
+          onSetDownloadHandler={setDownloadHandler}
         />
       )}
     </div>
@@ -286,6 +290,10 @@ export const RunsChartsLineChartCard = ({
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       onReorderWith={onReorderWith}
+      onClickDownload={(format) => {
+        const savedChartTitle = config.selectedMetricKeys?.join('-') ?? config.metricKey;
+        downloadHandler?.(format, savedChartTitle);
+      }}
       canMoveDown={canMoveDown}
       canMoveUp={canMoveUp}
       onMoveDown={onMoveDown}

@@ -1,11 +1,11 @@
 import { mount } from 'enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useRunsColumnDefinitions } from '../../utils/experimentPage.column-utils';
 import { ExperimentViewRunsTable, ExperimentViewRunsTableProps } from './ExperimentViewRunsTable';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
-import { createExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 /**
  * Mock all expensive utility functions
@@ -90,12 +90,11 @@ describe('ExperimentViewRunsTable', () => {
       runUuidsMatchingFilter: ['experiment123456789_run1'],
     } as any,
     rowsData: [{ runUuid: 'experiment123456789_run1' } as any],
-    searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
+    searchFacetsState: Object.assign(createExperimentPageSearchFacetsState(), {
       runsPinned: ['experiment123456789_run1'],
     }),
-    viewState: new SearchExperimentRunsViewState(),
-    uiState: createExperimentPageUIStateV2(),
-    updateSearchFacets() {},
+    viewState: new ExperimentPageViewState(),
+    uiState: createExperimentPageUIState(),
     updateViewState() {},
     loadMoreRunsFunc: jest.fn(),
     expandRows: false,
@@ -155,7 +154,7 @@ describe('ExperimentViewRunsTable', () => {
 
     // Set up some filter
     emptyExperimentsWrapper.setProps({
-      searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
+      searchFacetsState: Object.assign(createExperimentPageSearchFacetsState(), {
         searchFilter: 'something',
       }),
     });
@@ -203,7 +202,7 @@ describe('ExperimentViewRunsTable', () => {
     // Change the filtered run set so it mimics the scenario where used has unpinned the row
     wrapper.setProps({
       runsData: { ...defaultProps.runsData, runUuidsMatchingFilter: [] },
-      searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
+      searchFacetsState: Object.assign(createExperimentPageSearchFacetsState(), {
         runsPinned: [],
       }),
     });
@@ -245,11 +244,11 @@ describe('ExperimentViewRunsTable', () => {
         paramKeyList: ['p1'],
         metricKeyList: ['m1'],
       },
-      searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
+      searchFacetsState: Object.assign(createExperimentPageSearchFacetsState(), {
         // Exhaust all possible columns
         selectedColumns: newSelectedColumns,
       }),
-      uiState: Object.assign(createExperimentPageUIStateV2(), {
+      uiState: Object.assign(createExperimentPageUIState(), {
         // Exhaust all possible columns
         selectedColumns: newSelectedColumns,
       }),

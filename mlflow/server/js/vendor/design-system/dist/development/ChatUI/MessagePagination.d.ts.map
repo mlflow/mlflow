@@ -1,1 +1,0 @@
-{"version":3,"file":"MessagePagination.d.ts","sourceRoot":"","sources":["../../../src/development/ChatUI/MessagePagination.tsx"],"names":[],"mappings":"AAMA,KAAK,eAAe,GAAG;IACrB,UAAU,EAAE,MAAM,IAAI,CAAC;IACvB,MAAM,EAAE,MAAM,IAAI,CAAC;IACnB,OAAO,EAAE,MAAM,CAAC;IAChB,KAAK,EAAE,MAAM,CAAC;CACf,CAAC;AAoBF,eAAO,MAAM,iBAAiB,2CAA4C,eAAe,qDAsCxF,CAAC;AAEF,eAAe,iBAAiB,CAAC"}

@@ -86,9 +86,7 @@ describe('ArtifactView', () => {
     });
 
     if (jest.isMockFunction(Utils.isModelRegistryEnabled)) {
-      // if jest.isMockFunction returns true, then .mockRestore exists
-      // @ts-expect-error TS(2339): Property 'mockRestore' does not exist on type '() => boolean'.
-      Utils.isModelRegistryEnabled.mockRestore();
+      jest.mocked(Utils.isModelRegistryEnabled).mockRestore();
     }
   });
   const getTestArtifactNode = () => {

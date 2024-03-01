@@ -39,6 +39,7 @@ const createMockContourData = (numRuns: number): RunsScatterPlotProps['runsData'
         param2: { key: 'param2', value: Math.abs(500 * random() - 250) },
         param3: { key: 'param3', value: Math.abs(500 * random() - 250) },
       } as any,
+      tags: {} as any,
       color: chartColors[index % chartColors.length],
     };
   });

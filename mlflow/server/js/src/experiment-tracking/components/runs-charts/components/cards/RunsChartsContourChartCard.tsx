@@ -11,6 +11,7 @@ import {
 import { RunsContourPlot } from '../RunsContourPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 
 export interface RunsChartsContourChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsContourCardConfig;
@@ -52,6 +53,8 @@ export const RunsChartsContourChartCard = ({
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
+  const [downloadHandler, setDownloadHandler] = useChartImageDownloadHandler();
+
   const chartBody = (
     <div
       css={[
@@ -70,6 +73,7 @@ export const RunsChartsContourChartCard = ({
         onHover={setTooltip}
         onUnhover={resetTooltip}
         selectedRunUuid={selectedRunUuid}
+        onSetDownloadHandler={setDownloadHandler}
       />
     </div>
   );
@@ -92,6 +96,10 @@ export const RunsChartsContourChartCard = ({
       onMoveDown={onMoveDown}
       onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
+      onClickDownload={(format) => {
+        const savedChartTitle = [config.xaxis.key, config.yaxis.key, config.zaxis.key].join('-');
+        downloadHandler?.(format, savedChartTitle);
+      }}
     >
       {chartBody}
     </RunsChartCardWrapper>

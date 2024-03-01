@@ -8,7 +8,7 @@ import { ExperimentViewDescriptions } from './components/ExperimentViewDescripti
 import { ExperimentViewNotes } from './components/ExperimentViewNotes';
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
-import { ExperimentViewRuns, ExperimentViewRunsImpl } from './components/runs/ExperimentViewRuns';
+import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperimentIds } from './hooks/useExperimentIds';
 import { useExperiments } from './hooks/useExperiments';
 import { useFetchExperiments } from './hooks/useFetchExperiments';
@@ -17,12 +17,8 @@ import { searchDatasetsApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
-import {
-  shouldEnableExperimentPageCompactHeader,
-  shouldEnableShareExperimentViewByTags,
-} from '../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentPageCompactHeader } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
-import { SearchExperimentRunsFacetsState } from './models/SearchExperimentRunsFacetsState';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useDispatch, useSelector } from 'react-redux';
 import { ThunkDispatch } from '../../../redux-types';
@@ -32,15 +28,12 @@ import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewSta
 import { useInitializeUIState } from './hooks/useInitializeUIState';
 import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';
 import { ExperimentViewHeaderV2 } from './components/header/ExperimentViewHeaderV2';
+import invariant from 'invariant';
 
 export const ExperimentView = () => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
   const dispatch = useDispatch<ThunkDispatch>();
 
-  const experimentIdsV1 = useExperimentIds();
-  const [searchFacets, experimentIdsV2] = useExperimentPageSearchFacets();
-
-  const experimentIds = usingNewViewStateModel ? experimentIdsV2 : experimentIdsV1;
+  const [searchFacets, experimentIds] = useExperimentPageSearchFacets();
 
   const experiments = useExperiments(experimentIds);
 
@@ -59,12 +52,10 @@ export const ExperimentView = () => {
   // Create new version of the UI state for the experiment page on this level
   const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
 
-  const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments), !usingNewViewStateModel);
+  const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments));
 
   // Get the maximized state from the new view state model if flag is set
-  const isMaximized = usingNewViewStateModel ? uiState.viewMaximized : isMaximizedV1;
-  // In the new version, toggle button manipulates the UI state directly so noop function is provided
-  const setIsMaximized = usingNewViewStateModel ? () => {} : setIsMaximizedV1;
+  const isMaximized = uiState.viewMaximized;
 
   const {
     isLoadingRuns,
@@ -73,7 +64,7 @@ export const ExperimentView = () => {
     moreRunsAvailable,
     requestError: runsRequestError,
     refreshRuns,
-  } = useExperimentRuns(uiState, searchFacets, experimentIds, !usingNewViewStateModel);
+  } = useExperimentRuns(uiState, searchFacets, experimentIds);
 
   useEffect(() => {
     fetchExperiments(experimentIds);
@@ -98,7 +89,7 @@ export const ExperimentView = () => {
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 
-  if (usingNewViewStateModel && !isViewInitialized) {
+  if (!isViewInitialized) {
     // In the new view state model, wait for search facets to initialize
     return <LegacySkeleton />;
   }
@@ -110,6 +101,8 @@ export const ExperimentView = () => {
   if (requestError && requestError.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
     return <NotFoundPage />;
   }
+
+  invariant(searchFacets, 'searchFacets should be initialized at this point');
 
   const isLoading = isLoadingExperiment || !experiments[0];
 
@@ -175,30 +168,18 @@ export const ExperimentView = () => {
           </>
         )}
 
-        {!usingNewViewStateModel ? (
-          <ExperimentViewRuns
-            experiments={experiments}
-            isLoading={isLoading}
-            // We don't keep the view state on this level to maximize <ExperimentViewRuns>'s performance
-            onMaximizedChange={setIsMaximized}
-            searchFacetsState={searchFacets as SearchExperimentRunsFacetsState}
-            uiState={uiState}
-          />
-        ) : (
-          <ExperimentViewRunsImpl
-            isLoading={false}
-            experiments={experiments}
-            isLoadingRuns={isLoadingRuns}
-            runsData={runsData as ExperimentRunsSelectorResult}
-            searchFacetsState={searchFacets as SearchExperimentRunsFacetsState}
-            loadMoreRuns={loadMoreRuns}
-            moreRunsAvailable={moreRunsAvailable}
-            isPristine={() => false}
-            requestError={runsRequestError}
-            refreshRuns={refreshRuns}
-            uiState={uiState}
-          />
-        )}
+        <ExperimentViewRuns
+          isLoading={false}
+          experiments={experiments}
+          isLoadingRuns={isLoadingRuns}
+          runsData={runsData as ExperimentRunsSelectorResult}
+          searchFacetsState={searchFacets}
+          loadMoreRuns={loadMoreRuns}
+          moreRunsAvailable={moreRunsAvailable}
+          requestError={runsRequestError}
+          refreshRuns={refreshRuns}
+          uiState={uiState}
+        />
       </div>
     </ExperimentPageUIStateContextProvider>
   );

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { SearchExperimentRunsViewState } from '../../experiment-page/models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../experiment-page/models/ExperimentPageViewState';
 import { UpdateExperimentViewStateFn } from '../../../types';
 
 export const useEvaluationArtifactViewState = (
-  viewState: SearchExperimentRunsViewState,
+  viewState: ExperimentPageViewState,
   updateViewState: UpdateExperimentViewStateFn,
 ) => {
   const { artifactViewState = {} } = viewState;

@@ -4,18 +4,23 @@ import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
   RunsChartsContourCardConfig,
+  RunsChartsDifferenceCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsScatterCardConfig,
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableDifferenceViewCharts,
+  shouldUseNewRunRowsVisibilityModel,
+} from '../../../../../common/utils/FeatureUtils';
 import { RunsChartsBarChartCard } from './RunsChartsBarChartCard';
 import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
 import { RunsChartsContourChartCard } from './RunsChartsContourChartCard';
 import { RunsChartsParallelChartCard } from './RunsChartsParallelChartCard';
 import { RunsChartCardFullScreenProps, RunsChartCardReorderProps } from './ChartCard.common';
+import { RunsChartsDifferenceChartCard } from './RunsChartsDifferenceChartCard';
 
 export interface RunsChartsCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   cardConfig: RunsChartsCardConfig;
@@ -80,6 +85,17 @@ export const RunsChartsCard = ({
     return (
       <RunsChartsParallelChartCard
         config={cardConfig as RunsChartsParallelCardConfig}
+        chartRunData={chartRunData}
+        groupBy={groupBy}
+        {...commonChartProps}
+      />
+    );
+  }
+
+  if (shouldEnableDifferenceViewCharts() && cardConfig.type === RunsChartType.DIFFERENCE) {
+    return (
+      <RunsChartsDifferenceChartCard
+        config={cardConfig as RunsChartsDifferenceCardConfig}
         chartRunData={chartRunData}
         groupBy={groupBy}
         {...commonChartProps}

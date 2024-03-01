@@ -12,7 +12,7 @@ import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTool
 import { RunViewChartTooltipBody } from './RunViewChartTooltipBody';
 import { RunsChartType, RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
 import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
-import type { ExperimentRunsChartsUIConfiguration } from '../experiment-page/models/ExperimentPageUIStateV2';
+import type { ExperimentRunsChartsUIConfiguration } from '../experiment-page/models/ExperimentPageUIState';
 import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
 import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
 import {
@@ -25,6 +25,7 @@ import {
 import { MLFLOW_MODEL_METRIC_NAME, MLFLOW_SYSTEM_METRIC_NAME, MLFLOW_SYSTEM_METRIC_PREFIX } from '../../constants';
 import LocalStorageUtils from '../../../common/utils/LocalStorageUtils';
 import { RunsChartsFullScreenModal } from '../runs-charts/components/RunsChartsFullScreenModal';
+import { tagsByRunUuid } from 'experiment-tracking/reducers/Reducers';
 
 interface RunViewMetricChartsV2Props {
   metricKeys: string[];
@@ -72,9 +73,10 @@ export const RunViewMetricChartsV2Impl = ({
 
   const tooltipContextValue = useMemo(() => ({ runInfo, metricsForRun }), [runInfo, metricsForRun]);
 
-  const { paramsByRunUuid, latestMetricsByRunUuid } = useSelector((state: ReduxState) => ({
+  const { paramsByRunUuid, latestMetricsByRunUuid, tagsByRunUuid } = useSelector((state: ReduxState) => ({
     paramsByRunUuid: state.entities.paramsByRunUuid,
     latestMetricsByRunUuid: state.entities.latestMetricsByRunUuid,
+    tagsByRunUuid: state.entities.tagsByRunUuid,
   }));
 
   const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsChartsCardConfig | null>(null);
@@ -106,13 +108,14 @@ export const RunViewMetricChartsV2Impl = ({
         displayName: runInfo.run_name,
         metrics: latestMetricsByRunUuid[runInfo.run_uuid] || {},
         params: paramsByRunUuid[runInfo.run_uuid] || {},
+        tags: tagsByRunUuid[runInfo.run_uuid] || {},
         metricHistory: {},
         uuid: runInfo.run_uuid,
         color: theme.colors.primary,
         runInfo,
       },
     ],
-    [runInfo, latestMetricsByRunUuid, paramsByRunUuid, theme],
+    [runInfo, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid, theme],
   );
 
   useEffect(() => {

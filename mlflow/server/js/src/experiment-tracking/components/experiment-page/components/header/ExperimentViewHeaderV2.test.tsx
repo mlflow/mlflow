@@ -1,6 +1,6 @@
 import { ExperimentViewHeaderV2 } from './ExperimentViewHeaderV2';
 import { renderWithIntl, act, fireEvent, screen, within } from 'common/utils/TestUtils.react18';
-import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentEntity, KeyValueEntity } from 'experiment-tracking/types';
 import { useState } from 'react';
 import { it } from '@jest/globals';

@@ -56,6 +56,7 @@ const testReduxStore: DeepPartial<ReduxState> = {
       },
     },
     paramsByRunUuid: {},
+    tagsByRunUuid: {},
   },
 };
 

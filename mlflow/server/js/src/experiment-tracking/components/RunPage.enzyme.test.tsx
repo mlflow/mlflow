@@ -20,7 +20,6 @@ import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
 import { RunNotFoundView } from './RunNotFoundView';
 
-// mock this as feature-flags are hard-coded
 jest.mock('../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../common/utils/FeatureUtils'),
   shouldEnableDeepLearningUI: jest.fn(() => false),

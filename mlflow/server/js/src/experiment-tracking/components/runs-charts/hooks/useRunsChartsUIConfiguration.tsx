@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExperimentRunsChartsUIConfiguration } from '../../experiment-page/models/ExperimentPageUIStateV2';
+import { ExperimentRunsChartsUIConfiguration } from '../../experiment-page/models/ExperimentPageUIState';
 import { RunsChartsCardConfig } from '../runs-charts.types';
 import { getUUID } from '../../../../common/utils/ActionUtils';
 

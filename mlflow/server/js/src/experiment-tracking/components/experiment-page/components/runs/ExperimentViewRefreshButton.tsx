@@ -8,51 +8,12 @@ import { connect } from 'react-redux';
 import { MAX_DETECT_NEW_RUNS_RESULTS, POLL_INTERVAL } from '../../../../constants';
 import { ExperimentStoreEntities } from '../../../../types';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
-import { searchRunsPayload as searchRunsPayloadDirect } from '../../../../actions';
+import { searchRunsPayload } from '../../../../actions';
 
 export interface ExperimentViewRefreshButtonProps {
   runInfos: ExperimentStoreEntities['runInfosByUuid'];
   refreshRuns?: () => void;
 }
-
-// Local hook that returns proper variant of refresh runs function based on the feature flag.
-const useGetRefreshFn = (props: ExperimentViewRefreshButtonProps) => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-  const { refreshRuns: refreshRunsFromProps } = props;
-  if (usingNewViewStateModel && refreshRunsFromProps) {
-    return refreshRunsFromProps;
-  }
-  // We can disable this eslint rule because condition uses a stable feature flag evaluation
-  /* eslint-disable react-hooks/rules-of-hooks */
-  const { updateSearchFacets } = useFetchExperimentRuns();
-  return useCallback(
-    () =>
-      updateSearchFacets(
-        {},
-        {
-          forceRefresh: true,
-          preservePristine: true,
-        },
-      ),
-    [updateSearchFacets],
-  );
-};
-
-const useGetSearchRunsAction = () => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-
-  const {
-    actions: { searchRunsPayload: searchRunsPayloadFromContext },
-  } = useFetchExperimentRuns();
-
-  if (usingNewViewStateModel) {
-    return searchRunsPayloadDirect;
-  }
-
-  return searchRunsPayloadFromContext;
-};
 
 /**
  * A component that displays "refresh runs" button with the relevant number
@@ -63,8 +24,7 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
     const { runInfos } = props;
     const { theme } = useDesignSystemTheme();
 
-    const searchRunsPayload = useGetSearchRunsAction();
-    const refreshRuns = useGetRefreshFn(props);
+    const { refreshRuns } = props;
 
     const experimentIds = useExperimentIds();
 
@@ -102,7 +62,7 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
         return () => clearInterval(interval);
       },
       // We're resetting the interval each time the reference time or experiment IDs have changed
-      [lastFetchTime, searchRunsPayload, experimentIds],
+      [lastFetchTime, experimentIds],
     );
 
     return (

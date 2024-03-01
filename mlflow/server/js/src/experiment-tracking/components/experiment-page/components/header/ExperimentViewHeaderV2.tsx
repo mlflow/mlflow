@@ -7,8 +7,8 @@ import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { ExperimentEntity } from '../../../../types';
 import { useExperimentPageFeedbackUrl } from '../../hooks/useExperimentPageFeedbackUrl';
-import { ExperimentPageSearchFacetsStateV2 } from '../../models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
@@ -29,8 +29,8 @@ export const ExperimentViewHeaderV2 = React.memo(
     setEditing,
   }: {
     experiment: ExperimentEntity;
-    searchFacetsState?: ExperimentPageSearchFacetsStateV2;
-    uiState?: ExperimentPageUIStateV2;
+    searchFacetsState?: ExperimentPageSearchFacetsState;
+    uiState?: ExperimentPageUIState;
     showAddDescriptionButton: boolean;
     setEditing: (editing: boolean) => void;
   }) => {
@@ -126,7 +126,6 @@ export const ExperimentViewHeaderV2 = React.memo(
         </div>
       );
     };
-
     const getAddDescriptionButton = () => {
       return (
         <Button

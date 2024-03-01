@@ -7,6 +7,7 @@ import {
   useDesignSystemTheme,
   InfoTooltip,
   FullscreenIcon,
+  Switch,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { PropsWithChildren, ReactNode } from 'react';
@@ -19,6 +20,7 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsCardConfig } from '../../runs-charts.types';
+import type { ExperimentChartImageDownloadFileFormat } from '../../hooks/useChartImageDownloadHandler';
 
 export enum RunsChartsChartsDragGroup {
   PARALLEL_CHARTS_AREA = 'PARALLEL_CHARTS_AREA',
@@ -44,6 +46,12 @@ export interface RunsChartCardFullScreenProps {
   setFullScreenChart?: RunsChartCardSetFullscreenFn;
 }
 
+export interface ChartCardToggleProps {
+  toggleLabel: string;
+  currentToggle: boolean;
+  setToggle: () => void;
+}
+
 export interface ChartCardWrapperProps extends RunsChartCardReorderProps {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -54,6 +62,8 @@ export interface ChartCardWrapperProps extends RunsChartCardReorderProps {
   dragGroupKey: RunsChartsChartsDragGroup;
   additionalMenuContent?: React.ReactNode;
   toggleFullScreenChart?: () => void;
+  toggles?: ChartCardToggleProps[];
+  onClickDownload?: (format: ExperimentChartImageDownloadFileFormat) => void;
 }
 
 export const ChartRunsCountIndicator = ({ runsOrGroups }: { runsOrGroups: RunsChartsRunData[] }) => {
@@ -106,6 +116,8 @@ export const RunsChartCardWrapper = ({
   onMoveUp,
   additionalMenuContent,
   toggleFullScreenChart,
+  toggles,
+  onClickDownload,
 }: PropsWithChildren<ChartCardWrapperProps>) => {
   const { theme } = useDesignSystemTheme();
   const isDragAndDropEnabled = shouldEnableDeepLearningUI();
@@ -145,9 +157,7 @@ export const RunsChartCardWrapper = ({
     >
       <div
         css={{
-          display: 'grid',
-          // one extra column to accomodate the drag handle
-          gridTemplateColumns: isDragAndDropEnabled ? 'auto 1fr auto auto' : '1fr auto auto',
+          display: 'flex',
         }}
       >
         {isDragAndDropEnabled && (
@@ -163,7 +173,7 @@ export const RunsChartCardWrapper = ({
             <DragIcon />
           </div>
         )}
-        <div css={{ overflow: 'hidden', flex: 1 }}>
+        <div css={{ overflow: 'hidden', flex: 1, flexShrink: 1 }}>
           <Typography.Title
             title={String(title)}
             level={4}
@@ -179,6 +189,21 @@ export const RunsChartCardWrapper = ({
           {subtitle && <span css={styles.subtitle(theme)}>{subtitle}</span>}
           {tooltip && <InfoTooltip css={{ verticalAlign: 'middle' }} title={tooltip} />}
         </div>
+        {toggles && (
+          <div
+            css={{
+              display: 'flex',
+              padding: `0px ${theme.spacing.lg}px`,
+              gap: theme.spacing.md,
+              alignItems: 'flex-start',
+            }}
+          >
+            {toggles.map((toggle) => {
+              return <Switch checked={toggle.currentToggle} onChange={toggle.setToggle} label={toggle.toggleLabel} />;
+            })}
+          </div>
+        )}
+
         {shouldEnableDeepLearningUIPhase2() && (
           <Button
             componentId="fullscreen_button_chartcard"
@@ -203,6 +228,23 @@ export const RunsChartCardWrapper = ({
             <DropdownMenu.Item onClick={onDelete} data-testid="experiment-view-compare-runs-card-delete">
               Delete
             </DropdownMenu.Item>
+            {onClickDownload && (
+              <>
+                <DropdownMenu.Separator />
+                <DropdownMenu.Item onClick={() => onClickDownload('svg')}>
+                  <FormattedMessage
+                    defaultMessage="Download as SVG"
+                    description="Experiment page > compare runs tab > chart header > download as SVG option"
+                  />
+                </DropdownMenu.Item>
+                <DropdownMenu.Item onClick={() => onClickDownload('png')}>
+                  <FormattedMessage
+                    defaultMessage="Download as PNG"
+                    description="Experiment page > compare runs tab > chart header > download as PNG option"
+                  />
+                </DropdownMenu.Item>
+              </>
+            )}
             {isDragAndDropEnabled && (
               <>
                 <DropdownMenu.Separator />

@@ -15,12 +15,9 @@ import { Theme } from '@emotion/react';
 import React from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
-import {
-  shouldEnableShareExperimentViewByTags,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
-import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
 
 const labels = {
@@ -83,7 +80,6 @@ export const RowActionsCellRenderer = React.memo(
     onTogglePin: (runUuid: string) => void;
     onToggleVisibility: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string) => void;
   }) => {
-    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
     const updateUIState = useUpdateExperimentViewUIState();
     const { theme } = useDesignSystemTheme();
 
@@ -173,24 +169,18 @@ export const RowActionsCellRenderer = React.memo(
                 type="checkbox"
                 checked={pinned}
                 onChange={() => {
-                  // If using new view state model, update the pinned runs in the UI state.
-                  // TODO: Remove this once we migrate to the new view state model
-                  if (usingNewViewStateModel) {
-                    const uuidToPin = groupParentInfo ? props.data.rowUuid : runUuid;
-                    updateUIState((existingState) => {
-                      if (uuidToPin) {
-                        return {
-                          ...existingState,
-                          runsPinned: !existingState.runsPinned.includes(uuidToPin)
-                            ? [...existingState.runsPinned, uuidToPin]
-                            : existingState.runsPinned.filter((r) => r !== uuidToPin),
-                        };
-                      }
-                      return existingState;
-                    });
-                  } else if (runUuid) {
-                    props.onTogglePin(runUuid);
-                  }
+                  const uuidToPin = groupParentInfo ? props.data.rowUuid : runUuid;
+                  updateUIState((existingState) => {
+                    if (uuidToPin) {
+                      return {
+                        ...existingState,
+                        runsPinned: !existingState.runsPinned.includes(uuidToPin)
+                          ? [...existingState.runsPinned, uuidToPin]
+                          : existingState.runsPinned.filter((r) => r !== uuidToPin),
+                      };
+                    }
+                    return existingState;
+                  });
                 }}
               />
               {pinned ? <PinFillIcon /> : <PinIcon />}

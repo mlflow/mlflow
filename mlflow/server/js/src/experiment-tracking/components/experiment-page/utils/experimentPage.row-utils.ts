@@ -18,7 +18,6 @@ import {
   RunRowType,
   RunRowVersionInfo,
 } from './experimentPage.row-types';
-import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
@@ -27,11 +26,7 @@ import {
   EXPERIMENT_PARENT_ID_TAG,
 } from './experimentPage.common-utils';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';
-import {
-  shouldEnableRunGrouping,
-  shouldEnableShareExperimentViewByTags,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldEnableRunGrouping, shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
 import {
   type GroupByConfig,
   parseRunsGroupByKey,
@@ -39,7 +34,7 @@ import {
   isRemainingRunsGroup,
 } from './experimentPage.group-row-utils';
 import invariant from 'invariant';
-import { ExperimentPageUIStateV2, RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
+import { type ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 
 /**
  * A simple tree-like interface used in nested rows calculations.
@@ -426,13 +421,8 @@ export const useExperimentRunRows = ({
   groupBy = '',
   runsHiddenMode,
   groupsExpanded = {},
-}: PrepareRunsGridDataParams) => {
-  if (!shouldEnableShareExperimentViewByTags()) {
-    return [];
-  }
-  // The eslint rule can be disabled safely, the condition based on feature flag evaluation is stable
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  return useMemo(
+}: PrepareRunsGridDataParams) =>
+  useMemo(
     () =>
       prepareRunsGridData({
         experiments,
@@ -470,7 +460,6 @@ export const useExperimentRunRows = ({
       runsHiddenMode,
     ],
   );
-};
 
 // Utility function that determines if a particular table run should be hidden,
 // based on the selected mode, position on the list and current state of manually hidden runs array.
@@ -553,8 +542,8 @@ type PrepareRunsGridDataParams = Pick<
   ExperimentRunsSelectorResult,
   'metricKeyList' | 'paramKeyList' | 'modelVersionsByRunUuid'
 > &
-  Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned' | 'runsHidden'> &
-  Partial<Pick<ExperimentPageUIStateV2, 'groupBy' | 'groupsExpanded' | 'runsHiddenMode'>> & {
+  Pick<ExperimentPageUIState, 'runsExpanded' | 'runsPinned' | 'runsHidden'> &
+  Partial<Pick<ExperimentPageUIState, 'groupBy' | 'groupsExpanded' | 'runsHiddenMode'>> & {
     /**
      * List of experiments containing the runs
      */

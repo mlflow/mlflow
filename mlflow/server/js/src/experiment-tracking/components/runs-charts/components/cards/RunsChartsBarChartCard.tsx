@@ -15,6 +15,7 @@ import {
   ChartRunsCountIndicator,
   RunsChartCardFullScreenProps,
 } from './ChartCard.common';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 
 export interface RunsChartsBarChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsBarCardConfig;
@@ -65,6 +66,8 @@ export const RunsChartsBarChartCard = ({
   const usingV2ChartImprovements = shouldEnableDeepLearningUI();
   const { elementRef, isInViewport } = useIsInViewport({ enabled: usingV2ChartImprovements });
 
+  const [downloadHandler, setDownloadHandler] = useChartImageDownloadHandler();
+
   const chartBody = (
     <div
       css={[
@@ -86,6 +89,7 @@ export const RunsChartsBarChartCard = ({
           onHover={setTooltip}
           onUnhover={resetTooltip}
           selectedRunUuid={selectedRunUuid}
+          onSetDownloadHandler={setDownloadHandler}
         />
       ) : null}
     </div>
@@ -109,6 +113,9 @@ export const RunsChartsBarChartCard = ({
       onMoveDown={onMoveDown}
       onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
+      onClickDownload={(format) => {
+        downloadHandler?.(format, config.metricKey);
+      }}
     >
       {chartBody}
     </RunsChartCardWrapper>

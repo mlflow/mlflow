@@ -9,6 +9,7 @@ import { useDragAndDropElement } from 'common/hooks/useDragAndDropElement';
 import { FormattedMessage } from 'react-intl';
 import { Empty } from '@databricks/design-system';
 import { RunsChartsCard } from './cards/RunsChartsCard';
+import { difference } from 'lodash';
 
 export interface RunsChartsV2Props {
   sectionId: string;
@@ -39,14 +40,15 @@ export const RunsChartsV2 = ({
 }: RunsChartsV2Props) => {
   const { theme } = useDesignSystemTheme();
 
-  const [parallelChartCards, remainingChartCards] = useMemo(() => {
+  const [parallelChartCards, differenceChartCards, remainingChartCards] = useMemo(() => {
     // Play it safe in case that cards config somehow failed to load
     if (!Array.isArray(cardsConfig)) {
-      return [[], []];
+      return [[], [], []];
     }
     return [
       cardsConfig.filter((c) => c.type === RunsChartType.PARALLEL),
-      cardsConfig.filter((c) => c.type !== RunsChartType.PARALLEL),
+      cardsConfig.filter((c) => c.type === RunsChartType.DIFFERENCE),
+      cardsConfig.filter((c) => c.type !== RunsChartType.PARALLEL && c.type !== RunsChartType.DIFFERENCE),
     ];
   }, [cardsConfig]);
 
@@ -98,7 +100,7 @@ export const RunsChartsV2 = ({
           }}
         />
       )}
-      {!parallelChartCards.length && !remainingChartCards.length && (
+      {!parallelChartCards.length && !differenceChartCards.length && !remainingChartCards.length && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Empty
             title={
@@ -116,41 +118,46 @@ export const RunsChartsV2 = ({
           />
         </div>
       )}
-      {parallelChartCards.length ? (
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.md,
-            marginBottom: theme.spacing.md,
-          }}
-        >
-          {parallelChartCards.map((cardConfig, index) => {
-            const reorderProps = {
-              onReorderWith: onReorderCharts,
-              canMoveDown: index < parallelChartCards.length - 1,
-              canMoveUp: index > 0,
-              onMoveDown: () => onReorderCharts(cardConfig.uuid || '', parallelChartCards[index + 1]?.uuid || ''),
-              onMoveUp: () => onReorderCharts(cardConfig.uuid || '', parallelChartCards[index - 1]?.uuid || ''),
-            };
-            return (
-              <RunsChartsCard
-                cardConfig={cardConfig}
-                chartRunData={chartRunData}
-                onStartEditChart={onStartEditChart}
-                onRemoveChart={onRemoveChart}
-                setFullScreenChart={setFullScreenChart}
-                onReorderCharts={onReorderCharts}
-                index={index}
-                sectionIndex={sectionIndex}
-                isMetricHistoryLoading={isMetricHistoryLoading}
-                groupBy={groupBy}
-                {...reorderProps}
-              />
-            );
-          })}
-        </div>
-      ) : null}
+      {[differenceChartCards, parallelChartCards].map((chartCards) => {
+        if (chartCards.length) {
+          return (
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.md,
+                marginBottom: theme.spacing.md,
+              }}
+            >
+              {chartCards.map((cardConfig, index) => {
+                const reorderProps = {
+                  onReorderWith: onReorderCharts,
+                  canMoveDown: index < chartCards.length - 1,
+                  canMoveUp: index > 0,
+                  onMoveDown: () => onReorderCharts(cardConfig.uuid || '', chartCards[index + 1]?.uuid || ''),
+                  onMoveUp: () => onReorderCharts(cardConfig.uuid || '', chartCards[index - 1]?.uuid || ''),
+                };
+                return (
+                  <RunsChartsCard
+                    cardConfig={cardConfig}
+                    chartRunData={chartRunData}
+                    onStartEditChart={onStartEditChart}
+                    onRemoveChart={onRemoveChart}
+                    setFullScreenChart={setFullScreenChart}
+                    onReorderCharts={onReorderCharts}
+                    index={index}
+                    sectionIndex={sectionIndex}
+                    isMetricHistoryLoading={isMetricHistoryLoading}
+                    groupBy={groupBy}
+                    {...reorderProps}
+                  />
+                );
+              })}
+            </div>
+          );
+        }
+        return null;
+      })}
       <div css={gridSetup}>
         {remainingChartCards.map((cardConfig, index) => {
           const reorderProps = {

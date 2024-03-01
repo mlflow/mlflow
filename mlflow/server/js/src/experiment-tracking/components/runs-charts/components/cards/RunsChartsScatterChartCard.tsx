@@ -15,6 +15,7 @@ import {
   shouldEnableDeepLearningUI,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 
 export interface RunsChartsScatterChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsScatterCardConfig;
@@ -59,6 +60,8 @@ export const RunsChartsScatterChartCard = ({
   const usingV2ChartImprovements = shouldEnableDeepLearningUI();
   const { elementRef, isInViewport } = useIsInViewport({ enabled: usingV2ChartImprovements });
 
+  const [downloadHandler, setDownloadHandler] = useChartImageDownloadHandler();
+
   const chartBody = (
     <div
       css={[
@@ -78,6 +81,7 @@ export const RunsChartsScatterChartCard = ({
           onUnhover={resetTooltip}
           useDefaultHoverBox={false}
           selectedRunUuid={selectedRunUuid}
+          onSetDownloadHandler={setDownloadHandler}
         />
       ) : null}
     </div>
@@ -101,6 +105,10 @@ export const RunsChartsScatterChartCard = ({
       onMoveDown={onMoveDown}
       onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
+      onClickDownload={(format) => {
+        const savedChartTitle = [config.xaxis.key, config.yaxis.key].join('-');
+        downloadHandler?.(format, savedChartTitle);
+      }}
     >
       {chartBody}
     </RunsChartCardWrapper>

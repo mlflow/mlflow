@@ -1,6 +1,6 @@
 import { GridApi, RowSelectedEvent, SelectionChangedEvent } from '@ag-grid-community/core';
 import { useCallback, useRef } from 'react';
-import { SearchExperimentRunsViewState } from '../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../models/ExperimentPageViewState';
 import { RunRowType } from '../utils/experimentPage.row-types';
 import { uniqBy } from 'lodash';
 
@@ -58,7 +58,7 @@ const agGridSelectGroupRows = (rowData: RunRowType[], gridApi: GridApi) => {
  * Supports groups, nested runs and regular flat hierarchy.
  */
 export const useExperimentTableSelectRowHandler = (
-  updateViewState: (newPartialViewState: Partial<SearchExperimentRunsViewState>) => void,
+  updateViewState: (newPartialViewState: Partial<ExperimentPageViewState>) => void,
 ) => {
   const onSelectionChange = useCallback(
     ({ api }: SelectionChangedEvent) => {

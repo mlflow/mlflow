@@ -28,6 +28,7 @@ import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { shouldEnableDeepLearningUI, shouldEnableDeepLearningUIPhase3 } from 'common/utils/FeatureUtils';
 import { useRunsMultipleTracesTooltipData } from '../hooks/useRunsChartsMultipleTracesTooltip';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 
 export type LineChartTraceData = PlotlyData & {
   x?: number[] | undefined;
@@ -49,7 +50,7 @@ const getDataTraceForRun = ({
   lineShape,
   lineDash,
 }: {
-  runEntry: Omit<RunsChartsRunData, 'metrics' | 'params'>;
+  runEntry: Omit<RunsChartsRunData, 'metrics' | 'params' | 'tags'>;
   metricKey: RunsMetricsLinePlotProps['metricKey'];
   xAxisKey: RunsMetricsLinePlotProps['xAxisKey'];
   selectedXAxisMetricKey: RunsMetricsLinePlotProps['selectedXAxisMetricKey'];
@@ -121,7 +122,7 @@ const getBandTraceForRun = ({
   xAxisKey,
   selectedXAxisMetricKey,
 }: {
-  runEntry: Omit<RunsChartsRunData, 'metrics' | 'params'>;
+  runEntry: Omit<RunsChartsRunData, 'metrics' | 'params' | 'tags'>;
   metricKey: RunsMetricsLinePlotProps['metricKey'];
   lineShape: RunsMetricsLinePlotProps['lineShape'];
   xAxisKey: RunsChartsLineChartXAxisType;
@@ -260,7 +261,7 @@ export interface RunsMetricsLinePlotProps extends RunsPlotsCommonProps {
   /**
    * Array of runs data with corresponding values
    */
-  runsData: Omit<RunsChartsRunData, 'metrics' | 'params'>[];
+  runsData: Omit<RunsChartsRunData, 'metrics' | 'params' | 'tags'>[];
 
   /**
    * Currently visible range on x-axis.
@@ -282,6 +283,7 @@ const PLOT_CONFIG: Partial<Config> = {
   displaylogo: false,
   doubleClick: 'autosize',
   scrollZoom: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
 export const createTooltipTemplate = (runName: string) =>
@@ -370,6 +372,7 @@ export const RunsMetricsLinePlot = React.memo(
     yRange,
     lockXAxisZoom,
     fullScreen,
+    onSetDownloadHandler,
   }: RunsMetricsLinePlotProps) => {
     const { theme } = useDesignSystemTheme();
 
@@ -600,6 +603,32 @@ export const RunsMetricsLinePlot = React.memo(
     const mutableHoverCallback = useMutableChartHoverCallback(
       usingMultipleRunsHoverTooltip ? hoverCallbackMultipleRuns : hoverCallback,
     );
+
+    // Prepare data for image download handler
+    useEffect(() => {
+      // Check if we are using multiple metric keys. If so, we also need to append
+      // the metric key to  the trace name in the exported image.
+      const usingMultipleMetricKeys = (selectedMetricKeys?.length || 0) > 1;
+      const dataToExport = usingMultipleMetricKeys
+        ? plotDataWithBands.map((dataTrace) =>
+            dataTrace.metricKey
+              ? {
+                  ...dataTrace,
+                  name: `${dataTrace.name} (${dataTrace.metricKey})`,
+                }
+              : dataTrace,
+          )
+        : plotDataWithBands;
+
+      const layoutToExport: Partial<Layout> = {
+        ...layout,
+        showlegend: true,
+        legend: {
+          orientation: 'h',
+        },
+      };
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layoutToExport));
+    }, [layout, onSetDownloadHandler, plotDataWithBands, selectedMetricKeys?.length]);
 
     const chart = (
       <div

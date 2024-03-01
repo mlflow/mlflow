@@ -7,8 +7,8 @@ import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { ExperimentEntity } from '../../../../types';
 import { useExperimentPageFeedbackUrl } from '../../hooks/useExperimentPageFeedbackUrl';
-import { ExperimentPageSearchFacetsStateV2 } from '../../models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
@@ -21,8 +21,8 @@ export const ExperimentViewHeader = React.memo(
     uiState,
   }: {
     experiment: ExperimentEntity;
-    searchFacetsState?: ExperimentPageSearchFacetsStateV2;
-    uiState?: ExperimentPageUIStateV2;
+    searchFacetsState?: ExperimentPageSearchFacetsState;
+    uiState?: ExperimentPageUIState;
   }) => {
     // eslint-disable-next-line prefer-const
     let breadcrumbs: React.ReactNode[] = [];

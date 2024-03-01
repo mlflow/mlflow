@@ -8,7 +8,6 @@ import type {
   MetricEntitiesByName,
   MetricHistoryByName,
   RunInfoEntity,
-  UpdateExperimentSearchFacetsFn,
 } from '../../types';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
@@ -22,9 +21,9 @@ import { AUTOML_EVALUATION_METRIC_TAG, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME } f
 import { RunsChartsTooltipBody } from '../runs-charts/components/RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
-import { shouldEnableDeepLearningUI, shouldEnableShareExperimentViewByTags } from '../../../common/utils/FeatureUtils';
+import { shouldEnableDeepLearningUI } from '../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
-import { ExperimentPageUIStateV2 } from '../experiment-page/models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
 
 export interface RunsCompareProps {
   comparedRuns: RunRowType[];
@@ -33,7 +32,6 @@ export interface RunsCompareProps {
   paramKeyList: string[];
   experimentTags: Record<string, KeyValueEntity>;
   compareRunCharts?: SerializedRunsChartsCardConfigCard[];
-  updateSearchFacets: UpdateExperimentSearchFacetsFn;
   // Provided by redux connect().
   paramsByRunUuid: Record<string, Record<string, KeyValueEntity>>;
   latestMetricsByRunUuid: Record<string, MetricEntitiesByName>;
@@ -51,7 +49,6 @@ export const RunsCompareImpl = ({
   comparedRuns,
   isLoading,
   compareRunCharts,
-  updateSearchFacets,
   latestMetricsByRunUuid,
   metricsByRunUuid,
   paramsByRunUuid,
@@ -60,9 +57,7 @@ export const RunsCompareImpl = ({
   experimentTags,
 }: RunsCompareProps) => {
   const usingV2ChartImprovements = shouldEnableDeepLearningUI();
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
   const updateUIState = useUpdateExperimentViewUIState();
-  const stateSetterFn = usingNewViewStateModel ? updateUIState : updateSearchFacets;
 
   const { theme } = useDesignSystemTheme();
   const [initiallyLoaded, setInitiallyLoaded] = useState(false);
@@ -102,6 +97,7 @@ export const RunsCompareImpl = ({
           runInfo: run.runInfo,
           metrics: (run.runUuid && latestMetricsByRunUuid[run.runUuid]) || {},
           params: (run.runUuid && paramsByRunUuid[run.runUuid]) || {},
+          tags: {},
           color: run.color,
           pinned: run.pinned,
           pinnable: run.pinnable,
@@ -121,43 +117,33 @@ export const RunsCompareImpl = ({
   // Set chart cards to the user-facing base config if there is no other information.
   useEffect(() => {
     if (!compareRunCharts && chartData.length > 0) {
-      if (usingNewViewStateModel) {
-        updateUIState((current) => ({
-          ...current,
-          compareRunCharts: RunsChartsCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
-        }));
-      } else {
-        updateSearchFacets(
-          (current) => ({
-            ...current,
-            compareRunCharts: RunsChartsCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
-          }),
-          { replaceHistory: true },
-        );
-      }
+      updateUIState((current) => ({
+        ...current,
+        compareRunCharts: RunsChartsCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
+      }));
     }
-  }, [compareRunCharts, primaryMetricKey, updateSearchFacets, chartData, usingNewViewStateModel, updateUIState]);
+  }, [compareRunCharts, primaryMetricKey, chartData, updateUIState]);
 
   const onTogglePin = useCallback(
     (runUuid: string) => {
-      stateSetterFn((existingFacets: ExperimentPageUIStateV2) => ({
+      updateUIState((existingFacets: ExperimentPageUIState) => ({
         ...existingFacets,
         runsPinned: !existingFacets.runsPinned.includes(runUuid)
           ? [...existingFacets.runsPinned, runUuid]
           : existingFacets.runsPinned.filter((r) => r !== runUuid),
       }));
     },
-    [stateSetterFn],
+    [updateUIState],
   );
 
   const onHideRun = useCallback(
     (runUuid: string) => {
-      stateSetterFn((existingFacets: ExperimentPageUIStateV2) => ({
+      updateUIState((existingFacets: ExperimentPageUIState) => ({
         ...existingFacets,
         runsHidden: [...existingFacets.runsHidden, runUuid],
       }));
     },
-    [stateSetterFn],
+    [updateUIState],
   );
 
   const submitForm = (configuredCard: Partial<RunsChartsCardConfig>) => {
@@ -169,13 +155,13 @@ export const RunsCompareImpl = ({
 
     // Creating new chart
     if (!configuredCard.uuid) {
-      stateSetterFn((current: ExperimentPageUIStateV2) => ({
+      updateUIState((current: ExperimentPageUIState) => ({
         ...current,
         // This condition ensures that chart collection will remain undefined if not set previously
         compareRunCharts: current.compareRunCharts && [...current.compareRunCharts, serializedCard],
       }));
     } /* Editing existing chart */ else {
-      stateSetterFn((current: ExperimentPageUIStateV2) => ({
+      updateUIState((current: ExperimentPageUIState) => ({
         ...current,
         compareRunCharts: current.compareRunCharts?.map((existingChartCard) => {
           if (existingChartCard.uuid === configuredCard.uuid) {
@@ -191,7 +177,7 @@ export const RunsCompareImpl = ({
   };
 
   const removeChart = (configToDelete: RunsChartsCardConfig) => {
-    stateSetterFn((current: ExperimentPageUIStateV2) => ({
+    updateUIState((current: ExperimentPageUIState) => ({
       ...current,
       compareRunCharts: current.compareRunCharts?.filter((setup) => setup.uuid !== configToDelete.uuid),
     }));
@@ -201,7 +187,7 @@ export const RunsCompareImpl = ({
    * Reorders the charts in the compare run view by swapping the positions of two charts.
    */
   const reorderCharts = (sourceChartUuid: string, targetChartUuid: string) => {
-    stateSetterFn((current: ExperimentPageUIStateV2) => {
+    updateUIState((current: ExperimentPageUIState) => {
       const newChartsOrder = current.compareRunCharts?.slice();
       if (!newChartsOrder) {
         return current;

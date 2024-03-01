@@ -6,14 +6,6 @@
  * Disable legacy charts on "compare runs" page in favor of a new chart view
  */
 export const shouldDisableLegacyRunCompareCharts = () => false;
-/**
- * UI feature preview: displays data lineage (datasets used) in experiment runs
- */
-export const shouldEnableExperimentDatasetTracking = () => true;
-/**
- * UI feature preview: enables artifact-based ML experiment output data analysis, used for evaluating LLM prediction data
- */
-export const shouldEnableArtifactBasedEvaluation = () => true;
 
 /**
  * Enables features related to deep learning: Phase 1.
@@ -34,13 +26,19 @@ export const shouldEnableDeepLearningUIPhase2 = () => true;
 export const shouldEnableDeepLearningUIPhase3 = () => false;
 
 export const shouldUseUnifiedRunCharts = () => false;
+
+export const shouldEnableExperimentPageAutoRefresh = () => false;
 /**
  * UI feature preview: enables prompt lab
  */
 export const shouldEnablePromptLab = () => true;
 
+/**
+ * Difference view charts feature
+ */
+export const shouldEnableDifferenceViewCharts = () => false;
+
 export const shouldUsePathRouting = () => false;
-export const shouldEnableShareExperimentViewByTags = () => true;
 
 /**
  * A flag determining if we should display the new models UI.
@@ -50,16 +48,13 @@ export const shouldShowModelsNextUI = () => {
 };
 
 // Determines if a new run rows visibility model in the experiment runs table should be used.
-export const shouldUseNewRunRowsVisibilityModel = () =>
-  shouldEnableDeepLearningUIPhase3() && shouldEnableShareExperimentViewByTags();
+export const shouldUseNewRunRowsVisibilityModel = () => shouldEnableDeepLearningUIPhase3();
 
 // Determines if experiment run row grouping should be enabled.
-export const shouldEnableRunGrouping = () =>
-  shouldEnableDeepLearningUIPhase2() && shouldEnableShareExperimentViewByTags();
+export const shouldEnableRunGrouping = () => shouldEnableDeepLearningUIPhase2();
 
 // Determines if metric charts grouping/sections should be enabled.
-export const shouldEnableMetricChartsGrouping = () =>
-  shouldEnableDeepLearningUIPhase2() && shouldEnableShareExperimentViewByTags();
+export const shouldEnableMetricChartsGrouping = () => shouldEnableDeepLearningUIPhase2();
 
 // Determines if structured table view for logged table artifacts should be enabled.
 export const shouldEnableLoggedArtifactTableView = () => shouldEnableDeepLearningUIPhase2();

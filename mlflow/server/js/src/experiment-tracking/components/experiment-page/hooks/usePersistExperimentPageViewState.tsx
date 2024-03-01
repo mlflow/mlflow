@@ -1,9 +1,8 @@
 import { useEffect, useMemo } from 'react';
 
 import { pick } from 'lodash';
-import { shouldEnableShareExperimentViewByTags } from '../../../../common/utils/FeatureUtils';
-import { createExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { loadExperimentViewState, saveExperimentViewState } from '../utils/persistSearchFacets';
 import {
   EXPERIMENT_PAGE_QUERY_PARAM_KEYS,
@@ -16,18 +15,11 @@ import {
  * Partially replaces GetExperimentRunsContext.
  */
 export const usePersistExperimentPageViewState = (
-  uiState: ExperimentPageUIStateV2,
+  uiState: ExperimentPageUIState,
   searchFacets: ExperimentQueryParamsSearchFacets | null,
   experimentIds: string[],
   disabled = false,
 ) => {
-  // We can disable this eslint rule because condition uses a stable feature flag evaluation
-  /* eslint-disable react-hooks/rules-of-hooks */
-  if (!shouldEnableShareExperimentViewByTags()) {
-    // Don't use the new API if the feature flag is disabled
-    return;
-  }
-
   const setSearchFacets = useUpdateExperimentPageSearchFacets();
 
   const persistKey = useMemo(() => (experimentIds ? JSON.stringify(experimentIds.sort()) : null), [experimentIds]);
@@ -41,7 +33,7 @@ export const usePersistExperimentPageViewState = (
     if (!searchFacets) {
       const persistedViewState = persistKey ? loadExperimentViewState(persistKey) : null;
       const rebuiltViewState = pick(
-        { ...createExperimentPageSearchFacetsStateV2(), ...persistedViewState },
+        { ...createExperimentPageSearchFacetsState(), ...persistedViewState },
         EXPERIMENT_PAGE_QUERY_PARAM_KEYS,
       );
       setSearchFacets(rebuiltViewState, { replace: true });

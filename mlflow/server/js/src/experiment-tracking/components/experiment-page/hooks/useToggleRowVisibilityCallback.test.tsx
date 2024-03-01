@@ -1,13 +1,13 @@
 import { renderHook, act } from '@testing-library/react-for-react-18';
 import { useToggleRowVisibilityCallback } from './useToggleRowVisibilityCallback';
 import { ExperimentPageUIStateContextProvider } from '../contexts/ExperimentPageUIStateContext';
-import { RUNS_VISIBILITY_MODE, createExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useEffect, useState } from 'react';
 import { RunRowType } from '../utils/experimentPage.row-types';
 
 describe('useToggleRowVisibilityCallback', () => {
-  let currentUIState = createExperimentPageUIStateV2();
-  const renderConfiguredHook = (tableRows: RunRowType[] = [], initialUiState = createExperimentPageUIStateV2()) =>
+  let currentUIState = createExperimentPageUIState();
+  const renderConfiguredHook = (tableRows: RunRowType[] = [], initialUiState = createExperimentPageUIState()) =>
     renderHook((props) => useToggleRowVisibilityCallback(props.tableRows), {
       initialProps: { tableRows },
       wrapper: function Wrapper({ children }) {
@@ -26,7 +26,7 @@ describe('useToggleRowVisibilityCallback', () => {
     const toggleRowVisibility = renderConfiguredHook();
 
     // Assert initial mode
-    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIStateV2().runsHiddenMode);
+    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIState().runsHiddenMode);
 
     act(() => {
       toggleRowVisibility(RUNS_VISIBILITY_MODE.SHOWALL);
@@ -52,11 +52,11 @@ describe('useToggleRowVisibilityCallback', () => {
         { hidden: false, runUuid: 'run-4' },
         { hidden: false, runUuid: 'run-5' },
       ] as any,
-      { ...createExperimentPageUIStateV2(), runsHidden: ['run-1', 'run-3'] },
+      { ...createExperimentPageUIState(), runsHidden: ['run-1', 'run-3'] },
     );
 
     // Assert initial mode
-    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIStateV2().runsHiddenMode);
+    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIState().runsHiddenMode);
 
     act(() => {
       toggleRowVisibility(RUNS_VISIBILITY_MODE.CUSTOM, 'run-5');
@@ -77,11 +77,11 @@ describe('useToggleRowVisibilityCallback', () => {
         { hidden: false, runUuid: 'run-4' },
         { hidden: false, runUuid: 'run-5' },
       ] as any,
-      { ...createExperimentPageUIStateV2(), runsHidden: ['run-1', 'run-3'] },
+      { ...createExperimentPageUIState(), runsHidden: ['run-1', 'run-3'] },
     );
 
     // Assert initial mode
-    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIStateV2().runsHiddenMode);
+    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIState().runsHiddenMode);
 
     act(() => {
       toggleRowVisibility(RUNS_VISIBILITY_MODE.CUSTOM, 'run-3');

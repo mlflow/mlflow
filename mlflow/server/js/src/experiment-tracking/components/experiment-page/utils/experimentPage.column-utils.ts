@@ -26,7 +26,7 @@ import { shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/Fea
 import { DatasetsCellRenderer } from '../components/runs/cells/DatasetsCellRenderer';
 import { RunDatasetWithTags } from '../../../types';
 import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetricValueCell';
-import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
+import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 
 const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
   context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;

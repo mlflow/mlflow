@@ -2,13 +2,18 @@ import { chunk, isEqual } from 'lodash';
 import { AnyAction } from 'redux';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../../../model-registry/constants';
-import { ATTRIBUTE_COLUMN_SORT_KEY } from '../../../constants';
+import {
+  ATTRIBUTE_COLUMN_SORT_KEY,
+  DEFAULT_LIFECYCLE_FILTER,
+  DEFAULT_MODEL_VERSION_FILTER,
+  DEFAULT_START_TIME,
+} from '../../../constants';
 import { ViewType } from '../../../sdk/MlflowEnums';
 import { KeyValueEntity, LIFECYCLE_FILTER } from '../../../types';
-import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
 import { ThunkDispatch } from '../../../../redux-types';
-import type { ExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
 
 const START_TIME_COLUMN_OFFSET = {
   ALL: null,
@@ -19,6 +24,8 @@ const START_TIME_COLUMN_OFFSET = {
   LAST_YEAR: 12 * 30 * 24 * 60 * 60 * 1000,
 };
 
+export const RUNS_AUTO_REFRESH_INTERVAL = 30000;
+
 /**
  * This function checks if the sort+model state update has
  * been updated enough and if the change should invoke re-fetching
@@ -26,8 +33,8 @@ const START_TIME_COLUMN_OFFSET = {
  * front-end and back-end filtering.
  */
 export const shouldRefetchRuns = (
-  currentSearchFacetsState: SearchExperimentRunsFacetsState,
-  newSearchFacetsState: SearchExperimentRunsFacetsState,
+  currentSearchFacetsState: ExperimentPageSearchFacetsState,
+  newSearchFacetsState: ExperimentPageSearchFacetsState,
 ) =>
   !isEqual(currentSearchFacetsState.searchFilter, newSearchFacetsState.searchFilter) ||
   !isEqual(currentSearchFacetsState.orderByAsc, newSearchFacetsState.orderByAsc) ||
@@ -39,7 +46,7 @@ export const shouldRefetchRuns = (
 /**
  * Creates "order by" SQL expression
  */
-const createOrderByExpression = ({ orderByKey, orderByAsc }: ExperimentPageSearchFacetsStateV2) => {
+const createOrderByExpression = ({ orderByKey, orderByAsc }: ExperimentPageSearchFacetsState) => {
   if (orderByKey) {
     return orderByAsc ? [orderByKey + ' ASC'] : [orderByKey + ' DESC'];
   }
@@ -49,7 +56,7 @@ const createOrderByExpression = ({ orderByKey, orderByAsc }: ExperimentPageSearc
 /**
  * Creates SQL expression for filtering by run start time
  */
-const createStartTimeExpression = ({ startTime }: ExperimentPageSearchFacetsStateV2, referenceTime: number) => {
+const createStartTimeExpression = ({ startTime }: ExperimentPageSearchFacetsState, referenceTime: number) => {
   const offset = START_TIME_COLUMN_OFFSET[startTime as keyof typeof START_TIME_COLUMN_OFFSET];
   if (!startTime || !offset || startTime === 'ALL') {
     return null;
@@ -62,7 +69,7 @@ const createStartTimeExpression = ({ startTime }: ExperimentPageSearchFacetsStat
 /**
  * Creates SQL expression for filtering by selected datasets
  */
-const createDatasetsFilterExpression = ({ datasetsFilter }: ExperimentPageSearchFacetsStateV2) => {
+const createDatasetsFilterExpression = ({ datasetsFilter }: ExperimentPageSearchFacetsState) => {
   if (datasetsFilter.length === 0) {
     return null;
   }
@@ -76,7 +83,7 @@ const createDatasetsFilterExpression = ({ datasetsFilter }: ExperimentPageSearch
  * Combines search filter and start time SQL expressions
  */
 const createFilterExpression = (
-  { searchFilter }: ExperimentPageSearchFacetsStateV2,
+  { searchFilter }: ExperimentPageSearchFacetsState,
   startTimeExpression: string | null,
   datasetsFilterExpression: string | null,
 ) => {
@@ -95,7 +102,7 @@ const createFilterExpression = (
  * not nest children or fetch any additional parents. Will always return true if the orderByKey is
  * 'attributes.start_time'
  */
-const shouldNestChildrenAndFetchParents = ({ orderByKey, searchFilter }: ExperimentPageSearchFacetsStateV2) =>
+const shouldNestChildrenAndFetchParents = ({ orderByKey, searchFilter }: ExperimentPageSearchFacetsState) =>
   (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
 
 /**
@@ -108,9 +115,10 @@ const shouldNestChildrenAndFetchParents = ({ orderByKey, searchFilter }: Experim
  */
 export const createSearchRunsParams = (
   experimentIds: string[],
-  searchFacetsState: ExperimentPageSearchFacetsStateV2 & { runsPinned: string[] },
+  searchFacetsState: ExperimentPageSearchFacetsState & { runsPinned: string[] },
   referenceTime: number,
   pageToken?: string,
+  maxResults?: number,
 ) => {
   const runViewType =
     searchFacetsState.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? ViewType.ACTIVE_ONLY : ViewType.DELETED_ONLY;
@@ -136,6 +144,8 @@ export const createSearchRunsParams = (
     // Next page token for loading more runs
     pageToken,
     runsPinned,
+
+    maxResults: maxResults || RUNS_SEARCH_MAX_RESULTS,
   };
 };
 /**
@@ -166,4 +176,20 @@ export const fetchModelVersionsForRuns = (
     const action = actionCreator({ run_id: runsChunk.map((run) => run.info.run_id) });
     dispatch(action);
   });
+};
+
+/**
+ * Function consumes a search state facets object and returns `true`
+ * if at least one filter-related facet is not-default meaning that runs
+ * are currently filtered.
+ */
+export const isSearchFacetsFilterUsed = (currentSearchFacetsState: ExperimentPageSearchFacetsState) => {
+  const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } = currentSearchFacetsState;
+  return Boolean(
+    lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
+      modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
+      datasetsFilter.length !== 0 ||
+      searchFilter ||
+      startTime !== DEFAULT_START_TIME,
+  );
 };

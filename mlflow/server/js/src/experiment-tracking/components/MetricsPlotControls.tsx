@@ -152,6 +152,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <RadioGroup
+                name="metrics-plot-x-axis-radio-group"
                 css={styles.xAxisControls}
                 onChange={this.props.handleXAxisChange}
                 value={this.props.selectedXAxis}

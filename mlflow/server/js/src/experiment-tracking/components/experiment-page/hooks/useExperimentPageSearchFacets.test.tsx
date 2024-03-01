@@ -11,7 +11,7 @@ import {
 import { useEffect } from 'react';
 import { screen, renderWithIntl } from 'common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event-14';
-import { createExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 describe('useExperimentPageSearchFacets', () => {
   const mountHook = (initialPath = '/') =>
@@ -140,7 +140,7 @@ describe('useExperimentPageSearchFacets', () => {
 
     expect(result.current).toEqual([
       {
-        ...createExperimentPageSearchFacetsStateV2(),
+        ...createExperimentPageSearchFacetsState(),
         orderByKey: 'foo',
       },
       ['123'],

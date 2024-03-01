@@ -5,8 +5,7 @@
  * Note: this could be automatically generated in the future.
  */
 
-import { SearchExperimentRunsFacetsState } from './components/experiment-page/models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from './components/experiment-page/models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
 import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 
 /**
@@ -270,25 +269,10 @@ export type ExperimentCategorizedUncheckedKeys = {
 };
 
 /**
- * Function used to update the filter set and fetch new set of runs.
- * First parameter is the subset of fields that the current sort/filter model will be merged with.
- * If the second parameter is set to true, it will force re-fetching even if there
- * are no sufficient changes to the model.
- */
-export type UpdateExperimentSearchFacetsFn = (
-  newFilterModel: Partial<SearchExperimentRunsFacetsState> | React.SetStateAction<SearchExperimentRunsFacetsState>,
-  updateOptions?: {
-    forceRefresh?: boolean;
-    preservePristine?: boolean;
-    replaceHistory?: boolean;
-  },
-) => void;
-
-/**
  * Function used to update the local (non-persistable) view state.
  * First parameter is the subset of fields that the current view state model will be merged with.
  */
-export type UpdateExperimentViewStateFn = (newPartialViewState: Partial<SearchExperimentRunsViewState>) => void;
+export type UpdateExperimentViewStateFn = (newPartialViewState: Partial<ExperimentPageViewState>) => void;
 
 /**
  * Enum representing the different types of dataset sources.

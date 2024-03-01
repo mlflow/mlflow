@@ -19,6 +19,7 @@ export enum RunsChartType {
   SCATTER = 'SCATTER',
   CONTOUR = 'CONTOUR',
   PARALLEL = 'PARALLEL',
+  DIFFERENCE = 'DIFFERENCE',
 }
 
 const MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON = 1;
@@ -78,6 +79,8 @@ export abstract class RunsChartsCardConfig {
       return new RunsChartsParallelCardConfig(isGenerated, uuid, metricSectionId);
     } else if (type === RunsChartType.LINE) {
       return new RunsChartsLineCardConfig(isGenerated, uuid, metricSectionId);
+    } else if (type === RunsChartType.DIFFERENCE) {
+      return new RunsChartsDifferenceCardConfig(isGenerated, uuid, metricSectionId);
     } else {
       // Must be contour
       return new RunsChartsContourCardConfig(isGenerated, uuid, metricSectionId);
@@ -439,4 +442,35 @@ export class RunsChartsParallelCardConfig extends RunsChartsCardConfig {
   selectedParams: string[] = [];
   selectedMetrics: string[] = [];
   showAllRuns?: boolean = false;
+}
+
+export enum DifferenceCardConfigCompareGroup {
+  MODEL_METRICS = 'Model metrics',
+  SYSTEM_METRICS = 'System metrics',
+  PARAMETERS = 'Parameters',
+  ATTRIBUTES = 'Attributes',
+  TAGS = 'Tags',
+}
+
+export const DISABLED_GROUP_WHEN_GROUPBY = [
+  DifferenceCardConfigCompareGroup.PARAMETERS,
+  DifferenceCardConfigCompareGroup.TAGS,
+  DifferenceCardConfigCompareGroup.ATTRIBUTES,
+];
+
+export enum DifferenceCardAttributes {
+  USER = 'User',
+  SOURCE = 'Source',
+  VERSION = 'Version',
+  MODELS = 'Models',
+}
+
+// TODO: add configuration fields relevant to difference view chart
+export class RunsChartsDifferenceCardConfig extends RunsChartsCardConfig {
+  type: RunsChartType = RunsChartType.DIFFERENCE;
+  compareGroups: DifferenceCardConfigCompareGroup[] = [];
+  chartName = 'Runs difference view';
+  showChangeFromBaseline = true;
+  showDifferencesOnly = true;
+  baselineColumnUuid = '';
 }

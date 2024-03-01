@@ -17,6 +17,7 @@ import {
 } from './RunsCharts.common';
 import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 
 export interface RunsScatterPlotProps extends RunsPlotsCommonProps {
   /**
@@ -38,6 +39,7 @@ export interface RunsScatterPlotProps extends RunsPlotsCommonProps {
 const PLOT_CONFIG = {
   displaylogo: false,
   scrollZoom: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
 export const createTooltipTemplate = () =>
@@ -66,6 +68,7 @@ export const RunsScatterPlot = React.memo(
     height,
     useDefaultHoverBox = true,
     selectedRunUuid,
+    onSetDownloadHandler,
   }: RunsScatterPlotProps) => {
     const { theme } = useDesignSystemTheme();
 
@@ -107,11 +110,13 @@ export const RunsScatterPlot = React.memo(
           x: xValues,
           y: yValues,
           customdata: tooltipData,
+          text: runsData.map(({ displayName }) => displayName),
           hovertemplate: useDefaultHoverBox ? createTooltipTemplate() : undefined,
           hoverinfo: useDefaultHoverBox ? undefined : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
           type: 'scatter',
           mode: 'markers',
+          textposition: 'bottom center',
           marker: {
             size: markerSize,
             color: colors,
@@ -186,6 +191,14 @@ export const RunsScatterPlot = React.memo(
     const mutableHoverCallback = useMutableChartHoverCallback(hoverCallback);
 
     const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
+
+    useEffect(() => {
+      const dataToExport: Data[] = plotData.map((trace: Data) => ({
+        ...trace,
+        mode: 'text+markers',
+      }));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layout));
+    }, [layout, onSetDownloadHandler, plotData]);
 
     const chart = (
       <div

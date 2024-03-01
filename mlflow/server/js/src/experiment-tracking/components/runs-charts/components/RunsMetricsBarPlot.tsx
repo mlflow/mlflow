@@ -19,9 +19,10 @@ import {
 import type { MetricEntity } from '../../../types';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 
 // We're not using params in bar plot
-export type BarPlotRunData = Omit<RunsChartsRunData, 'params'>;
+export type BarPlotRunData = Omit<RunsChartsRunData, 'params' | 'tags'>;
 
 export interface RunsMetricsBarPlotHoverData {
   xValue: string;
@@ -62,6 +63,7 @@ const PLOT_CONFIG: Partial<Config> = {
   scrollZoom: false,
   doubleClick: 'autosize',
   showTips: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
 export const Y_AXIS_PARAMS = {
@@ -93,12 +95,16 @@ export const RunsMetricsBarPlot = React.memo(
     useDefaultHoverBox = true,
     displayMetricKey = true,
     selectedRunUuid,
+    onSetDownloadHandler,
   }: RunsMetricsBarPlotProps) => {
     const usingV2ChartImprovements = shouldEnableDeepLearningUI();
 
     const plotData = useMemo(() => {
       // Run uuids
       const ids = runsData.map((d) => d.uuid);
+
+      // Trace names
+      const names = runsData.map(({ displayName }) => displayName);
 
       // Actual metric values
       const values = runsData.map((d) => normalizeChartValue(d.metrics[metricKey]?.value));
@@ -113,6 +119,7 @@ export const RunsMetricsBarPlot = React.memo(
         {
           y: ids,
           x: values,
+          names,
           text: textValues,
           textposition: 'auto',
           textfont: {
@@ -131,7 +138,7 @@ export const RunsMetricsBarPlot = React.memo(
           marker: {
             color: colors,
           },
-        } as Data,
+        } as Data & { names: string[] },
       ];
     }, [runsData, metricKey, barWidth, useDefaultHoverBox]);
 
@@ -217,6 +224,25 @@ export const RunsMetricsBarPlot = React.memo(
     const mutableHoverCallback = useMutableChartHoverCallback(hoverCallback);
 
     const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
+
+    useEffect(() => {
+      // Prepare layout and data traces to export
+      const layoutToExport = {
+        ...layout,
+        yaxis: {
+          ...layout.yaxis,
+          showticklabels: true,
+          automargin: true,
+        },
+      };
+
+      const dataToExport = plotData.map((trace) => ({
+        ...trace,
+        // In exported image, use names for Y axes
+        y: trace.names,
+      }));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layoutToExport));
+    }, [layout, onSetDownloadHandler, plotData]);
 
     const chart = (
       <div

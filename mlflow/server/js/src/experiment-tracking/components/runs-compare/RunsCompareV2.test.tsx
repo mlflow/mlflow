@@ -6,7 +6,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { renderWithIntl, act, fireEvent, screen, within } from 'common/utils/TestUtils.react18';
 import { MetricEntitiesByName } from '../../types';
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
-import { ExperimentPageUIStateV2 } from '../experiment-page/models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
 import {
@@ -138,7 +138,7 @@ describe('RunsCompareV2', () => {
     },
   ];
 
-  let currentUIState = {} as ExperimentPageUIStateV2;
+  let currentUIState = {} as ExperimentPageUIState;
 
   const updateUIState = jest.fn().mockImplementation((uiStateTransformer) => {
     currentUIState = uiStateTransformer(currentUIState);
@@ -176,7 +176,7 @@ describe('RunsCompareV2', () => {
     return renderWithIntl(
       <Provider
         store={configureStore([thunk, promiseMiddleware()])({
-          entities: { paramsByRunUuid: {}, latestMetricsByRunUuid },
+          entities: { paramsByRunUuid: {}, latestMetricsByRunUuid, tagsByRunUuid: {} },
         })}
       >
         <RunsCompareV2

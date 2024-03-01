@@ -1,15 +1,10 @@
-import {
-  shouldEnableRunGrouping,
-  shouldEnableShareExperimentViewByTags,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldEnableRunGrouping, shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
-import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { SingleRunData, prepareRunsGridData } from './experimentPage.row-utils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldEnableShareExperimentViewByTags: jest.fn().mockImplementation(() => false),
   shouldEnableRunGrouping: jest.fn().mockImplementation(() => false),
   shouldUseNewRunRowsVisibilityModel: jest.fn().mockImplementation(() => false),
 }));
@@ -419,7 +414,6 @@ describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => 
 describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
   beforeEach(() => {
     // Enable run grouping by switching the flag
-    jest.mocked(shouldEnableShareExperimentViewByTags).mockImplementation(() => true);
     jest.mocked(shouldEnableRunGrouping).mockImplementation(() => true);
     jest.mocked(shouldUseNewRunRowsVisibilityModel).mockImplementation(() => false);
   });

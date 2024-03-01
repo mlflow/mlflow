@@ -13,6 +13,7 @@ import {
   RunsChartsContourCardConfig,
   RunsChartsScatterCardConfig,
   RunsChartsParallelCardConfig,
+  RunsChartsDifferenceCardConfig,
 } from '../runs-charts.types';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
@@ -20,6 +21,7 @@ import { ReactComponent as ChartContourIcon } from '../../../../common/static/ch
 import { ReactComponent as ChartLineIcon } from '../../../../common/static/chart-line.svg';
 import { ReactComponent as ChartParallelIcon } from '../../../../common/static/chart-parallel.svg';
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
+import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { RunsChartsConfigureBarChart } from './config/RunsChartsConfigureBarChart';
 import { RunsChartsConfigureParallelChart } from './config/RunsChartsConfigureParallelChart';
 import type { RunsChartsRunData } from './RunsCharts.common';
@@ -34,7 +36,13 @@ import { RunsChartsConfigureContourChart } from './config/RunsChartsConfigureCon
 import { RunsChartsConfigureScatterChart } from './config/RunsChartsConfigureScatterChart';
 import { RunsChartsTooltipBody } from './RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
+import {
+  shouldEnableDeepLearningUI,
+  shouldEnableDifferenceViewCharts,
+  shouldUseNewRunRowsVisibilityModel,
+} from 'common/utils/FeatureUtils';
+import { RunsChartsConfigureDifferenceChartPreview } from './config/RunsChartsConfigureDifferenceChart.preview';
+import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigureDifferenceChart';
 
 const previewComponentsMap: Record<
   RunsChartType,
@@ -42,6 +50,7 @@ const previewComponentsMap: Record<
     previewData: RunsChartsRunData[];
     cardConfig: any;
     groupBy: string;
+    setCardConfig: (setter: (current: RunsChartsCardConfig) => RunsChartsDifferenceCardConfig) => void;
   }>
 > = {
   [RunsChartType.BAR]: RunsChartsConfigureBarChartPreview,
@@ -49,6 +58,7 @@ const previewComponentsMap: Record<
   [RunsChartType.LINE]: RunsChartsConfigureLineChartPreview,
   [RunsChartType.PARALLEL]: RunsChartsConfigureParallelChartPreview,
   [RunsChartType.SCATTER]: RunsChartsConfigureScatterChartPreview,
+  [RunsChartType.DIFFERENCE]: RunsChartsConfigureDifferenceChartPreview,
 };
 
 export const RunsChartsConfigureModal = ({
@@ -137,13 +147,26 @@ export const RunsChartsConfigureModal = ({
         />
       );
     }
+    if (shouldEnableDifferenceViewCharts() && type === RunsChartType.DIFFERENCE) {
+      return (
+        <RunsChartsConfigureDifferenceChart
+          metricKeyList={metricKeyList}
+          paramKeyList={paramKeyList}
+          state={currentFormState as RunsChartsDifferenceCardConfig}
+          onStateChange={setCurrentFormState}
+          groupBy={groupBy}
+        />
+      );
+    }
     return null;
   };
 
-  const previewData = useMemo(
-    () => chartRunData.slice(0, currentFormState.runsCountToCompare).reverse(),
-    [chartRunData, currentFormState.runsCountToCompare],
-  );
+  const previewData = useMemo(() => {
+    if (shouldUseNewRunRowsVisibilityModel()) {
+      return chartRunData.filter(({ hidden }) => !hidden).reverse();
+    }
+    return chartRunData.slice(0, currentFormState.runsCountToCompare).reverse();
+  }, [chartRunData, currentFormState.runsCountToCompare]);
 
   const renderPreviewChartType = (type?: RunsChartType) => {
     if (!type) {
@@ -153,7 +176,14 @@ export const RunsChartsConfigureModal = ({
     if (!PreviewComponent) {
       return null;
     }
-    return <PreviewComponent previewData={previewData} cardConfig={currentFormState} groupBy={groupBy} />;
+    return (
+      <PreviewComponent
+        previewData={previewData}
+        cardConfig={currentFormState}
+        groupBy={groupBy}
+        setCardConfig={setCurrentFormState}
+      />
+    );
   };
 
   const { formatMessage } = useIntl();
@@ -251,6 +281,14 @@ export const RunsChartsConfigureModal = ({
                     </div>
                   </LegacySelect.Option>
                 )}
+                {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
+                  <LegacySelect.Option value={RunsChartType.DIFFERENCE}>
+                    <div css={styles.chartTypeOption}>
+                      <ChartDifferenceIcon />
+                      Difference view
+                    </div>
+                  </LegacySelect.Option>
+                )}
               </LegacySelect>
             </RunsChartsConfigureField>
           )}
@@ -286,5 +324,6 @@ const styles = {
   } as Interpolation<Theme>,
   chartWrapper: {
     height: 400,
+    width: 500,
   },
 };

@@ -1,9 +1,9 @@
 import { renderHook, act, type RenderHookResult } from '@testing-library/react-for-react-18';
 import {
-  ExperimentPageSearchFacetsStateV2,
-  createExperimentPageSearchFacetsStateV2,
-} from '../models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2, createExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+  ExperimentPageSearchFacetsState,
+  createExperimentPageSearchFacetsState,
+} from '../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useExperimentRuns } from './useExperimentRuns';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
 import { applyMiddleware, combineReducers, createStore } from 'redux';
@@ -125,8 +125,8 @@ const store = createStore(
 );
 
 const testExperimentIds = ['test-experiment'];
-const testUiState = createExperimentPageUIStateV2();
-const testSearchFacets = createExperimentPageSearchFacetsStateV2();
+const testUiState = createExperimentPageUIState();
+const testSearchFacets = createExperimentPageSearchFacetsState();
 
 // This suite tests useExperimentRuns hook, related reducers, actions and selectors.
 describe('useExperimentRuns - integration test', () => {
@@ -157,8 +157,8 @@ describe('useExperimentRuns - integration test', () => {
           searchFacets,
           uiState,
         }: {
-          uiState: ExperimentPageUIStateV2;
-          searchFacets: ExperimentPageSearchFacetsStateV2;
+          uiState: ExperimentPageUIState;
+          searchFacets: ExperimentPageSearchFacetsState;
           experimentIds: string[];
         }) => useExperimentRuns(uiState, searchFacets, experimentIds),
         {

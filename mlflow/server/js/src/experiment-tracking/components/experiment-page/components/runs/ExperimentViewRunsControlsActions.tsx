@@ -1,26 +1,19 @@
-import { Button, Checkbox, FullscreenExitIcon, FullscreenIcon, SidebarIcon } from '@databricks/design-system';
+import { Button } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../../../common/utils/RoutingUtils';
 import { Tooltip } from '@databricks/design-system';
-import { COLUMN_SORT_BY_ASC, LIFECYCLE_FILTER, SORT_DELIMITER_SYMBOL } from '../../../../constants';
+import { LIFECYCLE_FILTER } from '../../../../constants';
 import Routes from '../../../../routes';
-import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunModals } from './ExperimentViewRunModals';
-import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector';
-import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
-import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
-import type { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
-import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
-import { useExperimentIds } from '../../hooks/useExperimentIds';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 export type ExperimentViewRunsControlsActionsProps = {
-  viewState: SearchExperimentRunsViewState;
-  searchFacetsState: SearchExperimentRunsFacetsState;
+  viewState: ExperimentPageViewState;
+  searchFacetsState: ExperimentPageSearchFacetsState;
   runsData: ExperimentRunsSelectorResult;
   refreshRuns: () => void;
 };

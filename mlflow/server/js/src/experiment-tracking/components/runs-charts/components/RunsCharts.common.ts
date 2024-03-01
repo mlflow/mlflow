@@ -2,12 +2,13 @@ import { compact, throttle } from 'lodash';
 import { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
-import { MetricEntitiesByName, MetricEntity, MetricHistoryByName, RunInfoEntity } from '../../../types';
+import { KeyValueEntity, MetricEntitiesByName, MetricEntity, MetricHistoryByName, RunInfoEntity } from '../../../types';
 import { Theme } from '@emotion/react';
 import { LegendLabelData } from './RunsMetricsLegend';
 import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
 import { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
 import { defineMessages } from 'react-intl';
+import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 
 /**
  * Common props for all charts used in experiment runs
@@ -67,6 +68,11 @@ export interface RunsPlotsCommonProps {
    * If set to true, the chart will be displayed in full screen mode
    */
   fullScreen?: boolean;
+
+  /**
+   * Updates the download handler for the chart. See `ExperimentChartImageDownloadHandler` for the callback signature.
+   */
+  onSetDownloadHandler?: (downloadHandler: ExperimentChartImageDownloadHandler) => void;
 }
 
 /**
@@ -119,6 +125,10 @@ export interface RunsChartsRunData {
    * Object containing run's params by key
    */
   params: Record<string, { key: string; value: string | number }>;
+  /**
+   * Object containing run's tags by key
+   */
+  tags: Record<string, KeyValueEntity>;
   /**
    * Color corresponding to the run
    */
