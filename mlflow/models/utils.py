@@ -665,11 +665,11 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         )
 
 
-def _enforce_unnamed_col_schema(pf_input: PyFuncInput, input_schema: Schema):
+def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
     input_names = pf_input.columns[: len(input_schema.inputs)]
     input_types = input_schema.input_types()
-    new_pf_input = pd.DataFrame()
+    new_pf_input = {}
     for i, x in enumerate(input_names):
         if isinstance(input_types[i], DataType):
             new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
@@ -683,14 +683,14 @@ def _enforce_unnamed_col_schema(pf_input: PyFuncInput, input_schema: Schema):
             new_pf_input[x] = pd.Series(
                 [_enforce_array(arr, input_types[i]) for arr in pf_input[x]], name=x
             )
-    return new_pf_input
+    return pd.DataFrame(new_pf_input)
 
 
-def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
+def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
     input_names = input_schema.input_names()
     input_dict = input_schema.input_dict()
-    new_pf_input = pd.DataFrame()
+    new_pf_input = {}
     for name in input_names:
         input_type = input_dict[name].type
         required = input_dict[name].required
@@ -714,7 +714,7 @@ def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
             new_pf_input[name] = pd.Series(
                 [_enforce_array(arr, input_type, required) for arr in pf_input[name]], name=name
             )
-    return new_pf_input
+    return pd.DataFrame(new_pf_input)
 
 
 def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
@@ -997,10 +997,13 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         return _enforce_pyspark_dataframe_schema(
             original_pf_input, pf_input, input_schema, flavor=flavor
         )
-    elif input_schema.has_input_names():
-        return _enforce_named_col_schema(pf_input, input_schema)
     else:
-        return _enforce_unnamed_col_schema(pf_input, input_schema)
+        # pf_input must be a pandas Dataframe at this point
+        return (
+            _enforce_named_col_schema(pf_input, input_schema)
+            if input_schema.has_input_names()
+            else _enforce_unnamed_col_schema(pf_input, input_schema)
+        )
 
 
 def _enforce_pyspark_dataframe_schema(
