@@ -127,6 +127,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         The unpacked response from the endpoint.
     """
     from pydantic import BaseModel
+
     from mlflow.deployments import get_deploy_client
 
     client = get_deploy_client()

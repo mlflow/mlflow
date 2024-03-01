@@ -2025,7 +2025,7 @@ def evaluate(
     else:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
-            "an MLflow deployments endpoint, an instance of `mlflow.pyfunc.PyFuncModel`, "
+            "an MLflow Deployments endpoint URI, an instance of `mlflow.pyfunc.PyFuncModel`, "
             "a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
