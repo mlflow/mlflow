@@ -1089,6 +1089,24 @@ def autolog(
         log_every_epoch: If True, training metrics will be logged at the end of each epoch.
         log_every_n_steps: If set, training metrics will be logged every `n` training steps.
             `log_every_n_steps` must be `None` when `log_every_epoch=True`.
+        checkpoint: Enable automatic model checkpointing.
+        checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
+        checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made based on
+            either the maximization or the minimization of the monitored quantity.
+        checkpoint_save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        checkpoint_save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+            saves the model after each epoch. When using integer, the callback
+            saves the model at end of this many batches. Note that if the saving isn't aligned to
+            epochs, the monitored metric may potentially be less reliable (it
+            could reflect as little as 1 batch, since the metrics get reset
+            every epoch). Defaults to `"epoch"`.
     """
     import tensorflow as tf
 
