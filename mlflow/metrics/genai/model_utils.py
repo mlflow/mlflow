@@ -121,6 +121,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
     client = get_deploy_client()
 
     endpoint = client.get_endpoint(deployment_uri)
+    # TODO: Standardize the return type of `get_endpoint` and remove this check
     endpoint = endpoint.dict() if isinstance(endpoint, BaseModel) else endpoint
     endpoint_type = endpoint.get("task", endpoint.get("endpoint_type"))
 
