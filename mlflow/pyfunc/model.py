@@ -294,8 +294,8 @@ def _save_model_with_class_artifacts_params(
         if "cannot pickle" in str(e).lower():
             raise MlflowException(
                 "Failed to serialize Python model. Please audit your "
-                "class variables (e.g. in `__init__()`).\n\n"
-                f"Full serialization error: {e}"
+                "class variables (e.g. in `__init__()`) for any "
+                f"unpicklable objects.\n\nFull serialization error: {e}"
             ) from None
         else:
             raise e
