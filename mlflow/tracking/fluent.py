@@ -1215,31 +1215,45 @@ def log_figure(
     MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs)
 
 
-def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
+def log_image(
+    image: Union["numpy.ndarray", "PIL.Image.Image"],
+    artifact_file: Optional[str] = None,
+    key: Optional[str] = None,
+    step: Optional[int] = None,
+    timestamp: Optional[int] = None,
+) -> None:
     """
-    Log an image as an artifact. The following image objects are supported:
+    Logs an image in MLflow, supporting two use cases:
 
-    - `numpy.ndarray`_
-    - `PIL.Image.Image`_
+    1. Time-stepped image logging: ideal for tracking changes or progressions through iterative
+        processes (e.g., during model training phases).
+        - Usage: `log_image(image, key=key, step=step, timestamp=timestamp)`
+    2. Artifact file image logging: best suited for static image logging where the image
+        is saved directly as a file artifact.
+        - Usage: `log_image(image, artifact_file)`
 
-    .. _numpy.ndarray:
-        https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+    The following image formats are supported:
+        - `numpy.ndarray`_
+        - `PIL.Image.Image`_
 
-    .. _PIL.Image.Image:
-        https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+        .. _numpy.ndarray:
+            https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+        .. _PIL.Image.Image:
+            https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
 
     Numpy array support
-        - data type (( ) represents a valid value range):
+        - data types:
 
-            - bool
-            - integer (0 ~ 255)
-            - unsigned integer (0 ~ 255)
-            - float (0.0 ~ 1.0)
+            - bool (useful for logging image masks)
+            - integer [0, 255]
+            - unsigned integer [0, 255]
+            - float [0.0, 1.0]
 
             .. warning::
 
-                - Out-of-range integer values will be **clipped** to [0, 255].
-                - Out-of-range float values will be **clipped** to [0, 1].
+                - Out-of-range integer values will raise ValueError.
+                - Out-of-range float values will raise ValueError.
 
         - shape (H: height, W: width):
 
@@ -1249,13 +1263,41 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
             - H x W x 4 (an RGBA channel order is assumed)
 
     Args:
-        image: Image to log.
-        artifact_file: The run-relative artifact file path in posixpath format to which
-            the image is saved (e.g. "dir/image.png").
+        run_id: String ID of run.
+        image: The image object to be logged.
+        artifact_file: Specifies the path, in POSIX format, where the image
+            will be stored as an artifact relative to the run's root directory (for
+            example, "dir/image.png"). This parameter is kept for backward compatibility
+            and should not be used together with `key`, `step`, or `timestamp`.
+        key: Image name for time-stepped image logging.
+        step: Integer training step (iteration) at which the image was saved.
+            Defaults to 0.
+        timestamp: Time when this image was saved. Defaults to the current system time.
 
     .. code-block:: python
-        :test:
-        :caption: Numpy Example
+        :caption: Time-stepped image logging numpy example
+
+        import mlflow
+        import numpy as np
+
+        image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+        with mlflow.start_run():
+            mlflow.log_image(image, key="dogs", step=3)
+
+    .. code-block:: python
+        :caption: Time-stepped image logging pillow example
+
+        import mlflow
+        from PIL import Image
+
+        image = Image.new("RGB", (100, 100))
+
+        with mlflow.start_run():
+            mlflow.log_image(image, key="dogs", step=3)
+
+    .. code-block:: python
+        :caption: Legacy artifact file image logging numpy example
 
         import mlflow
         import numpy as np
@@ -1266,8 +1308,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
             mlflow.log_image(image, "image.png")
 
     .. code-block:: python
-        :test:
-        :caption: Pillow Example
+        :caption: Legacy artifact file image logging pillow example
 
         import mlflow
         from PIL import Image
@@ -1278,7 +1319,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
             mlflow.log_image(image, "image.png")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file)
+    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp)
 
 
 @experimental
