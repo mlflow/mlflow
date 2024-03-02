@@ -14,6 +14,7 @@ from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
 
+from mlflow.protos.databricks_uc_registry_messages_pb2 import LineageHeaderInfo
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
 _NUM_MAX_THREADS = 20
