@@ -94,9 +94,16 @@ def http_request(
 
     if host_creds.aws_sigv4:
         # will overwrite the Authorization header
-        from requests_auth_aws_sigv4 import AWSSigV4
+        import botocore
+        from requests_aws4auth import AWS4Auth
 
-        kwargs["auth"] = AWSSigV4("execute-api")
+        credentials = botocore.session.Session().get_credentials()
+        if not credentials:
+            raise ValueError("No initial credentials found.")
+        kwargs["auth"] = AWS4Auth(
+            refreshable_credentials=credentials,
+            service="execute-api",
+        )
     elif host_creds.auth:
         from mlflow.tracking.request_auth.registry import fetch_auth
 
