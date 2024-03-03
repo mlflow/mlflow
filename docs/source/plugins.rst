@@ -410,6 +410,55 @@ To use XetHub as an artifact store, an XetHub URI of the form ``xet://<username>
 In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``xet://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
 
+Oracle Cloud Infrastructure Plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+The `oci-mlflow <https://pypi.org/project/oci-mlflow/>`_ package allows MLflow to use Oracle Cloud Infrastructure for storing artifacts, running MLProjects, and deploying models.
+
+.. code-block:: bash
+
+        pip install mlflow[oci]
+
+After installation, you can use MLflow as usual, and the Oracle Cloud Infrastructure support will be provided automatically.
+
+Refer `OCI's SDK and CLI Configuration File Documentation <https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm#SDK_and_CLI_Configuration_File>`_ to setup authentication.
+
+For more details, please visit the `oci-mlflow Quickstart <https://oci-mlflow.readthedocs.io/en/latest/quickstart.html>`_ documentation.
+
+.. code-block:: python
+
+        import mlflow
+        import mlflow.pyfunc
+
+
+        class Mod(mlflow.pyfunc.PythonModel):
+            def predict(self, ctx, inp, params=None):
+                return 7
+
+
+        exp_name = "myexp"
+        mlflow.create_experiment(exp_name, artifact_location="oci://<your-bucket>@<your-namespace>/myexperiment/")
+        mlflow.set_experiment(exp_name)
+        mlflow.pyfunc.log_model("model_test", python_model=Mod())
+
+In the example provided above, the ``log_model`` saves the model to Object Storage ``oci://<your-bucket>@<your-namespace>/myexperiment/$RUN_ID/artifacts/model_test/``, the MLmodel file
+and the conda.yaml file associated with the model. To list the content in the object storage artifact location, run - 
+
+.. code-block:: bash
+
+        oci os object list -bn <your-bucket> -ns <your-namespace> --prefix myexperiment | jq '.data[].name'
+
+Output should list following files -  
+
+
+  * "myexperiment/$RUN_ID/artifacts/model_test/MLmodel"
+  * "myexperiment/$RUN_ID/artifacts/model_test/conda.yaml"
+  * "myexperiment/$RUN_ID/artifacts/model_test/python_env.yaml"
+  * "myexperiment/$RUN_ID/artifacts/model_test/python_model.pkl"
+  * "myexperiment/$RUN_ID/artifacts/model_test/requirements.txt"
+
+
 
 Deployment Plugins
 ~~~~~~~~~~~~~~~~~~

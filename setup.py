@@ -150,6 +150,7 @@ setup(
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
         "xethub": ["mlflow-xethub"],
+        "oci": ["oci-mlflow"],
     },
     entry_points="""
         [console_scripts]
