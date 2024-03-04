@@ -438,7 +438,7 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
         import mlflow
 
         mlflow.models.predict(
-            model_uri="runs:/<run_id>/model",
+            model_uri="runs:/<run_id>/<model_path>",
             input_data=<input_data>,
             pip_requirements_override=["opencv-python==4.8.0"],
         )
@@ -446,7 +446,7 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
     .. code-tab:: bash
 
         mlflow models predict \
-            -m runs:/<run_id>/model \
+            -m runs:/<run_id>/<model_path> \
             -i <input_path> \
             --pip-requirements-override opencv-python==4.8.0
 
@@ -473,6 +473,12 @@ To do so, specify the ``extra_pip_requirements`` option when logging the model.
         input_example=input_data,
     )
 
+Note that you can also leverage the CLI to update model dependencies in-place and thereby avoid
+re-logging the model. 
+
+.. code:: bash
+
+    mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> add "opencv-python==4.8.0" 
 
 How to migrate Anaconda Dependency for License Change
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
