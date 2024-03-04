@@ -228,19 +228,19 @@ remote workers, which is a common deployment method for MLflow.
 That said, cloudpickle has some limitations.
 
 1. **Environment Dependency**: cloudpickle does not capture the full execution environment, so we
-  must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``, the latter
-  of which is used to infer environment dependencies.
+    must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``, the latter
+    of which is used to infer environment dependencies.
 
 2. **Compatibility**: cloudpickle is not guaranteed to be compatible between different versions of
-  Python.  However, if you're using library versions from MLflow, this compatibility will be
-  heavily tested and thereby likely to not cause problems.
+    Python.  However, if you're using library versions from MLflow, this compatibility will be
+    heavily tested and thereby likely to not cause problems.
 
 3. **Complexity and Size**: serialization of large objects can be slow and take lots of space. If
-  performance is an issue, consider writing a custom serialization method.
+    performance is an issue, consider writing a custom serialization method.
 
-4. **Object Support**: cloudpickle does not serialize objects outside of the Python data model. Some
-  relevant examples include raw files and database connections. If your program depends on these, be
-  sure to log ways to reference these objects along with your model.
+4. **Object Support**: cloudpickle does not serialize objects outside of the Python data model.
+    Some relevant examples include raw files and database connections. If your program depends on
+    these, be sure to log ways to reference these objects along with your model.
 
 python_function
 ###############
