@@ -261,6 +261,10 @@ def validate_can_update_experiment_artifact_proxy():
     return _get_permission_from_experiment_id_artifact_proxy().can_update
 
 
+def validate_can_delete_experiment_artifact_proxy():
+    return _get_permission_from_experiment_id_artifact_proxy().can_manage
+
+
 def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
@@ -416,7 +420,7 @@ def _get_proxy_artifact_validator(
     return {
         "GET": validate_can_read_experiment_artifact_proxy,  # Download
         "PUT": validate_can_update_experiment_artifact_proxy,  # Upload
-        "DELETE": validate_can_update_experiment_artifact_proxy,  # Delete
+        "DELETE": validate_can_delete_experiment_artifact_proxy,  # Delete
     }.get(method)
 
 
