@@ -556,8 +556,8 @@ def _copy_project(src_path, dst_path=""):
 
     mlflow_dir = "mlflow-project"
     # check if we have project root
-    assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
-        os.path.abspath(os.path.join(src_path, "setup.py"))
+    assert os.path.isfile(os.path.join(src_path, "pyproject.toml")), "file not found " + str(
+        os.path.abspath(os.path.join(src_path, "pyproject.toml"))
     )
     shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir), ignore=_docker_ignore(src_path))
     return mlflow_dir

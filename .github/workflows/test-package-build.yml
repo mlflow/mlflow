@@ -42,7 +42,9 @@ jobs:
       - name: Set environment variable for skinny client build
         if: ${{ matrix.type == 'skinny' }}
         run: |
-          echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
+          cat pyproject.skinny.toml > pyproject.toml
+          cat README.rst >> README_SKINNY.rst
+          cat README_SKINNY.rst > README.rst
 
       - name: Create dummy MLflow UI
         run: |
@@ -87,6 +89,15 @@ jobs:
           echo "wheel-path=${wheel_path}" >> $GITHUB_OUTPUT
           echo "wheel-name=${wheel_name}" >> $GITHUB_OUTPUT
           echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
+
+      - name: List files
+        run: |
+          echo "::group::sdist"
+          tar -tf ${{ steps.build-dist.outputs.sdist-path }}
+          echo "::endgroup::"
+          echo "::group::wheel"
+          unzip -l ${{ steps.build-dist.outputs.wheel-path }}
+          echo "::endgroup::"
 
       - name: Run twine check
         run: |
