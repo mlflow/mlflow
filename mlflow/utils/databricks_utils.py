@@ -115,7 +115,8 @@ def _get_dbutils():
 def _get_databricks_repl_context():
     dbr_major_minor_version = get_databricks_runtime_major_minor_version()
     if dbr_major_minor_version >= (14, 1):
-        from dbruntime import UserNamespaceInitializer, DatabricksReplContext
+        from dbruntime import UserNamespaceInitializer
+        from dbruntime.databricks_repl_context import DatabricksReplContext
         shell = _get_ipython_shell()
         conf = UserNamespaceInitializer.getOrCreate().localSparkHandles["sc"]._conf
 
