@@ -113,6 +113,7 @@ def _get_dbutils():
 
 
 def _get_databricks_repl_context():
+    dbr_major_minor_version = get_databricks_runtime_major_minor_version()
     if dbr_major_minor_version >= (14, 1):
         from dbruntime import UserNamespaceInitializer, DatabricksReplContext
         shell = _get_ipython_shell()
@@ -852,6 +853,7 @@ def _init_databricks_cli_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
+                    raise
                     print(  # noqa
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
