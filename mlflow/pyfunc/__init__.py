@@ -207,9 +207,9 @@ You may prefer the second, lower-level workflow for the following reasons:
   workflow allows it to be saved in MLflow format directly, without enumerating constituent
   artifacts.
 
-******************************
+*******************************
 python_function vs. PythonModel
-******************************
+*******************************
 
 When creating custom Pyfunc models, you can choose between two different interfaces:
 ``python_function`` and ``PythonModel``. In short, a ``python_function`` is logged simply via a
