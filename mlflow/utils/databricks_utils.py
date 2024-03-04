@@ -802,7 +802,8 @@ def get_databricks_runtime_major_minor_version():
     dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
     try:
         dbr_version_splits = dbr_version.split(".", maxsplit=2)
-        return int(dbr_version_splits[0]), int(dbr_version_splits[1])
+        # don't int-ify the major version, as "client" is a valid major key
+        return dbr_version_splits[0], int(dbr_version_splits[1])
     except Exception:
         raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
 
@@ -816,9 +817,13 @@ def _init_databricks_cli_config_provider(entry_point):
     """
     notebook_utils = entry_point.getDbutils().notebook()
 
-    dbr_major_minor_version = get_databricks_runtime_major_minor_version()
+    (dbr_major_version, dbr_minor_version) = get_databricks_runtime_major_minor_version()
+    dbr_major_version = (
+        int(dbr_major_version) if dbr_major_version.isnumeric() else dbr_major_version
+    )
+    dbr_major_minor_version = (dbr_major_version, dbr_minor_version)
 
-    if dbr_major_minor_version >= (13, 2):
+    if dbr_major_version == "client" or dbr_major_minor_version >= (13, 2):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
