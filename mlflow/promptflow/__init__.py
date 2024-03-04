@@ -140,9 +140,15 @@ def log_model(
             please update the ``pf_model.context`` directly.
 
             Configs that can be overridden includes:
+
             ``connection.provider`` - The connection provider to use for the flow. Reach
             https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
             for more details on how to set connection provider.
+
+            ``connections_name_overrides`` - The connection name overrides to use for the flow.
+            Example: ``{"aoai_connection": "azure_open_ai_connection"}``.
+            The node with reference to connection 'aoai_connection' will be resolved to
+            the actual connection 'azure_open_ai_connection'.
 
 
             An example of providing overrides for a model to use azure machine
@@ -157,7 +163,10 @@ def log_model(
                     "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
                     "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
                 )
-                model_config = {"connection.provider": workspace_resource_id}
+                model_config = {
+                    "connection.provider": workspace_resource_id,
+                    "connections_name_overrides": {"local_conn_name": "remote_conn_name"},
+                }
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
@@ -229,9 +238,15 @@ def save_model(
             please update the ``pf_model.context`` directly.
 
             Configs that can be overridden includes:
+
             ``connection.provider`` - The connection provider to use for the flow. Reach
             https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
             for more details on how to set connection provider.
+
+            ``connections_name_overrides`` - The connection name overrides to use for the flow.
+            Example: ``{"aoai_connection": "azure_open_ai_connection"}``.
+            The node with reference to connection 'aoai_connection' will be resolved to
+            the actual connection 'azure_open_ai_connection'.
 
 
             An example of providing overrides for a model to use azure machine
@@ -246,7 +261,10 @@ def save_model(
                     "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
                     "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
                 )
-                model_config = {"connection.provider": workspace_resource_id}
+                model_config = {
+                    "connection.provider": workspace_resource_id,
+                    "connections_name_overrides": {"local_conn_name": "remote_conn_name"},
+                }
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
@@ -276,14 +294,17 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+    # Copy to 'flow' directory to get files merged with flow files.
+    code_dir_subpath = _validate_and_copy_code_paths(
+        code_paths, path, default_subpath=_MODEL_FLOW_DIRECTORY
+    )
 
     model_flow_path = os.path.join(path, _MODEL_FLOW_DIRECTORY)
 
     # Resolve additional includes in flow
     with _merge_local_code_and_additional_includes(code_path=model.code) as resolved_model_dir:
         remove_additional_includes(Path(resolved_model_dir))
-        shutil.copytree(src=resolved_model_dir, dst=model_flow_path)
+        shutil.copytree(src=resolved_model_dir, dst=model_flow_path, dirs_exist_ok=True)
     # Get flow env in flow dag
     flow_env = _resolve_env_from_flow(model.flow_dag_path)
 
@@ -304,7 +325,6 @@ def save_model(
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        code=code_dir_subpath,
         version=promptflow.__version__,
         entry=f"{_MODEL_FLOW_DIRECTORY}/{DAG_FILE_NAME}",
         **flow_env,
@@ -373,7 +393,12 @@ class _PromptflowModelWrapper:
         # TODO: Improve this if we have more configs afterwards
         model_config = model_config or {}
         connection_provider = model_config.get("connection.provider", "local")
-        self.model_invoker = FlowInvoker(self.model, connection_provider=connection_provider)
+        connections_name_overrides = model_config.get("connections_name_overrides", None)
+        self.model_invoker = FlowInvoker(
+            self.model,
+            connection_provider=connection_provider,
+            connections_name_overrides=connections_name_overrides,
+        )
 
     def predict(  # pylint: disable=unused-argument
         self,

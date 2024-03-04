@@ -25,7 +25,7 @@ nodes:
       path: hello.py
     inputs:
       prompt: ${hello_prompt.output}
-      deployment_name: text-davinci-003
+      deployment_name: gpt-3.5-turbo
       max_tokens: "120"
 environment:
   image: mcr.microsoft.com/azureml/promptflow/promptflow-runtime:latest

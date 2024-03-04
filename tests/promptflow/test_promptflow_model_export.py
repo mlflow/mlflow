@@ -43,7 +43,10 @@ def test_promptflow_log_and_load_model():
 
 def test_log_model_with_config():
     model = get_promptflow_example_model()
-    model_config = {"connection.provider": "local"}
+    model_config = {
+        "connection.provider": "local",
+        "connections_name_overrides": {"local_connection_name": "remote_connection_name"},
+    }
     with mlflow.start_run():
         logged_model = mlflow.promptflow.log_model(
             model, "promptflow_model", model_config=model_config
