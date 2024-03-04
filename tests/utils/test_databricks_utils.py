@@ -12,6 +12,7 @@ from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
+    get_databricks_runtime_major_minor_version,
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
     get_workspace_info_from_dbutils,
@@ -442,3 +443,16 @@ def test_check_databricks_secret_scope_access_error():
             "Error: no scope access"
         )
         mock_dbutils.secrets.list.assert_called_once_with("scope")
+
+
+def test_get_databricks_runtime_major_minor_version(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.0")
+    assert get_databricks_runtime_major_minor_version() == ("client", 0)
+
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.1")
+    assert get_databricks_runtime_major_minor_version() == (15, 1)
+
+    # minor version is not allowed to be a string
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
+    with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
+        get_databricks_runtime_major_minor_version()
