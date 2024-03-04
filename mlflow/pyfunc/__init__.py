@@ -455,6 +455,7 @@ class PyFuncModel:
         self._model_meta = model_meta
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
+        self._predict_stream_fn = getattr(model_impl, "predict_stream", None)
 
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
@@ -511,6 +512,30 @@ class PyFuncModel:
                 "Spark DataFrames is model dependent."
             )
         return self._predict_fn(data)
+
+    def predict_stream(
+        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
+    ) -> PyFuncOutput:
+        input_schema = self.metadata.get_input_schema()
+        flavor = self.loader_module
+        if input_schema is not None:
+            try:
+                data = _enforce_schema(data, input_schema, flavor)
+            except Exception as e:
+                # Include error in message for backwards compatibility
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to enforce schema of data '{data}' "
+                    f"with schema '{input_schema}'. "
+                    f"Error: {e}",
+                )
+
+        params = _validate_params(params, self.metadata)
+        if HAS_PYSPARK and isinstance(data, SparkDataFrame):
+            _logger.warning(
+                "Input data is a Spark DataFrame. Note that behaviour for "
+                "Spark DataFrames is model dependent."
+            )
+        return self._predict_stream_fn(data)
 
     @experimental
     def unwrap_python_model(self):

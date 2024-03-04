@@ -810,6 +810,19 @@ class _OpenAIWrapper:
         elif self.task == "embeddings":
             return self._predict_embeddings(data, params or {})
 
+    def predict_stream(self, data, params: Optional[Dict[str, Any]] = None):
+        from openai import OpenAI
+
+        client = OpenAI()
+        return client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                *self.model.get("messages", []),
+                {"role": "user", "content": data.iloc[0][0]},
+            ],
+            stream=True,
+        )
+
 
 def _load_pyfunc(path):
     """Loads PyFunc implementation. Called by ``pyfunc.load_model``.
