@@ -303,7 +303,7 @@ def test_enforce_property():
 def test_enforce_property_with_errors():
     with pytest.raises(
         MlflowException,
-        match=r"Failed to enforce schema of data `123` with dtype `DataType.string`"
+        match=r"Failed to enforce schema of data `123` with dtype `DataType.string`",
     ):
         _enforce_property(123, Property("a", DataType.string))
 
@@ -322,7 +322,9 @@ def test_enforce_property_with_errors():
             {"a": ["some_sentence1", "some_sentence2"]},
             Property("any_name", Object([Property("a", DataType.string)])),
         )
-    assert "Failed to enforce schema for key `a`. Expected type string, received type list" in str(e_info.value.__cause__)
+    assert "Failed to enforce schema for key `a`. Expected type string, received type list" in str(
+        e_info.value.__cause__
+    )
 
 
 @pytest.mark.parametrize(
@@ -393,13 +395,17 @@ def test_enforce_array_with_errors():
     with pytest.raises(MlflowException) as e_info:
         _enforce_array([123, 456, 789], Array(DataType.string))
 
-    assert 'Failed to enforce schema of data `123` with dtype `string`' in str(e_info.value.__cause__)
+    assert "Failed to enforce schema of data `123` with dtype `string`" in str(
+        e_info.value.__cause__
+    )
 
     # Nested array with mixed type elements
     with pytest.raises(MlflowException) as e_info:
         _enforce_array([["a", "b"], [1, 2]], Array(Array(DataType.string)))
 
-    assert "Failed to enforce schema of data `1` with dtype `string`" in str(e_info.value.__cause__.__cause__)
+    assert "Failed to enforce schema of data `1` with dtype `string`" in str(
+        e_info.value.__cause__.__cause__
+    )
 
     # Nested array with different nest level
     with pytest.raises(MlflowException) as e_info:
@@ -433,4 +439,6 @@ def test_enforce_array_with_errors():
             ),
         )
 
-    assert "Invalid properties not defined in the schema found: {'c'}" in str(e_info.value.__cause__)
+    assert "Invalid properties not defined in the schema found: {'c'}" in str(
+        e_info.value.__cause__
+    )
