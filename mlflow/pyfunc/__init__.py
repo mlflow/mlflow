@@ -535,6 +535,11 @@ class PyFuncModel:
                 "Input data is a Spark DataFrame. Note that behaviour for "
                 "Spark DataFrames is model dependent."
             )
+
+        # Schema validation
+        # Stream with multiple responses
+        # What should the stream yield? Json? SSE? Raw chunk?
+        # Compatibility with OpenAI Python SDK?
         return self._predict_stream_fn(data)
 
     @experimental
