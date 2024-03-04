@@ -24,14 +24,67 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
   predict(
-    model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc.csc_matrix | csr.csr_matrix),
+    model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc_matrix | csr_matrix),
     List[Any], Dict[str, Any], pyspark.sql.DataFrame]
-  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | pyspark.sql.DataFrame]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | Dict | pyspark.sql.DataFrame]
 
 All PyFunc models will support `pandas.DataFrame` as input and PyFunc deep learning models will
 also support tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and
 `numpy.ndarrays` (unnamed tensors).
 
+Here are some examples of supported inference types, assuming we have the correct ``model`` object
+loaded.
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - Input Type
+      - Example
+    * - ``pandas.DataFrame``
+      -
+        .. code-block:: python
+
+            import pandas as pd
+
+            x_new = pd.DataFrame(dict(x1=[1,2,3], x2=[4,5,6]))
+            model.predict(x_new)
+
+    * - ``numpy.ndarray``
+      -
+        .. code-block:: python
+
+            import numpy as np
+
+            x_new = np.array([[1, 2, 3], [4, 5, 6]])
+            model.predict(x_new)
+
+    * - ``scipy.sparse.csc_matrix`` or ``scipy.sparse.csr_matrix``
+      -
+        .. code-block:: python
+
+            import scipy
+
+            x_new = scipy.sparse.csc_matrix([[1, 2, 3], [4, 5, 6]])
+            model.predict(x_new)
+
+            x_new = scipy.sparse.csr_matrix([[1, 2, 3], [4, 5, 6]])
+            model.predict(x_new)
+
+    * - python ``List``
+      -
+        .. code-block:: python
+
+            x_new = [[1, 2, 3], [4, 5, 6]]
+            model.predict(x_new)
+
+    * - python ``Dict``
+      -
+        .. code-block:: python
+
+            x_new = dict(x1=[1, 2, 3], x2=[4, 5, 6])
+            model.predict(x_new)
 
 .. _pyfunc-filesystem-format:
 
@@ -72,9 +125,9 @@ following parameters:
 
           predict(
             model_input: [pandas.DataFrame, numpy.ndarray,
-            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]],
+            scipy.sparse.(csc_matrix | csr_matrix), List[Any], Dict[str, Any]],
             pyspark.sql.DataFrame
-          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | pyspark.sql.DataFrame]
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | Dict | pyspark.sql.DataFrame]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -467,7 +520,7 @@ class PyFuncModel:
 
         Args:
             data: Model input as one of pandas.DataFrame, numpy.ndarray,
-                scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
+                scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
                 Dict[str, numpy.ndarray].
                 For model signatures with tensor spec inputs
                 (e.g. the Tensorflow core / Keras model), the input data type must be one of
