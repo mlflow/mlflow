@@ -400,8 +400,8 @@ Troubleshooting
 
 .. _how-to-fix-dependency-errors-in-model:
 
-How to fix dependency errors when serving my model?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+How to Fix Dependency Errors when Serving my Model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 One of the most common issues experienced during model deployment centers around dependency issues. When logging or saving your model, MLflow tries to infer the
 model dependencies and save them as part of the MLflow Model metadata. However, this might not always be complete and miss some dependencies e.g. [extras] dependencies
 for certain libraries. This can cause errors when serving your model, such as "ModuleNotFoundError" or "ImportError". Below are some steps that can help to diagnose
