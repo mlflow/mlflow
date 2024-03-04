@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import click
 from packaging.version import Version
@@ -15,8 +15,9 @@ def replace_dev_suffix_with(version, repl):
     return re.sub(r"\.dev0$", repl, version)
 
 
-def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
-    pattern = re.compile(pattern)
+def replace_occurrences(files: List[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
+    if not isinstance(pattern, re.Pattern):
+        pattern = re.compile(pattern)
     for f in files:
         old_text = f.read_text()
         if not pattern.search(old_text):
@@ -39,6 +40,14 @@ def update_versions(new_py_version: str) -> None:
         pattern=re.escape(current_py_version),
         repl=new_py_version,
     )
+
+    # pyproject.toml
+    replace_occurrences(
+        files=[Path("pyproject.toml"), Path("pyproject.skinny.toml")],
+        pattern=re.compile(r'^version\s+=\s+".+"$', re.MULTILINE),
+        repl=f'version = "{new_py_version}"',
+    )
+
     # JS
     replace_occurrences(
         files=[
