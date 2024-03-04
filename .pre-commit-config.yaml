@@ -69,3 +69,10 @@ repos:
         language: system
         stages: [commit]
         require_serial: true
+
+      - id: pyproject
+        name: pyproject
+        entry: python dev/pyproject.py
+        language: system
+        stages: [commit]
+        require_serial: true
