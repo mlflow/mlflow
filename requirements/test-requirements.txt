@@ -2,7 +2,7 @@
 # Required for testing utilities for parsing pip requirements
 pip>=20.1
 ## Test-only dependencies
-pytest
+pytest==8.1.0
 pytest-cov
 pytest-timeout
 pytest-localserver==0.5.0
