@@ -84,22 +84,44 @@ class MlflowCredentialContext:
         self.db_utils.notebook.entry_point.clearMlflowProperties()
 
 
-def _get_dbutils():
+class _NoDbutilsError(Exception):
+    pass
+
+
+class _NoIPythonShell(Exception):
+    pass
+
+
+def _get_ipython_shell():
     try:
         import IPython
 
         ip_shell = IPython.get_ipython()
         if ip_shell is None:
-            raise _NoDbutilsError
-        return ip_shell.ns_table["user_global"]["dbutils"]
+            raise _NoIPythonShell()
+        return ip_shell
     except ImportError:
-        raise _NoDbutilsError
+        raise _NoIPythonShell()
+
+
+def _get_dbutils():
+    try:
+        ip_shell = _get_ipython_shell()
+        return ip_shell.ns_table["user_global"]["dbutils"]
     except KeyError:
-        raise _NoDbutilsError
+        raise _NoDbutilsError()
 
 
-class _NoDbutilsError(Exception):
-    pass
+def _get_databricks_repl_context():
+    if dbr_major_minor_version >= (14, 1):
+        from dbruntime import UserNamespaceInitializer, DatabricksReplContext
+        shell = _get_ipython_shell()
+        conf = UserNamespaceInitializer.getOrCreate().localSparkHandles["sc"]._conf
+
+        return DatabricksReplContext(conf, shell)
+    else:
+        from dbruntime.databricks_repl_context import get_context
+        return get_context()
 
 
 def _get_java_dbutils():
@@ -824,15 +846,12 @@ def _init_databricks_cli_config_provider(entry_point):
             def get_config(self):
                 logger = entry_point.getLogger()
                 try:
-                    from dbruntime.databricks_repl_context import get_context
-
-                    ctx = get_context()
+                    ctx = _get_databricks_repl_context()
                     if ctx and ctx.apiUrl and ctx.apiToken:
                         return DatabricksConfig.from_token(
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    raise
                     print(  # noqa
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
@@ -875,9 +894,7 @@ def _init_databricks_cli_config_provider(entry_point):
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
                 try:
-                    from dbruntime.databricks_repl_context import get_context
-
-                    ctx = get_context()
+                    ctx = _get_databricks_repl_context()
                     if ctx and ctx.apiUrl and ctx.apiToken:
                         return DatabricksConfig.from_token(
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
