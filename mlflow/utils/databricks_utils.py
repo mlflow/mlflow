@@ -825,6 +825,7 @@ def _init_databricks_cli_config_provider(entry_point):
 
     dbr_major_minor_version = get_databricks_runtime_major_minor_version()
 
+    # the CLI code in client-branch-1.0 is the same as in the 15.0 runtime branch
     if dbr_major_minor_version[0] == "client" or dbr_major_minor_version >= (13, 2):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
