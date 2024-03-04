@@ -60,8 +60,7 @@ def test_log_model_with_config():
 def log_promptflow_example_model():
     model = get_promptflow_example_model()
     with mlflow.start_run():
-        logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
-    return logged_model
+        return mlflow.promptflow.log_model(model, "promptflow_model")
 
 
 def test_promptflow_model_predict_pyfunc():

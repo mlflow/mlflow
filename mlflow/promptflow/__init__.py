@@ -66,9 +66,10 @@ _INVALID_PREDICT_INPUT_ERROR_MESSAGE = (
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at a minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at a minimum, contains these requirements.
     """
     tools_package = None
     try:
@@ -83,8 +84,9 @@ def get_default_pip_requirements():
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -108,69 +110,63 @@ def log_model(
     """
     Log a Promptflow model as an MLflow artifact for the current run.
 
-    :param model: A promptflow model loaded by `promptflow.load_flow()`.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
+    Args:
+        model: A promptflow model loaded by `promptflow.load_flow()`.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-    :param registered_model_name: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output
-                      :py:class:`Schema <mlflow.types.Schema>`.
+                        .. Note:: Experimental: This parameter may change or be removed in a future
+                                                release without warning.
+        model_config: A dict of valid overrides that can be applied to a flow instance
+            during inference. These arguments are used exclusively for the case of loading
+            the model as a ``pyfunc`` Model.
+            These values are not applied to a returned flow from a call to
+            ``mlflow.promptflow.load_model()``.
+            To override configs for a loaded flow with promptflow flavor,
+            please update the ``pf_model.context`` directly.
 
-    :param input_example: {{ input_example }}
-
-    :param await_registration_for: Number of seconds to wait for the model version
-                        to finish being created and is in ``READY`` status.
-                        By default, the function waits for five minutes.
-                        Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param model_config:
-        A dict of valid overrides that can be applied to a flow instance during inference.
-        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-        Model.
-        These values are not applied to a returned flow from a call to
-        ``mlflow.promptflow.load_model()``.
-        To override configs for a loaded flow with promptflow flavor,
-        please update the ``pf_model.context`` directly.
+            Configs that can be overridden includes:
+            ``connection.provider`` - The connection provider to use for the flow. Reach
+            https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
+            for more details on how to set connection provider.
 
 
-        Configs that can be overridden includes:
-        ``connection.provider`` - The connection provider to use for the flow. Reach
-        https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
-        for more details on how to set connection provider.
+            An example of providing overrides for a model to use azure machine
+            learning workspace connection:
 
+            .. code-block:: python
 
-        An example of providing overrides for a model to use azure machine
-        learning workspace connection:
+                flow_folder = Path(__file__).parent / "basic"
+                flow = load_flow(flow_folder)
 
-        .. code-block:: python
-
-            flow_folder = Path(__file__).parent / "basic"
-            flow = load_flow(flow_folder)
-
-            workspace_resource_id = (
-                "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
-                "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
-            )
-            model_config = {"connection.provider": workspace_resource_id}
-
-            with mlflow.start_run():
-                logged_model = mlflow.promptflow.log_model(
-                    flow, artifact_path="promptflow_model", model_config=model_config
+                workspace_resource_id = (
+                    "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
+                    "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
                 )
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+                model_config = {"connection.provider": workspace_resource_id}
+
+                with mlflow.start_run():
+                    logged_model = mlflow.promptflow.log_model(
+                        flow, artifact_path="promptflow_model", model_config=model_config
+                    )
+
+    Returns
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
     """
 
     return Model.log(
@@ -208,58 +204,54 @@ def save_model(
     """
     Save a Promptflow model to a path on the local file system.
 
-    :param model: A promptflow model loaded by `promptflow.load_flow()`.
-    :param path: Local path where the serialized model (as YAML) is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output
-                      :py:class:`Schema <mlflow.types.Schema>`.
+    Args:
+        model: A promptflow model loaded by `promptflow.load_flow()`.
+        path: Local path where the serialized model (as YAML) is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+                        .. Note:: Experimental: This parameter may change or be removed in a future
+                                                release without warning.
+        model_config: A dict of valid overrides that can be applied to a flow instance
+            during inference. These arguments are used exclusively for the case of loading
+            the model as a ``pyfunc`` Model.
+            These values are not applied to a returned flow from a call to
+            ``mlflow.promptflow.load_model()``.
+            To override configs for a loaded flow with promptflow flavor,
+            please update the ``pf_model.context`` directly.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param model_config:
-        A dict of valid overrides that can be applied to a flow instance during inference.
-        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-        Model.
-        These values are not applied to a returned flow from a call to
-        ``mlflow.promptflow.load_model()``.
-        To override configs for a loaded flow with promptflow flavor,
-        please update the ``pf_model.context`` directly.
-
-
-        Configs that can be overridden includes:
-        ``connection.provider`` - The connection provider to use for the flow. Reach
-        https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
-        for more details on how to set connection provider.
+            Configs that can be overridden includes:
+            ``connection.provider`` - The connection provider to use for the flow. Reach
+            https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
+            for more details on how to set connection provider.
 
 
-        An example of providing overrides for a model to use azure machine
-        learning workspace connection:
+            An example of providing overrides for a model to use azure machine
+            learning workspace connection:
 
-        .. code-block:: python
+            .. code-block:: python
 
-            flow_folder = Path(__file__).parent / "basic"
-            flow = load_flow(flow_folder)
+                flow_folder = Path(__file__).parent / "basic"
+                flow = load_flow(flow_folder)
 
-            workspace_resource_id = (
-                "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
-                "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
-            )
-            model_config = {"connection.provider": workspace_resource_id}
-
-            with mlflow.start_run():
-                logged_model = mlflow.promptflow.log_model(
-                    flow, artifact_path="promptflow_model", model_config=model_config
+                workspace_resource_id = (
+                    "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
+                    "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
                 )
+                model_config = {"connection.provider": workspace_resource_id}
+
+                with mlflow.start_run():
+                    logged_model = mlflow.promptflow.log_model(
+                        flow, artifact_path="promptflow_model", model_config=model_config
+                    )
     """
     import promptflow
     from promptflow._sdk._mlflow import (
@@ -389,19 +381,21 @@ class _PromptflowModelWrapper:
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> dict:
         """
-        :param data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.
+        Args:
+            data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.
 
                      .. code-block:: python
                         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
                         # Predict on a flow input dictionary.
                         print(loaded_model.predict({"text": "Python Hello World!"}))
 
-        :param params: Additional parameters to pass to the model for inference.
+            params: Additional parameters to pass to the model for inference.
 
                        .. Note:: Experimental: This parameter may change or be removed in a future
                                                release without warning.
 
-        :return: Model predictions. Dict type, example ``{"output": "\n\nprint('Hello World!')"}``
+        Returns
+            Model predictions. Dict type, example ``{"output": "\n\nprint('Hello World!')"}``
         """
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
@@ -422,7 +416,9 @@ class _PromptflowModelWrapper:
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
-    :param path: Local filesystem path to the MLflow Model with the ``promptflow`` flavor.
+
+    Args
+        path: Local filesystem path to the MLflow Model with the ``promptflow`` flavor.
     """
     from promptflow import load_flow
 
@@ -436,21 +432,25 @@ def load_model(model_uri, dst_path=None):
     """
     Load a Promptflow model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-    :return: A Promptflow model instance
+    Returns
+        A Promptflow model instance
     """
     from promptflow import load_flow
 
