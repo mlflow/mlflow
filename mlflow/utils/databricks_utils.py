@@ -5,7 +5,7 @@ import os
 import subprocess
 import time
 from sys import stderr
-from typing import Optional, TypeVar
+from typing import NamedTuple, Optional, TypeVar
 
 import mlflow.utils
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -798,20 +798,31 @@ def get_databricks_env_vars(tracking_uri):
     return env_vars
 
 
+class DatabricksRuntimeVersion(NamedTuple):
+    is_client_image: bool
+    major: int
+    minor: int
+
+    @classmethod
+    def parse(cls):
+        dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
+        try:
+            dbr_version_splits = dbr_version.split(".", maxsplit=2)
+            if dbr_version_splits[0] == "client":
+                is_client_image = True
+                major = int(dbr_version_splits[1])
+                minor = int(dbr_version_splits[2]) if len(dbr_version_splits) > 2 else 0
+            else:
+                is_client_image = False
+                major = int(dbr_version_splits[0])
+                minor = int(dbr_version_splits[1])
+            return cls(is_client_image, major, minor)
+        except Exception:
+            raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+
+
 def get_databricks_runtime_major_minor_version():
-    dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
-    try:
-        dbr_version_splits = dbr_version.split(".", maxsplit=2)
-        # don't int-ify the major version, as "client" is a valid major key
-        major = (
-            int(dbr_version_splits[0])
-            if dbr_version_splits[0].isnumeric()
-            else dbr_version_splits[0]
-        )
-        minor = int(dbr_version_splits[1])
-        return major, minor
-    except Exception:
-        raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+    return DatabricksRuntimeVersion.parse()
 
 
 def _init_databricks_cli_config_provider(entry_point):
@@ -823,10 +834,11 @@ def _init_databricks_cli_config_provider(entry_point):
     """
     notebook_utils = entry_point.getDbutils().notebook()
 
-    dbr_major_minor_version = get_databricks_runtime_major_minor_version()
+    dbr_version = get_databricks_runtime_major_minor_version()
+    dbr_major_minor_version = (dbr_version.major, dbr_version.minor)
 
     # the CLI code in client-branch-1.0 is the same as in the 15.0 runtime branch
-    if dbr_major_minor_version[0] == "client" or dbr_major_minor_version >= (13, 2):
+    if dbr_version.is_client_image or dbr_major_minor_version >= (13, 2):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
