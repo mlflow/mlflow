@@ -36,7 +36,7 @@ Here are some examples of supported inference types, assuming we have the correc
 loaded.
 
 .. list-table::
-    :widths: 20 40 40
+    :widths: 30 70
     :header-rows: 1
     :class: wrap-table
 
@@ -84,6 +84,18 @@ loaded.
         .. code-block:: python
 
             x_new = dict(x1=[1, 2, 3], x2=[4, 5, 6])
+            model.predict(x_new)
+
+    * - ``pyspark.sql.DataFrame``
+      -
+        .. code-block:: python
+
+            from pyspark.sql import SparkSession
+
+            spark = SparkSession.builder.getOrCreate()
+
+            data = [(1,4), (2,5), (3,6)]  # List of tuples
+            x_new = spark.createDataFrame(data, ["x1","x2"])  # Specify column name
             model.predict(x_new)
 
 .. _pyfunc-filesystem-format:
