@@ -445,13 +445,28 @@ def test_check_databricks_secret_scope_access_error():
         mock_dbutils.secrets.list.assert_called_once_with("scope")
 
 
-def test_get_databricks_runtime_major_minor_version(monkeypatch):
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.0")
-    assert get_databricks_runtime_major_minor_version() == ("client", 0)
+@pytest.mark.parametrize(
+    ("version_str", "is_client_image", "major", "minor"),
+    [
+        ("client.0", True, 0, 0),
+        ("client.1", True, 1, 0),
+        ("client.1.6", True, 1, 6),
+        ("15.1", False, 15, 1),
+        ("12.1.1", False, 12, 1),
+    ],
+)
+def test_get_databricks_runtime_major_minor_version(
+    monkeypatch, version_str, is_client_image, major, minor
+):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", version_str)
+    dbr_version = get_databricks_runtime_major_minor_version()
 
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.1")
-    assert get_databricks_runtime_major_minor_version() == (15, 1)
+    assert dbr_version.is_client_image == is_client_image
+    assert dbr_version.major == major
+    assert dbr_version.minor == minor
 
+
+def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
     # minor version is not allowed to be a string
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
     with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
