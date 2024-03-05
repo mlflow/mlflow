@@ -453,14 +453,10 @@ def test_check_databricks_secret_scope_access_error():
         ("client.1.6", True, 1, 6),
         ("15.1", False, 15, 1),
         ("12.1.1", False, 12, 1),
-    ]
+    ],
 )
 def test_get_databricks_runtime_major_minor_version(
-    monkeypatch,
-    version_str,
-    is_client_image,
-    major,
-    minor
+    monkeypatch, version_str, is_client_image, major, minor
 ):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", version_str)
     dbr_version = get_databricks_runtime_major_minor_version()
