@@ -290,8 +290,6 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
             code_paths=["src"],  # the whole /src directory will be saved at code/src
         )
 
-    # => This will work
-
 .. warning::
 
     By the same reason, ``code_path`` option doesn't handle the relative import like ``code_path=["../src"]``.
@@ -351,7 +349,14 @@ Please refer to :py:func:`mlflow.models.predict()` or the `CLI reference <../cli
         mlflow models predict -m runs:/<run_id>/model-i <input_path>
 
 Using the :py:func:`mlflow.models.predict()` API is convenient for testing your model and inference environment quickly.
-However, it may not be a perfect simulation of the serving because it does not start the online inference server.
+However, it may not be a perfect simulation of the serving because it does not start the online inference server. That
+said, it's a great way to test whether your prediction inputs are correctly formatted. 
+
+Formatting is subject to the inference types supported by your logged model. MLflow has the ability 
+to support a variety of flavor-specfic input types such as a tensorflow tensor.  MLflow also supports 
+types that are not specific to a given flavor, such as a pandas DataFrame, numpy ndarray, python Dict, 
+python List, scipy.sparse matrix, and spark data frame.
+
 
 Testing online inference endpoint with a virtual environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -480,7 +485,7 @@ re-logging the model.
 
     mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> add "opencv-python==4.8.0" 
 
-How to migrate Anaconda Dependency for License Change
+How to Migrate Anaconda Dependency for License Change
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
