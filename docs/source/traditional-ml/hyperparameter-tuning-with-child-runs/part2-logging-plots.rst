@@ -294,14 +294,12 @@ defined within the artifact viewer pane. Whether the plots were logged with the 
 fetched from the local file system and logged via ``log_artifacts()``, we're able to see the run-relevant plots
 associated with our data and our trained model, capturing the state at which the run was conducted.
 
-.. raw:: html
+.. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/plots-in-ui.gif
+   :width: 1024px
+   :align: center
+   :alt: Viewing plots in the UI
 
-    <div>
-        <video controls autoplay muted loop style="width: 100%; height: auto; margin-top: 10px; margin-bottom: 10px;">
-            <source src="../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/plots-in-ui.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
+   Viewing logged plots and figures in the MLflow UI
 
 Challenge
 ^^^^^^^^^
