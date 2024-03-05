@@ -353,7 +353,7 @@ However, it may not be a perfect simulation of the serving because it does not s
 said, it's a great way to test whether your prediction inputs are correctly formatted. 
 
 Formatting is subject to the types supported by the ``predict()`` method of your logged model. If the model was logged with a
-signature, the input data should be viewable from the MLflow UI or via :py:func:`mlflow.models.model.get_model_info() <mlflow.models.model.get_model_info>`, 
+signature, the input data should be viewable from the MLflow UI or via :py:func:`mlflow.models.get_model_info()`, 
 which has the field ``signature``.
 
 More generally, MLflow has the ability to support a variety of flavor-specfic input types, such as a tensorflow tensor.  
