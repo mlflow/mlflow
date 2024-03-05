@@ -1077,13 +1077,7 @@ def _enforce_array(data: Any, arr: Array, required=True):
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    try:
-        data_enforced = [_enforce_type(x, arr.dtype) for x in data]
-    except Exception as e:
-        raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with dtype `{arr}`. "
-            f"Invalid schema, `{arr.dtype}` is not supported type for Array element."
-        ) from e
+    data_enforced = [_enforce_type(x, arr.dtype) for x in data]
 
     # Keep input data type
     if isinstance(data, np.ndarray):
@@ -1093,12 +1087,7 @@ def _enforce_array(data: Any, arr: Array, required=True):
 
 
 def _enforce_property(data: Any, property: Property):
-    try:
-        return _enforce_type(data, property.dtype)
-    except Exception as e:
-        raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with dtype `{property.dtype}`"
-        ) from e
+    return _enforce_type(data, property.dtype)
 
 
 def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
@@ -1147,12 +1136,7 @@ def _enforce_map(data: Any, map_type: Map, required=True):
     if not all(isinstance(k, str) for k in data):
         raise MlflowException(f"Expected all keys in the map type data are string type.")
 
-    try:
-        data_enforced = {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
-    except Exception as e:
-        raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with map type `{map_type}`. "
-        ) from e
+    data_enforced = {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
 
     return data_enforced
 

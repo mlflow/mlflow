@@ -302,12 +302,11 @@ def test_enforce_property():
 
 def test_enforce_property_with_errors():
     with pytest.raises(
-        MlflowException,
-        match=r"Failed to enforce schema of data `123` with dtype `DataType.string`",
+        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
     ):
         _enforce_property(123, Property("a", DataType.string))
 
-    with pytest.raises(MlflowException) as e_info:
+    with pytest.raises(MlflowException, match=r"Missing required properties: {'a'}"):
         _enforce_property(
             {"b": ["some_sentence1", "some_sentence2"]},
             Property(
@@ -315,16 +314,15 @@ def test_enforce_property_with_errors():
                 Object([Property("a", DataType.string), Property("b", Array(DataType.string))]),
             ),
         )
-    assert "Missing required properties: {'a'}" in str(e_info.value.__cause__)
 
-    with pytest.raises(MlflowException) as e_info:
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type list",
+    ):
         _enforce_property(
             {"a": ["some_sentence1", "some_sentence2"]},
             Property("any_name", Object([Property("a", DataType.string)])),
         )
-    assert "Failed to enforce schema for key `a`. Expected type string, received type list" in str(
-        e_info.value.__cause__
-    )
 
 
 @pytest.mark.parametrize(
@@ -392,29 +390,23 @@ def test_enforce_array_with_errors():
     with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
         _enforce_array("abc", Array(DataType.string))
 
-    with pytest.raises(MlflowException) as e_info:
+    with pytest.raises(
+        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
+    ):
         _enforce_array([123, 456, 789], Array(DataType.string))
 
-    assert "Failed to enforce schema of data `123` with dtype `string`" in str(
-        e_info.value.__cause__
-    )
-
     # Nested array with mixed type elements
-    with pytest.raises(MlflowException) as e_info:
+    with pytest.raises(
+        MlflowException, match=r"Failed to enforce schema of data `1` with dtype `string`"
+    ):
         _enforce_array([["a", "b"], [1, 2]], Array(Array(DataType.string)))
 
-    assert "Failed to enforce schema of data `1` with dtype `string`" in str(
-        e_info.value.__cause__.__cause__
-    )
-
     # Nested array with different nest level
-    with pytest.raises(MlflowException) as e_info:
+    with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
         _enforce_array([["a", "b"], "c"], Array(Array(DataType.string)))
 
-    assert "Expected data to be list or numpy array, got str" in str(e_info.value.__cause__)
-
-    # Missing properties in Object
-    with pytest.raises(MlflowException) as e_info:
+    # Missing priperties in Object
+    with pytest.raises(MlflowException, match=r"Missing required properties: {'b'}"):
         _enforce_array(
             [
                 {"a": "some_sentence1", "b": "some_sentence2"},
@@ -423,10 +415,10 @@ def test_enforce_array_with_errors():
             Array(Object([Property("a", DataType.string), Property("b", DataType.string)])),
         )
 
-    assert "Missing required properties: {'b'}" in str(e_info.value.__cause__)
-
     # Extra properties
-    with pytest.raises(MlflowException) as e_info:
+    with pytest.raises(
+        MlflowException, match=r"Invalid properties not defined in the schema found: {'c'}"
+    ):
         _enforce_array(
             [
                 {"a": "some_sentence1", "b": "some_sentence2"},
@@ -438,7 +430,3 @@ def test_enforce_array_with_errors():
                 )
             ),
         )
-
-    assert "Invalid properties not defined in the schema found: {'c'}" in str(
-        e_info.value.__cause__
-    )
