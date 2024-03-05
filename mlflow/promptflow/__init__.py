@@ -62,6 +62,8 @@ _INVALID_PREDICT_INPUT_ERROR_MESSAGE = (
     "Input must be a pandas DataFrame with only 1 row "
     "or a dictionary contains flow inputs key-value pairs."
 )
+_CONNECTION_PROVIDER_CONFIG_KEY = "connection_provider"
+_CONNECTION_OVERRIDES_CONFIG_KEY = "connection_overrides"
 
 
 def get_default_pip_requirements():
@@ -141,11 +143,11 @@ def log_model(
 
             Configs that can be overridden includes:
 
-            ``connection.provider`` - The connection provider to use for the flow. Reach
+            ``connection_provider`` - The connection provider to use for the flow. Reach
             https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
             for more details on how to set connection provider.
 
-            ``connections_name_overrides`` - The connection name overrides to use for the flow.
+            ``connection_overrides`` - The connection name overrides to use for the flow.
             Example: ``{"aoai_connection": "azure_open_ai_connection"}``.
             The node with reference to connection 'aoai_connection' will be resolved to
             the actual connection 'azure_open_ai_connection'.
@@ -164,8 +166,8 @@ def log_model(
                     "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
                 )
                 model_config = {
-                    "connection.provider": workspace_resource_id,
-                    "connections_name_overrides": {"local_conn_name": "remote_conn_name"},
+                    "connection_provider": workspace_resource_id,
+                    "connection_overrides": {"local_conn_name": "remote_conn_name"},
                 }
 
                 with mlflow.start_run():
@@ -239,11 +241,11 @@ def save_model(
 
             Configs that can be overridden includes:
 
-            ``connection.provider`` - The connection provider to use for the flow. Reach
+            ``connection_provider`` - The connection provider to use for the flow. Reach
             https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
             for more details on how to set connection provider.
 
-            ``connections_name_overrides`` - The connection name overrides to use for the flow.
+            ``connection_overrides`` - The connection name overrides to use for the flow.
             Example: ``{"aoai_connection": "azure_open_ai_connection"}``.
             The node with reference to connection 'aoai_connection' will be resolved to
             the actual connection 'azure_open_ai_connection'.
@@ -262,8 +264,8 @@ def save_model(
                     "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
                 )
                 model_config = {
-                    "connection.provider": workspace_resource_id,
-                    "connections_name_overrides": {"local_conn_name": "remote_conn_name"},
+                    "connection_provider": workspace_resource_id,
+                    "connection_overrides": {"local_conn_name": "remote_conn_name"},
                 }
 
                 with mlflow.start_run():
@@ -392,12 +394,14 @@ class _PromptflowModelWrapper:
         self.model = model
         # TODO: Improve this if we have more configs afterwards
         model_config = model_config or {}
-        connection_provider = model_config.get("connection.provider", "local")
-        connections_name_overrides = model_config.get("connections_name_overrides", None)
+        connection_provider = model_config.get(_CONNECTION_PROVIDER_CONFIG_KEY, "local")
+        _logger.info("Using connection provider: %s", connection_provider)
+        connection_overrides = model_config.get(_CONNECTION_OVERRIDES_CONFIG_KEY, None)
+        _logger.info("Using connection overrides: %s", connection_overrides)
         self.model_invoker = FlowInvoker(
             self.model,
             connection_provider=connection_provider,
-            connections_name_overrides=connections_name_overrides,
+            connections_name_overrides=connection_overrides,
         )
 
     def predict(  # pylint: disable=unused-argument
