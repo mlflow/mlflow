@@ -803,22 +803,26 @@ class DatabricksRuntimeVersion(NamedTuple):
     major: int
     minor: int
 
+    @classmethod
+    def parse(cls):
+        dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
+        try:
+            dbr_version_splits = dbr_version.split(".", maxsplit=2)
+            if dbr_version_splits[0] == "client":
+                is_client_image = True
+                major = int(dbr_version_splits[1])
+                minor = int(dbr_version_splits[2]) if len(dbr_version_splits) > 2 else 0
+            else:
+                is_client_image = False
+                major = int(dbr_version_splits[0])
+                minor = int(dbr_version_splits[1])
+            return cls(is_client_image, major, minor)
+        except Exception:
+            raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+
 
 def get_databricks_runtime_major_minor_version():
-    dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
-    try:
-        dbr_version_splits = dbr_version.split(".", maxsplit=2)
-        if dbr_version_splits[0] == "client":
-            is_client_image = True
-            major = int(dbr_version_splits[1])
-            minor = int(dbr_version_splits[2]) if len(dbr_version_splits) > 2 else 0
-        else:
-            is_client_image = False
-            major = int(dbr_version_splits[0])
-            minor = int(dbr_version_splits[1])
-        return DatabricksRuntimeVersion(is_client_image, major, minor)
-    except Exception:
-        raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+    return DatabricksRuntimeVersion.parse()
 
 
 def _init_databricks_cli_config_provider(entry_point):
