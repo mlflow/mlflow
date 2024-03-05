@@ -460,6 +460,13 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
 The specified dependencies will be installed to the virtual environment in addition to (or instead of) the dependencies
 defined in the model metadata. Since this doesn't mutate the model, you can iterate quickly and safely to find the correct dependencies.
 
+Note that for ``input_data`` parameter in the python implementation, the function takes a Python object that is supported by your
+model's ``predict()`` function. Some examples may include flavor-specific input types, such as a 
+tensorflow tensor, or more generic types such as a pandas DataFrame, numpy ndarray, python Dict, or
+python List. When working with the CLI, we cannot pass python objects and instead look to pass the path 
+to a CSV or JSON file containing the input payload.
+
+
 .. note::
 
     The ``pip-requirements-override`` option is available since MLflow 2.10.0.
