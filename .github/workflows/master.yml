@@ -50,6 +50,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
+          cat pyproject.skinny.toml > pyproject.toml
           source ./dev/install-common-deps.sh --skinny
       - name: Run tests
         run: |
