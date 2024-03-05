@@ -526,6 +526,7 @@ class _LangChainModelWrapper:
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
         callback_handlers=None,
         convert_chat_responses=False,
+        stream: bool = False,
     ) -> List[str]:
         """
         Args:
@@ -550,6 +551,7 @@ class _LangChainModelWrapper:
             requests=messages,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            stream=stream,
         )
         return results[0] if return_first_element else results
 

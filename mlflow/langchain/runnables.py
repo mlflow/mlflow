@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Union
 
 import cloudpickle
+import langchain
+import langchain_community.llms
 import yaml
 
 from mlflow.exceptions import MlflowException
@@ -38,6 +40,21 @@ _RUNNABLE_BRANCHES_FILE_NAME = "branches.yaml"
 _DEFAULT_BRANCH_NAME = "default"
 
 
+def patch_openai_chat():
+    from langchain.llms import get_type_to_cls_dict as lc_types
+    from langchain_community.llms import get_type_to_cls_dict as lcc_types
+    def _import_chat_openai():
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI
+
+    langchain.llms.get_type_to_cls_dict = lambda: {**lc_types(), "openai-chat": _import_chat_openai}
+    langchain_community.llms.get_type_to_cls_dict = lambda: {**lcc_types(), "openai-chat": _import_chat_openai}
+
+
+patch_openai_chat()
+
+
 def _load_model_from_config(path, model_config):
     from langchain.chains.loading import type_to_loader_dict as chains_type_to_loader_dict
     from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
@@ -67,6 +84,7 @@ def _load_model_from_config(path, model_config):
 
         return load_prompt(config_path)
     elif _type in llms_get_type_to_cls_dict():
+        # Can we guarantee langchain / langchain_community are consistent?
         from langchain.llms.loading import load_llm
 
         return load_llm(config_path)
