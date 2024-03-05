@@ -21,9 +21,6 @@ def read_requirements(path: Path) -> list[str]:
 
 
 def build(skinny: bool) -> None:
-    if shutil.which("taplo") is None:
-        return
-
     skinny_requirements = read_requirements(Path("requirements", "skinny-requirements.txt"))
     core_requirements = read_requirements(Path("requirements", "core-requirements.txt"))
     gateways_requirements = read_requirements(Path("requirements", "gateway-requirements.txt"))
@@ -171,6 +168,8 @@ def build(skinny: bool) -> None:
 
 
 def main() -> None:
+    if shutil.which("taplo") is None:
+        return
     build(skinny=False)
     build(skinny=True)
 
