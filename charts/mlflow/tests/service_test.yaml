@@ -1,0 +1,36 @@
+suite: Test service
+
+templates:
+  - service.yaml
+
+tests:
+  - it: Should create service with the given service type, port number and port name
+    set:
+      type: ClusterIP
+      port: 5000
+      name: http
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - contains:
+          path: spec.ports
+          content:
+            port: 5000
+            targetPort: http
+            protocol: TCP
+            name: http
+  
+  - it: Should add annotations to the service if specified
+    set:
+      service:
+        annotations:
+          key1: value1
+          key2: value2
+    asserts:
+      - equal:
+          path: metadata.annotations.key1
+          value: value1
+      - equal:
+          path: metadata.annotations.key2
+          value: value2

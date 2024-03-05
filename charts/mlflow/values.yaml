@@ -1,0 +1,261 @@
+# Default values for mlflow.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- String to override the default generated name
+nameOverride: ""
+
+# -- String to override the default generated fullname
+fullnameOverride: ""
+
+image:
+  # -- Docker image registry
+  registry: ghcr.io
+  # -- Docker image repository
+  repository: mlflow/mlflow
+  # -- Docker image tag, default is `v${appVersion}`
+  tag: ""
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Image pull secrets for private docker registry
+  pullSecrets: []
+  # - name: <secret-name>
+
+trackingServer:
+  # -- Specifies which mode mlflow tracking server run with, available options are `serve-artifacts`, `no-serve-artifacts` and `artifacts-only`
+  mode: no-serve-artifacts
+  # -- Specifies a default artifact location for logging, data will be logged to `mlflow-artifacts/:` if artifact serving is enabled, otherwise `./mlruns`
+  defaultArtifactRoot: ""
+  # -- Specifies the base artifact location from which to resolve artifact upload/download/list requests (e.g. `s3://my-bucket`)
+  artifactsDestination: ""
+  # -- Network address to listen on
+  host: 0.0.0.0
+  # -- Port to expose the tracking server
+  port: 5000
+  # -- Number of gunicorn worker processes to handle requests
+  workers: 1
+  # -- Extra arguments passed to the `mlflow server` command
+  extraArgs: []
+  # A prefix which will be prepended to the path of all static paths
+  # - --static-prefix TEXT
+  # Additional command line options forwarded to gunicorn processes
+  # - --gunicorn-opts "--timeout 900 --graceful-timeout 120"
+  # Additional command line options for waitress-serve
+  # - --waitress-opts TEXT
+  # Path to the directory where metrics will be stored
+  # - --expose-prometheus /metrics
+  # If enabled, run the server with debug logging and auto-reload
+  # - --dev
+
+  # Basic authentication configuration,
+  # for more information, please visit https://mlflow.org/docs/latest/auth/index.html#configuration
+  basicAuth:
+    # -- Specifies whether to enable basic authentication
+    enabled: false
+    # -- Name of an existing secret which contains key `basic_auth.ini`
+    existingSecret: ""
+    # If enables BasicAuth and no existing secret is specified, creates a secret to store authentication configurations
+    createSecret:
+      # -- Default permission on all resources
+      defaultPermission: READ
+      # -- Database location to store permissions and user data
+      databaseUri: sqlite:///basic_auth.db
+      # -- Default admin username if the admin is not already created
+      adminUsername: admin
+      # -- Default admin password if the admin is not already created
+      adminPassword: password
+      # -- Function to authenticate requests
+      authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
+
+# For more information about how to configure backend store, please visit https://mlflow.org/docs/latest/tracking/backend-stores.html
+backendStore:
+  # -- Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store
+  databaseUpgrade: false
+
+  # -- Name of an existing secret which contains key `MLFLOW_BACKEND_STORE_URI`
+  existingSecret: ""
+  # -- If no existing secret is specified, creates a secret to store backend store uri
+  createSecret:
+    # -- Backend store uri
+    backendStoreUri: ""
+
+# For more information about how to configure artifact store, please visit https://mlflow.org/docs/latest/tracking.html#artifact-stores
+artifactStore:
+  s3:
+    # -- Specifies whether to enable AWS S3 as artifact store backend
+    enabled: false
+    # -- Name of an existing secret containing the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to access artifact storage on AWS S3 or MINIO
+    existingSecret: ""
+    # -- If S3 is enabled as artifact storage backend and no existing secret is specified, create the secret used to connect to S3 / Minio
+    createSecret:
+      # -- AWS access key ID
+      accessKeyId: ""
+      # -- AWS secret access key
+      secretAccessKey: ""
+    # -- Name of an existing secret containing the key `ca-bundle.crt` used to store the CA certificate for TLS connections
+    existingCaSecret: ""
+    # -- If S3 is enabled as artifact store backend and no existing CA secret is specified, create the secret used to secure connection to S3 / Minio
+    createCaSecret:
+      # -- Content of CA bundle
+      caBundle: ""
+
+  gcp:
+    # -- Specifies whether to enable Google Cloud Storage as artifact store backend
+    enabled: false
+    # -- Name of an existing secret containing the key `keyfile.json` used to store credentials to access GCP
+    existingSecret: ""
+    # -- If GCP is enabled as artifact storage and no existing secret is specified, create the secret used to connect to GCP
+    createSecret:
+      # -- Content of key file
+      keyFile: ""
+
+  azure:
+    # -- Specifies whether to enable Azure Blob Storage as artifact store backend
+    enabled: false
+    # -- Name of an existing secret containing the key `AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_ACCESS_KEY` to store credentials to access artifact storage on AZURE
+    existingSecret: ""
+    # -- If Azure is enabled as artifact store backend and no existing secret is specified, create the secret used to connect to Azure
+    createSecret:
+      # Azure storage connection string
+      azureStorageConnectionString: ""
+      # Azure storage access key
+      azureStorageAccessKey: ""
+
+  oss:
+    # -- Specifies whether to enable Alibaba Cloud Object Store Service(OSS) as artifact store backend
+    enabled: false
+    # -- Endpoint of OSS e.g. oss-cn-beijing-internal.aliyuncs.com
+    endpoint: ""
+    # -- Name of an existing secret containing the key `MLFLOW_OSS_KEY_ID` and `MLFLOW_OSS_KEY_SECRET` to store credentials to access OSS
+    existingSecret: ""
+    # -- If OSS is enabled as artifact store backend and no existing secret is specified, create the secret used to store OSS access credentials
+    createSecret:
+      # -- Alibaba Cloud access key ID
+      accessKeyId: ""
+      # -- Alibaba Cloud access key secret
+      accessKeySecret: ""
+
+# -- Number of mlflow server replicas to deploy
+replicaCount: 1
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+  # -- Annotations to add to the service account
+  annotations: {}
+
+service:
+  # -- Specifies which type of service should be created
+  type: ClusterIP
+  # -- Service port number
+  port: 5000
+  # -- Service port name
+  name: http
+  # -- Annotations to add to the service
+  annotations: {}
+
+ingress:
+  # -- Specifies whether a ingress should be created
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Annotations to add to the ingress
+  annotations: {}
+  # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
+  # -- Host rules to configure the ingress
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  # -- TLS configuration
+  tls: []
+  # - secretName: chart-example-tls
+  #   hosts:
+  #     - chart-example.local
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod security context
+podSecurityContext: {}
+# fsGroup: 2000
+
+# -- Container security context
+securityContext: {}
+# capabilities:
+#   drop:
+#   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
+
+# -- Pod node selector
+nodeSelector: {}
+
+# -- Pod tolerations
+tolerations: []
+
+# -- Pod affinity
+affinity: {}
+
+# -- Pod resources
+resources: {}
+# We usually recommend not to specify default resources and to leave this as a conscious
+# choice for the user. This also increases chances charts run on environments with little
+# resources, such as Minikube. If you do want to specify resources, uncomment the following
+# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+# limits:
+#   cpu: 100m
+#   memory: 128Mi
+# requests:
+#   cpu: 100m
+#   memory: 128Mi
+
+# -- Extra initialization containers belonging to the mlflow pod.
+extraInitContainers: []
+
+# -- Extra containers belonging to the mlflow pod.
+extraContainers: []
+
+# -- Extra environment variables in mlflow container
+extraEnv: []
+# - name: extra-env-name-1
+#   value: extra-env-value-1
+# - name: extra-env-name-2
+#   valueFrom:
+#     configMapKeyRef:
+#       name: extra-env-configmap
+#       key: extra-env-key-2
+# - name: extra-env-name-3
+#   valueFrom:
+#     secretKeyRef:
+#       name: extra-env-secret
+#       key: extra-env-key-3
+
+# -- Extra environment variable sources in mlflow container
+extraEnvFrom: []
+# - configMapRef:
+#     name: extra-env-configmap
+# - secretRef:
+#     name: extra-env-secret
+
+# -- Extra volumes that can be mounted by containers belonging to the mlflow pod
+extraVolumes: []
+# - name: mlflow-volume
+#   persistentVolumeClaim:
+#     name: mlflow-pvc
+# - name: mlflow-configmap-volume
+#   configMap:
+#     name: mlflow-configmap
+
+# -- Extra volume mounts to mount into the mlflow container's file system
+extraVolumeMounts: []
+# - name: mlflow-volume
+#   mountPath: /opt/mlflow
+# - name: mlflow-configmap-volume
+#   mountPath: /etc/mlflow
