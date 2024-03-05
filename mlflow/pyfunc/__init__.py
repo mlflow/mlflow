@@ -212,24 +212,23 @@ python_function vs. PythonModel
 *******************************
 
 When creating custom Pyfunc models, you can choose between two different interfaces:
-``python_function`` and ``PythonModel``. In short, a ``python_function`` is logged simply via a
-python function whereas a ``PythonModel`` is a class that has several required methods. If your
-use case is simple and fits within a single predict function, ``python_function`` is the way to go.
-If you need customized data processing, custom serialization, or to override additional methods,
-you should use ``PythonModel``.
+``python_function`` and ``PythonModel``. In short, a ``python_function`` is simply a
+python function whereas a ``PythonModel`` is a class that supports several required and optional
+methods. If your use case is simple and fits within a single predict function,
+``python_function`` is the way to go.  If you need customized data processing, custom serialization,
+or to override additional methods, you should use ``PythonModel``.
 
 Before looking at code examples, it's important to note that both methods are serialized via
 [cloudpickle](https://github.com/cloudpipe/cloudpickle). cloudpickle can serialize Python functions,
-including those defined at the interactive prompt, and lambda functions, as well as locally defined
-classes and functions inside other functions. This makes cloudpickle especially useful for parallel
-and distributed computing where code objects need to be sent over the network to execute on
-remote workers, which is a common deployment method for MLflow.
+lambda functions, and locally defined classes and functions inside other functions. This makes
+cloudpickle especially useful for parallel and distributed computing where code objects need to be
+sent over network to execute on remote workers, which is a common deployment paradigm for MLflow.
 
 That said, cloudpickle has some limitations.
 
-1. **Environment Dependency**: cloudpickle does not capture the full execution environment, so we
-    must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``, the latter
-    of which is used to infer environment dependencies.
+1. **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
+    MLflow we must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``,
+    the latter of which is used to infer environment dependencies.
 
 2. **Compatibility**: cloudpickle is not guaranteed to be compatible between different versions of
     Python.  However, if you're using library versions from MLflow, this compatibility will be
@@ -275,11 +274,9 @@ If you're looking to serialize a more complex object, for instance a class that 
 preprocessing, complex prediction logic, or custom serialization, you should use the
 ``PythonModel`` class. MLflow has tutorials on building custom PyFunc models, as shown
 [here](https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html),
-so instead in this example we'll recreate the above functionality to highlight the differences. Note
-that this PythonModel implementation is overly complex for the created functionality.
-
-The primary difference between the two predict methods is with a PythonModel, you must pass ``self``
-and ``params`` that defaults to None.
+so instead of duplicating that information, in this example we'll recreate the above functionality
+to highlight the differences. Note that this PythonModel implementation is overly complex and
+should be a python_function instead.
 
 .. code-block:: python
     :caption: PythonModel Example
@@ -302,6 +299,9 @@ and ``params`` that defaults to None.
 
     print(f"Prediction:\n\t{model.predict(x_new)}")
 
+The primary difference between the this implementation and the python_function implementation above
+is that the predict method is wrapped with a class, has the ``self`` parameter,
+and has the ``params`` parameter that defaults to None.
 
 In summary, use ``python_function`` when you have a simple function to serialize. If you need more
 power, use ``PythonModel``.
