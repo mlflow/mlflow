@@ -48,7 +48,8 @@ pip install --upgrade pip wheel
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then
-  MLFLOW_SKINNY=true pip install . --upgrade
+  cat pyproject.skinny.toml > pyproject.toml
+  pip install . --upgrade
 else
   pip install .[extras] --upgrade
 fi
