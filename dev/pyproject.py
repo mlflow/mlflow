@@ -168,9 +168,12 @@ def build(skinny: bool) -> None:
 
 
 def main() -> None:
-    # Running this script without taplo results in unnecessary changes to
-    # pyproject.toml and pyproject.skinny.toml
     if shutil.which("taplo") is None:
+        print(
+            "taplo is required to generate pyproject.toml. "
+            "Please install it by following the instructions at "
+            "https://taplo.tamasfe.dev/cli/introduction.html."
+        )
         return
     build(skinny=False)
     build(skinny=True)
