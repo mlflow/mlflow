@@ -168,6 +168,13 @@ def build(skinny: bool) -> None:
 
 
 def main() -> None:
+    if shutil.which("taplo") is None:
+        print(
+            "taplo is required to generate pyproject.toml. "
+            "Please install it by following the instructions at "
+            "https://taplo.tamasfe.dev/cli/introduction.html."
+        )
+        return
     build(skinny=False)
     build(skinny=True)
 
