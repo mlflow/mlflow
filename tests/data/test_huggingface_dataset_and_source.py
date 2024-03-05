@@ -17,7 +17,8 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-def test_from_huggingface_dataset_constructs_expected_dataset():
+@pytest.mark.parametrize("x", range(30))
+def test_from_huggingface_dataset_constructs_expected_dataset(x):
     ds = datasets.load_dataset("rotten_tomatoes", split="train")
     mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
 

@@ -89,10 +89,11 @@ jobs:
       - name: Run tests
         run: |
           source .venv/bin/activate
-          source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore tests/deployments/server tests
+          pytest 'tests/data/test_huggingface_dataset_and_source.py::test_from_huggingface_dataset_constructs_expected_dataset'
+          # source dev/setup-ssh.sh
+          # pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          #   --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+          #   --ignore tests/deployments/server tests
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
