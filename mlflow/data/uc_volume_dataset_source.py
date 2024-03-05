@@ -41,8 +41,8 @@ class UCVolumeDatasetSource(DatasetSource):
             return
         except Exception:
             _logger.warning(
-                "Cannot verify the path of `UCVolumeDatasetSource` because of failing to connect "
-                "to Databricks workspace. Please run `mlflow.login()` to log in to Databricks. "
+                "Cannot verify the path of `UCVolumeDatasetSource` due to a connection failure "
+                "with Databricks workspace. Please run `mlflow.login()` to log in to Databricks. "
                 "This does not block creating `UCVolumeDatasetSource`, but your "
                 "`UCVolumeDatasetSource` might be invalid."
             )
