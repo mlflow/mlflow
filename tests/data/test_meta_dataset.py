@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -6,6 +7,8 @@ from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.data.meta_dataset import MetaDataset
+from mlflow.data.uc_volume_dataset_source import UCVolumeDatasetSource
+from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
 
@@ -73,3 +76,27 @@ def test_meta_dataset_digest():
     delta_source = DeltaDatasetSource("fake/path/to/delta")
     dataset3 = MetaDataset(source=delta_source)
     assert dataset1.digest != dataset3.digest
+
+
+def test_meta_dataset_with_uc_source():
+    path = "/Volumes/dummy_catalog/dummy_schema/dummy_volume/tmp.yaml"
+
+    with patch(
+        "mlflow.data.uc_volume_dataset_source.UCVolumeDatasetSource._verify_uc_path_is_valid",
+        side_effect=MlflowException(f"{path} does not exist in Databricks Unified Catalog."),
+    ), pytest.raises(
+        MlflowException, match=f"{path} does not exist in Databricks Unified Catalog."
+    ):
+        uc_volume_source = UCVolumeDatasetSource(path)
+
+    with patch(
+        "mlflow.data.uc_volume_dataset_source.UCVolumeDatasetSource._verify_uc_path_is_valid",
+    ):
+        uc_volume_source = UCVolumeDatasetSource(path)
+        dataset = MetaDataset(source=uc_volume_source)
+        json_str = dataset.to_json()
+        parsed_json = json.loads(json_str)
+
+        assert parsed_json["digest"] is not None
+        assert path in parsed_json["source"]
+        assert parsed_json["source_type"] == "uc_volume"
