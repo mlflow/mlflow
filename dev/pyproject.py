@@ -168,7 +168,8 @@ def build(skinny: bool) -> None:
 
 
 def main() -> None:
-    # Running this script without taplo results in unnecessary changes to pyproject.toml
+    # Running this script without taplo results in unnecessary changes to
+    # pyproject.toml and pyproject.skinny.toml
     if shutil.which("taplo") is None:
         return
     build(skinny=False)
