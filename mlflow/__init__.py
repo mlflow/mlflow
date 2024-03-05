@@ -86,23 +86,24 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 
 from mlflow.client import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.models import evaluate
-from mlflow.projects import run
-from mlflow.system_metrics import (
+
+# For backward compatibility, we expose the following functions and classes at the top level in
+# addition to `mlflow.config`.
+from mlflow.config import (
     disable_system_metrics_logging,
     enable_system_metrics_logging,
-    set_system_metrics_node_id,
-    set_system_metrics_samples_before_logging,
-    set_system_metrics_sampling_interval,
-)
-from mlflow.tracking import (
     get_registry_uri,
     get_tracking_uri,
     is_tracking_uri_set,
     set_registry_uri,
+    set_system_metrics_node_id,
+    set_system_metrics_samples_before_logging,
+    set_system_metrics_sampling_interval,
     set_tracking_uri,
 )
+from mlflow.exceptions import MlflowException
+from mlflow.models import evaluate
+from mlflow.projects import run
 from mlflow.tracking._model_registry.fluent import (
     register_model,
     search_model_versions,

@@ -18,7 +18,7 @@ commands:
 jobs:
   build_doc_r:
     machine:
-      image: ubuntu-2004:202111-01
+      image: default
 
     steps:
       - checkout

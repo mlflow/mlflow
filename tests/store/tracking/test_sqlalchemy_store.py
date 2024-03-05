@@ -4,9 +4,7 @@ import os
 import pathlib
 import re
 import shutil
-import tempfile
 import time
-import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -48,7 +46,6 @@ from mlflow.store.db.utils import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
     SqlExperiment,
@@ -71,7 +68,6 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 
 from tests.integration.utils import invoke_cli_runner
-from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
 
 DB_URI = "sqlite:///"
@@ -145,8 +141,11 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> SqlAlchemyStore:
-    store = _get_store(tmp_path)
+def store(tmp_path: Path):
+    db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
     yield store
     _cleanup_database(store)
 
@@ -2849,732 +2848,634 @@ def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_m
         assert fetched_run.data.metrics == expected_metrics
 
 
-# This unit test class is under refactoring. Please use pytest for new unit tests: #10042
-class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
-    def _get_store(self, db_uri=""):
-        return SqlAlchemyStore(db_uri, ARTIFACT_URI)
-
-    def create_test_run(self):
-        return self._run_factory()
-
-    def _setup_db_uri(self):
-        if uri := MLFLOW_TRACKING_URI.get():
-            self.temp_dbfile = None
-            self.db_url = uri
-        else:
-            fd, self.temp_dbfile = tempfile.mkstemp()
-            # Close handle immediately so that we can remove the file later on in Windows
-            os.close(fd)
-            self.db_url = f"{DB_URI}{self.temp_dbfile}"
-
-    def setUp(self):
-        self._setup_db_uri()
-        self.store = self._get_store(self.db_url)
-
-    def get_store(self):
-        return self.store
-
-    def _get_query_to_reset_experiment_id(self):
-        dialect = self.store._get_dialect()
-        if dialect == POSTGRES:
-            return "ALTER SEQUENCE experiments_experiment_id_seq RESTART WITH 1"
-        elif dialect == MYSQL:
-            return "ALTER TABLE experiments AUTO_INCREMENT = 1"
-        elif dialect == MSSQL:
-            return "DBCC CHECKIDENT (experiments, RESEED, 0)"
-        elif dialect == SQLITE:
-            # In SQLite, deleting all experiments resets experiment_id
-            return None
-        raise ValueError(f"Invalid dialect: {dialect}")
-
-    def tearDown(self):
-        if self.temp_dbfile:
-            os.remove(self.temp_dbfile)
-        else:
-            with self.store.ManagedSessionMaker() as session:
-                # Delete all rows in all tables
-                for model in (
-                    SqlParam,
-                    SqlMetric,
-                    SqlLatestMetric,
-                    SqlTag,
-                    SqlInputTag,
-                    SqlInput,
-                    SqlDataset,
-                    SqlRun,
-                    SqlExperimentTag,
-                    SqlExperiment,
-                ):
-                    session.query(model).delete()
-
-                # Reset experiment_id to start at 1
-                reset_experiment_id = self._get_query_to_reset_experiment_id()
-                if reset_experiment_id:
-                    session.execute(sqlalchemy.sql.text(reset_experiment_id))
-        shutil.rmtree(ARTIFACT_URI)
-
-    def _experiment_factory(self, names):
-        if isinstance(names, (list, tuple)):
-            ids = []
-            for name in names:
-                # Sleep to ensure each experiment has a unique creation_time for
-                # deterministic experiment search results
-                time.sleep(0.001)
-                ids.append(self.store.create_experiment(name=name))
-            return ids
-
-        time.sleep(0.001)
-        return self.store.create_experiment(name=names)
-
-    def _get_run_configs(self, experiment_id=None, tags=None, start_time=None):
-        return {
-            "experiment_id": experiment_id,
-            "user_id": "Anderson",
-            "start_time": start_time if start_time is not None else get_current_time_millis(),
-            "tags": tags,
-            "run_name": "name",
-        }
-
-    def _run_factory(self, config=None):
-        if not config:
-            config = self._get_run_configs()
-
-        experiment_id = config.get("experiment_id", None)
-        if not experiment_id:
-            experiment_id = self._experiment_factory("test exp")
-            config["experiment_id"] = experiment_id
-
-        return self.store.create_run(**config)
-
-    def get_ordered_runs(self, order_clauses, experiment_id):
-        return [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(
-                experiment_ids=[experiment_id],
-                filter_string="",
-                run_view_type=ViewType.ALL,
-                order_by=order_clauses,
-            )
-        ]
-
-    def _generate_large_data(self, nb_runs=1000):
-        experiment_id = self.store.create_experiment("test_experiment")
-
-        current_run = 0
-
-        run_ids = []
-        metrics_list = []
-        tags_list = []
-        params_list = []
-        latest_metrics_list = []
-
-        for _ in range(nb_runs):
-            run_id = self.store.create_run(
-                experiment_id=experiment_id,
-                start_time=current_run,
-                tags=[],
-                user_id="Anderson",
-                run_name="name",
-            ).info.run_uuid
-
-            run_ids.append(run_id)
-
-            for i in range(100):
-                metric = {
-                    "key": f"mkey_{i}",
-                    "value": i,
-                    "timestamp": i * 2,
-                    "step": i * 3,
-                    "is_nan": False,
-                    "run_uuid": run_id,
-                }
-                metrics_list.append(metric)
-                tag = {
-                    "key": f"tkey_{i}",
-                    "value": "tval_%s" % (current_run % 10),
-                    "run_uuid": run_id,
-                }
-                tags_list.append(tag)
-                param = {
-                    "key": f"pkey_{i}",
-                    "value": "pval_%s" % ((current_run + 1) % 11),
-                    "run_uuid": run_id,
-                }
-                params_list.append(param)
-            latest_metrics_list.append(
-                {
-                    "key": "mkey_0",
-                    "value": current_run,
-                    "timestamp": 100 * 2,
-                    "step": 100 * 3,
-                    "is_nan": False,
-                    "run_uuid": run_id,
-                }
-            )
-            current_run += 1
-
-        with self.store.engine.begin() as conn:
-            conn.execute(sqlalchemy.insert(SqlParam), params_list)
-            conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
-            conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
-            conn.execute(sqlalchemy.insert(SqlTag), tags_list)
-
-        return experiment_id, run_ids
-
-    def test_search_runs_returns_expected_results_with_large_experiment(self):
-        """
-        This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
-        that search queries over an experiment containing many runs, each with a large number
-        of metrics, parameters, and tags, are performant and return the expected results.
-        """
-        experiment_id, run_ids = self._generate_large_data()
-
-        run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
-        assert len(run_results) == 100
-        # runs are sorted by desc start_time
-        assert [run.info.run_id for run in run_results] == list(reversed(run_ids[900:]))
-
-    def test_search_runs_correctly_filters_large_data(self):
-        experiment_id, _ = self._generate_large_data(1000)
-
-        run_results = self.store.search_runs(
-            [experiment_id],
-            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 ",
-            ViewType.ALL,
-            max_results=50,
+def get_ordered_runs(store, order_clauses, experiment_id):
+    return [
+        r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+        for r in store.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.ALL,
+            order_by=order_clauses,
         )
-        assert len(run_results) == 20
+    ]
 
-        run_results = self.store.search_runs(
-            [experiment_id],
-            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 and tags.tkey_0 = 'tval_0' ",
-            ViewType.ALL,
-            max_results=10,
-        )
-        assert len(run_results) == 2  # 20 runs between 9 and 26, 2 of which have a 0 tkey_0 value
 
-        run_results = self.store.search_runs(
-            [experiment_id],
-            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
-            "and tags.tkey_0 = 'tval_0' "
-            "and params.pkey_0 = 'pval_0'",
-            ViewType.ALL,
-            max_results=5,
-        )
-        assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
+def _generate_large_data(store, nb_runs=1000):
+    experiment_id = store.create_experiment("test_experiment")
 
-    def test_search_runs_keep_all_runs_when_sorting(self):
-        experiment_id = self.store.create_experiment("test_experiment1")
+    current_run = 0
 
-        r1 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=[], user_id="Me", run_name="name"
+    run_ids = []
+    metrics_list = []
+    tags_list = []
+    params_list = []
+    latest_metrics_list = []
+
+    for _ in range(nb_runs):
+        run_id = store.create_run(
+            experiment_id=experiment_id,
+            start_time=current_run,
+            tags=[],
+            user_id="Anderson",
+            run_name="name",
         ).info.run_uuid
-        r2 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=[], user_id="Me", run_name="name"
-        ).info.run_uuid
-        self.store.set_tag(r1, RunTag(key="t1", value="1"))
-        self.store.set_tag(r1, RunTag(key="t2", value="1"))
-        self.store.set_tag(r2, RunTag(key="t2", value="1"))
 
-        run_results = self.store.search_runs(
-            [experiment_id], None, ViewType.ALL, max_results=1000, order_by=["tag.t1"]
+        run_ids.append(run_id)
+
+        for i in range(100):
+            metric = {
+                "key": f"mkey_{i}",
+                "value": i,
+                "timestamp": i * 2,
+                "step": i * 3,
+                "is_nan": False,
+                "run_uuid": run_id,
+            }
+            metrics_list.append(metric)
+            tag = {
+                "key": f"tkey_{i}",
+                "value": "tval_%s" % (current_run % 10),
+                "run_uuid": run_id,
+            }
+            tags_list.append(tag)
+            param = {
+                "key": f"pkey_{i}",
+                "value": "pval_%s" % ((current_run + 1) % 11),
+                "run_uuid": run_id,
+            }
+            params_list.append(param)
+        latest_metrics_list.append(
+            {
+                "key": "mkey_0",
+                "value": current_run,
+                "timestamp": 100 * 2,
+                "step": 100 * 3,
+                "is_nan": False,
+                "run_uuid": run_id,
+            }
         )
-        assert len(run_results) == 2
+        current_run += 1
 
-    def test_try_get_run_tag(self):
-        run = self._run_factory()
-        self.store.set_tag(run.info.run_id, entities.RunTag("k1", "v1"))
-        self.store.set_tag(run.info.run_id, entities.RunTag("k2", "v2"))
+    with store.engine.begin() as conn:
+        conn.execute(sqlalchemy.insert(SqlParam), params_list)
+        conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
+        conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
+        conn.execute(sqlalchemy.insert(SqlTag), tags_list)
 
-        with self.store.ManagedSessionMaker() as session:
-            tag = self.store._try_get_run_tag(session, run.info.run_id, "k0")
-            assert tag is None
+    return experiment_id, run_ids
 
-            tag = self.store._try_get_run_tag(session, run.info.run_id, "k1")
-            assert tag.key == "k1"
-            assert tag.value == "v1"
 
-            tag = self.store._try_get_run_tag(session, run.info.run_id, "k2")
-            assert tag.key == "k2"
-            assert tag.value == "v2"
+def test_search_runs_returns_expected_results_with_large_experiment(store: SqlAlchemyStore):
+    """
+    This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+    that search queries over an experiment containing many runs, each with a large number
+    of metrics, parameters, and tags, are performant and return the expected results.
+    """
+    experiment_id, run_ids = _generate_large_data(store)
 
-    def test_get_metric_history_on_non_existent_metric_key(self):
-        experiment_id = self._experiment_factory("test_exp")[0]
-        run = self.store.create_run(
-            experiment_id=experiment_id, user_id="user", start_time=0, tags=[], run_name="name"
-        )
-        run_id = run.info.run_id
-        metrics = self.store.get_metric_history(run_id, "test_metric")
-        assert metrics == []
+    run_results = store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
+    assert len(run_results) == 100
+    # runs are sorted by desc start_time
+    assert [run.info.run_id for run in run_results] == list(reversed(run_ids[900:]))
 
-    def test_insert_large_text_in_dataset_table(self):
-        with self.store.engine.begin() as conn:
-            # cursor = conn.cursor()
-            dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
-            dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
-            conn.execute(
-                sqlalchemy.sql.text(
-                    f"""
-                INSERT INTO datasets
-                    (dataset_uuid,
-                    experiment_id,
-                    name,
-                    digest,
-                    dataset_source_type,
-                    dataset_source,
-                    dataset_schema,
-                    dataset_profile)
-                VALUES
-                    ('test_uuid',
-                    0,
-                    'test_name',
-                    'test_digest',
-                    'test_source_type',
-                    '{dataset_source}', '
-                    test_schema',
-                    '{dataset_profile}')
-                """
-                )
+
+def test_search_runs_correctly_filters_large_data(store: SqlAlchemyStore):
+    experiment_id, _ = _generate_large_data(store, 1000)
+
+    run_results = store.search_runs(
+        [experiment_id],
+        "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 ",
+        ViewType.ALL,
+        max_results=50,
+    )
+    assert len(run_results) == 20
+
+    run_results = store.search_runs(
+        [experiment_id],
+        "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 and tags.tkey_0 = 'tval_0' ",
+        ViewType.ALL,
+        max_results=10,
+    )
+    assert len(run_results) == 2  # 20 runs between 9 and 26, 2 of which have a 0 tkey_0 value
+
+    run_results = store.search_runs(
+        [experiment_id],
+        "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
+        "and tags.tkey_0 = 'tval_0' "
+        "and params.pkey_0 = 'pval_0'",
+        ViewType.ALL,
+        max_results=5,
+    )
+    assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
+
+
+def test_search_runs_keep_all_runs_when_sorting(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment1")
+
+    r1 = store.create_run(
+        experiment_id=experiment_id, start_time=0, tags=[], user_id="Me", run_name="name"
+    ).info.run_uuid
+    r2 = store.create_run(
+        experiment_id=experiment_id, start_time=0, tags=[], user_id="Me", run_name="name"
+    ).info.run_uuid
+    store.set_tag(r1, RunTag(key="t1", value="1"))
+    store.set_tag(r1, RunTag(key="t2", value="1"))
+    store.set_tag(r2, RunTag(key="t2", value="1"))
+
+    run_results = store.search_runs(
+        [experiment_id], None, ViewType.ALL, max_results=1000, order_by=["tag.t1"]
+    )
+    assert len(run_results) == 2
+
+
+def test_try_get_run_tag(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    store.set_tag(run.info.run_id, entities.RunTag("k1", "v1"))
+    store.set_tag(run.info.run_id, entities.RunTag("k2", "v2"))
+
+    with store.ManagedSessionMaker() as session:
+        tag = store._try_get_run_tag(session, run.info.run_id, "k0")
+        assert tag is None
+
+        tag = store._try_get_run_tag(session, run.info.run_id, "k1")
+        assert tag.key == "k1"
+        assert tag.value == "v1"
+
+        tag = store._try_get_run_tag(session, run.info.run_id, "k2")
+        assert tag.key == "k2"
+        assert tag.value == "v2"
+
+
+def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_exp")[0]
+    run = store.create_run(
+        experiment_id=experiment_id, user_id="user", start_time=0, tags=[], run_name="name"
+    )
+    run_id = run.info.run_id
+    metrics = store.get_metric_history(run_id, "test_metric")
+    assert metrics == []
+
+
+def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
+    with store.engine.begin() as conn:
+        # cursor = conn.cursor()
+        dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
+        dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
+        conn.execute(
+            sqlalchemy.sql.text(
+                f"""
+            INSERT INTO datasets
+                (dataset_uuid,
+                experiment_id,
+                name,
+                digest,
+                dataset_source_type,
+                dataset_source,
+                dataset_schema,
+                dataset_profile)
+            VALUES
+                ('test_uuid',
+                0,
+                'test_name',
+                'test_digest',
+                'test_source_type',
+                '{dataset_source}', '
+                test_schema',
+                '{dataset_profile}')
+            """
             )
-            results = conn.execute(
-                sqlalchemy.sql.text("SELECT dataset_source, dataset_profile from datasets")
-            ).first()
-            dataset_source_from_db = results[0]
-            assert len(dataset_source_from_db) == len(dataset_source)
-            dataset_profile_from_db = results[1]
-            assert len(dataset_profile_from_db) == len(dataset_profile)
-
-            # delete contents of datasets table
-            conn.execute(sqlalchemy.sql.text("DELETE FROM datasets"))
-
-    def test_log_inputs_and_retrieve_runs_behaves_as_expected(self):
-        experiment_id = self._experiment_factory("test exp")
-        run1 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=1))
-        run2 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=3))
-        run3 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=2))
-
-        dataset1 = entities.Dataset(
-            name="name1",
-            digest="digest1",
-            source_type="st1",
-            source="source1",
-            schema="schema1",
-            profile="profile1",
         )
-        dataset2 = entities.Dataset(
-            name="name2",
-            digest="digest2",
-            source_type="st2",
-            source="source2",
-            schema="schema2",
-            profile="profile2",
-        )
-        dataset3 = entities.Dataset(
-            name="name3",
-            digest="digest3",
-            source_type="st3",
-            source="source3",
-            schema="schema3",
-            profile="profile3",
-        )
+        results = conn.execute(
+            sqlalchemy.sql.text("SELECT dataset_source, dataset_profile from datasets")
+        ).first()
+        dataset_source_from_db = results[0]
+        assert len(dataset_source_from_db) == len(dataset_source)
+        dataset_profile_from_db = results[1]
+        assert len(dataset_profile_from_db) == len(dataset_profile)
 
-        tags1 = [
-            entities.InputTag(key="key1", value="value1"),
-            entities.InputTag(key="key2", value="value2"),
-        ]
-        tags2 = [
-            entities.InputTag(key="key3", value="value3"),
-            entities.InputTag(key="key4", value="value4"),
-        ]
-        tags3 = [
-            entities.InputTag(key="key5", value="value5"),
-            entities.InputTag(key="key6", value="value6"),
-        ]
+        # delete contents of datasets table
+        conn.execute(sqlalchemy.sql.text("DELETE FROM datasets"))
 
-        inputs_run1 = [
-            entities.DatasetInput(dataset1, tags1),
-            entities.DatasetInput(dataset2, tags1),
-        ]
-        inputs_run2 = [
-            entities.DatasetInput(dataset1, tags2),
-            entities.DatasetInput(dataset3, tags3),
-        ]
-        inputs_run3 = [entities.DatasetInput(dataset2, tags3)]
 
-        self.store.log_inputs(run1.info.run_id, inputs_run1)
-        self.store.log_inputs(run2.info.run_id, inputs_run2)
-        self.store.log_inputs(run3.info.run_id, inputs_run3)
+def test_log_inputs_and_retrieve_runs_behaves_as_expected(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    run1 = _run_factory(store, config=_get_run_configs(experiment_id, start_time=1))
+    run2 = _run_factory(store, config=_get_run_configs(experiment_id, start_time=3))
+    run3 = _run_factory(store, config=_get_run_configs(experiment_id, start_time=2))
 
-        run1 = self.store.get_run(run1.info.run_id)
-        assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
-        run2 = self.store.get_run(run2.info.run_id)
-        assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
-        run3 = self.store.get_run(run3.info.run_id)
-        assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+    dataset1 = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = entities.Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    dataset3 = entities.Dataset(
+        name="name3",
+        digest="digest3",
+        source_type="st3",
+        source="source3",
+        schema="schema3",
+        profile="profile3",
+    )
 
-        search_results_1 = self.store.search_runs(
-            [experiment_id], None, ViewType.ALL, max_results=4, order_by=["start_time ASC"]
-        )
-        run1 = search_results_1[0]
-        assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
-        run2 = search_results_1[2]
-        assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
-        run3 = search_results_1[1]
-        assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+    tags1 = [
+        entities.InputTag(key="key1", value="value1"),
+        entities.InputTag(key="key2", value="value2"),
+    ]
+    tags2 = [
+        entities.InputTag(key="key3", value="value3"),
+        entities.InputTag(key="key4", value="value4"),
+    ]
+    tags3 = [
+        entities.InputTag(key="key5", value="value5"),
+        entities.InputTag(key="key6", value="value6"),
+    ]
 
-        search_results_2 = self.store.search_runs(
-            [experiment_id], None, ViewType.ALL, max_results=4, order_by=["start_time DESC"]
-        )
-        run1 = search_results_2[2]
-        assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
-        run2 = search_results_2[0]
-        assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
-        run3 = search_results_2[1]
-        assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+    inputs_run1 = [
+        entities.DatasetInput(dataset1, tags1),
+        entities.DatasetInput(dataset2, tags1),
+    ]
+    inputs_run2 = [
+        entities.DatasetInput(dataset1, tags2),
+        entities.DatasetInput(dataset3, tags3),
+    ]
+    inputs_run3 = [entities.DatasetInput(dataset2, tags3)]
 
-    def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(self):
-        experiment_id = self._experiment_factory("test exp")
-        run = self._run_factory(config=self._get_run_configs(experiment_id))
-        dataset = entities.Dataset(
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    store.log_inputs(run2.info.run_id, inputs_run2)
+    store.log_inputs(run3.info.run_id, inputs_run3)
+
+    run1 = store.get_run(run1.info.run_id)
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = store.get_run(run2.info.run_id)
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = store.get_run(run3.info.run_id)
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+    search_results_1 = store.search_runs(
+        [experiment_id], None, ViewType.ALL, max_results=4, order_by=["start_time ASC"]
+    )
+    run1 = search_results_1[0]
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = search_results_1[2]
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = search_results_1[1]
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+    search_results_2 = store.search_runs(
+        [experiment_id], None, ViewType.ALL, max_results=4, order_by=["start_time DESC"]
+    )
+    run1 = search_results_2[2]
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = search_results_2[0]
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = search_results_2[1]
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+
+def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    run = _run_factory(store, config=_get_run_configs(experiment_id))
+    dataset = entities.Dataset(
+        name="name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    tags = [
+        entities.InputTag(key="key1", value="value1"),
+        entities.InputTag(key="key2", value="value2"),
+    ]
+    store.log_inputs(run.info.run_id, [entities.DatasetInput(dataset, tags)])
+
+    for i in range(3):
+        # Since the dataset name and digest are the same as the previously logged dataset,
+        # no changes should be made
+        overwrite_dataset = entities.Dataset(
             name="name",
             digest="digest",
-            source_type="st",
-            source="source",
-            schema="schema",
-            profile="profile",
+            source_type="st{i}",
+            source=f"source{i}",
+            schema=f"schema{i}",
+            profile=f"profile{i}",
         )
-        tags = [
-            entities.InputTag(key="key1", value="value1"),
-            entities.InputTag(key="key2", value="value2"),
+        # Since the dataset has already been logged as an input to the run, no changes should be
+        # made to the input tags
+        overwrite_tags = [
+            entities.InputTag(key=f"key{i}", value=f"value{i}"),
+            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
         ]
-        self.store.log_inputs(run.info.run_id, [entities.DatasetInput(dataset, tags)])
+        store.log_inputs(
+            run.info.run_id, [entities.DatasetInput(overwrite_dataset, overwrite_tags)]
+        )
 
-        for i in range(3):
-            # Since the dataset name and digest are the same as the previously logged dataset,
-            # no changes should be made
-            overwrite_dataset = entities.Dataset(
-                name="name",
-                digest="digest",
-                source_type="st{i}",
-                source=f"source{i}",
-                schema=f"schema{i}",
-                profile=f"profile{i}",
-            )
-            # Since the dataset has already been logged as an input to the run, no changes should be
-            # made to the input tags
-            overwrite_tags = [
-                entities.InputTag(key=f"key{i}", value=f"value{i}"),
-                entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
-            ]
-            self.store.log_inputs(
-                run.info.run_id, [entities.DatasetInput(overwrite_dataset, overwrite_tags)]
-            )
+    run = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(run.inputs.dataset_inputs, [entities.DatasetInput(dataset, tags)])
 
-        run = self.store.get_run(run.info.run_id)
+    # Logging a dataset with a different name or digest to the original run should result
+    # in the addition of another dataset input
+    other_name_dataset = entities.Dataset(
+        name="other_name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    other_name_input_tags = [entities.InputTag(key="k1", value="v1")]
+    store.log_inputs(
+        run.info.run_id, [entities.DatasetInput(other_name_dataset, other_name_input_tags)]
+    )
+
+    other_digest_dataset = entities.Dataset(
+        name="name",
+        digest="other_digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    other_digest_input_tags = [entities.InputTag(key="k2", value="v2")]
+    store.log_inputs(
+        run.info.run_id, [entities.DatasetInput(other_digest_dataset, other_digest_input_tags)]
+    )
+
+    run = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(
+        run.inputs.dataset_inputs,
+        [
+            entities.DatasetInput(dataset, tags),
+            entities.DatasetInput(other_name_dataset, other_name_input_tags),
+            entities.DatasetInput(other_digest_dataset, other_digest_input_tags),
+        ],
+    )
+
+    # Logging the same dataset with different tags to new runs should result in each run
+    # having its own new input tags and the same dataset input
+    for i in range(3):
+        new_run = store.create_run(
+            experiment_id=experiment_id,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name=None,
+        )
+        new_tags = [
+            entities.InputTag(key=f"key{i}", value=f"value{i}"),
+            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+        ]
+        store.log_inputs(new_run.info.run_id, [entities.DatasetInput(dataset, new_tags)])
+        new_run = store.get_run(new_run.info.run_id)
         assert_dataset_inputs_equal(
-            run.inputs.dataset_inputs, [entities.DatasetInput(dataset, tags)]
+            new_run.inputs.dataset_inputs, [entities.DatasetInput(dataset, new_tags)]
         )
 
-        # Logging a dataset with a different name or digest to the original run should result
-        # in the addition of another dataset input
-        other_name_dataset = entities.Dataset(
-            name="other_name",
-            digest="digest",
-            source_type="st",
-            source="source",
-            schema="schema",
-            profile="profile",
-        )
-        other_name_input_tags = [entities.InputTag(key="k1", value="v1")]
-        self.store.log_inputs(
-            run.info.run_id, [entities.DatasetInput(other_name_dataset, other_name_input_tags)]
-        )
 
-        other_digest_dataset = entities.Dataset(
-            name="name",
-            digest="other_digest",
-            source_type="st",
-            source="source",
-            schema="schema",
-            profile="profile",
-        )
-        other_digest_input_tags = [entities.InputTag(key="k2", value="v2")]
-        self.store.log_inputs(
-            run.info.run_id, [entities.DatasetInput(other_digest_dataset, other_digest_input_tags)]
-        )
+def test_log_inputs_handles_case_when_no_datasets_are_specified(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    run = _run_factory(store, config=_get_run_configs(experiment_id))
+    store.log_inputs(run.info.run_id)
+    store.log_inputs(run.info.run_id, datasets=None)
 
-        run = self.store.get_run(run.info.run_id)
-        assert_dataset_inputs_equal(
-            run.inputs.dataset_inputs,
+
+def test_log_inputs_fails_with_missing_inputs(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    run = _run_factory(store, config=_get_run_configs(experiment_id))
+
+    dataset = entities.Dataset(name="name1", digest="digest1", source_type="type", source="source")
+
+    tags = [entities.InputTag(key="key", value="train")]
+
+    # Test input key missing
+    with pytest.raises(MlflowException, match="InputTag key cannot be None"):
+        store.log_inputs(
+            run.info.run_id,
             [
-                entities.DatasetInput(dataset, tags),
-                entities.DatasetInput(other_name_dataset, other_name_input_tags),
-                entities.DatasetInput(other_digest_dataset, other_digest_input_tags),
+                entities.DatasetInput(
+                    tags=[entities.InputTag(key=None, value="train")], dataset=dataset
+                )
             ],
         )
 
-        # Logging the same dataset with different tags to new runs should result in each run
-        # having its own new input tags and the same dataset input
-        for i in range(3):
-            new_run = self.store.create_run(
-                experiment_id=experiment_id,
-                user_id="user",
-                start_time=0,
-                tags=[],
-                run_name=None,
-            )
-            new_tags = [
-                entities.InputTag(key=f"key{i}", value=f"value{i}"),
-                entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
-            ]
-            self.store.log_inputs(new_run.info.run_id, [entities.DatasetInput(dataset, new_tags)])
-            new_run = self.store.get_run(new_run.info.run_id)
-            assert_dataset_inputs_equal(
-                new_run.inputs.dataset_inputs, [entities.DatasetInput(dataset, new_tags)]
-            )
-
-    def test_log_inputs_handles_case_when_no_datasets_are_specified(self):
-        experiment_id = self._experiment_factory("test exp")
-        run = self._run_factory(config=self._get_run_configs(experiment_id))
-        self.store.log_inputs(run.info.run_id)
-        self.store.log_inputs(run.info.run_id, datasets=None)
-
-    def test_log_inputs_fails_with_missing_inputs(self):
-        experiment_id = self._experiment_factory("test exp")
-        run = self._run_factory(config=self._get_run_configs(experiment_id))
-
-        dataset = entities.Dataset(
-            name="name1", digest="digest1", source_type="type", source="source"
+    # Test input value missing
+    with pytest.raises(MlflowException, match="InputTag value cannot be None"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=[entities.InputTag(key="key", value=None)], dataset=dataset
+                )
+            ],
         )
 
-        tags = [entities.InputTag(key="key", value="train")]
-
-        # Test input key missing
-        with pytest.raises(MlflowException, match="InputTag key cannot be None"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=[entities.InputTag(key=None, value="train")], dataset=dataset
-                    )
-                ],
-            )
-
-        # Test input value missing
-        with pytest.raises(MlflowException, match="InputTag value cannot be None"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=[entities.InputTag(key="key", value=None)], dataset=dataset
-                    )
-                ],
-            )
-
-        # Test dataset name missing
-        with pytest.raises(MlflowException, match="Dataset name cannot be None"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name=None, digest="digest1", source_type="type", source="source"
-                        ),
-                    )
-                ],
-            )
-
-        # Test dataset digest missing
-        with pytest.raises(MlflowException, match="Dataset digest cannot be None"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="name", digest=None, source_type="type", source="source"
-                        ),
-                    )
-                ],
-            )
-
-        # Test dataset source type missing
-        with pytest.raises(MlflowException, match="Dataset source_type cannot be None"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="name", digest="digest1", source_type=None, source="source"
-                        ),
-                    )
-                ],
-            )
-
-        # Test dataset source missing
-        with pytest.raises(MlflowException, match="Dataset source cannot be None"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="name", digest="digest1", source_type="type", source=None
-                        ),
-                    )
-                ],
-            )
-
-    def test_log_inputs_fails_with_too_large_inputs(self):
-        experiment_id = self._experiment_factory("test exp")
-        run = self._run_factory(config=self._get_run_configs(experiment_id))
-
-        dataset = entities.Dataset(
-            name="name1", digest="digest1", source_type="type", source="source"
+    # Test dataset name missing
+    with pytest.raises(MlflowException, match="Dataset name cannot be None"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name=None, digest="digest1", source_type="type", source="source"
+                    ),
+                )
+            ],
         )
 
-        tags = [entities.InputTag(key="key", value="train")]
-
-        # Test input key too large (limit is 255)
-        with pytest.raises(MlflowException, match="InputTag key exceeds the maximum length of 255"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=[entities.InputTag(key="a" * 256, value="train")], dataset=dataset
-                    )
-                ],
-            )
-
-        # Test input value too large (limit is 500)
-        with pytest.raises(
-            MlflowException, match="InputTag value exceeds the maximum length of 500"
-        ):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=[entities.InputTag(key="key", value="a" * 501)], dataset=dataset
-                    )
-                ],
-            )
-
-        # Test dataset name too large (limit is 500)
-        with pytest.raises(MlflowException, match="Dataset name exceeds the maximum length of 500"):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="a" * 501, digest="digest1", source_type="type", source="source"
-                        ),
-                    )
-                ],
-            )
-
-        # Test dataset digest too large (limit is 36)
-        with pytest.raises(
-            MlflowException, match="Dataset digest exceeds the maximum length of 36"
-        ):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="name", digest="a" * 37, source_type="type", source="source"
-                        ),
-                    )
-                ],
-            )
-
-        # Test dataset source too large (limit is 65535)
-        with pytest.raises(
-            MlflowException, match="Dataset source exceeds the maximum length of 65535"
-        ):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="name", digest="digest", source_type="type", source="a" * 65536
-                        ),
-                    )
-                ],
-            )
-
-        # Test dataset schema too large (limit is 65535)
-        with pytest.raises(
-            MlflowException, match="Dataset schema exceeds the maximum length of 65535"
-        ):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="name",
-                            digest="digest",
-                            source_type="type",
-                            source="source",
-                            schema="a" * 65536,
-                        ),
-                    )
-                ],
-            )
-
-        # Test dataset profile too large (limit is 16777215)
-        with pytest.raises(
-            MlflowException, match="Dataset profile exceeds the maximum length of 16777215"
-        ):
-            self.store.log_inputs(
-                run.info.run_id,
-                [
-                    entities.DatasetInput(
-                        tags=tags,
-                        dataset=entities.Dataset(
-                            name="name",
-                            digest="digest",
-                            source_type="type",
-                            source="source",
-                            profile="a" * 16777216,
-                        ),
-                    )
-                ],
-            )
-
-    def test_log_inputs_with_duplicates_in_single_request(self):
-        experiment_id = self._experiment_factory("test exp")
-        run1 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=1))
-
-        dataset1 = entities.Dataset(
-            name="name1",
-            digest="digest1",
-            source_type="st1",
-            source="source1",
-            schema="schema1",
-            profile="profile1",
+    # Test dataset digest missing
+    with pytest.raises(MlflowException, match="Dataset digest cannot be None"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="name", digest=None, source_type="type", source="source"
+                    ),
+                )
+            ],
         )
 
-        tags1 = [
-            entities.InputTag(key="key1", value="value1"),
-            entities.InputTag(key="key2", value="value2"),
-        ]
-
-        inputs_run1 = [
-            entities.DatasetInput(dataset1, tags1),
-            entities.DatasetInput(dataset1, tags1),
-        ]
-
-        self.store.log_inputs(run1.info.run_id, inputs_run1)
-        run1 = self.store.get_run(run1.info.run_id)
-        assert_dataset_inputs_equal(
-            run1.inputs.dataset_inputs, [entities.DatasetInput(dataset1, tags1)]
+    # Test dataset source type missing
+    with pytest.raises(MlflowException, match="Dataset source_type cannot be None"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="name", digest="digest1", source_type=None, source="source"
+                    ),
+                )
+            ],
         )
+
+    # Test dataset source missing
+    with pytest.raises(MlflowException, match="Dataset source cannot be None"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="name", digest="digest1", source_type="type", source=None
+                    ),
+                )
+            ],
+        )
+
+
+def test_log_inputs_fails_with_too_large_inputs(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    run = _run_factory(store, config=_get_run_configs(experiment_id))
+
+    dataset = entities.Dataset(name="name1", digest="digest1", source_type="type", source="source")
+
+    tags = [entities.InputTag(key="key", value="train")]
+
+    # Test input key too large (limit is 255)
+    with pytest.raises(MlflowException, match="InputTag key exceeds the maximum length of 255"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=[entities.InputTag(key="a" * 256, value="train")], dataset=dataset
+                )
+            ],
+        )
+
+    # Test input value too large (limit is 500)
+    with pytest.raises(MlflowException, match="InputTag value exceeds the maximum length of 500"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=[entities.InputTag(key="key", value="a" * 501)], dataset=dataset
+                )
+            ],
+        )
+
+    # Test dataset name too large (limit is 500)
+    with pytest.raises(MlflowException, match="Dataset name exceeds the maximum length of 500"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="a" * 501, digest="digest1", source_type="type", source="source"
+                    ),
+                )
+            ],
+        )
+
+    # Test dataset digest too large (limit is 36)
+    with pytest.raises(MlflowException, match="Dataset digest exceeds the maximum length of 36"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="name", digest="a" * 37, source_type="type", source="source"
+                    ),
+                )
+            ],
+        )
+
+    # Test dataset source too large (limit is 65535)
+    with pytest.raises(MlflowException, match="Dataset source exceeds the maximum length of 65535"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="name", digest="digest", source_type="type", source="a" * 65536
+                    ),
+                )
+            ],
+        )
+
+    # Test dataset schema too large (limit is 65535)
+    with pytest.raises(MlflowException, match="Dataset schema exceeds the maximum length of 65535"):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="name",
+                        digest="digest",
+                        source_type="type",
+                        source="source",
+                        schema="a" * 65536,
+                    ),
+                )
+            ],
+        )
+
+    # Test dataset profile too large (limit is 16777215)
+    with pytest.raises(
+        MlflowException, match="Dataset profile exceeds the maximum length of 16777215"
+    ):
+        store.log_inputs(
+            run.info.run_id,
+            [
+                entities.DatasetInput(
+                    tags=tags,
+                    dataset=entities.Dataset(
+                        name="name",
+                        digest="digest",
+                        source_type="type",
+                        source="source",
+                        profile="a" * 16777216,
+                    ),
+                )
+            ],
+        )
+
+
+def test_log_inputs_with_duplicates_in_single_request(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    run1 = _run_factory(store, config=_get_run_configs(experiment_id, start_time=1))
+
+    dataset1 = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    tags1 = [
+        entities.InputTag(key="key1", value="value1"),
+        entities.InputTag(key="key2", value="value2"),
+    ]
+
+    inputs_run1 = [
+        entities.DatasetInput(dataset1, tags1),
+        entities.DatasetInput(dataset1, tags1),
+    ]
+
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    run1 = store.get_run(run1.info.run_id)
+    assert_dataset_inputs_equal(
+        run1.inputs.dataset_inputs, [entities.DatasetInput(dataset1, tags1)]
+    )
 
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
@@ -3602,21 +3503,6 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
     store.delete_experiment("0")
     assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
     SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
-
-
-class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
-    """
-    Test case where user has an existing DB with schema generated before MLflow 1.0,
-    then migrates their DB.
-    """
-
-    def setUp(self):
-        super()._setup_db_uri()
-        engine = sqlalchemy.create_engine(self.db_url)
-        InitialBase.metadata.create_all(engine)
-        engine.dispose()
-        invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
-        self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
 
 class TextClauseMatcher:

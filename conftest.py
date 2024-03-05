@@ -153,7 +153,7 @@ def pytest_report_teststatus(report, config):
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_ignore_collect(path, config):
+def pytest_ignore_collect(collection_path, config):
     outcome = yield
     if not outcome.get_result() and config.getoption("ignore_flavors"):
         # If not ignored by the default hook and `--ignore-flavors` specified
@@ -208,7 +208,7 @@ def pytest_ignore_collect(path, config):
             "tests/gateway",
         ]
 
-        relpath = os.path.relpath(str(path))
+        relpath = os.path.relpath(str(collection_path))
         relpath = relpath.replace(os.sep, posixpath.sep)  # for Windows
 
         if relpath in model_flavors:
