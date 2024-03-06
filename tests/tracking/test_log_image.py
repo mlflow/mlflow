@@ -1,11 +1,12 @@
+import json
 import os
 import posixpath
-from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.time import get_current_time_millis
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
@@ -116,15 +117,16 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
     import numpy as np
 
     image = np.array(array).astype(type(array[0][0]))
-
-    with mlflow.start_run(), mock.patch("mlflow.tracking.client._logger.warning") as warn_mock:
-        mlflow.log_image(image, "image.png")
-        range_str = "[0, 255]" if isinstance(array[0][0], int) else "[0, 1]"
-        msg = (
-            "Out-of-range values are detected. Clipping array "
-            f"(dtype: '{image.dtype}') to {range_str}"
-        )
-        assert any(msg in args[0] for args in warn_mock.call_args_list)
+    if isinstance(array[0][0], int):
+        with mlflow.start_run(), pytest.raises(
+            ValueError, match="Integer pixel values out of acceptable range"
+        ):
+            mlflow.log_image(image, "image.png")
+    else:
+        with mlflow.start_run(), pytest.raises(
+            ValueError, match="Float pixel values out of acceptable range"
+        ):
+            mlflow.log_image(image, "image.png")
 
 
 def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
@@ -151,3 +153,139 @@ def test_log_image_numpy_raises_exception_for_invalid_channel_length():
 def test_log_image_raises_exception_for_unsupported_image_object_type():
     with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
         mlflow.log_image("not_image", "image.png")
+
+
+def test_log_image_with_steps():
+    import numpy as np
+    from PIL import Image
+
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image, key="dog", step=0)
+
+        logged_path = "images/dog"
+        artifact_uri = mlflow.get_artifact_uri(logged_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+
+        # .png file for the image, and .json file for metadata
+        assert len(files) == 2
+        for file in files:
+            assert file.startswith("dog_step_0")
+            logged_path = os.path.join(run_artifact_dir, file)
+            if file.endswith(".png"):
+                loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
+                np.testing.assert_array_equal(loaded_image, image)
+            elif file.endswith(".json"):
+                with open(logged_path) as f:
+                    metadata = json.load(f)
+                    assert metadata["filepath"].startswith("images/dog/dog_step_0")
+                    assert metadata["key"] == "dog"
+                    assert metadata["step"] == 0
+                    assert metadata["timestamp"] <= get_current_time_millis()
+
+
+def test_log_image_with_timestamp():
+    import numpy as np
+    from PIL import Image
+
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image, key="dog", timestamp=100)
+
+        logged_path = "images/dog"
+        artifact_uri = mlflow.get_artifact_uri(logged_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+
+        # .png file for the image, and .json file for metadata
+        assert len(files) == 2
+        for file in files:
+            assert file.startswith("dog_step_0")
+            logged_path = os.path.join(run_artifact_dir, file)
+            if file.endswith(".png"):
+                loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
+                np.testing.assert_array_equal(loaded_image, image)
+            elif file.endswith(".json"):
+                with open(logged_path) as f:
+                    metadata = json.load(f)
+                    assert metadata["filepath"].startswith("images/dog/dog_step_0")
+                    assert metadata["key"] == "dog"
+                    assert metadata["step"] == 0
+                    assert metadata["timestamp"] == 100
+
+
+def test_duplicated_log_image_with_step():
+    """
+    MLflow will save both files if there are multiple calls to log_image
+    with the same key and step.
+    """
+    import numpy as np
+
+    image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+    image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image1, key="dog", step=100)
+        mlflow.log_image(image2, key="dog", step=100)
+
+        logged_path = "images/dog"
+        artifact_uri = mlflow.get_artifact_uri(logged_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+        assert len(files) == 4
+
+
+def test_duplicated_log_image_with_timestamp():
+    """
+    MLflow will save both files if there are multiple calls to log_image
+    with the same key, step, and timestamp.
+    """
+    import numpy as np
+
+    image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+    image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image1, key="dog", step=100, timestamp=100)
+        mlflow.log_image(image2, key="dog", step=100, timestamp=100)
+
+        logged_path = "images/dog"
+        artifact_uri = mlflow.get_artifact_uri(logged_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+        assert len(files) == 4
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"key": "image"},
+        {"step": 0},
+        {"timestamp": 0},
+        {"timestamp": 0, "step": 0},
+        ["image"],
+        ["image", 0],
+    ],
+)
+def test_log_image_raises_exception_for_unexpected_arguments_used(args):
+    # It will overwrite if the user wants the exact same timestamp for the logged images
+    import numpy as np
+
+    exception = "The `artifact_file` parameter cannot be used in conjunction"
+    if isinstance(args, dict):
+        with mlflow.start_run(), pytest.raises(TypeError, match=exception):
+            mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png", **args)
+    elif isinstance(args, list):
+        with mlflow.start_run(), pytest.raises(TypeError, match=exception):
+            mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png", *args)
+
+
+def test_log_image_raises_exception_for_missing_arguments():
+    import numpy as np
+
+    exception = "Invalid arguments: Please specify exactly one of `artifact_file` or `key`"
+    with mlflow.start_run(), pytest.raises(TypeError, match=exception):
+        mlflow.log_image(np.zeros((1,), dtype=np.uint8))

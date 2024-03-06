@@ -75,6 +75,7 @@ export const EvaluationRunHeaderModelIndicator = ({ run }: EvaluationRunHeaderMo
             <Popover.Root>
               <Popover.Trigger asChild>
                 <Button
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadermodelindicator.tsx_115"
                   type="link"
                   size="small"
                   css={{

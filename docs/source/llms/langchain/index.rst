@@ -20,6 +20,12 @@ Supported Elements in MLflow LangChain Integration
 - `RetrievalQA <https://js.langchain.com/docs/modules/chains/popular/vector_db_qa>`_
 - `Retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
 
+
+.. warning::
+
+   The Langchain's new chat interfaces such as `ChatOpenAI <https://python.langchain.com/docs/integrations/chat/openai>`_, `AzureChatOpenAI <https://python.langchain.com/docs/integrations/chat/azure_chat_openai>`_, are not supported in MLflow due to `a limitation <https://github.com/langchain-ai/langchain/issues/18420>`_ in deserialization. Please use the legacy counterparts for these models such as `langchain.llms.OpenAI <https://python.langchain.com/docs/integrations/llms/openai>`_, `langchain.llms.AzureOpenAI <https://python.langchain.com/docs/integrations/llms/azure_openai>`_, or create `a custom Pyfunc model <../custom-pyfunc-for-llms/index.html>`_.
+
+
 Why use MLflow with LangChain?
 ------------------------------
 Aside from the benefits of using MLflow for managing and deploying machine learning models, the integration of LangChain with MLflow provides a number of 

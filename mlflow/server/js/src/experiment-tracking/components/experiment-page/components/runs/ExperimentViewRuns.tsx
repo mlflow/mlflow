@@ -34,8 +34,7 @@ import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalS
 import { useAutoExpandRunRows } from '../../hooks/useAutoExpandRunRows';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
 import {
-  shouldEnableArtifactBasedEvaluation,
-  shouldEnableDeepLearningUIPhase2,
+  shouldEnableMetricChartsGrouping,
   shouldEnableShareExperimentViewByTags,
 } from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
@@ -246,6 +245,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     runsHidden,
     groupBy: uiState.groupBy,
     groupsExpanded: uiState.groupsExpanded,
+    runsHiddenMode: uiState.runsHiddenMode,
   });
 
   useEffect(() => {
@@ -318,8 +318,6 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     setIsDrawerOpen(true);
   }, []);
 
-  const useDeepLearningUIPhase2 = shouldEnableDeepLearningUIPhase2();
-
   return (
     <CreateNewRunContextProvider visibleRuns={visibleRuns} refreshRuns={refreshRuns}>
       <ExperimentViewRunsControls
@@ -362,7 +360,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
           uiState={uiState}
         />
         {compareRunsMode === 'CHART' &&
-          (useDeepLearningUIPhase2 && usingNewViewStateModel ? (
+          (shouldEnableMetricChartsGrouping() ? (
             <RunsCompareV2
               isLoading={isLoadingRuns}
               comparedRuns={visibleRuns}
@@ -384,7 +382,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
               compareRunCharts={usingNewViewStateModel ? uiState.compareRunCharts : searchFacetsState.compareRunCharts}
             />
           ))}
-        {compareRunsMode === 'ARTIFACT' && shouldEnableArtifactBasedEvaluation() && (
+        {compareRunsMode === 'ARTIFACT' && (
           <EvaluationArtifactCompareView
             comparedRuns={visibleRuns}
             viewState={viewState}

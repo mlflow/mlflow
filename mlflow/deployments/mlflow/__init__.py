@@ -20,8 +20,8 @@ from mlflow.environment_variables import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import join_paths
 
@@ -130,7 +130,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             call_kwargs["json"] = json_body
 
         response = http_request(
-            host_creds=_get_default_host_creds(self.target_uri),
+            host_creds=get_default_host_creds(self.target_uri),
             endpoint=route,
             method=method,
             timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,

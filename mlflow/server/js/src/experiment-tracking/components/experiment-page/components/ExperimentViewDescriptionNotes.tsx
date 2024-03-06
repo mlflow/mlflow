@@ -112,18 +112,21 @@ export const ExperimentViewDescriptionNotes = ({
             />
           </div>
           <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_114"
             icon={<PencilIcon />}
             onClick={() => setEditing(true)}
             style={{ padding: `0px ${theme.spacing.sm}px` }}
           />
           {isExpanded ? (
             <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_120"
               icon={<ChevronUpIcon />}
               onClick={() => setIsExpanded(false)}
               style={{ padding: `0px ${theme.spacing.sm}px` }}
             />
           ) : (
             <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_126"
               icon={<ChevronDownIcon />}
               onClick={() => setIsExpanded(true)}
               style={{ padding: `0px ${theme.spacing.sm}px` }}

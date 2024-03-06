@@ -22,7 +22,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
@@ -201,7 +201,7 @@ def test_list_artifacts(http_artifact_repo):
         endpoint = "/mlflow-artifacts/artifacts"
         url, _ = http_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
         mock_get.assert_called_once_with(
-            _get_default_host_creds(url),
+            get_default_host_creds(url),
             endpoint,
             "GET",
             params={"path": ""},
@@ -435,7 +435,7 @@ def test_complete_multipart_upload(http_artifact_repo, monkeypatch):
         endpoint = "/mlflow-artifacts"
         url, _ = http_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
         mock_post.assert_called_once_with(
-            _get_default_host_creds(url),
+            get_default_host_creds(url),
             "/mlflow-artifacts/mpu/complete/artifact/path",
             "POST",
             json={
@@ -463,7 +463,7 @@ def test_abort_multipart_upload(http_artifact_repo, monkeypatch):
         endpoint = "/mlflow-artifacts"
         url, _ = http_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
         mock_post.assert_called_once_with(
-            _get_default_host_creds(url),
+            get_default_host_creds(url),
             "/mlflow-artifacts/mpu/abort/artifact/path",
             "POST",
             json={

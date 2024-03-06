@@ -1,20 +1,37 @@
-import { PinIcon, PinFillIcon, Tooltip, VisibleIcon, VisibleOffIcon } from '@databricks/design-system';
+import {
+  PinIcon,
+  PinFillIcon,
+  Tooltip,
+  VisibleIcon as VisibleHollowIcon,
+  VisibleOffIcon,
+  useDesignSystemTheme,
+  Icon,
+  visuallyHidden,
+} from '@databricks/design-system';
+
+// TODO: Import this icon from design system when added
+import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
 import { Theme } from '@emotion/react';
 import React from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableShareExperimentViewByTags,
+  shouldUseNewRunRowsVisibilityModel,
+} from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
+import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIStateV2';
+import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
 
 const labels = {
   visibility: {
     groups: defineMessages({
       unhide: {
-        defaultMessage: 'Unhide runs',
+        defaultMessage: 'Unhide group',
         description: 'A tooltip for the visibility icon button in the runs table next to the hidden run group',
       },
       hide: {
-        defaultMessage: 'Hide runs',
+        defaultMessage: 'Hide group',
         description: 'A tooltip for the visibility icon button in the runs table next to the visible run group',
       },
     }),
@@ -53,6 +70,9 @@ const labels = {
   },
 };
 
+const VisibleIcon = () =>
+  shouldUseNewRunRowsVisibilityModel() ? <Icon component={VisibleFillIcon} /> : <VisibleHollowIcon />;
+
 // Mouse enter/leave delays passed to tooltips are set to 0 so swift toggling/pinning runs is not hampered
 const MOUSE_DELAYS = { mouseEnterDelay: 0, mouseLeaveDelay: 0 };
 
@@ -61,15 +81,20 @@ export const RowActionsCellRenderer = React.memo(
     data: RunRowType;
     value: { pinned: boolean; hidden: boolean };
     onTogglePin: (runUuid: string) => void;
-    onToggleVisibility: (runUuid: string) => void;
+    onToggleVisibility: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string) => void;
   }) => {
     const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
     const updateUIState = useUpdateExperimentViewUIState();
+    const { theme } = useDesignSystemTheme();
 
     const { groupParentInfo } = props.data;
     const isGroupRow = Boolean(groupParentInfo);
     const { pinned, hidden } = props.value;
-    const { runUuid } = props.data;
+    const { runUuid, rowUuid } = props.data;
+
+    // If a row is a run group, we use its rowUuid for setting visibility.
+    // If this is a run, use runUuid.
+    const runUuidToToggle = groupParentInfo ? rowUuid : runUuid;
 
     const visibilityMessageDescriptor = isGroupRow
       ? hidden
@@ -87,37 +112,43 @@ export const RowActionsCellRenderer = React.memo(
       ? labels.pinning.runs.unpin
       : labels.pinning.runs.pin;
 
+    const displayVisibilityCheckbox =
+      !shouldUseNewRunRowsVisibilityModel() ||
+      (groupParentInfo && !isRemainingRunsGroup(groupParentInfo)) ||
+      (runUuid && !props.data.runDateAndNestInfo?.belongsToGroup);
+
     return (
       <div css={styles.actionsContainer}>
         {/* Hide/show icon is part of compare runs UI */}
-        {(groupParentInfo || runUuid) && (
+        {!displayVisibilityCheckbox ? (
+          <div css={{ width: theme.general.iconFontSize }} />
+        ) : (
           <Tooltip
             dangerouslySetAntdProps={MOUSE_DELAYS}
             placement="right"
             title={<FormattedMessage {...visibilityMessageDescriptor} />}
           >
-            <label css={styles.actionCheckbox} className="is-visibility-toggle">
+            <label
+              css={[
+                styles.actionCheckbox(theme),
+                // We show this button only in the runs compare mode and only when the feature flag is set
+                shouldUseNewRunRowsVisibilityModel() && styles.showOnlyInCompareMode,
+              ]}
+              className="is-visibility-toggle"
+            >
+              <span css={visuallyHidden}>
+                <FormattedMessage {...visibilityMessageDescriptor} />
+              </span>
               <input
                 type="checkbox"
                 checked={!hidden}
                 onChange={() => {
-                  if (runUuid) {
-                    props.onToggleVisibility(runUuid);
-                  } else if (groupParentInfo) {
-                    updateUIState((existingState) => {
-                      if (groupParentInfo.runUuids.every((runUuid) => existingState.runsHidden.includes(runUuid))) {
-                        return {
-                          ...existingState,
-                          runsHidden: existingState.runsHidden.filter(
-                            (runUuid) => !groupParentInfo.runUuids.includes(runUuid),
-                          ),
-                        };
-                      }
-                      return {
-                        ...existingState,
-                        runsHidden: [...existingState.runsHidden, ...groupParentInfo.runUuids],
-                      };
-                    });
+                  if (runUuidToToggle) {
+                    if (shouldUseNewRunRowsVisibilityModel()) {
+                      props.onToggleVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuidToToggle);
+                    } else {
+                      props.onToggleVisibility(runUuidToToggle);
+                    }
                   }
                 }}
               />
@@ -134,7 +165,10 @@ export const RowActionsCellRenderer = React.memo(
             key={Math.random()}
             title={<FormattedMessage {...pinningMessageDescriptor} />}
           >
-            <label css={styles.actionCheckbox} className="is-pin-toggle" data-testid="column-pin-toggle">
+            <label css={styles.actionCheckbox(theme)} className="is-pin-toggle" data-testid="column-pin-toggle">
+              <span css={visuallyHidden}>
+                <FormattedMessage {...pinningMessageDescriptor} />
+              </span>
               <input
                 type="checkbox"
                 checked={pinned}
@@ -171,35 +205,41 @@ export const RowActionsCellRenderer = React.memo(
 );
 
 const styles = {
-  actionsContainer: () => ({
+  actionsContainer: {
     display: 'flex',
     gap: 18, // In design there's 20 px of gutter, it's minus 2 px due to pin icon's internal padding
-  }),
+  },
+  showOnlyInCompareMode: {
+    display: 'none',
+    '.is-table-comparing-runs-mode &': {
+      display: 'flex',
+    },
+  },
   actionCheckbox: (theme: Theme) => ({
     input: { width: 0, appearance: 'none' as const },
     cursor: 'pointer',
     display: 'flex',
     svg: {
-      width: 14,
-      height: 14,
+      width: theme.general.iconFontSize,
+      height: theme.general.iconFontSize,
       cursor: 'pointer',
     },
     // Styling for the pin button - it's transparent when unpinned and not hovered
     '&.is-pin-toggle svg': {
       color: 'transparent',
       '.ag-row:hover &': {
-        color: theme.colors.grey600,
+        color: theme.colors.grey500,
       },
     },
     // Styling for the show/hide button - it uses different color for active/inactive
     '&.is-visibility-toggle svg': {
       color: theme.colors.grey400,
       '.ag-row:hover &': {
-        color: theme.colors.grey600,
+        color: theme.colors.grey500,
       },
     },
     '& input:checked + span svg': {
-      color: theme.colors.grey600,
+      color: theme.colors.grey500,
     },
   }),
 };

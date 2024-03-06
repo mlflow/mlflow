@@ -32,7 +32,7 @@ import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
-import { shouldEnableDeepLearningUI, shouldEnableDeepLearningUIPhase2 } from '../../common/utils/FeatureUtils';
+import { shouldEnableDeepLearningUI, shouldEnableLoggedArtifactTableView } from '../../common/utils/FeatureUtils';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
 import { CopyIcon } from '@databricks/design-system';
@@ -254,7 +254,11 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               description: 'Link to download the artifact of the experiment',
             })}
           >
-            <Button icon={<DownloadIcon />} onClick={() => this.onDownloadClick(runUuid, activeNodeId)} />
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_337"
+              icon={<DownloadIcon />}
+              onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
+            />
           </Tooltip>
         </div>
       </div>
@@ -485,7 +489,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     }
     const { theme } = this.props.designSystemThemeApi;
 
-    if (shouldEnableDeepLearningUIPhase2()) {
+    if (shouldEnableLoggedArtifactTableView()) {
       return (
         <div
           className="artifact-view"

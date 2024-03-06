@@ -112,6 +112,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
       <div className="editable-note-actions">
         <div>
           <Button
+            componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_114"
             type="primary"
             className="editable-note-save-button"
             onClick={this.handleSubmitClick}
@@ -122,6 +123,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
             {this.props.saveText}
           </Button>
           <Button
+            componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_124"
             htmlType="button"
             className="editable-note-cancel-button"
             onClick={this.handleCancelClick}

@@ -39,7 +39,11 @@ const ContextMenuComponent = ({
       <div>mode: {isHovering ? 'hovering' : 'context menu'}</div>
       {!isHovering && (
         <div css={{ marginTop: 8 }}>
-          <Button onClick={closeContextMenu} icon={<CloseIcon />}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_hooks_userunschartstooltip.stories.tsx_42"
+            onClick={closeContextMenu}
+            icon={<CloseIcon />}
+          >
             Close
           </Button>
         </div>
@@ -174,6 +178,7 @@ export const ChartContextMenuStory = withChartMenuContext(({ data }: any) => {
       <div css={styles.chartWrapper}>
         <RunsMetricsLinePlot
           metricKey="metric1"
+          selectedXAxisMetricKey=""
           runsData={data.runs}
           useDefaultHoverBox={false}
           onHover={setTooltip}

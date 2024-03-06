@@ -5,6 +5,7 @@ import { ModelGatewayRouteTask } from './MlflowEnums';
 import { GatewayErrorWrapper } from '../utils/LLMGatewayUtils';
 import { fetchEndpoint, HTTPMethods } from '../../common/utils/FetchUtils';
 import { parseEndpointEvaluationResponse } from '../utils/LLMGatewayUtils';
+export const DATABRICKS_API_CLIENT_PROMPTLAB = 'PromptLab';
 
 export interface ModelGatewayQueryPayload {
   inputText: string;
@@ -19,23 +20,27 @@ export interface ModelGatewayResponseMetadata<T extends ModelGatewayRouteTask> {
   mode: string;
   route_type: T;
   total_tokens: number;
-  completion_tokens: number;
-  prompt_tokens: number;
+  output_tokens: number;
+  input_tokens: number;
 }
 
 export interface ModelGatewayCompletionsResponseType {
-  choices: {
+  candidates: {
     text: string;
-    finish_reason: string;
+    metadata: {
+      finish_reason: string;
+    };
   }[];
 
   metadata: ModelGatewayResponseMetadata<ModelGatewayRouteTask.LLM_V1_COMPLETIONS>;
 }
 
 export interface ModelGatewayChatResponseType {
-  choices: {
+  candidates: {
     message: { role: string; content: string };
-    finish_reason: string;
+    metadata: {
+      finish_reason: string;
+    };
   }[];
 
   metadata: ModelGatewayResponseMetadata<ModelGatewayRouteTask.LLM_V1_CHAT>;
@@ -134,7 +139,7 @@ export interface SearchMlflowDeploymentsModelRoutesResponse {
   endpoints: MlflowDeploymentsEndpoint[];
 }
 
-export const gatewayErrorHandler = ({
+const gatewayErrorHandler = ({
   reject,
   response,
   err,

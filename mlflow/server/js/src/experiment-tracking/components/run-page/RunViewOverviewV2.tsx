@@ -2,7 +2,7 @@ import { FormattedMessage } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
 
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, FileIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import Utils from '../../../common/utils/Utils';
 import type { ReduxState } from '../../../redux-types';
@@ -20,6 +20,7 @@ import { RunViewDescriptionBox } from './overview/RunViewDescriptionBox';
 import { RunViewMetadataRow } from './overview/RunViewMetadataRow';
 import { RunViewRegisteredModelsBox } from './overview/RunViewRegisteredModelsBox';
 import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
+import { RunViewSourceBox } from './overview/RunViewSourceBox';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
@@ -45,7 +46,6 @@ export const RunViewOverviewV2 = ({
   );
 
   const loggedModels = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
-  const runSource = Utils.renderSource(tags, search, runUuid);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
 
   return (
@@ -137,15 +137,7 @@ export const RunViewOverviewV2 = ({
             title={
               <FormattedMessage defaultMessage="Source" description="Run page > Overview > Run source section label" />
             }
-            value={
-              runSource ? (
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  <span css={{ color: theme.colors.primary }}>{Utils.renderSourceTypeIconV2(tags)}</span> {runSource}
-                </div>
-              ) : (
-                <EmptyValue />
-              )
-            }
+            value={<RunViewSourceBox tags={tags} search={search} runUuid={runUuid} />}
           />
           <RunViewMetadataRow
             title={

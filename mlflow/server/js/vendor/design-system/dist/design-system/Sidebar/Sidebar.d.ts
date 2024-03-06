@@ -1,6 +1,6 @@
 import type { Interpolation, Theme as EmotionTheme } from '@emotion/react';
 import type { EmotionJSX } from '@storybook/theming/dist/ts3.9/_modules/@emotion-react-types-jsx-namespace';
-import React from 'react';
+import React, { type CSSProperties } from 'react';
 import { type ButtonProps } from '../Button';
 export interface SidebarProps {
     /** The layout direction */
@@ -56,6 +56,8 @@ export interface ContentProps {
     children?: React.ReactNode;
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
+    /** Applies styles to the react-resizable container */
+    resizeBoxStyle?: CSSProperties;
 }
 export interface PanelProps {
     /** The panel id */
@@ -93,7 +95,7 @@ export interface PanelBodyProps {
 }
 export declare function Nav({ children, dangerouslyAppendEmotionCSS }: NavProps): JSX.Element;
 export declare function NavButton({ active, disabled, icon, onClick, children, dangerouslyAppendEmotionCSS, 'aria-label': ariaLabel, ...restProps }: NavButtonProps): JSX.Element;
-export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, }: ContentProps): JSX.Element;
+export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, resizeBoxStyle, }: ContentProps): JSX.Element;
 export declare function Panel({ panelId, children, forceRender, dangerouslyAppendEmotionCSS, ...delegated }: PanelProps): JSX.Element | null;
 export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS }: PanelHeaderProps): JSX.Element;
 export declare function PanelHeaderTitle({ title, dangerouslyAppendEmotionCSS }: PanelHeaderTitleProps): import("@emotion/react/jsx-runtime").JSX.Element;

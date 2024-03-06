@@ -75,7 +75,13 @@ export const RunViewMetricChartHeader = ({
       )}
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger asChild>
-          <Button css={{ flexShrink: 0 }} icon={<OverflowIcon />} size="small" title="Chart options" />
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewmetricchartheader.tsx_78"
+            css={{ flexShrink: 0 }}
+            icon={<OverflowIcon />}
+            size="small"
+            title="Chart options"
+          />
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
           <DropdownMenu.Item disabled={!canMoveUp} onClick={onMoveUp}>

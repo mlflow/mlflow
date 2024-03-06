@@ -1,7 +1,6 @@
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
-import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
+import { SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
-import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
 import { ChartSectionConfig } from 'experiment-tracking/types';
 
 export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
@@ -9,6 +8,7 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'runsExpanded',
   'runsPinned',
   'runsHidden',
+  'runsHiddenMode',
   'compareRunCharts',
   'compareRunSections',
   'viewMaximized',
@@ -23,19 +23,45 @@ const getDefaultSelectedColumns = () => {
     // "Source" and "Model" columns are visible by default
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET),
   ];
-
-  if (shouldEnableExperimentDatasetTracking()) {
-    result.push(makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET));
-  }
 
   return result;
 };
 
+export enum RUNS_VISIBILITY_MODE {
+  SHOWALL = 'SHOW_ALL',
+  HIDEALL = 'HIDE_ALL',
+  FIRST_10_RUNS = 'FIRST_10_RUNS',
+  FIRST_20_RUNS = 'FIRST_20_RUNS',
+  CUSTOM = 'CUSTOM',
+}
+
+/**
+ * An interface describing serializable, persistable configuration for charts displaying
+ * experiment run data: metrics, parameters etc. Used in experiment page's runs compare view and
+ * run page's charts view.
+ */
+export interface ExperimentRunsChartsUIConfiguration {
+  /**
+   * Currently configured charts for comparing runs, if any.
+   */
+  compareRunCharts?: SerializedRunsChartsCardConfigCard[];
+
+  /**
+   * Currently configured sections for grouping charts across runs
+   */
+  compareRunSections?: ChartSectionConfig[];
+  /**
+   * Determines if the sections have been reordered
+   */
+  isAccordionReordered: boolean;
+}
+
 /**
  * Defines model representing experiment page UI state.
  */
-export interface ExperimentPageUIStateV2 {
+export interface ExperimentPageUIStateV2 extends ExperimentRunsChartsUIConfiguration {
   /**
    * Currently selected visible columns
    */
@@ -57,20 +83,7 @@ export interface ExperimentPageUIStateV2 {
    */
   runsHidden: string[];
 
-  /**
-   * Currently configured charts for comparing runs, if any.
-   */
-  compareRunCharts?: SerializedRunsCompareCardConfigCard[];
-
-  /**
-   * Currently configured sections for grouping charts across runs
-   */
-  compareRunSections?: ChartSectionConfig[];
-
-  /**
-   * Determines if the sections have been reordered
-   */
-  isAccordionReordered: boolean;
+  runsHiddenMode: RUNS_VISIBILITY_MODE;
 
   /**
    * Determines if the experiment view is maximized
@@ -101,6 +114,7 @@ export const createExperimentPageUIStateV2 = (): ExperimentPageUIStateV2 => ({
   runsExpanded: {},
   runsPinned: [],
   runsHidden: [],
+  runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
   compareRunCharts: undefined,
   compareRunSections: undefined,
   viewMaximized: false,

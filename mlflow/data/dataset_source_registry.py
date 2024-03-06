@@ -212,3 +212,9 @@ try:
     _dataset_source_registry.register(CodeDatasetSource)
 except ImportError:
     pass
+try:
+    from mlflow.data.uc_volume_dataset_source import UCVolumeDatasetSource
+
+    _dataset_source_registry.register(UCVolumeDatasetSource)
+except ImportError:
+    pass

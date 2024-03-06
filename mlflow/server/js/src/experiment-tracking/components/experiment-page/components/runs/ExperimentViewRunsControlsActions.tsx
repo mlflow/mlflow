@@ -15,10 +15,6 @@ import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector
 import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
 import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
 import type { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
-import {
-  shouldEnableArtifactBasedEvaluation,
-  shouldEnableExperimentDatasetTracking,
-} from '../../../../../common/utils/FeatureUtils';
 import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
 
@@ -77,14 +73,25 @@ export const ExperimentViewRunsControlsActions = React.memo(
     return (
       <>
         <div css={styles.controlBar}>
-          <Button data-testid="run-rename-button" onClick={renameButtonClicked} disabled={!canRenameRuns}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_110"
+            data-testid="run-rename-button"
+            onClick={renameButtonClicked}
+            disabled={!canRenameRuns}
+          >
             <FormattedMessage
               defaultMessage="Rename"
               description="Label for the rename run button above the experiment runs table"
             />
           </Button>
           {lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
-            <Button data-testid="runs-delete-button" disabled={!canRestoreRuns} onClick={onDeleteRun} danger>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_117"
+              data-testid="runs-delete-button"
+              disabled={!canRestoreRuns}
+              onClick={onDeleteRun}
+              danger
+            >
               <FormattedMessage
                 defaultMessage="Delete"
                 // eslint-disable-next-line max-len
@@ -93,7 +100,12 @@ export const ExperimentViewRunsControlsActions = React.memo(
             </Button>
           ) : null}
           {lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
-            <Button data-testid="runs-restore-button" disabled={!canRestoreRuns} onClick={onRestoreRun}>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_126"
+              data-testid="runs-restore-button"
+              disabled={!canRestoreRuns}
+              onClick={onRestoreRun}
+            >
               <FormattedMessage
                 defaultMessage="Restore"
                 // eslint-disable-next-line max-len
@@ -103,7 +115,12 @@ export const ExperimentViewRunsControlsActions = React.memo(
           ) : null}
           <div css={styles.buttonSeparator} />
           <CompareRunsButtonWrapper>
-            <Button data-testid="runs-compare-button" disabled={!canCompareRuns} onClick={compareButtonClicked}>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_136"
+              data-testid="runs-compare-button"
+              disabled={!canCompareRuns}
+              onClick={compareButtonClicked}
+            >
               <FormattedMessage
                 defaultMessage="Compare"
                 // eslint-disable-next-line max-len

@@ -2,7 +2,7 @@
 # Required for testing utilities for parsing pip requirements
 pip>=20.1
 ## Test-only dependencies
-pytest
+pytest==8.1.0
 pytest-cov
 pytest-timeout
 pytest-localserver==0.5.0
@@ -24,8 +24,9 @@ flaml[automl]
 # they are not installed here due to their size and stability implications for other test suites
 huggingface_hub
 # Pinned due to protobuf requirement pinning in 1.3.0 of ml-server that is incompatible
-mlserver>=1.2.0,!=1.3.1
-mlserver-mlflow>=1.2.0,!=1.3.1
+# 1.4.0 does not support pydantic v2 https://github.com/SeldonIO/MLServer/pull/1595
+mlserver>=1.2.0,!=1.3.1,<1.4.0
+mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`

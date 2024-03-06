@@ -392,15 +392,17 @@ def test_create_model_version_missing_python_deps(store, local_model_dir):
         store.create_model_version(name=model_name, source=str(local_model_dir))
 
 
+_TEST_SIGNATURE = ModelSignature(
+    inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)])
+)
+
+
 @pytest.fixture
 def feature_store_local_model_dir(tmp_path):
-    fake_signature = ModelSignature(
-        inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)])
-    )
     fake_mlmodel_contents = {
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
-        "signature": fake_signature.to_dict(),
+        "signature": _TEST_SIGNATURE.to_dict(),
         "flavors": {"python_function": {"loader_module": "databricks.feature_store.mlflow_model"}},
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
@@ -445,6 +447,63 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         match="Model passed for registration contained a signature that includes only inputs",
     ):
         store.create_model_version(name="mymodel", source=str(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("flavor_config", "should_persist_api_called"),
+    [
+        # persist_pretrained_model should NOT be called for non-transformer models
+        (
+            {
+                "python_function": {},
+                "scikit-learn": {},
+            },
+            False,
+        ),
+        # persist_pretrained_model should NOT be called if model weights are saved locally
+        (
+            {
+                "transformers": {
+                    "model_binary": "model",
+                    "source_model_name": "SOME_REPO",
+                }
+            },
+            False,
+        ),
+        # persist_pretrained_model should be called if model weights are not saved locally
+        (
+            {
+                "transformers": {
+                    "source_model_name": "SOME_REPO",
+                    "source_model_revision": "SOME_COMMIT_HASH",
+                }
+            },
+            True,
+        ),
+    ],
+)
+def test_download_model_weights_if_not_saved(
+    flavor_config, should_persist_api_called, store, tmp_path
+):
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "flavors": flavor_config,
+        "signature": _TEST_SIGNATURE.to_dict(),
+    }
+    with tmp_path.joinpath(MLMODEL_FILE_NAME).open("w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+
+    if model_binary_path := flavor_config.get("transformers", {}).get("model_binary"):
+        tmp_path.joinpath(model_binary_path).mkdir()
+
+    with mock.patch("mlflow.transformers") as transformers_mock:
+        store._download_model_weights_if_not_saved(str(tmp_path))
+
+        if should_persist_api_called:
+            transformers_mock.persist_pretrained_model.assert_called_once_with(str(tmp_path))
+        else:
+            transformers_mock.persist_pretrained_model.assert_not_called()
 
 
 @mock_http_200

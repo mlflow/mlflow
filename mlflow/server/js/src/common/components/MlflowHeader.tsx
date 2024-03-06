@@ -91,7 +91,7 @@ export const MlflowHeader = ({
       <div css={{ flex: 1 }} />
       <div css={{ display: 'flex', gap: 24, paddingTop: 20, fontSize: 16, marginRight: 24 }}>
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-        <a href={'https://github.com/mlflow/mlflow'}>GitHub</a>
+        <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>
       </div>
     </header>
