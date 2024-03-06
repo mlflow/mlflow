@@ -212,7 +212,7 @@ def autolog(
                     )
                 elif is_iterator(training_data):
                     is_single_input_model = isinstance(inst.input_shape, tuple)
-                    training_data, training_data_copy = tee(training_data)
+                    training_data_copy = tee(training_data)
                     peek = next(training_data_copy)
                     batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
 
