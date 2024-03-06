@@ -13,7 +13,7 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Object, Property
+from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.types.utils import (
     TensorsNotSupportedException,
     _infer_param_schema,
@@ -673,15 +673,11 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     for i, x in enumerate(input_names):
         if isinstance(input_types[i], DataType):
             new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
-        # If the input_type is objects/arrays, we assume pf_input must be a pandas DataFrame.
+        # If the input_type is objects/arrays/maps, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
-        elif isinstance(input_types[i], Object):
+        else:
             new_pf_input[x] = pd.Series(
-                [_enforce_object(obj, input_types[i]) for obj in pf_input[x]], name=x
-            )
-        elif isinstance(input_types[i], Array):
-            new_pf_input[x] = pd.Series(
-                [_enforce_array(arr, input_types[i]) for arr in pf_input[x]], name=x
+                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]], name=x
             )
     return pd.DataFrame(new_pf_input)
 
@@ -704,15 +700,11 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
                 continue
         if isinstance(input_type, DataType):
             new_pf_input[name] = _enforce_mlflow_datatype(name, pf_input[name], input_type)
-        # If the input_type is objects/arrays, we assume pf_input must be a pandas DataFrame.
+        # If the input_type is objects/arrays/maps, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
-        elif isinstance(input_type, Object):
+        else:
             new_pf_input[name] = pd.Series(
-                [_enforce_object(obj, input_type, required) for obj in pf_input[name]], name=name
-            )
-        elif isinstance(input_type, Array):
-            new_pf_input[name] = pd.Series(
-                [_enforce_array(arr, input_type, required) for arr in pf_input[name]], name=name
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
             )
     return pd.DataFrame(new_pf_input)
 
@@ -1059,7 +1051,10 @@ def _enforce_pyspark_dataframe_schema(
     return new_pf_input.drop(*columns_to_drop)
 
 
-def _enforce_datatype(data: Any, dtype: DataType):
+def _enforce_datatype(data: Any, dtype: DataType, required=True):
+    if not required and data is None:
+        return None
+
     if not isinstance(dtype, DataType):
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
     if not np.isscalar(data):
@@ -1082,17 +1077,7 @@ def _enforce_array(data: Any, arr: Array, required=True):
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    if isinstance(arr.dtype, DataType):
-        data_enforced = [_enforce_datatype(x, arr.dtype) for x in data]
-    elif isinstance(arr.dtype, Object):
-        data_enforced = [_enforce_object(x, arr.dtype) for x in data]
-    elif isinstance(arr.dtype, Array):
-        data_enforced = [_enforce_array(x, arr.dtype) for x in data]
-    else:
-        raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with dtype `{arr}`. "
-            f"Invalid schema, `{arr.dtype}` is not supported type for Array element."
-        )
+    data_enforced = [_enforce_type(x, arr.dtype) for x in data]
 
     # Keep input data type
     if isinstance(data, np.ndarray):
@@ -1102,15 +1087,7 @@ def _enforce_array(data: Any, arr: Array, required=True):
 
 
 def _enforce_property(data: Any, property: Property):
-    if isinstance(property.dtype, DataType):
-        return _enforce_datatype(data, property.dtype)
-    if isinstance(property.dtype, Array):
-        return _enforce_array(data, property.dtype)
-    if isinstance(property.dtype, Object):
-        return _enforce_object(data, property.dtype)
-    raise MlflowException(
-        f"Failed to enforce schema of data `{data}` with dtype `{property.dtype}`"
-    )
+    return _enforce_type(data, property.dtype)
 
 
 def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
@@ -1147,6 +1124,31 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
                 f"received type {type(v).__name__}"
             ) from e
     return data
+
+
+def _enforce_map(data: Any, map_type: Map, required=True):
+    if not required and data is None:
+        return None
+
+    if not isinstance(data, dict):
+        raise MlflowException(f"Expected data to be a dict, got {type(data).__name__}")
+
+    if not all(isinstance(k, str) for k in data):
+        raise MlflowException("Expected all keys in the map type data are string type.")
+
+    return {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
+
+
+def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
+    if isinstance(data_type, DataType):
+        return _enforce_datatype(data, data_type, required=required)
+    if isinstance(data_type, Array):
+        return _enforce_array(data, data_type, required=required)
+    if isinstance(data_type, Object):
+        return _enforce_object(data, data_type, required=required)
+    if isinstance(data_type, Map):
+        return _enforce_map(data, data_type, required=required)
+    raise MlflowException(f"Invalid data type: {data_type!r}")
 
 
 def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:

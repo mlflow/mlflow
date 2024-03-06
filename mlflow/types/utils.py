@@ -12,6 +12,7 @@ from mlflow.types import DataType
 from mlflow.types.schema import (
     Array,
     ColSpec,
+    Map,
     Object,
     ParamSchema,
     ParamSpec,
@@ -106,7 +107,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     return dtype
 
 
-def _infer_datatype(data: Any) -> Union[DataType, Array, Object]:
+def _infer_datatype(data: Any) -> Union[DataType, Array, Object, Map]:
     if isinstance(data, dict):
         properties = []
         for k, v in data.items():
@@ -154,7 +155,7 @@ def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
 
         if result is None:
             result = Array(dtype)
-        elif isinstance(result.dtype, (Array, Object)):
+        elif isinstance(result.dtype, (Array, Object, Map)):
             try:
                 result = Array(result.dtype._merge(dtype))
             except MlflowException as e:

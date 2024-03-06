@@ -21,7 +21,7 @@ from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Object, Property
+from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -2553,6 +2553,124 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
             python_model=MyModel(),
             artifact_path="test_model",
             signature=signature,
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    prediction = loaded_model.predict(df)
+    pd.testing.assert_frame_equal(prediction, df)
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        (
+            {
+                "simple_map": [
+                    {"a": 3, "b": 4},
+                    {},
+                    {"c": 5},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=DataType.long), name="simple_map")]),
+        ),
+        (
+            {
+                "simple_map": [
+                    {"a": 3, "b": 4},
+                    {},
+                    {"c": 5},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=DataType.long))]),  # Unnamed column
+        ),
+        (
+            {
+                "nested_map": [
+                    {"a": {"a1": 3, "a2": 4}, "b": {"b1": 5}},
+                    {},
+                    {"c": {}},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=Map(value_type=DataType.long)), name="nested_map")]),
+        ),
+        (
+            {
+                "array_in_map": [
+                    {"a": [1, 2, 3], "b": [4, 5]},
+                    {},
+                    {"c": []},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=Array(dtype=DataType.long)), name="array_in_map")]),
+        ),
+        (
+            {
+                "object_in_map": [
+                    {"a": {"key1": "a1", "key2": 1}, "b": {"key1": "b1"}},
+                    {},
+                    {"c": {"key1": "c1"}},
+                ]
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Map(
+                            value_type=Object(
+                                [
+                                    Property("key1", DataType.string),
+                                    Property("key2", DataType.long, required=False),
+                                ]
+                            )
+                        ),
+                        name="object_in_map",
+                    )
+                ]
+            ),
+        ),
+        (
+            {
+                "map_in_array": [
+                    [{"a": 3, "b": 4}, {"c": 5}],
+                    [],
+                    [{"d": 6}],
+                ]
+            },
+            Schema([ColSpec(Array(dtype=Map(value_type=DataType.long)), name="map_in_array")]),
+        ),
+        (
+            {
+                "map_in_object": [
+                    {"key1": {"a": 3, "b": 4}, "key2": {"c": 5}},
+                    {"key1": {"d": 6}},
+                ]
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Object(
+                            [
+                                Property("key1", Map(value_type=DataType.long)),
+                                Property("key2", Map(value_type=DataType.long), required=False),
+                            ]
+                        ),
+                        name="map_in_object",
+                    )
+                ]
+            ),
+        ),
+    ],
+)
+def test_pyfunc_model_schema_enforcement_map_type(data, schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    df = pd.DataFrame.from_records(data)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=ModelSignature(inputs=schema, outputs=schema),
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     prediction = loaded_model.predict(df)
