@@ -72,7 +72,12 @@ parse_custom_arguments = click.option(
 )
 
 parse_input = click.option(
-    "--input-path", "-I", required=True, help="Path to input json file for prediction"
+    "--input-path",
+    "-I",
+    required=True,
+    help="Path to input prediction payload file. The file can"
+    "be a JSON (Python Dict) or CSV (pandas DataFrame). If the file is a CSV, the user must specify"
+    "the --content-type csv option.",
 )
 
 parse_output = click.option(
