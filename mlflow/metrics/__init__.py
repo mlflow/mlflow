@@ -1,3 +1,4 @@
+from mlflow.metrics import genai
 from mlflow.metrics.base import (
     MetricValue,
 )
@@ -457,4 +458,5 @@ __all__ = [
     "binary_f1_score",
     "token_count",
     "latency",
+    "genai",
 ]
