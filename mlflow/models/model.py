@@ -495,6 +495,10 @@ class Model:
             res["metadata"] = self.metadata
         if self.model_size_bytes is not None:
             res["model_size_bytes"] = self.model_size_bytes
+        if self.artifact_path is None:
+            res.pop("run_id", None)
+        if self.artifact_path is None:
+            res.pop("artifact_path", None)
         return res
 
     def to_yaml(self, stream=None):
