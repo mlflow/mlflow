@@ -1134,11 +1134,9 @@ def _enforce_map(data: Any, map_type: Map, required=True):
         raise MlflowException(f"Expected data to be a dict, got {type(data).__name__}")
 
     if not all(isinstance(k, str) for k in data):
-        raise MlflowException(f"Expected all keys in the map type data are string type.")
+        raise MlflowException("Expected all keys in the map type data are string type.")
 
-    data_enforced = {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
-
-    return data_enforced
+    return {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
 
 
 def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
