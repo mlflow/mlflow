@@ -717,7 +717,7 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
             {
                 "query": [{"name": "value", "age": "10"}, {"name": "value"}],
                 "table": {"k": "some_table"},
-                "data": {"k1": ["a", "b"], "k2": ["c"]}
+                "data": {"k1": ["a", "b"], "k2": ["c"]},
             },
             Schema(
                 [
