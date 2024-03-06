@@ -134,6 +134,7 @@ message TemporaryCredentials {
     AzureUserDelegationSAS azure_user_delegation_sas = 3;
     GcpOauthToken gcp_oauth_token = 4;
     R2Credentials r2_temp_credentials = 5;
+    ArclightCredentials arclight_credentials = 6;
   }
 
   // Server time when the credential will expire, in epoch milliseconds.
@@ -179,6 +180,9 @@ message R2Credentials {
   // The generated JWT that users must pass to use the temporary credentials.
   optional string session_token = 3;
 }
+
+// serves as boolean to note the use of Arclight presigned URLs instead of temporary cloud credentials
+message ArclightCredentials {}
 
 message CreateRegisteredModelRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateRegisteredModelResponse]";

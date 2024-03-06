@@ -23,6 +23,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import TemporaryCredentials
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
@@ -153,6 +154,9 @@ def _get_artifact_repo_from_storage_info(
             secret_access_key=r2_creds.secret_access_key,
             session_token=r2_creds.session_token,
         )
+    elif credential_type == "arclight_credentials":
+        print("got arclight credentials credential type")
+        return PresignedUrlArtifactRepository(artifact_uri=storage_location)
     else:
         raise MlflowException(
             f"Got unexpected credential type {credential_type} when attempting to "
