@@ -290,8 +290,6 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
             code_paths=["src"],  # the whole /src directory will be saved at code/src
         )
 
-    # => This will work
-
 .. warning::
 
     By the same reason, ``code_path`` option doesn't handle the relative import like ``code_path=["../src"]``.
@@ -351,7 +349,16 @@ Please refer to :py:func:`mlflow.models.predict()` or the `CLI reference <../cli
         mlflow models predict -m runs:/<run_id>/model-i <input_path>
 
 Using the :py:func:`mlflow.models.predict()` API is convenient for testing your model and inference environment quickly.
-However, it may not be a perfect simulation of the serving because it does not start the online inference server.
+However, it may not be a perfect simulation of the serving because it does not start the online inference server. That
+said, it's a great way to test whether your prediction inputs are correctly formatted. 
+
+Formatting is subject to the types supported by the ``predict()`` method of your logged model. If the model was logged with a
+signature, the input data should be viewable from the MLflow UI or via :py:func:`mlflow.models.get_model_info()`, 
+which has the field ``signature``.
+
+More generally, MLflow has the ability to support a variety of flavor-specfic input types, such as a tensorflow tensor.  
+MLflow also supports types that are not specific to a given flavor, such as a pandas DataFrame, numpy ndarray, python Dict, 
+python List, scipy.sparse matrix, and spark data frame.
 
 Testing online inference endpoint with a virtual environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -400,8 +407,8 @@ Troubleshooting
 
 .. _how-to-fix-dependency-errors-in-model:
 
-How to fix dependency errors when serving my model?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+How to Fix Dependency Errors when Serving my Model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 One of the most common issues experienced during model deployment centers around dependency issues. When logging or saving your model, MLflow tries to infer the
 model dependencies and save them as part of the MLflow Model metadata. However, this might not always be complete and miss some dependencies e.g. [extras] dependencies
 for certain libraries. This can cause errors when serving your model, such as "ModuleNotFoundError" or "ImportError". Below are some steps that can help to diagnose
@@ -438,7 +445,7 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
         import mlflow
 
         mlflow.models.predict(
-            model_uri="runs:/<run_id>/model",
+            model_uri="runs:/<run_id>/<model_path>",
             input_data=<input_data>,
             pip_requirements_override=["opencv-python==4.8.0"],
         )
@@ -446,12 +453,19 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
     .. code-tab:: bash
 
         mlflow models predict \
-            -m runs:/<run_id>/model \
-            -i <input_path> \
+            -m runs:/<run_id>/<model_path> \
+            -I <input_path> \
             --pip-requirements-override opencv-python==4.8.0
 
 The specified dependencies will be installed to the virtual environment in addition to (or instead of) the dependencies
 defined in the model metadata. Since this doesn't mutate the model, you can iterate quickly and safely to find the correct dependencies.
+
+Note that for ``input_data`` parameter in the python implementation, the function takes a Python object that is supported by your
+model's ``predict()`` function. Some examples may include flavor-specific input types, such as a 
+tensorflow tensor, or more generic types such as a pandas DataFrame, numpy ndarray, python Dict, or
+python List. When working with the CLI, we cannot pass python objects and instead look to pass the path 
+to a CSV or JSON file containing the input payload.
+
 
 .. note::
 
@@ -473,8 +487,14 @@ To do so, specify the ``extra_pip_requirements`` option when logging the model.
         input_example=input_data,
     )
 
+Note that you can also leverage the CLI to update model dependencies in-place and thereby avoid
+re-logging the model. 
 
-How to migrate Anaconda Dependency for License Change
+.. code:: bash
+
+    mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> add "opencv-python==4.8.0" 
+
+How to Migrate Anaconda Dependency for License Change
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
