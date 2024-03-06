@@ -13,6 +13,8 @@ def _extract_databricks_dependencies_from_retriever(
     retriever, dependency_dict: DefaultDict[str, List[Any]]
 ):
     import langchain
+    import langchain.embeddings
+    import langchain.vectorstores
 
     vectorstore = getattr(retriever, "vectorstore", None)
     if vectorstore and (embeddings := getattr(vectorstore, "embeddings", None)):
