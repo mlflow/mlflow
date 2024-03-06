@@ -222,7 +222,7 @@ do this depends on whether you want to run them :ref:`sequentially <sequential-r
 
 .. _sequential-runs:
 
-Sequantial Runs
+Sequential Runs
 ~~~~~~~~~~~~~~~
 Running multiple runs one-by-one is easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_run`
 is a Python `context manager <https://docs.python.org/2.5/whatsnew/pep-343.html>`_. You can "scope" each run to
