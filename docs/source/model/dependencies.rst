@@ -454,7 +454,7 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
 
         mlflow models predict \
             -m runs:/<run_id>/<model_path> \
-            -i <input_path> \
+            -I <input_path> \
             --pip-requirements-override opencv-python==4.8.0
 
 The specified dependencies will be installed to the virtual environment in addition to (or instead of) the dependencies
