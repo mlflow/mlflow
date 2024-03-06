@@ -15,6 +15,7 @@ from mlflow.utils.annotations import experimental
 
 ARRAY_TYPE = "array"
 OBJECT_TYPE = "object"
+MAP_TYPE = "map"
 
 
 class DataType(Enum):
@@ -140,7 +141,7 @@ class Property:
     def __init__(
         self,
         name: str,
-        dtype: Union[DataType, "Array", "Object", str],
+        dtype: Union[DataType, "Array", "Object", "Map", str],
         required: bool = True,
     ) -> None:
         """
@@ -158,13 +159,13 @@ class Property:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
         except KeyError:
             raise MlflowException(
-                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
+                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object, Map or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (DataType, Array, Object)):
+        if not isinstance(self.dtype, (DataType, Array, Object, Map)):
             raise MlflowException(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
-                "mlflow.types.schema.Object or str for the 'dtype' "
+                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the 'dtype' "
                 f"argument, but got {self.dtype.__class__}"
             )
         self._required = required
@@ -175,7 +176,7 @@ class Property:
         return self._name
 
     @property
-    def dtype(self) -> Union[DataType, "Array", "Object"]:
+    def dtype(self) -> Union[DataType, "Array", "Object", "Map"]:
         """The property data type."""
         return self._dtype
 
@@ -231,6 +232,8 @@ class Property:
             return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
         if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
+        if dtype == MAP_TYPE:
+            return cls(name=name, dtype=Map.from_json_dict(**dic), required=required)
         return cls(name=name, dtype=dtype, required=required)
 
     def _merge(self, prop: "Property") -> "Property":
@@ -282,16 +285,12 @@ class Property:
                 return Property(name=self.name, dtype=self.dtype, required=required)
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {prop.dtype}")
 
-        if isinstance(self.dtype, Object) and isinstance(prop.dtype, Object):
+        if (
+            isinstance(self.dtype, (Array, Object, Map))
+            and self.dtype.__class__ is prop.dtype.__class__
+        ):
             obj = self.dtype._merge(prop.dtype)
             return Property(name=self.name, dtype=obj, required=required)
-
-        if isinstance(self.dtype, Array) and isinstance(prop.dtype, Array):
-            if self.dtype.dtype == prop.dtype.dtype:
-                return Property(name=self.name, dtype=self.dtype, required=required)
-            if isinstance(self.dtype.dtype, Object) and isinstance(prop.dtype.dtype, Object):
-                obj = self.dtype.dtype._merge(prop.dtype.dtype)
-                return Property(name=self.name, dtype=Array(obj), required=required)
 
         raise MlflowException("Properties are incompatible")
 
@@ -441,20 +440,20 @@ class Array:
 
     def __init__(
         self,
-        dtype: Union["Array", DataType, Object, str],
+        dtype: Union["Array", "Map", DataType, Object, str],
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
         except KeyError:
             raise MlflowException(
-                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
+                f"Unsupported type '{dtype}', expected instance of DataType, Array, Object, Map or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (Array, DataType, Object)):
+        if not isinstance(self.dtype, (Array, DataType, Object, Map)):
             raise MlflowException(
                 "Expected mlflow.types.schema.Array, mlflow.types.schema.Datatype, "
-                "mlflow.types.schema.Object or str for the 'dtype' argument, "
-                f"but got '{self.dtype.__class__}'"
+                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the "
+                f"'dtype' argument, but got '{self.dtype.__class__}'"
             )
 
     @property
@@ -495,6 +494,8 @@ class Array:
             return cls(dtype=Object.from_json_dict(**kwargs["items"]))
         if kwargs["items"]["type"] == ARRAY_TYPE:
             return cls(dtype=Array.from_json_dict(**kwargs["items"]))
+        if kwargs["items"]["type"] == MAP_TYPE:
+            return cls(dtype=Map.from_json_dict(**kwargs["items"]))
         return cls(dtype=kwargs["items"]["type"])
 
     def __repr__(self) -> str:
@@ -512,8 +513,102 @@ class Array:
                 f"Array types are incompatible for {self} with dtype={self.dtype} and "
                 f"{arr} with dtype={arr.dtype}"
             )
-        if isinstance(self.dtype, (Array, Object)):
+
+        if (
+            isinstance(self.dtype, (Array, Object, Map))
+            and self.dtype.__class__ is arr.dtype.__class__
+        ):
             return Array(dtype=self.dtype._merge(arr.dtype))
+
+        raise MlflowException(f"Array type {self!r} and {arr!r} are incompatible")
+
+
+class Map:
+    """
+    Specification used to represent a json-convertible map with string type keys.
+    """
+
+    def __init__(self, value_type: Union["Array", "Map", DataType, Object, str]):
+        try:
+            self._value_type = DataType[value_type] if isinstance(value_type, str) else value_type
+        except KeyError:
+            raise MlflowException(
+                f"Unsupported value type '{value_type}', expected instance of DataType, Array, "
+                f"Object, Map or one of {[t.name for t in DataType]}"
+            )
+        if not isinstance(self._value_type, (Array, Map, DataType, Object)):
+            raise MlflowException(
+                "Expected mlflow.types.schema.Array, mlflow.types.schema.Datatype, "
+                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for "
+                f"the 'value_type' argument, but got '{self._value_type}'"
+            )
+
+    @property
+    def value_type(self):
+        return self._value_type
+
+    def __repr__(self) -> str:
+        return f"Map(str -> {self._value_type})"
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Map):
+            return self.value_type == other.value_type
+        return False
+
+    def to_dict(self):
+        values = (
+            {"type": self.value_type.name}
+            if isinstance(self.value_type, DataType)
+            else self.value_type.to_dict()
+        )
+        return {"type": MAP_TYPE, "values": values}
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and
+        `values` keys.
+        Example: {"type": "map", "values": "string"}
+        """
+        if not {"values", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in Array JSON. Expected to find keys `items` and `type`"
+            )
+        if kwargs["type"] != MAP_TYPE:
+            raise MlflowException("Type mismatch, Map expects `map` as the type")
+        if not isinstance(kwargs["values"], dict):
+            raise MlflowException("Expected values to be a dictionary of Object JSON")
+        if not {"type"} <= set(kwargs["values"].keys()):
+            raise MlflowException("Missing keys in Map's items JSON. Expected to find key `type`")
+        if kwargs["values"]["type"] == OBJECT_TYPE:
+            return cls(value_type=Object.from_json_dict(**kwargs["values"]))
+        if kwargs["values"]["type"] == ARRAY_TYPE:
+            return cls(value_type=Array.from_json_dict(**kwargs["values"]))
+        if kwargs["values"]["type"] == MAP_TYPE:
+            return cls(value_type=Map.from_json_dict(**kwargs["values"]))
+        return cls(value_type=kwargs["values"]["type"])
+
+    def _merge(self, map_type: "Map") -> "Map":
+        if not isinstance(map_type, Map):
+            raise MlflowException(f"Can't merge map with non-map type: {type(map_type).__name__}")
+        if self == map_type:
+            return deepcopy(self)
+        if isinstance(self.value_type, DataType):
+            if self.value_type == map_type.value_type:
+                return Map(value_type=self.value_type)
+            raise MlflowException(
+                f"Map types are incompatible for {self} with value_type={self.value_type} and "
+                f"{map_type} with value_type={map_type.value_type}"
+            )
+
+        if (
+            isinstance(self.value_type, (Array, Object, Map))
+            and self.value_type.__class__ is map_type.value_type.__class__
+        ):
+            return Map(value_type=self.value_type._merge(map_type.value_type))
+
+        raise MlflowException(f"Map type {self!r} and {map_type!r} are incompatible")
 
 
 class ColSpec:
@@ -552,10 +647,10 @@ class ColSpec:
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.type, (DataType, Array, Object)):
+        if not isinstance(self.type, (DataType, Array, Object, Map)):
             raise TypeError(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
-                "mlflow.types.schema.Object or str for the 'type' "
+                "mlflow.types.schema.Object, mlflow.types.schema.Map or str for the 'type' "
                 f"argument, but got {self.type.__class__}"
             )
 
@@ -613,7 +708,7 @@ class ColSpec:
         """
         if not {"type"} <= set(kwargs.keys()):
             raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
-        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE]:
+        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
         optional = kwargs.pop("optional", None)
@@ -628,6 +723,10 @@ class ColSpec:
                 type=Object.from_json_dict(**kwargs),
                 optional=optional,
                 required=required,
+            )
+        if kwargs["type"] == MAP_TYPE:
+            return cls(
+                name=name, type=Map.from_json_dict(**kwargs), optional=optional, required=required
             )
 
 
