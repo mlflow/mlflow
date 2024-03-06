@@ -1,4 +1,4 @@
-import { BranchIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { BranchIcon, GitCommitIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import Utils from '../../../../common/utils/Utils';
 import type { KeyValueEntity } from '../../../types';
 import { MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG } from '../../../constants';
@@ -13,6 +13,7 @@ export const RunViewSourceBox = ({
   search: string;
 }) => {
   const branchName = tags?.[MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG]?.value;
+  const commitName = tags?.[Utils.gitCommitTag]?.value;
   const runSource = Utils.renderSource(tags, search, runUuid, branchName);
 
   const { theme } = useDesignSystemTheme();
@@ -33,6 +34,15 @@ export const RunViewSourceBox = ({
           <Tag>
             <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
               <BranchIcon /> {branchName}
+            </div>
+          </Tag>
+        </Tooltip>
+      )}
+      {commitName && (
+        <Tooltip title={commitName}>
+          <Tag>
+            <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
+              <GitCommitIcon /> {commitName}
             </div>
           </Tag>
         </Tooltip>
