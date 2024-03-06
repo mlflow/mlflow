@@ -2,18 +2,17 @@
 
 ## 2.11.1 (2024-03-06)
 
-MLflow 2.11.1 includes several major features and improvements
+MLflow 2.11.1 is a patch release, containing fixes for some Databricks integrations and other various issues.
 
 Bug fixes:
 
-- [UI] Add Commit Hash back to UI (#11324, @daniellok-db)
-- [] Explicitly import vectorstores and embeddings in databricks_dependencies (#11334, @daniellok-db)
-- [] Modify DBR version parsing logic (#11328, @daniellok-db)
+- [UI] Add Commit Hash back to the run page UI (#11324, @daniellok-db)
+- [Databricks Integration] Explicitly import vectorstores and embeddings in databricks_dependencies (#11334, @daniellok-db)
+- [Databricks Integration] Modify DBR version parsing logic (#11328, @daniellok-db)
 
 Small bug fixes and documentation updates:
 
 #11336, #11335, @harupy; #11303, @B-Step62; #11319, @BenWilson2; #11306, @daniellok-db
-
 ## 2.11.0 (2024-03-01)
 
 MLflow 2.11.0 includes several major features and improvements
