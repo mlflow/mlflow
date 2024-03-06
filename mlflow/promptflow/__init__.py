@@ -408,7 +408,7 @@ class _PromptflowModelWrapper:
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ) -> dict:
+    ) -> Union[dict, list]:
         """
         Args:
             data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.
@@ -433,13 +433,11 @@ class _PromptflowModelWrapper:
                     _INVALID_PREDICT_INPUT_ERROR_MESSAGE
                 )
             messages = messages[0]
+            return [self.model_invoker.invoke(messages)]
         elif isinstance(data, dict):
             messages = data
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                _INVALID_PREDICT_INPUT_ERROR_MESSAGE
-            )
-        return self.model_invoker.invoke(messages)
+            return self.model_invoker.invoke(messages)
+        raise mlflow.MlflowException.invalid_parameter_value(_INVALID_PREDICT_INPUT_ERROR_MESSAGE)
 
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
