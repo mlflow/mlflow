@@ -505,6 +505,8 @@ paddle:
   models:
     minimum: "2.4.1"
     maximum: "2.6.0"
+    requirements:
+      "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autolog:
