@@ -76,6 +76,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
+    _get_all_flavor_configurations
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
