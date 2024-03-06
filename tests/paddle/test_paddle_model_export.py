@@ -564,7 +564,7 @@ def test_pyfunc_serve_and_score(pd_model):
         mlflow.paddle.log_model(
             model,
             artifact_path,
-            extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            extra_pip_requirements=[PROTOBUF_REQUIREMENT, "google-cloud-storage==2.14.0"]
             if Version(paddle.__version__) < Version("2.5.0")
             else None,
         )
