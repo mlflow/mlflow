@@ -13,6 +13,7 @@ Bug fixes:
 Small bug fixes and documentation updates:
 
 #11336, #11335, @harupy; #11303, @B-Step62; #11319, @BenWilson2; #11306, @daniellok-db
+
 ## 2.11.0 (2024-03-01)
 
 MLflow 2.11.0 includes several major features and improvements
