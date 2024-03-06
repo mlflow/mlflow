@@ -704,7 +704,12 @@ def load_model(model_uri, dst_path=None):
         A LangChain model instance.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    return _load_model_from_local_fs(local_model_path)
+    flavors = _get_all_flavor_configurations(local_model_path)
+    if "databricks_rag" in flavors:
+        from databricks.rag.rag_chain import load_model
+        return load_model(model_uri)
+    else:
+        return _load_model_from_local_fs(local_model_path)
 
 
 @experimental
