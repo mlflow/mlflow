@@ -379,8 +379,8 @@ def convert_data_type(data, spec):
     """
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_object
-    from mlflow.types.schema import Array, ColSpec, DataType, Object, TensorSpec
+    from mlflow.models.utils import _enforce_array, _enforce_object, _enforce_map
+    from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
@@ -399,6 +399,8 @@ def convert_data_type(data, spec):
                 return np.array(_enforce_array(data, spec.type))
             elif isinstance(spec.type, Object):
                 return _enforce_object(data, spec.type)
+            elif isinstance(spec.type, Map):
+                return _enforce_map(data, spec.type)
     except MlflowException as e:
         raise MlflowInvalidInputException(e.message)
     except Exception as ex:
