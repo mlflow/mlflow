@@ -36,6 +36,7 @@ def _extract_databricks_dependencies_from_retriever(
 
 def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
     import langchain
+    import langchain.llms
 
     if isinstance(llm, langchain.llms.Databricks):
         dependency_dict[_DATABRICKS_LLM_ENDPOINT_NAME_KEY].append(llm.endpoint_name)
@@ -45,6 +46,7 @@ def _extract_databricks_dependencies_from_chat_model(
     chat_model, dependency_dict: DefaultDict[str, List[Any]]
 ):
     import langchain
+    import langchain.chat_models
 
     if isinstance(chat_model, langchain.chat_models.ChatDatabricks):
         dependency_dict[_DATABRICKS_CHAT_ENDPOINT_NAME_KEY].append(chat_model.endpoint)
