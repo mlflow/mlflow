@@ -213,7 +213,7 @@ class MlflowFailedTypeConversion(MlflowInvalidInputException):
 def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_object, _enforce_map
+    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
     from mlflow.types.schema import Array, DataType, Map, Object
 
     actual_cols = set(pdf.columns)
@@ -381,7 +381,7 @@ def convert_data_type(data, spec):
     """
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_object, _enforce_map
+    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
     from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
