@@ -14,7 +14,7 @@ from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredM
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.types import ColSpec, DataType, Schema, TensorSpec
-from mlflow.types.schema import Array, Object, Property
+from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
@@ -713,9 +713,27 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
                 "table": ["some_table", "some_table"],
             },
         ),
+        (
+            {
+                "query": [{"name": "value", "age": "10"}, {"name": "value"}],
+                "table": {"k": "some_table"},
+                "data": {"k1": ["a", "b"], "k2": ["c"]},
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Array(Map(value_type=DataType.string)),
+                        name="query",
+                    ),
+                    ColSpec(Map(value_type=DataType.string), name="table"),
+                    ColSpec(Map(value_type=Array(DataType.string)), name="data"),
+                ]
+            ),
+            None,
+        ),
     ],
 )
-def test_parse_tf_serving_input_for_dictionaries_and_lists(data, schema, instances_data):
+def test_parse_tf_serving_input_for_dictionaries_and_lists_and_maps(data, schema, instances_data):
     np.testing.assert_equal(parse_tf_serving_input({"inputs": data}, schema), data)
     if instances_data is None:
         np.testing.assert_equal(parse_tf_serving_input({"instances": data}, schema), data)
