@@ -1,15 +1,16 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { useRunsChartsTooltip } from '../runs-charts/hooks/useRunsChartsTooltip';
+import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { useMemo } from 'react';
 import { RunsMetricsLinePlot, RunsMetricsLinePlotProps } from '../runs-charts/components/RunsMetricsLinePlot';
 import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import type { MetricEntity, RunInfoEntity } from '../../types';
+import { shouldEnableDeepLearningUIPhase3 } from '../../../common/utils/FeatureUtils';
+import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
 
-export interface RunViewMetricHistoryChartProps {
+export interface RunViewMetricHistoryChartProps extends Pick<RunsMetricsLinePlotProps, 'xRange' | 'yRange'> {
   metricKey: string;
   runInfo: RunInfoEntity;
   metricsHistory: MetricEntity[];
-  range: RunsMetricsLinePlotProps['range'];
   onUpdate: RunsMetricsLinePlotProps['onUpdate'];
 }
 
@@ -21,10 +22,17 @@ export const RunViewMetricHistoryChart = ({
   metricKey,
   metricsHistory,
   onUpdate,
-  range,
+  xRange,
+  yRange,
 }: RunViewMetricHistoryChartProps) => {
   const { theme } = useDesignSystemTheme();
-  const { setTooltip, resetTooltip } = useRunsChartsTooltip({ metricKey });
+
+  const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
+
+  const { setTooltip, resetTooltip } = useRunsChartsTooltip(
+    { metricKey },
+    usingMultipleRunsHoverTooltip ? RunsChartsTooltipMode.MultipleTracesWithScanline : RunsChartsTooltipMode.Simple,
+  );
 
   // Prepare a single trace for the line chart
   const chartData = useMemo(
@@ -44,14 +52,15 @@ export const RunViewMetricHistoryChart = ({
     <RunsMetricsLinePlot
       metricKey={metricKey}
       runsData={chartData}
-      xAxisKey={isSystemMetricKey(metricKey) ? 'time' : 'step'}
+      xAxisKey={isSystemMetricKey(metricKey) ? RunsChartsLineChartXAxisType.TIME : RunsChartsLineChartXAxisType.STEP}
+      selectedXAxisMetricKey=""
       onHover={setTooltip}
       onUnhover={resetTooltip}
       useDefaultHoverBox={false}
       lineSmoothness={0}
-      range={range}
+      xRange={xRange}
+      yRange={yRange}
       onUpdate={onUpdate}
-      lockXAxisZoom
     />
   );
 };

@@ -22,6 +22,12 @@ from transformers import (
 import mlflow
 
 
+# TODO: Remove this fixture once https://github.com/huggingface/transformers/pull/29096 is merged
+@pytest.fixture(autouse=True)
+def set_mlflow_tracking_uri_env_var(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", mlflow.get_tracking_uri())
+
+
 @pytest.fixture
 def iris_data():
     iris = sklearn.datasets.load_iris()
@@ -497,6 +503,7 @@ def test_trainer_hyperparameter_tuning_does_not_log_sklearn_model(
     exp = mlflow.set_experiment(experiment_name="hyperparam_trainer")
 
     transformers_hyperparameter_trainer.train()
+    mlflow.flush_async_logging()
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 3.0
@@ -523,6 +530,7 @@ def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
     exp = mlflow.set_experiment(experiment_name="hyperparam_trainer_functional")
 
     transformers_hyperparameter_functional.train()
+    mlflow.flush_async_logging()
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0

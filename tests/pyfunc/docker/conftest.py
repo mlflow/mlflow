@@ -1,4 +1,6 @@
+import logging
 import os
+import subprocess
 from functools import lru_cache
 
 import pytest
@@ -14,9 +16,13 @@ RESOURCE_DIR = os.path.join(MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 docker_client = docker.from_env()
 
+_logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(autouse=True)
-def clean_up_docker_image():
+def clean_up_docker():
+    yield
+
     # Get all containers using the test image
     containers = docker_client.containers.list(filters={"ancestor": TEST_IMAGE_NAME})
     for container in containers:
@@ -27,6 +33,12 @@ def clean_up_docker_image():
         docker_client.images.remove(TEST_IMAGE_NAME, force=True)
     except docker.errors.ImageNotFound:
         pass
+
+    # Clean up the build cache and volumes
+    try:
+        subprocess.run(["docker", "builder", "prune", "-a", "-f"], check=True)
+    except subprocess.CalledProcessError as e:
+        _logger.warning("Failed to clean up docker system: %s", e)
 
 
 @lru_cache(maxsize=1)

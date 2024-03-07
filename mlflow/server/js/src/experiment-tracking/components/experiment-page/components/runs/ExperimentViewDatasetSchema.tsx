@@ -22,8 +22,7 @@ export interface DatasetsCellRendererProps {
 
 export const ExperimentViewDatasetSchema = ({ datasetWithTags }: DatasetsCellRendererProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
-  const { dataset, tags } = datasetWithTags;
-  const [value, setValue] = useState('');
+  const { dataset } = datasetWithTags;
   const [filter, setFilter] = useState('');
 
   if (dataset.schema === null || dataset.schema === '') {
@@ -69,17 +68,14 @@ export const ExperimentViewDatasetSchema = ({ datasetWithTags }: DatasetsCellRen
             }}
           >
             <TableFilterInput
-              showSearchButton
-              value={value}
+              value={filter}
               placeholder="Search fields"
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => setFilter(e.target.value)}
               onClear={() => {
-                setValue('');
-              }}
-              onSubmit={() => {
-                setFilter(value);
+                setFilter('');
               }}
               css={{ width: '100%' }}
+              containerProps={{ style: { width: 'auto' } }}
             />
           </div>
           <div

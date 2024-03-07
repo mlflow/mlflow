@@ -1,7 +1,3 @@
-from mlflow.utils.annotations import experimental
-
-
-@experimental
 class _DatasetSummary:
     """
     DatasetSummary object.

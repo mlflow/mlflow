@@ -8,7 +8,7 @@ entrypoints<1
 gitpython<4,>=3.1.9
 pyyaml<7,>=5.1
 protobuf<5,>=3.12.0
-pytz<2024
+pytz<2025
 requests<3,>=2.17.3
 packaging<24
 importlib_metadata<8,>=3.7.0,!=4.7.0

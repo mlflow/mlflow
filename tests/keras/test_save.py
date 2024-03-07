@@ -96,9 +96,11 @@ def test_keras_save_model_non_export():
 
 
 def test_save_model_with_signature():
+    keras.mixed_precision.set_dtype_policy("mixed_float16")
+
     model = _get_keras_model()
     signature = get_model_signature(model)
-
+    assert signature.outputs.input_types()[0] == np.dtype("float16")
     model_path = "model"
     with mlflow.start_run() as run:
         mlflow.keras.log_model(model, model_path, signature=signature)
@@ -114,3 +116,6 @@ def test_save_model_with_signature():
         keras.ops.convert_to_numpy(model(test_input)),
         loaded_pyfunc_model.predict(test_input),
     )
+
+    # Clean up the global policy.
+    keras.mixed_precision.set_dtype_policy("float32")

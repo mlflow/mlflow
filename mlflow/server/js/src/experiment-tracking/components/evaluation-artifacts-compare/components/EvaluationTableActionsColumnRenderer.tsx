@@ -20,6 +20,7 @@ export const EvaluationTableActionsColumnRenderer = () => {
         }
       >
         <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationtableactionscolumnrenderer.tsx_22"
           icon={
             isHeaderExpanded ? (
               <ChevronDownIcon css={enlargedIconStyle} />

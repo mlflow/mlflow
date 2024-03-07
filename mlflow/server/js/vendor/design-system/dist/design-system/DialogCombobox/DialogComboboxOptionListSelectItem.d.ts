@@ -18,5 +18,5 @@ export interface DialogComboboxOptionListSelectItemProps extends HTMLDataAttribu
     dangerouslyHideCheck?: boolean;
 }
 export declare const DialogComboboxOptionListSelectItem: import("react").ForwardRefExoticComponent<DialogComboboxOptionListSelectItemProps & import("react").RefAttributes<HTMLDivElement>>;
-export { getComboboxOptionItemWrapperStyles } from '../_shared_/Combobox';
+export { getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles } from '../_shared_/Combobox';
 //# sourceMappingURL=DialogComboboxOptionListSelectItem.d.ts.map

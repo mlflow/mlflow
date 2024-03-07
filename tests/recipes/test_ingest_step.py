@@ -94,7 +94,7 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
-def custom_load_csv(file_path, file_format):  # pylint: disable=unused-argument
+def custom_load_csv(file_path, file_format):
     return pd.read_csv(file_path, index_col=0)
 
 
@@ -182,7 +182,7 @@ def test_ingests_csv_successfully(
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
-def custom_load_wine_csv(file_path, file_format):  # pylint: disable=unused-argument
+def custom_load_wine_csv(file_path, file_format):
     return pd.read_csv(file_path, sep=";")
 
 
@@ -213,7 +213,7 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
         assert reloaded_df.count()[0] == 6497
 
 
-def custom_load_file_as_dataframe(file_path, file_format):  # pylint: disable=unused-argument
+def custom_load_file_as_dataframe(file_path, file_format):
     return pd.read_csv(file_path, sep="#", index_col=0)
 
 

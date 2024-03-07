@@ -22,7 +22,11 @@ export const ExperimentViewRunsEmptyTable = ({
         {isFiltered ? (
           <Empty
             button={
-              <Button type="primary" onClick={onClearFilters}>
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsemptytable.tsx_35"
+                type="primary"
+                onClick={onClearFilters}
+              >
                 <FormattedMessage
                   defaultMessage="Clear filters"
                   description="Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"

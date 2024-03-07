@@ -4,10 +4,8 @@ from typing import Any, Dict, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.entities import Dataset as DatasetEntity
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class Dataset:
     """
     Represents a dataset for use with MLflow Tracking, including the name, digest (hash),
@@ -40,18 +38,21 @@ class Dataset:
         """
 
     @abstractmethod
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source
-                type.
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
 
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
+        Subclasses should override this method to provide additional fields in the config dict,
+        e.g., schema, profile, etc.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type.
         """
+        return {
+            "name": self.name,
+            "digest": self.digest,
+            "source": self.source.to_json(),
+            "source_type": self.source._get_source_type(),
+        }
 
     def to_json(self) -> str:
         """
@@ -61,13 +62,8 @@ class Dataset:
         Returns:
             A JSON string representation of the :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
         """
-        base_dict = {
-            "name": self.name,
-            "digest": self.digest,
-            "source": self._source.to_json(),
-            "source_type": self._source._get_source_type(),
-        }
-        return json.dumps(self._to_dict(base_dict))
+
+        return json.dumps(self.to_dict())
 
     @property
     def name(self) -> str:
@@ -115,7 +111,7 @@ class Dataset:
     def _to_mlflow_entity(self) -> DatasetEntity:
         """
         Returns:
-            A DatasetEntity instance representing the dataset.
+            A `mlflow.entities.Dataset` instance representing the dataset.
         """
         dataset_json = json.loads(self.to_json())
         return DatasetEntity(

@@ -106,7 +106,7 @@ class _GluonModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """This is a docstring. Here is more info.
 
@@ -400,7 +400,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -447,8 +447,6 @@ def autolog(
                 kwargs["event_handlers"] += [mlflowGluonCallback]
             else:
                 kwargs["event_handlers"] = [mlflowGluonCallback]
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     safe_patch(FLAVOR_NAME, Estimator, "fit", fit, manage_run=True)

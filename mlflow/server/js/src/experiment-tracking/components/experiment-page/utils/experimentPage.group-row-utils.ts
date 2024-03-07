@@ -1,4 +1,18 @@
-import { compact, entries, isObject, isSymbol, isUndefined, keyBy, keys, mapValues, uniqBy, values } from 'lodash';
+import {
+  compact,
+  entries,
+  isObject,
+  isNil,
+  isSymbol,
+  isUndefined,
+  keyBy,
+  keys,
+  mapValues,
+  reject,
+  uniqBy,
+  values,
+  Dictionary,
+} from 'lodash';
 import { EXPERIMENT_PARENT_ID_TAG } from './experimentPage.common-utils';
 import {
   type RowGroupRenderMetadata,
@@ -10,8 +24,10 @@ import {
 } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';
 import type { MetricEntity } from '../../../types';
+import type { SampledMetricsByRun } from 'experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
 
-type AggregableEntity = { key: string; value: string | number };
+type AggregableParamEntity = { key: string; value: string };
+type AggregableMetricEntity = { key: string; value: number; step: number };
 
 export type GroupByConfig = {
   mode: RunGroupingMode;
@@ -242,7 +258,10 @@ const createRunsGroupedByDataset = (
 /**
  * Utility function that aggregates the values (metrics, params) for the given list of runs.
  */
-const aggregateValues = (valuesByRun: AggregableEntity[][], aggregateFunction: RunGroupingAggregateFunction) => {
+const aggregateValues = <T extends AggregableParamEntity | AggregableMetricEntity>(
+  valuesByRun: T[][],
+  aggregateFunction: RunGroupingAggregateFunction,
+) => {
   if (
     aggregateFunction === RunGroupingAggregateFunction.Min ||
     aggregateFunction === RunGroupingAggregateFunction.Max
@@ -250,28 +269,38 @@ const aggregateValues = (valuesByRun: AggregableEntity[][], aggregateFunction: R
     const aggregateMathFunction = aggregateFunction === RunGroupingAggregateFunction.Min ? Math.min : Math.max;
 
     // Create a map of values by key, then reduce the values by key using the aggregate function
-    const valuesMap = valuesByRun.reduce<Record<string, { key: string; value: number }>>((acc, metricList) => {
-      metricList.forEach((metric) => {
-        const { key, value } = metric;
-        if (!acc[key]) {
-          acc[key] = { key, value: Number(value) };
-        } else {
-          acc[key] = { key, value: aggregateMathFunction(Number(acc[key].value), Number(value)) };
-        }
-      });
-      return acc;
-    }, {});
+    const valuesMap = valuesByRun.reduce<Record<string, { key: string; value: number; maxStep: number }>>(
+      (acc, entryList) => {
+        entryList.forEach((entry) => {
+          const { key, value } = entry;
+
+          if (!acc[key]) {
+            acc[key] = { key, value: Number(value), maxStep: 0 };
+          } else {
+            acc[key] = { key, value: aggregateMathFunction(Number(acc[key].value), Number(value)), maxStep: 0 };
+          }
+          if ('step' in entry) {
+            acc[key].maxStep = Math.max(entry.step, acc[key].maxStep);
+          }
+        });
+        return acc;
+      },
+      {},
+    );
     return values(valuesMap).filter(({ value }) => !isNaN(value));
   } else if (aggregateFunction === RunGroupingAggregateFunction.Average) {
     // Create a list of all known metric/param values by key
-    const valuesMap = valuesByRun.reduce<Record<string, number[]>>((acc, metricList) => {
-      metricList.forEach((metric) => {
-        const { key, value } = metric;
+    const valuesMap = valuesByRun.reduce<Record<string, { value: number; step: number }[]>>((acc, entryList) => {
+      entryList.forEach((entry) => {
+        const { key, value } = entry;
         if (!acc[key]) {
           acc[key] = [];
         }
 
-        acc[key].push(Number(value));
+        acc[key].push({
+          value: Number(value),
+          step: 'step' in entry ? entry.step : 0,
+        });
       });
       return acc;
     }, {});
@@ -279,10 +308,11 @@ const aggregateValues = (valuesByRun: AggregableEntity[][], aggregateFunction: R
     // In the final step, iterate over the values by key and calculate the average
     return entries(valuesMap)
       .map(([key, values]) => {
-        const sum = values.reduce<number>((acc, value) => acc + Number(value), 0);
+        const sum = values.reduce<number>((acc, { value }) => acc + Number(value), 0);
         return {
           key,
           value: sum / values.length,
+          maxStep: Math.max(...values.map(({ step }) => step)),
         };
       })
       .filter(({ value }) => !isNaN(value));
@@ -378,26 +408,131 @@ export const createAggregatedMetricHistory = (stepNumbers: number[], metricKey: 
   }, {});
 
   const averageTimestampsPerStep = stepNumbers.map((step) =>
-    Math.round(average(compact(historyByStep[step]?.map(({ timestamp }) => Number(timestamp))))),
+    Math.round(
+      average(
+        reject(
+          historyByStep[step]?.map(({ timestamp }) => Number(timestamp)),
+          isNil,
+        ),
+      ),
+    ),
   );
 
   const syntheticHistoryMaxValues = stepNumbers.map((step, stepIndex) => ({
     key: metricKey,
     step,
-    value: Math.max(...compact(historyByStep[step]?.map(({ value }) => Number(value)))),
+    value: Math.max(
+      ...reject(
+        historyByStep[step]?.map(({ value }) => Number(value)),
+        isNil,
+      ),
+    ),
     timestamp: averageTimestampsPerStep[stepIndex],
   }));
   const syntheticHistoryMinValues = stepNumbers.map((step, stepIndex) => ({
     key: metricKey,
     step,
-    value: Math.min(...compact(historyByStep[step]?.map(({ value }) => Number(value)))),
+    value: Math.min(
+      ...reject(
+        historyByStep[step]?.map(({ value }) => Number(value)),
+        isNil,
+      ),
+    ),
     timestamp: averageTimestampsPerStep[stepIndex],
   }));
   const syntheticHistoryAverageValues = stepNumbers.map((step, stepIndex) => ({
     key: metricKey,
     step,
-    value: average(compact(historyByStep[step]?.map(({ value }) => Number(value)))),
+    value: average(
+      reject(
+        historyByStep[step]?.map(({ value }) => Number(value)),
+        isNil,
+      ),
+    ),
     timestamp: averageTimestampsPerStep[stepIndex],
+  }));
+
+  return {
+    [RunGroupingAggregateFunction.Min]: syntheticHistoryMinValues,
+    [RunGroupingAggregateFunction.Max]: syntheticHistoryMaxValues,
+    [RunGroupingAggregateFunction.Average]: syntheticHistoryAverageValues,
+  };
+};
+
+// creates aggregated history based on values instead of steps
+// the approach here is to associate x values to y values for
+// each run, then combine the associations.
+export const createValueAggregatedMetricHistory = (
+  metricsByRun: Dictionary<SampledMetricsByRun>,
+  metricKey: string,
+  selectedXAxisMetricKey: string,
+) => {
+  // create a { x : [y1, y2, ...] } map for each run
+  const allXYMaps = compact(
+    Object.keys(metricsByRun).map((runUuid) => {
+      const xMetricHistory = metricsByRun[runUuid]?.[selectedXAxisMetricKey]?.metricsHistory;
+      const yMetricHistory = metricsByRun[runUuid]?.[metricKey]?.metricsHistory;
+      if (!xMetricHistory || !yMetricHistory) {
+        return null;
+      }
+
+      // create a step: x map to make it easy to associate x and y values
+      const xByStep = xMetricHistory.reduce<Record<number, number>>((acc, metricEntity) => {
+        acc[metricEntity.step] = Number(metricEntity.value);
+        return acc;
+      }, {});
+
+      // create the x: [y1, y2, ...] map
+      const xToY: Record<number, number[]> = {};
+      yMetricHistory.forEach((metricEntity) => {
+        const x = xByStep[metricEntity.step];
+        if (isNil(x)) {
+          return;
+        }
+
+        if (!xToY[x]) {
+          xToY[x] = [];
+        }
+        xToY[x].push(Number(metricEntity.value));
+      });
+
+      return xToY;
+    }),
+  );
+
+  // combine all runs into one map, keyed by x value
+  const historyByValue: Record<number, number[]> = {};
+  allXYMaps.forEach((xyMap) => {
+    Object.keys(xyMap).forEach((x) => {
+      const xVal = Number(x);
+      const yVal = xyMap[xVal];
+      if (!historyByValue[xVal]) {
+        historyByValue[xVal] = [];
+      }
+      historyByValue[xVal] = historyByValue[xVal].concat(yVal);
+    });
+  });
+
+  const values = Object.keys(historyByValue).map(Number).sort();
+  const syntheticHistoryMaxValues = values.map((value, idx) => ({
+    key: metricKey,
+    value: Math.max(...reject(historyByValue[value] ?? [], isNil)),
+    step: idx,
+    timestamp: 0,
+  }));
+
+  const syntheticHistoryMinValues = values.map((value, idx) => ({
+    key: metricKey,
+    value: Math.min(...reject(historyByValue[value] ?? [], isNil)),
+    step: idx,
+    timestamp: 0,
+  }));
+
+  const syntheticHistoryAverageValues = values.map((value, idx) => ({
+    key: metricKey,
+    value: average(reject(historyByValue[value] ?? [], isNil)),
+    step: idx,
+    timestamp: 0,
   }));
 
   return {

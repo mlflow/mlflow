@@ -2,13 +2,21 @@ import { Accordion, useDesignSystemTheme } from '@databricks/design-system';
 import { CSSObject, css } from '@emotion/react';
 import { useMemo } from 'react';
 
+export const METRIC_CHART_SECTION_HEADER_SIZE = 55;
+
 interface MetricChartsAccordionProps {
   activeKey?: string | string[];
   onActiveKeyChange?: (key: string | string[]) => void;
   children: React.ReactNode;
+  disableCollapse?: boolean;
 }
 
-const MetricChartsAccordion = ({ activeKey, onActiveKeyChange, children }: MetricChartsAccordionProps) => {
+const MetricChartsAccordion = ({
+  activeKey,
+  onActiveKeyChange,
+  children,
+  disableCollapse = false,
+}: MetricChartsAccordionProps) => {
   const { theme, getPrefixedClassName } = useDesignSystemTheme();
   const clsPrefix = getPrefixedClassName('collapse');
 
@@ -37,6 +45,7 @@ const MetricChartsAccordion = ({ activeKey, onActiveKeyChange, children }: Metri
         // TODO: This is needed currently because the rotated icon isn't centered, remove when accordion is fixed
         verticalAlign: '-7px',
         transform: 'rotate(-90deg)',
+        display: disableCollapse ? 'none' : undefined,
       },
 
       [`& > ${classItemActive} > ${classHeader} > ${classArrow}`]: {
@@ -63,30 +72,22 @@ const MetricChartsAccordion = ({ activeKey, onActiveKeyChange, children }: Metri
       [`& > ${classItem} > ${classHeader}`]: {
         padding: 0,
         lineHeight: '20px',
-        height: theme.general.heightBase,
+        height: METRIC_CHART_SECTION_HEADER_SIZE,
       },
     };
     return styles;
-  }, [theme, clsPrefix]);
+  }, [theme, clsPrefix, disableCollapse]);
 
-  if (activeKey && onActiveKeyChange) {
-    return (
-      <Accordion
-        activeKey={activeKey}
-        onChange={onActiveKeyChange}
-        dangerouslyAppendEmotionCSS={css(styles)}
-        dangerouslySetAntdProps={{ expandIconPosition: 'left' }}
-      >
-        {children}
-      </Accordion>
-    );
-  } else {
-    return (
-      <Accordion dangerouslyAppendEmotionCSS={css(styles)} dangerouslySetAntdProps={{ expandIconPosition: 'left' }}>
-        {children}
-      </Accordion>
-    );
-  }
+  return (
+    <Accordion
+      {...(activeKey ? { activeKey } : {})}
+      {...(onActiveKeyChange ? { onChange: onActiveKeyChange } : {})}
+      dangerouslyAppendEmotionCSS={css(styles)}
+      dangerouslySetAntdProps={{ expandIconPosition: 'left' }}
+    >
+      {children}
+    </Accordion>
+  );
 };
 
 export default MetricChartsAccordion;

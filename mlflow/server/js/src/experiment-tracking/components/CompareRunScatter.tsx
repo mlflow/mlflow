@@ -10,7 +10,7 @@ import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
-import { Select, Spacer } from '@databricks/design-system';
+import { LegacySelect, Spacer } from '@databricks/design-system';
 import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
@@ -20,7 +20,7 @@ import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 
-const { Option, OptGroup } = Select;
+const { Option, OptGroup } = LegacySelect;
 
 type CompareRunScatterImplProps = {
   runUuids: string[];
@@ -195,7 +195,7 @@ export class CompareRunScatterImpl extends Component<CompareRunScatterImplProps,
   renderSelect(axis: any) {
     return (
       <div>
-        <Select
+        <LegacySelect
           css={styles.select}
           id={axis + '-axis-selector'}
           aria-label={`${axis} axis`}
@@ -221,7 +221,7 @@ export class CompareRunScatterImpl extends Component<CompareRunScatterImplProps,
               </Option>
             ))}
           </OptGroup>
-        </Select>
+        </LegacySelect>
       </div>
     );
   }

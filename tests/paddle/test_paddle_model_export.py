@@ -64,7 +64,7 @@ def pd_model():
             self.fc_ = Linear(in_features=in_features, out_features=1)
 
         @paddle.jit.to_static
-        def forward(self, inputs):  # pylint: disable=arguments-differ
+        def forward(self, inputs):
             return self.fc_(inputs)
 
     training_data, test_data = get_dataset()
@@ -311,7 +311,7 @@ class UCIHousing(paddle.nn.Layer):
         super().__init__()
         self.fc_ = paddle.nn.Linear(13, 1, None)
 
-    def forward(self, inputs):  # pylint: disable=arguments-differ
+    def forward(self, inputs):
         return self.fc_(inputs)
 
 

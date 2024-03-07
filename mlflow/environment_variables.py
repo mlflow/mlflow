@@ -511,3 +511,24 @@ MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
 MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
+
+#: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
+MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
+
+#: Specifies whether or not to have mlflow configure logging on import.
+#: If set to True, mlflow will configure ``mlflow.<module_name>`` loggers with
+#: logging handlers and formatters.
+#: (default: ``True``)
+MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_LOGGING_CONFIGURE_LOGGING", True)
+
+#: If set to True, the following entities will be truncated to their maximum length:
+#: - Param value
+#: - Tag value
+#: If set to False, an exception will be raised if the length of the entity exceeds the maximum
+#: length.
+#: (default: ``True``)
+MLFLOW_TRUNCATE_LONG_VALUES = _BooleanEnvironmentVariable("MLFLOW_TRUNCATE_LONG_VALUES", True)
+
+# Whether to run slow tests with pytest. Default to False in normal runs,
+# but set to True in the weekly slow test jobs.
+_MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", False)

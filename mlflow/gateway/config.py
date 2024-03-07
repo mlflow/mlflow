@@ -43,9 +43,11 @@ class Provider(str, Enum):
     HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
     BEDROCK = "bedrock"
+    AMAZON_BEDROCK = "amazon-bedrock"  # an alias for bedrock
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
+    MISTRAL = "mistral"
 
     @classmethod
     def values(cls):
@@ -61,7 +63,6 @@ class RouteType(str, Enum):
 class CohereConfig(ConfigModel):
     cohere_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -70,7 +71,6 @@ class CohereConfig(ConfigModel):
 class AI21LabsConfig(ConfigModel):
     ai21labs_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("ai21labs_api_key", pre=True)
     def validate_ai21labs_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -80,7 +80,6 @@ class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
     mosaicml_api_base: Optional[str] = None
 
-    # pylint: disable=no-self-argument
     @validator("mosaicml_api_key", pre=True)
     def validate_mosaicml_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -111,7 +110,6 @@ class OpenAIConfig(ConfigModel):
     openai_deployment_name: Optional[str] = None
     openai_organization: Optional[str] = None
 
-    # pylint: disable=no-self-argument
     @validator("openai_api_key", pre=True)
     def validate_openai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -169,7 +167,6 @@ class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
 
-    # pylint: disable=no-self-argument
     @validator("anthropic_api_key", pre=True)
     def validate_anthropic_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -178,7 +175,6 @@ class AnthropicConfig(ConfigModel):
 class PaLMConfig(ConfigModel):
     palm_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("palm_api_key", pre=True)
     def validate_palm_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -211,9 +207,17 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: Optional[str] = None
 
 
-class AWSBedrockConfig(ConfigModel):
+class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
+
+
+class MistralConfig(ConfigModel):
+    mistral_api_key: str
+
+    @validator("mistral_api_key", pre=True)
+    def validate_mistral_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 config_types = {
@@ -222,10 +226,12 @@ config_types = {
     Provider.ANTHROPIC: AnthropicConfig,
     Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
-    Provider.BEDROCK: AWSBedrockConfig,
+    Provider.BEDROCK: AmazonBedrockConfig,
+    Provider.AMAZON_BEDROCK: AmazonBedrockConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
+    Provider.MISTRAL: MistralConfig,
 }
 
 
@@ -270,7 +276,6 @@ def _resolve_api_key_from_input(api_key_input):
     return api_key_input
 
 
-# pylint: disable=no-self-argument
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
@@ -280,11 +285,12 @@ class Model(ConfigModel):
             OpenAIConfig,
             AI21LabsConfig,
             AnthropicConfig,
-            AWSBedrockConfig,
+            AmazonBedrockConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
+            MistralConfig,
         ]
     ] = None
 
@@ -343,7 +349,6 @@ class LimitsConfig(ConfigModel):
     limits: Optional[List[Limit]] = []
 
 
-# pylint: disable=no-self-argument
 class RouteConfig(AliasedConfigModel):
     name: str
     route_type: RouteType = Field(alias="endpoint_type")

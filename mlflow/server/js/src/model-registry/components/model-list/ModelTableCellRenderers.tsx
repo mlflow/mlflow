@@ -57,6 +57,7 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
       ))}
       {tags.length > tagsToShowInitially && (
         <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_model-list_modeltablecellrenderers.tsx_65"
           css={{ marginTop: theme.spacing.sm }}
           size="small"
           onClick={() => setShowMore(!showMore)}

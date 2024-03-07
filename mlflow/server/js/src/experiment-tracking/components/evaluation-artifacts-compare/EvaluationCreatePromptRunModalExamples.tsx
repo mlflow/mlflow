@@ -46,6 +46,7 @@ export const EvaluationCreatePromptRunModalExamples = ({
         <div>
           <Typography.Title level={2} css={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
             <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodalexamples.tsx_48"
               css={{ marginRight: theme.spacing.sm, marginBottom: theme.spacing.sm }}
               icon={<ArrowLeftIcon />}
               onClick={closeExamples}
@@ -88,6 +89,7 @@ export const EvaluationCreatePromptRunModalExamples = ({
                 description="Experiment page > new run modal > prompt examples > prompt template title"
               />
               <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodalexamples.tsx_90"
                 type="tertiary"
                 size="small"
                 style={{ float: 'right' }}

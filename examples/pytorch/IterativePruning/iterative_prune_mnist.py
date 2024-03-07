@@ -104,8 +104,7 @@ class IterativePrune:
         self.write_prune_summary(summary, params)
         trainer = self.run_mnist_model()
         metrics = trainer.callback_metrics
-        test_accuracy = metrics.get("avg_test_acc")
-        return test_accuracy
+        return metrics.get("avg_test_acc")
 
     def initiate_pruning_process(self, model):
         total_trials = int(vars(self.parser_args)["total_trials"])

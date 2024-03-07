@@ -14,7 +14,7 @@ _home = expanduser("~")
 CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE"
 HOST = "host"
 USERNAME = "username"
-PASSWORD = "password"  # NOQA
+PASSWORD = "password"
 TOKEN = "token"
 REFRESH_TOKEN = "refresh_token"
 INSECURE = "insecure"
@@ -93,7 +93,9 @@ def update_and_persist_config(profile, databricks_config):
     Takes a DatabricksConfig and adds the in memory contents to the persisted version of the
     config. This will overwrite any other config that was persisted to the file system under the
     same profile.
-    :param databricks_config: DatabricksConfig
+
+    Args:
+        databricks_config: DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
     raw_config = _fetch_from_fs()
@@ -145,7 +147,8 @@ def get_config_for_profile(profile):
 
     This method is maintained for backwards-compatibility. It may be removed in future versions.
 
-    :return: DatabricksConfig
+    Returns:
+        DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
     config = EnvironmentVariableConfigProvider().get_config()
@@ -217,7 +220,7 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
     @staticmethod
     def _get_spark_task_context_or_none():
         try:
-            from pyspark import TaskContext  # pylint: disable=import-error
+            from pyspark import TaskContext
 
             return TaskContext.get()
         except ImportError:
@@ -225,7 +228,7 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
 
     @staticmethod
     def set_insecure(x):
-        from pyspark import SparkContext  # pylint: disable=import-error
+        from pyspark import SparkContext
 
         new_val = "True" if x else None
         SparkContext._active_spark_context.setLocalProperty("spark.databricks.ignoreTls", new_val)
@@ -296,7 +299,7 @@ class DatabricksConfig:
         refresh_token=None,
         insecure=None,
         jobs_api_version=None,
-    ):  # noqa
+    ):
         self.host = host
         self.username = username
         self.password = password

@@ -11,7 +11,6 @@ import {
   ModelGatewayRouteType,
   ModelGatewayRoute,
   ModelGatewayService,
-  gatewayErrorHandler,
 } from '../sdk/ModelGatewayService';
 import { EvaluationArtifactTable } from '../types';
 import { searchMlflowDeploymentsRoutesApi } from './ModelGatewayActions';

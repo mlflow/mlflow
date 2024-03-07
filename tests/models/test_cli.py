@@ -15,6 +15,7 @@ import sklearn
 import sklearn.datasets
 import sklearn.neighbors
 from click.testing import CliRunner
+from packaging.requirements import Requirement
 
 import mlflow
 import mlflow.models.cli as models_cli
@@ -22,16 +23,21 @@ import mlflow.sklearn
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.model import get_model_requirements_files
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
 )
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import _get_conda_env_name
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import (
+    _get_requirements_from_file,
+    _mlflow_conda_env,
+)
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
 
@@ -844,3 +850,96 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     # Assert the prediction result
     assert json.loads(scoring_result.content)["predictions"] == ["test"]
+
+
+def assert_base_model_reqs():
+    """
+    Helper function for testing model requirements. Asserts that the
+    contents of requirements.txt and conda.yaml are as expected, then
+    returns their filepaths so mutations can be performed.
+    """
+    import cloudpickle
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return ["test"]
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_info.model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    requirements_txt_file = local_paths.requirements
+    conda_env_file = local_paths.conda
+
+    reqs = _get_requirements_from_file(requirements_txt_file)
+    assert Requirement(f"mlflow=={mlflow.__version__}") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+    reqs = _get_requirements_from_file(conda_env_file)
+    assert Requirement(f"mlflow=={mlflow.__version__}") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+    return model_info.model_uri
+
+
+def test_update_requirements_cli_adds_reqs_successfully():
+    import cloudpickle
+
+    model_uri = assert_base_model_reqs()
+
+    CliRunner().invoke(
+        models_cli.update_pip_requirements,
+        ["-m", f"{model_uri}", "add", "mlflow>=2.9, !=2.9.0", "coolpackage[extra]==8.8.8"],
+        catch_exceptions=False,
+    )
+
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
+    reqs = _get_requirements_from_file(local_paths.requirements)
+    assert Requirement("mlflow!=2.9.0,>=2.9") in reqs
+    assert Requirement("coolpackage[extra]==8.8.8") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+    reqs = _get_requirements_from_file(local_paths.conda)
+    assert Requirement("mlflow!=2.9.0,>=2.9") in reqs
+    assert Requirement("coolpackage[extra]==8.8.8") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+
+def test_update_requirements_cli_removes_reqs_successfully():
+    import cloudpickle
+
+    model_uri = assert_base_model_reqs()
+
+    CliRunner().invoke(
+        models_cli.update_pip_requirements,
+        ["-m", f"{model_uri}", "remove", "mlflow"],
+        catch_exceptions=False,
+    )
+
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    # the tool should remove mlflow and leave cloudpickle alone
+    reqs = _get_requirements_from_file(local_paths.requirements)
+    assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
+
+    reqs = _get_requirements_from_file(local_paths.conda)
+    assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
+
+
+def test_update_requirements_cli_throws_on_incompatible_input():
+    model_uri = assert_base_model_reqs()
+
+    with pytest.raises(
+        MlflowException, match="The specified requirements versions are incompatible"
+    ):
+        CliRunner().invoke(
+            models_cli.update_pip_requirements,
+            ["-m", f"{model_uri}", "add", "mlflow<2.6", "mlflow>2.7"],
+            catch_exceptions=False,
+        )

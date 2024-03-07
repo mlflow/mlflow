@@ -27,17 +27,31 @@ type ParamsColumnDef = ColumnDef<KeyValueEntity> & {
  * Displays cell with expandable parameter value.
  */
 const ExpandableParamValueCell = ({
+  name,
   value,
   toggleExpanded,
   isExpanded,
+  autoExpandedRowsList,
 }: {
+  name: string;
   value: string;
   toggleExpanded: () => void;
   isExpanded: boolean;
+  autoExpandedRowsList: Record<string, boolean>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const cellRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    if (autoExpandedRowsList[name]) {
+      return;
+    }
+    if (isOverflowing) {
+      toggleExpanded();
+      autoExpandedRowsList[name] = true;
+    }
+  }, [autoExpandedRowsList, isOverflowing, name, toggleExpanded]);
 
   // Check if cell is overflowing using resize observer
   useEffect(() => {
@@ -72,6 +86,7 @@ const ExpandableParamValueCell = ({
     <div css={{ display: 'flex', gap: theme.spacing.xs }}>
       {(isOverflowing || isExpanded) && (
         <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewparamstable.tsx_74"
           size="small"
           icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           onClick={() => toggleExpanded()}
@@ -135,10 +150,18 @@ export const RunViewParamsTable = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
+  const autoExpandedRowsList = useRef<Record<string, boolean>>({});
 
   const paramsValues = useMemo(() => values(params), [params]);
 
-  const paramsList = useMemo(() => paramsValues.filter(({ key }) => key.includes(filter)), [filter, paramsValues]);
+  const paramsList = useMemo(
+    () =>
+      paramsValues.filter(({ key, value }) => {
+        const filterLower = filter.toLowerCase();
+        return key.toLowerCase().includes(filterLower) || value.toLowerCase().includes(filterLower);
+      }),
+    [filter, paramsValues],
+  );
 
   const columns = useMemo<ParamsColumnDef[]>(
     () => [
@@ -167,9 +190,11 @@ export const RunViewParamsTable = ({
         meta: { styles: { paddingLeft: 0 } },
         cell: ({ row: { original, getIsExpanded, toggleExpanded } }) => (
           <ExpandableParamValueCell
+            name={original.key}
             value={original.value}
             isExpanded={getIsExpanded()}
             toggleExpanded={toggleExpanded}
+            autoExpandedRowsList={autoExpandedRowsList.current}
           />
         ),
       },

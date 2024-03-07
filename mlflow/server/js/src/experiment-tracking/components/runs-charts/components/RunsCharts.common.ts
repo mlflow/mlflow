@@ -6,6 +6,8 @@ import { MetricEntitiesByName, MetricEntity, MetricHistoryByName, RunInfoEntity 
 import { Theme } from '@emotion/react';
 import { LegendLabelData } from './RunsMetricsLegend';
 import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
+import { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
+import { defineMessages } from 'react-intl';
 
 /**
  * Common props for all charts used in experiment runs
@@ -29,7 +31,7 @@ export interface RunsPlotsCommonProps {
   /**
    * Callback fired when a run is hovered
    */
-  onHover?: (runUuid: string, event?: MouseEvent, additionalAxisData?: any) => void;
+  onHover?: (runUuidOrParams: string, event?: RunsChartsChartMouseEvent, additionalAxisData?: any) => void;
 
   /**
    * Callback fired when no run is hovered anymore
@@ -60,6 +62,11 @@ export interface RunsPlotsCommonProps {
    * Indicates which run is currently selected in the global context and should be highlighted
    */
   selectedRunUuid?: string | null;
+
+  /**
+   * If set to true, the chart will be displayed in full screen mode
+   */
+  fullScreen?: boolean;
 }
 
 /**
@@ -98,8 +105,9 @@ export interface RunsChartsRunData {
    */
   metrics: MetricEntitiesByName;
   /**
-   * Dictionary with the metrics by name. This field is optional
-   * as it's used only by certain chart types.
+   * Dictionary with the metrics by name. This field
+   * - is optional as it's used only by certain chart types
+   * - might be initially empty since it's populated lazily
    */
   metricsHistory?: MetricHistoryByName;
   /**
@@ -123,6 +131,10 @@ export interface RunsChartsRunData {
    * Set to "true" if the run is pinnable (e.g. not a child run)
    */
   pinnable?: boolean;
+  /**
+   * Is the row hidden by user
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -278,7 +290,7 @@ export const runsChartHoverlabel = {
  * Function that makes sure that extreme values e.g. infinities masked as 1.79E+308
  * are normalized to be displayed properly in charts.
  */
-export const normalizeChartValue = (value?: number | string) => {
+export const normalizeChartValue = (value?: number) => {
   const parsedValue = typeof value === 'string' ? parseFloat(value) : value;
 
   // Return all falsy values as-is
@@ -318,7 +330,7 @@ export const createChartAxisRangeKey = (range?: [number | string, number | strin
   range ? range.join(',') : 'DEFAULT';
 
 export const getLegendDataFromRuns = (
-  runsData: Pick<RunsChartsRunData, 'displayName' | 'color'>[],
+  runsData: Pick<RunsChartsRunData, 'displayName' | 'color' | 'uuid'>[],
 ): LegendLabelData[] =>
   runsData.map(
     (run): LegendLabelData => ({
@@ -328,7 +340,7 @@ export const getLegendDataFromRuns = (
   );
 
 export const getLineChartLegendData = (
-  runsData: Pick<RunsChartsRunData, 'runInfo' | 'color' | 'metricsHistory' | 'displayName'>[],
+  runsData: Pick<RunsChartsRunData, 'runInfo' | 'color' | 'metricsHistory' | 'displayName' | 'uuid'>[],
   selectedMetricKeys: string[] | undefined,
   metricKey: string,
 ): LegendLabelData[] =>
@@ -338,10 +350,12 @@ export const getLineChartLegendData = (
     }
 
     const metricKeys = selectedMetricKeys ?? [metricKey];
-    return metricKeys.map((mk, idx) => ({
-      label: `${runEntry.displayName} (${mk})`,
+    return metricKeys.map((metricKey, idx) => ({
+      label: `${runEntry.displayName} (${metricKey})`,
       color: runEntry.color ?? '',
       dashStyle: lineDashStyles[idx % lineDashStyles.length],
+      metricKey,
+      uuid: runEntry.uuid,
     }));
   });
 
@@ -349,7 +363,7 @@ export const getLineChartLegendData = (
  * Returns true if the sorted array contains duplicate values.
  * Uses simple O(n) algorithm and for loop to avoid creating a set.
  */
-export const containsDuplicateXValues = (xValues: number[]) => {
+export const containsDuplicateXValues = (xValues: (number | undefined)[]) => {
   for (let i = 1; i < xValues.length; i++) {
     if (xValues[i] === xValues[i - 1]) {
       return true;
@@ -370,3 +384,33 @@ export const createFadedTraceColor = (hexColor?: string, alpha = 0.1) => {
   const fadedColor = Math.round(Math.min(Math.max(alpha || 1, 0), 1) * 255);
   return hexColor + fadedColor.toString(16).toUpperCase();
 };
+
+/**
+ * Enum for X axis types for line charts. Defined here to
+ * avoid circular imports from runs-charts.types.ts
+ */
+export enum RunsChartsLineChartXAxisType {
+  STEP = 'step',
+  TIME = 'time',
+  TIME_RELATIVE = 'time-relative',
+  METRIC = 'metric',
+}
+
+const axisKeyToLabel = defineMessages<Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>>({
+  [RunsChartsLineChartXAxisType.TIME]: {
+    defaultMessage: 'Time',
+    description: 'Label for the time axis on the runs compare chart',
+  },
+  [RunsChartsLineChartXAxisType.TIME_RELATIVE]: {
+    defaultMessage: 'Time (s)',
+    description: 'Label for the relative axis on the runs compare chart',
+  },
+  [RunsChartsLineChartXAxisType.STEP]: {
+    defaultMessage: 'Step',
+    description: 'Label for the step axis on the runs compare chart',
+  },
+});
+
+export const getChartAxisLabelDescriptor = (
+  axisKey: Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>,
+) => axisKeyToLabel[axisKey];

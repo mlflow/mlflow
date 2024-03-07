@@ -508,8 +508,7 @@ def _save_model(model, path):
 
 def _load_model(path):
     with open(path, "rb") as pickled_model:
-        model = pickle.load(pickled_model)
-    return model
+        return pickle.load(pickled_model)
 
 
 def _load_pyfunc(path):
@@ -523,7 +522,7 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         Args:
             dataframe: Model input data.

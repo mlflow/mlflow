@@ -39,7 +39,7 @@ def pandas_df():
 
 
 @pytest.fixture
-def test_recipe(enter_test_recipe_directory, pandas_df, tmp_path):  # pylint: disable=unused-argument
+def test_recipe(enter_test_recipe_directory, pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
     ingest_step = IngestStep.from_recipe_config(
@@ -97,7 +97,7 @@ def test_recipe(enter_test_recipe_directory, pandas_df, tmp_path):  # pylint: di
 
 
 @pytest.fixture(autouse=True)
-def clean_test_recipe(enter_test_recipe_directory):  # pylint: disable=unused-argument
+def clean_test_recipe(enter_test_recipe_directory):
     Recipe(profile="local").clean()
     try:
         yield
@@ -107,7 +107,7 @@ def clean_test_recipe(enter_test_recipe_directory):  # pylint: disable=unused-ar
 
 def test_create_required_step_files(tmp_path):
     class TestStep(BaseStepImplemented):
-        def __init__(self):  # pylint: disable=super-init-not-called
+        def __init__(self):
             pass
 
         @property
@@ -135,7 +135,7 @@ def test_create_required_step_files(tmp_path):
 
 def test_get_or_create_execution_directory_is_idempotent(tmp_path):
     class TestStep(BaseStepImplemented):
-        def __init__(self):  # pylint: disable=super-init-not-called
+        def __init__(self):
             pass
 
         @property
@@ -215,7 +215,7 @@ def test_get_or_create_execution_directory_is_idempotent(tmp_path):
 
 def test_run_recipe_step_sets_environment_as_expected(tmp_path):
     class TestStep1(BaseStepImplemented):
-        def __init__(self):  # pylint: disable=super-init-not-called
+        def __init__(self):
             self.step_config = {}
 
         @property
@@ -227,7 +227,7 @@ def test_run_recipe_step_sets_environment_as_expected(tmp_path):
             return {"A": "B"}
 
     class TestStep2(BaseStepImplemented):
-        def __init__(self):  # pylint: disable=super-init-not-called
+        def __init__(self):
             self.step_config = {}
 
         @property
@@ -264,7 +264,7 @@ def test_run_recipe_step_sets_environment_as_expected(tmp_path):
 
 def test_run_recipe_step_calls_execution_plan(tmp_path):
     class TestStep(BaseStepImplemented):
-        def __init__(self):  # pylint: disable=super-init-not-called
+        def __init__(self):
             self.step_config = {}
 
         @property

@@ -1,9 +1,13 @@
 import React from 'react';
 import type { InputProps } from '../Input';
-export declare const DialogComboboxOptionListSearch: React.ForwardRefExoticComponent<InputProps & {
+export interface DialogComboboxOptionListSearchProps extends InputProps {
     children: any;
-    hasWrapper?: boolean | undefined;
-    virtualized?: boolean | undefined;
-    onSearch?: ((value: string) => void) | undefined;
-} & React.RefAttributes<import("antd/lib/input/Input").default>>;
+    hasWrapper?: boolean;
+    virtualized?: boolean;
+    onSearch?: (value: string) => void;
+    /** Set controlledValue and setControlledValue if search input is controlled, e.g. for custom filtering logic */
+    controlledValue?: string;
+    setControlledValue?: (value: string) => void;
+}
+export declare const DialogComboboxOptionListSearch: React.ForwardRefExoticComponent<DialogComboboxOptionListSearchProps & React.RefAttributes<import("antd/lib/input/Input").default>>;
 //# sourceMappingURL=DialogComboboxOptionListSearch.d.ts.map

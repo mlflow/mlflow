@@ -23,7 +23,7 @@ class WrappedRecipeModel(PythonModel):
         self,
         context,
         model_input,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:

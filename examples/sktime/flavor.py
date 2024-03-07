@@ -218,7 +218,7 @@ def save_model(
             message=(
                 f"Unrecognized serialization format: {serialization_format}. "
                 "Please specify one of the following supported formats: "
-                "{SUPPORTED_SERIALIZATION_FORMATS}."
+                f"{SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -470,7 +470,7 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

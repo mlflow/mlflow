@@ -1,7 +1,10 @@
-import { entries, isNil, keys, omitBy, pick } from 'lodash';
+import { assign, entries, isNil, keys, omitBy, pick } from 'lodash';
 import { useMemo } from 'react';
 import { NavigateOptions, useParams, useSearchParams } from '../../../../common/utils/RoutingUtils';
-import { ExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
+import {
+  ExperimentPageSearchFacetsStateV2,
+  createExperimentPageSearchFacetsStateV2,
+} from '../models/ExperimentPageSearchFacetsStateV2';
 import {
   deserializeFieldsFromQueryString,
   serializeFieldsToQueryString,
@@ -65,7 +68,7 @@ export const useExperimentPageSearchFacets = (): [ExperimentQueryParamsSearchFac
     if (areValuesEmpty) {
       return null;
     }
-    return deserializeFieldsFromQueryString(
+    const deserializedFields = deserializeFieldsFromQueryString(
       omitBy(
         {
           searchFilter,
@@ -79,6 +82,9 @@ export const useExperimentPageSearchFacets = (): [ExperimentQueryParamsSearchFac
         isNil,
       ),
     ) as ExperimentPageSearchFacetsStateV2;
+
+    // If not all fields are provided, fill the gaps with default values
+    return assign(createExperimentPageSearchFacetsStateV2(), deserializedFields);
   }, [
     // Use exact values to avoid unnecessary re-renders
     searchFilter,

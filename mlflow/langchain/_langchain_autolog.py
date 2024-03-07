@@ -8,8 +8,10 @@ from copy import deepcopy
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     disable_autologging,
@@ -213,8 +215,21 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         )
 
     run_id = getattr(self, "run_id", None)
-    if (active_run := mlflow.active_run()) and run_id is None:
-        run_id = active_run.info.run_id
+    active_run = mlflow.active_run()
+    if run_id is None:
+        # only log the tags once
+        extra_tags = get_autologging_config(mlflow.langchain.FLAVOR_NAME, "extra_tags", None)
+        # include run context tags
+        resolved_tags = context_registry.resolve_tags(extra_tags)
+        tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, resolved_tags)
+        if active_run:
+            run_id = active_run.info.run_id
+            mlflow.MlflowClient().log_batch(
+                run_id=run_id,
+                tags=[RunTag(key, str(value)) for key, value in tags.items()],
+            )
+    else:
+        tags = None
     # TODO: test adding callbacks works
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
@@ -224,6 +239,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         tracking_uri=mlflow.get_tracking_uri(),
         run_id=run_id,
         artifacts_dir=f"artifacts-{session_id}-{inference_id}",
+        tags=tags,
     )
     args, kwargs = _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs)
     with disable_autologging():
@@ -263,12 +279,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             registered_model_name = get_autologging_config(
                 mlflow.langchain.FLAVOR_NAME, "registered_model_name", None
             )
-            extra_tags = get_autologging_config(mlflow.langchain.FLAVOR_NAME, "extra_tags", None)
-            tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, extra_tags)
-            # self manage the run as we need to get the run_id from mlflow_callback
-            # only log the tags once the first time we log the model
-            for key, value in tags.items():
-                mlflow.MlflowClient().set_tag(mlflow_callback.mlflg.run_id, key, value)
             try:
                 with disable_autologging():
                     mlflow.langchain.log_model(

@@ -99,7 +99,11 @@ export const useEvaluationArtifactWriteBack = () => {
         </Typography.Text>
       )}
       <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-        <Button disabled={isSyncingArtifacts} onClick={discard}>
+        <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_hooks_useevaluationartifactwriteback.tsx_102"
+          disabled={isSyncingArtifacts}
+          onClick={discard}
+        >
           <FormattedMessage
             defaultMessage="Discard"
             description="Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
@@ -107,7 +111,12 @@ export const useEvaluationArtifactWriteBack = () => {
         </Button>{' '}
         {/* Display "Save" button only if there are actual evaluated data to sync (don't allow to sync empty draft rows) */}
         {unsyncedDataEntriesCount > 0 && (
-          <Button loading={isSyncingArtifacts} type="primary" onClick={synchronizeArtifactData}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_hooks_useevaluationartifactwriteback.tsx_110"
+            loading={isSyncingArtifacts}
+            type="primary"
+            onClick={synchronizeArtifactData}
+          >
             <FormattedMessage
               defaultMessage="Save"
               description="Experiment page > artifact compare view > prompt lab artifact synchronization > cancel button label"

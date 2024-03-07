@@ -3783,6 +3783,66 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
     validate_retriever_logged_data(logged_data, 4)
 
 
+def test_evaluate_retriever_with_numpy_array_values():
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [np.array(["doc1", "doc2"])] * 3})
+
+    def fn(X):
+        return pd.DataFrame({"retrieved_context": [np.array(["doc1", "doc3", "doc2"])] * len(X)})
+
+    with mlflow.start_run():
+        results = mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={
+                "k": 3,
+            },
+        )
+    assert results.metrics == {
+        "precision_at_3/mean": 2 / 3,
+        "precision_at_3/p90": 2 / 3,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/p90": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/variance": 0.0,
+    }
+
+
+def test_evaluate_retriever_with_ints():
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [[1, 2]] * 3})
+
+    def fn(X):
+        return pd.DataFrame({"retrieved_context": [np.array([1, 3, 2])] * len(X)})
+
+    with mlflow.start_run():
+        results = mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={
+                "k": 3,
+            },
+        )
+    assert results.metrics == {
+        "precision_at_3/mean": 2 / 3,
+        "precision_at_3/p90": 2 / 3,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/p90": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/variance": 0.0,
+    }
+
+
 def test_evaluate_with_numpy_array():
     data = [
         ["What is MLflow?"],
@@ -3887,6 +3947,48 @@ def test_target_prediction_col_mapping():
                 "correctness/v1/variance": 0.0,
                 "correctness/v1/p90": 3.0,
             }
+
+
+def test_precanned_metrics_work():
+    metric = mlflow.metrics.rouge1()
+    with mlflow.start_run():
+        eval_df = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                    "What is Python?",
+                ],
+                "ground_truth": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+                "prediction": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+            }
+        )
+
+        results = mlflow.evaluate(
+            data=eval_df,
+            evaluators="default",
+            predictions="prediction",
+            extra_metrics=[metric],
+            evaluator_config={
+                "col_mapping": {
+                    "targets": "ground_truth",
+                }
+            },
+        )
+
+        assert results.metrics == {
+            "rouge1/v1/mean": 1.0,
+            "rouge1/v1/variance": 0.0,
+            "rouge1/v1/p90": 1.0,
+        }
 
 
 def test_evaluate_custom_metric_with_string_type():

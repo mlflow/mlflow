@@ -8,7 +8,7 @@ import { Provider } from 'react-redux';
 import { RunsMetricsLinePlot } from '../runs-charts/components/RunsMetricsLinePlot';
 import { RunsMetricsBarPlot } from '../runs-charts/components/RunsMetricsBarPlot';
 import userEvent from '@testing-library/user-event';
-import { createChartAxisRangeKey } from '../runs-charts/components/RunsCharts.common';
+import { RunsChartsLineChartXAxisType, createChartAxisRangeKey } from '../runs-charts/components/RunsCharts.common';
 import { getSampledMetricHistoryBulkAction } from '../../sdk/SampledMetricHistoryService';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
@@ -201,7 +201,7 @@ describe('RunViewMetricCharts', () => {
             runInfo: testRunInfo,
           },
         ],
-        xAxisKey: 'step',
+        xAxisKey: RunsChartsLineChartXAxisType.STEP,
       }),
       expect.anything(),
     );

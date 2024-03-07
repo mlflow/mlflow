@@ -244,18 +244,15 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_ya
     if exists(yaml_file_name) and not overwrite:
         raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
 
-    try:
-        with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
-            yaml.dump(
-                data,
-                yaml_file,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=sort_keys,
-                Dumper=YamlSafeDumper,
-            )
-    except Exception as e:
-        raise e
+    with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
+        yaml.dump(
+            data,
+            yaml_file,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=sort_keys,
+            Dumper=YamlSafeDumper,
+        )
 
 
 def overwrite_yaml(root, file_name, data, ensure_yaml_extension=True):
@@ -311,11 +308,8 @@ def read_yaml(root, file_name):
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise MissingConfigException(f"Yaml file '{file_path}' does not exist.")
-    try:
-        with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
-            return yaml.load(yaml_file, Loader=YamlSafeLoader)
-    except Exception as e:
-        raise e
+    with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
+        return yaml.load(yaml_file, Loader=YamlSafeLoader)
 
 
 class UniqueKeyLoader(YamlSafeLoader):
@@ -562,8 +556,8 @@ def _copy_project(src_path, dst_path=""):
 
     mlflow_dir = "mlflow-project"
     # check if we have project root
-    assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
-        os.path.abspath(os.path.join(src_path, "setup.py"))
+    assert os.path.isfile(os.path.join(src_path, "pyproject.toml")), "file not found " + str(
+        os.path.abspath(os.path.join(src_path, "pyproject.toml"))
     )
     shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir), ignore=_docker_ignore(src_path))
     return mlflow_dir

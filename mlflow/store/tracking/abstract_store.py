@@ -2,9 +2,10 @@ from abc import ABCMeta, abstractmethod
 from typing import List, Optional
 
 from mlflow.entities import DatasetInput, ViewType
+from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils.annotations import developer_stable, experimental
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
 
@@ -327,6 +328,37 @@ class AbstractStore:
         # without the paged queries to the backend store.
         pass
 
+    def get_metric_history_bulk_interval_from_steps(self, run_id, metric_key, steps, max_results):
+        """
+        Return a list of metric objects corresponding to all values logged
+        for a given metric within a run for the specified steps.
+
+        Args:
+            run_id: Unique identifier for run.
+            metric_key: Metric name within the run.
+            steps: List of steps for which to return metrics.
+            max_results: Maximum number of metric history events (steps) to return.
+
+        Returns:
+            A list of MetricWithRunId objects:
+                - key: Metric name within the run.
+                - value: Metric value.
+                - timestamp: Metric timestamp.
+                - step: Metric step.
+                - run_id: Unique identifier for run.
+        """
+        metrics_for_run = sorted(
+            [m for m in self.get_metric_history(run_id, metric_key) if m.step in steps],
+            key=lambda metric: (metric.step, metric.timestamp),
+        )[:max_results]
+        return [
+            MetricWithRunId(
+                run_id=run_id,
+                metric=metric,
+            )
+            for metric in metrics_for_run
+        ]
+
     def search_runs(
         self,
         experiment_ids,
@@ -458,7 +490,6 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    @experimental
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.

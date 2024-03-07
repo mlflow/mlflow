@@ -82,7 +82,6 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
   createModelVersionRequestId = getUUID();
 
   searchModelVersionRequestId = getUUID();
-
   constructor() {
     // @ts-expect-error TS(2554): Expected 1-2 arguments, but got 0.
     super();
@@ -177,13 +176,23 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
 
   renderFooter() {
     return [
-      <Button key="back" onClick={this.hideRegisterModal}>
+      <Button
+        componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_242"
+        key="back"
+        onClick={this.hideRegisterModal}
+      >
         <FormattedMessage
           defaultMessage="Cancel"
           description="Cancel button text to cancel the flow to register the model"
         />
       </Button>,
-      <Button key="submit" type="primary" onClick={this.handleRegisterModel} data-test-id="confirm-register-model">
+      <Button
+        componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_248"
+        key="submit"
+        type="primary"
+        onClick={this.handleRegisterModel}
+        data-test-id="confirm-register-model"
+      >
         <FormattedMessage defaultMessage="Register" description="Register button text to register the model" />
       </Button>,
     ];
@@ -197,6 +206,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
         {showButton && (
           <Tooltip title={this.props.tooltip || null} placement="left">
             <Button
+              componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_261"
               className="register-model-btn"
               type={buttonType}
               onClick={this.showRegisterModal}
@@ -235,9 +245,11 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
   }
 }
 
-const mapStateToProps = (state: any) => ({
-  modelByName: state.entities.modelByName,
-});
+const mapStateToProps = (state: any) => {
+  return {
+    modelByName: state.entities.modelByName,
+  };
+};
 
 const mapDispatchToProps = {
   createRegisteredModelApi,

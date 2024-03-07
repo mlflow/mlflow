@@ -41,7 +41,7 @@ def spark_session():
 def test_yaml_read_and_write(tmp_path):
     temp_dir = str(tmp_path)
     yaml_file = random_file("yaml")
-    long_value = 1  # pylint: disable=undefined-variable
+    long_value = 1
     data = {
         "a": random_int(),
         "B": random_int(),
