@@ -262,6 +262,7 @@ from mlflow.pyfunc.model import (
     _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
+    _SAVED_PYTHON_MODEL_SUBPATH,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -330,6 +331,13 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 MODEL_CONFIG = "config"
+
+_MODEL_DATA_SUBPATH = "data"
+
+model_data_artifact_paths = [
+    _MODEL_DATA_SUBPATH,
+    _SAVED_PYTHON_MODEL_SUBPATH,
+]
 
 
 class EnvType:

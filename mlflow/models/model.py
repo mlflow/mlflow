@@ -625,7 +625,11 @@ class Model:
                 if subpath_name not in non_metadata_subpaths:
                     src_file_path = os.path.join(local_path, subpath_name)
                     dest_file_path = os.path.join(metadata_path, subpath_name)
-                    shutil.copyfile(src_file_path, dest_file_path)
+
+                    if os.path.isfile(src_file_path):
+                        shutil.copyfile(src_file_path, dest_file_path)
+                    else:
+                        shutil.copytree(src_file_path, dest_file_path)
 
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a
