@@ -97,14 +97,6 @@ def picklable_runnable_types():
     except ImportError:
         pass
 
-    try:
-        # TODO: fix this, RunnableAssign is not picklable
-        from langchain.schema.runnable.passthrough import RunnableAssign
-
-        types += (RunnableAssign,)
-    except ImportError:
-        pass
-
     return types
 
 
@@ -129,6 +121,15 @@ def lc_runnable_with_steps_types():
     return types
 
 
+def lc_runnable_assign_type():
+    try:
+        from langchain.schema.runnable.passthrough import RunnableAssign
+
+        return (RunnableAssign,)
+    except ImportError:
+        return ()
+
+
 def lc_runnable_branch_type():
     try:
         from langchain.schema.runnable import RunnableBranch
@@ -139,7 +140,12 @@ def lc_runnable_branch_type():
 
 
 def lc_runnables_types():
-    return picklable_runnable_types() + lc_runnable_with_steps_types() + lc_runnable_branch_type()
+    return (
+        picklable_runnable_types()
+        + lc_runnable_with_steps_types()
+        + lc_runnable_branch_type()
+        + lc_runnable_assign_type()
+    )
 
 
 def supported_lc_types():

@@ -25,6 +25,7 @@ from mlflow.langchain.utils import (
     _validate_and_wrap_lc_model,
     base_lc_types,
     custom_type_to_loader_dict,
+    lc_runnable_assign_type,
     lc_runnable_branch_type,
     lc_runnable_with_steps_types,
     lc_runnables_types,
@@ -34,6 +35,7 @@ from mlflow.langchain.utils import (
 _STEPS_FOLDER_NAME = "steps"
 _RUNNABLE_STEPS_FILE_NAME = "steps.yaml"
 _BRANCHES_FOLDER_NAME = "branches"
+_MAPPER_FOLDER_NAME = "mapper"
 _RUNNABLE_BRANCHES_FILE_NAME = "branches.yaml"
 _DEFAULT_BRANCH_NAME = "default"
 
@@ -146,12 +148,11 @@ def runnable_sequence_from_steps(steps):
     return RunnableSequence(first=first, middle=middle, last=last)
 
 
-def _load_runnable_branch(file_path: Union[Path, str], model_type: str):
+def _load_runnable_branch(file_path: Union[Path, str]):
     """Load the model
 
     Args:
         file_path: Path to file to load the model from.
-        model_type: Type of the model to load.
     """
     from langchain.schema.runnable import RunnableBranch
 
@@ -200,14 +201,36 @@ def _load_runnable_branch(file_path: Union[Path, str], model_type: str):
     return RunnableBranch(*branches)
 
 
+def _load_runnable_assign(file_path: Union[Path, str]):
+    """Load the model
+
+    Args:
+        file_path: Path to file to load the model from.
+    """
+    from langchain.schema.runnable.passthrough import RunnableAssign
+
+    # Convert file to Path object.
+    load_path = Path(file_path) if isinstance(file_path, str) else file_path
+    if not load_path.exists() or not load_path.is_dir():
+        raise MlflowException(
+            f"File {load_path} must exist and must be a directory " "in order to load runnable."
+        )
+
+    mapper_file = load_path / _MAPPER_FOLDER_NAME
+    if not mapper_file.exists() or not mapper_file.is_dir():
+        raise MlflowException(
+            f"Folder {mapper_file} must exist and must be a directory "
+            "in order to load runnable assign with mapper."
+        )
+    mapper = _load_runnable_with_steps(mapper_file, "RunnableParallel")
+    return RunnableAssign(mapper)
+
+
 def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
     conf = {}
     if isinstance(runnable, lc_runnables_types()):
         conf[_MODEL_TYPE_KEY] = runnable.__class__.__name__
         conf.update(_save_runnables(runnable, path, loader_fn, persist_dir))
-    elif isinstance(runnable, lc_runnable_branch_type()):
-        conf[_MODEL_TYPE_KEY] = runnable.__class__.__name__
-        conf.update(_save_runnable_branch(runnable, path, loader_fn, persist_dir))
     elif isinstance(runnable, base_lc_types()):
         lc_model = _validate_and_wrap_lc_model(runnable, loader_fn)
         conf[_MODEL_TYPE_KEY] = lc_model.__class__.__name__
@@ -232,7 +255,7 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
     return conf
 
 
-def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None, persist_dir=None):
+def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None, persist_dir=None):
     """Save the model with steps. Currently it supports saving RunnableSequence and
     RunnableParallel.
 
@@ -258,7 +281,7 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
     We save steps.yaml file to the model folder. It contains each step's model's configuration.
 
     Args:
-        steps: Steps of the runnable.
+        model: Runnable to be saved.
         file_path: Path to file to save the model to.
     """
     # Convert file to Path object.
@@ -269,10 +292,15 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
     steps_path = save_path / _STEPS_FOLDER_NAME
     steps_path.mkdir()
 
+    steps = model.steps
     if isinstance(steps, list):
         generator = enumerate(steps)
     elif isinstance(steps, dict):
         generator = steps.items()
+    else:
+        raise MlflowException(
+            f"steps for must be either a list or a dictionary. Got {type(steps).__name__}."
+        )
     unsaved_runnables = {}
     steps_conf = {}
     for key, runnable in generator:
@@ -344,6 +372,23 @@ def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
         yaml.dump(branches_conf, f, default_flow_style=False)
 
 
+def _save_runnable_assign(model, file_path, loader_fn=None, persist_dir=None):
+    from langchain.schema.runnable import RunnableParallel
+
+    save_path = Path(file_path) if isinstance(file_path, str) else file_path
+    save_path.mkdir(parents=True, exist_ok=True)
+    # save mapper into a folder
+    mapper_path = save_path / _MAPPER_FOLDER_NAME
+    mapper_path.mkdir()
+
+    if not isinstance(model.mapper, RunnableParallel):
+        raise MlflowException(
+            f"Failed to save model {model} with type {model.__class__.__name__}. "
+            "RunnableAssign's mapper must be a RunnableParallel."
+        )
+    _save_runnable_with_steps(model.mapper, mapper_path, loader_fn, persist_dir)
+
+
 def _save_picklable_runnable(model, path):
     if not path.endswith(".pkl"):
         raise ValueError(f"File path must end with .pkl, got {path}.")
@@ -356,7 +401,7 @@ def _save_runnables(model, path, loader_fn=None, persist_dir=None):
     if isinstance(model, lc_runnable_with_steps_types()):
         model_data_path = _MODEL_DATA_FOLDER_NAME
         _save_runnable_with_steps(
-            model.steps, os.path.join(path, model_data_path), loader_fn, persist_dir
+            model, os.path.join(path, model_data_path), loader_fn, persist_dir
         )
     elif isinstance(model, picklable_runnable_types()):
         model_data_path = _MODEL_DATA_PKL_FILE_NAME
@@ -364,6 +409,9 @@ def _save_runnables(model, path, loader_fn=None, persist_dir=None):
     elif isinstance(model, lc_runnable_branch_type()):
         model_data_path = _MODEL_DATA_FOLDER_NAME
         _save_runnable_branch(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
+    elif isinstance(model, lc_runnable_assign_type()):
+        model_data_path = _MODEL_DATA_FOLDER_NAME
+        _save_runnable_assign(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
     else:
         raise MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
@@ -383,7 +431,9 @@ def _load_runnables(path, conf):
     ):
         return _load_from_pickle(os.path.join(path, model_data))
     if model_type in (x.__name__ for x in lc_runnable_branch_type()):
-        return _load_runnable_branch(os.path.join(path, model_data), model_type)
+        return _load_runnable_branch(os.path.join(path, model_data))
+    if model_type in (x.__name__ for x in lc_runnable_assign_type()):
+        return _load_runnable_assign(os.path.join(path, model_data))
     raise MlflowException.invalid_parameter_value(
         _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=model_type)
     )
