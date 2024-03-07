@@ -1,4 +1,5 @@
 """Utility functions for mlflow.langchain."""
+
 import contextlib
 import json
 import logging
@@ -262,6 +263,13 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.llms.huggingface_hub
     import langchain.llms.openai
     import langchain.schema
+
+    if isinstance(lc_model, str):
+        if os.path.basename(os.path.abspath(lc_model)) != "chain.py":
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"The path to the chain.py file must be provided, but provided {lc_model}."
+            )
+        return lc_model
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(

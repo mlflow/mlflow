@@ -14,6 +14,7 @@ LangChain (native) format
 
 import contextlib
 import functools
+import importlib.util
 import logging
 import os
 import warnings
@@ -73,6 +74,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
+    FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -84,6 +86,17 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
+_DATABRICKS_RAG_CONFIG = "databricks_rag_config"
+__chain__ = None
+__config_path__ = None
+
+
+def _set_chain(chain):
+    globals()["__chain__"] = chain
+
+
+def _set_config_path(path):
+    globals()["__config_path__"] = path
 
 
 def get_default_pip_requirements():
@@ -230,7 +243,12 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+    formatted_code_path = (
+        [lc_model]
+        if isinstance(lc_model, str) and code_paths is None
+        else (code_paths or []) + ([lc_model] if isinstance(lc_model, str) else [])
+    )
+    code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
         if input_example is not None:
@@ -276,7 +294,17 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
+    if not isinstance(lc_model, str):
+        model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
+        flavor_conf = {
+            _MODEL_TYPE_KEY: lc_model.__class__.__name__,
+            **model_data_kwargs,
+        }
+    else:
+        # if the model is a string, we only expect one code_path for now, which is config yaml file
+        file = os.path.basename(os.path.abspath(code_paths[0]))
+        flavor_conf = {_DATABRICKS_RAG_CONFIG: file}
+        model_data_kwargs = {}
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -286,13 +314,15 @@ def save_model(
         code=code_dir_subpath,
         **model_data_kwargs,
     )
-    flavor_conf = {
-        _MODEL_TYPE_KEY: lc_model.__class__.__name__,
-        **model_data_kwargs,
-    }
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        if databricks_dependency := _detect_databricks_dependencies(lc_model):
+        if isinstance(lc_model, str):
+            spec = importlib.util.spec_from_file_location("temp_module", lc_model)
+            temp_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(temp_module)
+
+        checker_model = lc_model if lc_model is not None else __chain__
+        if databricks_dependency := _detect_databricks_dependencies(checker_model):
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
 
     mlflow_model.add_flavor(
@@ -696,7 +726,10 @@ def _load_pyfunc(path):
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    return _load_model(local_model_path, flavor_conf)
+    if _DATABRICKS_RAG_CONFIG in flavor_conf:
+        return _load_code_model(local_model_path, flavor_conf)
+    else:
+        return _load_model(local_model_path, flavor_conf)
 
 
 @experimental
@@ -724,6 +757,18 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
+
+
+def _load_code_model(local_model_path, flavor_conf):
+    databricks_rag_config = flavor_conf.get(_DATABRICKS_RAG_CONFIG)
+    path = os.path.join(
+        local_model_path, flavor_conf.get(FLAVOR_CONFIG_CODE), databricks_rag_config
+    )
+    _set_config_path(path)
+
+    import chain  # noqa: F401
+
+    return __chain__
 
 
 @experimental
