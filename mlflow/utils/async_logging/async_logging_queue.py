@@ -50,7 +50,8 @@ class AsyncLoggingQueue:
             self._stop_data_logging_thread_event.set()
             # Waits till logging queue is drained.
             self._batch_logging_thread.join()
-            self._batch_status_check_threadpool.shutdown(wait=False)
+            self._batch_logging_worker_threadpool.shutdown(wait=True)
+            self._batch_status_check_threadpool.shutdown(wait=True)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
@@ -63,6 +64,7 @@ class AsyncLoggingQueue:
         self._stop_data_logging_thread_event.set()
         # Waits till logging queue is drained.
         self._batch_logging_thread.join()
+        self._batch_logging_worker_threadpool.shutdown(wait=True)
         self._batch_status_check_threadpool.shutdown(wait=True)
 
         # Restart the thread to listen to incoming data after flushing.
@@ -103,21 +105,25 @@ class AsyncLoggingQueue:
         except Empty:
             # Ignore empty queue exception
             return
-        try:
-            self._logging_func(
-                run_id=run_batch.run_id,
-                metrics=run_batch.metrics,
-                params=run_batch.params,
-                tags=run_batch.tags,
-            )
 
-            # Signal the batch processing is done.
-            run_batch.completion_event.set()
+        def logging_func(run_batch):
+            try:
+                self._logging_func(
+                    run_id=run_batch.run_id,
+                    metrics=run_batch.metrics,
+                    params=run_batch.params,
+                    tags=run_batch.tags,
+                )
 
-        except Exception as e:
-            _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
-            run_batch.exception = e
-            run_batch.completion_event.set()
+                # Signal the batch processing is done.
+                run_batch.completion_event.set()
+
+            except Exception as e:
+                _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
+                run_batch.exception = e
+                run_batch.completion_event.set()
+
+        self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
 
     def _wait_for_batch(self, batch: RunBatch) -> None:
         """Wait for the given batch to be processed by the logging thread.
@@ -152,6 +158,8 @@ class AsyncLoggingQueue:
             del state["_stop_data_logging_thread_event"]
         if "_batch_logging_thread" in state:
             del state["_batch_logging_thread"]
+        if "_batch_logging_worker_threadpool" in state:
+            del state["_batch_logging_worker_threadpool"]
         if "_batch_status_check_threadpool" in state:
             del state["_batch_status_check_threadpool"]
 
@@ -173,6 +181,7 @@ class AsyncLoggingQueue:
         self._lock = threading.RLock()
         self._is_activated = False
         self._batch_logging_thread = None
+        self._batch_logging_worker_threadpool = None
         self._batch_status_check_threadpool = None
         self._stop_data_logging_thread_event = threading.Event()
 
@@ -222,6 +231,10 @@ class AsyncLoggingQueue:
                 target=self._logging_loop,
                 name="MLflowAsyncLoggingLoop",
                 daemon=True,
+            )
+            self._batch_logging_worker_threadpool = ThreadPoolExecutor(
+                max_workers=10,
+                thread_name_prefix="MLflowBatchLoggingWorkerPool",
             )
 
             self._batch_status_check_threadpool = ThreadPoolExecutor(

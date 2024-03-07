@@ -203,8 +203,6 @@ def test_async_logging_queue_pickle():
             )
         )
 
-    assert not async_logging_queue._queue.empty()
-
     # Pickle the queue
     buffer = io.BytesIO()
     pickle.dump(async_logging_queue, buffer)
