@@ -12,18 +12,17 @@ _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
 def _extract_databricks_dependencies_from_retriever(
     retriever, dependency_dict: DefaultDict[str, List[Any]]
 ):
-    import langchain
-    import langchain.embeddings
-    import langchain.vectorstores
+    from langchain.embeddings import DatabricksEmbeddings
+    from langchain.vectorstores import DatabricksVectorSearch
 
     vectorstore = getattr(retriever, "vectorstore", None)
     if vectorstore and (embeddings := getattr(vectorstore, "embeddings", None)):
-        if isinstance(vectorstore, langchain.vectorstores.DatabricksVectorSearch):
+        if isinstance(vectorstore, DatabricksVectorSearch):
             index = vectorstore.index
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY].append(index.name)
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY].append(index.endpoint_name)
 
-        if isinstance(embeddings, langchain.embeddings.DatabricksEmbeddings):
+        if isinstance(embeddings, DatabricksEmbeddings):
             dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(embeddings.endpoint)
         elif (
             callable(getattr(vectorstore, "_is_databricks_managed_embeddings", None))
@@ -35,20 +34,18 @@ def _extract_databricks_dependencies_from_retriever(
 
 
 def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
-    import langchain
-    import langchain.llms
+    from langchain.llms import Databricks
 
-    if isinstance(llm, langchain.llms.Databricks):
+    if isinstance(llm, Databricks):
         dependency_dict[_DATABRICKS_LLM_ENDPOINT_NAME_KEY].append(llm.endpoint_name)
 
 
 def _extract_databricks_dependencies_from_chat_model(
     chat_model, dependency_dict: DefaultDict[str, List[Any]]
 ):
-    import langchain
-    import langchain.chat_models
+    from langchain.chat_models import ChatDatabricks
 
-    if isinstance(chat_model, langchain.chat_models.ChatDatabricks):
+    if isinstance(chat_model, ChatDatabricks):
         dependency_dict[_DATABRICKS_CHAT_ENDPOINT_NAME_KEY].append(chat_model.endpoint)
 
 
@@ -92,7 +89,7 @@ def _traverse_runnable(lc_model, dependency_dict: DefaultDict[str, List[Any]], v
     by lc_model.get_graph().nodes.values().
     This function supports arbitrary LCEL chain.
     """
-    import langchain_core
+    from langchain_core.runnables import Runnable
 
     current_object_id = id(lc_model)
     if current_object_id in visited:
@@ -102,7 +99,7 @@ def _traverse_runnable(lc_model, dependency_dict: DefaultDict[str, List[Any]], v
     visited.add(current_object_id)
     _extract_dependency_dict_from_lc_model(lc_model, dependency_dict)
 
-    if isinstance(lc_model, langchain_core.runnables.Runnable):
+    if isinstance(lc_model, Runnable):
         # Visit the returned graph
         for node in lc_model.get_graph().nodes.values():
             _traverse_runnable(node.data, dependency_dict, visited)
