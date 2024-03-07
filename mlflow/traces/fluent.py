@@ -37,8 +37,10 @@ def start_span(name=None,
             mlflow_span.end()
 
 
-# Decorator that wraps a function with start_span() context
-def trace(name=None,
+# Decorator that wraps a function with start_span() context.
+# This has _func as a first parameter so it can also wraps a function directly.
+def trace(_func=None,
+          name=None,
           span_type=SpanType.UNKNOWN,
           attributes=None):
     def decorator(func):
@@ -52,6 +54,9 @@ def trace(name=None,
                 return result
 
         return wrapper
+
+    if _func is not None:
+        return decorator(_func)
 
     return decorator
 

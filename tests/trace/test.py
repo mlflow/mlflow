@@ -40,9 +40,8 @@ def test_trace():
                 span.set_attribute("how", "nice")
                 time.sleep(0.5)
 
-            return self.sum(x2, y3)
+            return mlflow.trace(self.sum, name="sum")(x2, y3)
 
-        @mlflow.trace(name="sum_step")
         def sum(self, a, b=0):
             time.sleep(1)
             return a + b
