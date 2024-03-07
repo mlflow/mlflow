@@ -1361,12 +1361,12 @@ def test_log_param_async():
 
 def test_log_param_async_throws():
     with mlflow.start_run():
-        mlflow.log_param("async single param", value="1", synchronous=False)
-        with pytest.raises(MlflowException, match="Changing param values is not allowed"):
+        mlflow.log_param("async single param", value="1", synchronous=False).wait()
+        with pytest.raises(MlflowException, match=".*Changing param values is not allowed.*"):
             mlflow.log_param("async single param", value="2", synchronous=False).wait()
 
-        mlflow.log_params({"async batch param": "2"}, synchronous=False)
-        with pytest.raises(MlflowException, match="Changing param values is not allowed"):
+        mlflow.log_params({"async batch param": "2"}, synchronous=False).wait()
+        with pytest.raises(MlflowException, match=".*Changing param values is not allowed.*"):
             mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
 
 
