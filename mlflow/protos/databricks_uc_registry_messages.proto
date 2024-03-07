@@ -181,8 +181,10 @@ message R2Credentials {
   optional string session_token = 3;
 }
 
-// serves as boolean to note the use of Arclight presigned URLs instead of temporary cloud credentials
-message ArclightCredentials {}
+// returns the Filesystem path to the model version
+message ArclightCredentials {
+  optional string model_version_path = 1;
+}
 
 message CreateRegisteredModelRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateRegisteredModelResponse]";
