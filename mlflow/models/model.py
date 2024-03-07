@@ -61,17 +61,6 @@ _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
 _MLFLOW_VERSION_KEY = "mlflow_version"
 
 
-# When logging model, these files (if exist) will be copied to 'metadata' sub-directory.
-_model_metadata_file_list = [
-    MLMODEL_FILE_NAME,
-    _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    EXAMPLE_FILENAME,
-]
-
-
 class ModelInfo:
     """
     The metadata of a logged MLflow Model.
@@ -631,11 +620,13 @@ class Model:
 
             # Copy metadata files to the 'metadata' subdirectory
             metadata_path = os.path.join(local_path, "metadata")
+            model_data_subpaths = flavor.model_data_artifact_paths
+            non_metadata_subpaths = ["code", *model_data_subpaths]
             os.mkdir(path=metadata_path)
-            for file_name in _model_metadata_file_list:
-                src_file_path = os.path.join(local_path, file_name)
-                if os.path.exists(src_file_path):
-                    dest_file_path = os.path.join(metadata_path, file_name)
+            for subpath_name in os.listdir(local_path):
+                if subpath_name not in non_metadata_subpaths:
+                    src_file_path = os.path.join(local_path, subpath_name)
+                    dest_file_path = os.path.join(metadata_path, subpath_name)
                     shutil.copyfile(src_file_path, dest_file_path)
 
             tracking_uri = _resolve_tracking_uri()
