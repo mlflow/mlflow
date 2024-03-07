@@ -213,8 +213,8 @@ class MlflowFailedTypeConversion(MlflowInvalidInputException):
 def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_object
-    from mlflow.types.schema import Array, DataType, Object
+    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
+    from mlflow.types.schema import Array, DataType, Map, Object
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -250,6 +250,8 @@ def cast_df_types_according_to_schema(pdf, schema):
                     pdf[col_name] = pdf[col_name].map(lambda x: _enforce_array(x, col_type_spec))
                 elif isinstance(col_type_spec, Object):
                     pdf[col_name] = pdf[col_name].map(lambda x: _enforce_object(x, col_type_spec))
+                elif isinstance(col_type_spec, Map):
+                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_map(x, col_type_spec))
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
@@ -379,8 +381,8 @@ def convert_data_type(data, spec):
     """
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_object
-    from mlflow.types.schema import Array, ColSpec, DataType, Object, TensorSpec
+    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
+    from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
@@ -399,6 +401,8 @@ def convert_data_type(data, spec):
                 return np.array(_enforce_array(data, spec.type))
             elif isinstance(spec.type, Object):
                 return _enforce_object(data, spec.type)
+            elif isinstance(spec.type, Map):
+                return _enforce_map(data, spec.type)
     except MlflowException as e:
         raise MlflowInvalidInputException(e.message)
     except Exception as ex:
