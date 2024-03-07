@@ -88,6 +88,9 @@ SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FO
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
+_MODEL_DATA_SUBPATH = "model.pkl"
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
+
 
 def _gen_estimators_to_patch():
     from mlflow.sklearn.utils import (
@@ -260,7 +263,7 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_subpath = "model.pkl"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     _save_model(
         sk_model=sk_model,

@@ -36,6 +36,8 @@ from mlflow.langchain.databricks_dependencies import (
 )
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
+    _MODEL_DATA_PKL_FILE_NAME,
+    _MODEL_DATA_FOLDER_NAME,
     _BASE_LOAD_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
@@ -83,6 +85,9 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
+
+
+model_data_artifact_paths = [_MODEL_DATA_FOLDER_NAME, _MODEL_DATA_PKL_FILE_NAME]
 
 
 def get_default_pip_requirements():

@@ -29,6 +29,7 @@ else:
         get_default_pip_requirements,
         log_model,
         save_model,
+        model_data_artifact_paths,
     )
 
     FLAVOR_NAME = "keras"
@@ -42,4 +43,5 @@ else:
         "log_model",
         "get_default_pip_requirements",
         "get_default_conda_env",
+        "model_data_artifact_paths",
     ]
