@@ -1,10 +1,11 @@
 import os
 from typing import Optional
 
+from _utils import parse_chat
 from openai import OpenAI
 from openai.version import VERSION as OPENAI_VERSION
 from promptflow import tool
-from promptflow.tools.common import parse_chat, render_jinja_template
+from render_template import render_template
 
 # The inputs section will change based on the arguments of the tool function, after you save the code
 # Adding type to arguments and return value will help the system show the types properly
@@ -41,7 +42,7 @@ def my_python_tool(
     if "OPENAI_API_KEY" not in os.environ:
         raise Exception("Please specify environment variables: OPENAI_API_KEY")
 
-    chat_str = render_jinja_template(prompt, trim_blocks=True, keep_trailing_newline=True, **kwargs)
+    chat_str = render_template(prompt, **kwargs)
     messages = parse_chat(chat_str)
 
     response = get_client().chat.completions.create(
