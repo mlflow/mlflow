@@ -26,6 +26,7 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _add_or_overwrite_requirements,
@@ -65,6 +66,7 @@ _model_metadata_file_list = [
     MLMODEL_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
     EXAMPLE_FILENAME,
 ]
