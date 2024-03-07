@@ -2057,6 +2057,7 @@ def save_model(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
+            mlflow_model.metadata = {"task": "llm/v1/chat"}
             input_example = CHAT_MODEL_INPUT_EXAMPLE
 
             # perform output validation and throw if
