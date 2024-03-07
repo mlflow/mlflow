@@ -50,8 +50,8 @@ class AsyncLoggingQueue:
             self._stop_data_logging_thread_event.set()
             # Waits till logging queue is drained.
             self._batch_logging_thread.join()
-            self._batch_logging_worker_threadpool.shutdown(wait=False)
-            self._batch_status_check_threadpool.shutdown(wait=False)
+            self._batch_logging_worker_threadpool.shutdown(wait=True)
+            self._batch_status_check_threadpool.shutdown(wait=True)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
