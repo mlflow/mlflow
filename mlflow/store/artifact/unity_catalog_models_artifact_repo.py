@@ -109,10 +109,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         storage
         """
         scoped_token = self._get_scoped_token()
-        if scoped_token.WhichOneof("credentials") == "arclight_credentials":
-            blob_storage_path = f"/Models/{self.model_name.replace('.', '/')}/{self.model_version}"
-        else:
-            blob_storage_path = self._get_blob_storage_path()
+        blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path, scoped_token=scoped_token
         )

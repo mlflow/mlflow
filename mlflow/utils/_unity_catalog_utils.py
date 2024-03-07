@@ -156,7 +156,7 @@ def _get_artifact_repo_from_storage_info(
         )
     elif credential_type == "arclight_credentials":
         print("got arclight credentials credential type")
-        return PresignedUrlArtifactRepository(artifact_uri=storage_location)
+        return PresignedUrlArtifactRepository(artifact_uri=scoped_token.arclight_credentials.model_version_path)
     else:
         raise MlflowException(
             f"Got unexpected credential type {credential_type} when attempting to "

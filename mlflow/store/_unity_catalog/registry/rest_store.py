@@ -657,11 +657,8 @@ class UcModelRegistryStore(BaseRestStore):
             scoped_token = self._get_temporary_model_version_write_credentials(
                 name=full_name, version=version_number
             )
-            storage_location = model_version.storage_location
-            if scoped_token.WhichOneof("credentials") == "arclight_credentials":
-                storage_location = f"/Models/{full_name.replace('.', '/')}/{version_number}"
             store = get_artifact_repo_from_storage_info(
-                storage_location=storage_location, scoped_token=scoped_token
+                storage_location=model_version.storage_location, scoped_token=scoped_token
             )
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
