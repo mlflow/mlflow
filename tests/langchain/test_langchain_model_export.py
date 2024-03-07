@@ -9,6 +9,7 @@ from typing import Any, DefaultDict, Dict, List, Mapping, Optional
 from unittest import mock
 
 import langchain
+import langchain_community
 import numpy as np
 import openai
 import pytest
@@ -60,6 +61,14 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+
+# this kwarg was added in langchain_community 0.0.27, and
+# prevents the use of pickled objects if not provided.
+VECTORSTORE_KWARGS = kwargs = (
+    {"allow_dangerous_deserialization": True}
+    if Version(langchain_community.__version__) >= Version("0.0.27")
+    else {}
+)
 
 
 @contextmanager
@@ -430,7 +439,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
         vectorstore = FAISS.load_local(
             persist_directory,
             embeddings,
-            allow_dangerous_deserialization=True,
+            **VECTORSTORE_KWARGS,
         )
         return vectorstore.as_retriever()
 
@@ -497,7 +506,7 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
         vectorstore = FAISS.load_local(
             persist_directory,
             embeddings,
-            allow_dangerous_deserialization=True,
+            **VECTORSTORE_KWARGS,
         )
         return vectorstore.as_retriever()
 
@@ -608,7 +617,7 @@ def test_log_and_load_retriever_chain(tmp_path):
         vectorstore = FAISS.load_local(
             persist_directory,
             embeddings,
-            allow_dangerous_deserialization=True,
+            **VECTORSTORE_KWARGS,
         )
         return vectorstore.as_retriever()
 
@@ -1333,7 +1342,7 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
         vectorstore = FAISS.load_local(
             persist_directory,
             embeddings,
-            allow_dangerous_deserialization=True,
+            **VECTORSTORE_KWARGS,
         )
         return vectorstore.as_retriever()
 
