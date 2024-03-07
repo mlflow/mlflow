@@ -172,6 +172,7 @@ model_data_artifact_paths = [
     _MODEL_BINARY_FILE_NAME,
     _COMPONENTS_BINARY_DIR_NAME,
     _PROCESSOR_BINARY_DIR_NAME,
+    _PEFT_ADAPTOR_DIR_NAME,
 ]
 
 
