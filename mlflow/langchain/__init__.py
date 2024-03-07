@@ -46,6 +46,7 @@ from mlflow.langchain.utils import (
     _validate_and_wrap_lc_model,
     lc_runnables_types,
     register_pydantic_v1_serializer_cm,
+    _PERSIST_DIR_NAME,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -87,7 +88,7 @@ FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
 
 
-model_data_artifact_paths = [_MODEL_DATA_FOLDER_NAME, _MODEL_DATA_PKL_FILE_NAME]
+model_data_artifact_paths = [_MODEL_DATA_FOLDER_NAME, _MODEL_DATA_PKL_FILE_NAME, _PERSIST_DIR_NAME]
 
 
 def get_default_pip_requirements():

@@ -79,7 +79,7 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 
 _MODEL_DATA_SUBPATH = "data"
-model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH, _EXTRA_FILES_KEY]
 
 
 def get_default_pip_requirements():
