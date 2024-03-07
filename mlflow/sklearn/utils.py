@@ -918,7 +918,7 @@ def _backported_all_estimators(type_filter=None):
         RegressorMixin,
         TransformerMixin,
     )
-    from sklearn.utils.testing import ignore_warnings
+    from sklearn.utils._testing import ignore_warnings
 
     IS_PYPY = platform.python_implementation() == "PyPy"
 
