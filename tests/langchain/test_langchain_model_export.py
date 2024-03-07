@@ -427,7 +427,11 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Log the RetrievalQA chain
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
         return vectorstore.as_retriever()
 
     with mlflow.start_run():
@@ -490,7 +494,11 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     # Log the RetrievalQA chain
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
         return vectorstore.as_retriever()
 
     with mlflow.start_run():
@@ -597,7 +605,11 @@ def test_log_and_load_retriever_chain(tmp_path):
                 return self._get_embedding(text)
 
         embeddings = DeterministicDummyEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
         return vectorstore.as_retriever()
 
     # Log the retriever
@@ -1318,7 +1330,11 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
 
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
         return vectorstore.as_retriever()
 
     prompt = ChatPromptTemplate.from_template(
