@@ -619,8 +619,9 @@ class Model:
             metadata_path = os.path.join(local_path, "metadata")
             model_data_subpaths = flavor.model_data_artifact_paths
             non_metadata_subpaths = ["code", *model_data_subpaths]
+            subpaths_list = os.listdir(local_path)
             os.mkdir(path=metadata_path)
-            for subpath_name in os.listdir(local_path):
+            for subpath_name in subpaths_list:
                 if subpath_name not in non_metadata_subpaths:
                     src_file_path = os.path.join(local_path, subpath_name)
                     dest_file_path = os.path.join(metadata_path, subpath_name)
