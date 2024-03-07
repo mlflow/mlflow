@@ -9,7 +9,6 @@ from typing import Any, DefaultDict, Dict, List, Mapping, Optional
 from unittest import mock
 
 import langchain
-import langchain_community
 import numpy as np
 import openai
 import pytest
@@ -62,13 +61,18 @@ from mlflow.utils.openai_utils import (
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
-# this kwarg was added in langchain_community 0.0.27, and
-# prevents the use of pickled objects if not provided.
-VECTORSTORE_KWARGS = kwargs = (
-    {"allow_dangerous_deserialization": True}
-    if Version(langchain_community.__version__) >= Version("0.0.27")
-    else {}
-)
+try:
+    import langchain_community
+
+    # this kwarg was added in langchain_community 0.0.27, and
+    # prevents the use of pickled objects if not provided.
+    VECTORSTORE_KWARGS = kwargs = (
+        {"allow_dangerous_deserialization": True}
+        if Version(langchain_community.__version__) >= Version("0.0.27")
+        else {}
+    )
+except ImportError:
+    VECTORSTORE_KWARGS = {}
 
 
 @contextmanager
