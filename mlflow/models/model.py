@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 import uuid
 import warnings
 from datetime import datetime
@@ -13,6 +14,7 @@ import yaml
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import EXAMPLE_FILENAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -24,6 +26,7 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _add_or_overwrite_requirements,
     _get_requirements_from_file,
@@ -55,6 +58,16 @@ _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
+
+
+# When logging model, these files (if exist) will be copied to 'metadata' sub-directory.
+_model_metadata_file_list = [
+    MLMODEL_FILE_NAME,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    EXAMPLE_FILENAME,
+]
 
 
 class ModelInfo:
@@ -613,6 +626,16 @@ class Model:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+
+            # Copy metadata files to the 'metadata' subdirectory
+            metadata_path = os.path.join(local_path, "metadata")
+            os.mkdir(path=metadata_path)
+            for file_name in _model_metadata_file_list:
+                src_file_path = os.path.join(local_path, file_name)
+                if os.path.exists(src_file_path):
+                    dest_file_path = os.path.join(metadata_path, file_name)
+                    shutil.copyfile(src_file_path, dest_file_path)
+
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
