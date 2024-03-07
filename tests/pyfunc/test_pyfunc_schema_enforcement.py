@@ -2659,7 +2659,8 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
         ),
     ],
 )
-def test_pyfunc_model_schema_enforcement_map_type(data, schema):
+@pytest.mark.parametrize("format_key", ["dataframe_split", "dataframe_records"])
+def test_pyfunc_model_schema_enforcement_map_type(data, schema, format_key):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             return model_input
@@ -2675,6 +2676,31 @@ def test_pyfunc_model_schema_enforcement_map_type(data, schema):
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     prediction = loaded_model.predict(df)
     pd.testing.assert_frame_equal(prediction, df)
+
+    if format_key == "dataframe_split":
+        payload = {format_key: df.to_dict(orient="split")}
+    elif format_key == "dataframe_records":
+        payload = {format_key: df.to_dict(orient="records")}
+
+    class CustomJsonEncoder(json.JSONEncoder):
+        def default(self, o):
+            import numpy as np
+
+            if isinstance(o, np.int64):
+                return int(o)
+
+            return super().default(o)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(payload, cls=CustomJsonEncoder),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    expected_result = df.to_dict(orient="records")
+    np.testing.assert_equal(result, expected_result)
 
 
 @pytest.mark.parametrize(
