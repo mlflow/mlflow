@@ -14,7 +14,6 @@ import yaml
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import EXAMPLE_FILENAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -26,8 +25,6 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _add_or_overwrite_requirements,
     _get_requirements_from_file,
