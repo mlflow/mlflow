@@ -65,35 +65,38 @@ def update_versions(new_py_version: str) -> None:
     )
 
     # Java
+    old_py_version_pattern = rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?"
+    dev_suffix_replaced = replace_dev_suffix_with(new_py_version, "-SNAPSHOT")
     replace_occurrences(
         files=Path("mlflow", "java").rglob("*.java"),
-        pattern=rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?",
-        repl=replace_dev_suffix_with(new_py_version, "-SNAPSHOT"),
+        pattern=old_py_version_pattern,
+        repl=dev_suffix_replaced,
     )
 
     # Java pom.xml files
-
     # Note: the XML files define versions of dependencies as well.
     # this causes issues when the mlflow version matches the
     # version of a dependency. to work around, we make sure to
     # match only the correct keys
-    old_py_version_pattern = rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?"
-    dev_suffix_replaced = replace_dev_suffix_with(new_py_version, "-SNAPSHOT")
 
-    # group 1: everything before the version
-    # group 2: optional -SNAPSHOT
-    # group 3: everything after the version
-    replace_str = f"\\g<1>{dev_suffix_replaced}\\g<3>"
     mlflow_version_tag_pattern = r"<mlflow.version>"
     mlflow_spark_pattern = (
         r"<artifactId>mlflow-spark_\${scala\.compat\.version}</artifactId>\s+<version>"
     )
     mlflow_parent_pattern = r"<artifactId>mlflow-parent</artifactId>\s+<version>"
+
+    # combine the three tags together to form the regex
     mlflow_replace_pattern = (
         rf"({mlflow_version_tag_pattern}|{mlflow_spark_pattern}|{mlflow_parent_pattern})"
         + f"{old_py_version_pattern}"
         + r"(</mlflow.version>|</version>)"
     )
+
+    # group 1: everything before the version
+    # group 2: optional -SNAPSHOT
+    # group 3: everything after the version
+    replace_str = f"\\g<1>{dev_suffix_replaced}\\g<3>"
+
     replace_occurrences(
         files=Path("mlflow", "java").rglob("*.xml"),
         pattern=mlflow_replace_pattern,
