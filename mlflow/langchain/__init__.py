@@ -11,6 +11,7 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+
 import contextlib
 import functools
 import logging
@@ -189,6 +190,9 @@ def save_model(
             Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
             and `persist_dir`:
 
+            .. Note:: In langchain_community >= 0.0.27, loading pickled data requires providing the
+                ``allow_dangerous_deserialization`` argument.
+
             .. code-block:: python
 
                 qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -196,7 +200,13 @@ def save_model(
 
                 def load_retriever(persist_directory):
                     embeddings = OpenAIEmbeddings()
-                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    vectorstore = FAISS.load_local(
+                        persist_directory,
+                        embeddings,
+                        # you may need to add the line below
+                        # for langchain_community >= 0.0.27
+                        allow_dangerous_deserialization=True,
+                    )
                     return vectorstore.as_retriever()
 
 
@@ -414,6 +424,9 @@ def log_model(
             Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
             and `persist_dir`:
 
+            .. Note:: In langchain_community >= 0.0.27, loading pickled data requires providing the
+                ``allow_dangerous_deserialization`` argument.
+
             .. code-block:: python
 
                 qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -421,7 +434,13 @@ def log_model(
 
                 def load_retriever(persist_directory):
                     embeddings = OpenAIEmbeddings()
-                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    vectorstore = FAISS.load_local(
+                        persist_directory,
+                        embeddings,
+                        # you may need to add the line below
+                        # for langchain_community >= 0.0.27
+                        allow_dangerous_deserialization=True,
+                    )
                     return vectorstore.as_retriever()
 
 
