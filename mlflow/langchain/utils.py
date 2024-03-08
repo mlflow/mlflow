@@ -121,7 +121,7 @@ def lc_runnable_with_steps_types():
     return types
 
 
-def lc_runnable_assign_type():
+def lc_runnable_assign_types():
     try:
         from langchain.schema.runnable.passthrough import RunnableAssign
 
@@ -130,7 +130,7 @@ def lc_runnable_assign_type():
         return ()
 
 
-def lc_runnable_branch_type():
+def lc_runnable_branch_types():
     try:
         from langchain.schema.runnable import RunnableBranch
 
@@ -143,8 +143,8 @@ def lc_runnables_types():
     return (
         picklable_runnable_types()
         + lc_runnable_with_steps_types()
-        + lc_runnable_branch_type()
-        + lc_runnable_assign_type()
+        + lc_runnable_branch_types()
+        + lc_runnable_assign_types()
     )
 
 

@@ -25,8 +25,8 @@ from mlflow.langchain.utils import (
     _validate_and_wrap_lc_model,
     base_lc_types,
     custom_type_to_loader_dict,
-    lc_runnable_assign_type,
-    lc_runnable_branch_type,
+    lc_runnable_assign_types,
+    lc_runnable_branch_types,
     lc_runnable_with_steps_types,
     lc_runnables_types,
     picklable_runnable_types,
@@ -213,7 +213,7 @@ def _load_runnable_assign(file_path: Union[Path, str]):
     load_path = Path(file_path) if isinstance(file_path, str) else file_path
     if not load_path.exists() or not load_path.is_dir():
         raise MlflowException(
-            f"File {load_path} must exist and must be a directory " "in order to load runnable."
+            f"File {load_path} must exist and must be a directory in order to load runnable."
         )
 
     mapper_file = load_path / _MAPPER_FOLDER_NAME
@@ -406,10 +406,10 @@ def _save_runnables(model, path, loader_fn=None, persist_dir=None):
     elif isinstance(model, picklable_runnable_types()):
         model_data_path = _MODEL_DATA_PKL_FILE_NAME
         _save_picklable_runnable(model, os.path.join(path, model_data_path))
-    elif isinstance(model, lc_runnable_branch_type()):
+    elif isinstance(model, lc_runnable_branch_types()):
         model_data_path = _MODEL_DATA_FOLDER_NAME
         _save_runnable_branch(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
-    elif isinstance(model, lc_runnable_assign_type()):
+    elif isinstance(model, lc_runnable_assign_types()):
         model_data_path = _MODEL_DATA_FOLDER_NAME
         _save_runnable_assign(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
     else:
@@ -430,9 +430,9 @@ def _load_runnables(path, conf):
         or model_data == _MODEL_DATA_PKL_FILE_NAME
     ):
         return _load_from_pickle(os.path.join(path, model_data))
-    if model_type in (x.__name__ for x in lc_runnable_branch_type()):
+    if model_type in (x.__name__ for x in lc_runnable_branch_types()):
         return _load_runnable_branch(os.path.join(path, model_data))
-    if model_type in (x.__name__ for x in lc_runnable_assign_type()):
+    if model_type in (x.__name__ for x in lc_runnable_assign_types()):
         return _load_runnable_assign(os.path.join(path, model_data))
     raise MlflowException.invalid_parameter_value(
         _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=model_type)
