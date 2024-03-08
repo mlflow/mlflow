@@ -622,10 +622,10 @@ class Model:
             # Copy model metadata files to a sub-directory 'metadata',
             # For UC sharing use-cases.
             metadata_path = os.path.join(local_path, "metadata")
-            os.makedirs(metadata_path, exist_ok=True)
             if isinstance(flavor, WheeledModel):
                 # wheeled model updates several metadata files in original model directory
                 # copy these updated metadata files to the 'metadata' subdirectory
+                os.makedirs(metadata_path, exist_ok=True)
                 for file_name in [
                     MLMODEL_FILE_NAME,
                     _CONDA_ENV_FILE_NAME,
@@ -641,6 +641,7 @@ class Model:
                 model_data_subpaths = flavor.model_data_artifact_paths
                 non_metadata_subpaths = ["code", *model_data_subpaths]
                 subpaths_list = os.listdir(local_path)
+                os.makedirs(metadata_path, exist_ok=True)
                 for subpath_name in subpaths_list:
                     if subpath_name not in non_metadata_subpaths:
                         src_file_path = os.path.join(local_path, subpath_name)
