@@ -65,11 +65,52 @@ def update_versions(new_py_version: str) -> None:
     )
 
     # Java
-    for java_extension in ["xml", "java"]:
+    for java_extension in ["java"]:
         replace_occurrences(
             files=Path("mlflow", "java").rglob(f"*.{java_extension}"),
             pattern=rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?",
             repl=replace_dev_suffix_with(new_py_version, "-SNAPSHOT"),
+        )
+
+    for xml_extension in ["xml"]:
+        # the pom.XML files define versions of dependencies as well.
+        # this causes issues when the mlflow version matches the
+        # version of a dependency. to work around, we make sure to
+        # match only the correct keys
+        old_py_version_pattern = rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?"
+        dev_suffix_replaced = replace_dev_suffix_with(new_py_version, "-SNAPSHOT")
+
+        # group 1: everything before the version
+        # group 2: optional -SNAPSHOT
+        # group 3: everything after the version
+        replace_str = f"\\g<1>{dev_suffix_replaced}\\g<3>"
+
+        mlflow_version_tag_pattern = rf"""(<mlflow.version>){
+            old_py_version_pattern
+        }(</mlflow.version>)"""
+        replace_occurrences(
+            files=Path("mlflow", "java").rglob(f"*.{xml_extension}"),
+            pattern=mlflow_version_tag_pattern,
+            repl=replace_str,
+        )
+
+        mlflow_parent_pattern = rf"""(<artifactId>mlflow-parent</artifactId>\s+<version>){
+            old_py_version_pattern
+        }(</version>)"""
+        replace_occurrences(
+            files=Path("mlflow", "java").rglob(f"*.{xml_extension}"),
+            pattern=mlflow_parent_pattern,
+            repl=replace_str,
+        )
+
+        mlflow_spark_pattern = (
+            r"(<artifactId>mlflow-spark_\${scala\.compat\.version}</artifactId>\s+"
+            + rf"<version>){old_py_version_pattern}(</version>)"
+        )
+        replace_occurrences(
+            files=Path("mlflow", "java").rglob(f"*.{xml_extension}"),
+            pattern=mlflow_spark_pattern,
+            repl=replace_str,
         )
 
     # R
