@@ -63,6 +63,19 @@ from mlflow.utils.openai_utils import (
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
+try:
+    import langchain_community
+
+    # this kwarg was added in langchain_community 0.0.27, and
+    # prevents the use of pickled objects if not provided.
+    VECTORSTORE_KWARGS = (
+        {"allow_dangerous_deserialization": True}
+        if Version(langchain_community.__version__) >= Version("0.0.27")
+        else {}
+    )
+except ImportError:
+    VECTORSTORE_KWARGS = {}
+
 
 @contextmanager
 def _mock_async_request(content=TEST_CONTENT):
@@ -429,7 +442,11 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Log the RetrievalQA chain
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     with mlflow.start_run():
@@ -492,7 +509,11 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     # Log the RetrievalQA chain
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     with mlflow.start_run():
@@ -602,7 +623,11 @@ def test_log_and_load_retriever_chain(tmp_path):
                 return self._get_embedding(text)
 
         embeddings = DeterministicDummyEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     # Log the retriever
@@ -1381,7 +1406,11 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
 
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     prompt = ChatPromptTemplate.from_template(
