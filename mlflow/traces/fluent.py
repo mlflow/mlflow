@@ -4,15 +4,19 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from typing import Any, Dict
 
-from mlflow.traces.client import DummyTraceClient
+from mlflow.traces.client import DummyTraceClient, DummyTraceClientWithHTMLDisplay
 from mlflow.traces.export import MLflowSpanExporter, TraceAggregator
 from mlflow.traces.types import MLflowSpanWrapper, SpanType
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 _TRACER_PROVIDER = TracerProvider()
 
 # TODO: Will move this to factory when we add more exporting options
-client = DummyTraceClient()
+if is_in_databricks_runtime():
+    client = DummyTraceClientWithHTMLDisplay()
+else:
+    client = DummyTraceClient()
 aggregator = TraceAggregator()
 exporter = MLflowSpanExporter(client, aggregator)
 _TRACER_PROVIDER.add_span_processor(SimpleSpanProcessor(exporter))
