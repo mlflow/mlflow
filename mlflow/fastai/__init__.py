@@ -58,6 +58,9 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "fastai"
 
+_MODEL_DATA_SUBPATH = "model.fastai"
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
+
 _logger = logging.getLogger(__name__)
 
 
@@ -158,7 +161,7 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.fastai"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     model_data_path = Path(model_data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)

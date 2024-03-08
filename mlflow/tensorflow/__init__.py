@@ -92,6 +92,12 @@ _MODEL_TYPE_TF1_ESTIMATOR = "tf1-estimator"
 _MODEL_TYPE_TF2_MODULE = "tf2-module"
 
 
+_KERAS_MODEL_DATA_PATH = "data"
+_TF2MODEL_SUBPATH = "tf2model"
+
+model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
+
+
 def get_default_pip_requirements(include_cloudpickle=False):
     """
     Returns
@@ -386,7 +392,7 @@ def save_model(
     if isinstance(model, KerasModel):
         keras_model_kwargs = keras_model_kwargs or {}
 
-        data_subpath = "data"
+        data_subpath = _KERAS_MODEL_DATA_PATH
         # construct new data folder in existing path
         data_path = os.path.join(path, data_subpath)
         os.makedirs(data_path)
@@ -448,7 +454,7 @@ def save_model(
         }
     elif isinstance(model, tf.Module):
         saved_model_kwargs = saved_model_kwargs or {}
-        model_dir_subpath = "tf2model"
+        model_dir_subpath = _TF2MODEL_SUBPATH
         model_path = os.path.join(path, model_dir_subpath)
         tf.saved_model.save(model, model_path, **saved_model_kwargs)
         pyfunc_options = {}

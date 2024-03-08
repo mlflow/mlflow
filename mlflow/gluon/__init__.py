@@ -44,6 +44,11 @@ FLAVOR_NAME = "gluon"
 _MODEL_SAVE_PATH = "net"
 
 
+_MODEL_DATA_PATH = "data"
+
+model_data_artifact_paths = [_MODEL_DATA_PATH]
+
+
 @deprecated(since="2.5.0")
 def load_model(model_uri, ctx, dst_path=None):
     """
@@ -224,7 +229,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    data_subpath = "data"
+    data_subpath = _MODEL_DATA_PATH
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)

@@ -42,6 +42,7 @@ CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
+_SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 
 
 _logger = logging.getLogger(__name__)
@@ -283,7 +284,7 @@ def _save_model_with_class_artifacts_params(
     }
     if callable(python_model):
         python_model = _FunctionPythonModel(python_model, hints, signature)
-    saved_python_model_subpath = "python_model.pkl"
+    saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
     try:
         with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
