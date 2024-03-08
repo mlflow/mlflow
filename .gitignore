@@ -74,6 +74,8 @@ ENV/
 env.bak/
 venv.bak/
 .python-version
+bin/
+pyvenv.cfg
 
 # Editor files
 .*project
