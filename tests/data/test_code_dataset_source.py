@@ -7,7 +7,7 @@ def test_code_dataset_source_from_path():
         "mlflow_source_name": "some_random_notebook_path",
     }
     code_datasource = CodeDatasetSource(tags)
-    assert code_datasource._to_dict() == {
+    assert code_datasource.to_dict() == {
         "tags": tags,
     }
 
