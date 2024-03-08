@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 import uuid
 import warnings
 from datetime import datetime
@@ -24,6 +25,7 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _add_or_overwrite_requirements,
     _get_requirements_from_file,
@@ -607,12 +609,48 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
+        from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
+
         with TempDir() as tmp:
             local_path = tmp.path("model")
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+
+            # Copy model metadata files to a sub-directory 'metadata',
+            # For UC sharing use-cases.
+            metadata_path = os.path.join(local_path, "metadata")
+            if isinstance(flavor, WheeledModel):
+                # wheeled model updates several metadata files in original model directory
+                # copy these updated metadata files to the 'metadata' subdirectory
+                os.makedirs(metadata_path, exist_ok=True)
+                for file_name in [
+                    MLMODEL_FILE_NAME,
+                    _CONDA_ENV_FILE_NAME,
+                    _REQUIREMENTS_FILE_NAME,
+                    _PYTHON_ENV_FILE_NAME,
+                    _ORIGINAL_REQ_FILE_NAME,
+                ]:
+                    src_file_path = os.path.join(local_path, file_name)
+                    dest_file_path = os.path.join(metadata_path, file_name)
+                    shutil.copyfile(src_file_path, dest_file_path)
+            else:
+                # Copy metadata files to the 'metadata' subdirectory
+                model_data_subpaths = flavor.model_data_artifact_paths
+                non_metadata_subpaths = ["code", *model_data_subpaths]
+                subpaths_list = os.listdir(local_path)
+                os.makedirs(metadata_path, exist_ok=True)
+                for subpath_name in subpaths_list:
+                    if subpath_name not in non_metadata_subpaths:
+                        src_file_path = os.path.join(local_path, subpath_name)
+                        dest_file_path = os.path.join(metadata_path, subpath_name)
+
+                        if os.path.isfile(src_file_path):
+                            shutil.copyfile(src_file_path, dest_file_path)
+                        else:
+                            shutil.copytree(src_file_path, dest_file_path)
+
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
