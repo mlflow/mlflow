@@ -26,6 +26,8 @@ from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
     _add_or_overwrite_requirements,
     _get_requirements_from_file,
     _remove_requirements,
@@ -608,6 +610,8 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
+        from mlflow.models.wheeled_model import WheeledModel, _ORIGINAL_REQ_FILE_NAME
+
         with TempDir() as tmp:
             local_path = tmp.path("model")
             if run_id is None:
@@ -615,21 +619,37 @@ class Model:
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
 
-            # Copy metadata files to the 'metadata' subdirectory
+            # Copy model metadata files to a sub-directory 'metadata',
+            # For UC sharing use-cases.
             metadata_path = os.path.join(local_path, "metadata")
-            model_data_subpaths = flavor.model_data_artifact_paths
-            non_metadata_subpaths = ["code", *model_data_subpaths]
-            subpaths_list = os.listdir(local_path)
-            os.mkdir(path=metadata_path)
-            for subpath_name in subpaths_list:
-                if subpath_name not in non_metadata_subpaths:
-                    src_file_path = os.path.join(local_path, subpath_name)
-                    dest_file_path = os.path.join(metadata_path, subpath_name)
+            os.makedirs(metadata_path, exist_ok=True)
+            if isinstance(flavor, WheeledModel):
+                # wheeled model updates several metadata files in original model directory
+                # copy these updated metadata files to the 'metadata' subdirectory
+                for file_name in [
+                    MLMODEL_FILE_NAME,
+                    _CONDA_ENV_FILE_NAME,
+                    _REQUIREMENTS_FILE_NAME,
+                    _PYTHON_ENV_FILE_NAME,
+                    _ORIGINAL_REQ_FILE_NAME,
+                ]:
+                    src_file_path = os.path.join(local_path, file_name)
+                    dest_file_path = os.path.join(metadata_path, file_name)
+                    shutil.copyfile(src_file_path, dest_file_path)
+            else:
+                # Copy metadata files to the 'metadata' subdirectory
+                model_data_subpaths = flavor.model_data_artifact_paths
+                non_metadata_subpaths = ["code", *model_data_subpaths]
+                subpaths_list = os.listdir(local_path)
+                for subpath_name in subpaths_list:
+                    if subpath_name not in non_metadata_subpaths:
+                        src_file_path = os.path.join(local_path, subpath_name)
+                        dest_file_path = os.path.join(metadata_path, subpath_name)
 
-                    if os.path.isfile(src_file_path):
-                        shutil.copyfile(src_file_path, dest_file_path)
-                    else:
-                        shutil.copytree(src_file_path, dest_file_path)
+                        if os.path.isfile(src_file_path):
+                            shutil.copyfile(src_file_path, dest_file_path)
+                        else:
+                            shutil.copytree(src_file_path, dest_file_path)
 
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a

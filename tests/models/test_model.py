@@ -105,6 +105,8 @@ def test_model_load_remote(tmp_path, mock_s3_bucket):
 
 
 class TestFlavor:
+    model_data_artifact_paths = []
+
     @classmethod
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
