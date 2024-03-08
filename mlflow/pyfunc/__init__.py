@@ -255,6 +255,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
+    _SAVED_PYTHON_MODEL_SUBPATH,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -262,7 +263,6 @@ from mlflow.pyfunc.model import (
     _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
-    _SAVED_PYTHON_MODEL_SUBPATH,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri

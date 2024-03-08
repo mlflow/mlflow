@@ -28,8 +28,8 @@ else:
         get_default_conda_env,
         get_default_pip_requirements,
         log_model,
-        save_model,
         model_data_artifact_paths,
+        save_model,
     )
 
     FLAVOR_NAME = "keras"

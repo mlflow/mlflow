@@ -25,9 +25,8 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
     _add_or_overwrite_requirements,
     _get_requirements_from_file,
     _remove_requirements,
@@ -610,7 +609,7 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
-        from mlflow.models.wheeled_model import WheeledModel, _ORIGINAL_REQ_FILE_NAME
+        from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
 
         with TempDir() as tmp:
             local_path = tmp.path("model")
