@@ -29,6 +29,8 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 
 FLAVOR_NAME = "mleap"
 
+model_data_artifact_paths = ["mleap"]
+
 _logger = logging.getLogger(__name__)
 
 

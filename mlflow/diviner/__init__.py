@@ -68,6 +68,8 @@ _MODEL_TYPE_KEY = "model_type"
 _FLAVOR_KEY = "flavors"
 _SPARK_MODEL_INDICATOR = "fit_with_spark"
 
+model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
+
 _logger = logging.getLogger(__name__)
 
 
