@@ -495,5 +495,8 @@ def test_copy_metadata(tmp_path, sklearn_knn_model):
         model_info = mlflow.sklearn.log_model(sklearn_knn_model, "model")
         artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
         assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            "MLmodel", "conda.yaml", "python_env.yaml", "requirements.txt"
+            "MLmodel",
+            "conda.yaml",
+            "python_env.yaml",
+            "requirements.txt",
         }

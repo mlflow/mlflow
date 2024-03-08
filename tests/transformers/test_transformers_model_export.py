@@ -3663,12 +3663,16 @@ def test_small_qa_pipeline_copy_metadata(small_qa_pipeline, tmp_path):
             artifact_path=artifact_path,
         )
         artifact_path = mlflow.artifacts.download_artifacts(
-            artifact_uri=model_info.model_uri,
-            dst_path=tmp_path.as_posix()
+            artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
         assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            'LICENSE.txt', 'MLmodel', 'conda.yaml', 'model_card.md', 'model_card_data.yaml',
-            'python_env.yaml', 'requirements.txt'
+            "LICENSE.txt",
+            "MLmodel",
+            "conda.yaml",
+            "model_card.md",
+            "model_card_data.yaml",
+            "python_env.yaml",
+            "requirements.txt",
         }
 
 
@@ -3681,10 +3685,14 @@ def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
             artifact_path=artifact_path,
         )
         artifact_path = mlflow.artifacts.download_artifacts(
-            artifact_uri=model_info.model_uri,
-            dst_path=tmp_path.as_posix()
+            artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
         assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            'LICENSE.txt', 'MLmodel', 'conda.yaml', 'model_card.md', 'model_card_data.yaml',
-            'python_env.yaml', 'requirements.txt'
+            "LICENSE.txt",
+            "MLmodel",
+            "conda.yaml",
+            "model_card.md",
+            "model_card_data.yaml",
+            "python_env.yaml",
+            "requirements.txt",
         }
