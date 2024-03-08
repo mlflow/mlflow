@@ -66,7 +66,7 @@ try:
 
     # this kwarg was added in langchain_community 0.0.27, and
     # prevents the use of pickled objects if not provided.
-    VECTORSTORE_KWARGS = kwargs = (
+    VECTORSTORE_KWARGS = (
         {"allow_dangerous_deserialization": True}
         if Version(langchain_community.__version__) >= Version("0.0.27")
         else {}
