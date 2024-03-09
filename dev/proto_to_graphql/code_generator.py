@@ -17,7 +17,6 @@ class GenerateSchemaState:
         self.inputs = []  # field_descriptor
         self.types = []  # field_descriptor
         self.enums = set()  # enum_descriptor
-        self.outputs = set()  # field_descriptor
         self.method_names = set()  # package_name_method_name
 
 
