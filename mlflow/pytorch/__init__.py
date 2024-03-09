@@ -78,6 +78,10 @@ MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
 
+_MODEL_DATA_SUBPATH = "data"
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH, _EXTRA_FILES_KEY]
+
+
 def get_default_pip_requirements():
     """
     Returns:
@@ -464,7 +468,7 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    model_data_subpath = "data"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
 

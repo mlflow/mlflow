@@ -236,9 +236,9 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 |                          | - mpt-30b-instruct       |                          | - instructor-xl          |
 |                          | - llama2-70b-chat†       |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
-| Anthropic                | - claude-1               | N/A                      | N/A                      |
-|                          | - claude-1.3-100k        |                          |                          |
-|                          | - claude-2               |                          |                          |
+| Anthropic                | - claude-instant-1.2     | - claude-instant-1.2     | N/A                      |
+|                          | - claude-2.1             | - claude-2.1             |                          |
+|                          | - claude-2.0             | - claude-2.0             |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
 | Cohere                   | - command                | - command                | - embed-english-v2.0     |
 |                          | - command-light          | - command-light          | - embed-multilingual-v2.0|
@@ -902,6 +902,8 @@ generated before receiving it. Streaming responses are supported by the followin
 | OpenAI     | ✓                   | ✓            |
 +------------+---------------------+--------------+
 | Cohere     | ✓                   | ✓            |
++------------+---------------------+--------------+
+| Anthropic  | ✘                   | ✓            |
 +------------+---------------------+--------------+
 
 To enable streaming responses, set the ``stream`` parameter to ``true`` in your request. For example:

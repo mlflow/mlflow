@@ -86,6 +86,8 @@ FLAVOR_NAME = "xgboost"
 
 _logger = logging.getLogger(__name__)
 
+model_data_artifact_paths = ["model.xgb", "model.json", "model.ubj"]
+
 
 def get_default_pip_requirements():
     """

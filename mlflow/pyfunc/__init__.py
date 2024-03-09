@@ -255,6 +255,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
+    _SAVED_PYTHON_MODEL_SUBPATH,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -330,6 +331,13 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 MODEL_CONFIG = "config"
+
+_MODEL_DATA_SUBPATH = "data"
+
+model_data_artifact_paths = [
+    _MODEL_DATA_SUBPATH,
+    _SAVED_PYTHON_MODEL_SUBPATH,
+]
 
 
 class EnvType:

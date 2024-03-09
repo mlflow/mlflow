@@ -11,6 +11,7 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+
 import contextlib
 import functools
 import logging
@@ -37,7 +38,10 @@ from mlflow.langchain.databricks_dependencies import (
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
+    _MODEL_DATA_FOLDER_NAME,
+    _MODEL_DATA_PKL_FILE_NAME,
     _MODEL_LOAD_KEY,
+    _PERSIST_DIR_NAME,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
     _save_base_lcs,
@@ -83,6 +87,9 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
+
+
+model_data_artifact_paths = [_MODEL_DATA_FOLDER_NAME, _MODEL_DATA_PKL_FILE_NAME, _PERSIST_DIR_NAME]
 
 
 def get_default_pip_requirements():
@@ -189,6 +196,9 @@ def save_model(
             Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
             and `persist_dir`:
 
+            .. Note:: In langchain_community >= 0.0.27, loading pickled data requires providing the
+                ``allow_dangerous_deserialization`` argument.
+
             .. code-block:: python
 
                 qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -196,7 +206,13 @@ def save_model(
 
                 def load_retriever(persist_directory):
                     embeddings = OpenAIEmbeddings()
-                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    vectorstore = FAISS.load_local(
+                        persist_directory,
+                        embeddings,
+                        # you may need to add the line below
+                        # for langchain_community >= 0.0.27
+                        allow_dangerous_deserialization=True,
+                    )
                     return vectorstore.as_retriever()
 
 
@@ -414,6 +430,9 @@ def log_model(
             Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
             and `persist_dir`:
 
+            .. Note:: In langchain_community >= 0.0.27, loading pickled data requires providing the
+                ``allow_dangerous_deserialization`` argument.
+
             .. code-block:: python
 
                 qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -421,7 +440,13 @@ def log_model(
 
                 def load_retriever(persist_directory):
                     embeddings = OpenAIEmbeddings()
-                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    vectorstore = FAISS.load_local(
+                        persist_directory,
+                        embeddings,
+                        # you may need to add the line below
+                        # for langchain_community >= 0.0.27
+                        allow_dangerous_deserialization=True,
+                    )
                     return vectorstore.as_retriever()
 
 
