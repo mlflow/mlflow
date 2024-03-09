@@ -53,6 +53,8 @@ _INFERENCE_CONFIG_PATH = "inference_config"
 _LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
 _LLM_V1_EMBEDDING_INPUT_KEY = "input"
 
+model_data_artifact_paths = [SENTENCE_TRANSFORMERS_DATA_PATH]
+
 _logger = logging.getLogger(__name__)
 
 

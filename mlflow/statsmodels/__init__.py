@@ -59,6 +59,8 @@ from mlflow.utils.validation import _is_numeric
 
 FLAVOR_NAME = "statsmodels"
 STATSMODELS_DATA_SUBPATH = "model.statsmodels"
+model_data_artifact_paths = [STATSMODELS_DATA_SUBPATH]
+
 
 _logger = logging.getLogger(__name__)
 

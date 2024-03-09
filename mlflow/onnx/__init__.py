@@ -53,6 +53,11 @@ ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 _logger = logging.getLogger(__name__)
 
 
+_MODEL_DATA_SUBPATH = "model.onnx"
+
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
+
+
 def get_default_pip_requirements():
     """
     Returns:
@@ -170,7 +175,7 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
-    model_data_subpath = "model.onnx"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save onnx-model
