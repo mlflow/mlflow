@@ -21,7 +21,6 @@ def process_method(method_descriptor, state):
         if name in state.method_names:
             return
         state.method_names.add(name)
-        state.outputs.add(method_descriptor.output_type)
         request_method = get_method_type(method_descriptor)
         if request_method == "GET":
             state.queries.add(method_descriptor)
