@@ -49,6 +49,23 @@ pytorch:
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
+lightning:
+  package_info:
+    pip_release: "lightning"
+    install_dev: |
+      export PACKAGE_NAME=lightning
+      pip install git+https://github.com/Lightning-AI/pytorch-lightning.git
+
+  autologging:
+    minimum: "1.4.9"
+    maximum: "2.2.0.post0"
+    requirements:
+      ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
+      ">= 1.3.0, < 1.5.0": ["torchmetrics<0.8.0"]
+      "< 1.8.0": ["torchmetrics<1.0.0"]
+    run: |
+      pytest tests/pytorch/test_pytorch_autolog.py
+
 pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"

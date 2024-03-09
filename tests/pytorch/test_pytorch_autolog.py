@@ -1,5 +1,4 @@
 import pytest
-import pytorch_lightning as pl
 import torch
 from iris import (
     IrisClassification,
@@ -8,8 +7,6 @@ from iris import (
 )
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from packaging.version import Version
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 import mlflow
 import mlflow.pytorch
@@ -19,6 +16,25 @@ from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 from mlflow.utils.file_utils import TempDir
 
 NUM_EPOCHS = 20
+
+try:
+    import lightning.pytorch as pl
+    from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+    from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
+
+except ModuleNotFoundError:
+    # TODO : Using a nested try/catch isn't always nice, might be a better way to handle this?
+    try:
+        import pytorch_lightning as pl
+        from pytorch_lightning.callbacks import ModelCheckpoint
+        from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+
+        PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            message="""Unable to import 'lightning' or 'pytorch-lightning'.\n
+            Please install 'lightning' into your environment ('pip install lightning')"""
+        )
 
 
 @pytest.fixture
