@@ -87,7 +87,7 @@ def generate_schema(state):
     schema_builder += "from mlflow.utils.proto_json_utils import parse_dict\n"
     schema_builder += "\n"
 
-    for enum in state.enums:
+    for enum in sorted(state.enums, key=lambda item: item.full_name):
         pascal_class_name = snake_to_pascal(get_descriptor_full_pascal_name(enum))
         schema_builder += f"\nclass {pascal_class_name}(graphene.Enum):"
         for value in enum.values:
@@ -122,12 +122,12 @@ def generate_schema(state):
     if len(state.queries) == 0:
         schema_builder += f"\n{INDENT}pass"
 
-    for query in state.queries:
+    for query in sorted(state.queries, key=lambda item: item.name):
         schema_builder += proto_method_to_graphql_operation(query)
 
     schema_builder += "\n"
 
-    for query in state.queries:
+    for query in sorted(state.queries, key=lambda item: item.name):
         schema_builder += generate_resolver_function(query)
 
     schema_builder += "\n"
@@ -136,12 +136,12 @@ def generate_schema(state):
     if len(state.mutations) == 0:
         schema_builder += f"\n{INDENT}pass"
 
-    for mutation in state.mutations:
+    for mutation in sorted(state.mutations, key=lambda item: item.name):
         schema_builder += proto_method_to_graphql_operation(mutation)
 
     schema_builder += "\n"
 
-    for mutation in state.mutations:
+    for mutation in sorted(state.mutations, key=lambda item: item.name):
         schema_builder += generate_resolver_function(mutation)
 
     return schema_builder
