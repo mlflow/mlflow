@@ -600,8 +600,12 @@ def _create_experiment():
 
     # Validate query string in artifact location to prevent attacks
     parsed_artifact_locaion = urllib.parse.urlparse(request_message.artifact_location)
+    if parsed_artifact_locaion.fragment:
+        raise MlflowException(
+            "'artifact_location' URL can't include fragment part.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     validate_query_string(parsed_artifact_locaion.query)
-
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )
@@ -1726,9 +1730,10 @@ def _validate_source(source: str, run_id: str) -> None:
             store = _get_tracking_store()
             run = store.get_run(run_id)
             source = pathlib.Path(local_file_uri_to_path(source)).resolve()
-            run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
-            if run_artifact_dir in [source, *source.parents]:
-                return
+            if is_local_uri(run.info.artifact_uri):
+                run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
+                if run_artifact_dir in [source, *source.parents]:
+                    return
 
         raise MlflowException(
             f"Invalid model version source: '{source}'. To use a local path as a model version "
