@@ -57,7 +57,7 @@ loaded.
 
             import numpy as np
 
-            x_new = np.array([[1, 2, 3], [4, 5, 6]])
+            x_new = np.array([[1, 4] [2, 5], [3, 6]])
             model.predict(x_new)
 
     * - ``scipy.sparse.csc_matrix`` or ``scipy.sparse.csr_matrix``
