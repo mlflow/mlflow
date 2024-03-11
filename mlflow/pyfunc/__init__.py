@@ -259,7 +259,8 @@ can simply log a predict method via the keyword argument ``python_model``.
     model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
     x_new = pd.Series([1,2,3])
 
-    print(f"Prediction:\n\t{model.predict(x_new)}")
+    prediction = model.predict(x_new)
+    print(prediction)
 
 
 PythonModel
