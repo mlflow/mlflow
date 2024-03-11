@@ -1,7 +1,6 @@
 """MLflow autologging support for Keras 3."""
 
 import logging
-from itertools import tee
 
 import keras
 import numpy as np
@@ -212,14 +211,20 @@ def autolog(
                     )
                 elif is_iterator(training_data):
                     is_single_input_model = isinstance(inst.input_shape, tuple)
-                    training_data_copy = tee(training_data)
-                    peek = next(training_data_copy)
+                    peek = next(training_data)
                     batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
 
+                    def origin_training_data_generator_fn():
+                        yield peek
+                        yield from training_data
+
+                    origin_training_data = origin_training_data_generator_fn()
+                    origin_training_data._skip_autologging_call_input_validation = True
+
                     if "x" in kwargs:
-                        kwargs["x"] = training_data
+                        kwargs["x"] = origin_training_data
                     else:
-                        args = (training_data,) + args[1:]
+                        args = (origin_training_data,) + args[1:]
             return batch_size, args, kwargs
 
         def _patch_implementation(self, original, inst, *args, **kwargs):
