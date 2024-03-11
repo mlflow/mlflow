@@ -611,7 +611,7 @@ langchain:
         [
           "pyspark",
           "transformers",
-          "tensorflow",
+          "tensorflow<2.16",
           "openai",
           "google-search-results",
           "psutil",
