@@ -65,49 +65,52 @@ def copy_and_run_change_func(tmp_path, paths_to_copy, replace_func, new_version)
 
 
 @pytest.mark.parametrize(
-    ("replace_func", "expect_dict"),
+    ("replace_func", "expect_dict", "new_py_version", "expected_new_version"),
     [
-        (replace_java, _JAVA_FILES),
-        (replace_java_pom_xml, _JAVA_XML_FILES),
-        (replace_js, _JS_FILES),
-        (replace_python, _PYTHON_FILES),
-        (replace_pyproject_toml, _PYPROJECT_TOML_FILES),
-        (replace_r, _R_FILES),
+        (replace_java, _JAVA_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
+        (replace_java, _JAVA_FILES, _NEW_PY_VERSION + ".dev0", _NEW_PY_VERSION + "-SNAPSHOT"),
+        (replace_java, _JAVA_FILES, _NEW_PY_VERSION + "rc1", _NEW_PY_VERSION + "-SNAPSHOT"),
+        (replace_java_pom_xml, _JAVA_XML_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
+        (
+            replace_java_pom_xml,
+            _JAVA_XML_FILES,
+            _NEW_PY_VERSION + ".dev0",
+            _NEW_PY_VERSION + "-SNAPSHOT",
+        ),
+        (
+            replace_java_pom_xml,
+            _JAVA_XML_FILES,
+            _NEW_PY_VERSION + "rc1",
+            _NEW_PY_VERSION + "-SNAPSHOT",
+        ),
+        (replace_js, _JS_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
+        (replace_python, _PYTHON_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
+        (replace_pyproject_toml, _PYPROJECT_TOML_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
+        (replace_r, _R_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
     ],
 )
-def test_update_mlflow_versions(tmp_path, replace_func, expect_dict):
+def test_update_mlflow_versions(
+    tmp_path, replace_func, expect_dict, new_py_version, expected_new_version
+):
     paths_to_change = [Path(filename) for filename in expect_dict]
     copy_and_run_change_func(
         tmp_path,
         # always copy version.py since we need it in get_current_py_version()
         paths_to_change + [Path("mlflow/version.py")],
         replace_func,
-        _NEW_PY_VERSION,
+        new_py_version,
     )
 
     # diff files
     for filename, expected_lines_changed in expect_dict.items():
-        old = Path(filename).read_text().split("\n")
-        new = (tmp_path / filename).read_text().split("\n")
-        diffs = list(difflib.context_diff(old, new, n=0))
+        old_file = Path(filename).read_text().split("\n")
+        new_file = (tmp_path / filename).read_text().split("\n")
+        diffs = list(difflib.context_diff(old_file, new_file, n=0))
         changed_lines = [
             int(_DIFF_REGEX.search(d).group(1)) for d in diffs if _DIFF_REGEX.search(d)
         ]
+
         assert changed_lines == expected_lines_changed
 
-
-@pytest.mark.parametrize("new_version", [_NEW_PY_VERSION + "rc1", _NEW_PY_VERSION + ".dev0"])
-def test_replace_xml_with_rc_and_dev_versions(tmp_path, new_version):
-    paths_to_change = [Path(filename) for filename in _JAVA_XML_FILES]
-    copy_and_run_change_func(
-        tmp_path,
-        paths_to_change + [Path("mlflow/version.py")],
-        replace_java_pom_xml,
-        new_version,
-    )
-
-    for filename, expected_lines_changed in _JAVA_XML_FILES.items():
-        new = (tmp_path / filename).read_text().split("\n")
-        for line_number in expected_lines_changed:
-            # RC and dev versions should both be replaced with -SNAPSHOT
-            assert _NEW_PY_VERSION + "-SNAPSHOT" in new[line_number - 1]
+        for line in expected_lines_changed:
+            assert expected_new_version in new_file[line - 1]
