@@ -3652,3 +3652,47 @@ def test_persist_pretrained_model(mock_tmpdir, small_seq2seq_pipeline):
     mock_tmpdir.reset_mock()
     mlflow.transformers.persist_pretrained_model(model_info.model_uri)
     mock_tmpdir.assert_not_called()
+
+
+def test_small_qa_pipeline_copy_metadata(small_qa_pipeline, tmp_path):
+    artifact_path = "transformers"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=small_qa_pipeline,
+            artifact_path=artifact_path,
+        )
+        artifact_path = mlflow.artifacts.download_artifacts(
+            artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
+        )
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
+            "LICENSE.txt",
+            "MLmodel",
+            "conda.yaml",
+            "model_card.md",
+            "model_card_data.yaml",
+            "python_env.yaml",
+            "requirements.txt",
+        }
+
+
+def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
+    artifact_path = "transformers"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=peft_pipeline,
+            artifact_path=artifact_path,
+        )
+        artifact_path = mlflow.artifacts.download_artifacts(
+            artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
+        )
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
+            "LICENSE.txt",
+            "MLmodel",
+            "conda.yaml",
+            "model_card.md",
+            "model_card_data.yaml",
+            "python_env.yaml",
+            "requirements.txt",
+        }

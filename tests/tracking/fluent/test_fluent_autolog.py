@@ -9,7 +9,6 @@ import lightgbm
 import pyspark
 import pyspark.ml
 import pytest
-import pytorch_lightning
 import setfit
 import sklearn
 import statsmodels
@@ -30,6 +29,21 @@ from tests.autologging.fixtures import (
     test_mode_on,
 )
 
+# Handle import of either 'pytorch_lightning' or 'lightning'
+try:
+    import lightning.pytorch as pl
+except ModuleNotFoundError:
+    try:
+        import pytorch_lightning as pl
+
+        PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            message="""Unable to import 'lightning' or 'pytorch-lightning'. \n
+            Please install lightning >= {} into your environment ('pip install lightning')"""
+        )
+
+
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
     keras: mlflow.keras,
@@ -39,7 +53,7 @@ library_to_mlflow_module_without_spark_datasource = {
     lightgbm: mlflow.lightgbm,
     statsmodels: mlflow.statsmodels,
     pyspark.ml: mlflow.pyspark.ml,
-    pytorch_lightning: mlflow.pytorch,
+    pl: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
 }

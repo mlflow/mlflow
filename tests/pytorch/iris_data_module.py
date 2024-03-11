@@ -1,7 +1,20 @@
-import pytorch_lightning as pl
 import torch
 from sklearn.datasets import load_iris
 from torch.utils.data import DataLoader, TensorDataset, random_split
+
+# Handle import of either 'pytorch_lightning' or 'lightning'
+try:
+    import lightning.pytorch as pl
+except ModuleNotFoundError:
+    try:
+        import pytorch_lightning as pl
+
+        PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            message="""Unable to import 'lightning' or 'pytorch-lightning'.\n
+            Please install 'lightning' into your environment ('pip install lightning')"""
+        )
 
 
 class IrisDataModuleBase(pl.LightningDataModule):

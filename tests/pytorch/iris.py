@@ -1,11 +1,24 @@
 import tempfile
 
-import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torch.utils.tensorboard
 from packaging.version import Version
 from torch import nn
+
+# Handle import of either 'pytorch_lightning' or 'lightning'
+try:
+    import lightning.pytorch as pl
+except ModuleNotFoundError:
+    try:
+        import pytorch_lightning as pl
+
+        PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            message="""Unable to import 'lightning' or 'pytorch-lightning'.\n
+            Please install 'lightning' into your environment ('pip install lightning')"""
+        )
 
 tmpdir = tempfile.mkdtemp()
 SUMMARY_WRITER = torch.utils.tensorboard.SummaryWriter(log_dir=tmpdir)
