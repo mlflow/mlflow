@@ -267,7 +267,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     if isinstance(lc_model, str):
         if os.path.basename(os.path.abspath(lc_model)) != "chain.py":
             raise mlflow.MlflowException.invalid_parameter_value(
-                f"The path to the chain.py file must be provided, but provided {lc_model}."
+                f"If {lc_model} is a string, it must be called chain.py on the local filesystem"
             )
         return lc_model
 

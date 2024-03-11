@@ -14,7 +14,6 @@ LangChain (native) format
 
 import contextlib
 import functools
-import importlib.util
 import logging
 import os
 import warnings
@@ -76,6 +75,7 @@ from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
+    _add_code_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -86,9 +86,9 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-_DATABRICKS_RAG_CONFIG = "databricks_rag_config"
+_CODE_CONFIG = "_code_config"
 __chain__ = None
-__config_path__ = None
+__code_paths__ = None
 
 
 def _set_chain(chain):
@@ -96,7 +96,7 @@ def _set_chain(chain):
 
 
 def _set_config_path(path):
-    globals()["__config_path__"] = path
+    globals()["__code_paths__"] = path
 
 
 def get_default_pip_requirements():
@@ -243,11 +243,18 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    formatted_code_path = (
-        [lc_model]
-        if isinstance(lc_model, str) and code_paths is None
-        else (code_paths or []) + ([lc_model] if isinstance(lc_model, str) else [])
-    )
+    formatted_code_path = code_paths[:] if code_paths else []
+    if isinstance(lc_model, str):
+        # The LangChain model is defined as Python code located in the file at the path
+        # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
+        # model directory along with any other specified code modules
+
+        if os.path.exists(lc_model):
+            formatted_code_path.append(lc_model)
+        else:
+            raise mlflow.MlflowException(
+                f"If the {lc_model} is a string, it must be a valid file path."
+            )
     code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
@@ -301,9 +308,10 @@ def save_model(
             **model_data_kwargs,
         }
     else:
-        # if the model is a string, we only expect one code_path for now, which is config yaml file
-        file = os.path.basename(os.path.abspath(code_paths[0]))
-        flavor_conf = {_DATABRICKS_RAG_CONFIG: file}
+        # If the model is a string, we expect other files that would be used in the model.
+        # We set the other paths here so they can be set globally when the model is loaded.
+        # with the local path. So the consumer can use that path.
+        flavor_conf = {_CODE_CONFIG: code_paths}
         model_data_kwargs = {}
 
     pyfunc.add_to_model(
@@ -316,12 +324,12 @@ def save_model(
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
+        checker_model = lc_model
         if isinstance(lc_model, str):
-            spec = importlib.util.spec_from_file_location("temp_module", lc_model)
-            temp_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(temp_module)
+            _add_code_to_system_path(lc_model)
+            _load_code_model("", flavor_conf, True)
+            checker_model = __chain__
 
-        checker_model = lc_model if lc_model is not None else __chain__
         if databricks_dependency := _detect_databricks_dependencies(checker_model):
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
 
@@ -726,7 +734,7 @@ def _load_pyfunc(path):
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    if _DATABRICKS_RAG_CONFIG in flavor_conf:
+    if _CODE_CONFIG in flavor_conf:
         return _load_code_model(local_model_path, flavor_conf)
     else:
         return _load_model(local_model_path, flavor_conf)
@@ -759,12 +767,18 @@ def load_model(model_uri, dst_path=None):
     return _load_model_from_local_fs(local_model_path)
 
 
-def _load_code_model(local_model_path, flavor_conf):
-    databricks_rag_config = flavor_conf.get(_DATABRICKS_RAG_CONFIG)
-    path = os.path.join(
-        local_model_path, flavor_conf.get(FLAVOR_CONFIG_CODE), databricks_rag_config
-    )
-    _set_config_path(path)
+def _load_code_model(local_model_path, flavor_conf, isLocal=False):
+    databricks_rag_config = flavor_conf.get(_CODE_CONFIG)
+    flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE) or ""
+    code_paths = {
+        path: os.path.join(
+            local_model_path,
+            flavor_code_config,
+            path if isLocal else os.path.basename(os.path.abspath(path)),
+        )
+        for path in databricks_rag_config
+    }
+    _set_config_path(code_paths)
 
     import chain  # noqa: F401
 
