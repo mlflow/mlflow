@@ -447,7 +447,9 @@ class PyFuncModel:
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict"):
+    def __init__(
+        self, model_meta: Model, model_impl: Any, predict_fn: str = "predict", stream: bool = False
+    ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
@@ -456,6 +458,7 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
         self._predict_stream_fn = getattr(model_impl, "predict_stream", None)
+        self.stream = stream
 
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
@@ -518,16 +521,16 @@ class PyFuncModel:
     ) -> PyFuncOutput:
         input_schema = self.metadata.get_input_schema()
         flavor = self.loader_module
-        if input_schema is not None:
-            try:
-                data = _enforce_schema(data, input_schema, flavor)
-            except Exception as e:
-                # Include error in message for backwards compatibility
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to enforce schema of data '{data}' "
-                    f"with schema '{input_schema}'. "
-                    f"Error: {e}",
-                )
+        # if input_schema is not None:
+        #     try:
+        #         data = _enforce_schema(data, input_schema, flavor)
+        #     except Exception as e:
+        #         # Include error in message for backwards compatibility
+        #         raise MlflowException.invalid_parameter_value(
+        #             f"Failed to enforce schema of data '{data}' "
+        #             f"with schema '{input_schema}'. "
+        #             f"Error: {e}",
+        #         )
 
         params = _validate_params(params, self.metadata)
         if HAS_PYSPARK and isinstance(data, SparkDataFrame):
@@ -725,7 +728,12 @@ def load_model(
             ) from None
         raise e
     predict_fn = conf.get("predict_fn", "predict")
-    return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
+    return PyFuncModel(
+        model_meta=model_meta,
+        model_impl=model_impl,
+        predict_fn=predict_fn,
+        stream=conf.get("stream", False),
+    )
 
 
 class _ServedPyFuncModel(PyFuncModel):
