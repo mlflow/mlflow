@@ -42,9 +42,9 @@ except ModuleNotFoundError:
             also failed. Please install 'lightning >={MIN_REQ_VERSION}'."""
         )
         raise ModuleNotFoundError(
-            message=f"""Unable to import 'lightning' or 'pytorch-lightning'.
-            Please install lightning >= {MIN_REQ_VERSION} into your environment.\n
-            ('pip install lightning>={MIN_REQ_VERSION}')"""
+            message="Unable to import 'lightning' or 'pytorch-lightning'."
+            f"Please install lightning >= {MIN_REQ_VERSION} into your environment "
+            f"with `pip install lightning>={MIN_REQ_VERSION}`"
         )
 
 # The following are the downsides of using PyTorch Lightning's built-in MlflowLogger.
@@ -109,8 +109,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
             raise MlflowException(
-                """log_every_n_step is only supported for Lightning >= 1.1.0\n
-                (and PyTorch-Lightning >= 1.1.0 backwards-compatible)"""
+                "log_every_n_step is only supported for Lightning >= 1.1.0"
             )
         self.early_stopping = False
         self.client = client
