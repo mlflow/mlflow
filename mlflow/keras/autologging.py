@@ -1,7 +1,6 @@
 """MLflow autologging support for Keras 3."""
 
 import logging
-from itertools import tee
 
 import keras
 import numpy as np
