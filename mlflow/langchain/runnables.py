@@ -98,7 +98,7 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
     from langchain.schema.runnable import RunnableParallel, RunnableSequence
 
     # Convert file to Path object.
-    load_path = Path(file_path) if isinstance(file_path, str) else file_path
+    load_path = Path(file_path)
     if not load_path.exists() or not load_path.is_dir():
         raise MlflowException(
             f"File {load_path} must exist and must be a directory "
@@ -157,7 +157,7 @@ def _load_runnable_branch(file_path: Union[Path, str]):
     from langchain.schema.runnable import RunnableBranch
 
     # Convert file to Path object.
-    load_path = Path(file_path) if isinstance(file_path, str) else file_path
+    load_path = Path(file_path)
     if not load_path.exists() or not load_path.is_dir():
         raise MlflowException(
             f"File {load_path} must exist and must be a directory "
@@ -210,7 +210,7 @@ def _load_runnable_assign(file_path: Union[Path, str]):
     from langchain.schema.runnable.passthrough import RunnableAssign
 
     # Convert file to Path object.
-    load_path = Path(file_path) if isinstance(file_path, str) else file_path
+    load_path = Path(file_path)
     if not load_path.exists() or not load_path.is_dir():
         raise MlflowException(
             f"File {load_path} must exist and must be a directory in order to load runnable."
@@ -285,7 +285,7 @@ def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None
         file_path: Path to file to save the model to.
     """
     # Convert file to Path object.
-    save_path = Path(file_path) if isinstance(file_path, str) else file_path
+    save_path = Path(file_path)
     save_path.mkdir(parents=True, exist_ok=True)
 
     # Save steps into a folder
@@ -299,7 +299,8 @@ def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None
         generator = steps.items()
     else:
         raise MlflowException(
-            f"steps for must be either a list or a dictionary. Got {type(steps).__name__}."
+            f"Runnable {model} steps attribute must be either a list or a dictionary. "
+            f"Got {type(steps).__name__}."
         )
     unsaved_runnables = {}
     steps_conf = {}
@@ -328,7 +329,7 @@ def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
     """
     Save runnable branch in to path.
     """
-    save_path = Path(file_path) if isinstance(file_path, str) else file_path
+    save_path = Path(file_path)
     save_path.mkdir(parents=True, exist_ok=True)
     # save branches into a folder
     branches_path = save_path / _BRANCHES_FOLDER_NAME
@@ -375,7 +376,7 @@ def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
 def _save_runnable_assign(model, file_path, loader_fn=None, persist_dir=None):
     from langchain.schema.runnable import RunnableParallel
 
-    save_path = Path(file_path) if isinstance(file_path, str) else file_path
+    save_path = Path(file_path)
     save_path.mkdir(parents=True, exist_ok=True)
     # save mapper into a folder
     mapper_path = save_path / _MAPPER_FOLDER_NAME
