@@ -47,7 +47,7 @@ def clear_session():
 
 @pytest.fixture
 def random_train_data():
-    return np.random.random((150, 4))
+    return np.random.random((150, 4), dtype=np.float32)
 
 
 @pytest.fixture
