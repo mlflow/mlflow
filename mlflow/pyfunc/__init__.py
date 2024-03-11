@@ -281,7 +281,7 @@ should be a python_function instead.
 
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
-            return model_input.apply(lambda x: x * 2)
+            return [x*2 for x in model_input]
 
     # Save the function as a model
     with mlflow.start_run():
