@@ -207,16 +207,17 @@ You may prefer the second, lower-level workflow for the following reasons:
   workflow allows it to be saved in MLflow format directly, without enumerating constituent
   artifacts.
 
-*******************************
-python_function vs. PythonModel
-*******************************
+******************************************
+Function-based Model vs Class-based Model
+******************************************
 
-When creating custom Pyfunc models, you can choose between two different interfaces:
-``python_function`` and ``PythonModel``. In short, a ``python_function`` is simply a
-python function whereas a ``PythonModel`` is a class that supports several required and optional
-methods. If your use case is simple and fits within a single predict function,
-``python_function`` is the way to go.  If you need customized data processing, custom serialization,
-or to override additional methods, you should use ``PythonModel``.
+When creating custom PyFunc models, you can choose between two different interfaces:
+a function-based model and a class-based model. In short, a function-based model is simply a
+python function that does not take additional params. The class-based model, on the other hand,
+is subclass of ``PythonModel`` that supports several required and optional
+methods. If your use case is simple and fits within a single predict function, a funcion-based
+approach is recommended. If you need more power, such as custom serialization, custom data
+processing, or to override additional methods, you should use the class-based implementation.
 
 Before looking at code examples, it's important to note that both methods are serialized via
 `cloudpickle <https://github.com/cloudpipe/cloudpickle>`_. cloudpickle can serialize Python
@@ -227,16 +228,16 @@ MLflow.
 
 That said, cloudpickle has some limitations.
 
-- **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
+* **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
     MLflow we must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``,
-    the latter of which is used to infer environment dependencies.
-
-- **Object Support**: cloudpickle does not serialize objects outside of the Python data model.
+    the latter of which is used to infer environment dependencies. For more, refer to
+    `the model dependency docs <https://mlflow.org/docs/latest/model/dependencies.html>`_.
+* **Object Support**: cloudpickle does not serialize objects outside of the Python data model.
     Some relevant examples include raw files and database connections. If your program depends on
     these, be sure to log ways to reference these objects along with your model.
 
-python_function
-###############
+Function-based Model
+####################
 If you're looking to serialize a simple python function without additional dependent methods, you
 can simply log a predict method via the keyword argument ``python_model``.
 
@@ -263,10 +264,10 @@ can simply log a predict method via the keyword argument ``python_model``.
     print(prediction)
 
 
-PythonModel
-###############
+Class-based Model
+#################
 If you're looking to serialize a more complex object, for instance a class that handles
-preprocessing, complex prediction logic, or custom serialization, you should use the
+preprocessing, complex prediction logic, or custom serialization, you should subclass the
 ``PythonModel`` class. MLflow has tutorials on building custom PyFunc models, as shown
 `here <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>`_,
 so instead of duplicating that information, in this example we'll recreate the above functionality
@@ -294,12 +295,13 @@ should be a python_function instead.
 
     print(f"Prediction:\n\t{model.predict(x_new)}")
 
-The primary difference between the this implementation and the python_function implementation above
+The primary difference between the this implementation and the function-based implementation above
 is that the predict method is wrapped with a class, has the ``self`` parameter,
-and has the ``params`` parameter that defaults to None.
+and has the ``params`` parameter that defaults to None. Note that function-based models don't
+support additional params.
 
-In summary, use ``python_function`` when you have a simple function to serialize. If you need more
-power, use ``PythonModel``.
+In summary, use the function-based Model when you have a simple function to serialize.
+If you need more power, use  the class-based model.
 
 """
 
