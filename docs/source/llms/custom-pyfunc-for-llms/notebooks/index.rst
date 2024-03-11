@@ -57,7 +57,7 @@ With the complexities of advanced LLM deployment unraveled, this tutorial showca
      <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="logging-first-model/index.html" >
+                <a href="custom-pyfunc-advanced-llm.html" >
                     <div class="header">
                         Serving LLMs with MLflow: Leveraging Custom PyFunc
                     </div>
