@@ -150,10 +150,6 @@ Introductory Tutorial
         </article>
     </section>
 
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-quickstart.ipynb" class="notebook-download-btn">Download the Introductory Notebook</a><br>
-
 
 Advanced Tutorials
 ^^^^^^^^^^^^^^^^^^

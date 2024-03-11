@@ -71,6 +71,14 @@ is included with each subsequent input. Preserving conversational context in thi
 Getting Started with the MLflow LangChain Flavor - Tutorials and Guides
 -----------------------------------------------------------------------
 
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    notebooks/langchain-quickstart.ipynb
+    notebooks/langchain-agent.ipynb
+    notebooks/langchain-retriever.ipynb
+
 Introductory Tutorial
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -94,10 +102,6 @@ use a chain.
             </div>
         </article>
     </section>
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-quickstart.ipynb" class="notebook-download-btn">Download the Introductory Notebook</a><br>
 
 
 Advanced Tutorials
@@ -133,18 +137,6 @@ exploring these more advanced use cases.
         </article>
     </section>
 
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-agent.ipynb" class="notebook-download-btn">Download the LangChain Agents Notebook</a><br>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-retriever.ipynb" class="notebook-download-btn">Download the LangChain Retriever Notebook</a><br>
-
-.. toctree::
-    :maxdepth: 2
-    :hidden:
-
-    notebooks/langchain-quickstart.ipynb
-    notebooks/langchain-agent.ipynb
-    notebooks/langchain-retriever.ipynb
 
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------
