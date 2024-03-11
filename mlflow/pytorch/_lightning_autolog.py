@@ -109,8 +109,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
             raise MlflowException(
-                """log_every_n_step is only supported for Lightning >= 1.1.0\n
-                (and PyTorch-Lightning >= 1.1.0 backwards-compatible)"""
+                "log_every_n_step is only supported for Lightning >= 1.1.0"
             )
         self.early_stopping = False
         self.client = client
