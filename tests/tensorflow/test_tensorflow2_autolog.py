@@ -1257,7 +1257,7 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     assert "inputs" in signature
     assert "outputs" in signature
     assert json.loads(signature["inputs"]) == [
-        {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}
+        {"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 4]}}
     ]
     assert json.loads(signature["outputs"]) == [
         {"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}
