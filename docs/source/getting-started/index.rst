@@ -86,13 +86,6 @@ a model training event to an MLflow run.
         </article>
     </section>
 
-If you would like to get started immediately by downloading and running a notebook yourself:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/intro-quickstart/notebooks/tracking_quickstart.ipynb" class="notebook-download-btn">
-        <i class="fas fa-download"></i>Download the Tracking Quickstart Notebook</a><br/>
-
 .. toctree::
     :maxdepth: 1
     :hidden:
