@@ -42,9 +42,9 @@ except ModuleNotFoundError:
             also failed. Please install 'lightning >={MIN_REQ_VERSION}'."""
         )
         raise ModuleNotFoundError(
-            message=f"""Unable to import 'lightning' or 'pytorch-lightning'.
-            Please install lightning >= {MIN_REQ_VERSION} into your environment.\n
-            ('pip install lightning>={MIN_REQ_VERSION}')"""
+            message="Unable to import 'lightning' or 'pytorch-lightning'."
+            f"Please install lightning >= {MIN_REQ_VERSION} into your environment "
+            f"with `pip install lightning>={MIN_REQ_VERSION}`"
         )
 
 # The following are the downsides of using PyTorch Lightning's built-in MlflowLogger.
