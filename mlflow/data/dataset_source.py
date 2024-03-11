@@ -64,7 +64,7 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def _to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Obtains a JSON-compatible dictionary representation of the DatasetSource.
 
         Returns:
@@ -81,11 +81,11 @@ class DatasetSource:
             A JSON string representation of the
             :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
         """
-        return json.dumps(self._to_dict())
+        return json.dumps(self.to_dict())
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "DatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "DatasetSource":
         """Constructs an instance of the DatasetSource from a dictionary representation.
 
         Args:
@@ -107,4 +107,4 @@ class DatasetSource:
             A DatasetSource instance.
 
         """
-        return cls._from_dict(json.loads(source_json))
+        return cls.from_dict(json.loads(source_json))

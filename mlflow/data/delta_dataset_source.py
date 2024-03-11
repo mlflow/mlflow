@@ -137,7 +137,7 @@ class DeltaDatasetSource(DatasetSource):
         except Exception:
             return None
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         info = {}
         if self._path:
             info["path"] = self._path
@@ -154,7 +154,7 @@ class DeltaDatasetSource(DatasetSource):
         return info
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "DeltaDatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "DeltaDatasetSource":
         return cls(
             path=source_dict.get("path"),
             delta_table_name=source_dict.get("delta_table_name"),
