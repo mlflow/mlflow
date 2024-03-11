@@ -1448,4 +1448,3 @@ def test_automatic_checkpoint_per_3_steps_save_best_only_callback(
     assert logged_metrics["global_step"] == 3
 
     assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)
-
