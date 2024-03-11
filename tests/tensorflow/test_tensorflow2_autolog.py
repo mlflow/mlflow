@@ -47,7 +47,7 @@ def clear_session():
 
 @pytest.fixture
 def random_train_data():
-    return np.random.random((150, 4)).astype(dtype=np.float32)
+    return np.random.random((150, 4))
 
 
 @pytest.fixture
@@ -157,7 +157,8 @@ def clear_autologging_config():
 
 def create_tf_keras_model():
     model = tf.keras.Sequential()
-    model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
+    model.add(tf.keras.Input(shape=(4,), dtype="float64"))
+    model.add(layers.Dense(16, activation="relu"))
     model.add(layers.Dense(3, activation="softmax"))
 
     model.compile(
@@ -1257,7 +1258,7 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     assert "inputs" in signature
     assert "outputs" in signature
     assert json.loads(signature["inputs"]) == [
-        {"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 4]}}
+        {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}
     ]
     assert json.loads(signature["outputs"]) == [
         {"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}
