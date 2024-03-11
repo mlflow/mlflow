@@ -178,6 +178,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
+            "tests/promptflow",
             "tests/prophet",
             "tests/pyfunc",
             "tests/pytorch",
