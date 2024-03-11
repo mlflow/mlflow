@@ -37,10 +37,6 @@ except ModuleNotFoundError:
 
         PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
     except ModuleNotFoundError:
-        logging.error(
-            f"""'lightning' module not found, attempted use of alternative 'pytorch-lightning'\n
-            also failed. Please install 'lightning >={MIN_REQ_VERSION}'."""
-        )
         raise ModuleNotFoundError(
             message="Unable to import 'lightning' or 'pytorch-lightning'."
             f"Please install lightning >= {MIN_REQ_VERSION} into your environment "
@@ -61,10 +57,11 @@ except ModuleNotFoundError:
 _logger = logging.getLogger(__name__)
 
 _pl_version = Version(pl.__version__)
-if _pl_version < Version("1.5.0") and PYTORCH_LIGHTNING_LEGACY_NAMESPACE is True:
-    from pytorch_lightning.core.memory import ModelSummary
-elif PYTORCH_LIGHTNING_LEGACY_NAMESPACE is True:
-    from pytorch_lightning.utilities.model_summary import ModelSummary
+if PYTORCH_LIGHTNING_LEGACY_NAMESPACE is True:
+    if _pl_version < Version("1.5.0"):
+        from pytorch_lightning.core.memory import ModelSummary
+    else:
+        from pytorch_lightning.utilities.model_summary import ModelSummary
 else:
     from lightning.pytorch.utilities.model_summary import ModelSummary
 
@@ -108,9 +105,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         log_every_n_step,
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
-            raise MlflowException(
-                "log_every_n_step is only supported for Lightning >= 1.1.0"
-            )
+            raise MlflowException("log_every_n_step is only supported for Lightning >= 1.1.0")
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
