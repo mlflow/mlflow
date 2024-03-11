@@ -37,13 +37,9 @@ def get_current_py_version() -> str:
     return re.search(r'VERSION = "(.+)"', text).group(1)
 
 
-def get_current_py_version_without_suffix() -> str:
-    return replace_dev_or_rc_suffix_with(get_current_py_version(), "")
-
-
-def get_java_old_py_version_pattern() -> str:
-    current_py_version_without_suffix = get_current_py_version_without_suffix()
-    return rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?"
+def get_java_py_version_pattern(version: str) -> str:
+    version_without_suffix = replace_dev_or_rc_suffix_with(version, "")
+    return rf"{re.escape(version_without_suffix)}(-SNAPSHOT)?"
 
 
 def get_java_new_py_version(new_py_version: str) -> str:
@@ -65,13 +61,10 @@ def replace_occurrences(files: List[Path], pattern: Union[str, re.Pattern], repl
         f.write_text(new_text)
 
 
-def replace_python(new_py_version: str, paths: List[Path]) -> None:
-    current_py_version = get_current_py_version()
-
-    # Python
+def replace_python(old_version: str, new_py_version: str, paths: List[Path]) -> None:
     replace_occurrences(
         files=paths,
-        pattern=re.escape(current_py_version),
+        pattern=re.escape(old_version),
         repl=new_py_version,
     )
 
@@ -84,18 +77,16 @@ def replace_pyproject_toml(new_py_version: str, paths: List[Path]) -> None:
     )
 
 
-def replace_js(new_py_version: str, paths: List[Path]) -> None:
-    current_py_version = get_current_py_version()
-
+def replace_js(old_version: str, new_py_version: str, paths: List[Path]) -> None:
     replace_occurrences(
         files=paths,
-        pattern=re.escape(current_py_version),
+        pattern=re.escape(old_version),
         repl=new_py_version,
     )
 
 
-def replace_java(new_py_version: str, paths: List[Path]) -> None:
-    old_py_version_pattern = get_java_old_py_version_pattern()
+def replace_java(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+    old_py_version_pattern = get_java_py_version_pattern(old_version)
     dev_suffix_replaced = get_java_new_py_version(new_py_version)
 
     replace_occurrences(
@@ -109,8 +100,8 @@ def replace_java(new_py_version: str, paths: List[Path]) -> None:
 # well. this causes issues when the mlflow version matches the
 # version of a dependency. to work around, we make sure to
 # match only the correct keys
-def replace_java_pom_xml(new_py_version: str, paths: List[Path]) -> None:
-    old_py_version_pattern = get_java_old_py_version_pattern()
+def replace_java_pom_xml(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+    old_py_version_pattern = get_java_py_version_pattern(old_version)
     dev_suffix_replaced = get_java_new_py_version(new_py_version)
 
     mlflow_version_tag_pattern = r"<mlflow.version>"
@@ -138,9 +129,8 @@ def replace_java_pom_xml(new_py_version: str, paths: List[Path]) -> None:
     )
 
 
-def replace_r(new_py_version: str, paths: List[Path]) -> None:
-    current_py_version = get_current_py_version()
-    current_py_version_without_suffix = replace_dev_or_rc_suffix_with(current_py_version, "")
+def replace_r(old_py_version: str, new_py_version: str, paths: List[Path]) -> None:
+    current_py_version_without_suffix = replace_dev_or_rc_suffix_with(old_py_version, "")
 
     replace_occurrences(
         files=paths,
@@ -156,12 +146,14 @@ def update_versions(new_py_version: str) -> None:
       - a RC version (e.g. "2.1.0rc0")
       - a dev version (e.g. "2.1.0.dev0")
     """
-    replace_python(new_py_version, _PYTHON_VERSION_FILES)
+    old_py_version = get_current_py_version()
+
+    replace_python(old_py_version, new_py_version, _PYTHON_VERSION_FILES)
     replace_pyproject_toml(new_py_version, _PYPROJECT_TOML_FILES)
-    replace_js(new_py_version, _JS_VERSION_FILES)
-    replace_java(new_py_version, _JAVA_VERSION_FILES)
-    replace_java_pom_xml(new_py_version, _JAVA_POM_XML_FILES)
-    replace_r(new_py_version, _R_VERSION_FILES)
+    replace_js(old_py_version, new_py_version, _JS_VERSION_FILES)
+    replace_java(old_py_version, new_py_version, _JAVA_VERSION_FILES)
+    replace_java_pom_xml(old_py_version, new_py_version, _JAVA_POM_XML_FILES)
+    replace_r(old_py_version, new_py_version, _R_VERSION_FILES)
 
 
 def validate_new_version(
