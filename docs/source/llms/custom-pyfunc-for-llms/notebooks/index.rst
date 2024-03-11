@@ -54,17 +54,20 @@ With the complexities of advanced LLM deployment unraveled, this tutorial showca
 
 .. raw:: html
 
-    <a href="custom-pyfunc-advanced-llm.html" class="download-btn">View the Notebook</a>
-
-
-Run the Notebooks in your Environment
--------------------------------------
-
-If you'd like to run a copy of the notebooks locally in your environment, you can download them by clicking the respective links:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.ipynb" class="notebook-download-btn">Download the LLM Custom Pyfunc notebook</a><br/>
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="custom-pyfunc-advanced-llm.html" >
+                    <div class="header">
+                        Serving LLMs with MLflow: Leveraging Custom PyFunc
+                    </div>
+                    <p>
+                        Learn how to use the MLflow Custom Pyfunc Model to serve Large Language Models (LLMs) in a RESTful environment.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 .. note::
     To execute the notebooks, ensure you either have a local MLflow Tracking Server running or adjust the ``mlflow.set_tracking_uri()`` to point to an active MLflow Tracking Server instance. 
