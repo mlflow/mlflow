@@ -629,11 +629,10 @@ def test_load_without_save_format(tf_keras_model, model_path, data):
 @pytest.mark.skipif(
     not (
         _is_importable("transformers")
-        and Version(tf.__version__) >= Version("2.6.0")
-        and not Version(tf.__version__).is_devrelease
+        and Version("2.6.0") <= Version(tf.__version__) < Version("2.16")
     ),
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0, "
-    "and transformers is not compatible with Tensorflow dev version, see "
+    "and transformers is not compatible with Tensorflow >= 2.16, see "
     "https://github.com/huggingface/transformers/issues/22421",
 )
 def test_pyfunc_serve_and_score_transformers():

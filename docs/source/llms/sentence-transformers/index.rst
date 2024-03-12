@@ -98,6 +98,16 @@ Getting Started with the MLflow Sentence Transformers Flavor - Tutorials and Gui
 Below, you will find a number of guides that focus on different ways that you can leverage the power of the `sentence-transformers` library, leveraging MLflow's 
 APIs for tracking and inference capabilities. 
 
+
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    tutorials/quickstart/sentence-transformers-quickstart.ipynb
+    tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers.ipynb
+    tutorials/semantic-search/semantic-search-sentence-transformers.ipynb
+    tutorials/semantic-similarity/semantic-similarity-sentence-transformers.ipynb
+
 Introductory Tutorial
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -118,11 +128,6 @@ Introductory Tutorial
             </div>
         </article>
     </section>
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart.ipynb" class="notebook-download-btn">Download the Introductory Notebook</a><br>
-
 
 Advanced Tutorials
 ^^^^^^^^^^^^^^^^^^
@@ -163,27 +168,6 @@ Advanced Tutorials
             </div>
         </article>
     </section>
-
-Download the Advanced Tutorial Notebooks
-----------------------------------------
-
-To download the advanced sentence transformers tutorial notebooks to run in your environment, click the respective links below:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/semantic-search/semantic-similarity-sentence-transformers.ipynb" class="notebook-download-btn">Download the Semantic Similarity Notebook</a><br>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/quickstart/semantic-search-sentence-transformers.ipynb" class="notebook-download-btn">Download the Semantic Search Notebook</a><br>        
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/quickstart/paraphrase-mining-sentence-transformers.ipynb" class="notebook-download-btn">Download the Paraphrase Mining Notebook</a><br>
-
-
-.. toctree::
-    :maxdepth: 2
-    :hidden:
-
-    tutorials/quickstart/sentence-transformers-quickstart.ipynb
-    tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers.ipynb
-    tutorials/semantic-search/semantic-search-sentence-transformers.ipynb
-    tutorials/semantic-similarity/semantic-similarity-sentence-transformers.ipynb
 
 
 `Detailed Documentation <guide/index.html>`_

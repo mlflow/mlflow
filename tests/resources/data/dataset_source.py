@@ -39,11 +39,11 @@ class SampleDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: Any) -> DatasetSource:
         return cls(raw_source)
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         return {"uri": self.uri}
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSource:
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSource:
         uri = source_dict.get("uri")
         if uri is None:
             raise MlflowException(

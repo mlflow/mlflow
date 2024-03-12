@@ -1018,6 +1018,9 @@ def _validate_args(
             for key in autologging_call_input.keys():
                 _validate(autologging_call_input[key], user_call_input.get(key, None))
         else:
+            if hasattr(autologging_call_input, "_skip_autologging_call_input_validation"):
+                return
+
             assert (
                 autologging_call_input is user_call_input
                 or autologging_call_input == user_call_input

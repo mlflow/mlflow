@@ -26,7 +26,20 @@ If you would like to see this quickstart in a purely notebook format, we have a 
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Notebook</a>
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="notebooks/tracking_quickstart.html" >
+                    <div class="header">
+                        MLflow Tracking Quickstart Guide
+                    </div>
+                    <p>
+                    Learn the basics of MLflow Tracking in a fast-paced guide with a focus on seeing your first model in the MLflow UI
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 .. toctree::
     :maxdepth: 1

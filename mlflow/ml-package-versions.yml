@@ -611,7 +611,7 @@ langchain:
         [
           "pyspark",
           "transformers",
-          "tensorflow",
+          "tensorflow<2.16",
           "openai",
           "google-search-results",
           "psutil",
@@ -688,3 +688,17 @@ johnsnowlabs:
       else
         echo "Skipping tests due to missing license key"
       fi
+
+promptflow:
+  package_info:
+    pip_release: "promptflow"
+    install_dev: |
+      pip install git+https://github.com/promptflow/src/promptflow
+  models:
+    minimum: "1.3.0"
+    maximum: "1.6.0"
+    requirements:
+      # Requirements to run sparkudf predict test
+      ">= 0.0.0": ["pyspark", "jinja2"]
+    run: |
+      pytest tests/promptflow/test_promptflow_model_export.py

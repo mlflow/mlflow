@@ -17,19 +17,25 @@ log parameters and metrics during model training. Model logging is not currently
 5 Minute Quick Start with MLflow + Keras 3.0
 --------------------------------------------
 
-To get a quick overview of how to use MLflow + Keras 3.0, please read the quickstart guide. It will walk
-you through how to use the callback for tracking experiments, as well as how to customize it.
+To get a quick overview of how to use MLflow + Keras 3.0, please read the quickstart guide.
+
 
 .. raw:: html
 
-    <a href="quickstart/quickstart_keras.html" class="download-btn">View the Quickstart</a>
-
-To download the Keras 3.0 tutorial notebook to run in your environment, click the link below:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/deep-learning/keras/quickstart/quickstart_keras.ipynb"
-    class="notebook-download-btn">Download the Quickstart of MLflow Keras Integration</a><br>
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="quickstart/quickstart_keras.html">
+                    <div class="header">
+                        Get Started with Keras 3.0 + MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the MLflow Keras callback for tracking experiments, as well as how to customize it.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 
 .. toctree::

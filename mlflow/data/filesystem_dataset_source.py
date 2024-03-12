@@ -66,7 +66,7 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         """
         Returns:
             A JSON-compatible dictionary representation of the FileSystemDatasetSource.
@@ -74,7 +74,7 @@ class FileSystemDatasetSource(DatasetSource):
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "FileSystemDatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "FileSystemDatasetSource":
         """
         Args:
             source_dict: A dictionary representation of the FileSystemDatasetSource.
