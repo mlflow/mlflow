@@ -31,6 +31,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
+from mlflow.langchain._rag_utils import _set_code_path
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -88,13 +89,8 @@ FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
 
 # The following constants is used in flavor configuration to specify the code paths
-# that should be set using _set_config_path when the model is loaded by code.
+# that should be set using _set_code_path when the model is loaded by code.
 _CODE_CONFIG = "_code_config"
-__code_paths__ = None
-
-
-def _set_config_path(path):
-    globals()["__code_paths__"] = path
 
 
 def get_default_pip_requirements():
@@ -312,7 +308,7 @@ def save_model(
         # If the model is a string, we expect other files that would be used in the model.
         # We set the other paths here so they can be set globally when the model is loaded.
         # with the local path. So the consumer can use that path.
-        flavor_conf = {_CODE_CONFIG: code_paths}
+        flavor_conf = {_CODE_CONFIG: code_paths[0]}
         model_data_kwargs = {}
 
     pyfunc.add_to_model(
@@ -327,9 +323,16 @@ def save_model(
     if Version(langchain.__version__) >= Version("0.0.311"):
         checker_model = lc_model
         if isinstance(lc_model, str):
+            # If the model is a string, we are adding the model code path to the system path
+            # so it can be loaded correctly.
             _add_code_to_system_path(lc_model)
-            _load_code_model(code_paths={path: path for path in code_paths})
-            checker_model = mlflow.langchain._rag_utils.__chain__
+            if len(code_paths) > 1:
+                raise mlflow.MlflowException(
+                    "When the model is a string, only one code path is allowed."
+                    "Current code paths: {code_paths}"
+                )
+            _load_code_model(code_paths[0])
+            checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
 
         if databricks_dependency := _detect_databricks_dependencies(checker_model):
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
@@ -743,18 +746,15 @@ def _load_model_from_local_fs(local_model_path):
     )
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     if _CODE_CONFIG in flavor_conf:
-        databricks_rag_config = flavor_conf.get(_CODE_CONFIG)
+        path = flavor_conf.get(_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
-        code_paths = {
-            path: os.path.join(
-                local_model_path,
-                flavor_code_config,
-                os.path.basename(os.path.abspath(path)),
-            )
-            for path in databricks_rag_config
-        }
+        code_path = os.path.join(
+            local_model_path,
+            flavor_code_config,
+            os.path.basename(os.path.abspath(path)),
+        )
 
-        return _load_code_model(code_paths)
+        return _load_code_model(code_path)
     else:
         return _load_model(local_model_path, flavor_conf)
 
@@ -788,12 +788,12 @@ def load_model(model_uri, dst_path=None):
     return _load_model_from_local_fs(local_model_path)
 
 
-def _load_code_model(code_paths):
-    _set_config_path(code_paths)
+def _load_code_model(code_path):
+    _set_code_path(code_path)
 
     import chain  # noqa: F401
 
-    return mlflow.langchain._rag_utils.__chain__
+    return mlflow.langchain._rag_utils.__databricks_rag_chain__
 
 
 @experimental
