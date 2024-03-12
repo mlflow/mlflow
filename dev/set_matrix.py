@@ -59,6 +59,10 @@ class Version(OriginalVersion):
     def create_dev(cls):
         return cls(DEV_VERSION)
 
+    @classmethod
+    def create_fake_version(cls):
+        return cls("0.0.0")
+
 
 class PackageInfo(BaseModel):
     pip_release: str
@@ -72,6 +76,7 @@ class TestConfig(BaseModel):
     requirements: t.Optional[t.Dict[str, t.List[str]]] = None
     run: str
     allow_unreleased_max_version: t.Optional[bool] = None
+    collapse_same_group_tests: t.Optional[bool] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -481,10 +486,10 @@ def main(args):
                 flavor=item0.flavor,
                 category=item0.category,
                 job_name=f"{item0.name} / {item0.category} / all supported versions",
-                install=None,  # Move installation command into `run` command
+                install="",  # Move installation command into `run` command
                 run=supported_versions_run,
                 package=item0.package,
-                version="all supported versions",
+                version=Version.create_fake_version(),
                 supported=True,
                 collapse_same_group_tests=True,
             ))
@@ -494,10 +499,10 @@ def main(args):
                 flavor=item0.flavor,
                 category=item0.category,
                 job_name=f"{item0.name} / {item0.category} / all unsupported versions",
-                install=None,  # Move installation command into `run` command
+                install="",  # Move installation command into `run` command
                 run=unsupported_versions_run,
                 package=item0.package,
-                version="all unsupported versions",
+                version=Version.create_fake_version(),
                 supported=False,
                 collapse_same_group_tests=True,
             ))
