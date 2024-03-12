@@ -503,7 +503,6 @@ def test_copy_metadata(tmp_path, sklearn_knn_model):
 
 
 class LegacyTestFlavor:
-
     @classmethod
     def save_model(cls, path, mlflow_model):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
@@ -517,7 +516,5 @@ def test_legacy_flavor():
         model_info = Model.log("some/path", LegacyTestFlavor)
 
     with TempDir(chdr=True) as tmp:
-        artifact_path = _download_artifact_from_uri(
-            model_info.model_uri, output_path=tmp.path()
-        )
-        assert set(os.listdir(artifact_path)) == {'MLmodel'}
+        artifact_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp.path())
+        assert set(os.listdir(artifact_path)) == {"MLmodel"}
