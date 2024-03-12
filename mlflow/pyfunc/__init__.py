@@ -271,6 +271,108 @@ You may prefer the second, lower-level workflow for the following reasons:
 - If you have already collected all of your model data in a single location, the second
   workflow allows it to be saved in MLflow format directly, without enumerating constituent
   artifacts.
+
+******************************************
+Function-based Model vs Class-based Model
+******************************************
+
+When creating custom PyFunc models, you can choose between two different interfaces:
+a function-based model and a class-based model. In short, a function-based model is simply a
+python function that does not take additional params. The class-based model, on the other hand,
+is subclass of ``PythonModel`` that supports several required and optional
+methods. If your use case is simple and fits within a single predict function, a funcion-based
+approach is recommended. If you need more power, such as custom serialization, custom data
+processing, or to override additional methods, you should use the class-based implementation.
+
+Before looking at code examples, it's important to note that both methods are serialized via
+`cloudpickle <https://github.com/cloudpipe/cloudpickle>`_. cloudpickle can serialize Python
+functions, lambda functions, and locally defined classes and functions inside other functions. This
+makes cloudpickle especially useful for parallel and distributed computing where code objects need
+to be sent over network to execute on remote workers, which is a common deployment paradigm for
+MLflow.
+
+That said, cloudpickle has some limitations.
+
+- **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
+  MLflow we must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``,
+  the latter of which is used to infer environment dependencies. For more, refer to
+  `the model dependency docs <https://mlflow.org/docs/latest/model/dependencies.html>`_.
+
+- **Object Support**: cloudpickle does not serialize objects outside of the Python data model.
+  Some relevant examples include raw files and database connections. If your program depends on
+  these, be sure to log ways to reference these objects along with your model.
+
+Function-based Model
+####################
+If you're looking to serialize a simple python function without additional dependent methods, you
+can simply log a predict method via the keyword argument ``python_model``.
+
+.. note::
+
+    Function-based model only supports a function with a single input argument. If you would like
+    to pass more arguments or additional inference parameters, please use the class-based model
+    below.
+
+.. code-block:: python
+
+    import mlflow
+    import pandas as pd
+
+    # Define a simple function to log
+    def predict(model_input):
+        return model_input.apply(lambda x: x * 2)
+
+    # Save the function as a model
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=predict, pip_requirements=["pandas"])
+        run_id = mlflow.active_run().info.run_id
+
+    # Load the model from the tracking server and perform inference
+    model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+    x_new = pd.Series([1,2,3])
+
+    prediction = model.predict(x_new)
+    print(prediction)
+
+
+Class-based Model
+#################
+If you're looking to serialize a more complex object, for instance a class that handles
+preprocessing, complex prediction logic, or custom serialization, you should subclass the
+``PythonModel`` class. MLflow has tutorials on building custom PyFunc models, as shown
+`here <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>`_,
+so instead of duplicating that information, in this example we'll recreate the above functionality
+to highlight the differences. Note that this PythonModel implementation is overly complex and
+we would recommend using the functional-based Model instead for this simple case.
+
+.. code-block:: python
+
+    import mlflow
+    import pandas as pd
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [x*2 for x in model_input]
+
+    # Save the function as a model
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=MyModel(), pip_requirements=["pandas"])
+        run_id = mlflow.active_run().info.run_id
+
+    # Load the model from the tracking server and perform inference
+    model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+    x_new = pd.Series([1, 2, 3])
+
+    print(f"Prediction:\n\t{model.predict(x_new)}")
+
+The primary difference between the this implementation and the function-based implementation above
+is that the predict method is wrapped with a class, has the ``self`` parameter,
+and has the ``params`` parameter that defaults to None. Note that function-based models don't
+support additional params.
+
+In summary, use the function-based Model when you have a simple function to serialize.
+If you need more power, use  the class-based model.
+
 """
 
 import collections
