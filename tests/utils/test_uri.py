@@ -140,7 +140,10 @@ def test_is_http_uri():
 def validate_append_to_uri_path_test_cases(cases):
     for input_uri, input_path, expected_output_uri in cases:
         assert append_to_uri_path(input_uri, input_path) == expected_output_uri
-        assert append_to_uri_path(input_uri, *posixpath.split(input_path)) == expected_output_uri
+        assert (
+            append_to_uri_path(input_uri, *posixpath.split(input_path))
+            == expected_output_uri
+        )
 
 
 def test_append_to_uri_path_joins_uri_paths_and_posixpaths_correctly():
@@ -219,7 +222,9 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
                 char_case("", "{c}subpath", "{c}subpath"),
                 char_case("", "/{c}subpath", "/{c}subpath"),
                 char_case("dirwith{c}{c}chars", "", "dirwith{c}{c}chars/"),
-                char_case("dirwith{c}{c}chars", "subpath", "dirwith{c}{c}chars/subpath"),
+                char_case(
+                    "dirwith{c}{c}chars", "subpath", "dirwith{c}{c}chars/subpath"
+                ),
                 char_case("{c}{c}charsdir", "", "{c}{c}charsdir/"),
                 char_case("/{c}{c}charsdir", "", "/{c}{c}charsdir/"),
                 char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
@@ -245,17 +250,29 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
         "https://example.com?key=value&../../path",
         "https://example.com?key=value&%2E%2E%2Fpath",
         "https://example.com?key=value&%252E%252E%252Fpath",
+        # fragment contains '..' are invalid.
+        "https://example.com#..",
+        "https://example.com#/path/../path/../path",
+        # params contains '..' are also invalid.
+        "https://example.com/;..",
     ],
 )
-def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
-    with pytest.raises(MlflowException, match=r"Invalid query string"):
+def test_append_to_uri_throws_for_malicious_uri(uri):
+    with pytest.raises(
+        MlflowException, match=r"Invalid query string, fragment or params in URL"
+    ):
         append_to_uri_path(uri)
 
 
 @pytest.mark.parametrize(
     ("uri", "existing_query_params", "query_params", "expected"),
     [
-        ("https://example.com", "", [("key", "value")], "https://example.com?key=value"),
+        (
+            "https://example.com",
+            "",
+            [("key", "value")],
+            "https://example.com?key=value",
+        ),
         (
             "https://example.com",
             "existing_key=existing_value",
@@ -318,18 +335,62 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
             ("dbscheme+dbdriver:", "", "dbscheme+dbdriver:"),
             ("dbscheme+dbdriver:", "subpath", "dbscheme+dbdriver:subpath"),
             ("dbscheme+dbdriver:path", "subpath", "dbscheme+dbdriver:path/subpath"),
-            ("dbscheme+dbdriver://host/path", "/subpath", "dbscheme+dbdriver://host/path/subpath"),
+            (
+                "dbscheme+dbdriver://host/path",
+                "/subpath",
+                "dbscheme+dbdriver://host/path/subpath",
+            ),
             ("dbscheme+dbdriver:///path", "subpath", "dbscheme+dbdriver:/path/subpath"),
-            ("dbscheme+dbdriver:?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
-            ("dbscheme+dbdriver:?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver:/?somequery", "subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver://?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
-            ("dbscheme+dbdriver:///?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver:#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
-            ("dbscheme+dbdriver:#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            ("dbscheme+dbdriver:/#somefrag", "subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
-            ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
+            (
+                "dbscheme+dbdriver:?somequery",
+                "subpath",
+                "dbscheme+dbdriver:subpath?somequery",
+            ),
+            (
+                "dbscheme+dbdriver:?somequery",
+                "/subpath",
+                "dbscheme+dbdriver:/subpath?somequery",
+            ),
+            (
+                "dbscheme+dbdriver:/?somequery",
+                "subpath",
+                "dbscheme+dbdriver:/subpath?somequery",
+            ),
+            (
+                "dbscheme+dbdriver://?somequery",
+                "subpath",
+                "dbscheme+dbdriver:subpath?somequery",
+            ),
+            (
+                "dbscheme+dbdriver:///?somequery",
+                "/subpath",
+                "dbscheme+dbdriver:/subpath?somequery",
+            ),
+            (
+                "dbscheme+dbdriver:#somefrag",
+                "subpath",
+                "dbscheme+dbdriver:subpath#somefrag",
+            ),
+            (
+                "dbscheme+dbdriver:#somefrag",
+                "/subpath",
+                "dbscheme+dbdriver:/subpath#somefrag",
+            ),
+            (
+                "dbscheme+dbdriver:/#somefrag",
+                "subpath",
+                "dbscheme+dbdriver:/subpath#somefrag",
+            ),
+            (
+                "dbscheme+dbdriver://#somefrag",
+                "subpath",
+                "dbscheme+dbdriver:subpath#somefrag",
+            ),
+            (
+                "dbscheme+dbdriver:///#somefrag",
+                "/subpath",
+                "dbscheme+dbdriver:/subpath#somefrag",
+            ),
             (
                 "dbscheme+dbdriver://root:password?creds=creds",
                 "subpath",
@@ -388,15 +449,21 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
 def test_extract_and_normalize_path():
     base_uri = "databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts"
     assert (
-        extract_and_normalize_path("dbfs:databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts")
+        extract_and_normalize_path(
+            "dbfs:databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts"
+        )
         == base_uri
     )
     assert (
-        extract_and_normalize_path("dbfs:/databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts")
+        extract_and_normalize_path(
+            "dbfs:/databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts"
+        )
         == base_uri
     )
     assert (
-        extract_and_normalize_path("dbfs:///databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts")
+        extract_and_normalize_path(
+            "dbfs:///databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts"
+        )
         == base_uri
     )
     assert (
@@ -456,9 +523,17 @@ def _get_databricks_profile_uri_test_cases():
             (f"dbfs://{result_scheme}", result_scheme, result_scheme),
             (f"dbfs://{result_scheme}/", result_scheme, result_scheme),
             (f"dbfs://{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
-            (f"dbfs://{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+            (
+                f"dbfs://{result_scheme}:port/path/to/nowhere",
+                result_scheme,
+                result_scheme,
+            ),
             (f"dbfs://@{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
-            (f"dbfs://@{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+            (
+                f"dbfs://@{result_scheme}:port/path/to/nowhere",
+                result_scheme,
+                result_scheme,
+            ),
             (
                 f"dbfs://profile@{result_scheme}/path/to/nowhere",
                 f"{result_scheme}://profile",
@@ -498,14 +573,21 @@ def _get_databricks_profile_uri_test_cases():
         ]
         for result_scheme in ["databricks", "databricks-uc"]
     ]
-    return [test_case for test_case_group in test_case_groups for test_case in test_case_group]
+    return [
+        test_case
+        for test_case_group in test_case_groups
+        for test_case in test_case_group
+    ]
 
 
 @pytest.mark.parametrize(
     ("uri", "result", "result_scheme"), _get_databricks_profile_uri_test_cases()
 )
 def test_get_databricks_profile_uri_from_artifact_uri(uri, result, result_scheme):
-    assert get_databricks_profile_uri_from_artifact_uri(uri, result_scheme=result_scheme) == result
+    assert (
+        get_databricks_profile_uri_from_artifact_uri(uri, result_scheme=result_scheme)
+        == result
+    )
 
 
 @pytest.mark.parametrize(
@@ -531,8 +613,14 @@ def test_get_databricks_profile_uri_from_artifact_uri_error_cases(uri):
             "ftp://user:pass@realhost:port/path/nowhere",
         ),
         ("dbfs:/path/to/nowhere", "dbfs:/path/to/nowhere"),
-        ("dbfs://nondatabricks/path/to/nowhere", "dbfs://nondatabricks/path/to/nowhere"),
-        ("dbfs://incorrect:netloc:format/path/", "dbfs://incorrect:netloc:format/path/"),
+        (
+            "dbfs://nondatabricks/path/to/nowhere",
+            "dbfs://nondatabricks/path/to/nowhere",
+        ),
+        (
+            "dbfs://incorrect:netloc:format/path/",
+            "dbfs://incorrect:netloc:format/path/",
+        ),
         # URIs with legit databricks profile info
         ("dbfs://databricks", "dbfs:"),
         ("dbfs://databricks/", "dbfs:/"),
@@ -545,7 +633,10 @@ def test_get_databricks_profile_uri_from_artifact_uri_error_cases(uri):
         ("dbfs://scope:key_prefix@databricks/path/abc", "dbfs:/path/abc"),
         ("dbfs://scope:key_prefix@databricks:port/path/abc", "dbfs:/path/abc"),
         # Treats secret key prefixes with ":" to be valid
-        ("dbfs://incorrect:netloc:format@databricks/path/to/nowhere", "dbfs:/path/to/nowhere"),
+        (
+            "dbfs://incorrect:netloc:format@databricks/path/to/nowhere",
+            "dbfs:/path/to/nowhere",
+        ),
         # Doesn't care about the scheme of the artifact URI
         ("runs://scope:key_prefix@databricks/path/abc", "runs:/path/abc"),
         ("models://scope:key_prefix@databricks/path/abc", "models:/path/abc"),
@@ -562,9 +653,21 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
         # test various profile URIs
         ("dbfs:/path/a/b", "databricks", "dbfs://databricks/path/a/b"),
         ("dbfs:/path/a/b/", "databricks", "dbfs://databricks/path/a/b/"),
-        ("dbfs:/path/a/b/", "databricks://Profile", "dbfs://Profile@databricks/path/a/b/"),
-        ("dbfs:/path/a/b/", "databricks://profile/", "dbfs://profile@databricks/path/a/b/"),
-        ("dbfs:/path/a/b/", "databricks://scope:key", "dbfs://scope:key@databricks/path/a/b/"),
+        (
+            "dbfs:/path/a/b/",
+            "databricks://Profile",
+            "dbfs://Profile@databricks/path/a/b/",
+        ),
+        (
+            "dbfs:/path/a/b/",
+            "databricks://profile/",
+            "dbfs://profile@databricks/path/a/b/",
+        ),
+        (
+            "dbfs:/path/a/b/",
+            "databricks://scope:key",
+            "dbfs://scope:key@databricks/path/a/b/",
+        ),
         (
             "dbfs:/path/a/b/",
             "databricks://scope:key/random_stuff",
@@ -572,23 +675,55 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
         ),
         ("dbfs:/path/a/b/", "nondatabricks://profile", "dbfs:/path/a/b/"),
         # test various artifact schemes
-        ("runs:/path/a/b/", "databricks://Profile", "runs://Profile@databricks/path/a/b/"),
+        (
+            "runs:/path/a/b/",
+            "databricks://Profile",
+            "runs://Profile@databricks/path/a/b/",
+        ),
         ("runs:/path/a/b/", "nondatabricks://profile", "runs:/path/a/b/"),
-        ("models:/path/a/b/", "databricks://profile", "models://profile@databricks/path/a/b/"),
+        (
+            "models:/path/a/b/",
+            "databricks://profile",
+            "models://profile@databricks/path/a/b/",
+        ),
         ("models:/path/a/b/", "nondatabricks://Profile", "models:/path/a/b/"),
         ("s3:/path/a/b/", "databricks://Profile", "s3:/path/a/b/"),
         ("s3:/path/a/b/", "nondatabricks://profile", "s3:/path/a/b/"),
         ("ftp:/path/a/b/", "databricks://profile", "ftp:/path/a/b/"),
         ("ftp:/path/a/b/", "nondatabricks://Profile", "ftp:/path/a/b/"),
         # test artifact URIs already with authority
-        ("ftp://user:pass@host:port/a/b", "databricks://Profile", "ftp://user:pass@host:port/a/b"),
-        ("ftp://user:pass@host:port/a/b", "nothing://Profile", "ftp://user:pass@host:port/a/b"),
+        (
+            "ftp://user:pass@host:port/a/b",
+            "databricks://Profile",
+            "ftp://user:pass@host:port/a/b",
+        ),
+        (
+            "ftp://user:pass@host:port/a/b",
+            "nothing://Profile",
+            "ftp://user:pass@host:port/a/b",
+        ),
         ("dbfs://databricks", "databricks://OtherProfile", "dbfs://databricks"),
         ("dbfs://databricks", "nondatabricks://Profile", "dbfs://databricks"),
-        ("dbfs://databricks/path/a/b", "databricks://OtherProfile", "dbfs://databricks/path/a/b"),
-        ("dbfs://databricks/path/a/b", "nondatabricks://Profile", "dbfs://databricks/path/a/b"),
-        ("dbfs://@databricks/path/a/b", "databricks://OtherProfile", "dbfs://@databricks/path/a/b"),
-        ("dbfs://@databricks/path/a/b", "nondatabricks://Profile", "dbfs://@databricks/path/a/b"),
+        (
+            "dbfs://databricks/path/a/b",
+            "databricks://OtherProfile",
+            "dbfs://databricks/path/a/b",
+        ),
+        (
+            "dbfs://databricks/path/a/b",
+            "nondatabricks://Profile",
+            "dbfs://databricks/path/a/b",
+        ),
+        (
+            "dbfs://@databricks/path/a/b",
+            "databricks://OtherProfile",
+            "dbfs://@databricks/path/a/b",
+        ),
+        (
+            "dbfs://@databricks/path/a/b",
+            "nondatabricks://Profile",
+            "dbfs://@databricks/path/a/b",
+        ),
         (
             "dbfs://profile@databricks/pp",
             "databricks://OtherProfile",
@@ -607,7 +742,9 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
     ],
 )
 def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, result):
-    assert add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri) == result
+    assert (
+        add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri) == result
+    )
 
 
 @pytest.mark.parametrize(
@@ -665,7 +802,9 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
     ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
 )
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
-    with pytest.raises(MlflowException, match="did not start with expected DBFS URI prefix"):
+    with pytest.raises(
+        MlflowException, match="did not start with expected DBFS URI prefix"
+    ):
         dbfs_hdfs_uri_to_fuse_path(path)
 
 
