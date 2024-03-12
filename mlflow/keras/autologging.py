@@ -219,7 +219,6 @@ def autolog(
                         yield from training_data
 
                     origin_training_data = origin_training_data_generator_fn()
-                    origin_training_data._skip_autologging_call_input_validation = True
 
                     if "x" in kwargs:
                         kwargs["x"] = origin_training_data
