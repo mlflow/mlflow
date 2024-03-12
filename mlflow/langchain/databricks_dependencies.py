@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from typing import Any, DefaultDict, Dict, List, Set
 
@@ -7,6 +8,9 @@ _DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY = "databricks_vector_search_endpoint
 _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY = "databricks_embeddings_endpoint_name"
 _DATABRICKS_LLM_ENDPOINT_NAME_KEY = "databricks_llm_endpoint_name"
 _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _extract_databricks_dependencies_from_retriever(
@@ -109,7 +113,7 @@ def _traverse_runnable(lc_model, dependency_dict: DefaultDict[str, List[Any]], v
     return
 
 
-def _detect_databricks_dependencies(lc_model) -> Dict[str, List[Any]]:
+def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Dict[str, List[Any]]:
     """
     Detects the databricks dependencies of a langchain model and returns a dictionary of
     detected endpoint names and index names.
@@ -130,6 +134,16 @@ def _detect_databricks_dependencies(lc_model) -> Dict[str, List[Any]]:
     If an llm is found, it will be used to extract the databricks llm dependencies.
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
-    dependency_dict = defaultdict(list)
-    _traverse_runnable(lc_model, dependency_dict, set())
-    return dict(dependency_dict)
+    try:
+        dependency_dict = defaultdict(list)
+        _traverse_runnable(lc_model, dependency_dict, set())
+        return dict(dependency_dict)
+    except Exception:
+        if log_errors_as_warnings:
+            _logger.warning(
+                "Unable to detect databricks dependencies. "
+                "Set logging level to DEBUG to see the full traceback."
+            )
+            _logger.debug("", exc_info=True)
+            return {}
+        raise
