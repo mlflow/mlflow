@@ -1199,6 +1199,52 @@ def test_save_load_runnable_parallel_and_assign_in_sequence():
 
 
 @pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_save_load_complex_runnable_assign(fake_chat_model):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableParallel
+    from langchain.schema.runnable.passthrough import RunnableAssign
+
+    prompt = ChatPromptTemplate.from_template(
+        "What is a good name for a company that makes {product}?"
+    )
+    chain = prompt | fake_chat_model | StrOutputParser()
+
+    def fake_llm(prompt: str) -> str:
+        return "completion"
+
+    runnable_assign = RunnableAssign(mapper=RunnableParallel({"product": chain, "test": fake_llm}))
+    expected_result = {
+        "product": "Databricks",
+        "test": "completion",
+    }
+    input_example = {"product": "MLflow", "test": "test"}
+    assert runnable_assign.invoke(input_example) == expected_result
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            runnable_assign, "model_path", input_example=input_example
+        )
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke(input_example) == expected_result
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict([input_example]) == [expected_result]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": [expected_result]
+    }
+
+
+@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 def test_save_load_runnable_sequence():
