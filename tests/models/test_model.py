@@ -500,3 +500,21 @@ def test_copy_metadata(tmp_path, sklearn_knn_model):
             "python_env.yaml",
             "requirements.txt",
         }
+
+
+class LegacyTestFlavor:
+    @classmethod
+    def save_model(cls, path, mlflow_model):
+        mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
+        mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
+        _validate_and_prepare_target_save_path(path)
+        mlflow_model.save(os.path.join(path, "MLmodel"))
+
+
+def test_legacy_flavor():
+    with mlflow.start_run():
+        model_info = Model.log("some/path", LegacyTestFlavor)
+
+    with TempDir(chdr=True) as tmp:
+        artifact_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp.path())
+        assert set(os.listdir(artifact_path)) == {"MLmodel"}
