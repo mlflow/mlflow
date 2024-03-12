@@ -1,8 +1,5 @@
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-
-from opentelemetry import trace as trace_api
 
 
 @dataclass
@@ -74,7 +71,8 @@ class SpanContext:
     span_id: str
 
 
-class SpanType(str, Enum):
+# Not using enum as we want to allow custom span type string.
+class SpanType:
     """
     Predefined set of span types.
     """
@@ -110,6 +108,8 @@ class Status:
 #     the OpenTelemetry Status class so users code doesn't have to import the OTel's
 #     StatusCode object, which makes future migration easier.
 class StatusCode:
+    from opentelemetry import trace as trace_api
+
     UNSET = trace_api.StatusCode.UNSET
     OK = trace_api.StatusCode.OK
     ERROR = trace_api.StatusCode.ERROR

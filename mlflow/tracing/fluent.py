@@ -1,14 +1,14 @@
 import contextlib
 import inspect
-from typing import Union
-
-from mlflow.tracing.provider import get_tracer
-from mlflow.tracing.types.model import SpanType, StatusCode
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
-from mlflow.tracing.utils import capture_function_input_args
+from typing import Any, Callable, Dict, Optional
 
 
-def trace(_func=None, name=None, span_type=SpanType.UNKNOWN, attributes=None):
+def trace(
+    _func: Optional[Callable] = None,
+    name: Optional[str] = None,
+    span_type: Optional[str] = None,
+    attributes: Optional[Dict[str, Any]] = None,
+):
     """
     Decorator that create a new span for the decorated function.
 
@@ -40,6 +40,7 @@ def trace(_func=None, name=None, span_type=SpanType.UNKNOWN, attributes=None):
         span_type: The type of the span. Can be either a string or a SpanType enum value.
         attributes: A dictionary of attributes to set on the span.
     """
+    from mlflow.tracing.utils import capture_function_input_args
 
     def decorator(func):
         def wrapper(*args, **kwargs):
@@ -61,7 +62,7 @@ def trace(_func=None, name=None, span_type=SpanType.UNKNOWN, attributes=None):
 
 @contextlib.contextmanager
 def start_span(
-    name: str = "span", span_type: Union[str, SpanType] = SpanType.UNKNOWN, attributes=None
+    name: str = "span", span_type: Optional[str] = None, attributes: Optional[Dict[str, Any]] = None
 ):
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -81,6 +82,10 @@ def start_span(
         span_type: The type of the span. Can be either a string or a SpanType enum value.
         attributes: A dictionary of attributes to set on the span.
     """
+    from mlflow.tracing.provider import get_tracer
+    from mlflow.tracing.types.model import StatusCode
+    from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+
     caller_module = inspect.getmodule(inspect.currentframe().f_back)
     module_name = caller_module.__name__ if caller_module else "unknown_module"
     tracer = get_tracer(module_name)
@@ -89,7 +94,8 @@ def start_span(
     # export and instead invoke MLflowSpanWrapper.end()
     try:
         with tracer.start_as_current_span(name, end_on_exit=False) as raw_span:
-            mlflow_span = MLflowSpanWrapper(raw_span, span_type=span_type)
+            kwargs = {"span_type": span_type} if span_type else {}
+            mlflow_span = MLflowSpanWrapper(raw_span, **kwargs)
             mlflow_span.set_attributes(attributes or {})
             yield mlflow_span
     finally:
