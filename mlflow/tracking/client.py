@@ -1544,8 +1544,11 @@ class MlflowClient:
             timestamp = timestamp or get_current_time_millis()
             filename = f"images/{key}/{key}_step_{step}_{uuid.uuid4()}"
             image_filepath = f"{filename}.png"
+            compressed_image_filepath = f".{filename}.webp"
             metadata_filepath = f"{filename}.json"
-            self._log_image_as_artifact(run_id, image, image_filepath)
+            self._log_image_as_artifact(
+                run_id, image, image_filepath, compressed_artifact_file=compressed_image_filepath
+            )
             with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
                 with open(tmp_path, "w+") as f:
                     json.dump(
@@ -1563,6 +1566,8 @@ class MlflowClient:
         run_id: str,
         image: Union["numpy.ndarray", "PIL.Image.Image"],
         artifact_file: str,
+        compressed_artifact_file: Optional[str] = None,
+        compressed_file_max_size: Optional[int] = 256,
     ) -> None:
         def _is_pillow_image(image):
             from PIL.Image import Image
@@ -1601,9 +1606,8 @@ class MlflowClient:
             return x.astype(np.uint8)
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            if "PIL" in sys.modules and _is_pillow_image(image):
-                image.save(tmp_path)
-            elif "numpy" in sys.modules and _is_numpy_array(image):
+            # Convert to pillow image if numpy array
+            if "numpy" in sys.modules and _is_numpy_array(image):
                 import numpy as np
 
                 try:
@@ -1643,9 +1647,23 @@ class MlflowClient:
                     image = image[:, :, 0]
 
                 image = _normalize_to_uint8(image)
+                image = Image.fromarray(image)
 
-                Image.fromarray(image).save(tmp_path)
-
+            if "PIL" in sys.modules and _is_pillow_image(image):
+                image.save(tmp_path)
+                if compressed_artifact_file:
+                    with self._log_artifact_helper(
+                        run_id, compressed_artifact_file
+                    ) as compressed_path:
+                        # scale the image to max(width, height) <= compressed_file_max_size
+                        width, height = image.size
+                        if width > height:
+                            new_width = compressed_file_max_size
+                            new_height = int(height * (new_width / width))
+                        else:
+                            new_height = compressed_file_max_size
+                            new_width = int(width * (new_height / height))
+                        Image.fromarray(image).resize((width, height)).save(compressed_path)
             else:
                 raise TypeError(f"Unsupported image object type: '{type(image)}'")
 
