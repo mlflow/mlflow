@@ -227,7 +227,6 @@ to be sent over network to execute on remote workers, which is a common deployme
 MLflow.
 
 That said, cloudpickle has some limitations.
-
 * **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
     MLflow we must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``,
     the latter of which is used to infer environment dependencies. For more, refer to
@@ -242,9 +241,11 @@ If you're looking to serialize a simple python function without additional depen
 can simply log a predict method via the keyword argument ``python_model``.
 .. note::
 
-    Function-based model only supports a function with a single input argument. If you would like to pass more arguments or additional inference parameters, please use the class-based model below.
+    Function-based model only supports a function with a single input argument. If you would like
+    to pass more arguments or additional inference parameters, please use the class-based model
+    below.
+
 .. code-block:: python
-    :caption: python_function Example
 
     import mlflow
     import pandas as pd
@@ -277,7 +278,6 @@ to highlight the differences. Note that this PythonModel implementation is overl
 we would recommend using the functional-based Model instead for this simple case.
 
 .. code-block:: python
-    :caption: PythonModel Example
 
     import mlflow
     import pandas as pd
