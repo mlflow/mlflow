@@ -481,31 +481,35 @@ def main(args):
                 else:
                     unsupported_versions_run += item_run
 
-            matrix.append(MatrixItem(
-                name=item0.name,
-                flavor=item0.flavor,
-                category=item0.category,
-                job_name=f"{item0.name} / {item0.category} / all supported versions",
-                install="",  # Move installation command into `run` command
-                run=supported_versions_run,
-                package=item0.package,
-                version=Version.create_fake_version(),
-                supported=True,
-                collapse_same_group_tests=True,
-            ))
+            matrix.append(
+                MatrixItem(
+                    name=item0.name,
+                    flavor=item0.flavor,
+                    category=item0.category,
+                    job_name=f"{item0.name} / {item0.category} / all supported versions",
+                    install="",  # Move installation command into `run` command
+                    run=supported_versions_run,
+                    package=item0.package,
+                    version=Version.create_fake_version(),
+                    supported=True,
+                    collapse_same_group_tests=True,
+                )
+            )
 
-            matrix.append(MatrixItem(
-                name=item0.name,
-                flavor=item0.flavor,
-                category=item0.category,
-                job_name=f"{item0.name} / {item0.category} / all unsupported versions",
-                install="",  # Move installation command into `run` command
-                run=unsupported_versions_run,
-                package=item0.package,
-                version=Version.create_fake_version(),
-                supported=False,
-                collapse_same_group_tests=True,
-            ))
+            matrix.append(
+                MatrixItem(
+                    name=item0.name,
+                    flavor=item0.flavor,
+                    category=item0.category,
+                    job_name=f"{item0.name} / {item0.category} / all unsupported versions",
+                    install="",  # Move installation command into `run` command
+                    run=unsupported_versions_run,
+                    package=item0.package,
+                    version=Version.create_fake_version(),
+                    supported=False,
+                    collapse_same_group_tests=True,
+                )
+            )
         else:
             matrix.extend(group_items)
 

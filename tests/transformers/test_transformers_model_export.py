@@ -3696,4 +3696,3 @@ def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
             "python_env.yaml",
             "requirements.txt",
         }
-
