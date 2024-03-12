@@ -31,7 +31,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _set_code_path
+from mlflow.langchain._rag_utils import _set_config_path, _CODE_CONFIG
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -87,10 +87,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-
-# The following constants is used in flavor configuration to specify the code paths
-# that should be set using _set_code_path when the model is loaded by code.
-_CODE_CONFIG = "_code_config"
 
 
 def get_default_pip_requirements():
@@ -250,6 +246,13 @@ def save_model(
                 f"If the {lc_model} is a string, it must be a valid python "
                 "file path containing the code for defining the chain instance."
             )
+
+        if len(code_paths) != 1:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "When the model is a string, there should be a config path provided."
+                "This config path is used to set config.yml file path"
+                "for the model. Current code paths: {code_paths}"
+            )
     code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
@@ -326,11 +329,6 @@ def save_model(
             # If the model is a string, we are adding the model code path to the system path
             # so it can be loaded correctly.
             _add_code_to_system_path(lc_model)
-            if len(code_paths) > 1:
-                raise mlflow.MlflowException(
-                    "When the model is a string, only one code path is allowed."
-                    "Current code paths: {code_paths}"
-                )
             _load_code_model(code_paths[0])
             checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
 
@@ -789,7 +787,7 @@ def load_model(model_uri, dst_path=None):
 
 
 def _load_code_model(code_path):
-    _set_code_path(code_path)
+    _set_config_path(code_path)
 
     import chain  # noqa: F401
 

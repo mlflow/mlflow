@@ -1,4 +1,3 @@
-import mlflow
 import os
 from typing import Any, List, Optional
 
@@ -9,6 +8,8 @@ from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+
+import mlflow
 from mlflow.langchain._rag_utils import _set_chain
 
 
@@ -51,11 +52,14 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
     return FakeChatModel(endpoint=endpoint)
 
 
-path = "tests/langchain/state_of_the_union.txt"
-text_path = mlflow.langchain._rag_utils.__databricks_rag_config_path__ or path
-assert os.path.basename(
-    os.path.abspath(mlflow.langchain._rag_utils.__databricks_rag_config_path__)
-) == os.path.basename(os.path.abspath(path))
+text_path = mlflow.langchain._rag_utils.__databricks_rag_config_path__
+assert (
+    os.path.basename(
+        os.path.abspath(mlflow.langchain._rag_utils.__databricks_rag_config_path__)
+    )
+    == "state_of_the_union.txt"
+)
+assert os.path.exists(text_path)
 loader = TextLoader(text_path)
 documents = loader.load()
 text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
