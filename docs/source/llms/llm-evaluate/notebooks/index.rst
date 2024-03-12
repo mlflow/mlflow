@@ -31,7 +31,7 @@ QA Evaluation Tutorial
                         LLM Question Answering Evaluation with MLflow
                     </div>
                     <p>
-                        Learn how to evaluate various LLMs and RAG systems with MLFlow, leveraging simple metrics such as toxicity, as well as LLM-judged metrics as relevance, and even custom LLM-judged metrics such as professionalism.
+                        Learn how to evaluate various LLMs and RAG systems with MLflow, leveraging simple metrics such as toxicity, as well as LLM-judged metrics as relevance, and even custom LLM-judged metrics such as professionalism.
                     </p>
                 </a>
             </div>

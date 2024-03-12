@@ -30,7 +30,7 @@ download the ``.ipynb`` file locally and import it directly in the Databricks Wo
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="question-answering-evaluation.html">
+                <a href="mlflow-e2e-evaluation.html">
                     <div class="header">
                         End-to-End RAG Evaluation with MLflow
                     </div>
