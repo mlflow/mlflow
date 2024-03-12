@@ -31,6 +31,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
+from mlflow.langchain._rag_utils import _CODE_CONFIG, _set_config_path
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -76,7 +77,9 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
+    FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
+    _add_code_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -236,7 +239,28 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+    formatted_code_path = code_paths[:] if code_paths else []
+    if isinstance(lc_model, str):
+        # The LangChain model is defined as Python code located in the file at the path
+        # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
+        # model directory along with any other specified code modules
+
+        if os.path.exists(lc_model):
+            formatted_code_path.append(lc_model)
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"If the {lc_model} is a string, it must be a valid python "
+                "file path containing the code for defining the chain instance."
+            )
+
+        if len(code_paths) != 1:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "When the model is a string, there should be a config path provided. "
+                "This config path is used to set config.yml file path "
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
+            )
+    code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
         if input_example is not None:
@@ -282,7 +306,18 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
+    if not isinstance(lc_model, str):
+        model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
+        flavor_conf = {
+            _MODEL_TYPE_KEY: lc_model.__class__.__name__,
+            **model_data_kwargs,
+        }
+    else:
+        # If the model is a string, we expect other files that would be used in the model.
+        # We set the other paths here so they can be set globally when the model is loaded.
+        # with the local path. So the consumer can use that path.
+        flavor_conf = {_CODE_CONFIG: code_paths[0]}
+        model_data_kwargs = {}
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -292,13 +327,17 @@ def save_model(
         code=code_dir_subpath,
         **model_data_kwargs,
     )
-    flavor_conf = {
-        _MODEL_TYPE_KEY: lc_model.__class__.__name__,
-        **model_data_kwargs,
-    }
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        if databricks_dependency := _detect_databricks_dependencies(lc_model):
+        checker_model = lc_model
+        if isinstance(lc_model, str):
+            # If the model is a string, we are adding the model code path to the system path
+            # so it can be loaded correctly.
+            _add_code_to_system_path(os.path.dirname(lc_model))
+            _load_code_model(code_paths[0])
+            checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
+
+        if databricks_dependency := _detect_databricks_dependencies(checker_model):
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
 
     mlflow_model.add_flavor(
@@ -702,7 +741,18 @@ def _load_pyfunc(path):
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    return _load_model(local_model_path, flavor_conf)
+    if _CODE_CONFIG in flavor_conf:
+        path = flavor_conf.get(_CODE_CONFIG)
+        flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
+        code_path = os.path.join(
+            local_model_path,
+            flavor_code_config,
+            os.path.basename(os.path.abspath(path)),
+        )
+
+        return _load_code_model(code_path)
+    else:
+        return _load_model(local_model_path, flavor_conf)
 
 
 @experimental
@@ -730,6 +780,14 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
+
+
+def _load_code_model(code_path):
+    _set_config_path(code_path)
+
+    import chain  # noqa: F401
+
+    return mlflow.langchain._rag_utils.__databricks_rag_chain__
 
 
 @experimental
@@ -799,11 +857,19 @@ def autolog(
         for cls in classes:
             # If runnable also contains loader_fn and persist_dir, warn
             # BaseRetrievalQA, BaseRetriever, ...
-            safe_patch(FLAVOR_NAME, cls, "invoke", functools.partial(patched_inference, "invoke"))
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "invoke",
+                functools.partial(patched_inference, "invoke"),
+            )
 
         for cls in [AgentExecutor, Chain]:
             safe_patch(
-                FLAVOR_NAME, cls, "__call__", functools.partial(patched_inference, "__call__")
+                FLAVOR_NAME,
+                cls,
+                "__call__",
+                functools.partial(patched_inference, "__call__"),
             )
 
         safe_patch(
