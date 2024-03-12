@@ -33,6 +33,7 @@ import shutil
 import sys
 import typing as t
 from collections import defaultdict
+from typing import Optional
 
 import requests
 import yaml
@@ -103,7 +104,7 @@ class MatrixItem(BaseModel):
     run: str
     package: str
     version: Version
-    supported: bool
+    supported: Optional[bool]
     collapse_same_group_tests: bool
 
     class Config:
@@ -469,44 +470,25 @@ def main(args):
         item0 = group_items[0]
         if item0.collapse_same_group_tests:
             # collapse items in this group.
-            supported_versions_run = ""
-            unsupported_versions_run = ""
+            run_command = ""
 
             for item in group_items:
                 item_run = (
                     f"\n{item.install}\npython dev/show_package_release_dates.py\n{item.run}\n"
                 )
-                if item.supported:
-                    supported_versions_run += item_run
-                else:
-                    unsupported_versions_run += item_run
+                run_command += item_run
 
             matrix.append(
                 MatrixItem(
                     name=item0.name,
                     flavor=item0.flavor,
                     category=item0.category,
-                    job_name=f"{item0.name} / {item0.category} / all supported versions",
+                    job_name=f"{item0.name} / {item0.category} / all versions",
                     install="",  # Move installation command into `run` command
-                    run=supported_versions_run,
+                    run=run_command,
                     package=item0.package,
                     version=Version.create_fake_version(),
-                    supported=True,
-                    collapse_same_group_tests=True,
-                )
-            )
-
-            matrix.append(
-                MatrixItem(
-                    name=item0.name,
-                    flavor=item0.flavor,
-                    category=item0.category,
-                    job_name=f"{item0.name} / {item0.category} / all unsupported versions",
-                    install="",  # Move installation command into `run` command
-                    run=unsupported_versions_run,
-                    package=item0.package,
-                    version=Version.create_fake_version(),
-                    supported=False,
+                    supported=None,
                     collapse_same_group_tests=True,
                 )
             )
