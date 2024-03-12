@@ -635,7 +635,7 @@ class Model:
                     src_file_path = os.path.join(local_path, file_name)
                     dest_file_path = os.path.join(metadata_path, file_name)
                     shutil.copyfile(src_file_path, dest_file_path)
-            else:
+            elif hasattr(flavor, "model_data_artifact_paths"):
                 # Copy metadata files to the 'metadata' subdirectory
                 model_data_subpaths = flavor.model_data_artifact_paths
                 non_metadata_subpaths = ["code", *model_data_subpaths]
