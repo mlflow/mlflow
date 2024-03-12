@@ -1,10 +1,12 @@
-FROM node:16.18 AS ui-builder
+FROM --platform=$BUILDPLATFORM node:16.18 AS ui-builder
 
 WORKDIR /mlflow
 COPY mlflow/server/js .
 RUN yarn install --silent && yarn build
 
 FROM python:3.8.15
+
+ARG TARGETPLATFORM
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -25,7 +27,12 @@ RUN apt update -y \
     && sudo apt clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O /tmp/protoc.zip \
+RUN case ${TARGETPLATFORM#*/} in \
+    amd64) arch=x86_64 ;; \
+    arm64) arch=aarch_64 ;; \
+    *) echo "Unsupported architecture: ${TARGETPLATFORM#*/}" && exit 1 ;; \
+    esac \
+    && wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-${arch}.zip -O /tmp/protoc.zip \
     && unzip /tmp/protoc.zip -d /root/protoc \
     && rm /tmp/protoc.zip
 ENV PATH="/root/protoc/bin:$PATH"
@@ -60,6 +67,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | s
     && sudo apt install gh -y
 
 # Install pandoc
-RUN curl https://github.com/jgm/pandoc/releases/download/3.1.9/pandoc-3.1.9-1-amd64.deb -L -o /tmp/pandoc.deb \
+RUN curl https://github.com/jgm/pandoc/releases/download/3.1.9/pandoc-3.1.9-1-${TARGETPLATFORM#*/}.deb -L -o /tmp/pandoc.deb \
     && sudo dpkg -i /tmp/pandoc.deb \
     && rm /tmp/pandoc.deb
