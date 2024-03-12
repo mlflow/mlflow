@@ -249,9 +249,9 @@ def save_model(
 
         if len(code_paths) != 1:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "When the model is a string, there should be a config path provided."
-                "This config path is used to set config.yml file path"
-                "for the model. Current code paths: {code_paths}"
+                "When the model is a string, there should be a config path provided. "
+                "This config path is used to set config.yml file path "
+                f"for the model. Current code paths: {code_paths}"
             )
     code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
@@ -328,7 +328,7 @@ def save_model(
         if isinstance(lc_model, str):
             # If the model is a string, we are adding the model code path to the system path
             # so it can be loaded correctly.
-            _add_code_to_system_path(lc_model)
+            _add_code_to_system_path(os.path.dirname(lc_model))
             _load_code_model(code_paths[0])
             checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
 
