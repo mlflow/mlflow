@@ -240,7 +240,9 @@ Function-based Model
 ####################
 If you're looking to serialize a simple python function without additional dependent methods, you
 can simply log a predict method via the keyword argument ``python_model``.
+.. note::
 
+    Function-based model only supports a function with a single input argument. If you would like to pass more arguments or additional inference parameters, please use the class-based model below.
 .. code-block:: python
     :caption: python_function Example
 
