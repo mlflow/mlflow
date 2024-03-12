@@ -157,7 +157,8 @@ def clear_autologging_config():
 
 def create_tf_keras_model():
     model = tf.keras.Sequential()
-    model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
+    model.add(tf.keras.Input(shape=(4,), dtype="float64"))
+    model.add(layers.Dense(16, activation="relu"))
     model.add(layers.Dense(3, activation="softmax"))
 
     model.compile(
