@@ -257,7 +257,8 @@ def save_model(
             raise mlflow.MlflowException.invalid_parameter_value(
                 "When the model is a string, there should be a config path provided. "
                 "This config path is used to set config.yml file path "
-                f"for the model. Current code paths: {code_paths}"
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
             )
     code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 

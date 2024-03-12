@@ -2260,9 +2260,10 @@ def test_save_load_chain_errors():
         with pytest.raises(
             MlflowException,
             match=re.escape(
-                "When the model is a string, there should be a config path "
-                "provided. This config path is used to set config.yml file path for "
-                f"the model. Current code paths: {code_paths}"
+                "When the model is a string, there should be a config path provided. "
+                "This config path is used to set config.yml file path "
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
             ),
         ):
             mlflow.langchain.log_model(
