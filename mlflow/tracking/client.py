@@ -1544,7 +1544,7 @@ class MlflowClient:
             timestamp = timestamp or get_current_time_millis()
             filename = f"images/{key}/{key}_step_{step}_{uuid.uuid4()}"
             image_filepath = f"{filename}.png"
-            compressed_image_filepath = f".{filename}.webp"
+            compressed_image_filepath = f"{filename}.webp"
             metadata_filepath = f"{filename}.json"
             self._log_image_as_artifact(
                 run_id, image, image_filepath, compressed_artifact_file=compressed_image_filepath
