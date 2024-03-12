@@ -1,4 +1,5 @@
 """MLflow module for HuggingFace/transformer support."""
+
 from __future__ import annotations
 
 import ast
@@ -119,6 +120,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import append_to_uri_path
 
 # The following import is only used for type hinting
 if TYPE_CHECKING:
@@ -984,6 +986,15 @@ def load_model(
 
     flavor_config = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
 
+    # just temp code to fetch the HF config file
+    hf_config = json.loads(
+        pathlib.Path(
+            _download_artifact_from_uri(
+                artifact_uri=append_to_uri_path(model_uri, _MODEL_BINARY_FILE_NAME, "config.json")
+            )
+        ).read_text()
+    )
+
     if return_type == "pipeline" and FlavorKey.PROCESSOR_TYPE in flavor_config:
         raise MlflowException(
             "This model has been saved with a processor. Processor objects are "
@@ -994,7 +1005,7 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
+    return _load_model(local_model_path, hf_config, flavor_config, return_type, device, **kwargs)
 
 
 def persist_pretrained_model(model_uri: str) -> None:
@@ -1122,7 +1133,7 @@ def is_gpu_available():
     return is_gpu
 
 
-def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
+def _load_model(path: str, hf_config, flavor_config, return_type: str, device=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
@@ -1172,6 +1183,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         model_and_components = load_model_and_components_from_local(
             path=pathlib.Path(path),
             flavor_conf=flavor_config,
+            hf_config=hf_config,
             accelerate_conf=accelerate_model_conf,
             device=device,
         )

@@ -1,3 +1,4 @@
+import importlib
 import logging
 
 from mlflow.environment_variables import (
@@ -41,7 +42,9 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
         processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
 
 
-def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, device=None):
+def load_model_and_components_from_local(
+    path, flavor_conf, hf_config, accelerate_conf, device=None
+):
     """
     Load the model and components of a Transformer pipeline from the specified local path.
 
@@ -59,7 +62,9 @@ def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, dev
     #     "artifacts/pipeline/*" path. In order to load the older formats after the change, the
     #     presence of the new path key is checked.
     model_path = path.joinpath(flavor_conf.get(FlavorKey.MODEL_BINARY, "pipeline"))
-    loaded[FlavorKey.MODEL] = _load_model(model_path, flavor_conf, accelerate_conf, device)
+    loaded[FlavorKey.MODEL] = _load_model(
+        model_path, flavor_conf, hf_config, accelerate_conf, device
+    )
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
@@ -123,7 +128,40 @@ def _load_component(flavor_conf, name, local_path=None):
         return cls.from_pretrained(repo, revision=revision)
 
 
-def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revision=None):
+# FOR DEMO ONLY.
+#
+# inspect the HF config file to find the correct path to load the model from.
+#
+# this only works if we save the model's remote code in the `code` directory,
+# but should be pretty doable. for example, we can check if the model relies on
+# external code by doing something like:
+#
+# `transformers.utils.HF_MODULES_CACHE in inspect.getfile(model.__class__)`
+#
+# the HF config file contains the mapping between normal transformers constructs
+# and the custom code that was defined, so it should be as close to a source
+# of truth as we can get. internally, transformers does something similar,
+# see `get_class_from_dynamic_module()`:
+#
+# https://github.com/huggingface/transformers/blob/b6404866cda2952942a39e424206aed0cd6aeb5c/src/transformers/models/auto/auto_factory.py#L428
+#
+# there are some issues to work out with regard to namespace collision, etc.
+# but this should kind of work--at least it worked for me defining a pipeline
+# using mosaicml/mpt-7b.
+def _load_model_from_code_paths(model_type, hf_config):
+    auto_map = hf_config.get("auto_map")
+    for definition in auto_map.values():
+        repo_path, path = definition.split("--")
+        user, repo = repo_path.split("/")
+        parts = path.split(".")
+        parts, model = parts[:-1], parts[-1]
+        module_path = ".".join([user, repo] + parts)
+        if model_type == model:
+            mod = importlib.import_module(module_path)
+            return getattr(mod, model_type)
+
+
+def _load_model(model_name_or_path, flavor_conf, hf_config, accelerate_conf, device, revision=None):
     """
     Try to load a model with various loading strategies.
       1. Try to load the model with accelerate
@@ -132,7 +170,10 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
     """
     import transformers
 
-    cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
+    try:
+        cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
+    except AttributeError:
+        cls = _load_model_from_code_paths(flavor_conf[FlavorKey.MODEL_TYPE], hf_config)
 
     load_kwargs = {"revision": revision} if revision else {}
 
