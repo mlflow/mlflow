@@ -272,7 +272,7 @@ preprocessing, complex prediction logic, or custom serialization, you should sub
 `here <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>`_,
 so instead of duplicating that information, in this example we'll recreate the above functionality
 to highlight the differences. Note that this PythonModel implementation is overly complex and
-should be a python_function instead.
+we would recommend using the functional-based Model instead for this simple case.
 
 .. code-block:: python
     :caption: PythonModel Example
