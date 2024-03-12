@@ -1607,6 +1607,7 @@ class MlflowClient:
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             import numpy as np
+
             try:
                 from PIL import Image
             except ImportError as exc:
@@ -1614,7 +1615,7 @@ class MlflowClient:
                     "`log_image` requires Pillow to serialize a numpy array as an image. "
                     "Please install it via: pip install Pillow"
                 ) from exc
-        
+
             # Convert to pillow image if numpy array
             if "numpy" in sys.modules and _is_numpy_array(image):
                 # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind
