@@ -1,11 +1,9 @@
 import inspect
-
 from typing import Any, Dict
 
 
 def capture_function_input_args(func, args, kwargs) -> Dict[str, Any]:
-    """
-    """
+    """ """
     # Avoid capturing `self`
     func_signature = inspect.signature(func)
     bound_arguments = func_signature.bind(*args, **kwargs)

@@ -1,10 +1,12 @@
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
-from opentelemetry.sdk.trace import ReadableSpan
+import time
 from threading import Thread
+from unittest.mock import MagicMock
+
+from opentelemetry.sdk.trace import ReadableSpan
+
 from mlflow.tracing.export.mlflow import InMemoryTraceDataAggregator, MLflowSpanExporter
 from mlflow.tracing.types.model import Span, SpanContext, SpanType, Status, StatusCode
-import time
-from unittest.mock import MagicMock
+from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
 
 def test_export():
@@ -159,11 +161,7 @@ def test_aggregator_add_and_pop_span_thread_safety():
         assert len(trace_data.spans) == num_threads
 
 
-def _create_test_span(trace_id,
-                      span_id,
-                      parent_span_id=None,
-                      start_time=None,
-                      end_time=None):
+def _create_test_span(trace_id, span_id, parent_span_id=None, start_time=None, end_time=None):
     if start_time is None:
         start_time = time.time_ns()
     if end_time is None:

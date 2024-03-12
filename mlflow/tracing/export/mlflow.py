@@ -1,13 +1,13 @@
-from contextvars import ContextVar
 import logging
-from opentelemetry.sdk.trace.export import SpanExporter
 import threading
+from contextvars import ContextVar
 from typing import Any, Dict, Optional, Sequence
+
+from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.tracing.client import TraceClient
 from mlflow.tracing.types.model import Span, Trace, TraceData, TraceInfo
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
-
 
 _logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class MLflowSpanExporter(SpanExporter):
     logging in MLflow backend, then we can get rid of the in-memory trace aggregation.
     """
 
-    _MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS = 300 # TBD
+    _MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS = 300  # TBD
 
     def __init__(self, client: TraceClient):
         self._client = client
@@ -37,15 +37,18 @@ class MLflowSpanExporter(SpanExporter):
         Export the spans to MLflow backend.
 
         Args:
-            spans: A sequence of MLflowSpanWrapper objects to be exported. The base OpenTelemetry (OTel)
-                exporter should take OTel spans but this exporter takes the wrapper object, so we can
-                carry additional MLflow-specific information such as inputs and outputs.
+            spans: A sequence of MLflowSpanWrapper objects to be exported. The base
+                OpenTelemetry (OTel) exporter should take OTel spans but this exporter
+                takes the wrapper object, so we can carry additional MLflow-specific
+                information such as inputs and outputs.
         """
         mlflow_spans = []
         for span in spans:
             if not isinstance(span, MLflowSpanWrapper):
-                _logger.warning("Span exporter expected MLflowSpanWrapper, but got "
-                                f"{type(span)}. Skipping the span.")
+                _logger.warning(
+                    "Span exporter expected MLflowSpanWrapper, but got "
+                    f"{type(span)}. Skipping the span."
+                )
             mlflow_span = span.to_mlflow_span()
             self._trace_aggregator.add_span(mlflow_span)
             mlflow_spans.append(mlflow_span)
@@ -55,7 +58,6 @@ class MLflowSpanExporter(SpanExporter):
         for span in mlflow_spans:
             if span.parent_span_id is None:
                 self._export_trace(span)
-
 
     def _export_trace(self, root_span: Span):
         trace_data = self._trace_aggregator.pop_trace(root_span.context.trace_id)
@@ -80,7 +82,6 @@ class MLflowSpanExporter(SpanExporter):
         trace = Trace(trace_info, trace_data)
         self._client.log_trace(trace)
 
-
     def _serialize_inputs_outputs(self, input_or_output: Optional[Dict[str, Any]]) -> str:
         """
         Serialize inputs or outputs field of the span to a string, and truncate if necessary.
@@ -89,14 +90,14 @@ class MLflowSpanExporter(SpanExporter):
             return ""
 
         serialized = str(input_or_output)
-        return serialized[:self._MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS]
-
+        return serialized[: self._MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS]
 
 
 class InMemoryTraceDataAggregator:
     """
     Simple in-memory store for trace_id -> TraceData (i.e. spans).
     """
+
     _instance_lock = threading.Lock()
     _instance = ContextVar("InMemoryTraceDataAggregator", default=None)
 
@@ -109,9 +110,8 @@ class InMemoryTraceDataAggregator:
         return cls._instance.get()
 
     def __init__(self):
-        self._traces: Dict[str: TraceData] = {}
-        self._lock = threading.Lock() # Lock for _traces
-
+        self._traces: Dict[str:TraceData] = {}
+        self._lock = threading.Lock()  # Lock for _traces
 
     def add_span(self, span: Span):
         if not isinstance(span, Span):
@@ -130,11 +130,9 @@ class InMemoryTraceDataAggregator:
         trace_data = self._traces[trace_id]
         trace_data.spans.append(span)
 
-
     def pop_trace(self, trace_id) -> Optional[TraceData]:
         with self._lock:
             return self._traces.pop(trace_id, None)
-
 
     def flush(self):
         """Clear all the aggregated trace data. This should only be used for testing."""

@@ -1,8 +1,9 @@
-from mlflow.tracing.provider import _setup_tracer_provider
-import pytest
 from unittest import mock
 
+import pytest
+
 from mlflow.tracing.export.mlflow import InMemoryTraceDataAggregator
+from mlflow.tracing.provider import _setup_tracer_provider
 
 
 @pytest.fixture(autouse=True)
@@ -15,7 +16,7 @@ def clear_aggregator():
     InMemoryTraceDataAggregator.get_instance()._traces.clear()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_client():
     # OpenTelemetry doesn't allow re-initializing the tracer provider within a single
     # process. However, we need to create a new tracer provider with the new mock client
@@ -29,4 +30,4 @@ def mock_client():
 
     _setup_tracer_provider(mock_client)
 
-    yield mock_client
+    return mock_client

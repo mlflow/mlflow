@@ -1,9 +1,10 @@
 import logging
-from opentelemetry import trace as trace_api
 from time import time_ns
 from typing import Any, Dict, Optional
 
-from mlflow.tracing.types.model import Span, SpanContext, SpanType, Event, Status, StatusCode
+from opentelemetry import trace as trace_api
+
+from mlflow.tracing.types.model import Event, Span, SpanContext, SpanType, Status, StatusCode
 
 _logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ class MLflowSpanWrapper:
     This class is passed to the exporter class to be processed on behalf of the OpenTelemetry's
     Span object, so need to implement the same interfaces as the original Span.
     """
+
     def __init__(self, span: trace_api.Span, span_type: SpanType = SpanType.UNKNOWN):
         self._span = span
         self._span_type = span_type
@@ -66,7 +68,6 @@ class MLflowSpanWrapper:
 
         self._span._span_processor.on_end(self)
 
-
     def set_inputs(self, inputs: Dict[str, Any]):
         self._inputs = inputs
 
@@ -82,10 +83,12 @@ class MLflowSpanWrapper:
     def set_status(self, status_code: StatusCode, description: str = ""):
         self._span.set_status(status_code, description)
 
-    def add_event(self,
-                  name: str,
-                  attributes: Optional[Dict[str, Any]] = None,
-                  timestamp: Optional[int] = None):
+    def add_event(
+        self,
+        name: str,
+        attributes: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[int] = None,
+    ):
         self._span.add_event(name, attributes, timestamp)
 
     def to_mlflow_span(self):
@@ -107,8 +110,7 @@ class MLflowSpanWrapper:
             outputs=self._outputs,
             attributes=self._span.attributes,
             events=[
-                Event(event.name, event.timestamp, event.attributes)
-                for event in self._span.events
+                Event(event.name, event.timestamp, event.attributes) for event in self._span.events
             ],
         )
 

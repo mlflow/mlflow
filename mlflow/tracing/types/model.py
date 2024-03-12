@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
-from opentelemetry import trace as trace_api
 from typing import Any, Dict, List, Optional, Union
+
+from opentelemetry import trace as trace_api
 
 
 @dataclass
@@ -29,7 +30,7 @@ class TraceInfo:
     metadata: Dict[str, Any]
     # Tags can be mutated by the user to attach additional information to the trace.
     tags: Dict[str, Union[str, float]]
-	# Save the entity (model_id, app_version_id, etc) from which the trace is generated
+    # Save the entity (model_id, app_version_id, etc) from which the trace is generated
     source: Optional[str] = None
 
 
@@ -64,9 +65,11 @@ class SpanContext:
     Following OpenTelemetry spec, trace_id and span_id are packed into SpanContext object.
     This design is TBD: the motivation in the original spec is to restrict the
     access to other Span fields and also allow lighter serialization and deserialization
-    for the purpose of trace propagation. However, since we don't have a clear use case for this, we may want to just flatten this into the Span object.
+    for the purpose of trace propagation. However, since we don't have a clear use case for
+    this, we may want to just flatten this into the Span object.
     https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/api.md#spancontext
     """
+
     trace_id: str
     span_id: str
 
@@ -75,6 +78,7 @@ class SpanType(str, Enum):
     """
     Predefined set of span types.
     """
+
     LLM = "LLM"
     CHAIN = "CHAIN"
     AGENT = "AGENT"
@@ -92,8 +96,10 @@ class Status:
     """
     Status of the span or the trace.
     """
+
     status_code: "StatusCode"
     description: str = ""
+
 
 # NB: Using the OpenTelemetry native StatusCode values here, because span's set_status
 #     method only accepts a StatusCode enum in their definition.
@@ -114,6 +120,7 @@ class Event:
     """
     Point of time event that happened during the span.
     """
+
     name: str
     timestamp: Optional[int]
     attributes: Optional[Dict[str, Any]] = None

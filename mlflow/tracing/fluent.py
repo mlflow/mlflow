@@ -8,10 +8,7 @@ from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 from mlflow.tracing.utils import capture_function_input_args
 
 
-def trace(_func=None,
-          name=None,
-          span_type=SpanType.UNKNOWN,
-          attributes=None):
+def trace(_func=None, name=None, span_type=SpanType.UNKNOWN, attributes=None):
     """
     Decorator that create a new span for the decorated function.
 
@@ -31,6 +28,7 @@ def trace(_func=None,
     def my_function(x, y):
         return x + y
 
+
     mlflow.trace(my_function)(1, 2)
     ```
     This works same as the previous example, but can be useful when you want to trace a function
@@ -42,6 +40,7 @@ def trace(_func=None,
         span_type: The type of the span. Can be either a string or a SpanType enum value.
         attributes: A dictionary of attributes to set on the span.
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             span_name = name or func.__name__
@@ -61,9 +60,9 @@ def trace(_func=None,
 
 
 @contextlib.contextmanager
-def start_span(name: str = "span",
-               span_type: Union[str, SpanType] = SpanType.UNKNOWN,
-               attributes=None):
+def start_span(
+    name: str = "span", span_type: Union[str, SpanType] = SpanType.UNKNOWN, attributes=None
+):
     """
     Context manager to create a new span and start it as the current span in the context.
 
@@ -102,4 +101,3 @@ def start_span(name: str = "span",
             mlflow_span.set_status(StatusCode.OK)
 
         mlflow_span.end()
-
