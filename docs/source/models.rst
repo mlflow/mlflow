@@ -2148,6 +2148,9 @@ To save model with the signature, you can either pass the ``input_example`` or s
 
 Example:
 
+Reach the flow source at `example from the MLflow GitHub Repository.
+<https://github.com/mlflow/mlflow/blob/master/examples/promptflow/basic>`_
+
 .. literalinclude:: ../../examples/promptflow/train.py
     :language: python
 
