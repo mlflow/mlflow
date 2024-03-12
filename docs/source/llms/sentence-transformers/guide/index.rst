@@ -66,6 +66,7 @@ when saving a model with :py:func:`mlflow.sentence_transformers.save_model()` an
 For example:
 
 .. code-block:: python
+    
     import mlflow
     from sentence_transformers import SentenceTransformer
 
