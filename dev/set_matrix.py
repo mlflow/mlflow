@@ -99,6 +99,7 @@ class MatrixItem(BaseModel):
     package: str
     version: Version
     supported: bool
+    collapse_same_group_tests: bool
 
     class Config:
         arbitrary_types_allowed = True
@@ -325,6 +326,7 @@ def expand_config(config):
         all_versions = get_released_versions(package_info.pip_release)
         for category, cfg in cfgs.items():
             cfg = TestConfig(**cfg)
+            collapse_same_group_tests = cfg.collapse_same_group_tests or False
             versions = filter_versions(
                 all_versions,
                 cfg.minimum,
@@ -355,6 +357,7 @@ def expand_config(config):
                         package=package_info.pip_release,
                         version=ver,
                         supported=ver <= cfg.maximum,
+                        collapse_same_group_tests=collapse_same_group_tests,
                     )
                 )
 
@@ -379,6 +382,7 @@ def expand_config(config):
                         package=package_info.pip_release,
                         version=dev_version,
                         supported=False,
+                        collapse_same_group_tests=collapse_same_group_tests,
                     )
                 )
     return matrix
@@ -449,6 +453,57 @@ def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
+
+    # collapse tests in a group if it required
+    groups = defaultdict(list)
+    for item in matrix:
+        groups[(item.name, item.category)].append(item)
+
+    matrix = []
+    for group_key, group_items in groups.items():
+        item0 = group_items[0]
+        if item0.collapse_same_group_tests:
+            # collapse items in this group.
+            supported_versions_run = ""
+            unsupported_versions_run = ""
+
+            for item in group_items:
+                item_run = (
+                    f"\n{item.install}\npython dev/show_package_release_dates.py\n{item.run}\n"
+                )
+                if item.supported:
+                    supported_versions_run += item_run
+                else:
+                    unsupported_versions_run += item_run
+
+            matrix.append(MatrixItem(
+                name=item0.name,
+                flavor=item0.flavor,
+                category=item0.category,
+                job_name=f"{item0.name} / {item0.category} / all supported versions",
+                install=None,  # Move installation command into `run` command
+                run=supported_versions_run,
+                package=item0.package,
+                version="all supported versions",
+                supported=True,
+                collapse_same_group_tests=True,
+            ))
+
+            matrix.append(MatrixItem(
+                name=item0.name,
+                flavor=item0.flavor,
+                category=item0.category,
+                job_name=f"{item0.name} / {item0.category} / all unsupported versions",
+                install=None,  # Move installation command into `run` command
+                run=unsupported_versions_run,
+                package=item0.package,
+                version="all unsupported versions",
+                supported=False,
+                collapse_same_group_tests=True,
+            ))
+        else:
+            matrix.extend(group_items)
+
     is_matrix_empty = len(matrix) == 0
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
