@@ -2,8 +2,8 @@ import inspect
 import logging
 from typing import Any, Dict
 
-
 _logger = logging.getLogger(__name__)
+
 
 def capture_function_input_args(func, args, kwargs) -> Dict[str, Any]:
     try:

@@ -4,7 +4,6 @@ from typing import Any, Callable, Dict, Optional
 
 from mlflow.tracing.types.wrapper import NoOpMLflowSpanWrapper
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -93,6 +92,7 @@ def start_span(
         attributes: A dictionary of attributes to set on the span.
     """
     from opentelemetry import trace as trace_api
+
     from mlflow.tracing.types.wrapper import MLflowSpanWrapper
     from mlflow.tracing.utils import get_caller_module
 

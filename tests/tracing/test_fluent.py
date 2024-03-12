@@ -106,16 +106,14 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
     model = TestModel()
 
     # Exception during span creation: no-op span wrapper created and no trace is logged
-    with mock.patch("mlflow.tracing.fluent._get_tracer",
-                    side_effect=ValueError("Some error")):
+    with mock.patch("mlflow.tracing.fluent._get_tracer", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
     mock_client.log_trace.assert_not_called()
 
     # Exception during inspecting inputs: trace is logged without inputs field
-    with mock.patch("mlflow.tracing.utils.inspect.signature",
-                    side_effect=ValueError("Some error")):
+    with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
