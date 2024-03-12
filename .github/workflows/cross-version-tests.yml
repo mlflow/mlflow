@@ -134,14 +134,14 @@ jobs:
       - uses: ./.github/actions/free-disk-space
         if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers' || (matrix.package == 'torch' && startsWith(matrix.version, '2.'))
       - name: Get python version
-        if: !matrix.collapse_same_group_tests
         id: get-python-version
+        if: !matrix.collapse_same_group_tests
         run: |
           python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
           echo "version=$python_version" >> $GITHUB_OUTPUT
       - name: Get collapsed tests python version
-        if: matrix.collapse_same_group_tests
         id: get-collapsed-tests-python-version
+        if: matrix.collapse_same_group_tests
         run: |
           echo "version=3.9" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
