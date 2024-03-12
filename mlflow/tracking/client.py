@@ -38,6 +38,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
+from mlflow.tracking.multimedia import _convert_numpy_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -1575,78 +1576,12 @@ class MlflowClient:
 
             return isinstance(image, np.ndarray)
 
-        def _normalize_to_uint8(x):
-            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684
-
-            is_int = np.issubdtype(x.dtype, np.integer)
-            low = 0
-            high = 255 if is_int else 1
-            if x.min() < low or x.max() > high:
-                if is_int:
-                    raise ValueError(
-                        "Integer pixel values out of acceptable range [0, 255]. "
-                        f"Found minimum value {x.min()} and maximum value {x.max()}. "
-                        "Ensure all pixel values are within the specified range."
-                    )
-                else:
-                    raise ValueError(
-                        "Float pixel values out of acceptable range [0.0, 1.0]. "
-                        f"Found minimum value {x.min()} and maximum value {x.max()}. "
-                        "Ensure all pixel values are within the specified range."
-                    )
-
-            # float or bool
-            if not is_int:
-                x = x * 255
-
-            return x.astype(np.uint8)
-
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             if "PIL" in sys.modules and _is_pillow_image(image):
                 image.save(tmp_path)
             elif "numpy" in sys.modules and _is_numpy_array(image):
-                import numpy as np
-
-                try:
-                    from PIL import Image
-                except ImportError as exc:
-                    raise ImportError(
-                        "`log_image` requires Pillow to serialize a numpy array as an image. "
-                        "Please install it via: pip install Pillow"
-                    ) from exc
-
-                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind
-                valid_data_types = {
-                    "b": "bool",
-                    "i": "signed integer",
-                    "u": "unsigned integer",
-                    "f": "floating",
-                }
-
-                if image.dtype.kind not in valid_data_types:
-                    raise TypeError(
-                        f"Invalid array data type: '{image.dtype}'. "
-                        f"Must be one of {list(valid_data_types.values())}"
-                    )
-
-                if image.ndim not in [2, 3]:
-                    raise ValueError(
-                        f"`image` must be a 2D or 3D array but got a {image.ndim}D array"
-                    )
-
-                if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
-                    raise ValueError(
-                        f"Invalid channel length: {image.shape[2]}. Must be one of [1, 3, 4]"
-                    )
-
-                # squeeze a 3D grayscale image since `Image.fromarray` doesn't accept it.
-                if image.ndim == 3 and image.shape[2] == 1:
-                    image = image[:, :, 0]
-
-                image = _normalize_to_uint8(image)
-
-                Image.fromarray(image).save(tmp_path)
-
+                pil_image = _convert_numpy_to_pil_image(image)
+                pil_image.save(tmp_path)
             else:
                 raise TypeError(f"Unsupported image object type: '{type(image)}'")
 

@@ -16,6 +16,7 @@ from mlflow.tracking._tracking_service.utils import (
     set_tracking_uri,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.multimedia import _convert_numpy_to_pil_image
 
 __all__ = [
     "MlflowClient",
@@ -25,4 +26,5 @@ __all__ = [
     "_get_store",
     "get_registry_uri",
     "set_registry_uri",
+    "_convert_numpy_to_pil_image",
 ]
