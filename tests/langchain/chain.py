@@ -54,9 +54,7 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
 
 text_path = mlflow.langchain._rag_utils.__databricks_rag_config_path__
 assert (
-    os.path.basename(
-        os.path.abspath(mlflow.langchain._rag_utils.__databricks_rag_config_path__)
-    )
+    os.path.basename(os.path.abspath(mlflow.langchain._rag_utils.__databricks_rag_config_path__))
     == "state_of_the_union.txt"
 )
 assert os.path.exists(text_path)
