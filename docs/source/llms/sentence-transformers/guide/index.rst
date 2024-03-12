@@ -53,6 +53,43 @@ You can save and log sentence-transformers models in MLflow. Here's an example o
             sentence_transformers_model=model, artifact_path="model_artifact_path"
         )
 
+Saving Sentence Transformers Models with an OpenAI-Compatible Inference Interface
+---------------------------------------------------------------------------------
+
+.. note::
+
+    This feature is only available in MLflow 2.11.0 and above.
+
+MLflow's ``sentence_transformers`` flavor allows you to pass in the ``task`` param with the string value ``"llm/v1/embeddings"`` 
+when saving a model with :py:func:`mlflow.sentence_transformers.save_model()` and :py:func:`mlflow.sentence_transformers.log_model()`.
+
+For example:
+
+.. code-block:: python
+    
+    import mlflow
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    mlflow.sentence_transformers.save_model(
+        model=model, path="path/to/save/directory", task="llm/v1/embeddings"
+    )
+
+When ``task`` is set as ``"llm/v1/embeddings"``, MLflow handles the following for you:
+
+- Setting an embeddings compatible signature for the model
+- Performing data pre- and post-processing to ensure the inputs and outputs conform to 
+  the `Embeddings API spec <https://mlflow.org/docs/latest/llms/deployments/index.html#embeddings>`_, 
+  which is compatible with OpenAI's API spec.
+
+Note that these modifications only apply when the model is loaded with :py:func:`mlflow.pyfunc.load_model()` (e.g. when 
+serving the model with the ``mlflow models serve`` CLI tool). If you want to load just the base pipeline, you can
+always do so via :py:func:`mlflow.sentence_transformers.load_model()`.
+
+Aside from the ``sentence-transformers`` flavor, the ``transformers`` flavor also support OpenAI-compatible inference interface (``"llm/v1/chat"`` and ``"llm/v1/completions"``). Refer to 
+`the Transformers flavor guide <https://mlflow.org/docs/latest/llms/transformers/guide/index.html#saving-transformer-pipelines-with-an-openai-compatible-inference-interface>`_ for more information.
+
 Custom Python Function Implementation
 -------------------------------------
 
