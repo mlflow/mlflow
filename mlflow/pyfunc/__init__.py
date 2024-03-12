@@ -227,13 +227,15 @@ to be sent over network to execute on remote workers, which is a common deployme
 MLflow.
 
 That said, cloudpickle has some limitations.
-* **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
-    MLflow we must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``,
-    the latter of which is used to infer environment dependencies. For more, refer to
-    `the model dependency docs <https://mlflow.org/docs/latest/model/dependencies.html>`_.
-* **Object Support**: cloudpickle does not serialize objects outside of the Python data model.
-    Some relevant examples include raw files and database connections. If your program depends on
-    these, be sure to log ways to reference these objects along with your model.
+
+- **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
+  MLflow we must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``,
+  the latter of which is used to infer environment dependencies. For more, refer to
+  `the model dependency docs <https://mlflow.org/docs/latest/model/dependencies.html>`_.
+
+- **Object Support**: cloudpickle does not serialize objects outside of the Python data model.
+  Some relevant examples include raw files and database connections. If your program depends on
+  these, be sure to log ways to reference these objects along with your model.
 
 Function-based Model
 ####################
