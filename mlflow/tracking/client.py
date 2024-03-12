@@ -1662,7 +1662,7 @@ class MlflowClient:
                         else:
                             new_height = compressed_file_max_size
                             new_width = int(width * (new_height / height))
-                        Image.fromarray(image).resize((width, height)).save(compressed_path)
+                        image.resize((width, height)).save(compressed_path)
             else:
                 raise TypeError(f"Unsupported image object type: '{type(image)}'")
 
