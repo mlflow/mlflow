@@ -135,7 +135,7 @@ jobs:
         if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers' || (matrix.package == 'torch' && startsWith(matrix.version, '2.'))
       - name: Get python version
         id: get-python-version
-        if: !matrix.collapse_same_group_tests
+        if: ${{ !matrix.collapse_same_group_tests }}
         run: |
           python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
           echo "version=$python_version" >> $GITHUB_OUTPUT
@@ -192,11 +192,11 @@ jobs:
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
-        if: !matrix.collapse_same_group_tests
+        if: ${{ !matrix.collapse_same_group_tests }}
         run: |
           ${{ matrix.install }}
       - name: Check package versions
-        if: !matrix.collapse_same_group_tests
+        if: ${{ !matrix.collapse_same_group_tests }}
         run: |
           python dev/show_package_release_dates.py
       - uses: ./.github/actions/pipdeptree
