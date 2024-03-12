@@ -1,6 +1,11 @@
 import contextlib
-import inspect
+import logging
 from typing import Any, Callable, Dict, Optional
+
+from mlflow.tracing.types.wrapper import NoOpMLflowSpanWrapper
+
+
+_logger = logging.getLogger(__name__)
 
 
 def trace(
@@ -45,12 +50,17 @@ def trace(
     def decorator(func):
         def wrapper(*args, **kwargs):
             span_name = name or func.__name__
+
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
-                span.set_attribute("function_name", func.__name__)
-                span.set_inputs(capture_function_input_args(func, args, kwargs))
-                result = func(*args, **kwargs)
-                span.set_outputs({"output": result})
-                return result
+                if span:
+                    span.set_attribute("function_name", func.__name__)
+                    span.set_inputs(capture_function_input_args(func, args, kwargs))
+                    result = func(*args, **kwargs)
+                    span.set_outputs({"output": result})
+                    return result
+                else:
+                    # If span creation fails, just call the function without tracing
+                    return func(*args, **kwargs)
 
         return wrapper
 
@@ -82,28 +92,38 @@ def start_span(
         span_type: The type of the span. Can be either a string or a SpanType enum value.
         attributes: A dictionary of attributes to set on the span.
     """
-    from mlflow.tracing.provider import get_tracer
-    from mlflow.tracing.types.model import StatusCode
+    from opentelemetry import trace as trace_api
     from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+    from mlflow.tracing.utils import get_caller_module
 
-    caller_module = inspect.getmodule(inspect.currentframe().f_back)
-    module_name = caller_module.__name__ if caller_module else "unknown_module"
-    tracer = get_tracer(module_name)
-
-    # Setting end_on_exit = False to suppress the default span
-    # export and instead invoke MLflowSpanWrapper.end()
+    # TODO: refactor this logic
     try:
-        with tracer.start_as_current_span(name, end_on_exit=False) as raw_span:
-            kwargs = {"span_type": span_type} if span_type else {}
-            mlflow_span = MLflowSpanWrapper(raw_span, **kwargs)
-            mlflow_span.set_attributes(attributes or {})
+        tracer = _get_tracer(get_caller_module())
+        span = tracer.start_span(name)
+        span.set_attributes(attributes or {})
+    except:
+        _logger.warning(f"Failed to start span with name {name}.")
+        span = None
+
+    try:
+        if span is not None:
+            # Setting end_on_exit = False to suppress the default span
+            # export and instead invoke MLflowSpanWrapper.end()
+            with trace_api.use_span(span, end_on_exit=False):
+                kwargs = {"span_type": span_type} if span_type else {}
+                mlflow_span = MLflowSpanWrapper(span, **kwargs)
+                mlflow_span.set_attributes(attributes or {})
+                yield mlflow_span
+        else:
+            # Span creation should not raise an exception
+            mlflow_span = NoOpMLflowSpanWrapper()
             yield mlflow_span
     finally:
-        # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
-        # by the user. However, there is not way to set the status when using
-        # @mlflow.trace decorator. Therefore, we just automatically set the status
-        # to OK if it is not ERROR.
-        if mlflow_span.status.status_code != StatusCode.ERROR:
-            mlflow_span.set_status(StatusCode.OK)
+        mlflow_span._end()
 
-        mlflow_span.end()
+
+# NB: Extracting as a function just to allow mocking in tests
+def _get_tracer(module_name: str):
+    from mlflow.tracing.provider import get_tracer
+
+    return get_tracer(module_name)

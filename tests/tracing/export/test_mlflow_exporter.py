@@ -73,9 +73,9 @@ def test_export():
     assert trace_info.end_time == 4
 
     # Inputs and outputs in TraceInfo should be serialized and truncated
-    assert trace_info.inputs.startswith("{'input1': 'very long input")
+    assert trace_info.inputs.startswith('{"input1": "very long input')
     assert len(trace_info.inputs) == 300
-    assert trace_info.outputs.startswith("{'output1': 'very long output")
+    assert trace_info.outputs.startswith('{"output1": "very long output')
     assert len(trace_info.outputs) == 300
 
     # All 3 spans should be in the logged trace data

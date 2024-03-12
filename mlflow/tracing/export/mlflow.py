@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 from contextvars import ContextVar
@@ -49,7 +50,7 @@ class MLflowSpanExporter(SpanExporter):
                     "Span exporter expected MLflowSpanWrapper, but got "
                     f"{type(span)}. Skipping the span."
                 )
-            mlflow_span = span.to_mlflow_span()
+            mlflow_span = span._to_mlflow_span()
             self._trace_aggregator.add_span(mlflow_span)
             mlflow_spans.append(mlflow_span)
 
@@ -89,7 +90,10 @@ class MLflowSpanExporter(SpanExporter):
         if not input_or_output:
             return ""
 
-        serialized = str(input_or_output)
+        if not isinstance(input_or_output, dict):
+            raise ValueError(f"Invalid input or output data type {type(input_or_output)}")
+
+        serialized = json.dumps(input_or_output)
         return serialized[: self._MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS]
 
 

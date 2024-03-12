@@ -19,3 +19,5 @@ Jinja2<4,>=2.11; platform_system != 'Windows'
 Jinja2<4,>=3.0; platform_system == 'Windows'
 matplotlib<4
 graphene<4
+opentelemetry-api<3,>=1.0.0
+opentelemetry-sdk<3,>=1.0.0

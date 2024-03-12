@@ -50,6 +50,9 @@ dependencies = [
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
   "waitress<4; platform_system == 'Windows'",
+  # We may want to add this as a separate extra module
+  "opentelemetry-api<2",
+  "opentelemetry-sdk<2",
 ]
 [[project.maintainers]]
 name = "Databricks"

@@ -53,21 +53,6 @@ class MLflowSpanWrapper:
     def status(self) -> Status:
         return Status(self._span.status.status_code, self._span.status.description)
 
-    def end(self):
-        # Mimic the OTel's span end hook to pass this wrapper to processor/exporter
-        # Ref: https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909
-        with self._span._lock:
-            if self._span._start_time is None:
-                _logger.warning("Calling end() on a not started span. Ignoring.")
-                return
-            if self._span._end_time is not None:
-                _logger.warning("Calling end() on an ended span. Ignoring.")
-                return
-
-            self._span._end_time = time_ns()
-
-        self._span._span_processor.on_end(self)
-
     def set_inputs(self, inputs: Dict[str, Any]):
         self._inputs = inputs
 
@@ -75,7 +60,10 @@ class MLflowSpanWrapper:
         self._outputs = outputs
 
     def set_attributes(self, attributes: Dict[str, Any]):
-        self._span.set_attributes(attributes)
+        try:
+            self._span.set_attributes(attributes)
+        except Exception as e:
+            _logger.warning(f"Failed to set attributes {attributes} on span {self.name}: {e}")
 
     def set_attribute(self, key: str, value: Any):
         self._span.set_attribute(key, value)
@@ -91,7 +79,31 @@ class MLflowSpanWrapper:
     ):
         self._span.add_event(name, attributes, timestamp)
 
-    def to_mlflow_span(self):
+
+    def _end(self):
+        # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
+        # by the user. However, there is not way to set the status when using
+        # @mlflow.trace decorator. Therefore, we just automatically set the status
+        # to OK if it is not ERROR.
+        if self.status.status_code != StatusCode.ERROR:
+            self.set_status(StatusCode.OK)
+
+        # Mimic the OTel's span end hook to pass this wrapper to processor/exporter
+        # Ref: https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909
+        with self._span._lock:
+            if self._span._start_time is None:
+                _logger.warning("Calling end() on a not started span. Ignoring.")
+                return
+            if self._span._end_time is not None:
+                _logger.warning("Calling end() on an ended span. Ignoring.")
+                return
+
+            self._span._end_time = time_ns()
+
+        self._span._span_processor.on_end(self)
+
+
+    def _to_mlflow_span(self):
         """
         Create an MLflow Span object from this wrapper and the original Span object.
         """
@@ -114,5 +126,75 @@ class MLflowSpanWrapper:
             ],
         )
 
-    def is_root(self):
-        return self._span.parent is None
+
+class NoOpMLflowSpanWrapper:
+    """
+    No-op implementation of all MLflowSpanWrapper.
+
+    This instance should be returned from the mlflow.start_span context manager when span
+    creation fails. This class should have exactly the same interface as MLflowSpanWrapper
+    so that user's setter calls do not raise runtime errors.
+
+    E.g.
+    ```
+    with mlflow.start_span("span_name") as span:
+        # Even if the span creation fails, the following calls should pass.
+        span.set_inputs({"x": 1})
+        ...
+    ```
+
+    """
+
+    @property
+    def trace_id(self):
+        return None
+
+    @property
+    def name(self):
+        return None
+
+    @property
+    def start_time(self):
+        return None
+
+    @property
+    def end_time(self):
+        return None
+
+    @property
+    def context(self):
+        return None
+
+    @property
+    def parent_span_id(self):
+        return None
+
+    @property
+    def status(self):
+        return None
+
+    def set_inputs(self, inputs: Dict[str, Any]):
+        pass
+
+    def set_outputs(self, outputs: Dict[str, Any]):
+        pass
+
+    def set_attributes(self, attributes: Dict[str, Any]):
+        pass
+
+    def set_attribute(self, key: str, value: Any):
+        pass
+
+    def set_status(self, status_code: StatusCode, description: str = ""):
+        pass
+
+    def add_event(
+        self,
+        name: str,
+        attributes: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[int] = None,
+    ):
+        pass
+
+    def _end(self):
+        pass

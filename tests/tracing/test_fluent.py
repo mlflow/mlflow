@@ -1,4 +1,5 @@
 import time
+from unittest import mock
 
 import mlflow
 from mlflow.tracing.types.model import SpanType, StatusCode
@@ -33,8 +34,8 @@ def test_trace(mock_client):
     assert trace_info.trace_id is not None
     assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.inputs == "{'x': 2, 'y': 5}"
-    assert trace_info.outputs == "{'output': 64}"
+    assert trace_info.inputs == '{"x": 2, "y": 5}'
+    assert trace_info.outputs == '{"output": 64}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
@@ -62,7 +63,9 @@ def test_trace(mock_client):
     assert child_span_2.attributes == {"function_name": "square"}
 
 
-def test_trace_handle_exception(mock_client):
+def test_trace_handle_exception_during_prediction(mock_client):
+    # This test is to make sure that the exception raised by the main prediction
+    # logic is raised properly and the trace is still logged.
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):
@@ -85,11 +88,42 @@ def test_trace_handle_exception(mock_client):
     trace_info = trace.trace_info
     assert trace_info.trace_id is not None
     assert trace_info.status.status_code == StatusCode.ERROR
-    assert trace_info.inputs == "{'x': 2, 'y': 5}"
+    assert trace_info.inputs == '{"x": 2, "y": 5}'
     assert trace_info.outputs == ""
 
     spans = trace.trace_data.spans
     assert len(spans) == 2
+
+
+def test_trace_ignore_exception_from_tracing_logic(mock_client):
+    # This test is to make sure that the main prediction logic is not affected
+    # by the exception raised by the tracing logic.
+    class TestModel:
+        @mlflow.trace()
+        def predict(self, x, y):
+            return x + y
+
+    model = TestModel()
+
+    # Exception during span creation: no-op span wrapper created and no trace is logged
+    with mock.patch("mlflow.tracing.fluent._get_tracer",
+                    side_effect=ValueError("Some error")):
+        output = model.predict(2, 5)
+
+    assert output == 7
+    mock_client.log_trace.assert_not_called()
+
+    # Exception during inspecting inputs: trace is logged without inputs field
+    with mock.patch("mlflow.tracing.utils.inspect.signature",
+                    side_effect=ValueError("Some error")):
+        output = model.predict(2, 5)
+
+    assert output == 7
+    mock_client.log_trace.assert_called_once()
+    trace = mock_client.log_trace.call_args[0][0]
+    trace_info = trace.trace_info
+    assert trace_info.inputs == ""
+    assert trace_info.outputs == '{"output": 7}'
 
 
 def test_start_span_context_manager(mock_client):
@@ -126,8 +160,8 @@ def test_start_span_context_manager(mock_client):
     assert trace_info.trace_id is not None
     assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.inputs == "{'x': 1, 'y': 2}"
-    assert trace_info.outputs == "{'output': 25}"
+    assert trace_info.inputs == '{"x": 1, "y": 2}'
+    assert trace_info.outputs == '{"output": 25}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
