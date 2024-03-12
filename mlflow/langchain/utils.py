@@ -422,7 +422,14 @@ def _load_from_json(path):
 
 def _load_from_yaml(path):
     with open(path) as f:
-        return yaml.safe_load(f)
+        # This is to ignore certain tags that are not supported
+        # with pydantic >= 2.0
+        yaml.add_multi_constructor(
+            "tag:yaml.org,2002:python/object",
+            lambda loader, suffix, node: None,
+            Loader=yaml.SafeLoader,
+        )
+        return yaml.load(f, yaml.SafeLoader)
 
 
 def _get_path_by_key(root_path, key, conf):
