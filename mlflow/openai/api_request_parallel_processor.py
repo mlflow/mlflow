@@ -113,7 +113,6 @@ class APIRequest:
             if "error" in response_json:
                 error = response_json["error"]
                 logging.warning(f"Request #{self.index} failed with error {error}")
-                status_tracker.num_api_errors += 1
                 # Rate limit error
                 if "Rate limit" in error.get("message", ""):
                     _logger.debug(f"Request #{self.index} failed with {error!r}")
