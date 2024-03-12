@@ -8,6 +8,7 @@ import pickle
 import sys
 from pathlib import Path
 from unittest.mock import patch
+from types import GeneratorType
 
 import numpy as np
 import pytest
@@ -446,7 +447,7 @@ def __generator(data, target, batch_size):
     yield from zip(data_batches, target_batches)
 
 
-class __GeneratorClass:
+class __GeneratorClass(GeneratorType):
     def __init__(self, data, target, batch_size):
         self.data = data
         self.target = target
