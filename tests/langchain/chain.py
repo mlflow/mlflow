@@ -8,7 +8,8 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
-from mlflow.langchain import __code_paths__, _set_chain
+from mlflow.langchain import __code_paths__
+from mlflow.langchain._rag_utils import _set_chain
 
 
 def get_fake_chat_model(endpoint="fake-endpoint"):

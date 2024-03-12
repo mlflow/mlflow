@@ -2155,8 +2155,8 @@ def test_save_load_chain_errors(tmp_path, spark, fake_chat_model):
         incorrect_path = "tests/langchain/chain1.py"
         with pytest.raises(
             MlflowException,
-            match=f"If {incorrect_path} is a string, it must be called chain.py on "
-            "the local filesystem",
+            match=f"If {incorrect_path} is a string, it must be the path to a "
+            "file named `chain.py` on the local filesystem.",
         ):
             mlflow.langchain.log_model(
                 lc_model=incorrect_path,
@@ -2169,7 +2169,8 @@ def test_save_load_chain_errors(tmp_path, spark, fake_chat_model):
         incorrect_path = "tests/langchain1/chain.py"
         with pytest.raises(
             MlflowException,
-            match=f"If the {incorrect_path} is a string, it must be a valid file path.",
+            match=f"If the {incorrect_path} is a string, it must be a valid "
+            "python file path containing the code for defining the chain instance.",
         ):
             mlflow.langchain.log_model(
                 lc_model=incorrect_path,
