@@ -13,6 +13,7 @@
         "editor.rulers": [80, 100],
         "editor.formatOnSave": true,
         "editor.formatOnSaveTimeout": 5000,
+        "git.alwaysSignOff": true,
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.analysis.autoImportCompletions": false,
         "[python]": {
