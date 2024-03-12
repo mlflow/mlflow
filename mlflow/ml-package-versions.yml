@@ -5,7 +5,7 @@ sklearn:
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
-    minimum: "0.24.1"
+    minimum: "1.2.0"
     maximum: "1.4.1.post1"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
@@ -13,7 +13,7 @@ sklearn:
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
-    minimum: "0.24.1"
+    minimum: "1.2.0"
     maximum: "1.4.1.post1"
     requirements:
       ">= 0.0.0": ["matplotlib"]
@@ -32,7 +32,7 @@ pytorch:
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "1.9.0"
+    minimum: "1.13.0"
     maximum: "2.2.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
@@ -42,7 +42,7 @@ pytorch:
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
   autologging:
-    minimum: "1.9.0"
+    minimum: "1.13.0"
     maximum: "2.2.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
@@ -57,7 +57,7 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "1.4.9"
+    minimum: "1.9.0"
     maximum: "2.2.0.post0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
@@ -180,7 +180,7 @@ lightgbm:
       bash build-python.sh install
 
   models:
-    minimum: "3.1.1"
+    minimum: "3.3.0"
     maximum: "4.3.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -188,7 +188,7 @@ lightgbm:
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
-    minimum: "3.1.1"
+    minimum: "3.3.0"
     maximum: "4.3.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
@@ -288,7 +288,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.7.0"
+    minimum: "1.13.0"
     maximum: "1.15.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -303,7 +303,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "2.2.4"
+    minimum: "3.5.0"
     maximum: "3.7.4"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
@@ -348,7 +348,7 @@ spark:
       pyspark --version
 
   models:
-    minimum: "3.0.0"
+    minimum: "3.3.0"
     maximum: "3.5.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
@@ -375,7 +375,7 @@ spark:
       fi
 
   autologging:
-    minimum: "3.0.0"
+    minimum: "3.3.0"
     maximum: "3.5.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
