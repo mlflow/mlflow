@@ -1224,6 +1224,8 @@ jobs:
           python dev/show_package_release_dates.py
       - name: Prefetch Transformer models
         if: matrix.category == 'models'
+        run: |
+          python tests/transformers/helper.py
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
