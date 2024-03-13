@@ -449,14 +449,14 @@ def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
-    is_matrix_empty = len(matrix) == 0
 
     groups = defaultdict(list)
     for item in matrix:
         if item.name not in ("gluon", "mleap"):
-            groups[item.name, item.category].append(item)
+            groups[item.name].append(item)
 
     for name, matrix in groups.items():
+        is_matrix_empty = len(matrix) == 0
         matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
         matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
