@@ -120,7 +120,6 @@ jobs:
 
   sklearn:
     needs: set-matrix
-    if: ${{ needs.set-matrix.outputs.sklearn_is_matrix_empty == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
