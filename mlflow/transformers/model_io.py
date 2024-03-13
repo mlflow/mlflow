@@ -1,4 +1,5 @@
 import importlib
+import json
 import logging
 import os
 import shutil
@@ -66,9 +67,7 @@ def save_pipeline_pretrained_weights(
         processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
 
 
-def load_model_and_components_from_local(
-    path, flavor_conf, hf_config, accelerate_conf, device=None
-):
+def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, device=None):
     """
     Load the model and components of a Transformer pipeline from the specified local path.
 
@@ -86,6 +85,7 @@ def load_model_and_components_from_local(
     #     "artifacts/pipeline/*" path. In order to load the older formats after the change, the
     #     presence of the new path key is checked.
     model_path = path.joinpath(flavor_conf.get(FlavorKey.MODEL_BINARY, "pipeline"))
+    hf_config = json.loads(path.joinpath(_MODEL_BINARY_FILE_NAME, "config.json").read_text())
     loaded[FlavorKey.MODEL] = _load_model(
         model_path, flavor_conf, hf_config, accelerate_conf, device
     )
