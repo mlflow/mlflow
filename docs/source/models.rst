@@ -2128,6 +2128,33 @@ Example:
 .. literalinclude:: ../../examples/sentence_transformers/simple.py
     :language: python
 
+Promptflow (``promptflow``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``promptflow`` flavor is in active development and is marked as Experimental. Public APIs may change and new
+    features are subject to be added as additional functionality is brought to the flavor.
+
+The ``promptflow`` model flavor is capable of packaging your flow in MLflow format via the :py:func:`mlflow.promptflow.save_model()`
+and :py:func:`mlflow.promptflow.log_model()` functions. Currently, a ``flow.dag.yaml`` file is required to be
+present in the flow's directory. These functions also add the ``python_function`` flavor to the MLflow Models,
+allowing the models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.promptflow.load_model()`
+method to load MLflow Models with the ``promptflow`` model flavor in native promptflow format.
+
+Please note that the ``signature`` in ``MLmodel`` file will NOT BE automatically inferred from the flow itself.
+To save model with the signature, you can either pass the ``input_example`` or specify the input signature manually.
+
+
+Example:
+
+Reach the flow source at `example from the MLflow GitHub Repository.
+<https://github.com/mlflow/mlflow/blob/master/examples/promptflow/basic>`_
+
+.. literalinclude:: ../../examples/promptflow/train.py
+    :language: python
+
+
 .. _model-evaluation:
 
 Model Evaluation
