@@ -575,7 +575,9 @@ def save_model(
 
     # Save pipeline model and components weights
     if save_pretrained:
-        save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
+        save_pipeline_pretrained_weights(
+            path, built_pipeline, flavor_conf, processor, code_dir_subpath
+        )
     else:
         repo = built_pipeline.model.name_or_path
         _logger.info(

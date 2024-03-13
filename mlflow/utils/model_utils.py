@@ -20,6 +20,7 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+DEFAULT_CODE_SUBPATH = "code"
 
 
 def _get_all_flavor_configurations(model_path):
@@ -128,7 +129,7 @@ def _validate_code_paths(code_paths):
             raise TypeError(f"Argument code_paths should be a list, not {type(code_paths)}")
 
 
-def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
+def _validate_and_copy_code_paths(code_paths, path, default_subpath=DEFAULT_CODE_SUBPATH):
     """Validates that a code path is a valid list and copies the code paths to a directory. This
     can later be used to log custom code as an artifact.
 

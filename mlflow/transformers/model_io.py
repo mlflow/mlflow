@@ -1,8 +1,12 @@
 import importlib
 import logging
+import os
 import shutil
 import sys
 from pathlib import Path
+
+import transformers
+from transformers.utils import HF_MODULES_CACHE, TRANSFORMERS_DYNAMIC_MODULE_NAME
 
 from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
@@ -11,6 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
+from mlflow.utils.model_utils import DEFAULT_CODE_SUBPATH, FLAVOR_CONFIG_CODE
 
 _logger = logging.getLogger(__name__)
 
@@ -21,7 +26,9 @@ _PROCESSOR_BINARY_DIR_NAME = "processor"
 _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME = "mlflow_pyfunc_custom_modules"
 
 
-def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None):
+def save_pipeline_pretrained_weights(
+    path, pipeline, flavor_conf, processor=None, code_dir_subpath=None
+):
     """
     Save the binary artifacts of the pipeline to the specified local path.
 
@@ -32,6 +39,14 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
         processor: Optional processor instance to save alongside the pipeline
     """
     model = get_peft_base_model(pipeline.model) if is_peft_model(pipeline.model) else pipeline.model
+
+    # if the user didn't provide any code_paths, we
+    # create a directory to store the remote code
+    if code_dir_subpath is None:
+        code_dir_subpath = DEFAULT_CODE_SUBPATH
+
+    # this function does nothing if there is no remote code
+    save_remote_code_to_code_path(pipeline, path / code_dir_subpath)
 
     model.save_pretrained(
         save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
@@ -132,14 +147,68 @@ def _load_component(flavor_conf, name, local_path=None):
         return cls.from_pretrained(repo, revision=revision)
 
 
-def copy_model_py_files_to_code_path(model_path: Path):
-    code_path = model_path.parent / "code"
-    custom_module_path = code_path / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME
-    custom_module_path.mkdir(parents=True, exist_ok=True)
-    (custom_module_path / "__init__.py").touch()
-    importlib.invalidate_caches()
-    sys.path.append(str(code_path))
+def save_remote_code_to_code_path(built_pipeline: transformers.Pipeline, code_path: Path):
+    model = built_pipeline.model
+    config = model.config.to_dict()
+    if "auto_map" not in config:
+        # no remote code to save
+        return
 
+    auto_map = config["auto_map"]
+    for definition in auto_map.values():
+        repo_and_local_path = definition.split("--")
+
+        if len(repo_and_local_path) == 2:
+            repo_path, _ = repo_and_local_path
+        else:
+            # HF saves these types of definitions locally in the
+            # save_pretrained() method. see `custom_object_save()`
+            # in `transformers/dynamic_module_utils.py`
+            return
+
+        user, repo = repo_path.split("/")
+        hf_cache_path = Path(HF_MODULES_CACHE) / TRANSFORMERS_DYNAMIC_MODULE_NAME
+
+        # TODO: figure out how to get the revision hash of the model.
+        #       this is necessary because the remote code is saved in
+        #       a directory named with the revision hash. for now, we
+        #       just grab the first directory in the user/repo path that
+        #       isn't something like __init__.py or __pycache__, but of
+        #       course this is not suitable long-term.
+        user_repo_path = hf_cache_path / user / repo
+        commit_path = [
+            path for path in list(user_repo_path.iterdir()) if not path.name.startswith("_")
+        ][0]
+
+        local_module_path = code_path / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME / user / repo
+
+        if local_module_path.exists():
+            return
+
+        local_module_path.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(commit_path, local_module_path, dirs_exist_ok=True)
+
+
+def init_custom_module_directory(model_path: Path, flavor_conf: dict):
+    code_subpath = flavor_conf.get(FLAVOR_CONFIG_CODE, DEFAULT_CODE_SUBPATH)
+    full_code_path = model_path.parent / code_subpath
+    custom_module_path = full_code_path / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME
+    custom_module_path.mkdir(parents=True, exist_ok=True)
+
+    # TODO: recursively create __init__.py in all subdirectories.
+    #       for now it seems that the majority of repos don't have
+    #       any nested subdirectories, but we should not rely on that.
+    init_py = custom_module_path / "__init__.py"
+    if not init_py.exists():
+        init_py.touch()
+
+    sys.path.append(str(full_code_path))
+    importlib.invalidate_caches()
+
+    # TODO: only do this if model config specifies
+    #       a local (non-HF Hub) path (though should
+    #       be a no-op if it isn't, since the `model`
+    #       directory should not contain any .py files)
     for file in model_path.rglob("*.py"):
         rel_path = file.relative_to(model_path)
         dest_path = custom_module_path / rel_path
@@ -152,12 +221,13 @@ def _load_model_from_code_paths(cls_type, hf_config):
     for definition in auto_map.values():
         repo_and_local_path = definition.split("--")
 
-        # code was loaded from HF cache
+        # class was defined from remote HF code
         if len(repo_and_local_path) == 2:
             repo_path, local_path = repo_and_local_path
-            user, repo = repo_path.split("/")
+            user, repo = repo_path.split(os.path.sep)
             user_repo_path = f".{user}.{repo}"
         else:
+            # class was defined locally from model/ directory
             repo_path = ""
             local_path = repo_and_local_path[0]
             user_repo_path = ""
@@ -188,8 +258,12 @@ def _load_model(model_name_or_path, flavor_conf, hf_config, accelerate_conf, dev
     try:
         cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
     except AttributeError:
-        copy_model_py_files_to_code_path(model_name_or_path)
-        cls = _load_model_from_code_paths(flavor_conf[FlavorKey.MODEL_TYPE], hf_config)
+        try:
+            init_custom_module_directory(model_name_or_path, flavor_conf)
+            cls = _load_model_from_code_paths(flavor_conf[FlavorKey.MODEL_TYPE], hf_config)
+        except Exception as e:
+            _logger.error(f"Error loading model from code paths: {e}")
+            raise e
 
     load_kwargs = {"revision": revision} if revision else {}
 
