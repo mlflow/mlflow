@@ -184,15 +184,9 @@ class APIRequest:
 
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
-        def maybe_response(prepared_request_json, callback_handlers):
-            if stream:
-                return self.lc_model.stream(
-                    prepared_request_json
-                )
-            else:
-                return self.lc_model.invoke(
-                    prepared_request_json, config={"callbacks": callback_handlers}
-                )
+        def generate_response(prepared_request_json, callback_handlers):
+            call = self.lc_model.stream if stream else self.lc_model.invoke
+            return call(prepared_request_json, config={"callbacks": callback_handlers})
 
         try:
             if isinstance(self.lc_model, BaseRetriever):
@@ -214,7 +208,7 @@ class APIRequest:
                     # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field 'query_text'
                     try:
-                        response = maybe_response(prepared_request_json, callback_handlers)
+                        response = generate_response(prepared_request_json, callback_handlers)
                     except TypeError as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -229,7 +223,7 @@ class APIRequest:
                             self.request_json, self.lc_model
                         )
 
-                        response = maybe_response(prepared_request_json, callback_handlers)
+                        response = generate_response(prepared_request_json, callback_handlers)
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
                 ):
@@ -237,7 +231,7 @@ class APIRequest:
                         prepared_request_json, config={"callbacks": callback_handlers}
                     )
                 else:
-                    response = maybe_response(prepared_request_json, callback_handlers)
+                    response = generate_response(prepared_request_json, callback_handlers)
 
                 if not stream and (did_perform_chat_conversion or self.convert_chat_responses):
                     response = APIRequest._try_transform_response_to_chat_format(response)
