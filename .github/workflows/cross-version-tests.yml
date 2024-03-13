@@ -153,7 +153,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -209,7 +208,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -263,7 +261,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -316,7 +313,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -369,7 +365,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -423,7 +418,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -476,7 +470,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -529,7 +522,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -582,7 +574,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -635,7 +626,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -688,7 +678,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -741,7 +730,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -800,7 +788,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -914,7 +901,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -967,7 +953,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1020,7 +1005,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1073,7 +1057,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1126,7 +1109,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1180,7 +1162,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1236,7 +1217,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1289,7 +1269,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1343,7 +1322,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1396,7 +1374,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
@@ -1450,7 +1427,6 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          PIP_SPEC=""
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
