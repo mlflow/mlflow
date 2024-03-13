@@ -456,7 +456,7 @@ def main(args):
         if item.name not in ("gluon", "mleap"):
             groups[item.name, item.category].append(item)
 
-    for name, matrix in groups:
+    for name, matrix in groups.items():
         matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
         matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
