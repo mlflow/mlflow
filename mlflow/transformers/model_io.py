@@ -15,6 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
+from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.model_utils import DEFAULT_CODE_SUBPATH, FLAVOR_CONFIG_CODE
 
 _logger = logging.getLogger(__name__)
@@ -24,6 +25,10 @@ _MODEL_BINARY_FILE_NAME = "model"
 _COMPONENTS_BINARY_DIR_NAME = "components"
 _PROCESSOR_BINARY_DIR_NAME = "processor"
 _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME = "mlflow_pyfunc_custom_modules"
+
+# we copy custom module code into this directory
+# so custom class defs can imported properly
+MLFLOW_CUSTOM_MODULES_DIR_ENV_VAR = "MLFLOW_CUSTOM_MODULES_DIR"
 
 
 def save_pipeline_pretrained_weights(
@@ -180,7 +185,7 @@ def save_remote_code_to_code_path(built_pipeline: transformers.Pipeline, code_pa
             path for path in list(user_repo_path.iterdir()) if not path.name.startswith("_")
         ][0]
 
-        local_module_path = code_path / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME / user / repo
+        local_module_path = code_path / user / repo
 
         if local_module_path.exists():
             return
@@ -190,23 +195,18 @@ def save_remote_code_to_code_path(built_pipeline: transformers.Pipeline, code_pa
 
 
 def init_custom_module_directory(model_path: Path, flavor_conf: dict):
-    config_code_subpath = flavor_conf.get(FLAVOR_CONFIG_CODE, DEFAULT_CODE_SUBPATH)
+    if MLFLOW_CUSTOM_MODULES_DIR_ENV_VAR not in os.environ:
+        tmp_dir = create_tmp_dir()
+        os.environ[MLFLOW_CUSTOM_MODULES_DIR_ENV_VAR] = str(tmp_dir)
+    custom_module_dir = Path(os.getenv(MLFLOW_CUSTOM_MODULES_DIR_ENV_VAR))
 
-    # there seems to be a bug where we save `code: null` in the config
-    code_subpath = DEFAULT_CODE_SUBPATH if config_code_subpath is None else config_code_subpath
-    full_code_path = model_path.parent / code_subpath
-    custom_module_path = full_code_path / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME
+    custom_module_path = custom_module_dir / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME
     custom_module_path.mkdir(parents=True, exist_ok=True)
-
-    # TODO: recursively create __init__.py in all subdirectories.
-    #       for now it seems that the majority of repos don't have
-    #       any nested subdirectories, but we should not rely on that.
     init_py = custom_module_path / "__init__.py"
     if not init_py.exists():
         init_py.touch()
-
-    sys.path.append(str(full_code_path))
-    importlib.invalidate_caches()
+        sys.path.append(str(custom_module_dir))
+        importlib.invalidate_caches()
 
     # TODO: only do this if model config specifies
     #       a local (non-HF Hub) path (though should
@@ -217,6 +217,17 @@ def init_custom_module_directory(model_path: Path, flavor_conf: dict):
         dest_path = custom_module_path / rel_path
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(file, dest_path)
+
+    # if modules exist in model/code, also copy them to the custom module directory
+    config_code_subpath = flavor_conf.get(FLAVOR_CONFIG_CODE, DEFAULT_CODE_SUBPATH)
+    code_subpath = DEFAULT_CODE_SUBPATH if config_code_subpath is None else config_code_subpath
+    code_path = model_path.parent / code_subpath
+    if code_path.exists():
+        for item in code_path.iterdir():
+            if item.is_file():
+                shutil.copy(item, custom_module_path / item.name)
+            else:
+                shutil.copytree(item, custom_module_path / item.name, dirs_exist_ok=True)
 
 
 def _load_model_from_code_paths(cls_type, hf_config):
