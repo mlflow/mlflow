@@ -2,6 +2,7 @@ import time
 from threading import Thread
 from unittest.mock import MagicMock
 
+import pandas as pd
 from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.tracing.export.mlflow import InMemoryTraceDataAggregator, MLflowSpanExporter
@@ -83,6 +84,18 @@ def test_export():
 
     # Spans should be cleared from the aggregator
     assert len(exporter._trace_aggregator._traces) == 0
+
+
+def test_serialize_inputs_outputs():
+    exporter = MLflowSpanExporter(MagicMock())
+    assert exporter._serialize_inputs_outputs({"x": 1, "y": 2}) == '{"x": 1, "y": 2}'
+    # Truncate long inputs
+    assert len(exporter._serialize_inputs_outputs({"x": "very long input" * 100})) == 300
+    # non-JSON-serializable inputs
+    assert (
+        exporter._serialize_inputs_outputs({"input": pd.DataFrame({"x": [1], "y": [2]})})
+        == "{'input':    x  y\n0  1  2}"
+    )
 
 
 def test_aggregator_singleton():

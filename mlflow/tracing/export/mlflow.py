@@ -90,10 +90,12 @@ class MLflowSpanExporter(SpanExporter):
         if not input_or_output:
             return ""
 
-        if not isinstance(input_or_output, dict):
-            raise ValueError(f"Invalid input or output data type {type(input_or_output)}")
+        try:
+            serialized = json.dumps(input_or_output)
+        except TypeError:
+            # If not JSON-serializable, use string representation
+            serialized = str(input_or_output)
 
-        serialized = json.dumps(input_or_output)
         return serialized[: self._MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS]
 
 
