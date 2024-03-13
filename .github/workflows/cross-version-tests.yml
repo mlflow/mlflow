@@ -183,7 +183,7 @@ jobs:
             PIP_SPEC=""
           fi
           pip install -U "pip$PIP_SPEC" wheel
-          pip install -e .[extras]
+          pip install .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
