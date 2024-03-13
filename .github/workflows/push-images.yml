@@ -67,7 +67,7 @@ jobs:
 
       - name: Build Model Server Image
         run: |
-          pip install -e .
+          pip install .
           mlflow models build-docker -n model-server:latest --mlflow-home `pwd`
 
       - name: Push Model Server Image

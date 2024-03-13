@@ -86,7 +86,7 @@ jobs:
           ./build-package.sh
       - name: Create test environment
         run: |
-          pip install -e $(git rev-parse --show-toplevel)
+          pip install $(git rev-parse --show-toplevel)
           H2O_VERSION=$(Rscript -e "print(packageVersion('h2o'))" | grep -Eo '[0-9][0-9.]+')
           # test-keras-model.R fails with tensorflow>=2.13.0
           pip install xgboost 'tensorflow<2.13.0' "h2o==$H2O_VERSION"
