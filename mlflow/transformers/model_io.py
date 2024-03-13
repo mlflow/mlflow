@@ -135,6 +135,7 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
 
     if hasattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE]):
         cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
+        trust_remote = False
     else:
         config = AutoConfig.from_pretrained(
             model_name_or_path, revision=revision, trust_remote_code=True
