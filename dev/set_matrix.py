@@ -450,16 +450,22 @@ def main(args):
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
     is_matrix_empty = len(matrix) == 0
-    matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
-    matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
-    matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
-    print(divider("Matrix"))
-    print(json.dumps(matrix, indent=2, cls=CustomEncoder))
+    groups = defaultdict(list)
+    for item in matrix:
+        if item.name not in ("gluon", "mleap"):
+            groups[item.name, item.category].append(item)
 
-    if "GITHUB_ACTIONS" in os.environ:
-        set_action_output("matrix", json.dumps(matrix, cls=CustomEncoder))
-        set_action_output("is_matrix_empty", "true" if is_matrix_empty else "false")
+    for name, matrix in groups:
+        matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
+        matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
+
+        print(divider(f"{name} matrix"))
+        print(json.dumps(matrix, indent=2, cls=CustomEncoder))
+
+        if "GITHUB_ACTIONS" in os.environ:
+            set_action_output(f"{name}_matrix", json.dumps(matrix, cls=CustomEncoder))
+            set_action_output(f"{name}_is_matrix_empty", "true" if is_matrix_empty else "false")
 
 
 if __name__ == "__main__":
