@@ -139,14 +139,40 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
     class_name = config.architectures[0]
 
     if hasattr(transformers, class_name):
-        model_class = getattr(transformers, class_name)
-        return model_class.from_pretrained(model_name_or_path, revision=revision)
+        cls = getattr(transformers, class_name)
+        trust_remote = False
     else:
-        for auto_class, module in config.auto_map.items():
-            if class_name in module:
-                loader_cls = getattr(transformers, auto_class)
-                return loader_cls.from_pretrained(model_name_or_path, trust_remote_code=True)
-        raise MlflowException(f"Couldn't find a loader class for {class_name}")
+        auto_classes = [
+            auto_class for auto_class, module in config.auto_map.items() if class_name in module
+        ]
+        if len(auto_classes) == 0:
+            raise MlflowException(f"Couldn't find a loader class for {class_name}")
+        auto_class = auto_classes[0]
+        cls = getattr(transformers, auto_class)
+        trust_remote = True
+
+    load_kwargs = {"revision": revision} if revision else {}
+    if trust_remote:
+        load_kwargs.update({"trust_remote_code": True})
+
+    if model := _try_load_model_with_accelerate(
+        cls, model_name_or_path, {**accelerate_conf, **load_kwargs}
+    ):
+        return model
+
+    load_kwargs["device"] = device
+    if torch_dtype := flavor_conf.get(FlavorKey.TORCH_DTYPE):
+        load_kwargs[FlavorKey.TORCH_DTYPE] = torch_dtype
+
+    if model := _try_load_model_with_device(cls, model_name_or_path, load_kwargs):
+        return model
+    _logger.warning(
+        "Could not specify device parameter for this pipeline type."
+        "Falling back to loading the model with the default device."
+    )
+
+    load_kwargs.pop("device", None)
+    return cls.from_pretrained(model_name_or_path, **load_kwargs)
 
 
 def _try_load_model_with_accelerate(model_class, model_name_or_path, load_kwargs):
