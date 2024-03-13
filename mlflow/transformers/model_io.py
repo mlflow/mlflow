@@ -263,8 +263,10 @@ def _load_model(model_name_or_path, flavor_conf, hf_config, accelerate_conf, dev
             init_custom_module_directory(model_name_or_path, flavor_conf)
             cls = _load_model_from_code_paths(flavor_conf[FlavorKey.MODEL_TYPE], hf_config)
         except Exception as e:
-            _logger.error(f"Error loading model from code paths: {e}")
-            raise e
+            raise MlflowException(
+                "Encountered unexpected error while loading model from code paths. "
+                f"Full exception trace: {e}"
+            )
 
     load_kwargs = {"revision": revision} if revision else {}
 
