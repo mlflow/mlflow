@@ -255,9 +255,10 @@ def _load_model(model_name_or_path, flavor_conf, hf_config, accelerate_conf, dev
     """
     import transformers
 
-    try:
-        cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
-    except AttributeError:
+    model_classname = flavor_conf[FlavorKey.MODEL_TYPE]
+    if hasattr(transformers, model_classname):
+        cls = getattr(transformers, model_classname)
+    else:
         try:
             init_custom_module_directory(model_name_or_path, flavor_conf)
             cls = _load_model_from_code_paths(flavor_conf[FlavorKey.MODEL_TYPE], hf_config)
