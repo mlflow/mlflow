@@ -190,7 +190,10 @@ def save_remote_code_to_code_path(built_pipeline: transformers.Pipeline, code_pa
 
 
 def init_custom_module_directory(model_path: Path, flavor_conf: dict):
-    code_subpath = flavor_conf.get(FLAVOR_CONFIG_CODE, DEFAULT_CODE_SUBPATH)
+    config_code_subpath = flavor_conf.get(FLAVOR_CONFIG_CODE, DEFAULT_CODE_SUBPATH)
+
+    # there seems to be a bug where we save `code: null` in the config
+    code_subpath = DEFAULT_CODE_SUBPATH if config_code_subpath is None else config_code_subpath
     full_code_path = model_path.parent / code_subpath
     custom_module_path = full_code_path / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME
     custom_module_path.mkdir(parents=True, exist_ok=True)
