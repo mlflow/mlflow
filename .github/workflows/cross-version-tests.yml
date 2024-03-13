@@ -56,8 +56,8 @@ jobs:
     permissions:
       issues: read # listLabelsOnIssue
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
+      sklearn_matrix: ${{ steps.set-matrix.outputs.sklearn_matrix }}
+      sklearn_is_matrix_empty: ${{ steps.set-matrix.outputs.sklearn_is_matrix_empty }}
     steps:
       - uses: actions/checkout@v4
         with:
