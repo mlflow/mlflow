@@ -1,5 +1,8 @@
 import importlib
 import logging
+import shutil
+import sys
+from pathlib import Path
 
 from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
@@ -15,6 +18,7 @@ _logger = logging.getLogger(__name__)
 _MODEL_BINARY_FILE_NAME = "model"
 _COMPONENTS_BINARY_DIR_NAME = "components"
 _PROCESSOR_BINARY_DIR_NAME = "processor"
+_MLFLOW_PYFUNC_CUSTOM_MODULES_NAME = "mlflow_pyfunc_custom_modules"
 
 
 def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None):
@@ -128,37 +132,48 @@ def _load_component(flavor_conf, name, local_path=None):
         return cls.from_pretrained(repo, revision=revision)
 
 
-# FOR DEMO ONLY.
-#
-# inspect the HF config file to find the correct path to load the model from.
-#
-# this only works if we save the model's remote code in the `code` directory,
-# but should be pretty doable. for example, we can check if the model relies on
-# external code by doing something like:
-#
-# `transformers.utils.HF_MODULES_CACHE in inspect.getfile(model.__class__)`
-#
-# the HF config file contains the mapping between normal transformers constructs
-# and the custom code that was defined, so it should be as close to a source
-# of truth as we can get. internally, transformers does something similar,
-# see `get_class_from_dynamic_module()`:
-#
-# https://github.com/huggingface/transformers/blob/b6404866cda2952942a39e424206aed0cd6aeb5c/src/transformers/models/auto/auto_factory.py#L428
-#
-# there are some issues to work out with regard to namespace collision, etc.
-# but this should kind of work--at least it worked for me defining a pipeline
-# using mosaicml/mpt-7b.
-def _load_model_from_code_paths(model_type, hf_config):
+def copy_model_py_files_to_code_path(model_path: Path):
+    code_path = model_path.parent / "code"
+    custom_module_path = code_path / _MLFLOW_PYFUNC_CUSTOM_MODULES_NAME
+    custom_module_path.mkdir(parents=True, exist_ok=True)
+    (custom_module_path / "__init__.py").touch()
+    importlib.invalidate_caches()
+    sys.path.append(str(code_path))
+
+    for file in model_path.rglob("*.py"):
+        rel_path = file.relative_to(model_path)
+        dest_path = custom_module_path / rel_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(file, dest_path)
+
+
+def _load_model_from_code_paths(cls_type, hf_config):
     auto_map = hf_config.get("auto_map")
     for definition in auto_map.values():
-        repo_path, path = definition.split("--")
-        user, repo = repo_path.split("/")
-        parts = path.split(".")
-        parts, model = parts[:-1], parts[-1]
-        module_path = ".".join([user, repo] + parts)
-        if model_type == model:
-            mod = importlib.import_module(module_path)
-            return getattr(mod, model_type)
+        repo_and_local_path = definition.split("--")
+
+        # code was loaded from HF cache
+        if len(repo_and_local_path) == 2:
+            repo_path, local_path = repo_and_local_path
+            user, repo = repo_path.split("/")
+            user_repo_path = f".{user}.{repo}"
+        else:
+            repo_path = ""
+            local_path = repo_and_local_path[0]
+            user_repo_path = ""
+
+        submodule_components = local_path.split(".")
+        cls = submodule_components[-1]
+        submodule_path = ".".join(submodule_components[:-1])
+        full_submodule_path = (
+            f"{_MLFLOW_PYFUNC_CUSTOM_MODULES_NAME}{user_repo_path}.{submodule_path}"
+        )
+
+        if cls_type == cls:
+            mod = importlib.import_module(full_submodule_path)
+            return getattr(mod, cls_type)
+
+    raise MlflowException(f"couldn't find definition for {cls_type}")
 
 
 def _load_model(model_name_or_path, flavor_conf, hf_config, accelerate_conf, device, revision=None):
@@ -173,6 +188,7 @@ def _load_model(model_name_or_path, flavor_conf, hf_config, accelerate_conf, dev
     try:
         cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
     except AttributeError:
+        copy_model_py_files_to_code_path(model_name_or_path)
         cls = _load_model_from_code_paths(flavor_conf[FlavorKey.MODEL_TYPE], hf_config)
 
     load_kwargs = {"revision": revision} if revision else {}
