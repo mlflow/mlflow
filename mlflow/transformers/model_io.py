@@ -59,7 +59,7 @@ def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, dev
     #     "artifacts/pipeline/*" path. In order to load the older formats after the change, the
     #     presence of the new path key is checked.
     model_path = path.joinpath(flavor_conf.get(FlavorKey.MODEL_BINARY, "pipeline"))
-    loaded[FlavorKey.MODEL] = _load_model(model_path)
+    loaded[FlavorKey.MODEL] = _load_model(model_path, flavor_conf, accelerate_conf, device)
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
@@ -93,7 +93,9 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
             error_code=INVALID_STATE,
         )
 
-    loaded[FlavorKey.MODEL] = _load_model(model_repo, revision=model_revision)
+    loaded[FlavorKey.MODEL] = _load_model(
+        model_repo, flavor_conf, accelerate_conf, device, revision=model_revision
+    )
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
@@ -121,7 +123,7 @@ def _load_component(flavor_conf, name, local_path=None):
         return cls.from_pretrained(repo, revision=revision)
 
 
-def _load_model(model_name_or_path, revision=None):
+def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revision=None):
     """
     Try to load a model with various loading strategies.
       1. Try to load the model with accelerate
