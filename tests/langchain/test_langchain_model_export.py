@@ -1664,6 +1664,30 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     }
 
 
+def _error_func(*args, **kwargs):
+    raise ValueError("error")
+
+
+@mock.patch(
+    "mlflow.langchain.databricks_dependencies._traverse_runnable",
+    _error_func,
+)
+def test_databricks_dependency_extraction_log_errors_as_warnings():
+    from mlflow.langchain.databricks_dependencies import (
+        _DATABRICKS_DEPENDENCY_KEY,
+        _detect_databricks_dependencies,
+    )
+
+    model = create_openai_llmchain()
+
+    with pytest.raises(ValueError, match="error"):
+        _detect_databricks_dependencies(model, log_errors_as_warnings=False)
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+    assert logged_model.flavors["langchain"].get(_DATABRICKS_DEPENDENCY_KEY) is None
+
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
