@@ -58,6 +58,58 @@ jobs:
     outputs:
       sklearn_matrix: ${{ steps.set-matrix.outputs.sklearn_matrix }}
       sklearn_is_matrix_empty: ${{ steps.set-matrix.outputs.sklearn_is_matrix_empty }}
+      pytorch_matrix: ${{ steps.set-matrix.outputs.pytorch_matrix }}
+      pytorch_is_matrix_empty: ${{ steps.set-matrix.outputs.pytorch_is_matrix_empty }}
+      pytorch-lightning_matrix: ${{ steps.set-matrix.outputs.pytorch-lightning_matrix }}
+      pytorch-lightning_is_matrix_empty: ${{ steps.set-matrix.outputs.pytorch-lightning_is_matrix_empty }}
+      keras_matrix: ${{ steps.set-matrix.outputs.keras_matrix }}
+      keras_is_matrix_empty: ${{ steps.set-matrix.outputs.keras_is_matrix_empty }}
+      tensorflow_matrix: ${{ steps.set-matrix.outputs.tensorflow_matrix }}
+      tensorflow_is_matrix_empty: ${{ steps.set-matrix.outputs.tensorflow_is_matrix_empty }}
+      xgboost_matrix: ${{ steps.set-matrix.outputs.xgboost_matrix }}
+      xgboost_is_matrix_empty: ${{ steps.set-matrix.outputs.xgboost_is_matrix_empty }}
+      lightgbm_matrix: ${{ steps.set-matrix.outputs.lightgbm_matrix }}
+      lightgbm_is_matrix_empty: ${{ steps.set-matrix.outputs.lightgbm_is_matrix_empty }}
+      catboost_matrix: ${{ steps.set-matrix.outputs.catboost_matrix }}
+      catboost_is_matrix_empty: ${{ steps.set-matrix.outputs.catboost_is_matrix_empty }}
+      gluon_matrix: ${{ steps.set-matrix.outputs.gluon_matrix }}
+      gluon_is_matrix_empty: ${{ steps.set-matrix.outputs.gluon_is_matrix_empty }}
+      fastai_matrix: ${{ steps.set-matrix.outputs.fastai_matrix }}
+      fastai_is_matrix_empty: ${{ steps.set-matrix.outputs.fastai_is_matrix_empty }}
+      onnx_matrix: ${{ steps.set-matrix.outputs.onnx_matrix }}
+      onnx_is_matrix_empty: ${{ steps.set-matrix.outputs.onnx_is_matrix_empty }}
+      spacy_matrix: ${{ steps.set-matrix.outputs.spacy_matrix }}
+      spacy_is_matrix_empty: ${{ steps.set-matrix.outputs.spacy_is_matrix_empty }}
+      statsmodels_matrix: ${{ steps.set-matrix.outputs.statsmodels_matrix }}
+      statsmodels_is_matrix_empty: ${{ steps.set-matrix.outputs.statsmodels_is_matrix_empty }}
+      spark_matrix: ${{ steps.set-matrix.outputs.spark_matrix }}
+      spark_is_matrix_empty: ${{ steps.set-matrix.outputs.spark_is_matrix_empty }}
+      mleap_matrix: ${{ steps.set-matrix.outputs.mleap_matrix }}
+      mleap_is_matrix_empty: ${{ steps.set-matrix.outputs.mleap_is_matrix_empty }}
+      prophet_matrix: ${{ steps.set-matrix.outputs.prophet_matrix }}
+      prophet_is_matrix_empty: ${{ steps.set-matrix.outputs.prophet_is_matrix_empty }}
+      pmdarima_matrix: ${{ steps.set-matrix.outputs.pmdarima_matrix }}
+      pmdarima_is_matrix_empty: ${{ steps.set-matrix.outputs.pmdarima_is_matrix_empty }}
+      diviner_matrix: ${{ steps.set-matrix.outputs.diviner_matrix }}
+      diviner_is_matrix_empty: ${{ steps.set-matrix.outputs.diviner_is_matrix_empty }}
+      h2o_matrix: ${{ steps.set-matrix.outputs.h2o_matrix }}
+      h2o_is_matrix_empty: ${{ steps.set-matrix.outputs.h2o_is_matrix_empty }}
+      shap_matrix: ${{ steps.set-matrix.outputs.shap_matrix }}
+      shap_is_matrix_empty: ${{ steps.set-matrix.outputs.shap_is_matrix_empty }}
+      paddle_matrix: ${{ steps.set-matrix.outputs.paddle_matrix }}
+      paddle_is_matrix_empty: ${{ steps.set-matrix.outputs.paddle_is_matrix_empty }}
+      transformers_matrix: ${{ steps.set-matrix.outputs.transformers_matrix }}
+      transformers_is_matrix_empty: ${{ steps.set-matrix.outputs.transformers_is_matrix_empty }}
+      openai_matrix: ${{ steps.set-matrix.outputs.openai_matrix }}
+      openai_is_matrix_empty: ${{ steps.set-matrix.outputs.openai_is_matrix_empty }}
+      langchain_matrix: ${{ steps.set-matrix.outputs.langchain_matrix }}
+      langchain_is_matrix_empty: ${{ steps.set-matrix.outputs.langchain_is_matrix_empty }}
+      sentence_transformers_matrix: ${{ steps.set-matrix.outputs.sentence_transformers_matrix }}
+      sentence_transformers_is_matrix_empty: ${{ steps.set-matrix.outputs.sentence_transformers_is_matrix_empty }}
+      johnsnowlabs_matrix: ${{ steps.set-matrix.outputs.johnsnowlabs_matrix }}
+      johnsnowlabs_is_matrix_empty: ${{ steps.set-matrix.outputs.johnsnowlabs_is_matrix_empty }}
+      promptflow_matrix: ${{ steps.set-matrix.outputs.promptflow_matrix }}
+      promptflow_is_matrix_empty: ${{ steps.set-matrix.outputs.promptflow_is_matrix_empty }}
     steps:
       - uses: actions/checkout@v4
         with:
