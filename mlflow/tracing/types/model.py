@@ -1,49 +1,66 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 
 @dataclass
 class Trace:
-    trace_info: "TraceInfo"
-    trace_data: "TraceData"
+    """TBA
+    """
+    trace_info: TraceInfo
+    trace_data: TraceData
 
 
 @dataclass
 class TraceInfo:
+    """A lightweight object that contains the metadata of a trace.
+
+    Args:
+        trace_id: Unique identifier of the trace.
+        name: Name of the trace. Inherited from the root span name at the time of trace creation.
+        start_time: Start time of the trace in microseconds, inherited from the root span.
+        end_time: End time of the trace in microseconds, inherited from the root span.
+        status: Status of the trace, inherited from the root span.
+        inputs: Serialized and truncated input data of the root span.
+        outputs: Serialized and truncated output data of the root span. The full data can be
+            found in the root span object in TraceData.
+        metadata: Key-value pairs set at the time of trace creation and immutable afterwords.
+        tags: Key-value pairs that can be mutated by the user to attach additional information to the trace.
+        source: The entity (model_id, app_version_id, etc) from which the trace is generated.
+    """
     trace_id: str
-    # Trace name is inherited from the root span name at the time of trace creation.
-    # This may be edited by the user later.
     name: str
-    # Start and end time of the trace, inherited from the root span.
     start_time: int
     end_time: int
-    # Status of the trace, inherited from the root span.
-    status: "Status"
-    # Input and output data of the root span, but serialized and truncated to fixed
-    # length for the efficient storage and retrieval.
+    status: Status
     inputs: str
     outputs: str
-    # Metadata should only be set by the system and immutable.
     metadata: Dict[str, Any]
-    # Tags can be mutated by the user to attach additional information to the trace.
     tags: Dict[str, Union[str, float]]
-    # Save the entity (model_id, app_version_id, etc) from which the trace is generated
     source: Optional[str] = None
 
 
 @dataclass
 class TraceData:
-    spans: List["Span"]
+    """A container object that holds the spans data of a trace.
+
+    Args:
+        spans: List of spans that are part of the trace.
+    """
+    spans: List[Span]
 
 
 @dataclass
 class Span:
+    """TBA
+    """
     name: str
-    context: "SpanContext"
+    context: SpanContext
     parent_span_id: Optional[str]
     # Type of the span can be either a pre-defined enum or a custom string.
-    span_type: Union["SpanType", str]
-    status: "Status"
+    span_type: Union[SpanType, str]
+    status: Status
     # Start and end time of the span in microseconds
     start_time: int
     end_time: int
@@ -53,7 +70,7 @@ class Span:
     # Arbitrary key-value pairs of the span attributes.
     attributes: Optional[Dict[str, Any]] = None
     # Point of time events that happened during the span.
-    events: Optional[List["Event"]] = None
+    events: Optional[List[Event]] = None
 
 
 @dataclass
@@ -65,6 +82,10 @@ class SpanContext:
     for the purpose of trace propagation. However, since we don't have a clear use case for
     this, we may want to just flatten this into the Span object.
     https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/api.md#spancontext
+
+    Args:
+        trace_id: Unique identifier of the trace.
+        span_id: Unique identifier of the span.
     """
 
     trace_id: str
@@ -93,9 +114,13 @@ class SpanType:
 class Status:
     """
     Status of the span or the trace.
+
+    Args:
+        status_code: The status code of the span or the trace.
+        description: Description of the status. Optional.
     """
 
-    status_code: "StatusCode"
+    status_code: StatusCode
     description: str = ""
 
 
@@ -119,6 +144,11 @@ class StatusCode:
 class Event:
     """
     Point of time event that happened during the span.
+
+    Args:
+        name: Name of the event.
+        timestamp: Point of time when the event happened in microseconds.
+        attributes: Arbitrary key-value pairs of the event attributes.
     """
 
     name: str

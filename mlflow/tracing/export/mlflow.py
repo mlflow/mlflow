@@ -50,12 +50,15 @@ class MLflowSpanExporter(SpanExporter):
                     "Span exporter expected MLflowSpanWrapper, but got "
                     f"{type(span)}. Skipping the span."
                 )
+                continue
+
             mlflow_span = span._to_mlflow_span()
             self._trace_aggregator.add_span(mlflow_span)
             mlflow_spans.append(mlflow_span)
 
-        # Call this after processing all spans because the parent-child order might
-        # not be preserved in the input spans
+        # Exporting the trace when the root span is found. Note that we need to loop over
+        # the input list again, because the root span might not be the last span in the list.
+        # We must ensure the all child spans are added to the trace before exporting it.
         for span in mlflow_spans:
             if span.parent_span_id is None:
                 self._export_trace(span)
@@ -116,7 +119,7 @@ class InMemoryTraceDataAggregator:
         return cls._instance.get()
 
     def __init__(self):
-        self._traces: Dict[str:TraceData] = {}
+        self._traces: Dict[str, TraceData] = {}
         self._lock = threading.Lock()  # Lock for _traces
 
     def add_span(self, span: Span):
