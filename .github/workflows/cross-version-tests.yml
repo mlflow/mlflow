@@ -171,3 +171,1275 @@ jobs:
           ${{ matrix.run }}
 
 
+  pytorch:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.pytorch_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.pytorch_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+        if: startsWith(matrix.version, '2.')
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
+        run: |
+          ${{ matrix.run }}
+
+  pytorch-lightning:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.pytorch-lightning_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.pytorch-lightning_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  keras:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.keras_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.keras_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  tensorflow:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.tensorflow_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.tensorflow_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
+        run: |
+          ${{ matrix.run }}
+
+  xgboost:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.xgboost_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.xgboost_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  lightgbm:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.lightgbm_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.lightgbm_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  catboost:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.catboost_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.catboost_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  fastai:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.fastai_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.fastai_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  onnx:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.onnx_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.onnx_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  spacy:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.spacy_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.spacy_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  statsmodels:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.statsmodels_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.statsmodels_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  spark:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.spark_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.spark_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          pip install packaging
+          use_java17=$(python -c "from packaging.version import parse; print('${{ matrix.version }}' == 'dev' or parse('${{ matrix.version }}') > parse('3.4.1'))")
+          if [ "$use_java17" = "True" ]; then
+            java_version=17
+          else
+            java_version=11
+          fi
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+          SPARK_LOCAL_IP: localhost
+        run: |
+          ${{ matrix.run }}
+
+  prophet:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.prophet_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.prophet_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          # prophet==1.0.1 can only be installed `setup.py install` fallback but this was removed
+          # in pip 23.1. See https://github.com/pypa/pip/issues/8368 more details.
+          if [ "${{ matrix.package }}==${{ matrix.version }}" = "prophet==1.0.1" ]
+          then
+            PIP_SPEC="<23.1"
+          else
+            PIP_SPEC=""
+          fi
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  pmdarima:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.pmdarima_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.pmdarima_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  diviner:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.diviner_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.diviner_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  h2o:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.h2o_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.h2o_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  shap:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.shap_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.shap_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  paddle:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.paddle_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.paddle_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  transformers:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.transformers_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.transformers_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - name: Prefetch Transformer models
+        if: matrix.category == 'models'
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
+        run: |
+          ${{ matrix.run }}
+
+  openai:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.openai_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.openai_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  langchain:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.langchain_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.langchain_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  sentence_transformers:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.sentence_transformers_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.sentence_transformers_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
+
+  johnsnowlabs:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.johnsnowlabs_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.johnsnowlabs_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+        run: |
+          ${{ matrix.run }}
+
+  promptflow:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.promptflow_is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.promptflow_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get python version
+        id: get-python-version
+        run: |
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          java_version=11
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install -U pip wheel
+          pip install -e .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}
