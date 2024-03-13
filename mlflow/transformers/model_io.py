@@ -59,7 +59,7 @@ def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, dev
     #     "artifacts/pipeline/*" path. In order to load the older formats after the change, the
     #     presence of the new path key is checked.
     model_path = path.joinpath(flavor_conf.get(FlavorKey.MODEL_BINARY, "pipeline"))
-    loaded[FlavorKey.MODEL] = _load_model(model_path, flavor_conf, accelerate_conf, device)
+    loaded[FlavorKey.MODEL] = _load_model(model_path)
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
@@ -93,9 +93,7 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
             error_code=INVALID_STATE,
         )
 
-    loaded[FlavorKey.MODEL] = _load_model(
-        model_repo, flavor_conf, accelerate_conf, device, revision=model_revision
-    )
+    loaded[FlavorKey.MODEL] = _load_model(model_repo, revision=model_revision)
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
@@ -123,7 +121,7 @@ def _load_component(flavor_conf, name, local_path=None):
         return cls.from_pretrained(repo, revision=revision)
 
 
-def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revision=None):
+def _load_model(model_name_or_path, revision=None):
     """
     Try to load a model with various loading strategies.
       1. Try to load the model with accelerate
@@ -131,29 +129,22 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
       3. Load the model without the device
     """
     import transformers
+    from transformers import AutoConfig
 
-    cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
-
-    load_kwargs = {"revision": revision} if revision else {}
-
-    if model := _try_load_model_with_accelerate(
-        cls, model_name_or_path, {**accelerate_conf, **load_kwargs}
-    ):
-        return model
-
-    load_kwargs["device"] = device
-    if torch_dtype := flavor_conf.get(FlavorKey.TORCH_DTYPE):
-        load_kwargs[FlavorKey.TORCH_DTYPE] = torch_dtype
-
-    if model := _try_load_model_with_device(cls, model_name_or_path, load_kwargs):
-        return model
-    _logger.warning(
-        "Could not specify device parameter for this pipeline type."
-        "Falling back to loading the model with the default device."
+    config = AutoConfig.from_pretrained(
+        model_name_or_path, revision=revision, trust_remote_code=True
     )
+    class_name = config.architectures[0]
 
-    load_kwargs.pop("device", None)
-    return cls.from_pretrained(model_name_or_path, **load_kwargs)
+    if hasattr(transformers, class_name):
+        model_class = getattr(transformers, class_name)
+        return model_class.from_pretrained(model_name_or_path, revision=revision)
+    else:
+        for auto_class, module in config.auto_map.items():
+            if class_name in module:
+                loader_cls = getattr(transformers, auto_class)
+                return loader_cls.from_pretrained(model_name_or_path, trust_remote_code=True)
+        raise MlflowException(f"Couldn't find a loader class for {class_name}")
 
 
 def _try_load_model_with_accelerate(model_class, model_name_or_path, load_kwargs):
