@@ -21,20 +21,23 @@ def trace(
 
     For example, the following code will yield a span with the name "my_function", capturing the
     input arguments `x` and `y`, and the output of the function.
-    ```
-    @mlflow.trace
-    def my_function(x, y):
-        return x + y
-    ```
+
+    .. code-block:: python
+
+        @mlflow.trace
+        def my_function(x, y):
+            return x + y
 
     Also this can be directly applied to a function call like this:
-    ```
-    def my_function(x, y):
-        return x + y
+
+    .. code-block:: python
+
+        def my_function(x, y):
+            return x + y
 
 
-    mlflow.trace(my_function)(1, 2)
-    ```
+        mlflow.trace(my_function)(1, 2)
+
     This works same as the previous example, but can be useful when you want to trace a function
     that is not defined by yourself.
 
@@ -77,14 +80,15 @@ def start_span(
     Context manager to create a new span and start it as the current span in the context.
 
     Example:
-    ```
-    with mlflow.start_span("my_span") as span:
-        span.set_inputs({"x": 1, "y": 2})
-        z = x + y
-        span.set_outputs({"z": z})
-        span.set_attribute("key", "value")
-        # do something
-    ```
+
+    .. code-block:: python
+
+        with mlflow.start_span("my_span") as span:
+            span.set_inputs({"x": 1, "y": 2})
+            z = x + y
+            span.set_outputs({"z": z})
+            span.set_attribute("key", "value")
+            # do something
 
     Args:
         name: The name of the span.
@@ -101,7 +105,7 @@ def start_span(
         tracer = _get_tracer(get_caller_module())
         span = tracer.start_span(name)
         span.set_attributes(attributes or {})
-    except:
+    except Exception:
         _logger.warning(f"Failed to start span with name {name}.")
         span = None
 
