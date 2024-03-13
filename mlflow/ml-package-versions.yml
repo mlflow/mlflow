@@ -57,7 +57,7 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "1.4.9"
+    minimum: "1.9.0"
     maximum: "2.2.0.post0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
@@ -288,7 +288,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.7.0"
+    minimum: "1.13.1"
     maximum: "1.15.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -348,7 +348,7 @@ spark:
       pyspark --version
 
   models:
-    minimum: "3.0.0"
+    minimum: "3.1.2"
     maximum: "3.5.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
@@ -375,7 +375,7 @@ spark:
       fi
 
   autologging:
-    minimum: "3.0.0"
+    minimum: "3.1.2"
     maximum: "3.5.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
