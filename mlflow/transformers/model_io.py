@@ -123,6 +123,56 @@ def _load_component(flavor_conf, name, local_path=None):
         return cls.from_pretrained(repo, revision=revision)
 
 
+def _load_class_from_transformers_config(model_name_or_path, revision=None):
+    """
+    This method retrieves the Transformers AutoClass from the transformers config.
+    Using the correct AutoClass allows us to leverage Transformers' model loading
+    machinery, which is necessary for supporting models using custom code.
+    """
+    import transformers
+    from transformers import AutoConfig
+
+    config = AutoConfig.from_pretrained(
+        model_name_or_path,
+        revision=revision,
+        # trust_remote_code is set to True in order to
+        # make sure the config gets loaded as the correct
+        # class. if this is not set for custom models, the
+        # base class will be loaded instead of the custom one.
+        trust_remote_code=True,
+    )
+
+    # the model's class name (e.g. "MPTForCausalLM")
+    # is stored in the `architectures` field. it
+    # seems to usually just have one element.
+    class_name = config.architectures[0]
+
+    # if the class is available in transformers natively,
+    # then we don't need to execute any custom code.
+    if hasattr(transformers, class_name):
+        cls = getattr(transformers, class_name)
+        return cls, False
+    else:
+        # else, we need to fetch the correct AutoClass.
+        # this is defined in the `auto_map` field. there
+        # should only be one AutoClass that maps to the
+        # model's class name.
+        auto_classes = [
+            auto_class
+            for auto_class, module in config.auto_map.items()
+            if module.endswith(class_name)
+        ]
+
+        if len(auto_classes) == 0:
+            raise MlflowException(f"Couldn't find a loader class for {class_name}")
+
+        auto_class = auto_classes[0]
+        cls = getattr(transformers, auto_class)
+
+        # we will need to trust remote code when loading the model
+        return cls, True
+
+
 def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revision=None):
     """
     Try to load a model with various loading strategies.
@@ -131,29 +181,14 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
       3. Load the model without the device
     """
     import transformers
-    from transformers import AutoConfig
 
     if hasattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE]):
         cls = getattr(transformers, flavor_conf[FlavorKey.MODEL_TYPE])
         trust_remote = False
     else:
-        config = AutoConfig.from_pretrained(
-            model_name_or_path, revision=revision, trust_remote_code=True
+        cls, trust_remote = _load_class_from_transformers_config(
+            model_name_or_path, revision=revision
         )
-        class_name = config.architectures[0]
-
-        if hasattr(transformers, class_name):
-            cls = getattr(transformers, class_name)
-            trust_remote = False
-        else:
-            auto_classes = [
-                auto_class for auto_class, module in config.auto_map.items() if class_name in module
-            ]
-            if len(auto_classes) == 0:
-                raise MlflowException(f"Couldn't find a loader class for {class_name}")
-            auto_class = auto_classes[0]
-            cls = getattr(transformers, auto_class)
-            trust_remote = True
 
     load_kwargs = {"revision": revision} if revision else {}
     if trust_remote:
