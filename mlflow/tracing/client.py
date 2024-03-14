@@ -55,14 +55,14 @@ class DummyTraceClientWithHTMLDisplay(TraceClient):
             _span = Span(**span.__dict__)
             _span.start_time = (span.start_time - root_start_time) / 1e9
             _span.end_time = (span.end_time - root_start_time) / 1e9
-            id_to_node[_span.span_id] = self._Node(span=_span)
+            id_to_node[_span.context.span_id] = self._Node(span=_span)
 
         root_node = None
         for span in trace.trace_data.spans:
-            if span.context.parent_span_id is None:
-                root_node = id_to_node[span.span_id]
+            if span.parent_span_id is None:
+                root_node = id_to_node[span.context.span_id]
             else:
-                id_to_node[span.context.parent_span_id].children.append(id_to_node[span.span_id])
+                id_to_node[span.parent_span_id].children.append(id_to_node[span.context.span_id])
         return root_node
 
     def _generate_html_with_interaction_and_style(self, root_node: _Node):
@@ -111,7 +111,7 @@ class DummyTraceClientWithHTMLDisplay(TraceClient):
                 End Time: {span.end_time:.2f} s
                 <div class="metadata">
                     <p><b>Trace ID</b>: {span.context.trace_id}</p>
-                    <p><b>Span ID</b>: {span.span_id}</p>
+                    <p><b>Span ID</b>: {span.context.span_id}</p>
                     <p><b>Inputs</b>: {span.inputs}</p>
                     <p><b>Outputs</b>: {span.outputs}</p>
                     <p><b>Attributes</b>: {span.attributes}</p>
