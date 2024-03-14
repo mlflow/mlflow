@@ -4,6 +4,7 @@ from tests.transformers.helper import (
     load_audio_classification_pipeline,
     load_component_multi_modal,
     load_conversational_pipeline,
+    load_custom_code_pipeline,
     load_feature_extraction_pipeline,
     load_fill_mask_pipeline,
     load_ner_pipeline,
@@ -48,6 +49,11 @@ def small_multi_modal_pipeline():
 @pytest.fixture
 def component_multi_modal():
     return load_component_multi_modal()
+
+
+@pytest.fixture
+def custom_code_pipeline():
+    return load_custom_code_pipeline()
 
 
 @pytest.fixture

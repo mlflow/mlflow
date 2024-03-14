@@ -1369,6 +1369,32 @@ def test_table_question_answering_pipeline(
     assert pd_inference == result
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
+)
+def test_custom_code_pipeline(custom_code_pipeline, model_path):
+    data = "hello"
+
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(custom_code_pipeline, data)
+    )
+
+    mlflow.transformers.save_model(
+        custom_code_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+
+    # just test that it doens't blow up when performing inference
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_pred = pyfunc_loaded.predict(data)
+    assert isinstance(pyfunc_pred[0][0], float)
+
+    transformers_loaded = mlflow.transformers.load_model(model_path)
+    transformers_pred = transformers_loaded(data)
+    assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
+
+
 @pytest.mark.parametrize(
     ("data", "result"),
     [
@@ -2846,8 +2872,8 @@ def test_whisper_model_with_malformed_audio(whisper_pipeline):
 def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     # non-ascii unicode characters
     test_text = (
-        "Emoji testing! \u2728 \U0001F600 \U0001F609 \U0001F606 "
-        "\U0001F970 \U0001F60E \U0001F917 \U0001F9D0"
+        "Emoji testing! \u2728 \U0001f600 \U0001f609 \U0001f606 "
+        "\U0001f970 \U0001f60e \U0001f917 \U0001f9d0"
     )
 
     card_data: ModelCard = huggingface_hub.ModelCard.load(model_name)
