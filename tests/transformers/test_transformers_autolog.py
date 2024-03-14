@@ -22,12 +22,6 @@ from transformers import (
 import mlflow
 
 
-# TODO: Remove this fixture once https://github.com/huggingface/transformers/pull/29096 is merged
-@pytest.fixture(autouse=True)
-def set_mlflow_tracking_uri_env_var(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("MLFLOW_TRACKING_URI", mlflow.get_tracking_uri())
-
-
 @pytest.fixture
 def iris_data():
     iris = sklearn.datasets.load_iris()
