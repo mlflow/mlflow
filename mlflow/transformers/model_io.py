@@ -110,12 +110,28 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
 def _load_component(flavor_conf, name, local_path=None):
     import transformers
 
-    cls = getattr(transformers, flavor_conf[FlavorKey.COMPONENT_TYPE.format(name)])
+    component_name = flavor_conf[FlavorKey.COMPONENT_TYPE.format(name)]
+    if hasattr(transformers, component_name):
+        cls = getattr(transformers, component_name)
+        trust_remote = False
+    else:
+        # TODO: test if this works for weightless models with custom
+        # components (though they should already be broken)
+        if local_path is None:
+            raise MlflowException(
+                "A custom component `{}` is specified, but no "
+                "local config file was found to retrieve the "
+                "definition. Make sure your model was saved "
+                "correctly."
+            )
+        cls, trust_remote = _load_class_from_transformers_config(
+            local_path.joinpath(_COMPONENTS_BINARY_DIR_NAME, name)
+        )
 
     if local_path is not None:
         # Load component from local file
         path = local_path.joinpath(_COMPONENTS_BINARY_DIR_NAME, name)
-        return cls.from_pretrained(str(path))
+        return cls.from_pretrained(str(path), trust_remote_code=trust_remote)
     else:
         # Load component from HuggingFace Hub
         repo = flavor_conf[FlavorKey.COMPONENT_NAME.format(name)]
