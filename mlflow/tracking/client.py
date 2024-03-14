@@ -38,7 +38,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
-from mlflow.tracking.multimedia import _compress_image_size, _convert_numpy_to_pil_image, Image
+from mlflow.tracking.multimedia import Image, _compress_image_size, _convert_numpy_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -1477,7 +1477,9 @@ class MlflowClient:
                 will be stored as an artifact relative to the run's root directory (for
                 example, "dir/image.png"). This parameter is kept for backward compatibility
                 and should not be used together with `key`, `step`, or `timestamp`.
-            key: Image name for time-stepped image logging.
+            key: Image name for time-stepped image logging. This string may only contain
+                alphanumerics, underscores (_), dashes (-), periods (.), spaces ( ), and
+                slashes (/).
             step: Integer training step (iteration) at which the image was saved.
                 Defaults to 0.
             timestamp: Time when this image was saved. Defaults to the current system time.
@@ -1565,8 +1567,20 @@ class MlflowClient:
                 image.save(tmp_path)
 
         elif key is not None:
+            import re
+
+            # Check image key for invalid characters
+            if not re.match(r"^[a-zA-Z0-9_\-./ ]+$", key):
+                raise ValueError(
+                    "The `key` parameter may only contain alphanumerics, underscores (_), "
+                    "dashes (-), periods (.), spaces ( ), and slashes (/)."
+                )
+
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
+
+            # Sanitize key to use in filename (replace / with # to avoid subdirectories)
+            key = re.sub(r"/", "#", key)
             filename = f"images/{key}/{key}_step_{step}_timestamp_{timestamp}_{uuid.uuid4()}"
 
             # Save full-res image
