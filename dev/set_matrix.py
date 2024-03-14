@@ -99,8 +99,8 @@ class MatrixItem(BaseModel):
     run: str
     package: str
     version: Version
-    supported: bool
     java: str
+    supported: bool
 
     class Config:
         arbitrary_types_allowed = True
@@ -370,8 +370,8 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=ver,
-                        supported=ver <= cfg.maximum,
                         java=java,
+                        supported=ver <= cfg.maximum,
                     )
                 )
 
@@ -396,8 +396,8 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=dev_version,
-                        supported=False,
                         java=java,
+                        supported=False,
                     )
                 )
     return matrix
