@@ -64,6 +64,7 @@ _MODEL_BINARY_FILE_NAME = "model.cb"
 model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
 
 _logger = logging.getLogger(__name__)
+_DUMMY = "hoge"
 
 
 def get_default_pip_requirements():
