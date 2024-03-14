@@ -7,6 +7,11 @@ from typing import Any, Dict, Optional, Sequence
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.tracing.client import TraceClient
+from mlflow.tracing.types.constant import (
+    MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
+    TRUNCATION_SUFFIX,
+    TraceAttributeKey,
+)
 from mlflow.tracing.types.model import Span, Trace, TraceData, TraceInfo
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
@@ -26,10 +31,6 @@ class MLflowSpanExporter(SpanExporter):
     If we want to support distributed tracing, we should first implement an incremental trace
     logging in MLflow backend, then we can get rid of the in-memory trace aggregation.
     """
-
-    _MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE = 300  # TBD
-    _TRUNCATION_SUFFIX = "..."
-    _actual_truncation_length = _MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(_TRUNCATION_SUFFIX)
 
     def __init__(self, client: TraceClient):
         self._client = client
@@ -74,16 +75,18 @@ class MLflowSpanExporter(SpanExporter):
         # Create a TraceInfo object from the root span information
         trace_info = TraceInfo(
             trace_id=root_span.context.trace_id,
-            name=root_span.name,
+            # TODO: Hardcoding as the requirement is still in TBD.
+            experiment_id="EXPERIMENT",
             start_time=root_span.start_time,
             end_time=root_span.end_time,
             status=root_span.status,
-            inputs=self._serialize_inputs_outputs(root_span.inputs),
-            outputs=self._serialize_inputs_outputs(root_span.outputs),
-            # TODO: These fields should be set if necessary
-            metadata={},
+            attributes={
+                TraceAttributeKey.NAME: root_span.name,
+                TraceAttributeKey.INPUTS: self._serialize_inputs_outputs(root_span.inputs),
+                TraceAttributeKey.OUTPUTS: self._serialize_inputs_outputs(root_span.outputs),
+                # TODO: Add source attribute
+            },
             tags={},
-            source=None,
         )
         trace = Trace(trace_info, trace_data)
         self._client.log_trace(trace)
@@ -101,8 +104,9 @@ class MLflowSpanExporter(SpanExporter):
             # If not JSON-serializable, use string representation
             serialized = str(input_or_output)
 
-        if len(serialized) > self._MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE:
-            serialized = serialized[: self._actual_truncation_length] + self._TRUNCATION_SUFFIX
+        if len(serialized) > MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE:
+            trunc_length = MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(TRUNCATION_SUFFIX)
+            serialized = serialized[:trunc_length] + TRUNCATION_SUFFIX
         return serialized
 
 

@@ -23,28 +23,22 @@ class TraceInfo:
 
     Args:
         trace_id: Unique identifier of the trace.
-        name: Name of the trace. Inherited from the root span name at the time of trace creation.
+        experiment_id: The ID of the experiment that contains the trace.
         start_time: Start time of the trace in microseconds, inherited from the root span.
         end_time: End time of the trace in microseconds, inherited from the root span.
         status: Status of the trace, inherited from the root span.
-        inputs: Serialized and truncated input data of the root span.
-        outputs: Serialized and truncated output data of the root span. The full data can be
-            found in the root span object in TraceData.
-        metadata: Key-value pairs set at the time of trace creation and immutable afterwords.
-        tags: Key-value pairs for users to attach additional information to the trace.
-        source: The entity (model_id, app_version_id, etc) from which the trace is generated.
+        attributes: Arbitrary string key-value pairs of other trace attributes such as
+            name, source, root-level inputs and outputs, etc.
+        tags: String key-value pairs to attach labels to the trace.
     """
 
     trace_id: str
-    name: str
+    experiment_id: str
     start_time: int
     end_time: int
     status: Status
-    inputs: str
-    outputs: str
-    metadata: Dict[str, Any]
-    tags: Dict[str, Union[str, float]]
-    source: Optional[str] = None
+    attributes: Dict[str, str]
+    tags: Dict[str, str]
 
 
 @dataclass

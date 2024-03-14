@@ -6,6 +6,11 @@ import pandas as pd
 from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.tracing.export.mlflow import InMemoryTraceDataAggregator, MLflowSpanExporter
+from mlflow.tracing.types.constant import (
+    MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
+    TRUNCATION_SUFFIX,
+    TraceAttributeKey,
+)
 from mlflow.tracing.types.model import Span, SpanContext, SpanType, Status, StatusCode
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
@@ -69,17 +74,20 @@ def test_export():
     # Trace info should inherit fields from the root span
     trace_info = client_call_args.trace_info
     assert trace_info.trace_id == trace_id
-    assert trace_info.name == "test_span"
     assert trace_info.start_time == 0
     assert trace_info.end_time == 4
+    assert trace_info.attributes[TraceAttributeKey.NAME] == "test_span"
 
-    # Inputs and outputs in TraceInfo should be serialized and truncated
-    assert trace_info.inputs.startswith('{"input1": "very long input')
-    assert trace_info.inputs.endswith(MLflowSpanExporter._TRUNCATION_SUFFIX)
-    assert len(trace_info.inputs) == MLflowSpanExporter._MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
-    assert trace_info.outputs.startswith('{"output1": "very long output')
-    assert trace_info.outputs.endswith(MLflowSpanExporter._TRUNCATION_SUFFIX)
-    assert len(trace_info.outputs) == MLflowSpanExporter._MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
+    # Inputs and outputs in TraceInfo attributes should be serialized and truncated
+    inputs = trace_info.attributes[TraceAttributeKey.INPUTS]
+    assert inputs.startswith('{"input1": "very long input')
+    assert inputs.endswith(TRUNCATION_SUFFIX)
+    assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
+
+    outputs = trace_info.attributes[TraceAttributeKey.OUTPUTS]
+    assert outputs.startswith('{"output1": "very long output')
+    assert outputs.endswith(TRUNCATION_SUFFIX)
+    assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 
     # All 3 spans should be in the logged trace data
     assert len(client_call_args.trace_data.spans) == 3

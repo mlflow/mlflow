@@ -2,6 +2,7 @@ import time
 from unittest import mock
 
 import mlflow
+from mlflow.tracing.types.constant import TraceAttributeKey
 from mlflow.tracing.types.model import SpanType, StatusCode
 
 
@@ -34,8 +35,8 @@ def test_trace(mock_client):
     assert trace_info.trace_id is not None
     assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.inputs == '{"x": 2, "y": 5}'
-    assert trace_info.outputs == '{"output": 64}'
+    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 64}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
@@ -88,8 +89,8 @@ def test_trace_handle_exception_during_prediction(mock_client):
     trace_info = trace.trace_info
     assert trace_info.trace_id is not None
     assert trace_info.status.status_code == StatusCode.ERROR
-    assert trace_info.inputs == '{"x": 2, "y": 5}'
-    assert trace_info.outputs == ""
+    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == ""
 
     spans = trace.trace_data.spans
     assert len(spans) == 2
@@ -120,8 +121,8 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
     mock_client.log_trace.assert_called_once()
     trace = mock_client.log_trace.call_args[0][0]
     trace_info = trace.trace_info
-    assert trace_info.inputs == ""
-    assert trace_info.outputs == '{"output": 7}'
+    assert trace_info.attributes[TraceAttributeKey.INPUTS] == ""
+    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 7}'
 
 
 def test_start_span_context_manager(mock_client):
@@ -158,8 +159,8 @@ def test_start_span_context_manager(mock_client):
     assert trace_info.trace_id is not None
     assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.inputs == '{"x": 1, "y": 2}'
-    assert trace_info.outputs == '{"output": 25}'
+    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 25}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
