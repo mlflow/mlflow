@@ -1235,6 +1235,7 @@ def log_image(
     The following image formats are supported:
         - `numpy.ndarray`_
         - `PIL.Image.Image`_
+        - `mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
 
         .. _numpy.ndarray:
             https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
@@ -1295,6 +1296,19 @@ def log_image(
 
         with mlflow.start_run():
             mlflow.log_image(image, key="dogs", step=3)
+
+    .. code-block:: python
+        :caption: Time-stepped image logging with mlflow.Image example
+
+        import mlflow
+        from PIL import Image
+
+        # If you have a preexisting saved image
+        Image.new("RGB", (100, 100)).save("image.png")
+
+        image = mlflow.Image("image.png")
+        with mlflow.start_run() as run:
+            mlflow.log_image(run.info.run_id, image, key="dogs", step=3)
 
     .. code-block:: python
         :caption: Legacy artifact file image logging numpy example

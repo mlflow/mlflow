@@ -38,6 +38,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
+from mlflow.tracking.multimedia import _compress_image_size, _convert_numpy_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -1422,7 +1423,7 @@ class MlflowClient:
     def log_image(
         self,
         run_id: str,
-        image: Union["numpy.ndarray", "PIL.Image.Image"],
+        image: Union["numpy.ndarray", "PIL.Image.Image", mlflow.Image],
         artifact_file: Optional[str] = None,
         key: Optional[str] = None,
         step: Optional[int] = None,
@@ -1441,6 +1442,7 @@ class MlflowClient:
         The following image formats are supported:
             - `numpy.ndarray`_
             - `PIL.Image.Image`_
+            - `mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
 
             .. _numpy.ndarray:
                 https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
@@ -1503,6 +1505,20 @@ class MlflowClient:
                 client.log_image(run.info.run_id, image, key="dogs", step=3)
 
         .. code-block:: python
+            :caption: Time-stepped image logging with mlflow.Image example
+
+            import mlflow
+            from PIL import Image
+
+            # If you have a preexisting saved image
+            Image.new("RGB", (100, 100)).save("image.png")
+
+            image = mlflow.Image("image.png")
+            with mlflow.start_run() as run:
+                client = mlflow.MlflowClient()
+                client.log_image(run.info.run_id, image, key="dogs", step=3)
+
+        .. code-block:: python
             :caption: Legacy artifact file image logging numpy example
 
             import mlflow
@@ -1536,19 +1552,35 @@ class MlflowClient:
                 "`key` to log dynamic image charts or `artifact_file` for saving static images. "
             )
 
+        import numpy as np
+
+        # Convert image type to PIL if its a numpy array
+        if isinstance(image, np.ndarray):
+            image = _convert_numpy_to_pil_image(image)
+        elif isinstance(image, mlflow.Image):
+            image = image.to_pil()
+
         if artifact_file is not None:
-            self._log_image_as_artifact(run_id, image, artifact_file)
+            with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+                image.save(tmp_path)
 
         elif key is not None:
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
-            filename = f"images/{key}/{key}_step_{step}_{uuid.uuid4()}"
+            filename = f"images/{key}/{key}_step_{step}_timestamp_{timestamp}_{uuid.uuid4()}"
+
+            # Save full-res image
             image_filepath = f"{filename}.png"
+            with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
+                image.save(tmp_path)
+
+            # Save compressed image
             compressed_image_filepath = f"{filename}.webp"
+            with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+                _compress_image_size(image).save(tmp_path)
+
+            # Save metadata file
             metadata_filepath = f"{filename}.json"
-            self._log_image_as_artifact(
-                run_id, image, image_filepath, compressed_artifact_file=compressed_image_filepath
-            )
             with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
                 with open(tmp_path, "w+") as f:
                     json.dump(
@@ -1560,112 +1592,6 @@ class MlflowClient:
                         },
                         f,
                     )
-
-    def _log_image_as_artifact(
-        self,
-        run_id: str,
-        image: Union["numpy.ndarray", "PIL.Image.Image"],
-        artifact_file: str,
-        compressed_artifact_file: Optional[str] = None,
-        compressed_file_max_size: Optional[int] = 256,
-    ) -> None:
-        def _is_pillow_image(image):
-            from PIL.Image import Image
-
-            return isinstance(image, Image)
-
-        def _is_numpy_array(image):
-            import numpy as np
-
-            return isinstance(image, np.ndarray)
-
-        def _normalize_to_uint8(x):
-            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684
-
-            is_int = np.issubdtype(x.dtype, np.integer)
-            low = 0
-            high = 255 if is_int else 1
-            if x.min() < low or x.max() > high:
-                if is_int:
-                    raise ValueError(
-                        "Integer pixel values out of acceptable range [0, 255]. "
-                        f"Found minimum value {x.min()} and maximum value {x.max()}. "
-                        "Ensure all pixel values are within the specified range."
-                    )
-                else:
-                    raise ValueError(
-                        "Float pixel values out of acceptable range [0.0, 1.0]. "
-                        f"Found minimum value {x.min()} and maximum value {x.max()}. "
-                        "Ensure all pixel values are within the specified range."
-                    )
-
-            # float or bool
-            if not is_int:
-                x = x * 255
-
-            return x.astype(np.uint8)
-
-        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            import numpy as np
-
-            try:
-                from PIL import Image
-            except ImportError as exc:
-                raise ImportError(
-                    "`log_image` requires Pillow to serialize a numpy array as an image. "
-                    "Please install it via: pip install Pillow"
-                ) from exc
-
-            # Convert to pillow image if numpy array
-            if "numpy" in sys.modules and _is_numpy_array(image):
-                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind
-                valid_data_types = {
-                    "b": "bool",
-                    "i": "signed integer",
-                    "u": "unsigned integer",
-                    "f": "floating",
-                }
-
-                if image.dtype.kind not in valid_data_types:
-                    raise TypeError(
-                        f"Invalid array data type: '{image.dtype}'. "
-                        f"Must be one of {list(valid_data_types.values())}"
-                    )
-
-                if image.ndim not in [2, 3]:
-                    raise ValueError(
-                        f"`image` must be a 2D or 3D array but got a {image.ndim}D array"
-                    )
-
-                if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
-                    raise ValueError(
-                        f"Invalid channel length: {image.shape[2]}. Must be one of [1, 3, 4]"
-                    )
-
-                # squeeze a 3D grayscale image since `Image.fromarray` doesn't accept it.
-                if image.ndim == 3 and image.shape[2] == 1:
-                    image = image[:, :, 0]
-
-                image = _normalize_to_uint8(image)
-                image = Image.fromarray(image)
-
-            if "PIL" in sys.modules and _is_pillow_image(image):
-                image.save(tmp_path)
-                if compressed_artifact_file:
-                    with self._log_artifact_helper(
-                        run_id, compressed_artifact_file
-                    ) as compressed_path:
-                        # scale the image to max(width, height) <= compressed_file_max_size
-                        width, height = image.size
-                        if width > height:
-                            new_width = compressed_file_max_size
-                            new_height = int(height * (new_width / width))
-                        else:
-                            new_height = compressed_file_max_size
-                            new_width = int(width * (new_height / height))
-                        image.resize((new_width, new_height)).save(compressed_path)
-            else:
-                raise TypeError(f"Unsupported image object type: '{type(image)}'")
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
