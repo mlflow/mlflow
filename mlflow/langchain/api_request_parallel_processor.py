@@ -233,8 +233,16 @@ class APIRequest:
                 else:
                     response = generate_response(prepared_request_json, callback_handlers)
 
-                if not stream and (did_perform_chat_conversion or self.convert_chat_responses):
-                    response = APIRequest._try_transform_response_to_chat_format(response)
+                if did_perform_chat_conversion or self.convert_chat_responses:
+                    if stream:
+                        def transform(tokens):
+                            for token in tokens:
+                                yield APIRequest._try_transform_response_to_chat_format(token, stream=True)
+
+                        response = transform(response)
+                    else:
+
+                        response = APIRequest._try_transform_response_to_chat_format(response)
             else:
                 (
                     prepared_request_json,
@@ -315,7 +323,7 @@ class APIRequest:
             return request_json, False
 
     @staticmethod
-    def _try_transform_response_to_chat_format(response):
+    def _try_transform_response_to_chat_format(response, stream: bool = False):
         if isinstance(response, str):
             message_content = response
         elif isinstance(response, AIMessage):
@@ -343,6 +351,8 @@ class APIRequest:
                 total_tokens=None,
             ),
         )
+        if stream:
+            transformed_response.object += ".chunk"
 
         if Version(pydantic.__version__) < Version("2.0"):
             return json.loads(transformed_response.json())
