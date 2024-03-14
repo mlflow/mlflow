@@ -1369,6 +1369,9 @@ def test_table_question_answering_pipeline(
     assert pd_inference == result
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
+)
 def test_custom_code_pipeline(custom_code_pipeline, model_path):
     data = "hello"
 
