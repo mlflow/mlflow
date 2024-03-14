@@ -145,17 +145,7 @@ jobs:
       - name: Get Java version
         id: get-java-version
         run: |
-          if [ "${{ matrix.package }}" = "mleap" ]
-          then
-            pip install packaging
-            supports_java11=$(python -c "from packaging.version import parse; print(parse('${{ matrix.version }}') >= parse('0.21.0'))")
-            if [ "$supports_java11" = "True" ]
-            then
-              java_version=11
-            else
-              java_version=8
-            fi
-          elif [ "${{ matrix.package }}" = "pyspark" ]; then
+          if [ "${{ matrix.package }}" = "pyspark" ]; then
             pip install packaging
             use_java17=$(python -c "from packaging.version import parse; print('${{ matrix.version }}' == 'dev' or parse('${{ matrix.version }}') > parse('3.4.1'))")
             if [ "$use_java17" = "True" ]; then
