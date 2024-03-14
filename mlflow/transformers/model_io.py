@@ -160,7 +160,7 @@ def _load_class_from_transformers_config(model_name_or_path, revision=None):
         auto_classes = [
             auto_class
             for auto_class, module in config.auto_map.items()
-            if module.endswith(class_name)
+            if module.split(".")[-1] == class_name
         ]
 
         if len(auto_classes) == 0:
