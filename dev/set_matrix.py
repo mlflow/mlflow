@@ -70,6 +70,7 @@ class TestConfig(BaseModel):
     maximum: Version
     unsupported: t.Optional[t.List[Version]] = None
     requirements: t.Optional[t.Dict[str, t.List[str]]] = None
+    java: t.Optional[t.Dict[str, str]] = None
     run: str
     allow_unreleased_max_version: t.Optional[bool] = None
 
@@ -99,6 +100,7 @@ class MatrixItem(BaseModel):
     package: str
     version: Version
     supported: bool
+    java: str
 
     class Config:
         arbitrary_types_allowed = True
@@ -228,6 +230,19 @@ def get_matched_requirements(requirements, version=None):
     return sorted(reqs)
 
 
+def get_java_version(java: t.Optional[t.Dict[str, str]], version: str) -> str:
+    default = "11"
+    if java is None:
+        return default
+
+    for specifier, java_ver in java.items():
+        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            return java_ver
+
+    return default
+
+
 def remove_comments(s):
     return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
 
@@ -343,6 +358,7 @@ def expand_config(config):
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
+                java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
                     MatrixItem(
@@ -355,6 +371,7 @@ def expand_config(config):
                         package=package_info.pip_release,
                         version=ver,
                         supported=ver <= cfg.maximum,
+                        java=java,
                     )
                 )
 
@@ -365,6 +382,7 @@ def expand_config(config):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
+                java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
                 dev_version = Version.create_dev()
@@ -379,6 +397,7 @@ def expand_config(config):
                         package=package_info.pip_release,
                         version=dev_version,
                         supported=False,
+                        java=java,
                     )
                 )
     return matrix
