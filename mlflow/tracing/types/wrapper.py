@@ -17,9 +17,11 @@ class MLflowSpanWrapper:
     Span object, so need to implement the same interfaces as the original Span.
     """
 
-    def __init__(self, span: trace_api.Span, span_type: SpanType = SpanType.UNKNOWN):
+    def __init__(self, span: trace_api.Span, span_type: SpanType = None):
         self._span = span
-        self._span_type = span_type
+        # NB: Default to UNKNOWN type, but not use it as default in the constructor
+        #  cuz some upstream function want to pass None by default.
+        self._span_type = span_type or SpanType.UNKNOWN
         self._inputs = None
         self._outputs = None
 

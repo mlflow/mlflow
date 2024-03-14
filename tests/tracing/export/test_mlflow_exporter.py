@@ -75,9 +75,11 @@ def test_export():
 
     # Inputs and outputs in TraceInfo should be serialized and truncated
     assert trace_info.inputs.startswith('{"input1": "very long input')
-    assert len(trace_info.inputs) == 300
+    assert trace_info.inputs.endswith(MLflowSpanExporter._TRUNCATION_SUFFIX)
+    assert len(trace_info.inputs) == MLflowSpanExporter._MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
     assert trace_info.outputs.startswith('{"output1": "very long output')
-    assert len(trace_info.outputs) == 300
+    assert trace_info.outputs.endswith(MLflowSpanExporter._TRUNCATION_SUFFIX)
+    assert len(trace_info.outputs) == MLflowSpanExporter._MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 
     # All 3 spans should be in the logged trace data
     assert len(client_call_args.trace_data.spans) == 3

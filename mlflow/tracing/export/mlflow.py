@@ -27,7 +27,9 @@ class MLflowSpanExporter(SpanExporter):
     logging in MLflow backend, then we can get rid of the in-memory trace aggregation.
     """
 
-    _MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS = 300  # TBD
+    _MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE = 300  # TBD
+    _TRUNCATION_SUFFIX = "..."
+    _actual_truncation_length = _MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(_TRUNCATION_SUFFIX)
 
     def __init__(self, client: TraceClient):
         self._client = client
@@ -99,7 +101,9 @@ class MLflowSpanExporter(SpanExporter):
             # If not JSON-serializable, use string representation
             serialized = str(input_or_output)
 
-        return serialized[: self._MAX_CHARS_IN_TRACE_INFO_INPUTS_OUTPUTS]
+        if len(serialized) > self._MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE:
+            serialized = serialized[: self._actual_truncation_length] + self._TRUNCATION_SUFFIX
+        return serialized
 
 
 class InMemoryTraceDataAggregator:

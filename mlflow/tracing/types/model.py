@@ -6,8 +6,13 @@ from typing import Any, Dict, List, Optional, Union
 
 @dataclass
 class Trace:
-    """TBA
+    """A trace object. (TODO: Add conceptual guide for tracing.)
+
+    Args:
+        trace_info: A lightweight object that contains the metadata of a trace.
+        trace_data: A container object that holds the spans data of a trace.
     """
+
     trace_info: TraceInfo
     trace_data: TraceData
 
@@ -26,9 +31,10 @@ class TraceInfo:
         outputs: Serialized and truncated output data of the root span. The full data can be
             found in the root span object in TraceData.
         metadata: Key-value pairs set at the time of trace creation and immutable afterwords.
-        tags: Key-value pairs that can be mutated by the user to attach additional information to the trace.
+        tags: Key-value pairs for users to attach additional information to the trace.
         source: The entity (model_id, app_version_id, etc) from which the trace is generated.
     """
+
     trace_id: str
     name: str
     start_time: int
@@ -48,28 +54,38 @@ class TraceData:
     Args:
         spans: List of spans that are part of the trace.
     """
+
     spans: List[Span]
 
 
 @dataclass
 class Span:
-    """TBA
+    """A span object. (TODO: Add conceptual guide for span vs trace.)
+
+    Args:
+        name: Name of the span.
+        context: SpanContext object that contains the trace_id and span_id.
+        parent_span_id: Id of the parent span. If None, the span is the root span.
+        span_type: Type of the span. Can be a pre-defined enum or a custom string.
+        status: Status of the span.
+        start_time: Start time of the span in microseconds.
+        end_time: End time of the span in microseconds.
+        inputs: Inputs data of the span. Optional.
+        outputs: Outputs data of the span. Optional.
+        attributes: Arbitrary key-value pairs of the span attributes. Optional.
+        events: List of events that happened during the span. Optional.
     """
+
     name: str
     context: SpanContext
     parent_span_id: Optional[str]
-    # Type of the span can be either a pre-defined enum or a custom string.
     span_type: Union[SpanType, str]
     status: Status
-    # Start and end time of the span in microseconds
     start_time: int
     end_time: int
-    # Inputs and outputs data of the span.
     inputs: Optional[Dict[str, Any]] = None
     outputs: Optional[Dict[str, Any]] = None
-    # Arbitrary key-value pairs of the span attributes.
     attributes: Optional[Dict[str, Any]] = None
-    # Point of time events that happened during the span.
     events: Optional[List[Event]] = None
 
 

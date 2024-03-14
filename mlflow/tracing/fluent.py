@@ -10,6 +10,7 @@ def trace(
     name: Optional[str] = None,
     span_type: Optional[str] = None,
     attributes: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, str]] = None,
 ):
     """
     Decorator that create a new span for the decorated function.
@@ -44,6 +45,7 @@ def trace(
         name: The name of the span. If not provided, the name of the function will be used.
         span_type: The type of the span. Can be either a string or a SpanType enum value.
         attributes: A dictionary of attributes to set on the span.
+        tags: A string tag that can be attached to the span.
     """
     from mlflow.tracing.utils import capture_function_input_args
 
@@ -112,8 +114,7 @@ def start_span(
             # Setting end_on_exit = False to suppress the default span
             # export and instead invoke MLflowSpanWrapper.end()
             with trace_api.use_span(span, end_on_exit=False):
-                kwargs = {"span_type": span_type} if span_type else {}
-                mlflow_span = MLflowSpanWrapper(span, **kwargs)
+                mlflow_span = MLflowSpanWrapper(span, span_type=span_type)
                 mlflow_span.set_attributes(attributes or {})
                 yield mlflow_span
         else:
