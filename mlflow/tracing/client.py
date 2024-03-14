@@ -103,7 +103,7 @@ class DummyTraceClientWithHTMLDisplay(TraceClient):
         """
 
         def _pretty_print_dict(dict):
-            return f"<pre>{json.dumps(dict, default=lambda obj: str(obj), indent=2)}</pre>"
+            return f"<pre>{json.dumps(dict, default=str, indent=2)}</pre>"
 
         # Function to recursively generate HTML for each span event with depth-based indentation
         def _generate_span_html(node, depth=0):
