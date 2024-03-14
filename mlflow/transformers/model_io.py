@@ -136,7 +136,7 @@ def _load_component(flavor_conf, name, local_path=None):
         # Load component from HuggingFace Hub
         repo = flavor_conf[FlavorKey.COMPONENT_NAME.format(name)]
         revision = flavor_conf.get(FlavorKey.COMPONENT_REVISION.format(name))
-        return cls.from_pretrained(repo, revision=revision)
+        return cls.from_pretrained(repo, revision=revision, trust_remote_code=trust_remote)
 
 
 def _load_class_from_transformers_config(model_name_or_path, revision=None):
