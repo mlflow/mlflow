@@ -516,12 +516,7 @@ def patched_fit(original, self, *args, **kwargs):
         if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
             self.callbacks += [
                 __MLflowPLCallback(
-                    client,
-                    metrics_logger,
-                    run_id,
-                    log_models,
-                    log_every_n_epoch,
-                    log_every_n_step,
+                    client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
                 )
             ]
 
