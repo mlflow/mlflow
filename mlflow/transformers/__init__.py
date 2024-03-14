@@ -1,4 +1,5 @@
 """MLflow module for HuggingFace/transformer support."""
+
 from __future__ import annotations
 
 import ast
@@ -280,7 +281,9 @@ def save_model(
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
-    Save a trained transformers model to a path on the local file system.
+    Save a trained transformers model to a path on the local file system. Note that
+    saving transformers models with custom code (i.e. models that require
+    ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
 
     Args:
         transformers_model:
@@ -708,7 +711,9 @@ def log_model(
     **kwargs,
 ):
     """
-    Log a ``transformers`` object as an MLflow artifact for the current run.
+    Log a ``transformers`` object as an MLflow artifact for the current run. Note that
+    logging transformers models with custom code (i.e. models that require
+    ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
 
     Args:
         transformers_model:

@@ -403,6 +403,9 @@ Pipelines vs. Component Logging
 
 The transformers flavor has two different primary mechanisms for saving and loading models: pipelines and components.
 
+.. note::
+    Saving transformers models with custom code (i.e. models that require ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
+
 **Pipelines**
 
 Pipelines, in the context of the Transformers library, are high-level objects that combine pre-trained models and tokenizers 

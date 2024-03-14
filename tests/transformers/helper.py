@@ -287,6 +287,20 @@ def load_peft_pipeline():
         )
 
 
+@prefetch
+@flaky()
+def load_custom_code_pipeline():
+    model = transformers.AutoModel.from_pretrained(
+        "hf-internal-testing/test_dynamic_model_with_util", trust_remote_code=True
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained("google-bert/bert-base-uncased")
+    return transformers.pipeline(
+        task="feature-extraction",
+        model=model,
+        tokenizer=tokenizer,
+    )
+
+
 def prefetch_models():
     """
     Prefetches models used in the test suite to avoid downloading them during the test run.
