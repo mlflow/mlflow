@@ -206,7 +206,7 @@ Columns that contain `None` or `np.nan` values within the input data will be inf
  |       pd.DataFrame({                          |       ]'                                                                  |
  |           "col": [1.0, 2.0, None]             |       output: null                                                        |
  |       })                                      |       params: null                                                        |
- |   })                                          |                                                                           |
+ |   )                                           |                                                                           |
  +-----------------------------------------------+---------------------------------------------------------------------------+
 
 .. note::
@@ -271,7 +271,7 @@ Tensor-based schemas support `numpy data types <https://numpy.org/devdocs/user/b
  |   infer_signature(model_input=np.array([      |       output: None                                                        |
  |       [[1, 2, 3], [4, 5, 6]],                 |       params: None                                                        |
  |       [[7, 8, 9], [1, 2, 3]],                 |                                                                           |
- |   ])                                          |                                                                           |
+ |   ]))                                         |                                                                           |
  +-----------------------------------------------+---------------------------------------------------------------------------+
 
 .. note::
