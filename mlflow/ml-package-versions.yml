@@ -561,6 +561,7 @@ transformers:
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
         "4.38.1",
+        "4.38.2",
       ]
     requirements:
       ">= 0.0.0":
