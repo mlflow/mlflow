@@ -1,5 +1,4 @@
 import colorsys
-import json
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -89,10 +88,6 @@ class DummyTraceClientWithHTMLDisplay(TraceClient):
             .expanded .metadata {
                 display: block;
             }
-
-            pre {
-                white-space: pre-wrap;
-            }
         </style>
         <script>
             function toggleExpand(event) {
@@ -101,9 +96,6 @@ class DummyTraceClientWithHTMLDisplay(TraceClient):
             }
         </script>
         """
-
-        def _pretty_print_dict(dict):
-            return f"<pre>{json.dumps(dict, default=str, indent=2)}</pre>"
 
         # Function to recursively generate HTML for each span event with depth-based indentation
         def _generate_span_html(node, depth=0):
@@ -120,9 +112,9 @@ class DummyTraceClientWithHTMLDisplay(TraceClient):
                 <div class="metadata">
                     <p><b>Trace ID</b>: {span.context.trace_id}</p>
                     <p><b>Span ID</b>: {span.context.span_id}</p>
-                    <p><b>Inputs</b>: {_pretty_print_dict(span.inputs)}</p>
-                    <p><b>Outputs</b>: {_pretty_print_dict(span.outputs)}</p>
-                    <p><b>Attributes</b>: {_pretty_print_dict(span.attributes)}</p>
+                    <p><b>Inputs</b>: {span.inputs}</p>
+                    <p><b>Outputs</b>: {span.outputs}</p>
+                    <p><b>Attributes</b>: {span.attributes}</p>
                 </div>
             </div>
             """
