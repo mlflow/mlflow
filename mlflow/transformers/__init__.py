@@ -712,7 +712,7 @@ def log_model(
 ):
     """
     Log a ``transformers`` object as an MLflow artifact for the current run. Note that
-    logging ``transformers`` models with custom code (i.e. models that require
+    logging transformers models with custom code (i.e. models that require
     ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
 
     Args:
