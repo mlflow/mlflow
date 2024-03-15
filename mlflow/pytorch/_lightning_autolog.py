@@ -95,13 +95,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     """
 
     def __init__(
-        self,
-        client,
-        metrics_logger,
-        run_id,
-        log_models,
-        log_every_n_epoch,
-        log_every_n_step,
+        self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
             raise MlflowException("log_every_n_step is only supported for Lightning >= 1.1.0")
