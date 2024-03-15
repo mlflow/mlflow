@@ -246,7 +246,7 @@ def get_java_version(java: t.Optional[t.Dict[str, str]], version: str) -> str:
 
 @functools.lru_cache(maxsize=128)
 def pypi_json(package: str) -> t.Dict[str, t.Any]:
-    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
+    resp = requests.get(f"https://pypi.org/pypi/{package}/json")
     resp.raise_for_status()
     return resp.json()
 
@@ -265,8 +265,8 @@ def get_requires_python(package: str, version: str) -> str:
     if requires_python is None:
         return candidates[0]
 
-    specifier_set = SpecifierSet(requires_python)
-    return next(filter(specifier_set.contains, candidates), None) or candidates[0]
+    spec = SpecifierSet(requires_python)
+    return next((c for c in candidates if spec.contains(c)), None) or candidates[0]
 
 
 def get_python_version(python: t.Optional[t.Dict[str, str]], package: str, version: str) -> str:
