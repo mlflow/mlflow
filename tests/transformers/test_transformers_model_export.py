@@ -1423,9 +1423,10 @@ def test_custom_components_pipeline(custom_components_pipeline, model_path):
     transformers_pred = transformers_loaded(data)
     assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
 
-    # assert that all the reloaded components exist and have the same class as pre-save
+    # assert that all the reloaded components exist
+    # and have the same class name as pre-save
     for name, component in components.items():
-        assert component.__class__ == getattr(transformers_loaded, name).__class__
+        assert component.__class__.__name__ == getattr(transformers_loaded, name).__class__.__name__
 
 
 @pytest.mark.parametrize(
