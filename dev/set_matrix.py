@@ -70,6 +70,7 @@ class TestConfig(BaseModel):
     maximum: Version
     unsupported: t.Optional[t.List[Version]] = None
     requirements: t.Optional[t.Dict[str, t.List[str]]] = None
+    python: t.Optional[t.Dict[str, str]] = None
     java: t.Optional[t.Dict[str, str]] = None
     run: str
     allow_unreleased_max_version: t.Optional[bool] = None
@@ -100,6 +101,7 @@ class MatrixItem(BaseModel):
     run: str
     package: str
     version: Version
+    python: str
     java: str
     supported: bool
     free_disk_space: bool
@@ -128,12 +130,8 @@ def read_yaml(location, if_error=None):
         raise
 
 
-@functools.lru_cache
 def get_released_versions(package_name):
-    url = f"https://pypi.org/pypi/{package_name}/json"
-    response = requests.get(url)
-    response.raise_for_status()
-    data = response.json()
+    data = pypi_json(package_name)
     versions = []
     for version, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
@@ -244,6 +242,48 @@ def get_java_version(java: t.Optional[t.Dict[str, str]], version: str) -> str:
             return java_ver
 
     return default
+
+
+_DEV_PACKAGES_PYTHON_VERSIONS = {
+    "tensorflow": ">=3.9",
+    "scikit-learn": ">=3.9",
+    "statsmodels": ">=3.9",
+    "keras": ">=3.9",
+}
+
+
+@functools.lru_cache(maxsize=128)
+def pypi_json(package: str) -> t.Dict[str, t.Any]:
+    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_requires_python(package: str, version: str) -> t.Optional[str]:
+    package_json = pypi_json(package)
+    requires_python = next(
+        (
+            distributions[0].get("requires_python")
+            for ver, distributions in package_json["releases"].items()
+            if ver == version and distributions
+        ),
+        None,
+    )
+    if requires_python is None:
+        return None
+
+    specifier_set = SpecifierSet(requires_python)
+    return next(filter(specifier_set.contains, ["3.8", "3.9"]), None)
+
+
+def get_python_version(python: t.Optional[t.Dict[str, str]], package: str, version: str) -> str:
+    if python:
+        for specifier, py_ver in python.items():
+            specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+                return py_ver
+
+    return get_requires_python(package, version) or "3.8"
 
 
 def remove_comments(s):
@@ -366,6 +406,7 @@ def expand_config(config):
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
+                python = get_python_version(cfg.python, package_info.pip_release, str(ver))
                 java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
@@ -378,6 +419,7 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=ver,
+                        python=python,
                         java=java,
                         supported=ver <= cfg.maximum,
                         free_disk_space=free_disk_space,
@@ -392,6 +434,7 @@ def expand_config(config):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
+                python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
                 java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
@@ -406,6 +449,7 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=dev_version,
+                        python=python,
                         java=java,
                         supported=False,
                         free_disk_space=free_disk_space,
