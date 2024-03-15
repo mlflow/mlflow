@@ -244,14 +244,6 @@ def get_java_version(java: t.Optional[t.Dict[str, str]], version: str) -> str:
     return default
 
 
-_DEV_PACKAGES_PYTHON_VERSIONS = {
-    "tensorflow": ">=3.9",
-    "scikit-learn": ">=3.9",
-    "statsmodels": ">=3.9",
-    "keras": ">=3.9",
-}
-
-
 @functools.lru_cache(maxsize=128)
 def pypi_json(package: str) -> t.Dict[str, t.Any]:
     resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
