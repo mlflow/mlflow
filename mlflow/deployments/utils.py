@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import append_to_uri_path
 
 _deployments_target: Optional[str] = None
@@ -80,6 +81,9 @@ def get_deployments_target() -> str:
         return _deployments_target
     elif uri := MLFLOW_DEPLOYMENTS_TARGET.get():
         return uri
+    elif is_in_databricks_runtime():
+        # If running on Databricks, the default target is Databricks
+        return "databricks"
     else:
         raise MlflowException(
             "No deployments target has been set. Please either set the MLflow deployments target"

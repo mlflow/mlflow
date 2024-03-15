@@ -50,7 +50,7 @@ def get_deploy_client(target_uri=None):
         try:
             target_uri = get_deployments_target()
         except MlflowException:
-            _logger.info(
+            _logger.warning(
                 "No deployments target has been set. Please either set the MLflow deployments "
                 "target via `mlflow.deployments.set_deployments_target()` or set the environment "
                 "variable MLFLOW_DEPLOYMENTS_TARGET to the running deployment server's uri"
