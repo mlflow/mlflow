@@ -133,14 +133,9 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
         if: matrix.free_disk_space
-      - name: Get python version
-        id: get-python-version
-        run: |
-          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
-          echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:
-          python-version: ${{ steps.get-python-version.outputs.version }}
+          python-version: ${{ matrix.python }}
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
         with:
