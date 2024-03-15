@@ -139,12 +139,12 @@ the required payload format, you can leverage the dict payload structures below.
           },
       }
   )
-  requests.post(
+  response = requests.post(
       url=f"http://localhost:5678/invocations",
       data=payload,
       headers={"Content-Type": "application/json"},
   )
-  print(requests.json())
+  print(response.json())
 
 The JSON input can also include an optional ``params`` field for passing additional parameters.
 Valid parameter types are ``Union[DataType, List[DataType], None]``, where DataType is
