@@ -2252,28 +2252,6 @@ def test_save_load_chain_errors():
                 code_paths=["tests/langchain/state_of_the_union.txt"],
             )
 
-        incorrect_path = "tests/langchain/chain.py"
-        code_paths = [
-            "tests/langchain/state_of_the_union.txt",
-            "tests/langchain/chain.py",
-        ]
-        with pytest.raises(
-            MlflowException,
-            match=re.escape(
-                "When the model is a string, there should be a config path provided. "
-                "This config path is used to set config.yml file path "
-                "for the model. This path should be passed in via the code_paths. "
-                f"Current code paths: {code_paths}"
-            ),
-        ):
-            mlflow.langchain.log_model(
-                lc_model=incorrect_path,
-                artifact_path="model_path",
-                signature=signature,
-                input_example=input_example,
-                code_paths=code_paths,
-            )
-
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
@@ -2326,7 +2304,7 @@ def test_save_load_chain_as_code_optional_code_path():
         )
 
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/chain.py",
+            lc_model="tests/langchain/no_config/chain.py",
             artifact_path="model_path",
             signature=signature,
             input_example=input_example,

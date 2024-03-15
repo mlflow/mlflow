@@ -50,7 +50,7 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
     return FakeChatModel(endpoint=endpoint)
 
 
-text_path = "state_of_the_union.txt"
+text_path = "tests/langchain/state_of_the_union.txt"
 loader = TextLoader(text_path)
 documents = loader.load()
 text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
