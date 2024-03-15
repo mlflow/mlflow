@@ -38,7 +38,7 @@ except ModuleNotFoundError:
         PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
     except ModuleNotFoundError:
         raise ModuleNotFoundError(
-            message="Unable to import 'lightning' or 'pytorch-lightning'."
+            message="Unable to import 'lightning'. "
             f"Please install lightning >= {MIN_REQ_VERSION} into your environment "
             f"with `pip install lightning>={MIN_REQ_VERSION}`"
         )
