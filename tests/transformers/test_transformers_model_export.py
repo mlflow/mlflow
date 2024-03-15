@@ -1395,6 +1395,40 @@ def test_custom_code_pipeline(custom_code_pipeline, model_path):
     assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
+)
+def test_custom_components_pipeline(custom_components_pipeline, model_path):
+    data = "hello"
+
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(custom_components_pipeline, data)
+    )
+
+    components = {
+        "model": custom_components_pipeline.model,
+        "tokenizer": custom_components_pipeline.tokenizer,
+        "feature_extractor": custom_components_pipeline.feature_extractor,
+    }
+
+    mlflow.transformers.save_model(
+        transformers_model=components, path=model_path, signature=signature
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_pred = pyfunc_loaded.predict(data)
+    assert isinstance(pyfunc_pred[0][0], float)
+
+    transformers_loaded = mlflow.transformers.load_model(model_path)
+    transformers_pred = transformers_loaded(data)
+    assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
+
+    # assert that all the reloaded components exist
+    # and have the same class name as pre-save
+    for name, component in components.items():
+        assert component.__class__.__name__ == getattr(transformers_loaded, name).__class__.__name__
+
+
 @pytest.mark.parametrize(
     ("data", "result"),
     [
