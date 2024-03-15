@@ -29,13 +29,12 @@ try:
     import lightning.pytorch as pl
     from lightning.pytorch.utilities import rank_zero_only
 except ModuleNotFoundError:
-    logging.warning("'lightning' package not found, attempting to use 'pytorch_lightning instead.'")
-    # TODO : Using a nested try/catch isn't always nice, might be a better way to handle this?
     try:
         import pytorch_lightning as pl
         from pytorch_lightning.utilities import rank_zero_only
 
         PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
+        logging.warning("'pytorch_lightning' will be deprecated in a future release, please use 'lightning' instead. 'pip install lightning'")
     except ModuleNotFoundError:
         raise ModuleNotFoundError(
             message="Unable to import 'lightning'. "
