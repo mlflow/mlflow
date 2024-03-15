@@ -124,10 +124,10 @@ def _load_component(flavor_conf, name, local_path=None):
     else:
         if local_path is None:
             raise MlflowException(
-                "A custom component `{}` is specified, but no "
-                "local config file was found to retrieve the "
-                "definition. Make sure your model was saved "
-                "correctly."
+                f"A custom component `{component_name}` was specified, "
+                "but no local config file was found to retrieve the "
+                "definition. Make sure your model was saved with "
+                "save_pretrained=True."
             )
         cls = _COMPONENT_TO_AUTOCLASS_MAP[name]
         trust_remote = True
