@@ -251,7 +251,10 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
             with open(path, "w") as f:
                 yaml.dump(runnable_dict, f, default_flow_style=False)
         else:
-            return
+            raise MlflowException(
+                f"Failed to save runnable {runnable}. Runnable must have either `save` or `dict` "
+                "method for MLflow to save it."
+            )
     return conf
 
 
