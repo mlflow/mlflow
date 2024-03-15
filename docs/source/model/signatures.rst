@@ -166,54 +166,25 @@ Column-based signature also support composite data types of these primitives.
 
 Additional examples for composite data types can be seen by viewing the `signature examples notebook <notebooks/signature_examples.html>`_.
 
- +-----------------------------------------------+--------------------------------------------+
- | Input (Python)                                | Inferred Signature                         |
- +-----------------------------------------------+--------------------------------------------+
- | .. code-block:: python                        | .. code-block:: yaml                       |
- |                                               |                                            |
- |   from mlflow.models import infer_signature   |   signature:                               |
- |                                               |       input: '[                            |
- |   infer_signature(model_input={               |          {                                 |
- |       # Python list                           |              "name": "list_col",           |
- |       "list_col": ["a", "b", "c"],            |              "type": "array",              |
- |       # Numpy array                           |              "items": {                    |                                               
- |       "numpy_col": np.array([[1, 2], [3, 4]]),|                  "type": "string"          |
- |       # Dictionary                            |              },                            |
- |       "obj_col": {                            |              "required": "true"            |
- |           "long_prop": 1,                     |          },                                |
- |            "array_prop": ["a", "b", "c"],     |          {                                 |
- |       },                                      |              "name": "numpy_col",          |
- |    })                                         |              "type": "array",              |
- |                                               |              "items": {                    |
- |                                               |                  "type": "array",          |
- |                                               |                  "items": {                |
- |                                               |                      "type": "long"        |
- |                                               |                  }                         |
- |                                               |              },                            |
- |                                               |              "required": "true"            |
- |                                               |          },                                |
- |                                               |          {                                 |
- |                                               |              "name": "obj_col",            |
- |                                               |              "type": "object",             |
- |                                               |              "properties": {               |
- |                                               |                  "array_prop": {           |
- |                                               |                      "type": "array",      |
- |                                               |                       "items": {           |
- |                                               |                           "type": "string" |
- |                                               |                      },                    |
- |                                               |                      "required": "true"    |
- |                                               |                  },                        |
- |                                               |                  "long_prop": {            |
- |                                               |                      "type": "long",       |
- |                                               |                      "required": "true"    |
- |                                               |                  }                         |
- |                                               |              },                            |
- |                                               |              "required": "true"            |
- |                                               |          }                                 |
- |                                               |       ]'                                   |
- |                                               |       output: null                         |
- |                                               |       params: null                         |
- +-----------------------------------------------+--------------------------------------------+
+ +-----------------------------------------------+-------------------------------------------------------------------------------------------------------+
+ | Input (Python)                                | Inferred Signature                                                                                    |
+ +-----------------------------------------------+-------------------------------------------------------------------------------------------------------+
+ | .. code-block:: python                        | .. code-block:: yaml                                                                                  |
+ |                                               |                                                                                                       |
+ |   from mlflow.models import infer_signature   |   signature:                                                                                          |
+ |                                               |       input: '[                                                                                       |
+ |   infer_signature(model_input={               |            {"list_col": Array(string) (required)},                                                    |
+ |       # Python list                           |            {"numpy_col": Array(Array(long)) (required)},                                              |
+ |       "list_col": ["a", "b", "c"],            |            {"obj_col": {array_prop: Array(string) (required), long_prop: long (required)} (required)} |
+ |       # Numpy array                           |       ]'                                                                                              |                                               
+ |       "numpy_col": np.array([[1, 2], [3, 4]]),|       output: null                                                                                    |
+ |       # Dictionary                            |       params: null                                                                                    |
+ |       "obj_col": {                            |                                                                                                       |
+ |           "long_prop": 1,                     |                                                                                                       |
+ |            "array_prop": ["a", "b", "c"],     |                                                                                                       |
+ |       },                                      |                                                                                                       |
+ |    })                                         |                                                                                                       |
+ +-----------------------------------------------+-------------------------------------------------------------------------------------------------------+
 
 .. _optional-column:
 
