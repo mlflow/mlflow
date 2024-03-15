@@ -73,6 +73,7 @@ class TestConfig(BaseModel):
     java: t.Optional[t.Dict[str, str]] = None
     run: str
     allow_unreleased_max_version: t.Optional[bool] = None
+    pre_test: t.Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -102,6 +103,7 @@ class MatrixItem(BaseModel):
     java: str
     supported: bool
     free_disk_space: bool
+    pre_test: t.Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -379,6 +381,7 @@ def expand_config(config):
                         java=java,
                         supported=ver <= cfg.maximum,
                         free_disk_space=free_disk_space,
+                        pre_test=cfg.pre_test,
                     )
                 )
 
@@ -406,6 +409,7 @@ def expand_config(config):
                         java=java,
                         supported=False,
                         free_disk_space=free_disk_space,
+                        pre_test=cfg.pre_test,
                     )
                 )
     return matrix
@@ -461,7 +465,7 @@ def generate_matrix(args):
 class CustomEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, MatrixItem):
-            return dict(o)
+            return o.model_dump(exclude_none=True)
         elif isinstance(o, Version):
             return str(o)
         return super().default(o)
