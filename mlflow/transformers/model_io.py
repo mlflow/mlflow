@@ -114,6 +114,7 @@ def _load_component(flavor_conf, name, local_path=None):
         FlavorKey.TOKENIZER: transformers.AutoTokenizer,
         FlavorKey.FEATURE_EXTRACTOR: transformers.AutoFeatureExtractor,
         FlavorKey.PROCESSOR: transformers.AutoProcessor,
+        FlavorKey.IMAGE_PROCESSOR: transformers.AutoImageProcessor,
     }
 
     component_name = flavor_conf[FlavorKey.COMPONENT_TYPE.format(name)]
