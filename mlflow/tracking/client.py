@@ -1580,8 +1580,8 @@ class MlflowClient:
             timestamp = timestamp or get_current_time_millis()
 
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
-            key = re.sub(r"/", "#", key)
-            filename = f"images/{key}/{key}_step_{step}_timestamp_{timestamp}_{uuid.uuid4()}"
+            sanitized_key = re.sub(r"/", "#", key)
+            filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{uuid.uuid4()}"
 
             # Save full-res image
             image_filepath = f"{filename}.png"
