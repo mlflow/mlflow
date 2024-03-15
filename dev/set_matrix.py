@@ -101,6 +101,7 @@ class MatrixItem(BaseModel):
     version: Version
     java: str
     supported: bool
+    free_disk_space: bool
 
     class Config:
         arbitrary_types_allowed = True
@@ -338,6 +339,11 @@ def expand_config(config):
         flavor = get_flavor(name)
         package_info = PackageInfo(**cfgs.pop("package_info"))
         all_versions = get_released_versions(package_info.pip_release)
+        free_disk_space = package_info.pip_release in (
+            "transformers",
+            "sentence-transformers",
+            "torch",
+        )
         for category, cfg in cfgs.items():
             cfg = TestConfig(**cfg)
             versions = filter_versions(
@@ -372,6 +378,7 @@ def expand_config(config):
                         version=ver,
                         java=java,
                         supported=ver <= cfg.maximum,
+                        free_disk_space=free_disk_space,
                     )
                 )
 
@@ -398,6 +405,7 @@ def expand_config(config):
                         version=dev_version,
                         java=java,
                         supported=False,
+                        free_disk_space=free_disk_space,
                     )
                 )
     return matrix
