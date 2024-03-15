@@ -259,7 +259,7 @@ def pypi_json(package: str) -> t.Dict[str, t.Any]:
     return resp.json()
 
 
-def get_requires_python(package: str, version: str) -> t.Optional[str]:
+def get_requires_python(package: str, version: str) -> str:
     package_json = pypi_json(package)
     requires_python = next(
         (
@@ -269,11 +269,12 @@ def get_requires_python(package: str, version: str) -> t.Optional[str]:
         ),
         None,
     )
+    candidates = ("3.8", "3.9")
     if requires_python is None:
-        return None
+        return candidates[0]
 
     specifier_set = SpecifierSet(requires_python)
-    return next(filter(specifier_set.contains, ["3.8", "3.9"]), None)
+    return next(filter(specifier_set.contains, candidates), None) or candidates[0]
 
 
 def get_python_version(python: t.Optional[t.Dict[str, str]], package: str, version: str) -> str:
@@ -283,7 +284,7 @@ def get_python_version(python: t.Optional[t.Dict[str, str]], package: str, versi
             if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
                 return py_ver
 
-    return get_requires_python(package, version) or "3.8"
+    return get_requires_python(package, version)
 
 
 def remove_comments(s):
