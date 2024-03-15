@@ -257,12 +257,23 @@ def save_model(
                 "file path containing the code for defining the chain instance."
             )
 
+        if len(code_paths) > 1:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "When the model is a string, and if the code_paths are specified, "
+                "it should contain only one path."
+                "This config path is used to set config.yml file path "
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
+            )
+
     code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
         if input_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
-            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+            signature = _infer_signature_from_input_example(
+                input_example, wrapped_model
+            )
         else:
             if hasattr(lc_model, "input_keys"):
                 input_columns = [
@@ -310,13 +321,13 @@ def save_model(
             **model_data_kwargs,
         }
     else:
-        # If the model is a string, we expect other file that would be used in the model.
-        # We set the other path here so they can be set globally when the model is loaded.
+        # If the model is a string, we expect the other file would be used in the model.
+        # We set the other path here so they can be set globally when the model is loaded
         # with the local path. So the consumer can use that path.
         flavor_conf = (
             {_CODE_CONFIG: code_paths[0]}
             if code_paths and len(code_paths) == 1
-            else {_CODE_CONFIG: ""}
+            else {_CODE_CONFIG: None}
         )
         model_data_kwargs = {}
 
@@ -544,7 +555,9 @@ def _save_model(model, path, loader_fn, persist_dir):
         )
     with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
-            return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
+            return _save_runnables(
+                model, path, loader_fn=loader_fn, persist_dir=persist_dir
+            )
         else:
             return _save_base_lcs(model, path, loader_fn, persist_dir)
 
@@ -596,9 +609,9 @@ class _LangChainModelWrapper:
         messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
-            data, pd.DataFrame
-        )
+        return_first_element = isinstance(
+            self.lc_model, lc_runnables_types()
+        ) and not isinstance(data, pd.DataFrame)
         results = process_api_requests(lc_model=self.lc_model, requests=messages)
         return results[0] if return_first_element else results
 
@@ -625,9 +638,9 @@ class _LangChainModelWrapper:
         messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
-            data, pd.DataFrame
-        )
+        return_first_element = isinstance(
+            self.lc_model, lc_runnables_types()
+        ) and not isinstance(data, pd.DataFrame)
         results = process_api_requests(
             lc_model=self.lc_model,
             requests=messages,
@@ -657,7 +670,8 @@ class _LangChainModelWrapper:
         if isinstance(self.lc_model, lc_runnables_types()):
             return [data]
         if isinstance(data, list) and (
-            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
+            all(isinstance(d, str) for d in data)
+            or all(isinstance(d, dict) for d in data)
         ):
             return data
         raise mlflow.MlflowException.invalid_parameter_value(
@@ -739,17 +753,21 @@ def _load_pyfunc(path):
     Args:
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
+    wrapper_cls = (
+        _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
+    )
     return wrapper_cls(_load_model_from_local_fs(path))
 
 
 def _load_model_from_local_fs(local_model_path):
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME
+    )
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     if _CODE_CONFIG in flavor_conf:
         path = flavor_conf.get(_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
-        if path:
+        if path is not None:
             code_path = os.path.join(
                 local_model_path,
                 flavor_code_config,
@@ -786,7 +804,9 @@ def load_model(model_uri, dst_path=None):
     Returns:
         A LangChain model instance.
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path
+    )
     return _load_model_from_local_fs(local_model_path)
 
 

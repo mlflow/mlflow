@@ -175,7 +175,9 @@ class FakeLLM(LLM):
         """Return type of llm."""
         return "fake"
 
-    def _call(self, prompt: str, stop: Optional[List[str]] = None, run_manager=None) -> str:
+    def _call(
+        self, prompt: str, stop: Optional[List[str]] = None, run_manager=None
+    ) -> str:
         """First try to lookup in queries, else return 'foo' or 'bar'."""
         if self.queries is not None:
             return self.queries[prompt]
@@ -281,7 +283,10 @@ def test_langchain_native_save_and_load_model(model_path):
     assert type(loaded_model) == langchain.chains.llm.LLMChain
     assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
     assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
-    assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
+    assert (
+        loaded_model.prompt.template
+        == "What is a good name for a company that makes {product}?"
+    )
 
 
 def test_langchain_native_log_and_load_model():
@@ -298,7 +303,10 @@ def test_langchain_native_log_and_load_model():
     assert type(loaded_model) == langchain.chains.llm.LLMChain
     assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
     assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
-    assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
+    assert (
+        loaded_model.prompt.template
+        == "What is a good name for a company that makes {product}?"
+    )
 
 
 def test_pyfunc_load_openai_model():
@@ -326,7 +334,9 @@ def test_pyfunc_spark_udf_with_langchain_model(spark):
     model = create_openai_llmchain()
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
-    loaded_model = mlflow.pyfunc.spark_udf(spark, logged_model.model_uri, result_type="string")
+    loaded_model = mlflow.pyfunc.spark_udf(
+        spark, logged_model.model_uri, result_type="string"
+    )
     df = spark.createDataFrame([("MLflow",), ("Spark",)], ["product"])
     df = df.withColumn("answer", loaded_model())
     pdf = df.toPandas()
@@ -347,7 +357,10 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert type(loaded_model) == langchain.chains.llm.LLMChain
     assert type(loaded_model.llm) == HuggingFacePipeline
     assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
-    assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
+    assert (
+        loaded_model.prompt.template
+        == "What is a good name for a company that makes {product}?"
+    )
 
 
 @pytest.mark.parametrize("return_intermediate_steps", [False, True])
@@ -375,7 +388,9 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
     }
 
     if return_intermediate_steps:
-        langchain_output = [{"output": TEST_CONTENT, "intermediate_steps": TEST_INTERMEDIATE_STEPS}]
+        langchain_output = [
+            {"output": TEST_CONTENT, "intermediate_steps": TEST_INTERMEDIATE_STEPS}
+        ]
         # hardcoded output key because that is the default for an agent
         # but it is not an attribute of the agent or anything that we log
     else:
@@ -465,7 +480,9 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     assert loaded_model == retrievalQA
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
+    langchain_input = {
+        "query": "What did the president say about Ketanji Brown Jackson"
+    }
     langchain_output = [TEST_CONTENT]
     result = loaded_pyfunc_model.predict([langchain_input])
     assert result == langchain_output
@@ -482,7 +499,8 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     )
 
     assert (
-        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
+        PredictionsResponse.from_json(response.content.decode("utf-8"))
+        == langchain_output_serving
     )
 
 
@@ -532,7 +550,9 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     assert loaded_model == retrievalQA
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
+    langchain_input = {
+        "query": "What did the president say about Ketanji Brown Jackson"
+    }
     langchain_output = [
         {
             loaded_model.output_key: TEST_CONTENT,
@@ -555,7 +575,8 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     )
 
     assert (
-        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
+        PredictionsResponse.from_json(response.content.decode("utf-8"))
+        == langchain_output_serving
     )
 
 
@@ -664,7 +685,9 @@ def test_log_and_load_retriever_chain(tmp_path):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    pred = PredictionsResponse.from_json(response.content.decode("utf-8"))["predictions"]
+    pred = PredictionsResponse.from_json(response.content.decode("utf-8"))[
+        "predictions"
+    ]
     assert type(pred) == list
     assert len(pred) == 1
     docs_list = pred[0]
@@ -728,13 +751,17 @@ def load_base_embeddings(_):
     return FakeEmbeddings(size=32)
 
 
-@pytest.mark.skip(reason="This fails due to https://github.com/hwchase17/langchain/issues/5131")
+@pytest.mark.skip(
+    reason="This fails due to https://github.com/hwchase17/langchain/issues/5131"
+)
 def test_log_and_load_hyde_chain():
     # Create the HypotheticalDocumentEmbedder chain
     base_embeddings = FakeEmbeddings(size=32)
     llm = OpenAI()
     # Load with `web_search` prompt
-    embeddings = HypotheticalDocumentEmbedder.from_llm(llm, base_embeddings, "web_search")
+    embeddings = HypotheticalDocumentEmbedder.from_llm(
+        llm, base_embeddings, "web_search"
+    )
 
     # Log the hyde chain
     with mlflow.start_run():
@@ -811,7 +838,9 @@ def test_log_and_load_sql_database_chain(tmp_path):
 
 
 def test_saving_not_implemented_for_memory():
-    conversation = ConversationChain(llm=OpenAI(temperature=0), memory=ConversationBufferMemory())
+    conversation = ConversationChain(
+        llm=OpenAI(temperature=0), memory=ConversationBufferMemory()
+    )
     with pytest.raises(
         ValueError,
         match="Saving of memory is not yet supported.",
@@ -966,7 +995,9 @@ def test_save_load_runnable_lambda_in_sequence():
     assert sequence.invoke(1) == 4
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(sequence, "model_path", input_example=[1, 2, 3])
+        model_info = mlflow.langchain.log_model(
+            sequence, "model_path", input_example=[1, 2, 3]
+        )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke(1) == 4
@@ -1006,7 +1037,9 @@ def test_predict_with_callbacks(fake_chat_model):
         ) -> Any:
             self.num_llm_start_calls += 1
 
-    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
+    prompt = ChatPromptTemplate.from_template(
+        "What's your favorite {industry} company?"
+    )
     chain = prompt | fake_chat_model | StrOutputParser()
     # Test the basic functionality of the chain
     assert chain.invoke({"industry": "tech"}) == "Databricks"
@@ -1055,7 +1088,9 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
     from langchain.prompts import ChatPromptTemplate
     from langchain.schema.output_parser import StrOutputParser
 
-    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
+    prompt = ChatPromptTemplate.from_template(
+        "What's your favorite {industry} company?"
+    )
     chain = prompt | fake_chat_model | StrOutputParser()
     # Test the basic functionality of the chain
     assert chain.invoke({"industry": "tech"}) == "Databricks"
@@ -1187,7 +1222,9 @@ def test_save_load_runnable_parallel_and_assign_in_sequence():
     runnable = {
         "llm1": fake_llm,
         "llm2": fake_llm,
-    } | RunnablePassthrough.assign(total_chars=lambda inputs: len(inputs["llm1"] + inputs["llm2"]))
+    } | RunnablePassthrough.assign(
+        total_chars=lambda inputs: len(inputs["llm1"] + inputs["llm2"])
+    )
     expected_result = {
         "llm1": "completion",
         "llm2": "completion",
@@ -1233,7 +1270,9 @@ def test_save_load_complex_runnable_assign(fake_chat_model):
     def fake_llm(prompt: str) -> str:
         return "completion"
 
-    runnable_assign = RunnableAssign(mapper=RunnableParallel({"product": chain, "test": fake_llm}))
+    runnable_assign = RunnableAssign(
+        mapper=RunnableParallel({"product": chain, "test": fake_llm})
+    )
     expected_result = {
         "product": "Databricks",
         "test": "completion",
@@ -1360,7 +1399,9 @@ def test_save_load_simple_chat_model(spark, fake_chat_model):
         Schema([ColSpec("string", "product")]), Schema([ColSpec("string")])
     )
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(chain, "model_path", signature=signature)
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", signature=signature
+        )
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke({"product": "MLflow"}) == "Databricks"
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1559,7 +1600,10 @@ def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat
         loaded_model.invoke({"query": "Do you like cat?"})
         == "I cannot answer questions that are not about MLflow."
     )
-    assert loaded_model.invoke({"query": "Are you happy today?"}) == "Something went wrong."
+    assert (
+        loaded_model.invoke({"query": "Are you happy today?"})
+        == "Something went wrong."
+    )
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_loaded_model.predict({"query": "Who owns MLflow?"}) == ["Databricks"]
     assert pyfunc_loaded_model.predict({"query": "Do you like cat?"}) == [
@@ -1658,7 +1702,9 @@ def test_chat_with_history(spark, fake_chat_model):
     }
 
 
-def _extract_endpoint_name_from_lc_model(lc_model, dependency_dict: DefaultDict[str, List[Any]]):
+def _extract_endpoint_name_from_lc_model(
+    lc_model, dependency_dict: DefaultDict[str, List[Any]]
+):
     if type(lc_model).__name__ == type(get_fake_chat_model()).__name__:
         dependency_dict["fake_chat_model_endpoint_name"].append(lc_model.endpoint_name)
 
@@ -1683,7 +1729,13 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     model_3 = get_fake_chat_model(endpoint_name="fake-endpoint-3")
     output_parser = StrOutputParser()
 
-    chain = prompt_1 | {"joke1": model_1, "joke2": model_2} | prompt_2 | model_3 | output_parser
+    chain = (
+        prompt_1
+        | {"joke1": model_1, "joke2": model_2}
+        | prompt_2
+        | model_3
+        | output_parser
+    )
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(chain, "basic_chain")
@@ -1712,7 +1764,9 @@ def _extract_databricks_dependencies_from_retriever(
             dependency_dict["fake_embeddings_size"].append(embeddings.size)
 
 
-def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
+def _extract_databricks_dependencies_from_llm(
+    llm, dependency_dict: DefaultDict[str, List[Any]]
+):
     if isinstance(llm, FakeLLM):
         dependency_dict["fake_llm_endpoint_name"].append(llm.endpoint_name)
 
@@ -1772,7 +1826,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
 
     class ChatModel(SimpleChatModel):
         def _call(self, messages, stop, run_manager, **kwargs):
-            return "\n".join([f"{message.type}: {message.content}" for message in messages])
+            return "\n".join(
+                [f"{message.type}: {message.content}" for message in messages]
+            )
 
         @property
         def _llm_type(self) -> str:
@@ -1814,7 +1870,10 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     signature = infer_signature(model_input=input_example, model_output=example_output)
 
     chain = ChatModel() | StrOutputParser()
-    assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
+    assert (
+        chain.invoke([HumanMessage(content="Who owns MLflow?")])
+        == "human: Who owns MLflow?"
+    )
     with pytest.raises(ValueError, match="Invalid input type"):
         chain.invoke(input_example)
 
@@ -1825,7 +1884,8 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert (
-        loaded_model.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
+        loaded_model.invoke([HumanMessage(content="Who owns MLflow?")])
+        == "human: Who owns MLflow?"
     )
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1859,14 +1919,18 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         ]
 
     with pytest.raises(MlflowException, match="Unrecognized chat message role"):
-        pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
+        pyfunc_loaded_model.predict(
+            {"messages": [{"role": "foobar", "content": "test content"}]}
+        )
 
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri)
     df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
     with mock.patch("time.time", return_value=1677858242):
         df = df.withColumn("answer", udf("messages"))
         assert (
-            df.collect()[0]["answer"].asDict(recursive=True)["choices"][0]["message"]["content"]
+            df.collect()[0]["answer"].asDict(recursive=True)["choices"][0]["message"][
+                "content"
+            ]
             == content
         )
 
@@ -1877,7 +1941,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         extra_args=["--env-manager", "local"],
     )
     assert (
-        json.loads(response.content.decode("utf-8"))[0]["choices"][0]["message"]["content"]
+        json.loads(response.content.decode("utf-8"))[0]["choices"][0]["message"][
+            "content"
+        ]
         == content
     )
 
@@ -2052,7 +2118,9 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
         input_variables=["messages"],
         template="What is a good name for a company that makes {messages}?",
     )
-    chain = RunnablePassthrough() | LLMChain(llm=llm, prompt=prompt) | RunnablePassthrough()
+    chain = (
+        RunnablePassthrough() | LLMChain(llm=llm, prompt=prompt) | RunnablePassthrough()
+    )
 
     input_example = {
         "messages": [
@@ -2118,7 +2186,9 @@ def test_save_load_chain_as_code():
                     ColSpec(
                         type=Object(
                             [
-                                Property("return_trace", DataType.string, required=False),
+                                Property(
+                                    "return_trace", DataType.string, required=False
+                                ),
                             ]
                         ),
                         name="databricks_options",
@@ -2204,7 +2274,9 @@ def test_save_load_chain_errors():
                     ColSpec(
                         type=Object(
                             [
-                                Property("return_trace", DataType.string, required=False),
+                                Property(
+                                    "return_trace", DataType.string, required=False
+                                ),
                             ]
                         ),
                         name="databricks_options",
@@ -2252,6 +2324,30 @@ def test_save_load_chain_errors():
                 code_paths=["tests/langchain/state_of_the_union.txt"],
             )
 
+        incorrect_path = "tests/langchain/chain.py"
+        code_paths = [
+            "tests/langchain/state_of_the_union.txt",
+            "tests/langchain/chain.py",
+        ]
+
+        with pytest.raises(
+            MlflowException,
+            match=re.escape(
+                "When the model is a string, and if the code_paths are specified, "
+                "it should contain only one path."
+                "This config path is used to set config.yml file path "
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
+            ),
+        ):
+            mlflow.langchain.log_model(
+                lc_model=incorrect_path,
+                artifact_path="model_path",
+                signature=signature,
+                input_example=input_example,
+                code_paths=code_paths,
+            )
+
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
@@ -2283,7 +2379,9 @@ def test_save_load_chain_as_code_optional_code_path():
                     ColSpec(
                         type=Object(
                             [
-                                Property("return_trace", DataType.string, required=False),
+                                Property(
+                                    "return_trace", DataType.string, required=False
+                                ),
                             ]
                         ),
                         name="databricks_options",
