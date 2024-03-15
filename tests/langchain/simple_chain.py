@@ -1,4 +1,3 @@
-import os
 from typing import Any, List, Optional
 
 from langchain.document_loaders import TextLoader
@@ -9,7 +8,6 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
-import mlflow
 from mlflow.langchain._rag_utils import _set_chain
 
 
