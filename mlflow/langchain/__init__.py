@@ -320,7 +320,7 @@ def save_model(
         }
     else:
         # If the model is a string, we expect the code_path which is ideally config.yml
-        # would be used in the model. We set the code_path here so it can be set 
+        # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
         flavor_conf = (
