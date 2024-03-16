@@ -92,7 +92,11 @@ FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
 
 
-model_data_artifact_paths = [_MODEL_DATA_FOLDER_NAME, _MODEL_DATA_PKL_FILE_NAME, _PERSIST_DIR_NAME]
+model_data_artifact_paths = [
+    _MODEL_DATA_FOLDER_NAME,
+    _MODEL_DATA_PKL_FILE_NAME,
+    _PERSIST_DIR_NAME,
+]
 
 
 def get_default_pip_requirements():
@@ -253,13 +257,15 @@ def save_model(
                 "file path containing the code for defining the chain instance."
             )
 
-        if len(code_paths) != 1:
+        if len(code_paths) > 1:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "When the model is a string, there should be a config path provided. "
+                "When the model is a string, and if the code_paths are specified, "
+                "it should contain only one path."
                 "This config path is used to set config.yml file path "
                 "for the model. This path should be passed in via the code_paths. "
                 f"Current code paths: {code_paths}"
             )
+
     code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
@@ -313,10 +319,15 @@ def save_model(
             **model_data_kwargs,
         }
     else:
-        # If the model is a string, we expect other files that would be used in the model.
-        # We set the other paths here so they can be set globally when the model is loaded.
-        # with the local path. So the consumer can use that path.
-        flavor_conf = {_CODE_CONFIG: code_paths[0]}
+        # If the model is a string, we expect the code_path which is ideally config.yml
+        # would be used in the model. We set the code_path here so it can be set
+        # globally when the model is loaded with the local path. So the consumer
+        # can use that path instead of the config.yml path when the model is loaded
+        flavor_conf = (
+            {_CODE_CONFIG: code_paths[0]}
+            if code_paths and len(code_paths) >= 1
+            else {_CODE_CONFIG: None}
+        )
         model_data_kwargs = {}
 
     pyfunc.add_to_model(
@@ -334,7 +345,11 @@ def save_model(
             # If the model is a string, we are adding the model code path to the system path
             # so it can be loaded correctly.
             _add_code_to_system_path(os.path.dirname(lc_model))
-            _load_code_model(code_paths[0])
+            (
+                _load_code_model(code_paths[0])
+                if code_paths and len(code_paths) >= 1
+                else _load_code_model()
+            )
             checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
 
         if databricks_dependency := _detect_databricks_dependencies(checker_model):
@@ -744,11 +759,14 @@ def _load_model_from_local_fs(local_model_path):
     if _CODE_CONFIG in flavor_conf:
         path = flavor_conf.get(_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
-        code_path = os.path.join(
-            local_model_path,
-            flavor_code_config,
-            os.path.basename(os.path.abspath(path)),
-        )
+        if path is not None:
+            code_path = os.path.join(
+                local_model_path,
+                flavor_code_config,
+                os.path.basename(os.path.abspath(path)),
+            )
+        else:
+            code_path = None
 
         return _load_code_model(code_path)
     else:
@@ -782,7 +800,7 @@ def load_model(model_uri, dst_path=None):
     return _load_model_from_local_fs(local_model_path)
 
 
-def _load_code_model(code_path):
+def _load_code_model(code_path: Optional[str] = None):
     _set_config_path(code_path)
 
     import chain  # noqa: F401
