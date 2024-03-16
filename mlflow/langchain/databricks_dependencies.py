@@ -141,7 +141,7 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Di
     except Exception:
         if log_errors_as_warnings:
             _logger.warning(
-                "Unable to detect databricks dependencies. "
+                "Unable to detect Databricks dependencies. "
                 "Set logging level to DEBUG to see the full traceback."
             )
             _logger.debug("", exc_info=True)

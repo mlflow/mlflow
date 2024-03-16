@@ -1672,13 +1672,20 @@ def _error_func(*args, **kwargs):
     "mlflow.langchain.databricks_dependencies._traverse_runnable",
     _error_func,
 )
-def test_databricks_dependency_extraction_log_errors_as_warnings():
+@mock.patch("mlflow.langchain.databricks_dependencies._logger.warning")
+def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
     from mlflow.langchain.databricks_dependencies import (
         _DATABRICKS_DEPENDENCY_KEY,
         _detect_databricks_dependencies,
     )
 
     model = create_openai_llmchain()
+
+    _detect_databricks_dependencies(model, log_errors_as_warnings=True)
+    mock_warning.assert_called_once_with(
+        "Unable to detect Databricks dependencies. "
+        "Set logging level to DEBUG to see the full traceback."
+    )
 
     with pytest.raises(ValueError, match="error"):
         _detect_databricks_dependencies(model, log_errors_as_warnings=False)
