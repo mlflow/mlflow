@@ -319,12 +319,13 @@ def save_model(
             **model_data_kwargs,
         }
     else:
-        # If the model is a string, we expect the other file would be used in the model.
-        # We set the other path here so they can be set globally when the model is loaded
-        # with the local path. So the consumer can use that path.
+        # If the model is a string, we expect the code_path which is ideally config.yml
+        # would be used in the model. We set the code_path here so it can be set 
+        # globally when the model is loaded with the local path. So the consumer
+        # can use that path instead of the config.yml path when the model is loaded
         flavor_conf = (
             {_CODE_CONFIG: code_paths[0]}
-            if code_paths and len(code_paths) == 1
+            if code_paths and len(code_paths) >= 1
             else {_CODE_CONFIG: None}
         )
         model_data_kwargs = {}
@@ -346,7 +347,7 @@ def save_model(
             _add_code_to_system_path(os.path.dirname(lc_model))
             (
                 _load_code_model(code_paths[0])
-                if code_paths and len(code_paths) == 1
+                if code_paths and len(code_paths) >= 1
                 else _load_code_model()
             )
             checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
