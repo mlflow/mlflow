@@ -153,15 +153,17 @@ def build(skinny: bool) -> None:
         },
     }
 
-    original = Path("pyproject.toml").read_text()
-    if SEPARATOR in original:
-        original = original.split(SEPARATOR)[1]
-
-    out_path = "pyproject.skinny.toml" if skinny else "pyproject.toml"
-    with Path(out_path).open("w") as f:
-        f.write(toml.dumps(data))
-        f.write(SEPARATOR)
-        f.write(original)
+    if skinny:
+        out_path = "pyproject.skinny.toml"
+        with Path(out_path).open("w") as f:
+            f.write(toml.dumps(data))
+    else:
+        out_path = "pyproject.toml"
+        original = Path(out_path).read_text().split(SEPARATOR)[1]
+        with Path(out_path).open("w") as f:
+            f.write(toml.dumps(data))
+            f.write(SEPARATOR)
+            f.write(original)
 
     if taplo := shutil.which("taplo"):
         subprocess.run([taplo, "fmt", out_path], check=True)
