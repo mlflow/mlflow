@@ -20,6 +20,10 @@ from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.source_type import SourceType
+from mlflow.entities.trace_attribute import TraceAttribute
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_tag import TraceTag
 from mlflow.entities.view_type import ViewType
 
 __all__ = [
@@ -40,5 +44,9 @@ __all__ = [
     "InputTag",
     "DatasetInput",
     "RunInputs",
+    "TraceAttribute",
+    "TraceInfo",
+    "TraceStatus",
+    "TraceTag",
     "_DatasetSummary",
 ]

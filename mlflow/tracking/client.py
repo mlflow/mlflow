@@ -18,7 +18,17 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import yaml
 
 import mlflow
-from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    Experiment,
+    FileInfo,
+    Metric,
+    Param,
+    Run,
+    RunTag,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
@@ -353,6 +363,54 @@ class MlflowClient:
             status: RUNNING
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
+
+    def create_trace(
+        self,
+        experiment_id: str,
+        start_time: int,
+        end_time: int,
+        status: str,
+        attributes: Optional[Dict[str, Any]] = None,
+        tags: Optional[Dict[str, Any]] = None,
+    ) -> TraceInfo:
+        """
+        Create a :py:class:`mlflow.entities.TraceInfo` object.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            start_time: start time of the trace.
+            end_time: end time of the trace.
+            status: status of the trace.
+            attributes: attributes of the trace.
+            tags: tags of the trace.
+
+        Returns:
+            :py:class:`mlflow.entities.TraceInfo` that was created.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            experiment_id = "12345678"
+            tags = {"engineering": "ML Platform"}
+            trace = client.create_trace(
+                experiment_id,
+                start_time=123,
+                end_time=567,
+                status="OK",
+                tags=tags,
+            )
+        """
+        return self._tracking_client.create_trace(
+            experiment_id,
+            start_time,
+            end_time,
+            status,
+            attributes=attributes,
+            tags=tags,
+        )
 
     def search_experiments(
         self,

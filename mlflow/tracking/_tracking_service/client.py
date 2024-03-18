@@ -9,7 +9,17 @@ from collections import OrderedDict
 from itertools import zip_longest
 from typing import List, Optional
 
-from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
+from mlflow.entities import (
+    ExperimentTag,
+    Metric,
+    Param,
+    RunStatus,
+    RunTag,
+    TraceAttribute,
+    TraceStatus,
+    TraceTag,
+    ViewType,
+)
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
@@ -145,37 +155,29 @@ class TrackingServiceClient:
         )
 
     def create_trace(self, experiment_id, start_time, end_time, status, attributes=None, tags=None):
-        """Create a :py:class:`mlflow.entities.Run` object that can be associated with
-        metrics, parameters, artifacts, etc.
-        Unlike :py:func:`mlflow.projects.run`, creates objects but does not run code.
-        Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
-        :py:func:`mlflow.log_param`.
+        """Create a trace object and log in the backend store.
 
         Args:
-            experiment_id: The ID of the experiment to create a run in.
-            start_time: If not provided, use the current timestamp.
-            tags: A dictionary of key-value pairs that are converted into
-                :py:class:`mlflow.entities.RunTag` objects.
-            run_name: The name of this run.
+            experiment_id: String id of the experiment for this run.
+            start_time: int, start time of the trace.
+            end_time: int, end time of the trace.
+            status: string, status of the trace.
+            attributes: dict, attributes of the trace.
+            tags: dict, tags of the trace.
 
         Returns:
-            :py:class:`mlflow.entities.Run` that was created.
-
+            The created Trace object.
         """
-
+        attributes = attributes if attributes else {}
         tags = tags if tags else {}
 
-        # Extract user from tags
-        # This logic is temporary; the user_id attribute of runs is deprecated and will be removed
-        # in a later release.
-        user_id = tags.get(MLFLOW_USER, "unknown")
-
-        return self.store.create_run(
+        return self.store.create_trace(
             experiment_id=experiment_id,
-            user_id=user_id,
-            start_time=start_time or get_current_time_millis(),
-            tags=[RunTag(key, value) for (key, value) in tags.items()],
-            run_name=run_name,
+            start_time=start_time,
+            end_time=end_time,
+            status=TraceStatus.from_string(status),
+            attributes=[TraceAttribute(key, value) for (key, value) in attributes.items()],
+            tags=[TraceTag(key, value) for (key, value) in tags.items()],
         )
 
     def search_experiments(

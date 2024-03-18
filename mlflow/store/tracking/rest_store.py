@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, ViewType
+from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -26,7 +26,6 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SetExperimentTag,
     SetTag,
-    TraceInfo,
     UpdateExperiment,
     UpdateRun,
 )
