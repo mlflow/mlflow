@@ -29,16 +29,15 @@ try:
     import lightning.pytorch as pl
     from lightning.pytorch.utilities import rank_zero_only
 except ModuleNotFoundError:
-    logging.warning("'lightning' package not found, attempting to use 'pytorch_lightning instead.'")
-    # TODO : Using a nested try/catch isn't always nice, might be a better way to handle this?
     try:
         import pytorch_lightning as pl
         from pytorch_lightning.utilities import rank_zero_only
 
         PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
+        logging.warning("'pytorch_lightning' will be deprecated in a future release, please use 'lightning' instead. 'pip install lightning'")
     except ModuleNotFoundError:
         raise ModuleNotFoundError(
-            message="Unable to import 'lightning' or 'pytorch-lightning'."
+            message="Unable to import 'lightning'. "
             f"Please install lightning >= {MIN_REQ_VERSION} into your environment "
             f"with `pip install lightning>={MIN_REQ_VERSION}`"
         )
@@ -96,13 +95,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     """
 
     def __init__(
-        self,
-        client,
-        metrics_logger,
-        run_id,
-        log_models,
-        log_every_n_epoch,
-        log_every_n_step,
+        self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
             raise MlflowException("log_every_n_step is only supported for Lightning >= 1.1.0")
