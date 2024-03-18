@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import posixpath
+import re
 import sys
 import tempfile
 import urllib
@@ -1567,8 +1568,6 @@ class MlflowClient:
                 image.save(tmp_path)
 
         elif key is not None:
-            import re
-
             # Check image key for invalid characters
             if not re.match(r"^[a-zA-Z0-9_\-./ ]+$", key):
                 raise ValueError(
