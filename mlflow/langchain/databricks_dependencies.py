@@ -20,12 +20,13 @@ def _extract_databricks_dependencies_from_retriever(
     from langchain.vectorstores import DatabricksVectorSearch
 
     vectorstore = getattr(retriever, "vectorstore", None)
-    if vectorstore and (embeddings := getattr(vectorstore, "embeddings", None)):
+    if vectorstore:
         if isinstance(vectorstore, DatabricksVectorSearch):
             index = vectorstore.index
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY].append(index.name)
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY].append(index.endpoint_name)
 
+        embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, DatabricksEmbeddings):
             dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(embeddings.endpoint)
         elif (
