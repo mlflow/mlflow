@@ -632,7 +632,7 @@ Examples
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
-            model="endpoiints:/my-chat-endpoint",
+            model="endpoints:/my-chat-endpoint",
             data=eval_data,
             targets="ground_truth",
             inference_params={"max_tokens": 100, "temperature": 0.0},
