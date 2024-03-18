@@ -426,7 +426,7 @@ def _fail_malformed_databricks_auth(profile):
 
 
 # constant defined outside function for testing override
-_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
+_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/brickstore-feature-lookup"
 
 
 # Helper function to attempt to read OAuth Token from
