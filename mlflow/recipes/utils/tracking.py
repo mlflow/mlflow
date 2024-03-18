@@ -230,7 +230,7 @@ def apply_recipe_tracking_config(tracking_config: TrackingConfig):
                 raise MlflowException(
                     f"Could not create an MLflow Experiment with "
                     f"name {tracking_config.experiment_name}. Please create an "
-                    f"MLflow Experiment for this recipe and specify its name in the"
+                    f"MLflow Experiment for this recipe and specify its name in the "
                     f'"name" field of the "experiment" section in your profile configuration.'
                 )
 
