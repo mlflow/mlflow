@@ -1709,6 +1709,38 @@ class MlflowClient:
             # for data like {"inputs": "What is MLflow?"}
             except ValueError:
                 data = pd.DataFrame([data])
+
+        # Check if column is Image object and save filepath
+        if len(data.select_dtypes(include=["object"]).columns) > 0:
+            try:
+                import PIL
+            except ImportError as exc:
+                raise ImportError(
+                    "`log_table` requires Pillow to verify if column contains PIL Image. "
+                    "Please install it via: pip install Pillow"
+                ) from exc
+
+            def process_image(image: PIL.Image.Image):
+                # remove extension from artifact_file
+                table_name, _ = os.path.splitext(artifact_file)
+                # save image to path
+                filepath = posixpath.join("table_images", table_name, str(uuid.uuid4()) + ".png")
+                with self._log_artifact_helper(run_id, filepath) as artifact_path:
+                    image.save(artifact_path)
+                # store a dictionary object indicating its an image path
+                return {"type": "image", "path": filepath}
+
+            for column in data.columns:
+                isImage = data[column].map(lambda x: isinstance(x, (PIL.Image.Image)))
+                if any(isImage) and not all(isImage):
+                    raise ValueError(
+                        "The column contains a mix of images and non-images. "
+                        "Please ensure that all elements in the column are of the same type."
+                    )
+                elif all(isImage):
+                    # Save files to artifact storage
+                    data[column] = data[column].map(lambda x: process_image(x))
+
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
