@@ -26,7 +26,6 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SetExperimentTag,
     SetTag,
-    TraceInfo,
     UpdateExperiment,
     UpdateRun,
 )
