@@ -47,7 +47,9 @@ def get_java_new_py_version(new_py_version: str) -> str:
 
 
 def replace_dev_or_rc_suffix_with(version, repl):
-    return re.sub(r"\.dev0$|rc\d+$", repl, version)
+    parsed = Version(version)
+    base_version = parsed.base_version
+    return base_version + repl if parsed.is_prerelease else version
 
 
 def replace_occurrences(files: List[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
