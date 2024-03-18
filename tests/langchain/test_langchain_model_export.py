@@ -1708,6 +1708,7 @@ def _extract_databricks_dependencies_from_retriever(
         if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
             dependency_dict["fake_index"].append("faiss-index")
 
+        embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, FakeEmbeddings):
             dependency_dict["fake_embeddings_size"].append(embeddings.size)
 
