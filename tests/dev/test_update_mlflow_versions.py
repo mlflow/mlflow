@@ -136,6 +136,7 @@ def test_update_mlflow_versions(
         new_file = (tmp_path / filename).read_text().splitlines()
         diff = list(difflib.context_diff(old_file, new_file, n=0))
         changed_lines = {
+            # the [2:] is to cut out the "! " at the beginning of diff lines
             int(_DIFF_REGEX.search(diff_line).group(1)): diff[idx + 1][2:]
             for idx, diff_line in enumerate(diff)
             if _DIFF_REGEX.search(diff_line)
