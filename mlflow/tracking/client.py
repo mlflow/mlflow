@@ -1744,11 +1744,31 @@ class MlflowClient:
                 # remove extension from artifact_file
                 table_name, _ = os.path.splitext(artifact_file)
                 # save image to path
-                filepath = posixpath.join("table_images", table_name, str(uuid.uuid4()) + ".png")
-                with self._log_artifact_helper(run_id, filepath) as artifact_path:
+                filepath = posixpath.join("table_images", table_name, str(uuid.uuid4()))
+                image_filepath = filepath + ".png"
+                compressed_image_filepath = filepath + ".webp"
+                with self._log_artifact_helper(run_id, image_filepath) as artifact_path:
                     image.save(artifact_path)
+
+                # save compressed image to path
+                # TODO: when other PR is merged, use helper functions in multimedia module.
+                width, height = image.size
+                if width > height:
+                    new_width = 256
+                    new_height = int(height * (new_width / width))
+                else:
+                    new_height = 256
+                    new_width = int(width * (new_height / height))
+                compressed_image = image.resize((new_width, new_height))
+                with self._log_artifact_helper(run_id, compressed_image_filepath) as artifact_path:
+                    compressed_image.save(artifact_path)
+
                 # store a dictionary object indicating its an image path
-                return {"type": "image", "path": filepath}
+                return {
+                    "type": "image",
+                    "filepath": image_filepath,
+                    "compressed_filepath": compressed_image_filepath,
+                }
 
             for column in data.columns:
                 isImage = data[column].map(lambda x: isinstance(x, (PIL.Image.Image)))
