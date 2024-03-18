@@ -16,18 +16,22 @@ _logger = logging.getLogger(__name__)
 def _extract_databricks_dependencies_from_retriever(
     retriever, dependency_dict: DefaultDict[str, List[Any]]
 ):
-    from langchain.embeddings import DatabricksEmbeddings
-    from langchain.vectorstores import DatabricksVectorSearch
+    from langchain.embeddings import DatabricksEmbeddings as OldDatabricksEmbeddings
+    from langchain.vectorstores import (
+        DatabricksVectorSearch as OldDatabricksVectorSearch,
+    )
+    from langchain_community.embeddings import DatabricksEmbeddings
+    from langchain_community.vectorstores import DatabricksVectorSearch
 
     vectorstore = getattr(retriever, "vectorstore", None)
     if vectorstore:
-        if isinstance(vectorstore, DatabricksVectorSearch):
+        if isinstance(vectorstore, (DatabricksVectorSearch, OldDatabricksVectorSearch)):
             index = vectorstore.index
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY].append(index.name)
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY].append(index.endpoint_name)
 
         embeddings = getattr(vectorstore, "embeddings", None)
-        if isinstance(embeddings, DatabricksEmbeddings):
+        if isinstance(embeddings, (DatabricksEmbeddings, OldDatabricksEmbeddings)):
             dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(embeddings.endpoint)
         elif (
             callable(getattr(vectorstore, "_is_databricks_managed_embeddings", None))
@@ -39,18 +43,20 @@ def _extract_databricks_dependencies_from_retriever(
 
 
 def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
-    from langchain.llms import Databricks
+    from langchain.llms import Databricks as OldDatabricks
+    from langchain_community.llms import Databricks
 
-    if isinstance(llm, Databricks):
+    if isinstance(llm, (OldDatabricks, Databricks)):
         dependency_dict[_DATABRICKS_LLM_ENDPOINT_NAME_KEY].append(llm.endpoint_name)
 
 
 def _extract_databricks_dependencies_from_chat_model(
     chat_model, dependency_dict: DefaultDict[str, List[Any]]
 ):
-    from langchain.chat_models import ChatDatabricks
+    from langchain.chat_models import ChatDatabricks as OldChatDatabricks
+    from langchain_community.chat_models import ChatDatabricks
 
-    if isinstance(chat_model, ChatDatabricks):
+    if isinstance(chat_model, (OldChatDatabricks, ChatDatabricks)):
         dependency_dict[_DATABRICKS_CHAT_ENDPOINT_NAME_KEY].append(chat_model.endpoint)
 
 
