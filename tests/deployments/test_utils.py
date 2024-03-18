@@ -1,5 +1,3 @@
-from unittest import mock
-
 import pytest
 
 from mlflow.deployments.utils import (
@@ -34,9 +32,6 @@ def test_get_deployments_target(monkeypatch):
     with pytest.raises(MlflowException, match="No deployments target has been set"):
         get_deployments_target()
 
-    with mock.patch("mlflow.deployments.utils.is_in_databricks_runtime", return_value=True):
-        assert get_deployments_target() == "databricks"
-
     valid_uri = "http://localhost"
     monkeypatch.setattr("mlflow.deployments.utils._deployments_target", valid_uri)
     assert get_deployments_target() == valid_uri
@@ -44,7 +39,3 @@ def test_get_deployments_target(monkeypatch):
     monkeypatch.delenv("MLFLOW_DEPLOYMENTS_TARGET", raising=False)
     set_deployments_target(valid_uri)
     assert get_deployments_target() == valid_uri
-
-    # Default shouldn't override the set value
-    with mock.patch("mlflow.deployments.utils.is_in_databricks_runtime", return_value=True):
-        assert get_deployments_target() == valid_uri
