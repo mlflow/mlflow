@@ -1774,7 +1774,7 @@ class MlflowClient:
                 isImage = data[column].map(lambda x: isinstance(x, (PIL.Image.Image)))
                 if any(isImage) and not all(isImage):
                     raise ValueError(
-                        "The column contains a mix of images and non-images. "
+                        f"Column `{column}` contains a mix of images and non-images. "
                         "Please ensure that all elements in the column are of the same type."
                     )
                 elif all(isImage):
