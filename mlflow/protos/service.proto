@@ -428,6 +428,32 @@ service MlflowService {
       rpc_doc_title: "Log Inputs",
     };
   }
+
+  // Create a new trace within an experiment.
+  rpc createTrace(CreateTrace) returns (CreateTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Trace",
+    };
+  }
+
+  // Get metadata of a trace.
+  rpc getTraceInfo (GetTraceInfo) returns (GetTraceInfo.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{trace_id}/info"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get TraceInfo",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -1176,3 +1202,95 @@ message GetExperimentByName {
     optional Experiment experiment = 1;
   }
 }
+
+// TraceInfo. Represents metadata of a trace.
+message TraceInfo {
+  // Unique identifier for the trace.
+  optional string trace_id = 1;
+
+  // The ID of the experiment that contains the trace.
+  optional string experiment_id = 2;
+
+  // Unix timestamp of when the trace started in milliseconds.
+  optional int64 start_time = 3;
+
+  // Unix timestamp of when the trace ended in milliseconds.
+  optional int64 end_time = 4;
+
+  // Overall status of the operation being traced (OK, error, etc.).
+  optional TraceStatus status = 5;
+
+  // Other trace attributes.
+  repeated TraceAttribute attributes = 6;
+
+  // Tags for the trace.
+  repeated TraceTag tags = 7;
+}
+
+message TraceAttribute {
+  // Key identifying this trace attribute.
+  optional string key = 1;
+
+  // Value identifying this trace attribute.
+  optional string value = 2;
+}
+
+message TraceTag {
+  // Key identifying this trace tag.
+  optional string key = 1;
+
+  // Value associated with this trace tag.
+  optional string value = 2;
+}
+
+enum TraceStatus {
+  TRACE_STATUS_UNSPECIFIED = 0;
+
+  // The operation being traced was successful.
+  OK = 1;
+
+  // The operation being traced failed.
+  ERROR = 2;
+}
+
+message CreateTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the associated experiment.
+  optional string experiment_id = 1;
+
+  // Unix timestamp of when the trace started in milliseconds.
+  optional int64 start_time = 2;
+
+  // Unix timestamp of when the trace ended in milliseconds.
+  optional int64 end_time = 3;
+
+  // Overall status of the operation being traced (OK, error, etc).
+  optional TraceStatus status = 4;
+
+  // Other trace attributes.
+  repeated TraceAttribute attributes = 5;
+
+  // Tags for the trace.
+  repeated TraceTag tags = 6;
+
+  message Response {
+    // The newly created trace.
+    optional TraceInfo trace_info = 1;
+  }
+}
+
+message GetTraceInfo {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1;
+
+  message Response {
+    // Metadata of the requested trace.
+    optional TraceInfo trace_info = 1;
+  }
+}
+
