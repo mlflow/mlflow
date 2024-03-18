@@ -31,8 +31,8 @@ import os
 import re
 import shutil
 import sys
-import typing as t
 from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
 import requests
 import yaml
@@ -62,19 +62,19 @@ class Version(OriginalVersion):
 
 class PackageInfo(BaseModel):
     pip_release: str
-    install_dev: t.Optional[str] = None
+    install_dev: Optional[str] = None
 
 
 class TestConfig(BaseModel):
     minimum: Version
     maximum: Version
-    unsupported: t.Optional[t.List[Version]] = None
-    requirements: t.Optional[t.Dict[str, t.List[str]]] = None
-    python: t.Optional[t.Dict[str, str]] = None
-    java: t.Optional[t.Dict[str, str]] = None
+    unsupported: Optional[List[Version]] = None
+    requirements: Optional[Dict[str, List[str]]] = None
+    python: Optional[Dict[str, str]] = None
+    java: Optional[Dict[str, str]] = None
     run: str
-    allow_unreleased_max_version: t.Optional[bool] = None
-    pre_test: t.Optional[str] = None
+    allow_unreleased_max_version: Optional[bool] = None
+    pre_test: Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -105,7 +105,7 @@ class MatrixItem(BaseModel):
     java: str
     supported: bool
     free_disk_space: bool
-    pre_test: t.Optional[str] = None
+    pre_test: Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -231,7 +231,7 @@ def get_matched_requirements(requirements, version=None):
     return sorted(reqs)
 
 
-def get_java_version(java: t.Optional[t.Dict[str, str]], version: str) -> str:
+def get_java_version(java: Optional[Dict[str, str]], version: str) -> str:
     default = "11"
     if java is None:
         return default
@@ -245,7 +245,7 @@ def get_java_version(java: t.Optional[t.Dict[str, str]], version: str) -> str:
 
 
 @functools.lru_cache(maxsize=128)
-def pypi_json(package: str) -> t.Dict[str, t.Any]:
+def pypi_json(package: str) -> Dict[str, Any]:
     resp = requests.get(f"https://pypi.org/pypi/{package}/json")
     resp.raise_for_status()
     return resp.json()
@@ -269,7 +269,7 @@ def get_requires_python(package: str, version: str) -> str:
     return next((c for c in candidates if spec.contains(c)), None) or candidates[0]
 
 
-def get_python_version(python: t.Optional[t.Dict[str, str]], package: str, version: str) -> str:
+def get_python_version(python: Optional[Dict[str, str]], package: str, version: str) -> str:
     if python:
         for specifier, py_ver in python.items():
             specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
