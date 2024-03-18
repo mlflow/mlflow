@@ -1704,7 +1704,7 @@ def _extract_databricks_dependencies_from_retriever(
     import langchain_community
 
     vectorstore = getattr(retriever, "vectorstore", None)
-    if vectorstore and (embeddings := getattr(vectorstore, "embeddings", None)):
+    if vectorstore:
         if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
             dependency_dict["fake_index"].append("faiss-index")
 
