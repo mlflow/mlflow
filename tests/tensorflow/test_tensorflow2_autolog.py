@@ -471,7 +471,14 @@ class __GeneratorClass:
         __ExampleSequence,
         functools.partial(__ExampleSequence, with_sample_weights=True),
         functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
-        functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
+        pytest.param(
+            functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
+            marks=pytest.mark.skipif(
+                Version(tf.__version__).release >= (2, 15)
+                and "TF_USE_LEGACY_KERAS" not in os.environ,
+                reason="does not support",
+            ),
+        ),
     ],
 )
 @pytest.mark.parametrize("batch_size", [5, 10])

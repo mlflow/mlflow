@@ -9,12 +9,16 @@ sklearn:
     maximum: "1.4.1.post1"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
+    python:
+      "== dev": "3.9"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
     minimum: "0.24.1"
     maximum: "1.4.1.post1"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.0": ["scipy==1.7.3"]
@@ -57,7 +61,7 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "1.4.9"
+    minimum: "1.9.0"
     maximum: "2.2.0.post0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
@@ -83,6 +87,8 @@ keras:
   models:
     minimum: "3.0.2"
     maximum: "3.0.5"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -92,6 +98,8 @@ keras:
   autologging:
     minimum: "3.0.2"
     maximum: "3.0.5"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -107,6 +115,8 @@ tensorflow:
   models:
     minimum: "2.6.5"
     maximum: "2.15.0.post1"
+    python:
+      "== dev": "3.9"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
@@ -132,6 +142,8 @@ tensorflow:
   autologging:
     minimum: "2.6.5"
     maximum: "2.15.0.post1"
+    python:
+      "== dev": "3.9"
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.7.0": ["pandas==1.3.5"]
@@ -288,7 +300,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.7.0"
+    minimum: "1.13.1"
     maximum: "1.15.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -321,6 +333,8 @@ statsmodels:
   models:
     minimum: "0.11.1"
     maximum: "0.14.1"
+    python:
+      "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -329,6 +343,8 @@ statsmodels:
   autologging:
     minimum: "0.11.1"
     maximum: "0.14.1"
+    python:
+      "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -348,8 +364,10 @@ spark:
       pyspark --version
 
   models:
-    minimum: "3.0.0"
+    minimum: "3.1.2"
     maximum: "3.5.1"
+    java:
+      "> 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -375,8 +393,10 @@ spark:
       fi
 
   autologging:
-    minimum: "3.0.0"
+    minimum: "3.1.2"
     maximum: "3.5.1"
+    java:
+      ">= 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -527,6 +547,7 @@ transformers:
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
         "4.38.1",
+        "4.38.2",
       ]
     requirements:
       ">= 0.0.0": [
@@ -548,6 +569,8 @@ transformers:
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
+    pre_test: |
+      python tests/transformers/helper.py
     run: |
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
@@ -560,6 +583,7 @@ transformers:
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
         "4.38.1",
+        "4.38.2",
       ]
     requirements:
       ">= 0.0.0":
@@ -693,7 +717,7 @@ promptflow:
   package_info:
     pip_release: "promptflow"
     install_dev: |
-      pip install git+https://github.com/promptflow/src/promptflow
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
     maximum: "1.6.0"

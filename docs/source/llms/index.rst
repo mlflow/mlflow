@@ -339,7 +339,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                         Evaluating LLMs
                     </div>
                     <p>
-                        Learn how to evaluate LLMs with MLflow.
+                        Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using <code>mlflow.evaluate()</code> API.
                     </p>
                 </a>
             </div>
@@ -354,7 +354,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                 </a>
             </div>
             <div class="simple-card">
-                <a href="rag/index.html" >
+                <a href="rag/notebooks/index.html" >
                     <div class="header">
                         Evaluation for RAG
                     </div>

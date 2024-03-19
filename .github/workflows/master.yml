@@ -325,7 +325,7 @@ jobs:
           source .venv/Scripts/activate
           python -m pip install -U pip
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .[extras]
+          pip install .[extras]
           pip install pyspark
           pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
