@@ -114,7 +114,8 @@ def test_databricks_params_model_serving_oauth_cache(monkeypatch, oauth_file):
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
-    # oauth file still needs to be present for is_in_databricks_model_serving_environment() to evaluate true
+    # oauth file still needs to be present for is_in_databricks_model_serving_environment()
+    #  to evaluate true
     with mock.patch(
         "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
     ):
@@ -298,9 +299,9 @@ def test_is_in_databricks_model_serving_environment(monkeypatch, oauth_file):
     with mock.patch(
         "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
     ):
-        #both file mount and env var exist, should return true 
+        #both file mount and env var exist, should return true
         assert databricks_utils.is_in_databricks_model_serving_environment
-        
+
         # file mount without env var should return false
         monkeypatch.delenv("DATABRICKS_MODEL_SERVING_ENV")
         assert not databricks_utils.is_in_databricks_model_serving_environment()
