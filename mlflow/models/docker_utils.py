@@ -101,7 +101,7 @@ def generate_dockerfile(
         setup_java_steps = (
             "# Setup Java\n"
             f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
-            "ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64"
+            f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
         )
 
         install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
