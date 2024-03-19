@@ -39,7 +39,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
-from mlflow.tracking.multimedia import Image, compress_image_size, convert_numpy_to_pil_image
+from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -1559,9 +1559,15 @@ class MlflowClient:
 
         # Convert image type to PIL if its a numpy array
         if isinstance(image, np.ndarray):
-            image = convert_numpy_to_pil_image(image)
+            image = convert_to_pil_image(image)
         elif isinstance(image, Image):
             image = image.to_pil()
+        else:
+            # Import PIL and check if the image is a PIL image
+            import PIL
+
+            if not isinstance(image, PIL.Image.Image):
+                raise TypeError("Unsupported image object type.")
 
         if artifact_file is not None:
             with self._log_artifact_helper(run_id, artifact_file) as tmp_path:

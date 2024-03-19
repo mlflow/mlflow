@@ -30,7 +30,7 @@ def compress_image_size(
     return image.resize((new_width, new_height))
 
 
-def convert_numpy_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Image":
+def convert_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Image":
     """
     Convert a numpy array to a PIL image.
     """
@@ -137,7 +137,7 @@ class Image:
         if isinstance(image, str):
             self.image = Image.open(image)
         elif isinstance(image, (list, np.ndarray)):
-            image = convert_numpy_to_pil_image(np.array(image))
+            image = convert_to_pil_image(np.array(image))
         elif isinstance(image, Image.Image):
             self.image = image
         else:
