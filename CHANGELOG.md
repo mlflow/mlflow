@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.11.2 (2024-03-19)
+
+MLflow 2.11.2 includes several major features and improvements
+
+Small bug fixes and documentation updates:
+
+#11448, @BenWilson2
+
 ## 2.11.1 (2024-03-06)
 
 MLflow 2.11.1 is a patch release, containing fixes for some Databricks integrations and other various issues.
