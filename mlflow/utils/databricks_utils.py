@@ -25,6 +25,8 @@ from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 _logger = logging.getLogger(__name__)
 
 
+_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
+
 def _use_repl_context_if_available(name):
     """Creates a decorator to insert a short circuit that returns the specified REPL context
     attribute if it's available.
@@ -165,7 +167,9 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    return "DATABRICKS_MODEL_SERVING_ENV" in os.environ
+    return "DATABRICKS_MODEL_SERVING_ENV" in os.environ and \
+        os.path.exists(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH) \
+        and os.path.isfile(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
 
 
 def is_in_databricks_repo():
@@ -423,10 +427,6 @@ def _fail_malformed_databricks_auth(profile):
         "Databricks CLI is properly configured as described at "
         "https://github.com/databricks/databricks-cli." % profile
     )
-
-
-# constant defined outside function for testing override
-_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
 
 
 # Helper function to attempt to read OAuth Token from

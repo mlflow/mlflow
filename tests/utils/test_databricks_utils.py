@@ -101,22 +101,40 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
     with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 
-
-def test_databricks_model_serving_throws(monkeypatch):
+@mock.patch("json.load", side_effect=Exception('Error reading json from file'))
+def test_databricks_model_serving_throws(monkeypatch, oauth_file):
+    # oauth file still needs to be present for is_in_databricks_model_serving_environment() to evaluate true 
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
-    with pytest.raises(MlflowException, match="Unable to read Oauth credentials"):
-        databricks_utils.get_databricks_host_creds()
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        print("envvar ", "DATABRICKS_MODEL_SERVING_ENV" in os.environ)
+        with pytest.raises(MlflowException, match="Unable to read Oauth credentials"):
+            print("FILE EXISTS", os.path.exists(str(oauth_file)))
+            print("file", os.path.isfile(str(oauth_file)))
+            print("envvar ", "DATABRICKS_MODEL_SERVING_ENV" in os.environ)
+            print("IS IN MS ENV", databricks_utils.is_in_databricks_model_serving_environment())
+            databricks_utils.get_databricks_host_creds()
+        assert False
 
 
-def test_databricks_params_model_serving_oauth_cache(monkeypatch):
+def test_databricks_params_model_serving_oauth_cache(monkeypatch, oauth_file):
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.host == "host"
-    assert params.token == "token"
+    # oauth file still needs to be present for is_in_databricks_model_serving_environment() to evaluate true
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        assert params.host == "host"
+        # should use token from cache, rather than token from oauthfile
+        assert params.token == "token"
+    
+    assert False
+        
 
 
 @pytest.fixture
@@ -284,12 +302,21 @@ def test_is_in_databricks_runtime(monkeypatch):
     assert not databricks_utils.is_in_databricks_runtime()
 
 
-def test_is_in_databricks_model_serving_environment(monkeypatch):
+def test_is_in_databricks_model_serving_environment(monkeypatch, oauth_file):
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")
-    assert databricks_utils.is_in_databricks_model_serving_environment()
-
-    monkeypatch.delenv("DATABRICKS_MODEL_SERVING_ENV")
+    # will return false if file mount is not configured even if env var set
     assert not databricks_utils.is_in_databricks_model_serving_environment()
+
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        #both file mount and env var exist, should return true 
+        assert databricks_utils.is_in_databricks_model_serving_environment
+        
+        # file mount without env var should return false
+        monkeypatch.delenv("DATABRICKS_MODEL_SERVING_ENV")
+        assert not databricks_utils.is_in_databricks_model_serving_environment()
 
 
 def test_get_repl_id():
