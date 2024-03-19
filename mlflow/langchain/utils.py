@@ -1,4 +1,5 @@
 """Utility functions for mlflow.langchain."""
+
 import contextlib
 import json
 import logging
@@ -97,14 +98,6 @@ def picklable_runnable_types():
     except ImportError:
         pass
 
-    try:
-        # TODO: fix this, RunnableAssign is not picklable
-        from langchain.schema.runnable.passthrough import RunnableAssign
-
-        types += (RunnableAssign,)
-    except ImportError:
-        pass
-
     return types
 
 
@@ -129,7 +122,16 @@ def lc_runnable_with_steps_types():
     return types
 
 
-def lc_runnable_branch_type():
+def lc_runnable_assign_types():
+    try:
+        from langchain.schema.runnable.passthrough import RunnableAssign
+
+        return (RunnableAssign,)
+    except ImportError:
+        return ()
+
+
+def lc_runnable_branch_types():
     try:
         from langchain.schema.runnable import RunnableBranch
 
@@ -139,7 +141,12 @@ def lc_runnable_branch_type():
 
 
 def lc_runnables_types():
-    return picklable_runnable_types() + lc_runnable_with_steps_types() + lc_runnable_branch_type()
+    return (
+        picklable_runnable_types()
+        + lc_runnable_with_steps_types()
+        + lc_runnable_branch_types()
+        + lc_runnable_assign_types()
+    )
 
 
 def supported_lc_types():
@@ -262,6 +269,14 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.llms.huggingface_hub
     import langchain.llms.openai
     import langchain.schema
+
+    if isinstance(lc_model, str):
+        if os.path.basename(os.path.abspath(lc_model)) != "chain.py":
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"If {lc_model} is a string, it must be the path to a file "
+                "named `chain.py` on the local filesystem."
+            )
+        return lc_model
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(

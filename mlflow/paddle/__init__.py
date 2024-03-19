@@ -49,6 +49,9 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "paddle"
 
+_MODEL_DATA_SUBPATH = "model"
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
+
 _logger = logging.getLogger(__name__)
 
 
@@ -208,7 +211,7 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_subpath = "model"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     output_path = os.path.join(path, model_data_subpath)
 
     if isinstance(pd_model, paddle.Model):

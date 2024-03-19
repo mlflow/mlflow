@@ -1369,6 +1369,66 @@ def test_table_question_answering_pipeline(
     assert pd_inference == result
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
+)
+def test_custom_code_pipeline(custom_code_pipeline, model_path):
+    data = "hello"
+
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(custom_code_pipeline, data)
+    )
+
+    mlflow.transformers.save_model(
+        custom_code_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+
+    # just test that it doens't blow up when performing inference
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_pred = pyfunc_loaded.predict(data)
+    assert isinstance(pyfunc_pred[0][0], float)
+
+    transformers_loaded = mlflow.transformers.load_model(model_path)
+    transformers_pred = transformers_loaded(data)
+    assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
+)
+def test_custom_components_pipeline(custom_components_pipeline, model_path):
+    data = "hello"
+
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(custom_components_pipeline, data)
+    )
+
+    components = {
+        "model": custom_components_pipeline.model,
+        "tokenizer": custom_components_pipeline.tokenizer,
+        "feature_extractor": custom_components_pipeline.feature_extractor,
+    }
+
+    mlflow.transformers.save_model(
+        transformers_model=components, path=model_path, signature=signature
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    pyfunc_pred = pyfunc_loaded.predict(data)
+    assert isinstance(pyfunc_pred[0][0], float)
+
+    transformers_loaded = mlflow.transformers.load_model(model_path)
+    transformers_pred = transformers_loaded(data)
+    assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
+
+    # assert that all the reloaded components exist
+    # and have the same class name as pre-save
+    for name, component in components.items():
+        assert component.__class__.__name__ == getattr(transformers_loaded, name).__class__.__name__
+
+
 @pytest.mark.parametrize(
     ("data", "result"),
     [
@@ -2846,8 +2906,8 @@ def test_whisper_model_with_malformed_audio(whisper_pipeline):
 def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     # non-ascii unicode characters
     test_text = (
-        "Emoji testing! \u2728 \U0001F600 \U0001F609 \U0001F606 "
-        "\U0001F970 \U0001F60E \U0001F917 \U0001F9D0"
+        "Emoji testing! \u2728 \U0001f600 \U0001f609 \U0001f606 "
+        "\U0001f970 \U0001f60e \U0001f917 \U0001f9d0"
     )
 
     card_data: ModelCard = huggingface_hub.ModelCard.load(model_name)
@@ -3652,3 +3712,47 @@ def test_persist_pretrained_model(mock_tmpdir, small_seq2seq_pipeline):
     mock_tmpdir.reset_mock()
     mlflow.transformers.persist_pretrained_model(model_info.model_uri)
     mock_tmpdir.assert_not_called()
+
+
+def test_small_qa_pipeline_copy_metadata(small_qa_pipeline, tmp_path):
+    artifact_path = "transformers"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=small_qa_pipeline,
+            artifact_path=artifact_path,
+        )
+        artifact_path = mlflow.artifacts.download_artifacts(
+            artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
+        )
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
+            "LICENSE.txt",
+            "MLmodel",
+            "conda.yaml",
+            "model_card.md",
+            "model_card_data.yaml",
+            "python_env.yaml",
+            "requirements.txt",
+        }
+
+
+def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
+    artifact_path = "transformers"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=peft_pipeline,
+            artifact_path=artifact_path,
+        )
+        artifact_path = mlflow.artifacts.download_artifacts(
+            artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
+        )
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
+            "LICENSE.txt",
+            "MLmodel",
+            "conda.yaml",
+            "model_card.md",
+            "model_card_data.yaml",
+            "python_env.yaml",
+            "requirements.txt",
+        }

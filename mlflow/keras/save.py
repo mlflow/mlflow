@@ -45,6 +45,11 @@ _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 _logger = logging.getLogger(__name__)
 
 
+_MODEL_DATA_PATH = "data"
+
+model_data_artifact_paths = [_MODEL_DATA_PATH]
+
+
 def get_default_pip_requirements():
     """
     Returns:
@@ -187,7 +192,7 @@ def save_model(
 
     save_model_kwargs = save_model_kwargs or {}
 
-    data_subpath = "data"
+    data_subpath = _MODEL_DATA_PATH
     # Construct new data folder in existing path.
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)

@@ -3,6 +3,7 @@ from subprocess import PIPE, STDOUT, Popen
 from typing import Optional, Union
 from urllib.parse import urlparse
 
+from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
 from mlflow.utils.logging_utils import eprint
@@ -96,10 +97,11 @@ def generate_dockerfile(
             SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
         )
 
+        jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
         setup_java_steps = (
             "# Setup Java\n"
-            "RUN apt-get install -y --no-install-recommends openjdk-8-jdk maven\n"
-            "ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64"
+            f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
+            f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
         )
 
         install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)

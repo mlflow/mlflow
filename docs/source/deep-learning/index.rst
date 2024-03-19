@@ -204,6 +204,17 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="../llms/transformers/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage 
+                        MLflow and Transformers to build Open-Source powered solutions.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 

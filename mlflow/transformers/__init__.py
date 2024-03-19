@@ -1,4 +1,5 @@
 """MLflow module for HuggingFace/transformer support."""
+
 from __future__ import annotations
 
 import ast
@@ -68,6 +69,7 @@ from mlflow.transformers.llm_inference_utils import (
 from mlflow.transformers.model_io import (
     _COMPONENTS_BINARY_DIR_NAME,
     _MODEL_BINARY_FILE_NAME,
+    _PROCESSOR_BINARY_DIR_NAME,
     load_model_and_components_from_huggingface_hub,
     load_model_and_components_from_local,
     save_pipeline_pretrained_weights,
@@ -165,6 +167,14 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
 
 
 _logger = logging.getLogger(__name__)
+
+
+model_data_artifact_paths = [
+    _MODEL_BINARY_FILE_NAME,
+    _COMPONENTS_BINARY_DIR_NAME,
+    _PROCESSOR_BINARY_DIR_NAME,
+    _PEFT_ADAPTOR_DIR_NAME,
+]
 
 
 @experimental
@@ -271,7 +281,9 @@ def save_model(
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
-    Save a trained transformers model to a path on the local file system.
+    Save a trained transformers model to a path on the local file system. Note that
+    saving transformers models with custom code (i.e. models that require
+    ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
 
     Args:
         transformers_model:
@@ -699,7 +711,9 @@ def log_model(
     **kwargs,
 ):
     """
-    Log a ``transformers`` object as an MLflow artifact for the current run.
+    Log a ``transformers`` object as an MLflow artifact for the current run. Note that
+    logging transformers models with custom code (i.e. models that require
+    ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
 
     Args:
         transformers_model:

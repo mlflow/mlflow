@@ -114,6 +114,10 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 _logger = logging.getLogger(__name__)
 
 
+_MODEL_DATA_SUBPATH = "model.pkl"
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
+
+
 def get_default_pip_requirements(include_cloudpickle=False):
     """Create list of default pip requirements for MLflow Models.
 
@@ -233,14 +237,13 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    model_data_subpath = "model.pkl"
-    model_data_path = os.path.join(path, model_data_subpath)
+    model_data_path = os.path.join(path, _MODEL_DATA_SUBPATH)
     _save_model(sktime_model, model_data_path, serialization_format=serialization_format)
 
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="flavor",
-        model_path=model_data_subpath,
+        model_path=_MODEL_DATA_SUBPATH,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
@@ -248,7 +251,7 @@ def save_model(
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        pickled_model=model_data_subpath,
+        pickled_model=_MODEL_DATA_SUBPATH,
         sktime_version=sktime.__version__,
         serialization_format=serialization_format,
         code=code_dir_subpath,

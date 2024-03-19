@@ -86,6 +86,9 @@ FLAVOR_NAME = "spark"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
 
+model_data_artifact_paths = [_SPARK_MODEL_PATH_SUB]
+
+
 _logger = logging.getLogger(__name__)
 
 

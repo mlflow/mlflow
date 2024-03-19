@@ -52,6 +52,8 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.pr"
 _MODEL_TYPE_KEY = "model_type"
 
+model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
+
 _logger = logging.getLogger(__name__)
 
 
