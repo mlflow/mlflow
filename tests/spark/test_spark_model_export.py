@@ -8,6 +8,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from mlflow.exceptions import MlflowException
 import pyspark
 import pytest
 import yaml
@@ -269,6 +270,15 @@ def test_model_export_with_signature_and_examples(spark_model_iris, iris_signatu
                     assert mlflow_model.saved_input_example_info is None
                 else:
                     assert all((_read_example(mlflow_model, path) == example).all())
+
+
+def test_model_export_raise_when_example_is_spark_dataframe(spark, spark_model_iris, model_path):
+    features_df = spark_model_iris.pandas_df.drop("label", axis=1)
+    example = spark.createDataFrame(features_df.head(3))
+    with pytest.raises(MlflowException, match="Examples can not be provided as Spark Dataframe."):
+        mlflow.spark.save_model(
+            spark_model_iris.model, path=model_path, input_example=example
+        )
 
 
 def test_log_model_with_signature_and_examples(spark_model_iris, iris_signature):
