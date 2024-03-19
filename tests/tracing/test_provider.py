@@ -2,7 +2,7 @@ from unittest import mock
 
 from opentelemetry import trace
 
-from mlflow.tracing.client import get_trace_client
+from mlflow.tracing.clients import get_trace_client
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, get_tracer
 
 

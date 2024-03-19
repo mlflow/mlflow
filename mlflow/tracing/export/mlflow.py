@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Sequence
 
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.tracing.client import TraceClient
+from mlflow.tracing.clients import TraceClient
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
     TRUNCATION_SUFFIX,
@@ -89,6 +89,7 @@ class MLflowSpanExporter(SpanExporter):
             tags={},
         )
         trace = Trace(trace_info, trace_data)
+        # TODO: Make this async
         self._client.log_trace(trace)
 
     def _serialize_inputs_outputs(self, input_or_output: Optional[Dict[str, Any]]) -> str:
