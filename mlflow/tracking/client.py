@@ -39,7 +39,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
-from mlflow.tracking.multimedia import Image, _compress_image_size, _convert_numpy_to_pil_image
+from mlflow.tracking.multimedia import Image, compress_image_size, convert_numpy_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -1513,7 +1513,7 @@ class MlflowClient:
             import mlflow
             from PIL import Image
 
-            # If you have a preexisting saved image
+            # Saving an image to retrieve later.
             Image.new("RGB", (100, 100)).save("image.png")
 
             image = mlflow.Image("image.png")
@@ -1559,7 +1559,7 @@ class MlflowClient:
 
         # Convert image type to PIL if its a numpy array
         if isinstance(image, np.ndarray):
-            image = _convert_numpy_to_pil_image(image)
+            image = convert_numpy_to_pil_image(image)
         elif isinstance(image, Image):
             image = image.to_pil()
 
@@ -1573,6 +1573,7 @@ class MlflowClient:
                 raise ValueError(
                     "The `key` parameter may only contain alphanumerics, underscores (_), "
                     "dashes (-), periods (.), spaces ( ), and slashes (/)."
+                    f"The provided key `{key}` contains invalid characters."
                 )
 
             step = step or 0
@@ -1582,7 +1583,7 @@ class MlflowClient:
             sanitized_key = re.sub(r"/", "#", key)
             filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{uuid.uuid4()}"
 
-            # Save full-res image
+            # Save full-resolution image
             image_filepath = f"{filename}.png"
             with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
                 image.save(tmp_path)
@@ -1590,7 +1591,7 @@ class MlflowClient:
             # Save compressed image
             compressed_image_filepath = f"{filename}.webp"
             with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
-                _compress_image_size(image).save(tmp_path)
+                compress_image_size(image).save(tmp_path)
 
             # Save metadata file
             metadata_filepath = f"{filename}.json"

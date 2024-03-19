@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 COMPRESSED_IMAGE_SIZE = 256
 
 
-def _compress_image_size(
+def compress_image_size(
     image: "PIL.Image.Image", max_size: Optional[int] = COMPRESSED_IMAGE_SIZE
 ) -> "PIL.Image.Image":
     """
@@ -30,7 +30,7 @@ def _compress_image_size(
     return image.resize((new_width, new_height))
 
 
-def _convert_numpy_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Image":
+def convert_numpy_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Image":
     """
     Convert a numpy array to a PIL image.
     """
@@ -83,7 +83,7 @@ def _convert_numpy_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Ima
         )
 
     if image.ndim not in [2, 3]:
-        raise ValueError(f"`image` must be a 2D or 3D array but got a {image.ndim}D array")
+        raise ValueError(f"`image` must be a 2D or 3D array but got image shape: {image.shape}")
 
     if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
         raise ValueError(f"Invalid channel length: {image.shape[2]}. Must be one of [1, 3, 4]")
@@ -103,8 +103,10 @@ class Image:
     The image can be a numpy array, a PIL image, or a file path to an image. The image is
     stored as a PIL image and can be logged to MLflow using `mlflow.log_image` or
     `mlflow.log_table`.
+
     Args:
         image: Image can be a numpy array, a PIL image, or a file path to an image.
+
     Example:
     .. code-block:: python
         :caption: Example
@@ -129,21 +131,22 @@ class Image:
         except ImportError as exc:
             raise ImportError(
                 "`mlflow.Image` requires Pillow to serialize a numpy array as an image. "
-                "Please install it via: pip install Pillow"
+                "Please install it via: `pip install Pillow`."
             ) from exc
 
         if isinstance(image, str):
             self.image = Image.open(image)
         elif isinstance(image, (list, np.ndarray)):
-            image = _convert_numpy_to_pil_image(np.array(image))
+            image = convert_numpy_to_pil_image(np.array(image))
         elif isinstance(image, Image.Image):
             self.image = image
         else:
-            raise TypeError("Image must be a numpy array, a PIL image, or a file path to an image")
+            raise TypeError("Image must be a numpy array, a PIL image, or a file path to an image.")
 
     def to_list(self) -> list:
         """
         Convert the image to a list of pixel values.
+
         Returns:
             List of pixel values.
         """
@@ -152,6 +155,7 @@ class Image:
     def to_array(self) -> "numpy.ndarray":
         """
         Convert the image to a numpy array.
+
         Returns:
             Numpy array of pixel values.
         """
@@ -162,6 +166,7 @@ class Image:
     def to_pil(self) -> "PIL.Image.Image":
         """
         Convert the image to a PIL image.
+
         Returns:
             PIL image.
         """
@@ -170,6 +175,7 @@ class Image:
     def save(self, path) -> None:
         """
         Save the image to a file.
+
         Args:
             path: File path to save the image.
         """
