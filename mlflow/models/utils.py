@@ -203,17 +203,6 @@ class _Example:
             elif np.isscalar(input_ex):
                 input_ex = pd.DataFrame([input_ex])
             elif not isinstance(input_ex, pd.DataFrame):
-                try:
-                    import pyspark.sql.dataframe
-
-                    if isinstance(input_example, pyspark.sql.dataframe.DataFrame):
-                        raise MlflowException(
-                            "Examples can not be provided as Spark Dataframe. "
-                            "Please make sure your example is of a small size and "
-                            "turn it into a pandas DataFrame."
-                        )
-                except ImportError:
-                    pass
                 input_ex = None
             return input_ex
 
@@ -225,6 +214,18 @@ class _Example:
                 # No need to write default column index out
                 del result["columns"]
             return result
+
+        try:
+            import pyspark.sql
+
+            if isinstance(input_example, pyspark.sql.DataFrame):
+                raise MlflowException(
+                    "Examples can not be provided as Spark Dataframe. "
+                    "Please make sure your example is of a small size and "
+                    "turn it into a pandas DataFrame."
+                )
+        except ImportError:
+            pass
 
         self.info = {
             INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
