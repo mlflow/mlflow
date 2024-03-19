@@ -168,8 +168,8 @@ class TrackingServiceClient:
         Returns:
             The created Trace object.
         """
-        attributes = attributes if attributes else {}
-        tags = tags if tags else {}
+        attributes = attributes or {}
+        tags = tags or {}
 
         return self.store.create_trace(
             experiment_id=experiment_id,
