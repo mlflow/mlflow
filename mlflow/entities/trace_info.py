@@ -1,11 +1,10 @@
+from typing import List, Optional
+
 from mlflow.entities._mlflow_object import _MLflowObject
-from typing import Any, Dict, Optional, List
-from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.trace_attribute import TraceAttribute
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.trace_tag import TraceTag
-from mlflow.entities.trace_attribute import TraceAttribute
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 
 
