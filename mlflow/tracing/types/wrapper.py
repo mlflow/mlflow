@@ -120,7 +120,8 @@ class MLflowSpanWrapper:
             end_time=self._span._end_time,
             inputs=self._inputs,
             outputs=self._outputs,
-            attributes=self._span.attributes,
+            # Convert from MappingProxyType to dict for serialization
+            attributes=dict(self._span.attributes),
             events=[
                 Event(event.name, event.timestamp, event.attributes) for event in self._span.events
             ],

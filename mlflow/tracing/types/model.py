@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Union
 
 
@@ -15,6 +16,9 @@ class Trace:
 
     trace_info: TraceInfo
     trace_data: TraceData
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), default=str)
 
 
 @dataclass
