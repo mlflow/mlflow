@@ -295,7 +295,7 @@ class ProfileConfigProvider(DatabricksConfigProvider):
 
 
 class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
-    """Loads from the databrickscfg file."""
+    """Loads from OAuth credentials in the Databricks Model Serving environment."""
 
     def get_config(self):
         from mlflow.utils.databricks_utils import should_fetch_model_serving_environment_oauth
