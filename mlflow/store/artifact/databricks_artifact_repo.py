@@ -26,6 +26,8 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     CreateMultipartUpload,
     DatabricksMlflowArtifactsService,
     GetCredentialsForRead,
+    GetCredentialsForTraceDataDownload,
+    GetCredentialsForTraceDataUpload,
     GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
     PartEtag,
@@ -195,6 +197,20 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return self._get_credential_infos(
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
+
+    def _download_trace(self):
+        """
+        TODO
+        """
+        cred_info = self._get_credential_infos(GetCredentialsForTraceDataDownload, self.run_id)
+        self._azure_adls_gen2_upload_file(cred_info, None)
+
+    def _upload_trace(self, local_file):
+        """
+        TODO
+        """
+        cred_info = self._get_credential_infos(GetCredentialsForTraceDataUpload, self.run_id)
+        self._azure_adls_gen2_upload_file(local_file, cred_info, None)
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
