@@ -287,11 +287,11 @@ class APIRequest:
 
         def json_dict_might_be_chat_request(json: Dict):
             return (
-                "messages" in request_json
+                "messages" in json
                 and
                 # Additional keys can't be specified when calling LangChain invoke() / batch()
                 # with chat messages
-                len(request_json) == 1
+                len(json) == 1
             )
 
         if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
