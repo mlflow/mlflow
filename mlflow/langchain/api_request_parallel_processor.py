@@ -295,7 +295,7 @@ class APIRequest:
                 len(json_message) == 1
             )
 
-        if json_dict_might_be_chat_request(request_json):
+        if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
             try:
                 return APIRequest._convert_chat_request_or_throw(request_json), True
             except pydantic.ValidationError:
