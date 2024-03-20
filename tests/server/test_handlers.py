@@ -804,20 +804,29 @@ def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve
     assert json_response["message"] == "Invalid path"
 
 
-def test_local_file_read_write_by_pass_vulnerability():
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://host#/abc/etc/",
+        "http://host/;..%2F..%2Fetc",
+    ],
+)
+def test_local_file_read_write_by_pass_vulnerability(uri):
     request = mock.MagicMock()
     request.method = "POST"
     request.content_type = "application/json; charset=utf-8"
     request.get_json = mock.MagicMock()
     request.get_json.return_value = {
         "name": "hello",
-        "artifact_location": "http://host#/abc/etc/",
+        "artifact_location": uri,
     }
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     with mock.patch("mlflow.server.handlers._get_request_message", return_value=msg):
         response = _create_experiment()
         json_response = json.loads(response.get_data())
-        assert json_response["message"] == "'artifact_location' URL can't include fragment part."
+        assert (
+            json_response["message"] == "'artifact_location' URL can't include fragments or params."
+        )
 
     # Test if source is a local filesystem path, `_validate_source` validates that the run
     # artifact_uri is also a local filesystem path.
