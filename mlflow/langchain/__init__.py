@@ -797,7 +797,20 @@ def load_model(model_uri, dst_path=None):
         A LangChain model instance.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    return _load_model_from_local_fs(local_model_path)
+
+    # This exception handling is to permit LangChain models to be loaded via the MLflow
+    # load_model API as there is no mechanism for passing the required
+    # `allow_dangerous_deserialization=True` argument to the loading logic. Preserving the security
+    # warning from the ValueError to not entirely defeat the intention of the LangChain
+    # developers that was introduced in the `langchain_community` 0.0.27 release.
+    try:
+        loaded_model = _load_model_from_local_fs(local_model_path)
+    except ValueError as e:
+        if str(e).startswith("This code relies on the pickle module"):
+            logger.warning(f"Caught and bypassed the ValueError for loading pickle files: {e}")
+        else:
+            raise
+    return loaded_model
 
 
 def _load_code_model(code_path: Optional[str] = None):
