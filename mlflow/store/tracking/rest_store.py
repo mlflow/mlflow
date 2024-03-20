@@ -14,6 +14,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetMetricHistory,
     GetRun,
+    GetTraceInfo,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -216,6 +217,20 @@ class RestStore(AbstractStore):
             )
         )
         response_proto = self._call_endpoint(CreateTrace, req_body)
+        return TraceInfo.from_proto(response_proto.trace_info)
+
+    def get_trace_info(self, trace_id):
+        """
+        Get the trace matching the `trace_id`.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        req_body = message_to_json(GetTraceInfo(trace_id=trace_id))
+        response_proto = self._call_endpoint(GetTraceInfo, req_body)
         return TraceInfo.from_proto(response_proto.trace_info)
 
     def log_metric(self, run_id, metric):

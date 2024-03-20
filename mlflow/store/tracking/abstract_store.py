@@ -252,6 +252,19 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
+    def get_trace_info(self, trace_id):
+        """
+        Get the trace matching the `trace_id`.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        pass
+
     def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run

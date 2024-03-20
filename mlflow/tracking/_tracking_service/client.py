@@ -180,6 +180,18 @@ class TrackingServiceClient:
             tags=[TraceTag(key, value) for (key, value) in tags.items()],
         )
 
+    def get_trace_info(self, trace_id):
+        """
+        Get the trace matching the `trace_id`.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        return self.store.get_trace_info(trace_id)
+
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,

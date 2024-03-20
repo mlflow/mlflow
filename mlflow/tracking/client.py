@@ -412,6 +412,27 @@ class MlflowClient:
             tags=tags,
         )
 
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
+        """
+        Get the trace matching the `trace_id`.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            trace_id = "12345678"
+            trace = client.get_trace_info(trace_id)
+        """
+        return self._tracking_client.get_trace_info(trace_id)
+
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,

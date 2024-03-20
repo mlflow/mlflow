@@ -146,6 +146,11 @@ def test_client_create_trace(mock_store, mock_time):
     )
 
 
+def test_client_get_trace_info(mock_store):
+    MlflowClient().get_trace_info("1234567")
+    mock_store.get_trace_info.assert_called_once_with("1234567")
+
+
 def test_client_create_experiment(mock_store):
     MlflowClient().create_experiment("someName", "someLocation", {"key1": "val1", "key2": "val2"})
 
