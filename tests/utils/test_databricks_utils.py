@@ -102,7 +102,7 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 
 
- # if should_fetch_model_serving_environment_oauth is True, but reading from OAuth fails
+# if should_fetch_model_serving_environment_oauth is True, but reading from OAuth fails
 @mock.patch("mlflow.utils.databricks_utils.should_fetch_model_serving_environment_oauth")
 def test_databricks_model_serving_throws(should_fetch_model_serving_environment_oauth):
     should_fetch_model_serving_environment_oauth.return_value = True
@@ -291,7 +291,7 @@ def test_is_in_databricks_runtime(monkeypatch):
     assert not databricks_utils.is_in_databricks_runtime()
 
 
-# test both is_in_databricks_model_serving_environment and 
+# test both is_in_databricks_model_serving_environment and
 # should_fetch_model_serving_environment_oauth return apprropriate values
 def test_should_fetch_model_serving_environment_oauth(monkeypatch, oauth_file):
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_ENV", "true")

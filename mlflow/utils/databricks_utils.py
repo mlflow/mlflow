@@ -166,15 +166,18 @@ def is_in_databricks_job():
     except Exception:
         return False
 
+
 def is_in_databricks_model_serving_environment():
     return "DATABRICKS_MODEL_SERVING_ENV" in os.environ
 
+
 def should_fetch_model_serving_environment_oauth():
     return (
-        is_in_databricks_model_serving_environment() and \
-            os.path.exists(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH) \
-            and os.path.isfile(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH) 
+        is_in_databricks_model_serving_environment()
+        and os.path.exists(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
+        and os.path.isfile(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
     )
+
 
 def is_in_databricks_repo():
     try:
@@ -534,7 +537,7 @@ def get_databricks_host_creds(server_uri=None):
         MlflowHostCreds which includes the hostname and authentication information necessary to
         talk to the Databricks server.
     """
-    # if in model serving environment databricks and OAuth file exists, 
+    # if in model serving environment databricks and OAuth file exists,
     # attempt to fetch model dependency OAuth token
     if should_fetch_model_serving_environment_oauth():
         return _model_serving_env_databricks_host_creds()
