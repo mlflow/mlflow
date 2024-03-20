@@ -599,13 +599,13 @@ def _create_experiment():
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
 
     # Validate query string in artifact location to prevent attacks
-    parsed_artifact_locaion = urllib.parse.urlparse(request_message.artifact_location)
-    if parsed_artifact_locaion.fragment:
+    parsed_artifact_location = urllib.parse.urlparse(request_message.artifact_location)
+    if parsed_artifact_location.fragment or parsed_artifact_location.params:
         raise MlflowException(
-            "'artifact_location' URL can't include fragment part.",
+            "'artifact_location' URL can't include fragments or params.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    validate_query_string(parsed_artifact_locaion.query)
+    validate_query_string(parsed_artifact_location.query)
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )
