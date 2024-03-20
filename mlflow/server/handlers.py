@@ -9,6 +9,7 @@ import tempfile
 import time
 import urllib
 from functools import wraps
+from typing import Set
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -1116,22 +1117,22 @@ def get_metric_history_bulk_handler():
     }
 
 
-def _get_sampled_steps_from_steps(start_step, end_step, max_results, all_steps):
-    if len(all_steps) <= max_results:
-        return all_steps
-
-    # we can't assume that every step is logged, as
-    # users can choose their own intervals to log steps.
+def _get_sampled_steps_from_steps(
+    start_step: int, end_step: int, max_results: int, all_steps: Set[int]
+):
     filtered_steps = [step for step in all_steps if start_step <= step <= end_step]
+    if len(filtered_steps) <= max_results:
+        return set(filtered_steps)
+
     num_steps = len(filtered_steps)
     interval = num_steps / max_results
-    sampled_steps = {start_step, end_step}
+    sampled_steps = {min(filtered_steps), max(filtered_steps)}
     for i in range(0, max_results):
         idx = int(i * interval)
         if idx < num_steps:
             sampled_steps.add(filtered_steps[idx])
 
-    return list(sampled_steps)
+    return set(sampled_steps)
 
 
 @catch_mlflow_exception
@@ -1187,15 +1188,21 @@ def get_metric_history_bulk_interval_handler():
         # cannot fetch from request_message as the default value is 0
         start_step = args.get("start_step")
         end_step = args.get("end_step")
-        all_steps = sorted(
-            {m.step for run_id in run_ids for m in store.get_metric_history(run_id, metric_key)}
-        )
+
+        # get a list of all steps for all runs. this is necessary
+        # because we can't assume that every step was logged, so
+        # sampling needs to be done on the steps that actually exist
+        all_runs = [
+            [m.step for m in store.get_metric_history(run_id, metric_key)] for run_id in run_ids
+        ]
+        all_mins_and_maxes = {step for history in all_runs for step in [min(history), max(history)]}
+
+        # create a set of all steps to deduplicate
+        all_steps = {step for history in all_runs for step in history}
+
         if start_step is None and end_step is None:
-            max_steps_per_run = [_get_max_step_for_metric(run_id, metric_key) for run_id in run_ids]
-            max_steps = max(max_steps_per_run)
-            # Get sampled steps and append the max step for each run.
-            sampled_steps = _get_sampled_steps_from_steps(0, max_steps, max_results, all_steps)
-            return list(set(sampled_steps).union(max_steps_per_run))
+            start_step = 0
+            end_step = max(all_steps)
         elif start_step is not None and end_step is not None:
             start_step = int(start_step)
             end_step = int(end_step)
@@ -1204,14 +1211,17 @@ def get_metric_history_bulk_interval_handler():
                     "end_step must be greater than start_step. "
                     f"Found start_step={start_step} and end_step={end_step}."
                 )
-            sampled_steps = _get_sampled_steps_from_steps(
-                start_step, end_step, max_results, all_steps
-            )
-            return list(set(sampled_steps).union([end_step]))
+            # clip mins and maxes if start and end were provided
+            all_mins_and_maxes = {
+                step for step in all_mins_and_maxes if start_step <= step <= end_step
+            }
         else:
             raise MlflowException.invalid_parameter_value(
                 "If either start step or end step are specified, both must be specified."
             )
+
+        sampled_steps = _get_sampled_steps_from_steps(start_step, end_step, max_results, all_steps)
+        return sorted(sampled_steps.union(all_mins_and_maxes))
 
     def _default_history_bulk_interval_impl():
         steps = _get_sampled_steps(run_ids, metric_key, max_results)
