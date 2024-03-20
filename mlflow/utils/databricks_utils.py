@@ -170,7 +170,8 @@ def is_in_databricks_job():
 def is_in_databricks_model_serving_environment():
     return "DATABRICKS_MODEL_SERVING_ENV" in os.environ
 
-
+# this should only be the case when we are in model serving environment
+# and OAuth token file exists in specified path
 def should_fetch_model_serving_environment_oauth():
     return (
         is_in_databricks_model_serving_environment()
