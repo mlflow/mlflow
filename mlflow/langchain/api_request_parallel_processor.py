@@ -285,16 +285,17 @@ class APIRequest:
             # is handling the "messages" field by itself
             return request_json, False
 
-        def json_dict_might_be_chat_request(json: Dict):
+        def json_dict_might_be_chat_request(json_message: Dict):
             return (
-                "messages" in request_json
+                isinstance(json_message, dict)
+                and "messages" in json_message
                 and
                 # Additional keys can't be specified when calling LangChain invoke() / batch()
                 # with chat messages
-                len(request_json) == 1
+                len(json_message) == 1
             )
 
-        if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
+        if json_dict_might_be_chat_request(request_json):
             try:
                 return APIRequest._convert_chat_request_or_throw(request_json), True
             except pydantic.ValidationError:
