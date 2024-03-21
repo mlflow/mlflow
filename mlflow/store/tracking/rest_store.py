@@ -1,11 +1,12 @@
 from typing import List, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, ViewType
+from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
     CreateRun,
+    CreateTrace,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
@@ -186,6 +187,36 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(CreateRun, req_body)
         return Run.from_proto(response_proto.run)
+
+    def create_trace(self, experiment_id, start_time, end_time, status, attributes, tags):
+        """
+        Create a trace under the specified experiment ID.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            start_time: int, start time of the trace.
+            end_time: int, end time of the trace.
+            status: `TraceStatus`, status of the trace.
+            attributes: list of `TraceAttribute`, attributes of the trace.
+            tags: list of `TraceTag`, tags of the trace.
+
+        Returns:
+            The created Trace object.
+        """
+        attributes = [attr.to_proto() for attr in attributes]
+        tags = [tag.to_proto() for tag in tags]
+        req_body = message_to_json(
+            CreateTrace(
+                experiment_id=str(experiment_id),
+                start_time=start_time,
+                end_time=end_time,
+                status=status,
+                attributes=attributes,
+                tags=tags,
+            )
+        )
+        response_proto = self._call_endpoint(CreateTrace, req_body)
+        return TraceInfo.from_proto(response_proto.trace_info)
 
     def log_metric(self, run_id, metric):
         """

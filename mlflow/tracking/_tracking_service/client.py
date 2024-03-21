@@ -9,7 +9,17 @@ from collections import OrderedDict
 from itertools import zip_longest
 from typing import List, Optional
 
-from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
+from mlflow.entities import (
+    ExperimentTag,
+    Metric,
+    Param,
+    RunStatus,
+    RunTag,
+    TraceAttribute,
+    TraceStatus,
+    TraceTag,
+    ViewType,
+)
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
@@ -142,6 +152,32 @@ class TrackingServiceClient:
             start_time=start_time or get_current_time_millis(),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
             run_name=run_name,
+        )
+
+    def create_trace(self, experiment_id, start_time, end_time, status, attributes=None, tags=None):
+        """Create a trace object and log in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            start_time: int, start time of the trace.
+            end_time: int, end time of the trace.
+            status: string, status of the trace.
+            attributes: dict, attributes of the trace.
+            tags: dict, tags of the trace.
+
+        Returns:
+            The created Trace object.
+        """
+        attributes = attributes or {}
+        tags = tags or {}
+
+        return self.store.create_trace(
+            experiment_id=experiment_id,
+            start_time=start_time,
+            end_time=end_time,
+            status=TraceStatus.from_string(status),
+            attributes=[TraceAttribute(key, value) for (key, value) in attributes.items()],
+            tags=[TraceTag(key, value) for (key, value) in tags.items()],
         )
 
     def search_experiments(

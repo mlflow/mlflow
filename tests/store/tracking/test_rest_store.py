@@ -22,6 +22,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CreateRun,
+    CreateTrace,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
@@ -200,6 +201,27 @@ def test_requestor():
                 actual_tags, key=lambda t: t["key"]
             )
             assert expected_kwargs == actual_kwargs
+
+    with mock_http_request() as mock_http:
+        store.create_trace(
+            experiment_id="447585625682310",
+            start_time=123,
+            end_time=456,
+            status="OK",
+            attributes=[],
+            tags=[],
+        )
+        body = message_to_json(
+            CreateTrace(
+                experiment_id="447585625682310",
+                start_time=123,
+                end_time=456,
+                status="OK",
+                attributes=[],
+                tags=[],
+            )
+        )
+        _verify_requests(mock_http, creds, "traces", "POST", body)
 
     with mock_http_request() as mock_http:
         store.log_param("some_uuid", Param("k1", "v1"))

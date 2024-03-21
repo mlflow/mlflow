@@ -234,6 +234,24 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
+    def create_trace(self, experiment_id, start_time, end_time, status, attributes, tags):
+        """
+        Create a trace under the specified experiment ID.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            start_time: int, start time of the trace.
+            end_time: int, end time of the trace.
+            status: `TraceStatus`, status of the trace.
+            attributes: list of `TraceAttribute`, attributes of the trace.
+            tags: list of `TraceTag`, tags of the trace.
+
+        Returns:
+            The created Trace object
+        """
+        pass
+
     def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run
