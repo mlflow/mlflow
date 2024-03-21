@@ -642,6 +642,12 @@ class _LangChainModelWrapper:
         return results[0] if return_first_element else results
 
     def _prepare_messages(self, data):
+        """
+        Return a tuple of (preprocessed_data, return_first_element)
+        `preprocessed_data` is always a list,
+        and `return_first_element` means if True, we should return the first element
+        of inference result, otherwise we should return the whole inference result.
+        """
         # numpy array is not json serializable, so we convert it to list
         # then send it to the model
         def _convert_ndarray_to_list(data):
@@ -659,7 +665,15 @@ class _LangChainModelWrapper:
             return _convert_ndarray_to_list(data.to_dict(orient="records")), False
 
         data = _convert_ndarray_to_list(data)
-        if isinstance(self.lc_model, runnables_supports_batch_types()) or isinstance(data, list):
+        if isinstance(self.lc_model, runnables_supports_batch_types()) or not isinstance(data, list):
+            # If model supports batch inference,
+            # make all input rows into a batch, so convert `data` to `[data]`
+            # if the input data is not a list,
+            # we still need to convert it to a one-element list `[data]`
+            # because `process_api_requests` only accepts list as valid input.
+            # and in either of above cases,
+            # we should return the first element of the inference result
+            # because we change input `data` to `[data]`
             return [data], True
         if isinstance(data, list) and (
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
