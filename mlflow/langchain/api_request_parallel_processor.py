@@ -133,6 +133,7 @@ class APIRequest:
     results: list[tuple[int, str]]
     errors: dict
     convert_chat_responses: bool
+    stream: bool
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -185,6 +186,7 @@ class APIRequest:
 
         try:
             if isinstance(self.lc_model, BaseRetriever):
+                assert not self.stream, "Model that inherits `BaseRetriever` does not support streaming output."
                 # Retrievers are invoked differently than Chains
                 docs = self.lc_model.get_relevant_documents(**self.request_json)
                 response = [
@@ -197,15 +199,23 @@ class APIRequest:
                 ) = APIRequest._transform_request_json_for_chat_if_necessary(
                     self.request_json, self.lc_model
                 )
+
+                def _predict_single_input(input_json):
+                    if self.stream:
+                        return self.lc_model.invoke(
+                            input_json, config={"callbacks": callback_handlers}
+                        )
+                    return self.lc_model.invoke(
+                        input_json, config={"callbacks": callback_handlers}
+                    )
+
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
                     # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field 'query_text'
                     try:
-                        response = self.lc_model.invoke(
-                            prepared_request_json, config={"callbacks": callback_handlers}
-                        )
+                        response = _predict_single_input(prepared_request_json)
                     except TypeError as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -220,10 +230,9 @@ class APIRequest:
                             self.request_json, self.lc_model
                         )
 
-                        response = self.lc_model.invoke(
-                            prepared_request_json, config={"callbacks": callback_handlers}
-                        )
+                        response = _predict_single_input(prepared_request_json)
                 elif isinstance(self.request_json, list):
+                    assert not self.stream, "Batch inference does not support streaming output."
                     if not isinstance(self.lc_model, runnables_supports_batch_types()):
                         raise MlflowException(
                             "Model does not support batch inference."
@@ -232,13 +241,19 @@ class APIRequest:
                         prepared_request_json, config={"callbacks": callback_handlers}
                     )
                 else:
-                    response = self.lc_model.invoke(
-                        prepared_request_json, config={"callbacks": callback_handlers}
-                    )
+                    response = _predict_single_input(prepared_request_json)
 
                 if did_perform_chat_conversion or self.convert_chat_responses:
-                    response = APIRequest._try_transform_response_to_chat_format(response)
+                    if self.stream:
+                        # TODO: Convert it to chat chunk format
+                        raise NotImplementedError()
+                    else:
+                        response = APIRequest._try_transform_response_to_chat_format(response)
             else:
+                # Note: although `langchain.chains.base.Chain` has `stream` method,
+                # but in tests it doesn't work correctly, it always returns the whole result
+                # in one chunk.
+                assert not self.stream, "Model inherits `langchain.chains.base.Chain` doesn't support streaming output."
                 (
                     prepared_request_json,
                     did_perform_chat_conversion,
@@ -440,3 +455,16 @@ def process_api_requests(
             )
 
         return [res for _, res in sorted(results)]
+
+
+def process_stream_request(
+    lc_model,
+    request: Union[Any, Dict[str, Any]],
+    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    convert_chat_responses: bool = False,
+):
+    from mlflow.langchain.utils import lc_runnables_types
+    if not isinstance(lc_model, lc_runnables_types()):
+        raise MlflowException(
+            f"Model {lc_model.__class__.__name__} does not support streaming prediction output."
+        )
