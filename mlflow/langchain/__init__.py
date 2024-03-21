@@ -815,9 +815,7 @@ def _load_code_model(code_path: Optional[str] = None):
         try:
             import chain  # noqa: F401
         except ImportError as e:
-            raise mlflow.MlflowException(
-                f"Failed to import LangChain model."
-            ) from e
+            raise mlflow.MlflowException("Failed to import LangChain model.") from e
 
     return mlflow.langchain._rag_utils.__databricks_rag_chain__
 
