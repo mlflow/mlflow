@@ -17,8 +17,8 @@ import functools
 import logging
 import os
 import warnings
-from typing import Any, Dict, List, Optional, Union
 from contextlib import contextmanager
+from typing import Any, Dict, List, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -814,9 +814,9 @@ def _load_code_model(code_path: Optional[str] = None):
     with _config_path_context(code_path):
         try:
             import chain  # noqa: F401
-        except Exception as e:
+        except ImportError as e:
             raise mlflow.MlflowException(
-                f"Failed to load LangChain model. More details: {e}"
+                f"Failed to import LangChain model."
             ) from e
 
     return mlflow.langchain._rag_utils.__databricks_rag_chain__
