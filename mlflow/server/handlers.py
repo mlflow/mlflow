@@ -1189,6 +1189,20 @@ def get_metric_history_bulk_interval_handler():
         start_step = args.get("start_step")
         end_step = args.get("end_step")
 
+        # perform validation before any data fetching occurs
+        if start_step is not None and end_step is not None:
+            start_step = int(start_step)
+            end_step = int(end_step)
+            if start_step > end_step:
+                raise MlflowException.invalid_parameter_value(
+                    "end_step must be greater than start_step. "
+                    f"Found start_step={start_step} and end_step={end_step}."
+                )
+        elif start_step is not None or end_step is not None:
+            raise MlflowException.invalid_parameter_value(
+                "If either start step or end step are specified, both must be specified."
+            )
+
         # get a list of all steps for all runs. this is necessary
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
@@ -1198,28 +1212,15 @@ def get_metric_history_bulk_interval_handler():
 
         # save mins and maxes to be added back later
         all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
-
         all_steps = sorted({step for sublist in all_runs for step in sublist})
 
+        # init start and end step if not provided in args
         if start_step is None and end_step is None:
             start_step = 0
             end_step = all_steps[-1] if all_steps else 0
-        elif start_step is not None and end_step is not None:
-            start_step = int(start_step)
-            end_step = int(end_step)
-            if start_step > end_step:
-                raise MlflowException.invalid_parameter_value(
-                    "end_step must be greater than start_step. "
-                    f"Found start_step={start_step} and end_step={end_step}."
-                )
-            # remove any steps outside of the range
-            all_mins_and_maxes = {
-                step for step in all_mins_and_maxes if start_step <= step <= end_step
-            }
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "If either start step or end step are specified, both must be specified."
-            )
+
+        # remove any steps outside of the range
+        all_mins_and_maxes = {step for step in all_mins_and_maxes if start_step <= step <= end_step}
 
         # doing extra iterations here shouldn't badly affect performance,
         # since the number of steps at this point should be relatively small
