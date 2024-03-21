@@ -18,6 +18,7 @@ import logging
 import os
 import warnings
 from typing import Any, Dict, List, Optional, Union
+from contextlib import contextmanager
 
 import cloudpickle
 import pandas as pd
@@ -800,10 +801,16 @@ def load_model(model_uri, dst_path=None):
     return _load_model_from_local_fs(local_model_path)
 
 
-def _load_code_model(code_path: Optional[str] = None):
+@contextmanager
+def _config_path_context(code_path: Optional[str] = None):
     _set_config_path(code_path)
+    yield
+    _set_config_path(None)
 
-    import chain  # noqa: F401
+
+def _load_code_model(code_path: Optional[str] = None):
+    with _config_path_context(code_path):
+        import chain  # noqa: F401
 
     return mlflow.langchain._rag_utils.__databricks_rag_chain__
 
