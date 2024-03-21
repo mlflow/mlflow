@@ -41,7 +41,7 @@ def convert_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Imag
     except ImportError as exc:
         raise ImportError(
             "Pillow is required to serialize a numpy array as an image. "
-            "Please install it via: pip install Pillow"
+            "Please install it via: `pip install Pillow`"
         ) from exc
 
     def _normalize_to_uint8(x):
@@ -141,7 +141,11 @@ class Image:
         elif isinstance(image, Image.Image):
             self.image = image
         else:
-            raise TypeError("Image must be a numpy array, a PIL image, or a file path to an image.")
+            raise TypeError(
+                f"Unsupported image object type: {type(image)}. "
+                "`image` must be one of numpy.ndarray, "
+                "PIL.Image.Image, or a filepath to an image."
+            )
 
     def to_list(self) -> list:
         """

@@ -1569,7 +1569,7 @@ class MlflowClient:
             if not isinstance(image, PIL.Image.Image):
                 raise TypeError(
                     f"Unsupported image object type: {type(image)}. "
-                    "`mlflow.log_image` must be one of numpy.ndarray, "
+                    "`image` must be one of numpy.ndarray, "
                     "PIL.Image.Image, and mlflow.Image."
                 )
 
