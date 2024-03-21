@@ -459,7 +459,7 @@ def process_api_requests(
 
 def process_stream_request(
     lc_model,
-    request: Union[Any, Dict[str, Any]],
+    request_json: Union[Any, Dict[str, Any]],
     callback_handlers: Optional[List[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
 ):
@@ -468,3 +468,26 @@ def process_stream_request(
         raise MlflowException(
             f"Model {lc_model.__class__.__name__} does not support streaming prediction output."
         )
+
+    results: list[tuple[int, str]] = []
+    status_tracker = StatusTracker()
+    errors: dict = {}
+
+    # Streaming only supports single input,
+    # so call `APIRequest.call_api` directly,
+    # no need to use thread pool.
+    api_request = APIRequest(
+        index=0,
+        lc_model=lc_model,
+        request_json=request_json,
+        results=results,
+        errors=errors,
+        convert_chat_responses=convert_chat_responses,
+    )
+
+    status_tracker.start_task()
+    api_request.call_api(status_tracker, callback_handlers)
+    if status_tracker.num_tasks_failed > 0:
+        raise mlflow.MlflowException(errors[0])
+
+    return results[0][1]
