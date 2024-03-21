@@ -9,7 +9,7 @@ export const ErrorCodes = {
   RESOURCE_CONFLICT: 'RESOURCE_CONFLICT',
 };
 
-export const Version = '2.11.2';
+export const Version = '2.11.3';
 
 const DOCS_VERSION = 'latest';
 
