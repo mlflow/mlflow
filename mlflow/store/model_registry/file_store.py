@@ -83,6 +83,7 @@ def _validate_model_name(name):
     if contains_percent(name):
         raise MlflowException(
             f"Invalid name: '{name}'. Registered model name cannot contain '%' character",
+            INVALID_PARAMETER_VALUE,
         )
 
 
