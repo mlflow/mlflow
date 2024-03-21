@@ -1207,15 +1207,15 @@ def get_metric_history_bulk_interval_handler():
         elif start_step is not None and end_step is not None:
             start_step = int(start_step)
             end_step = int(end_step)
-            # remove any steps outside of the range
-            all_mins_and_maxes = {
-                step for step in all_mins_and_maxes if start_step <= step <= end_step
-            }
             if start_step > end_step:
                 raise MlflowException.invalid_parameter_value(
                     "end_step must be greater than start_step. "
                     f"Found start_step={start_step} and end_step={end_step}."
                 )
+            # remove any steps outside of the range
+            all_mins_and_maxes = {
+                step for step in all_mins_and_maxes if start_step <= step <= end_step
+            }
         else:
             raise MlflowException.invalid_parameter_value(
                 "If either start step or end step are specified, both must be specified."
