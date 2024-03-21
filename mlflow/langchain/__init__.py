@@ -810,7 +810,12 @@ def _config_path_context(code_path: Optional[str] = None):
 
 def _load_code_model(code_path: Optional[str] = None):
     with _config_path_context(code_path):
-        import chain  # noqa: F401
+        try:
+            import chain  # noqa: F401
+        except Exception as e:
+            raise mlflow.MlflowException(
+                f"Failed to load LangChain model. More details: {e}"
+            ) from e
 
     return mlflow.langchain._rag_utils.__databricks_rag_chain__
 
