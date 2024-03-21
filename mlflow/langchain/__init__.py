@@ -804,8 +804,10 @@ def load_model(model_uri, dst_path=None):
 @contextmanager
 def _config_path_context(code_path: Optional[str] = None):
     _set_config_path(code_path)
-    yield
-    _set_config_path(None)
+    try:
+        yield
+    finally:
+        _set_config_path(None)
 
 
 def _load_code_model(code_path: Optional[str] = None):
