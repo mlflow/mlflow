@@ -208,7 +208,7 @@ class DefaultConfigProvider(DatabricksConfigProvider):
             SparkTaskContextConfigProvider(),
             EnvironmentVariableConfigProvider(),
             ProfileConfigProvider(),
-            DatabricksModelServingConfigProvider()
+            DatabricksModelServingConfigProvider(),
         )
 
     def get_config(self):

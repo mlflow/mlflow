@@ -130,6 +130,7 @@ def test_databricks_params_model_serving_oauth_cache(monkeypatch, oauth_file):
         # should use token from cache, rather than token from oauthfile
         assert params.token == "token"
 
+
 def test_databricks_params_env_var_overrides_model_serving_oauth(monkeypatch, oauth_file):
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
