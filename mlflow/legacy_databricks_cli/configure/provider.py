@@ -4,11 +4,15 @@
 # because the latest Databricks Runtime does not contain legacy databricks CLI
 # but MLflow still depends on it.
 
+import logging
 import os
 import sys
+import time
 from abc import ABCMeta, abstractmethod
 from configparser import ConfigParser
 from os.path import expanduser, join
+
+_logger = logging.getLogger(__name__)
 
 _home = expanduser("~")
 CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE"
@@ -200,10 +204,13 @@ class DefaultConfigProvider(DatabricksConfigProvider):
     """Look for credentials in a chain of default locations."""
 
     def __init__(self):
+        # The order of providers here will be used to determine
+        # the precedence order for the config provider used in `get_config`
         self._providers = (
             SparkTaskContextConfigProvider(),
             EnvironmentVariableConfigProvider(),
             ProfileConfigProvider(),
+            DatabricksModelServingConfigProvider(),
         )
 
     def get_config(self):
@@ -287,6 +294,62 @@ class ProfileConfigProvider(DatabricksConfigProvider):
         if config.is_valid:
             return config
         return None
+
+
+class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
+    """Loads from OAuth credentials in the Databricks Model Serving environment."""
+
+    def get_config(self):
+        from mlflow.utils.databricks_utils import should_fetch_model_serving_environment_oauth
+
+        try:
+            if should_fetch_model_serving_environment_oauth():
+                config = DatabricksModelServingConfigProvider._get_databricks_model_serving_config()
+                if config.is_valid:
+                    return config
+            else:
+                return None
+        except Exception as e:
+            _logger.warning("Unexpected error resolving Databricks Model Serving config: %s", e)
+
+    @staticmethod
+    def _get_databricks_model_serving_config():
+        from mlflow.utils.databricks_utils import get_model_dependency_oauth_token
+
+        # Since we do not record OAuth expiration time in OAuth file, perform periodic refresh
+        # of OAuth environment variable cache here. As currently configured (02/24) OAuth token
+        # in model serving environment is guaranteed to have at least 30 min remaining on TTL
+        # at any point in time but refresh at higher rate of every 5 min here to be safe
+        # and conform with refresh logic for Brickstore tables.
+        OAUTH_CACHE_REFRESH_DURATION_SEC = 5 * 60
+        OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
+        OAUTH_CACHE_EXPIRATION_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"
+        MODEL_SERVING_HOST_ENV_VAR = "DATABRICKS_MODEL_SERVING_HOST_URL"
+
+        # check if dependency is cached in env var before reading from file
+        oauth_token = ""
+        if (
+            OAUTH_CACHE_ENV_VAR in os.environ
+            and OAUTH_CACHE_EXPIRATION_ENV_VAR in os.environ
+            and float(os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR]) > time.time()
+        ):
+            oauth_token = os.environ[OAUTH_CACHE_ENV_VAR]
+        else:
+            oauth_token = get_model_dependency_oauth_token()
+            os.environ[OAUTH_CACHE_ENV_VAR] = oauth_token
+            os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] = str(
+                time.time() + OAUTH_CACHE_REFRESH_DURATION_SEC
+            )
+
+        return DatabricksConfig(
+            host=os.environ[MODEL_SERVING_HOST_ENV_VAR],
+            token=oauth_token,
+            username=None,
+            password=None,
+            refresh_token=None,
+            insecure=None,
+            jobs_api_version=None,
+        )
 
 
 class DatabricksConfig:
