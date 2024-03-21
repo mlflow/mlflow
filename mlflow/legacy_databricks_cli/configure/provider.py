@@ -6,8 +6,8 @@
 
 import logging
 import os
-import time
 import sys
+import time
 from abc import ABCMeta, abstractmethod
 from configparser import ConfigParser
 from os.path import expanduser, join
