@@ -135,7 +135,7 @@ async function multiSelect(select, options) {
   const optionsList = getOptionsList(select);
   for (let i = 0; i < options.length; i++) {
     const option = options[i];
-    const optionItem = within(optionsList).getByTitle(option);
+    const optionItem = within(optionsList).getByText(option);
     await userEvent.click(optionItem, {
       pointerEventsCheck: 0
     });
@@ -155,7 +155,7 @@ async function singleSelect(select, option) {
   select = getRootElement(select);
   await openMenu(select);
   const optionsList = getOptionsList(select);
-  const optionItem = within(optionsList).getByTitle(option);
+  const optionItem = within(optionsList).getByText(option);
   await userEvent.click(optionItem, {
     pointerEventsCheck: 0
   });
@@ -203,7 +203,7 @@ async function createNewOption(select, option) {
   const selectInput = within(select).getByRole('combobox');
   await userEvent.type(selectInput, option);
   const optionsList = getOptionsList(select);
-  const optionItem = within(optionsList).getByTitle(option);
+  const optionItem = within(optionsList).getByText(option);
   await userEvent.click(optionItem);
   await closeMenu(select);
 }

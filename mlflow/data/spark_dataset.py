@@ -3,10 +3,12 @@ import logging
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
+from packaging.version import Version
+
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
-from mlflow.data.digest_utils import compute_spark_df_digest
+from mlflow.data.digest_utils import get_normalized_md5_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
@@ -14,7 +16,6 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pyspark
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a Spark dataset (e.g. data derived from a Spark Table / file directory or Delta
@@ -55,26 +55,31 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         # Retrieve a semantic hash of the DataFrame's logical plan, which is much more efficient
         # and deterministic than hashing DataFrame records
-        return compute_spark_df_digest(self._df)
+        import numpy as np
+        import pyspark
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source type.
+        # Spark 3.1.0+ has a semanticHash() method on DataFrame
+        if Version(pyspark.__version__) >= Version("3.1.0"):
+            semantic_hash = self._df.semanticHash()
+        else:
+            semantic_hash = self._df._jdf.queryExecution().analyzed().semanticHash()
+        return get_normalized_md5_digest([np.int64(semantic_hash)])
 
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
         """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
-            if self.schema
-            else None,
-            "profile": json.dumps(self.profile),
-        }
+        schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def df(self):
@@ -201,7 +206,6 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
-@experimental
 def load_delta(
     path: Optional[str] = None,
     table_name: Optional[str] = None,
@@ -261,7 +265,6 @@ def load_delta(
     )
 
 
-@experimental
 def from_spark(
     df: "pyspark.sql.DataFrame",
     path: Optional[str] = None,

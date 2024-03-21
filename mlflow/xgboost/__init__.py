@@ -86,6 +86,8 @@ FLAVOR_NAME = "xgboost"
 
 _logger = logging.getLogger(__name__)
 
+model_data_artifact_paths = ["model.xgb", "model.json", "model.ubj"]
+
 
 def get_default_pip_requirements():
     """
@@ -355,7 +357,7 @@ class _XGBModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -390,7 +392,7 @@ def autolog(
     registered_model_name=None,
     model_format="xgb",
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
 
@@ -582,7 +584,6 @@ def autolog(
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 try:
-                    # pylint: disable=undefined-loop-variable
                     filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
                     fig.savefig(filepath)
                     mlflow.log_artifact(filepath)

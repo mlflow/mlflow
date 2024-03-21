@@ -7,6 +7,9 @@ from functools import wraps
 import transformers
 from packaging.version import Version
 
+from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG
+from mlflow.utils.logging_utils import suppress_logs
+
 _logger = logging.getLogger(__name__)
 
 transformers_version = Version(transformers.__version__)
@@ -17,8 +20,12 @@ def flaky(max_tries=3):
     """
     Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
     if it fails after max_tries attempts.
-    :param max_tries: Maximum number of times to retry the function.
-    :return: Decorated function.
+
+    Args:
+        max_tries: Maximum number of times to retry the function.
+
+    Returns:
+        Decorated function.
     """
 
     def flaky_test_func(test_func):
@@ -255,6 +262,64 @@ def load_feature_extraction_pipeline():
     model = transformers.AutoModel.from_pretrained(st_arch)
     tokenizer = transformers.AutoTokenizer.from_pretrained(st_arch)
     return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
+
+
+@prefetch
+@flaky()
+def load_peft_pipeline():
+    try:
+        from peft import LoraConfig, TaskType, get_peft_model
+    except ImportError:
+        # Do nothing if PEFT is not installed
+        return
+
+    base_model_id = "Elron/bleurt-tiny-512"
+    base_model = transformers.AutoModelForSequenceClassification.from_pretrained(base_model_id)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(base_model_id)
+
+    peft_config = LoraConfig(
+        task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+    )
+    peft_model = get_peft_model(base_model, peft_config)
+    with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
+        return transformers.pipeline(
+            task="text-classification", model=peft_model, tokenizer=tokenizer
+        )
+
+
+@prefetch
+@flaky()
+def load_custom_code_pipeline():
+    model = transformers.AutoModel.from_pretrained(
+        "hf-internal-testing/test_dynamic_model_with_util", trust_remote_code=True
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained("google-bert/bert-base-uncased")
+    return transformers.pipeline(
+        task="feature-extraction",
+        model=model,
+        tokenizer=tokenizer,
+    )
+
+
+@prefetch
+@flaky()
+def load_custom_components_pipeline():
+    model = transformers.AutoModel.from_pretrained(
+        "hf-internal-testing/test_dynamic_model_with_tokenizer", trust_remote_code=True
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        "hf-internal-testing/test_dynamic_processor", trust_remote_code=True
+    )
+    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+        "hf-internal-testing/test_dynamic_processor",
+        trust_remote_code=True,
+    )
+    return transformers.pipeline(
+        task="feature-extraction",
+        model=model,
+        tokenizer=tokenizer,
+        feature_extractor=feature_extractor,
+    )
 
 
 def prefetch_models():

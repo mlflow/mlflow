@@ -11,12 +11,15 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+
 import contextlib
 import functools
 import logging
 import os
+import warnings
 from typing import Any, Dict, List, Optional, Union
 
+import cloudpickle
 import pandas as pd
 import yaml
 from packaging.version import Version
@@ -28,6 +31,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
+from mlflow.langchain._rag_utils import _CODE_CONFIG, _set_config_path
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -35,12 +39,16 @@ from mlflow.langchain.databricks_dependencies import (
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
+    _MODEL_DATA_FOLDER_NAME,
+    _MODEL_DATA_PKL_FILE_NAME,
     _MODEL_LOAD_KEY,
+    _PERSIST_DIR_NAME,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
+    register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -69,7 +77,9 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
+    FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
+    _add_code_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -82,6 +92,13 @@ FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
 
 
+model_data_artifact_paths = [
+    _MODEL_DATA_FOLDER_NAME,
+    _MODEL_DATA_PKL_FILE_NAME,
+    _PERSIST_DIR_NAME,
+]
+
+
 def get_default_pip_requirements():
     """
     Returns:
@@ -89,7 +106,9 @@ def get_default_pip_requirements():
         Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
         that, at a minimum, contains these requirements.
     """
-    return [_get_pinned_requirement("langchain")]
+    # pin pydantic and cloudpickle version as they are used in langchain
+    # model saving and loading
+    return list(map(_get_pinned_requirement, ["langchain", "pydantic", "cloudpickle"]))
 
 
 def get_default_conda_env():
@@ -184,6 +203,9 @@ def save_model(
             Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
             and `persist_dir`:
 
+            .. Note:: In langchain_community >= 0.0.27, loading pickled data requires providing the
+                ``allow_dangerous_deserialization`` argument.
+
             .. code-block:: python
 
                 qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -191,7 +213,13 @@ def save_model(
 
                 def load_retriever(persist_directory):
                     embeddings = OpenAIEmbeddings()
-                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    vectorstore = FAISS.load_local(
+                        persist_directory,
+                        embeddings,
+                        # you may need to add the line below
+                        # for langchain_community >= 0.0.27
+                        allow_dangerous_deserialization=True,
+                    )
                     return vectorstore.as_retriever()
 
 
@@ -215,7 +243,30 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+    formatted_code_path = code_paths[:] if code_paths else []
+    if isinstance(lc_model, str):
+        # The LangChain model is defined as Python code located in the file at the path
+        # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
+        # model directory along with any other specified code modules
+
+        if os.path.exists(lc_model):
+            formatted_code_path.append(lc_model)
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"If the {lc_model} is a string, it must be a valid python "
+                "file path containing the code for defining the chain instance."
+            )
+
+        if len(code_paths) > 1:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "When the model is a string, and if the code_paths are specified, "
+                "it should contain only one path."
+                "This config path is used to set config.yml file path "
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
+            )
+
+    code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
         if input_example is not None:
@@ -261,7 +312,23 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
+    if not isinstance(lc_model, str):
+        model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
+        flavor_conf = {
+            _MODEL_TYPE_KEY: lc_model.__class__.__name__,
+            **model_data_kwargs,
+        }
+    else:
+        # If the model is a string, we expect the code_path which is ideally config.yml
+        # would be used in the model. We set the code_path here so it can be set
+        # globally when the model is loaded with the local path. So the consumer
+        # can use that path instead of the config.yml path when the model is loaded
+        flavor_conf = (
+            {_CODE_CONFIG: code_paths[0]}
+            if code_paths and len(code_paths) >= 1
+            else {_CODE_CONFIG: None}
+        )
+        model_data_kwargs = {}
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -271,13 +338,21 @@ def save_model(
         code=code_dir_subpath,
         **model_data_kwargs,
     )
-    flavor_conf = {
-        _MODEL_TYPE_KEY: lc_model.__class__.__name__,
-        **model_data_kwargs,
-    }
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        if databricks_dependency := _detect_databricks_dependencies(lc_model):
+        checker_model = lc_model
+        if isinstance(lc_model, str):
+            # If the model is a string, we are adding the model code path to the system path
+            # so it can be loaded correctly.
+            _add_code_to_system_path(os.path.dirname(lc_model))
+            (
+                _load_code_model(code_paths[0])
+                if code_paths and len(code_paths) >= 1
+                else _load_code_model()
+            )
+            checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
+
+        if databricks_dependency := _detect_databricks_dependencies(checker_model):
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
 
     mlflow_model.add_flavor(
@@ -409,6 +484,9 @@ def log_model(
             Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
             and `persist_dir`:
 
+            .. Note:: In langchain_community >= 0.0.27, loading pickled data requires providing the
+                ``allow_dangerous_deserialization`` argument.
+
             .. code-block:: python
 
                 qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -416,7 +494,13 @@ def log_model(
 
                 def load_retriever(persist_directory):
                     embeddings = OpenAIEmbeddings()
-                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    vectorstore = FAISS.load_local(
+                        persist_directory,
+                        embeddings,
+                        # you may need to add the line below
+                        # for langchain_community >= 0.0.27
+                        allow_dangerous_deserialization=True,
+                    )
                     return vectorstore.as_retriever()
 
 
@@ -461,10 +545,18 @@ def log_model(
 
 
 def _save_model(model, path, loader_fn, persist_dir):
-    if isinstance(model, lc_runnables_types()):
-        return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
-    else:
-        return _save_base_lcs(model, path, loader_fn, persist_dir)
+    if Version(cloudpickle.__version__) < Version("2.1.0"):
+        warnings.warn(
+            "If you are constructing a custom LangChain model, "
+            "please upgrade cloudpickle to version 2.1.0 or later "
+            "using `pip install cloudpickle>=2.1.0` "
+            "to ensure the model can be loaded correctly."
+        )
+    with register_pydantic_v1_serializer_cm():
+        if isinstance(model, lc_runnables_types()):
+            return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
+        else:
+            return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
 def _load_model(local_model_path, flavor_conf):
@@ -472,15 +564,16 @@ def _load_model(local_model_path, flavor_conf):
     # of supported types, we define _MODEL_LOAD_KEY to ensure
     # which load function to use
     model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
-    if model_load_fn == _RUNNABLE_LOAD_KEY:
-        model = _load_runnables(local_model_path, flavor_conf)
-    elif model_load_fn == _BASE_LOAD_KEY:
-        model = _load_base_lcs(local_model_path, flavor_conf)
-    else:
-        raise mlflow.MlflowException(
-            "Failed to load LangChain model. Unknown model type: "
-            f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
-        )
+    with register_pydantic_v1_serializer_cm():
+        if model_load_fn == _RUNNABLE_LOAD_KEY:
+            model = _load_runnables(local_model_path, flavor_conf)
+        elif model_load_fn == _BASE_LOAD_KEY:
+            model = _load_base_lcs(local_model_path, flavor_conf)
+        else:
+            raise mlflow.MlflowException(
+                "Failed to load LangChain model. Unknown model type: "
+                f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
+            )
     # To avoid double logging, we set model_logged to True
     # when the model is loaded
     if not autologging_is_disabled(FLAVOR_NAME):
@@ -494,10 +587,10 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(  # pylint: disable=unused-argument
+    def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
         Args:
@@ -520,10 +613,10 @@ class _LangChainModelWrapper:
         return results[0] if return_first_element else results
 
     @experimental
-    def _predict_with_callbacks(  # pylint: disable=unused-argument
+    def _predict_with_callbacks(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
     ) -> List[str]:
@@ -568,7 +661,7 @@ class _LangChainModelWrapper:
             return data
 
         if isinstance(data, pd.DataFrame):
-            return data.to_dict(orient="records")
+            return _convert_ndarray_to_list(data.to_dict(orient="records"))
 
         data = _convert_ndarray_to_list(data)
         if isinstance(self.lc_model, lc_runnables_types()):
@@ -592,7 +685,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Model input data and additional parameters.
@@ -663,7 +756,21 @@ def _load_pyfunc(path):
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    return _load_model(local_model_path, flavor_conf)
+    if _CODE_CONFIG in flavor_conf:
+        path = flavor_conf.get(_CODE_CONFIG)
+        flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
+        if path is not None:
+            code_path = os.path.join(
+                local_model_path,
+                flavor_code_config,
+                os.path.basename(os.path.abspath(path)),
+            )
+        else:
+            code_path = None
+
+        return _load_code_model(code_path)
+    else:
+        return _load_model(local_model_path, flavor_conf)
 
 
 @experimental
@@ -693,6 +800,14 @@ def load_model(model_uri, dst_path=None):
     return _load_model_from_local_fs(local_model_path)
 
 
+def _load_code_model(code_path: Optional[str] = None):
+    _set_config_path(code_path)
+
+    import chain  # noqa: F401
+
+    return mlflow.langchain._rag_utils.__databricks_rag_chain__
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -707,7 +822,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
 
@@ -760,11 +875,19 @@ def autolog(
         for cls in classes:
             # If runnable also contains loader_fn and persist_dir, warn
             # BaseRetrievalQA, BaseRetriever, ...
-            safe_patch(FLAVOR_NAME, cls, "invoke", functools.partial(patched_inference, "invoke"))
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "invoke",
+                functools.partial(patched_inference, "invoke"),
+            )
 
         for cls in [AgentExecutor, Chain]:
             safe_patch(
-                FLAVOR_NAME, cls, "__call__", functools.partial(patched_inference, "__call__")
+                FLAVOR_NAME,
+                cls,
+                "__call__",
+                functools.partial(patched_inference, "__call__"),
             )
 
         safe_patch(

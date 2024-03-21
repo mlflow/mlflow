@@ -67,3 +67,5 @@ rm "$PROTOS/databricks_uc_registry_service_pb2.py.old"
 rm "$PROTOS/databricks_managed_catalog_messages_pb2.py.old"
 rm "$PROTOS/databricks_managed_catalog_service_pb2.py.old"
 rm "$TEST_PROTOS/test_message_pb2.py.old"
+
+python ./dev/proto_to_graphql/code_generator.py

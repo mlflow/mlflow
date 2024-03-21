@@ -20,6 +20,12 @@ Supported Elements in MLflow LangChain Integration
 - `RetrievalQA <https://js.langchain.com/docs/modules/chains/popular/vector_db_qa>`_
 - `Retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
 
+
+.. warning::
+
+   The Langchain's new chat interfaces such as `ChatOpenAI <https://python.langchain.com/docs/integrations/chat/openai>`_, `AzureChatOpenAI <https://python.langchain.com/docs/integrations/chat/azure_chat_openai>`_, are not supported in MLflow due to `a limitation <https://github.com/langchain-ai/langchain/issues/18420>`_ in deserialization. Please use the legacy counterparts for these models such as `langchain.llms.OpenAI <https://python.langchain.com/docs/integrations/llms/openai>`_, `langchain.llms.AzureOpenAI <https://python.langchain.com/docs/integrations/llms/azure_openai>`_, or create `a custom Pyfunc model <../custom-pyfunc-for-llms/index.html>`_.
+
+
 Why use MLflow with LangChain?
 ------------------------------
 Aside from the benefits of using MLflow for managing and deploying machine learning models, the integration of LangChain with MLflow provides a number of 
@@ -65,6 +71,14 @@ is included with each subsequent input. Preserving conversational context in thi
 Getting Started with the MLflow LangChain Flavor - Tutorials and Guides
 -----------------------------------------------------------------------
 
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    notebooks/langchain-quickstart.ipynb
+    notebooks/langchain-agent.ipynb
+    notebooks/langchain-retriever.ipynb
+
 Introductory Tutorial
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -88,10 +102,6 @@ use a chain.
             </div>
         </article>
     </section>
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-quickstart.ipynb" class="notebook-download-btn">Download the Introductory Notebook</a><br>
 
 
 Advanced Tutorials
@@ -127,18 +137,6 @@ exploring these more advanced use cases.
         </article>
     </section>
 
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-agent.ipynb" class="notebook-download-btn">Download the LangChain Agents Notebook</a><br>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-retriever.ipynb" class="notebook-download-btn">Download the LangChain Retriever Notebook</a><br>
-
-.. toctree::
-    :maxdepth: 2
-    :hidden:
-
-    notebooks/langchain-quickstart.ipynb
-    notebooks/langchain-agent.ipynb
-    notebooks/langchain-retriever.ipynb
 
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------

@@ -96,7 +96,7 @@ def upload_to_dbfs_mock(dbfs_root_mock):
 
 
 @pytest.fixture
-def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
+def dbfs_path_exists_mock(dbfs_root_mock):
     with mock.patch(
         "mlflow.projects.databricks.DatabricksJobRunner._dbfs_path_exists"
     ) as path_exists_mock:
@@ -104,7 +104,7 @@ def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
 
 
 @pytest.fixture
-def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=unused-argument
+def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):
     return
 
 
@@ -146,7 +146,7 @@ def run_databricks_project(cluster_spec, **kwargs):
 
 def test_upload_project_to_dbfs(
     dbfs_root_mock, tmp_path, dbfs_path_exists_mock, upload_to_dbfs_mock
-):  # pylint: disable=unused-argument
+):
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
     runner = DatabricksJobRunner(databricks_profile_uri=construct_db_uri_from_profile("DEFAULT"))
@@ -165,7 +165,7 @@ def test_upload_project_to_dbfs(
     assert filecmp.cmp(local_tar_path, expected_tar_path, shallow=False)
 
 
-def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disable=unused-argument
+def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):
     # Check that we don't upload the project if it already exists on DBFS
     with mock.patch(
         "mlflow.projects.databricks.DatabricksJobRunner._upload_to_dbfs"
@@ -214,7 +214,7 @@ def test_run_databricks_validations(
     cluster_spec_mock,
     dbfs_mocks,
     set_tag_mock,
-):  # pylint: disable=unused-argument
+):
     """
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
@@ -400,7 +400,6 @@ def test_run_databricks_cancel(
     cluster_spec_mock,
     monkeypatch,
 ):
-    # pylint: disable=unused-argument
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
     # waiting for run status.

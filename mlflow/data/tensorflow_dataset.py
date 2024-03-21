@@ -7,7 +7,11 @@ import numpy as np
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.data.digest_utils import compute_tensor_digest, compute_tensorflow_dataset_digest
+from mlflow.data.digest_utils import (
+    MAX_ROWS,
+    compute_numpy_digest,
+    get_normalized_md5_digest,
+)
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.schema import TensorDatasetSchema
 from mlflow.exceptions import MlflowException
@@ -15,12 +19,10 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a TensorFlow dataset for use with MLflow Tracking.
@@ -75,6 +77,62 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
+    def _compute_tensorflow_dataset_digest(
+        self,
+        dataset,
+        targets=None,
+    ) -> str:
+        """Computes a digest for the given Tensorflow dataset.
+
+        Args:
+            dataset: A Tensorflow dataset.
+
+        Returns:
+            A string digest.
+        """
+        import pandas as pd
+        import tensorflow as tf
+
+        hashable_elements = []
+
+        def hash_tf_dataset_iterator_element(element):
+            if element is None:
+                return
+            flat_element = tf.nest.flatten(element)
+            flattened_array = np.concatenate([x.flatten() for x in flat_element])
+            trimmed_array = flattened_array[0:MAX_ROWS]
+            try:
+                hashable_elements.append(pd.util.hash_array(trimmed_array))
+            except TypeError:
+                hashable_elements.append(np.int64(trimmed_array.size))
+
+        for element in dataset.as_numpy_iterator():
+            hash_tf_dataset_iterator_element(element)
+        if targets is not None:
+            for element in targets.as_numpy_iterator():
+                hash_tf_dataset_iterator_element(element)
+
+        return get_normalized_md5_digest(hashable_elements)
+
+    def _compute_tensor_digest(
+        self,
+        tensor_data,
+        tensor_targets,
+    ) -> str:
+        """Computes a digest for the given Tensorflow tensor.
+
+        Args:
+            tensor_data: A Tensorflow tensor, representing the features.
+            tensor_targets: A Tensorflow tensor, representing the targets. Optional.
+
+        Returns:
+            A string digest.
+        """
+        if tensor_targets is None:
+            return compute_numpy_digest(tensor_data.numpy())
+        else:
+            return compute_numpy_digest(tensor_data.numpy(), tensor_targets.numpy())
+
     def _compute_digest(self) -> str:
         """
         Computes a digest for the dataset. Called if the user doesn't supply
@@ -82,28 +140,25 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         import tensorflow as tf
 
-        return (
-            compute_tensorflow_dataset_digest(self._features, self._targets)
-            if isinstance(self._features, tf.data.Dataset)
-            else compute_tensor_digest(self._features, self._targets)
+        if isinstance(self._features, tf.data.Dataset):
+            return self._compute_tensorflow_dataset_digest(self._features, self._targets)
+        return self._compute_tensor_digest(self._features, self._targets)
+
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
+        """
+        schema = json.dumps(self.schema.to_dict()) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
         )
-
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source type.
-
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
-        """
-        return {
-            **base_dict,
-            "schema": json.dumps(self.schema.to_dict()) if self.schema else None,
-            "profile": json.dumps(self.profile),
-        }
+        return config
 
     @property
     def data(self):

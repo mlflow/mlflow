@@ -1,4 +1,3 @@
-# pylint: disable=wrong-import-position
 """
 The ``mlflow`` module provides a high-level "fluent" API for starting and managing MLflow runs.
 For example:
@@ -29,27 +28,22 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
 
-# Filter annoying Cython warnings that serve no good purpose, and so before
-# importing other modules.
-# See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
-import warnings
+from mlflow.version import VERSION
 
-from mlflow.utils.lazy_load import LazyLoader
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
-from mlflow.version import VERSION as __version__  # noqa: F401
-
-warnings.filterwarnings("ignore", message="numpy.dtype size changed")
-warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
-
+__version__ = VERSION
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
+    config,  # noqa: F401
     data,  # noqa: F401
     exceptions,  # noqa: F401
     models,  # noqa: F401
     projects,  # noqa: F401
     tracking,  # noqa: F401
 )
+from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
+from mlflow.utils.lazy_load import LazyLoader
+from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
@@ -68,6 +62,7 @@ onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
+promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
 promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
@@ -88,26 +83,28 @@ tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
-_configure_mlflow_loggers(root_module_name=__name__)
+if MLFLOW_CONFIGURE_LOGGING.get() is True:
+    _configure_mlflow_loggers(root_module_name=__name__)
 
 from mlflow.client import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.models import evaluate
-from mlflow.projects import run
-from mlflow.system_metrics import (
+
+# For backward compatibility, we expose the following functions and classes at the top level in
+# addition to `mlflow.config`.
+from mlflow.config import (
     disable_system_metrics_logging,
     enable_system_metrics_logging,
-    set_system_metrics_node_id,
-    set_system_metrics_samples_before_logging,
-    set_system_metrics_sampling_interval,
-)
-from mlflow.tracking import (
     get_registry_uri,
     get_tracking_uri,
     is_tracking_uri_set,
     set_registry_uri,
+    set_system_metrics_node_id,
+    set_system_metrics_samples_before_logging,
+    set_system_metrics_sampling_interval,
     set_tracking_uri,
 )
+from mlflow.exceptions import MlflowException
+from mlflow.models import evaluate
+from mlflow.projects import run
 from mlflow.tracking._model_registry.fluent import (
     register_model,
     search_model_versions,

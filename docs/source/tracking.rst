@@ -96,6 +96,18 @@ See :ref:`Automatic Logging Documentation <automatic-logging>` for supported lib
     By default, without any particular server/database configuration, MLflow Tracking logs data to the local `mlruns` directory. If you want to log your runs to a different location,
     such as a remote database and cloud storage, to share your results with your team, follow the instructions in the :ref:`Set up MLflow Tracking Environment <tracking-setup>` section.
 
+Tracking Datasets
+=================
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracking/data-api
+
+MLflow offers the ability to track datasets that are associated with model training events. These metadata associated with the Dataset can be stored through the use of the :py:func:`mlflow.log_input` API. 
+To learn more, please visit the `MLflow data documentation <tracking/data-api.html>`_ to see the features available in this API.
+
 
 Explore Runs and Results
 ========================

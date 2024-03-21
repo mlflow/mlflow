@@ -76,6 +76,7 @@ export const ColumnHeaderCell = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 12px',
+        gap: theme.spacing.sm,
         svg: {
           color: theme.colors.textSecondary,
         },

@@ -28,7 +28,7 @@ def force_dbfs_fuse_repo(artifact_dir):
 
 
 @pytest.fixture
-def dbfs_fuse_artifact_repo(force_dbfs_fuse_repo):  # pylint: disable=unused-argument
+def dbfs_fuse_artifact_repo(force_dbfs_fuse_repo):
     return get_artifact_repository("dbfs:/unused/path/replaced/by/mock")
 
 

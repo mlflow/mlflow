@@ -1,4 +1,4 @@
-import { Select } from '@databricks/design-system';
+import { LegacySelect } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
 interface CompareRunPlotContainerProps {
@@ -25,6 +25,6 @@ const styles = {
   },
   controls: (theme: Theme) => ({
     padding: `0 ${theme.spacing.xs}px`,
-    [Select.toString()]: '100%',
+    [LegacySelect.toString()]: '100%',
   }),
 };

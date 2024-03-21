@@ -3,12 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
-import {
-  shouldEnableArtifactBasedEvaluation,
-  shouldEnableShareExperimentViewByTags,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
-import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
+import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
@@ -62,7 +59,11 @@ const ChartViewButtonTooltip: React.FC<{
               />
             </Typography.Paragraph>
             <div css={{ textAlign: 'right' }}>
-              <Button onClick={() => updateIsTooltipOpen(false)} type="primary">
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsmodeswitch.tsx_65"
+                onClick={() => updateIsTooltipOpen(false)}
+                type="primary"
+              >
                 <FormattedMessage defaultMessage="Got it" description="Button action text for chart switcher tooltip" />
               </Button>
             </div>
@@ -93,16 +94,6 @@ export const ExperimentViewRunsModeSwitch = ({
   const { classNamePrefix } = useDesignSystemTheme();
 
   const activeTab = (usingNewViewStateModel ? viewModeFromURL : compareRunsMode) || 'TABLE';
-  const previewIcon = () => {
-    return (
-      <Tag style={{ marginLeft: '4px' }} color="turquoise">
-        <FormattedMessage
-          defaultMessage="Experimental"
-          description="Experimental badge shown for features which are experimental"
-        />
-      </Tag>
-    );
-  };
 
   return (
     <Tabs
@@ -150,32 +141,31 @@ export const ExperimentViewRunsModeSwitch = ({
         }
         key="CHART"
       />
-      {shouldEnableArtifactBasedEvaluation() && (
-        <Tabs.TabPane
-          disabled={runsAreGrouped}
-          tab={
-            <Tooltip
-              title={
-                runsAreGrouped ? (
-                  <FormattedMessage
-                    defaultMessage="Unavailable when runs are grouped"
-                    description="Experiment page > view mode switch > evaluation mode disabled tooltip"
-                  />
-                ) : undefined
-              }
-            >
-              <span data-testid="experiment-runs-mode-switch-evaluation">
+
+      <Tabs.TabPane
+        disabled={runsAreGrouped}
+        tab={
+          <Tooltip
+            title={
+              runsAreGrouped ? (
                 <FormattedMessage
-                  defaultMessage="Evaluation"
-                  description="A button enabling compare runs (evaluation) mode on the experiment page"
-                />{' '}
-                {previewIcon()}
-              </span>
-            </Tooltip>
-          }
-          key="ARTIFACT"
-        />
-      )}
+                  defaultMessage="Unavailable when runs are grouped"
+                  description="Experiment page > view mode switch > evaluation mode disabled tooltip"
+                />
+              ) : undefined
+            }
+          >
+            <span data-testid="experiment-runs-mode-switch-evaluation">
+              <FormattedMessage
+                defaultMessage="Evaluation"
+                description="A button enabling compare runs (evaluation) mode on the experiment page"
+              />
+              <PreviewBadge />
+            </span>
+          </Tooltip>
+        }
+        key="ARTIFACT"
+      />
     </Tabs>
   );
 };

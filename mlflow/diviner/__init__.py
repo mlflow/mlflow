@@ -68,6 +68,8 @@ _MODEL_TYPE_KEY = "model_type"
 _FLAVOR_KEY = "flavors"
 _SPARK_MODEL_INDICATOR = "fit_with_spark"
 
+model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
+
 _logger = logging.getLogger(__name__)
 
 
@@ -452,7 +454,7 @@ class _DivinerModelWrapper:
     def __init__(self, diviner_model):
         self.diviner_model = diviner_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """A method that allows a pyfunc implementation of this flavor to generate forecasted values
         from the end of a trained Diviner model's training series per group.
 

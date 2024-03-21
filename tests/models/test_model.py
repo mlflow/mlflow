@@ -105,6 +105,8 @@ def test_model_load_remote(tmp_path, mock_s3_bucket):
 
 
 class TestFlavor:
+    model_data_artifact_paths = []
+
     @classmethod
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
@@ -479,3 +481,40 @@ def test_save_load_input_example_without_conversion(tmp_path):
     assert loaded_model.saved_input_example_info["type"] == "json_object"
     loaded_example = loaded_model.load_input_example(local_path)
     assert loaded_example == input_example
+
+
+def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
+    mlflow.sklearn.save_model(sklearn_knn_model, tmp_path)
+    info = Model.load(tmp_path).get_model_info()
+    assert info.run_id is None
+    assert info.artifact_path is None
+
+
+def test_copy_metadata(tmp_path, sklearn_knn_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(sklearn_knn_model, "model")
+        artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
+            "MLmodel",
+            "conda.yaml",
+            "python_env.yaml",
+            "requirements.txt",
+        }
+
+
+class LegacyTestFlavor:
+    @classmethod
+    def save_model(cls, path, mlflow_model):
+        mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
+        mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
+        _validate_and_prepare_target_save_path(path)
+        mlflow_model.save(os.path.join(path, "MLmodel"))
+
+
+def test_legacy_flavor():
+    with mlflow.start_run():
+        model_info = Model.log("some/path", LegacyTestFlavor)
+
+    with TempDir(chdr=True) as tmp:
+        artifact_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp.path())
+        assert set(os.listdir(artifact_path)) == {"MLmodel"}

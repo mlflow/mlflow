@@ -59,6 +59,8 @@ from mlflow.utils.validation import _is_numeric
 
 FLAVOR_NAME = "statsmodels"
 STATSMODELS_DATA_SUBPATH = "model.statsmodels"
+model_data_artifact_paths = [STATSMODELS_DATA_SUBPATH]
+
 
 _logger = logging.getLogger(__name__)
 
@@ -339,7 +341,7 @@ class _StatsmodelsModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
@@ -433,7 +435,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:

@@ -3,7 +3,11 @@ import type { SerializedStyles } from '@emotion/react';
 import type { PaginationProps as AntdPaginationProps } from 'antd';
 import type { Theme } from '../../theme';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdPaginationProps> {
+interface AntdExtraPaginationProps extends AntdPaginationProps {
+    pageSizeSelectAriaLabel?: string;
+    pageQuickJumperAriaLabel?: string;
+}
+export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdExtraPaginationProps> {
     /**
      * The index of the current page. Starts at 1.
      */
@@ -49,7 +53,10 @@ export interface CursorPaginationProps extends HTMLDataAttributes {
         getOptionText?: (pageSize: number) => string;
         /** onChange handler for page size selector. */
         onChange: (pageSize: number) => void;
+        /** Aria label for the page size selector */
+        ariaLabel?: string;
     };
 }
 export declare const CursorPagination: React.FC<CursorPaginationProps>;
+export {};
 //# sourceMappingURL=index.d.ts.map

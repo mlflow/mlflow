@@ -22,6 +22,7 @@ describe('ModelVersionTable', () => {
     onChange: jest.fn(),
     onMetadataUpdated: jest.fn(),
     usingNextModelsUI: false,
+    aliases: [],
   };
 
   const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);
@@ -67,14 +68,20 @@ describe('ModelVersionTable', () => {
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
   });
+
   test('should display aliases and tags column instead of stage when new models UI is used', () => {
+    const modelName = 'Random Forest Model';
     const props = {
       ...minimalProps,
+      modelName: modelName,
       usingNextModelsUI: true,
+      modelVersions: [mockModelVersionDetailed(modelName, 1, Stages.NONE, ModelVersionStatus.READY)],
+      aliases: [{alias: 'champion', version: '1'}]
     };
     renderWithProviders(<ModelVersionTable {...props} />);
     expect(screen.queryByRole('columnheader', { name: 'Stage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
+    expect(screen.queryByText(/champion/)).toBeInTheDocument();
   });
 });

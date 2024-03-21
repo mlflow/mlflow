@@ -29,7 +29,7 @@ Turn on/off System Metrics Logging
 
 There are three ways to enable or disable system metrics logging:
 
-- Set the environment variable ``MLFLOW_LOG_SYSTEM_METRICS`` to `false` to turn off system metrics logging,
+- Set the environment variable ``MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING`` to `false` to turn off system metrics logging,
   or `true` to enable it for all MLflow runs.
 - Use :py:func:`mlflow.enable_system_metrics_logging()` to enable and
   :py:func:`mlflow.disable_system_metrics_logging()` to disable system metrics logging for all MLflow runs.
@@ -39,7 +39,7 @@ There are three ways to enable or disable system metrics logging:
 Using the Environment Variable to Control System Metrics Logging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can set the environment variable ``MLFLOW_LOG_SYSTEM_METRICS`` to ``true`` to turn on system metrics
+You can set the environment variable ``MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING`` to ``true`` to turn on system metrics
 logging globally, as shown below:
 
 .. code-block:: bash

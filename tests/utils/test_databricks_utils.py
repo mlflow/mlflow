@@ -1,14 +1,21 @@
 import builtins
+import json
+import os
 import sys
+import time
 from unittest import mock
 
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
+from mlflow.legacy_databricks_cli.configure.provider import (
+    DatabricksConfig,
+    DatabricksModelServingConfigProvider,
+)
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
+    get_databricks_runtime_major_minor_version,
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
     get_workspace_info_from_dbutils,
@@ -96,6 +103,100 @@ def test_databricks_single_slash_in_uri_scheme_throws(get_config):
     get_config.return_value = None
     with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
+
+
+@pytest.fixture
+def oauth_file(tmp_path):
+    token_contents = {"OAUTH_TOKEN": [{"oauthTokenValue": "token2"}]}
+    oauth_file = tmp_path.joinpath("model-dependencies-oauth-token")
+    with open(oauth_file, "w") as f:
+        json.dump(token_contents, f)
+    return oauth_file
+
+
+def test_get_model_dependency_token(oauth_file):
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        token = databricks_utils.get_model_dependency_oauth_token()
+        assert token == "token2"
+
+
+def test_get_model_dependency_oauth_token_model_serving_throws():
+    with pytest.raises(MlflowException, match="Unable to read Oauth credentials"):
+        databricks_utils.get_model_dependency_oauth_token()
+
+
+def test_databricks_params_model_serving_oauth_cache(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
+    # oauth file still needs to be present for should_fetch_model_serving_environment_oauth()
+    #  to evaluate true
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        assert params.host == "host"
+        # should use token from cache, rather than token from oauthfile
+        assert params.token == "token"
+
+
+def test_databricks_params_model_serving_oauth_cache_expired(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() - 5))
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        # cache should get updated with new token
+        assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token2"
+        assert float(os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"]) > time.time()
+        assert params.host == "host"
+        # should use token2 from oauthfile, rather than token from cache
+        assert params.token == "token2"
+
+
+def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        assert os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE"] == "token2"
+        assert float(os.environ["DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"]) > time.time()
+        assert params.host == "host"
+        assert params.token == "token2"
+
+
+def test_databricks_params_env_var_overrides_model_serving_oauth(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    monkeypatch.setenv("DATABRICKS_HOST", "host_envvar")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "pat_token")
+    # oauth file still needs to be present for should_fetch_model_serving_environment_oauth()
+    #  to evaluate true
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        # should use token and host from envvar, rather than token from oauthfile
+        assert params.host == "host_envvar"
+        assert params.token == "pat_token"
+
+
+def test_model_serving_config_provider_errors_caught():
+    provider = DatabricksModelServingConfigProvider()
+    with mock.patch.object(
+        provider,
+        "_get_databricks_model_serving_config",
+        side_effect=Exception("Failed to Read OAuth Creds"),
+    ):
+        assert provider.get_config() is None
 
 
 def test_get_workspace_info_from_databricks_secrets():
@@ -224,6 +325,27 @@ def test_is_in_databricks_runtime(monkeypatch):
     assert not databricks_utils.is_in_databricks_runtime()
 
 
+# test both is_in_databricks_model_serving_environment and
+# should_fetch_model_serving_environment_oauth return apprropriate values
+def test_should_fetch_model_serving_environment_oauth(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    assert databricks_utils.is_in_databricks_model_serving_environment()
+    # will return false if file mount is not configured even if env var set
+    assert not databricks_utils.should_fetch_model_serving_environment_oauth()
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        # both file mount and env var exist, both values should return true
+        assert databricks_utils.is_in_databricks_model_serving_environment()
+        assert databricks_utils.should_fetch_model_serving_environment_oauth()
+
+        # file mount without env var should return false
+        monkeypatch.delenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
+        assert not databricks_utils.is_in_databricks_model_serving_environment()
+        assert not databricks_utils.should_fetch_model_serving_environment_oauth()
+
+
 def test_get_repl_id():
     # Outside of Databricks environments, the Databricks REPL ID should be absent
     assert databricks_utils.get_repl_id() is None
@@ -259,9 +381,7 @@ def test_use_repl_context_if_available(tmp_path, monkeypatch):
 
     command_context_mock = mock.MagicMock()
     command_context_mock.jobId().get.return_value = "job_id"
-    command_context_mock.tags().get(  # pylint: disable=not-callable
-        "jobType"
-    ).get.return_value = "NORMAL"
+    command_context_mock.tags().get("jobType").get.return_value = "NORMAL"
     with mock.patch(
         "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
     ) as mock_get_command_context:
@@ -373,7 +493,35 @@ def test_check_databricks_secret_scope_access_error():
             "Unable to access Databricks secret scope 'scope' for OpenAI credentials that will be "
             "used to deploy the model to Databricks Model Serving. Please verify that the current "
             "Databricks user has 'READ' permission for this scope. For more information, see "
-            "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # pylint: disable=line-too-long
+            "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # noqa: E501
             "Error: no scope access"
         )
         mock_dbutils.secrets.list.assert_called_once_with("scope")
+
+
+@pytest.mark.parametrize(
+    ("version_str", "is_client_image", "major", "minor"),
+    [
+        ("client.0", True, 0, 0),
+        ("client.1", True, 1, 0),
+        ("client.1.6", True, 1, 6),
+        ("15.1", False, 15, 1),
+        ("12.1.1", False, 12, 1),
+    ],
+)
+def test_get_databricks_runtime_major_minor_version(
+    monkeypatch, version_str, is_client_image, major, minor
+):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", version_str)
+    dbr_version = get_databricks_runtime_major_minor_version()
+
+    assert dbr_version.is_client_image == is_client_image
+    assert dbr_version.major == major
+    assert dbr_version.minor == minor
+
+
+def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
+    # minor version is not allowed to be a string
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
+    with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
+        get_databricks_runtime_major_minor_version()

@@ -12,8 +12,6 @@ import pytest
 import tensorflow as tf
 import yaml
 from packaging.version import Version
-
-# pylint: disable=no-name-in-module
 from sklearn import datasets
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Dense, Layer
@@ -135,7 +133,6 @@ def custom_layer():
             super().__init__(**kwargs)
 
         def build(self, input_shape):
-            # pylint: disable=attribute-defined-outside-init
             self.kernel = self.add_weight(
                 name="kernel",
                 shape=(input_shape[1], self.output_dim),
@@ -144,7 +141,7 @@ def custom_layer():
             )
             super().build(input_shape)
 
-        def call(self, inputs):  # pylint: disable=arguments-differ
+        def call(self, inputs):
             return K.dot(inputs, self.kernel)
 
         def compute_output_shape(self, input_shape):
@@ -632,15 +629,14 @@ def test_load_without_save_format(tf_keras_model, model_path, data):
 @pytest.mark.skipif(
     not (
         _is_importable("transformers")
-        and Version(tf.__version__) >= Version("2.6.0")
-        and not Version(tf.__version__).is_devrelease
+        and Version("2.6.0") <= Version(tf.__version__) < Version("2.16")
     ),
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0, "
-    "and transformers is not compatible with Tensorflow dev version, see "
+    "and transformers is not compatible with Tensorflow >= 2.16, see "
     "https://github.com/huggingface/transformers/issues/22421",
 )
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
+    from transformers import BertConfig, TFBertModel
 
     bert_model = TFBertModel(
         BertConfig(

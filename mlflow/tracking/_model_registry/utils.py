@@ -1,17 +1,6 @@
-import logging
 from functools import partial
 
-from mlflow.environment_variables import (
-    MLFLOW_REGISTRY_URI,
-    MLFLOW_TRACKING_AUTH,
-    MLFLOW_TRACKING_AWS_SIGV4,
-    MLFLOW_TRACKING_CLIENT_CERT_PATH,
-    MLFLOW_TRACKING_INSECURE_TLS,
-    MLFLOW_TRACKING_PASSWORD,
-    MLFLOW_TRACKING_SERVER_CERT_PATH,
-    MLFLOW_TRACKING_TOKEN,
-    MLFLOW_TRACKING_USERNAME,
-)
+from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
@@ -23,16 +12,13 @@ from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
     get_tracking_uri,
 )
-from mlflow.utils import rest_utils
 from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import (
     get_databricks_host_creds,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-
-_logger = logging.getLogger(__name__)
-
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
@@ -143,20 +129,6 @@ def _get_sqlalchemy_store(store_uri):
     from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 
     return SqlAlchemyStore(store_uri)
-
-
-def get_default_host_creds(store_uri):
-    return rest_utils.MlflowHostCreds(
-        host=store_uri,
-        username=MLFLOW_TRACKING_USERNAME.get(),
-        password=MLFLOW_TRACKING_PASSWORD.get(),
-        token=MLFLOW_TRACKING_TOKEN.get(),
-        aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
-        auth=MLFLOW_TRACKING_AUTH.get(),
-        ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
-        client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
-        server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
-    )
 
 
 def _get_rest_store(store_uri, **_):

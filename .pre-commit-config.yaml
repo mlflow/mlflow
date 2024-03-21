@@ -5,6 +5,7 @@ repos:
       - id: prettier
         files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
+        require_serial: true
   - repo: local
     hooks:
       - id: ruff
@@ -13,6 +14,7 @@ repos:
         language: system
         types_or: [python, jupyter]
         stages: [commit]
+        require_serial: true
 
       - id: format
         name: format
@@ -20,6 +22,15 @@ repos:
         language: system
         types_or: [python, jupyter]
         stages: [commit]
+        require_serial: true
+
+      - id: taplo
+        name: taplo
+        entry: dev/taplo.sh
+        language: system
+        types: [toml]
+        stages: [commit]
+        require_serial: true
 
       - id: blacken-docs
         name: blacken-docs
@@ -27,21 +38,15 @@ repos:
         language: system
         types_or: [rst, markdown]
         stages: [commit]
+        require_serial: true
 
-      - id: pylint
-        name: pylint
-        entry: pylint
-        language: system
-        types: [python]
-        args: ["--rcfile=pylintrc"]
-        stages: [commit]
-
-      - id: disallow-rule-ids
-        name: disallow-rule-ids
-        entry: python ./dev/disallow_rule_ids.py
+      - id: custom-python-lint
+        name: custom-python-lint
+        entry: clint
         language: system
         types: [python]
         stages: [commit]
+        require_serial: true
 
       - id: rstcheck
         name: rstcheck
@@ -49,15 +54,25 @@ repos:
         language: system
         files: README.rst
         stages: [commit]
+        require_serial: true
 
       - id: must-have-signoff
         name: must-have-signoff
         entry: 'grep "Signed-off-by:"'
         language: system
         stages: [prepare-commit-msg]
+        require_serial: true
 
       - id: mlflow-typo
         name: mlflow-typo
         entry: dev/mlflow-typo.sh
         language: system
         stages: [commit]
+        require_serial: true
+
+      - id: pyproject
+        name: pyproject
+        entry: python dev/pyproject.py
+        language: system
+        stages: [commit]
+        require_serial: true

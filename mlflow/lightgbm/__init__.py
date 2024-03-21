@@ -83,6 +83,9 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "lightgbm"
 
+model_data_artifact_paths = ["model.lgb", "model.pkl"]
+
+
 _logger = logging.getLogger(__name__)
 
 
@@ -481,7 +484,7 @@ class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.
@@ -534,7 +537,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
 
@@ -712,7 +715,6 @@ def autolog(
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 try:
-                    # pylint: disable=undefined-loop-variable
                     filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
                     fig.savefig(filepath)
                     mlflow.log_artifact(filepath)

@@ -285,13 +285,14 @@ class APIRequest:
             # is handling the "messages" field by itself
             return request_json, False
 
-        def json_dict_might_be_chat_request(json: Dict):
+        def json_dict_might_be_chat_request(json_message: Dict):
             return (
-                "messages" in request_json
+                isinstance(json_message, dict)
+                and "messages" in json_message
                 and
                 # Additional keys can't be specified when calling LangChain invoke() / batch()
                 # with chat messages
-                len(request_json) == 1
+                len(json_message) == 1
             )
 
         if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
@@ -356,13 +357,12 @@ class APIRequest:
             if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
                 return set(lc_model.input_schema().__fields__)
         except Exception as e:
-            raise e
             _logger.debug(
                 f"Unexpected exception while checking LangChain input schema for"
                 f" request transformation: {e}"
             )
 
-        return {}
+        return set()
 
     @staticmethod
     def _convert_chat_request_or_throw(chat_request: Dict):

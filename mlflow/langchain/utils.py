@@ -1,9 +1,12 @@
 """Utility functions for mlflow.langchain."""
+
+import contextlib
 import json
 import logging
 import os
 import shutil
 import types
+import warnings
 from functools import lru_cache
 from importlib.util import find_spec
 from typing import NamedTuple
@@ -11,6 +14,7 @@ from typing import NamedTuple
 import cloudpickle
 import yaml
 from packaging import version
+from packaging.version import Version
 
 import mlflow
 from mlflow.utils.class_utils import _get_class_from_string
@@ -94,14 +98,6 @@ def picklable_runnable_types():
     except ImportError:
         pass
 
-    try:
-        # TODO: fix this, RunnableAssign is not picklable
-        from langchain.schema.runnable.passthrough import RunnableAssign
-
-        types += (RunnableAssign,)
-    except ImportError:
-        pass
-
     return types
 
 
@@ -126,7 +122,16 @@ def lc_runnable_with_steps_types():
     return types
 
 
-def lc_runnable_branch_type():
+def lc_runnable_assign_types():
+    try:
+        from langchain.schema.runnable.passthrough import RunnableAssign
+
+        return (RunnableAssign,)
+    except ImportError:
+        return ()
+
+
+def lc_runnable_branch_types():
     try:
         from langchain.schema.runnable import RunnableBranch
 
@@ -136,7 +141,12 @@ def lc_runnable_branch_type():
 
 
 def lc_runnables_types():
-    return picklable_runnable_types() + lc_runnable_with_steps_types() + lc_runnable_branch_type()
+    return (
+        picklable_runnable_types()
+        + lc_runnable_with_steps_types()
+        + lc_runnable_branch_types()
+        + lc_runnable_assign_types()
+    )
 
 
 def supported_lc_types():
@@ -185,7 +195,10 @@ class _SpecialChainInfo(NamedTuple):
 
 
 def _get_special_chain_info_or_none(chain):
-    for special_chain_class, loader_arg in _get_map_of_special_chain_class_to_loader_arg().items():
+    for (
+        special_chain_class,
+        loader_arg,
+    ) in _get_map_of_special_chain_class_to_loader_arg().items():
         if isinstance(chain, special_chain_class):
             return _SpecialChainInfo(loader_arg=loader_arg)
 
@@ -256,6 +269,14 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.llms.huggingface_hub
     import langchain.llms.openai
     import langchain.schema
+
+    if isinstance(lc_model, str):
+        if os.path.basename(os.path.abspath(lc_model)) != "chain.py":
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"If {lc_model} is a string, it must be the path to a file "
+                "named `chain.py` on the local filesystem."
+            )
+        return lc_model
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
@@ -471,3 +492,66 @@ def _load_base_lcs(
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
+
+
+def register_pydantic_serializer():
+    """
+    Helper function to pickle pydantic fields for pydantic v1.
+    Pydantic's Cython validators are not serializable.
+    https://github.com/cloudpipe/cloudpickle/issues/408
+    """
+    import pydantic
+
+    if Version(pydantic.__version__) >= Version("2.0.0"):
+        return
+
+    import pydantic.fields
+
+    def custom_serializer(obj):
+        return {
+            "name": obj.name,
+            # outer_type_ is the original type for ModelFields,
+            # while type_ can be updated later with the nested type
+            # like int for List[int].
+            "type_": obj.outer_type_,
+            "class_validators": obj.class_validators,
+            "model_config": obj.model_config,
+            "default": obj.default,
+            "default_factory": obj.default_factory,
+            "required": obj.required,
+            "final": obj.final,
+            "alias": obj.alias,
+            "field_info": obj.field_info,
+        }
+
+    def custom_deserializer(kwargs):
+        return pydantic.fields.ModelField(**kwargs)
+
+    def _CloudPicklerReducer(obj):
+        return custom_deserializer, (custom_serializer(obj),)
+
+    warnings.warn(
+        "Using custom serializer to pickle pydantic.fields.ModelField classes, "
+        "this might miss some fields and validators. To avoid this, "
+        "please upgrade pydantic to v2 using `pip install pydantic -U` with "
+        "langchain 0.0.267 and above."
+    )
+    cloudpickle.CloudPickler.dispatch[pydantic.fields.ModelField] = _CloudPicklerReducer
+
+
+def unregister_pydantic_serializer():
+    import pydantic
+
+    if Version(pydantic.__version__) >= Version("2.0.0"):
+        return
+
+    cloudpickle.CloudPickler.dispatch.pop(pydantic.fields.ModelField, None)
+
+
+@contextlib.contextmanager
+def register_pydantic_v1_serializer_cm():
+    try:
+        register_pydantic_serializer()
+        yield
+    finally:
+        unregister_pydantic_serializer()

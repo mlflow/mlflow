@@ -36,6 +36,7 @@ from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -77,6 +78,10 @@ MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
 
+_MODEL_DATA_SUBPATH = "data"
+model_data_artifact_paths = [_MODEL_DATA_SUBPATH, _EXTRA_FILES_KEY]
+
+
 def get_default_pip_requirements():
     """
     Returns:
@@ -107,7 +112,7 @@ def get_default_conda_env():
     .. code-block:: python
         :caption: Example
 
-        import mlflow.pytorch
+        import mlflow
 
         # Log PyTorch model
         with mlflow.start_run() as run:
@@ -463,7 +468,7 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    model_data_subpath = "data"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
 
@@ -902,7 +907,13 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+    checkpoint=True,
+    checkpoint_monitor="val_loss",
+    checkpoint_mode="min",
+    checkpoint_save_best_only=True,
+    checkpoint_save_weights_only=False,
+    checkpoint_save_freq="epoch",
+):
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
@@ -956,6 +967,25 @@ def autolog(
             new model version of the registered model with this name. The registered model is
             created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        checkpoint: Enable automatic model checkpointing, this feature only supports
+            pytorch-lightning >= 1.6.0.
+        checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
+        checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made based on
+            either the maximization or the minimization of the monitored quantity.
+        checkpoint_save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        checkpoint_save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+            saves the model after each epoch. When using integer, the callback
+            saves the model at end of this many batches. Note that if the saving isn't aligned to
+            epochs, the monitored metric may potentially be less reliable (it
+            could reflect as little as 1 batch, since the metrics get reset
+            every epoch). Defaults to `"epoch"`.
 
     .. code-block:: python
         :test:
@@ -1101,3 +1131,78 @@ if autolog.__doc__ is not None:
     autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
         "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
     )
+
+
+def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
+    """
+    If you enable "checkpoint" in autologging, during pytorch-lightning model
+    training execution, checkpointed models are logged as MLflow artifacts.
+    Using this API, you can load the checkpointed model.
+
+    If you want to load the latest checkpoint, set both `epoch` and `global_step` to None.
+    If "checkpoint_save_freq" is set to "epoch" in autologging,
+    you can set `epoch` param to the epoch of the checkpoint to load specific epoch checkpoint.
+    If "checkpoint_save_freq" is set to an integer in autologging,
+    you can set `global_step` param to the global step of the checkpoint to load specific
+    global step checkpoint.
+    `epoch` param and `global_step` can't be set together.
+
+    Args:
+        model_class: The class of the training model, the class should inherit
+            'pytorch_lightning.LightningModule'.
+        run_id: The id of the run which model is logged to. If not provided,
+            current active run is used.
+        epoch: The epoch of the checkpoint to be loaded, if you set
+            "checkpoint_save_freq" to "epoch".
+        global_step: The global step of the checkpoint to be loaded, if
+            you set "checkpoint_save_freq" to an integer.
+
+    Returns:
+        The instance of a pytorch-lightning model restored from the specified checkpoint.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        mlflow.pytorch.autolog(checkpoint=True)
+
+        model = MyLightningModuleNet()  # A custom-pytorch lightning model
+        train_loader = create_train_dataset_loader()
+        trainer = Trainer()
+
+        with mlflow.start_run() as run:
+            trainer.fit(model, train_loader)
+
+        run_id = run.info.run_id
+
+        # load latest checkpoint model
+        latest_checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id)
+
+        # load history checkpoint model logged in second epoch
+        checkpoint_model = mlflow.pytorch.load_checkpoint(MyLightningModuleNet, run_id, epoch=2)
+    """
+    with TempDir() as tmp_dir:
+        downloaded_checkpoint_filepath = download_checkpoint_artifact(
+            run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
+        )
+        return model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
+
+
+__all__ = [
+    "autolog",
+    "load_model",
+    "save_model",
+    "log_model",
+    "get_default_pip_requirements",
+    "get_default_conda_env",
+    "load_checkpoint",
+]
+
+try:
+    from mlflow.pytorch._lightning_autolog import MlflowModelCheckpointCallback  # noqa: F401
+
+    __all__.append("MLflowModelCheckpointCallback")
+except ImportError:
+    # Swallow exception if pytorch-lightning is not installed.
+    pass

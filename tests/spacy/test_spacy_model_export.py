@@ -146,7 +146,7 @@ def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
         )
 
 
-def test_model_log(spacy_model_with_data, tracking_uri_mock):  # pylint: disable=unused-argument
+def test_model_log(spacy_model_with_data, tracking_uri_mock):
     spacy_model = spacy_model_with_data.model
     old_uri = mlflow.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.

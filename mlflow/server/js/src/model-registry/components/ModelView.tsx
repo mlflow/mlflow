@@ -214,6 +214,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   renderDescriptionEditIcon() {
     return (
       <Button
+        componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_467"
         data-test-id="descriptionEditButton"
         type="link"
         css={styles.editButton}
@@ -343,6 +344,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 </span>
                 {!this.props.usingNextModelsUI && (
                   <SegmentedControlGroup
+                    name="stage-filter"
                     value={this.state.stageFilter}
                     onChange={(e) => this.handleStageFilterChange(e)}
                   >
@@ -362,7 +364,12 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                     </SegmentedControlButton>
                   </SegmentedControlGroup>
                 )}
-                <Button data-test-id="compareButton" disabled={compareDisabled} onClick={this.onCompare}>
+                <Button
+                  componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_619"
+                  data-test-id="compareButton"
+                  disabled={compareDisabled}
+                  onClick={this.onCompare}
+                >
                   <FormattedMessage
                     defaultMessage="Compare"
                     description="Text for compare button to compare versions under details tab
@@ -393,6 +400,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onChange={this.onChange}
             onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
+            aliases={model?.aliases}
           />
         </CollapsibleSection>
 

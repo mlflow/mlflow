@@ -361,7 +361,7 @@ def xgb_classifier():
     return xgb.XGBClassifier()
 
 
-def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
+def early_stop_fn(trial, count=0):
     return count + 1 <= 2, [count + 1]
 
 

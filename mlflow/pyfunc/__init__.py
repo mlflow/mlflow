@@ -24,14 +24,79 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
   predict(
-    model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc.csc_matrix | csr.csr_matrix),
-    List[Any], Dict[str, Any]]
-  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
+    model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc_matrix | csr_matrix),
+    List[Any], Dict[str, Any], pyspark.sql.DataFrame]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | Dict | pyspark.sql.DataFrame]
 
 All PyFunc models will support `pandas.DataFrame` as input and PyFunc deep learning models will
 also support tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and
 `numpy.ndarrays` (unnamed tensors).
 
+Here are some examples of supported inference types, assuming we have the correct ``model`` object
+loaded.
+
+.. list-table::
+    :widths: 30 70
+    :header-rows: 1
+    :class: wrap-table
+
+    * - Input Type
+      - Example
+    * - ``pandas.DataFrame``
+      -
+        .. code-block:: python
+
+            import pandas as pd
+
+            x_new = pd.DataFrame(dict(x1=[1,2,3], x2=[4,5,6]))
+            model.predict(x_new)
+
+    * - ``numpy.ndarray``
+      -
+        .. code-block:: python
+
+            import numpy as np
+
+            x_new = np.array([[1, 4] [2, 5], [3, 6]])
+            model.predict(x_new)
+
+    * - ``scipy.sparse.csc_matrix`` or ``scipy.sparse.csr_matrix``
+      -
+        .. code-block:: python
+
+            import scipy
+
+            x_new = scipy.sparse.csc_matrix([[1, 2, 3], [4, 5, 6]])
+            model.predict(x_new)
+
+            x_new = scipy.sparse.csr_matrix([[1, 2, 3], [4, 5, 6]])
+            model.predict(x_new)
+
+    * - python ``List``
+      -
+        .. code-block:: python
+
+            x_new = [[1, 4], [2, 5], [3, 6]]
+            model.predict(x_new)
+
+    * - python ``Dict``
+      -
+        .. code-block:: python
+
+            x_new = dict(x1=[1, 2, 3], x2=[4, 5, 6])
+            model.predict(x_new)
+
+    * - ``pyspark.sql.DataFrame``
+      -
+        .. code-block:: python
+
+            from pyspark.sql import SparkSession
+
+            spark = SparkSession.builder.getOrCreate()
+
+            data = [(1,4), (2,5), (3,6)]  # List of tuples
+            x_new = spark.createDataFrame(data, ["x1","x2"])  # Specify column name
+            model.predict(x_new)
 
 .. _pyfunc-filesystem-format:
 
@@ -72,8 +137,9 @@ following parameters:
 
           predict(
             model_input: [pandas.DataFrame, numpy.ndarray,
-            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]]
-          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
+            scipy.sparse.(csc_matrix | csr_matrix), List[Any], Dict[str, Any]],
+            pyspark.sql.DataFrame
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | Dict | pyspark.sql.DataFrame]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -205,6 +271,108 @@ You may prefer the second, lower-level workflow for the following reasons:
 - If you have already collected all of your model data in a single location, the second
   workflow allows it to be saved in MLflow format directly, without enumerating constituent
   artifacts.
+
+******************************************
+Function-based Model vs Class-based Model
+******************************************
+
+When creating custom PyFunc models, you can choose between two different interfaces:
+a function-based model and a class-based model. In short, a function-based model is simply a
+python function that does not take additional params. The class-based model, on the other hand,
+is subclass of ``PythonModel`` that supports several required and optional
+methods. If your use case is simple and fits within a single predict function, a funcion-based
+approach is recommended. If you need more power, such as custom serialization, custom data
+processing, or to override additional methods, you should use the class-based implementation.
+
+Before looking at code examples, it's important to note that both methods are serialized via
+`cloudpickle <https://github.com/cloudpipe/cloudpickle>`_. cloudpickle can serialize Python
+functions, lambda functions, and locally defined classes and functions inside other functions. This
+makes cloudpickle especially useful for parallel and distributed computing where code objects need
+to be sent over network to execute on remote workers, which is a common deployment paradigm for
+MLflow.
+
+That said, cloudpickle has some limitations.
+
+- **Environment Dependency**: cloudpickle does not capture the full execution environment, so in
+  MLflow we must pass ``pip_requirements``, ``extra_pip_requirements``, or an ``input_example``,
+  the latter of which is used to infer environment dependencies. For more, refer to
+  `the model dependency docs <https://mlflow.org/docs/latest/model/dependencies.html>`_.
+
+- **Object Support**: cloudpickle does not serialize objects outside of the Python data model.
+  Some relevant examples include raw files and database connections. If your program depends on
+  these, be sure to log ways to reference these objects along with your model.
+
+Function-based Model
+####################
+If you're looking to serialize a simple python function without additional dependent methods, you
+can simply log a predict method via the keyword argument ``python_model``.
+
+.. note::
+
+    Function-based model only supports a function with a single input argument. If you would like
+    to pass more arguments or additional inference parameters, please use the class-based model
+    below.
+
+.. code-block:: python
+
+    import mlflow
+    import pandas as pd
+
+    # Define a simple function to log
+    def predict(model_input):
+        return model_input.apply(lambda x: x * 2)
+
+    # Save the function as a model
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=predict, pip_requirements=["pandas"])
+        run_id = mlflow.active_run().info.run_id
+
+    # Load the model from the tracking server and perform inference
+    model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+    x_new = pd.Series([1,2,3])
+
+    prediction = model.predict(x_new)
+    print(prediction)
+
+
+Class-based Model
+#################
+If you're looking to serialize a more complex object, for instance a class that handles
+preprocessing, complex prediction logic, or custom serialization, you should subclass the
+``PythonModel`` class. MLflow has tutorials on building custom PyFunc models, as shown
+`here <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>`_,
+so instead of duplicating that information, in this example we'll recreate the above functionality
+to highlight the differences. Note that this PythonModel implementation is overly complex and
+we would recommend using the functional-based Model instead for this simple case.
+
+.. code-block:: python
+
+    import mlflow
+    import pandas as pd
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [x*2 for x in model_input]
+
+    # Save the function as a model
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=MyModel(), pip_requirements=["pandas"])
+        run_id = mlflow.active_run().info.run_id
+
+    # Load the model from the tracking server and perform inference
+    model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+    x_new = pd.Series([1, 2, 3])
+
+    print(f"Prediction:\n\t{model.predict(x_new)}")
+
+The primary difference between the this implementation and the function-based implementation above
+is that the predict method is wrapped with a class, has the ``self`` parameter,
+and has the ``params`` parameter that defaults to None. Note that function-based models don't
+support additional params.
+
+In summary, use the function-based Model when you have a simple function to serialize.
+If you need more power, use  the class-based model.
+
 """
 
 import collections
@@ -254,9 +422,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
+    _SAVED_PYTHON_MODEL_SUBPATH,
     ChatModel,
     PythonModel,
-    PythonModelContext,  # noqa: F401
+    PythonModelContext,
     _log_warning_if_params_not_in_predict_signature,
     _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
@@ -317,12 +486,25 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 
+try:
+    from pyspark.sql import DataFrame as SparkDataFrame
+
+    HAS_PYSPARK = True
+except ImportError:
+    HAS_PYSPARK = False
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
 MODEL_CONFIG = "config"
+
+_MODEL_DATA_SUBPATH = "data"
+
+model_data_artifact_paths = [
+    _MODEL_DATA_SUBPATH,
+    _SAVED_PYTHON_MODEL_SUBPATH,
+]
 
 
 class EnvType:
@@ -460,7 +642,7 @@ class PyFuncModel:
 
         Args:
             data: Model input as one of pandas.DataFrame, numpy.ndarray,
-                scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
+                scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
                 Dict[str, numpy.ndarray].
                 For model signatures with tensor spec inputs
                 (e.g. the Tensorflow core / Keras model), the input data type must be one of
@@ -469,7 +651,9 @@ class PyFuncModel:
                 contains a signature with tensor spec inputs, the corresponding column values
                 in the pandas DataFrame will be reshaped to the required shape with 'C' order
                 (i.e. read / write the elements using C-like index order), and DataFrame
-                column values will be cast as the required tensor spec type.
+                column values will be cast as the required tensor spec type. For Pyspark
+                DataFrame inputs, MLflow will only enforce the schema on a subset
+                of the data rows.
             params: Additional parameters to pass to the model for inference.
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
@@ -479,9 +663,10 @@ class PyFuncModel:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
+        flavor = self.loader_module
         if input_schema is not None:
             try:
-                data = _enforce_schema(data, input_schema)
+                data = _enforce_schema(data, input_schema, flavor)
             except Exception as e:
                 # Include error in message for backwards compatibility
                 raise MlflowException.invalid_parameter_value(
@@ -495,6 +680,11 @@ class PyFuncModel:
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
         _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if HAS_PYSPARK and isinstance(data, SparkDataFrame):
+            _logger.warning(
+                "Input data is a Spark DataFrame. Note that behaviour for "
+                "Spark DataFrames is model dependent."
+            )
         return self._predict_fn(data)
 
     @experimental
@@ -569,6 +759,14 @@ class PyFuncModel:
     def model_config(self):
         """Model's flavor configuration"""
         return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
+
+    @experimental
+    @property
+    def loader_module(self):
+        """Model's flavor configuration"""
+        if self._model_meta.flavors.get(FLAVOR_NAME) is None:
+            return None
+        return self._model_meta.flavors[FLAVOR_NAME].get(MAIN)
 
     def __repr__(self):
         info = {}
@@ -728,7 +926,10 @@ def _load_model_or_server(
     Returns:
         A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient, StdinScoringServerClient
+    from mlflow.pyfunc.scoring_server.client import (
+        ScoringServerClient,
+        StdinScoringServerClient,
+    )
 
     if env_manager == _EnvManager.LOCAL:
         return load_model(model_uri, model_config=model_config)
@@ -778,7 +979,7 @@ def _load_model_or_server(
     )
 
 
-def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+def _get_model_dependencies(model_uri, format="pip"):
     model_dir = _download_artifact_from_uri(model_uri)
 
     def get_conda_yaml_path():
@@ -834,7 +1035,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         )
 
 
-def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+def get_model_dependencies(model_uri, format="pip"):
     """
     Downloads the model dependencies and returns the path to requirements.txt or conda.yaml file.
 
@@ -2037,7 +2238,12 @@ def save_model(
             # output is not coercable to ChatResponse
             messages = [ChatMessage(**m) for m in input_example["messages"]]
             params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
-            output = python_model.predict(None, messages, params)
+
+            # call load_context() first, as predict may depend on it
+            _logger.info("Predicting on input example to validate output")
+            context = PythonModelContext(artifacts, model_config)
+            python_model.load_context(context)
+            output = python_model.predict(context, messages, params)
             if not isinstance(output, ChatResponse):
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "
@@ -2056,7 +2262,8 @@ def save_model(
             elif input_example is not None:
                 try:
                     mlflow_model.signature = _infer_signature_from_input_example(
-                        input_example, _PythonModelPyfuncWrapper(python_model, None, None)
+                        input_example,
+                        _PythonModelPyfuncWrapper(python_model, None, None),
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
@@ -2171,7 +2378,10 @@ def log_model(
 
 
                 with mlflow.start_run():
-                    model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())  # pylint: disable=line-too-long
+                    model_info = mlflow.pyfunc.log_model(
+                        artifact_path="model",
+                        python_model=MyModel(),
+                    )
 
 
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)

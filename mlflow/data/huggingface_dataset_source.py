@@ -1,13 +1,11 @@
 from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import datasets
 
 
-@experimental
 class HuggingFaceDatasetSource(DatasetSource):
     """Represents the source of a Hugging Face dataset used in MLflow Tracking."""
 
@@ -89,7 +87,7 @@ class HuggingFaceDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> "HuggingFaceDatasetSource":
         raise NotImplementedError
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         return {
             "path": self.path,
             "config_name": self.config_name,
@@ -100,7 +98,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "HuggingFaceDatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "HuggingFaceDatasetSource":
         return cls(
             path=source_dict.get("path"),
             config_name=source_dict.get("config_name"),

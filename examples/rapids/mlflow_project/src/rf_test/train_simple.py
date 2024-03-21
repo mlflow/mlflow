@@ -15,8 +15,11 @@ def load_data(fpath):
     """
     Simple helper function for loading data to be used by CPU/GPU models.
 
-    :param fpath: Path to the data to be ingested
-    :return: DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
+    Args:
+        fpath: Path to the data to be ingested
+
+    Returns:
+        DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
     """
     import cudf
 
@@ -29,12 +32,15 @@ def load_data(fpath):
 
 def train(fpath, max_depth, max_features, n_estimators):
     """
-    :param params: hyperparameters. Its structure is consistent with how search space is defined. See below.
-    :param fpath: Path or URL for the training data used with the model.
-    :param max_depth: RF max_depth parameter
-    :param max_features: RF max_features parameter
-    :param n_estimators: RF n_estimators parameter
-    :return: trained model
+    Args:
+        params: Hyperparameters. Its structure is consistent with how search space is defined. See below.
+        fpath: Path or URL for the training data used with the model.
+        max_depth: RF max_depth parameter.
+        max_features: RF max_features parameter.
+        n_estimators: RF n_estimators parameter.
+
+    Returns:
+        Trained model.
     """
     X_train, X_test, y_train, y_test = load_data(fpath)
 

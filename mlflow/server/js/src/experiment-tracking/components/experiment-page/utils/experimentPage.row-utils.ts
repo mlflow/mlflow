@@ -28,12 +28,18 @@ import {
 } from './experimentPage.common-utils';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';
 import {
-  shouldEnableDeepLearningUIPhase2,
+  shouldEnableRunGrouping,
   shouldEnableShareExperimentViewByTags,
+  shouldUseNewRunRowsVisibilityModel,
 } from '../../../../common/utils/FeatureUtils';
-import { type GroupByConfig, parseRunsGroupByKey, getGroupedRowRenderMetadata } from './experimentPage.group-row-utils';
+import {
+  type GroupByConfig,
+  parseRunsGroupByKey,
+  getGroupedRowRenderMetadata,
+  isRemainingRunsGroup,
+} from './experimentPage.group-row-utils';
 import invariant from 'invariant';
-import { ExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import { ExperimentPageUIStateV2, RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
 
 /**
  * A simple tree-like interface used in nested rows calculations.
@@ -220,6 +226,7 @@ export const prepareRunsGridData = ({
   tagKeyList,
   runsPinned,
   runsHidden,
+  runsHiddenMode = RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
   runData,
   runUuidsMatchingFilter,
   groupBy = '',
@@ -230,11 +237,10 @@ export const prepareRunsGridData = ({
     { name: string; basename: string }
   >;
 
-  const rowGroupingSupported = shouldEnableShareExperimentViewByTags() && shouldEnableDeepLearningUIPhase2();
   const groupByConfig = parseRunsGroupByKey(groupBy);
 
   // Gate grouping by the feature flag
-  const shouldGroupRows = rowGroupingSupported && groupByConfig;
+  const shouldGroupRows = shouldEnableRunGrouping() && groupByConfig;
 
   // Early returning function that will return relevant row render metadata depending on a determined mode.
   // It can be either grouped rows, nested rows (parent/child) or flat rows.
@@ -268,10 +274,18 @@ export const prepareRunsGridData = ({
 
   // Now, enrich the intermediate row metadata with attributes, metrics and params and
   // return it as a grid-consumable "RunRowType" type.
-  const rows = getRowRenderMetadata().map<RunRowType>((runInfoMetadata) => {
+  const rows = getRowRenderMetadata().map<RunRowType>((runInfoMetadata, index) => {
     // If the row is a group parent, we will create a special row for it
     if (runInfoMetadata.isGroup) {
-      return createGroupParentRow(groupByConfig, runInfoMetadata, runsHidden, runsPinned, metricKeyList, paramKeyList);
+      return createGroupParentRow(
+        groupByConfig,
+        runInfoMetadata,
+        runsHidden,
+        runsPinned,
+        metricKeyList,
+        paramKeyList,
+        runsHiddenMode,
+      );
     }
 
     const {
@@ -334,7 +348,6 @@ export const prepareRunsGridData = ({
       type: Utils.getSourceType(tags),
     };
 
-    const isCurrentRowHidden = runsHidden.includes(runUuid);
     const isCurrentRowPinned = isPinnable && runsPinned.includes(runUuid);
     const isParentPinned = childrenToPin.includes(runUuid);
 
@@ -360,7 +373,7 @@ export const prepareRunsGridData = ({
       version,
       pinnable: isPinnable,
       color: getStableColorForRun(runUuid),
-      hidden: isCurrentRowHidden,
+      hidden: false,
       pinned: isCurrentRowPinned || isParentPinned,
       ...createKeyValueDataForRunRow(params, paramKeyList, EXPERIMENT_FIELD_PREFIX_PARAM),
       ...createKeyValueDataForRunRow(metrics, metricKeyList, EXPERIMENT_FIELD_PREFIX_METRIC),
@@ -389,11 +402,11 @@ export const prepareRunsGridData = ({
       return [groupHeader, ...hoistPinnedRuns(runs, runUuidsMatchingFilter)];
     });
 
-    return chunksWithSortedRuns.flat();
+    return determineVisibleRuns(chunksWithSortedRuns.flat(), runsHidden, runsHiddenMode);
   }
 
   // If the flat structure is displayed, we can hoist pinned rows to the top
-  return hoistPinnedRuns(rows, runUuidsMatchingFilter);
+  return determineVisibleRuns(hoistPinnedRuns(rows, runUuidsMatchingFilter), runsHidden, runsHiddenMode);
 };
 
 // Hook version of prepareRunsGridData()
@@ -411,6 +424,7 @@ export const useExperimentRunRows = ({
   runData,
   runUuidsMatchingFilter,
   groupBy = '',
+  runsHiddenMode,
   groupsExpanded = {},
 }: PrepareRunsGridDataParams) => {
   if (!shouldEnableShareExperimentViewByTags()) {
@@ -435,6 +449,7 @@ export const useExperimentRunRows = ({
         runUuidsMatchingFilter,
         groupBy,
         groupsExpanded,
+        runsHiddenMode,
       }),
     [
       // Explicitly include each dependency here to avoid unnecessary recalculations
@@ -452,9 +467,68 @@ export const useExperimentRunRows = ({
       runUuidsMatchingFilter,
       groupBy,
       groupsExpanded,
+      runsHiddenMode,
     ],
   );
 };
+
+// Utility function that determines if a particular table run should be hidden,
+// based on the selected mode, position on the list and current state of manually hidden runs array.
+const determineIfRowIsHidden = (
+  runsHiddenMode: RUNS_VISIBILITY_MODE,
+  runsHidden: string[],
+  runUuid: string,
+  index: number,
+) => {
+  if (runsHiddenMode === RUNS_VISIBILITY_MODE.CUSTOM) {
+    return runsHidden.includes(runUuid);
+  }
+  if (runsHiddenMode === RUNS_VISIBILITY_MODE.HIDEALL) {
+    return true;
+  }
+  if (runsHiddenMode === RUNS_VISIBILITY_MODE.FIRST_10_RUNS) {
+    return index >= 10;
+  }
+  if (runsHiddenMode === RUNS_VISIBILITY_MODE.FIRST_20_RUNS) {
+    return index >= 20;
+  }
+
+  return false;
+};
+
+const determineVisibleRuns = (
+  runs: RunRowType[],
+  runsHidden: string[],
+  runsHiddenMode: RUNS_VISIBILITY_MODE,
+): RunRowType[] => {
+  // In the legacy version, just look into the runs hidden array
+  if (!shouldUseNewRunRowsVisibilityModel()) {
+    return runs.map((runRow) => ({ ...runRow, hidden: runsHidden.includes(runRow.runUuid) }));
+  }
+
+  // In the new visibility model, we will count rows that can change visibility (groups and ungrouped runs)
+  // and use the counter to limit the visible rows based on selected mode
+  let visibleRowCounter = 0;
+  return runs.map((runRow) => {
+    // If a row is a run group, we use its rowUuid for setting visibility.
+    // If this is a run, use runUuid.
+    const runUuidToToggle = runRow.groupParentInfo ? runRow.rowUuid : runRow.runUuid;
+
+    const rowWithHiddenFlag = {
+      ...runRow,
+      hidden: determineIfRowIsHidden(runsHiddenMode, runsHidden, runUuidToToggle, visibleRowCounter),
+    };
+
+    const isGroupContainingRuns = runRow.groupParentInfo && !isRemainingRunsGroup(runRow.groupParentInfo);
+    const isUngroupedRun = !runRow.runDateAndNestInfo?.belongsToGroup;
+    if (isGroupContainingRuns || isUngroupedRun) {
+      visibleRowCounter++;
+    }
+
+    return rowWithHiddenFlag;
+  });
+};
+
 const hoistPinnedRuns = (rowCollection: RunRowType[], uuidWhitelist: string[]) => [
   // Add pinned rows to the top
   ...rowCollection.filter(({ pinned }) => pinned),
@@ -467,7 +541,7 @@ const hoistPinnedRuns = (rowCollection: RunRowType[], uuidWhitelist: string[]) =
 export type SingleRunData = {
   runInfo: RunInfoEntity;
   params: KeyValueEntity[];
-  metrics: KeyValueEntity[];
+  metrics: MetricEntity[];
   datasets: RunDatasetWithTags[];
   tags: Record<string, KeyValueEntity>;
 };
@@ -480,7 +554,7 @@ type PrepareRunsGridDataParams = Pick<
   'metricKeyList' | 'paramKeyList' | 'modelVersionsByRunUuid'
 > &
   Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned' | 'runsHidden'> &
-  Partial<Pick<ExperimentPageUIStateV2, 'groupBy' | 'groupsExpanded'>> & {
+  Partial<Pick<ExperimentPageUIStateV2, 'groupBy' | 'groupsExpanded' | 'runsHiddenMode'>> & {
     /**
      * List of experiments containing the runs
      */
@@ -549,6 +623,7 @@ const createGroupParentRow = (
   runsPinned: string[],
   metricKeyList: string[],
   paramKeyList: string[],
+  runsHiddenMode: RUNS_VISIBILITY_MODE,
 ): RunRowType => {
   invariant(groupByConfig, 'Grouping row config should be defined');
 
@@ -565,8 +640,6 @@ const createGroupParentRow = (
     aggregateFunction,
   };
 
-  const areAllRunsInGroupHidden = groupRunMetadata.runUuids.every((runUuid) => runsHidden.includes(runUuid));
-
   return {
     // Group parent rows have no run UUIDs set
     runUuid: '',
@@ -578,7 +651,7 @@ const createGroupParentRow = (
     groupParentInfo: groupParentInfo,
     pinned: runsPinned.includes(groupParentInfo.groupId),
     color: getStableColorForRun(groupParentInfo.groupId),
-    hidden: areAllRunsInGroupHidden,
+    hidden: false,
     ...createKeyValueDataForRunRow(
       groupRunMetadata.aggregatedMetricEntities,
       metricKeyList,

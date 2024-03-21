@@ -9,6 +9,9 @@ export interface AutoCompleteProps extends AntDAutoCompleteProps, DangerouslySet
 interface AutoCompleteInterface extends React.FC<AutoCompleteProps> {
     Option: OptionType;
 }
+/**
+ * @deprecated Use `TypeaheadCombobox` instead.
+ */
 export declare const AutoComplete: AutoCompleteInterface;
 export {};
 //# sourceMappingURL=AutoComplete.d.ts.map

@@ -1,17 +1,15 @@
 from unittest.mock import MagicMock
 
 import pytest
+import transformers
 import yaml
-from transformers import pipeline
+from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.transformers import (
-    _PROMPT_TEMPLATE_KEY,
-    _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES,
-    _validate_prompt_template,
-)
+from mlflow.transformers import _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES, _validate_prompt_template
+from mlflow.transformers.flavor_config import FlavorKey
 
 # session fixtures to prevent saving and loading a ~400mb model every time
 TEST_PROMPT_TEMPLATE = "Answer the following question like a pirate:\nQ: {prompt}\nA: "
@@ -43,13 +41,15 @@ UNSUPPORTED_PIPELINES = [
     "depth-estimation",
     "video-classification",
     "mask-generation",
-    "image-to-image",
 ]
+
+if Version(transformers.__version__) >= Version("4.34.1"):
+    UNSUPPORTED_PIPELINES.append("image-to-image")
 
 
 @pytest.fixture(scope="session")
 def small_text_generation_model():
-    return pipeline("text-generation", model="distilgpt2")
+    return transformers.pipeline("text-generation", model="distilgpt2")
 
 
 @pytest.fixture(scope="session")
@@ -103,7 +103,7 @@ def test_prompt_save_and_load(saved_transformers_model_path):
     with open(mlmodel_path) as f:
         mlmodel_dict = yaml.safe_load(f)
 
-    assert mlmodel_dict["metadata"][_PROMPT_TEMPLATE_KEY] == TEST_PROMPT_TEMPLATE
+    assert mlmodel_dict["metadata"][FlavorKey.PROMPT_TEMPLATE] == TEST_PROMPT_TEMPLATE
 
     model = mlflow.pyfunc.load_model(saved_transformers_model_path)
     assert model._model_impl.prompt_template == TEST_PROMPT_TEMPLATE
@@ -122,7 +122,7 @@ def test_model_save_override_return_full_text(tmp_path, small_text_generation_mo
 
 
 def test_saving_prompt_throws_on_unsupported_task():
-    model = pipeline("text-generation", model="distilgpt2")
+    model = transformers.pipeline("text-generation", model="distilgpt2")
 
     for pipeline_type in UNSUPPORTED_PIPELINES:
         # mock the task by setting it explicitly
@@ -206,3 +206,31 @@ def test_prompt_used_in_predict(task, pipeline_fixture, output_key, request, tmp
         )
     else:
         model._model_impl.pipeline.assert_called_once_with([formatted_prompt])
+
+
+def test_prompt_and_llm_inference_task(tmp_path, request):
+    pipeline = request.getfixturevalue("text_generation_pipeline")
+
+    model_path = tmp_path / "model"
+    mlflow.transformers.save_model(
+        transformers_model=pipeline,
+        path=model_path,
+        prompt_template=TEST_PROMPT_TEMPLATE,
+        task="llm/v1/completions",
+    )
+
+    model = mlflow.pyfunc.load_model(model_path)
+
+    prompt = "What is MLflow?"
+    formatted_prompt = TEST_PROMPT_TEMPLATE.format(prompt=prompt)
+    mock_return = [[{"generated_token_ids": [1, 2, 3]}]]
+
+    model._model_impl.pipeline = MagicMock(
+        spec=model._model_impl.pipeline, task="text-generation", return_value=mock_return
+    )
+
+    model.predict({"prompt": prompt})
+
+    model._model_impl.pipeline.assert_called_once_with(
+        [formatted_prompt], return_full_text=None, return_tensors=True
+    )

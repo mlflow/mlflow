@@ -111,7 +111,11 @@ mlflow.end_run()
       onOk={closeModal}
       footer={
         <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-          <Button onClick={closeModal} type="primary">
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_createnotebookrunmodal.tsx_117"
+            onClick={closeModal}
+            type="primary"
+          >
             <FormattedMessage
               defaultMessage="Okay"
               description="Experiment page > new notebook run modal > okay button label"

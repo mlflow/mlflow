@@ -1,4 +1,4 @@
-## Example endpoint configuration for AWS Bedrock
+## Example endpoint configuration for Amazon Bedrock
 
 To view an example of a Bedrock endpoint configuration, see [the configuration example](config.yaml) YAML file.
 

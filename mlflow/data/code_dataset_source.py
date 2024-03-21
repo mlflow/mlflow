@@ -1,10 +1,8 @@
 from typing import Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class CodeDatasetSource(DatasetSource):
     def __init__(
         self,
@@ -30,11 +28,11 @@ class CodeDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> "CodeDatasetSource":
         raise NotImplementedError
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         return {"tags": self._tags}
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "CodeDatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "CodeDatasetSource":
         return cls(
             tags=source_dict.get("tags"),
         )

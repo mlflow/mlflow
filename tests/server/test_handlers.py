@@ -66,6 +66,7 @@ from mlflow.server.handlers import (
     _transition_stage,
     _update_model_version,
     _update_registered_model,
+    _validate_source,
     catch_mlflow_exception,
     get_endpoints,
 )
@@ -257,7 +258,6 @@ def test_catch_mlflow_exception():
     def test_handler():
         raise MlflowException("test error", error_code=INTERNAL_ERROR)
 
-    # pylint: disable=assignment-from-no-return
     response = test_handler()
     json_response = json.loads(response.get_data())
     assert response.status_code == 500
@@ -802,3 +802,46 @@ def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert json_response["message"] == "Invalid path"
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://host#/abc/etc/",
+        "http://host/;..%2F..%2Fetc",
+    ],
+)
+def test_local_file_read_write_by_pass_vulnerability(uri):
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = "application/json; charset=utf-8"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {
+        "name": "hello",
+        "artifact_location": uri,
+    }
+    msg = _get_request_message(CreateExperiment(), flask_request=request)
+    with mock.patch("mlflow.server.handlers._get_request_message", return_value=msg):
+        response = _create_experiment()
+        json_response = json.loads(response.get_data())
+        assert (
+            json_response["message"] == "'artifact_location' URL can't include fragments or params."
+        )
+
+    # Test if source is a local filesystem path, `_validate_source` validates that the run
+    # artifact_uri is also a local filesystem path.
+    run_id = uuid.uuid4().hex
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store:
+        mock_get_tracking_store().get_run(
+            run_id
+        ).info.artifact_uri = f"http://host/{run_id}/artifacts/abc"
+
+        with pytest.raises(
+            MlflowException,
+            match=(
+                "the run_id request parameter has to be specified and the local "
+                "path has to be contained within the artifact directory of the "
+                "run specified by the run_id"
+            ),
+        ):
+            _validate_source("/local/path/xyz", run_id)

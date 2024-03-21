@@ -81,7 +81,7 @@ export const useRunsChartTraceHighlight = (
   numberOfBands = 0,
 ) => {
   const selectedTraceIndex = useMemo(() => {
-    if (!containerDiv) {
+    if (!containerDiv || !selectedRunUuid) {
       return -1;
     }
     return runsData.findIndex(({ uuid }) => uuid === selectedRunUuid);

@@ -56,7 +56,7 @@ jobs:
           os_name=$(lsb_release -ds | sed 's/\s/-/g')
           echo "os-name=$os_name" >> $GITHUB_OUTPUT
       - name: Cache R packages
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         continue-on-error: true
         # https://github.com/actions/cache/issues/810
         env:
@@ -86,7 +86,7 @@ jobs:
           ./build-package.sh
       - name: Create test environment
         run: |
-          pip install -e $(git rev-parse --show-toplevel)
+          pip install $(git rev-parse --show-toplevel)
           H2O_VERSION=$(Rscript -e "print(packageVersion('h2o'))" | grep -Eo '[0-9][0-9.]+')
           # test-keras-model.R fails with tensorflow>=2.13.0
           pip install xgboost 'tensorflow<2.13.0' "h2o==$H2O_VERSION"

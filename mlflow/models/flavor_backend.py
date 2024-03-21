@@ -12,7 +12,7 @@ class FlavorBackend:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, config, **kwargs):  # pylint: disable=unused-argument
+    def __init__(self, config, **kwargs):
         self._config = config
 
     @abstractmethod

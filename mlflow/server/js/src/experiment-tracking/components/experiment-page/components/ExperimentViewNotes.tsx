@@ -54,7 +54,11 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
             description="Header for displaying notes for the experiment table"
           />{' '}
           {!showNotesEditor && (
-            <Button type="link" onClick={() => setShowNotesEditor(true)}>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewnotes.tsx_57"
+              type="link"
+              onClick={() => setShowNotesEditor(true)}
+            >
               <FormattedMessage
                 defaultMessage="Edit"
                 // eslint-disable-next-line max-len

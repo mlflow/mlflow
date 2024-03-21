@@ -21,7 +21,7 @@ export interface KeyValueEntity {
   getValue(): string;
 }
 
-type ModelAliasMap = { alias: string; version: string }[];
+export type ModelAliasMap = { alias: string; version: string }[];
 type ModelVersionAliasList = string[];
 
 /**
@@ -115,7 +115,7 @@ export interface MetricEntity {
   key: string;
   step: number;
   timestamp: number;
-  value: string | number;
+  value: number;
 }
 
 export type MetricEntitiesByName = Record<string, MetricEntity>;
@@ -298,6 +298,9 @@ export enum DatasetSourceTypes {
   EXTERNAL = 'external',
   CODE = 'code',
   LOCAL = 'local',
+  HTTP = 'http',
+  S3 = 's3',
+  HUGGING_FACE = 'hugging_face',
 }
 
 /**

@@ -6,7 +6,7 @@ import pytest
 import sqlalchemy
 from alembic import command
 from alembic.autogenerate import compare_metadata
-from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 
 import mlflow.db
@@ -139,7 +139,8 @@ def test_create_index_on_run_uuid(tmp_path, db_url):
 
 
 def test_index_for_dataset_tables(tmp_path, db_url):
-    # Test for mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py # pylint: disable=line-too-long
+    # Test for
+    # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
     SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()

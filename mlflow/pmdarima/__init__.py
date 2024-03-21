@@ -102,6 +102,9 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.pmd"
 _MODEL_TYPE_KEY = "model_type"
 
+model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
+
+
 _logger = logging.getLogger(__name__)
 
 
@@ -508,8 +511,7 @@ def _save_model(model, path):
 
 def _load_model(path):
     with open(path, "rb") as pickled_model:
-        model = pickle.load(pickled_model)
-    return model
+        return pickle.load(pickled_model)
 
 
 def _load_pyfunc(path):
@@ -523,7 +525,7 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         Args:
             dataframe: Model input data.

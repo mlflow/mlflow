@@ -52,6 +52,8 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.pr"
 _MODEL_TYPE_KEY = "model_type"
 
+model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
+
 _logger = logging.getLogger(__name__)
 
 
@@ -351,7 +353,7 @@ class _ProphetModelWrapper:
     def __init__(self, pr_model):
         self.pr_model = pr_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

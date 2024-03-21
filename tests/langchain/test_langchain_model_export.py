@@ -1,6 +1,7 @@
 import importlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 from contextlib import contextmanager
@@ -48,6 +49,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
+from mlflow.langchain.api_request_parallel_processor import APIRequest
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
@@ -60,6 +62,19 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+
+try:
+    import langchain_community
+
+    # this kwarg was added in langchain_community 0.0.27, and
+    # prevents the use of pickled objects if not provided.
+    VECTORSTORE_KWARGS = (
+        {"allow_dangerous_deserialization": True}
+        if Version(langchain_community.__version__) >= Version("0.0.27")
+        else {}
+    )
+except ImportError:
+    VECTORSTORE_KWARGS = {}
 
 
 @contextmanager
@@ -160,7 +175,6 @@ class FakeLLM(LLM):
         """Return type of llm."""
         return "fake"
 
-    # pylint: disable=arguments-differ
     def _call(self, prompt: str, stop: Optional[List[str]] = None, run_manager=None) -> str:
         """First try to lookup in queries, else return 'foo' or 'bar'."""
         if self.queries is not None:
@@ -192,7 +206,6 @@ class FakeChain(Chain):
         """Output key of bar."""
         return self.the_output_keys
 
-    # pylint: disable=arguments-differ
     def _call(self, inputs: Dict[str, str], run_manager=None) -> Dict[str, str]:
         if self.be_correct:
             return {"bar": "baz"}
@@ -429,7 +442,11 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Log the RetrievalQA chain
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     with mlflow.start_run():
@@ -492,7 +509,11 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     # Log the RetrievalQA chain
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     with mlflow.start_run():
@@ -513,7 +534,10 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
     langchain_output = [
-        {loaded_model.output_key: TEST_CONTENT, "source_documents": TEST_SOURCE_DOCUMENTS}
+        {
+            loaded_model.output_key: TEST_CONTENT,
+            "source_documents": TEST_SOURCE_DOCUMENTS,
+        }
     ]
     result = loaded_pyfunc_model.predict([langchain_input])
 
@@ -576,7 +600,7 @@ def test_log_and_load_retriever_chain(tmp_path):
 
     # Define the loader_fn
     def load_retriever(persist_directory):
-        from typing import List  # pylint: disable=lazy-builtin-import
+        from typing import List  # clint: disable=lazy-builtin-import
 
         import numpy as np
         from langchain.embeddings.base import Embeddings
@@ -599,7 +623,11 @@ def test_log_and_load_retriever_chain(tmp_path):
                 return self._get_embedding(text)
 
         embeddings = DeterministicDummyEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     # Log the retriever
@@ -653,7 +681,10 @@ def load_requests_wrapper(_):
 def test_log_and_load_api_chain():
     llm = OpenAI(temperature=0)
     apichain = APIChain.from_llm_and_api_docs(
-        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True, limit_to_domains=["test.com"]
+        llm,
+        open_meteo_docs.OPEN_METEO_DOCS,
+        verbose=True,
+        limit_to_domains=["test.com"],
     )
 
     # Log the APIChain
@@ -675,7 +706,10 @@ def test_log_and_load_subclass_of_specialized_chain():
 
     llm = OpenAI(temperature=0)
     apichain_subclass = APIChainSubclass.from_llm_and_api_docs(
-        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True, limit_to_domains=["test.com"]
+        llm,
+        open_meteo_docs.OPEN_METEO_DOCS,
+        verbose=True,
+        limit_to_domains=["test.com"],
     )
 
     with mlflow.start_run():
@@ -823,7 +857,9 @@ def test_agent_with_unpicklable_tools(tmp_path):
             )
         ]
         agent = initialize_agent(
-            llm=OpenAI(temperature=0), tools=tools, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION
+            llm=OpenAI(temperature=0),
+            tools=tools,
+            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
         )
 
         with pytest.raises(
@@ -991,7 +1027,8 @@ def test_predict_with_callbacks(fake_chat_model):
 
     assert (
         pyfunc_loaded_model._model_impl._predict_with_callbacks(
-            {"industry": "tech"}, callback_handlers=[callback_handler1, callback_handler2]
+            {"industry": "tech"},
+            callback_handlers=[callback_handler1, callback_handler2],
         )
         == "Databricks"
     )
@@ -1077,7 +1114,10 @@ def test_save_load_runnable_parallel():
 
     runnable = RunnableParallel({"llm": fake_llm})
     assert runnable.invoke("hello") == {"llm": "completion"}
-    assert runnable.batch(["hello", "world"]) == [{"llm": "completion"}, {"llm": "completion"}]
+    assert runnable.batch(["hello", "world"]) == [
+        {"llm": "completion"},
+        {"llm": "completion"},
+    ]
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             runnable, "model_path", input_example=["hello", "world"]
@@ -1172,6 +1212,52 @@ def test_save_load_runnable_parallel_and_assign_in_sequence():
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": [expected_result, expected_result]
+    }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_save_load_complex_runnable_assign(fake_chat_model):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableParallel
+    from langchain.schema.runnable.passthrough import RunnableAssign
+
+    prompt = ChatPromptTemplate.from_template(
+        "What is a good name for a company that makes {product}?"
+    )
+    chain = prompt | fake_chat_model | StrOutputParser()
+
+    def fake_llm(prompt: str) -> str:
+        return "completion"
+
+    runnable_assign = RunnableAssign(mapper=RunnableParallel({"product": chain, "test": fake_llm}))
+    expected_result = {
+        "product": "Databricks",
+        "test": "completion",
+    }
+    input_example = {"product": "MLflow", "test": "test"}
+    assert runnable_assign.invoke(input_example) == expected_result
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            runnable_assign, "model_path", input_example=input_example
+        )
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke(input_example) == expected_result
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict([input_example]) == [expected_result]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": [expected_result]
     }
 
 
@@ -1320,7 +1406,11 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
 
     def load_retriever(persist_directory):
         embeddings = FakeEmbeddings(size=5)
-        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embeddings,
+            **VECTORSTORE_KWARGS,
+        )
         return vectorstore.as_retriever()
 
     prompt = ChatPromptTemplate.from_template(
@@ -1539,7 +1629,10 @@ def test_chat_with_history(spark, fake_chat_model):
             ColSpec(
                 Array(
                     Object(
-                        [Property("role", DataType.string), Property("content", DataType.string)]
+                        [
+                            Property("role", DataType.string),
+                            Property("content", DataType.string),
+                        ]
                     )
                 ),
                 "messages",
@@ -1597,7 +1690,11 @@ def test_databricks_dependency_extraction_from_lcel_chain():
 
     langchain_flavor = model_info.flavors["langchain"]
     assert langchain_flavor["databricks_dependency"] == {
-        "fake_chat_model_endpoint_name": ["fake-endpoint-1", "fake-endpoint-2", "fake-endpoint-3"]
+        "fake_chat_model_endpoint_name": [
+            "fake-endpoint-1",
+            "fake-endpoint-2",
+            "fake-endpoint-3",
+        ]
     }
 
 
@@ -1607,10 +1704,11 @@ def _extract_databricks_dependencies_from_retriever(
     import langchain_community
 
     vectorstore = getattr(retriever, "vectorstore", None)
-    if vectorstore and (embeddings := getattr(vectorstore, "embeddings", None)):
+    if vectorstore:
         if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
             dependency_dict["fake_index"].append("faiss-index")
 
+        embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, FakeEmbeddings):
             dependency_dict["fake_embeddings_size"].append(embeddings.size)
 
@@ -1666,6 +1764,37 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     }
 
 
+def _error_func(*args, **kwargs):
+    raise ValueError("error")
+
+
+@mock.patch(
+    "mlflow.langchain.databricks_dependencies._traverse_runnable",
+    _error_func,
+)
+@mock.patch("mlflow.langchain.databricks_dependencies._logger.warning")
+def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
+    from mlflow.langchain.databricks_dependencies import (
+        _DATABRICKS_DEPENDENCY_KEY,
+        _detect_databricks_dependencies,
+    )
+
+    model = create_openai_llmchain()
+
+    _detect_databricks_dependencies(model, log_errors_as_warnings=True)
+    mock_warning.assert_called_once_with(
+        "Unable to detect Databricks dependencies. "
+        "Set logging level to DEBUG to see the full traceback."
+    )
+
+    with pytest.raises(ValueError, match="error"):
+        _detect_databricks_dependencies(model, log_errors_as_warnings=False)
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+    assert logged_model.flavors["langchain"].get(_DATABRICKS_DEPENDENCY_KEY) is None
+
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
@@ -1674,7 +1803,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     from langchain.schema.output_parser import StrOutputParser
 
     class ChatModel(SimpleChatModel):
-        def _call(self, messages, stop, run_manager, **kwargs):  # pylint: disable=signature-differs
+        def _call(self, messages, stop, run_manager, **kwargs):
             return "\n".join([f"{message.type}: {message.content}" for message in messages])
 
         @property
@@ -1792,7 +1921,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     from langchain.chat_models.base import SimpleChatModel
 
     class ChatModel(SimpleChatModel):
-        def _call(self, messages, stop, run_manager, **kwargs):  # pylint: disable=signature-differs
+        def _call(self, messages, stop, run_manager, **kwargs):
             return "You own MLflow"
 
         @property
@@ -1969,7 +2098,10 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
     with _mock_request(return_value=_mock_chat_completion_response()):
         with mlflow.start_run():
             logged_model = mlflow.langchain.log_model(
-                chain, "langchain_model", signature=signature, input_example=input_example
+                chain,
+                "langchain_model",
+                signature=signature,
+                input_example=input_example,
             )
         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         result = loaded_model.predict(input_example)
@@ -1986,3 +2118,278 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
                 "text": TEST_CONTENT,
             }
         ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_chain_as_code():
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    with mlflow.start_run():
+        signature = ModelSignature(
+            inputs=Schema(
+                [
+                    ColSpec(
+                        type=Array(
+                            Object(
+                                [
+                                    Property("role", DataType.string),
+                                    Property("content", DataType.string),
+                                ]
+                            ),
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property("return_trace", DataType.string, required=False),
+                            ]
+                        ),
+                        name="databricks_options",
+                        required=False,
+                    ),
+                ]
+            ),
+            outputs=Schema(
+                [
+                    ColSpec(name="id", type=DataType.string),
+                    ColSpec(name="object", type=DataType.string),
+                    ColSpec(name="created", type=DataType.long),
+                    ColSpec(name="model", type=DataType.string),
+                    ColSpec(name="choices", type=DataType.string),
+                    ColSpec(name="usage", type=DataType.string),
+                ]
+            ),
+        )
+
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/chain.py",
+            artifact_path="model_path",
+            signature=signature,
+            input_example=input_example,
+            code_paths=["tests/langchain/state_of_the_union.txt"],
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    answer = "Databricks"
+    assert loaded_model.invoke(input_example) == answer
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert (
+        pyfunc_loaded_model.predict(input_example)[0]
+        .get("choices")[0]
+        .get("message")
+        .get("content")
+        == answer
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": [APIRequest._try_transform_response_to_chat_format(answer)]
+    }
+
+    langchain_flavor = model_info.flavors["langchain"]
+    assert langchain_flavor["databricks_dependency"] == {
+        "databricks_chat_endpoint_name": ["fake-endpoint"]
+    }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_chain_errors():
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    with mlflow.start_run():
+        signature = ModelSignature(
+            inputs=Schema(
+                [
+                    ColSpec(
+                        type=Array(
+                            Object(
+                                [
+                                    Property("role", DataType.string),
+                                    Property("content", DataType.string),
+                                ]
+                            ),
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property("return_trace", DataType.string, required=False),
+                            ]
+                        ),
+                        name="databricks_options",
+                        required=False,
+                    ),
+                ]
+            ),
+            outputs=Schema(
+                [
+                    ColSpec(name="id", type=DataType.string),
+                    ColSpec(name="object", type=DataType.string),
+                    ColSpec(name="created", type=DataType.long),
+                    ColSpec(name="model", type=DataType.string),
+                    ColSpec(name="choices", type=DataType.string),
+                    ColSpec(name="usage", type=DataType.string),
+                ]
+            ),
+        )
+
+        incorrect_path = "tests/langchain/chain1.py"
+        with pytest.raises(
+            MlflowException,
+            match=f"If {incorrect_path} is a string, it must be the path to a "
+            "file named `chain.py` on the local filesystem.",
+        ):
+            mlflow.langchain.log_model(
+                lc_model=incorrect_path,
+                artifact_path="model_path",
+                signature=signature,
+                input_example=input_example,
+                code_paths=["tests/langchain/state_of_the_union.txt"],
+            )
+
+        incorrect_path = "tests/langchain1/chain.py"
+        with pytest.raises(
+            MlflowException,
+            match=f"If the {incorrect_path} is a string, it must be a valid "
+            "python file path containing the code for defining the chain instance.",
+        ):
+            mlflow.langchain.log_model(
+                lc_model=incorrect_path,
+                artifact_path="model_path",
+                signature=signature,
+                input_example=input_example,
+                code_paths=["tests/langchain/state_of_the_union.txt"],
+            )
+
+        incorrect_path = "tests/langchain/chain.py"
+        code_paths = [
+            "tests/langchain/state_of_the_union.txt",
+            "tests/langchain/chain.py",
+        ]
+
+        with pytest.raises(
+            MlflowException,
+            match=re.escape(
+                "When the model is a string, and if the code_paths are specified, "
+                "it should contain only one path."
+                "This config path is used to set config.yml file path "
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
+            ),
+        ):
+            mlflow.langchain.log_model(
+                lc_model=incorrect_path,
+                artifact_path="model_path",
+                signature=signature,
+                input_example=input_example,
+                code_paths=code_paths,
+            )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_chain_as_code_optional_code_path():
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    with mlflow.start_run():
+        signature = ModelSignature(
+            inputs=Schema(
+                [
+                    ColSpec(
+                        type=Array(
+                            Object(
+                                [
+                                    Property("role", DataType.string),
+                                    Property("content", DataType.string),
+                                ]
+                            ),
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property("return_trace", DataType.string, required=False),
+                            ]
+                        ),
+                        name="databricks_options",
+                        required=False,
+                    ),
+                ]
+            ),
+            outputs=Schema(
+                [
+                    ColSpec(name="id", type=DataType.string),
+                    ColSpec(name="object", type=DataType.string),
+                    ColSpec(name="created", type=DataType.long),
+                    ColSpec(name="model", type=DataType.string),
+                    ColSpec(name="choices", type=DataType.string),
+                    ColSpec(name="usage", type=DataType.string),
+                ]
+            ),
+        )
+
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/no_config/chain.py",
+            artifact_path="model_path",
+            signature=signature,
+            input_example=input_example,
+            code_paths=[],
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    answer = "Databricks"
+    assert loaded_model.invoke(input_example) == answer
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert (
+        pyfunc_loaded_model.predict(input_example)[0]
+        .get("choices")[0]
+        .get("message")
+        .get("content")
+        == answer
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": [APIRequest._try_transform_response_to_chat_format(answer)]
+    }
+
+    langchain_flavor = model_info.flavors["langchain"]
+    assert langchain_flavor["databricks_dependency"] == {
+        "databricks_chat_endpoint_name": ["fake-endpoint"]
+    }

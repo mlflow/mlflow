@@ -80,6 +80,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Get Experiment",
     };
+    option (graphql) = {};
   }
 
   // Mark an experiment and associated metadata, runs, metrics, params, and tags for deletion.
@@ -329,6 +330,17 @@ service MlflowService {
     };
   }
 
+  // Retrieves the value history for a specified metric across one or more specified runs.
+  rpc getMetricHistoryBulkInterval (GetMetricHistoryBulkInterval) returns (GetMetricHistoryBulkInterval.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/metrics/get-history-bulk-interval"
+        since { major: 2, minor: 11 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
 
   // Log a batch of metrics, params, and tags for a run.
   // If any data failed to be persisted, the server will respond with an error (non-200 status code).
@@ -405,8 +417,6 @@ service MlflowService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc logInputs (LogInputs) returns (LogInputs.Response) {
     option (rpc) = {
       endpoints: [{
@@ -513,9 +523,6 @@ message RunData {
   repeated RunTag tags = 3;
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // Run inputs.
 message RunInputs {
   // Dataset inputs to the Run.
@@ -529,6 +536,8 @@ message RunTag {
   // The tag value.
   optional string value = 2;
 }
+
+
 
 // Tag for an experiment.
 message ExperimentTag {
@@ -602,9 +611,6 @@ message Experiment {
   repeated ExperimentTag tags = 7;
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // DatasetInput. Represents a dataset and input tags.
 message DatasetInput {
   // A list of tags for the dataset input, e.g. a “context” tag with value “training”
@@ -614,9 +620,6 @@ message DatasetInput {
   optional Dataset dataset = 2 [(validate_required) = true];
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // Tag for an input.
 message InputTag {
   // The tag key.
@@ -625,9 +628,6 @@ message InputTag {
   optional string value = 2 [(validate_required) = true];
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-//
 // Dataset. Represents a reference to data used for training, testing, or evaluation during
 // the model development process.
 message Dataset {
@@ -1076,6 +1076,53 @@ message GetMetricHistory {
   }
 }
 
+message MetricWithRunId {
+  // Key identifying this metric.
+  optional string key = 1;
+
+  // Value associated with this metric.
+  optional double value = 2;
+
+  // The timestamp at which this metric was recorded.
+  optional int64 timestamp = 3;
+
+  // Step at which to log the metric.
+  optional int64 step = 4 [default = 0];
+
+  // The ID of the run containing the metric
+  optional string run_id = 5;
+}
+
+message GetMetricHistoryBulkInterval {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID(s) of the run(s) from which to fetch metric values. Must be provided.
+  repeated string run_ids = 1;
+
+  // Name of the metric.
+  optional string metric_key = 2 [(validate_required) = true];
+
+  // Optional start step to only fetch metrics after the specified step. Must be defined if
+  // end_step is defined.
+  optional int32 start_step = 3;
+
+  // Optional end step to only fetch metrics before the specified step. Must be defined if
+  // start_step is defined.
+  optional int32 end_step = 4;
+
+  // Maximum number of results to fetch per run specified. Must be set to a positive number.
+  // Note, in reality, the API returns at most (max_results + # of run IDs) x (# run IDs) metric
+  // data points.
+  optional int32 max_results = 5;
+
+  message Response {
+
+    // List of metrics representing history of values and metadata.
+    repeated MetricWithRunId metrics = 1;
+  }
+}
+
 message LogBatch {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   // ID of the run to log under
@@ -1105,8 +1152,6 @@ message LogModel {
   }
 }
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
 message LogInputs {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";

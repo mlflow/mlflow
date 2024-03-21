@@ -1,15 +1,24 @@
-import { shouldEnableDeepLearningUI, shouldEnableShareExperimentViewByTags } from '../../../common/utils/FeatureUtils';
-import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, act, fireEvent, screen, within } from 'common/utils/TestUtils.react17';
+import { shouldEnableDeepLearningUI, shouldEnableRunGrouping } from '../../../common/utils/FeatureUtils';
+import { Provider } from 'react-redux';
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import promiseMiddleware from 'redux-promise-middleware';
+import { renderWithIntl, act, fireEvent, screen, within } from 'common/utils/TestUtils.react18';
 import { MetricEntitiesByName } from '../../types';
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
 import { ExperimentPageUIStateV2 } from '../experiment-page/models/ExperimentPageUIStateV2';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
-import { RunsCompareChartType, RunsCompareBarCardConfig, RunsCompareParallelCardConfig } from './runs-compare.types';
+import {
+  RunsChartType,
+  RunsChartsBarCardConfig,
+  RunsChartsLineCardConfig,
+  RunsChartsParallelCardConfig,
+} from '../runs-charts/runs-charts.types';
 import { RunsCompareV2 } from './RunsCompareV2';
 import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
+import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
 
 jest.setTimeout(30000); // Larger timeout for integration testing
 
@@ -17,7 +26,7 @@ jest.setTimeout(30000); // Larger timeout for integration testing
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../common/utils/FeatureUtils'),
   shouldEnableDeepLearningUI: jest.fn(),
-  shouldEnableShareExperimentViewByTags: jest.fn(),
+  shouldEnableRunGrouping: jest.fn(),
 }));
 
 // Mock the chart component to save time on rendering
@@ -44,9 +53,9 @@ jest.mock('../runs-charts/hooks/useSampledMetricHistory', () => ({
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 describe('RunsCompareV2', () => {
-  const testCharts: (RunsCompareParallelCardConfig | RunsCompareBarCardConfig)[] = [
+  const testCharts: (RunsChartsParallelCardConfig | RunsChartsBarCardConfig)[] = [
     {
-      type: RunsCompareChartType.PARALLEL,
+      type: RunsChartType.PARALLEL,
       uuid: 'chart-parallel',
       runsCountToCompare: 10,
       selectedMetrics: [],
@@ -56,7 +65,7 @@ describe('RunsCompareV2', () => {
       isGenerated: true,
     },
     {
-      type: RunsCompareChartType.BAR,
+      type: RunsChartType.BAR,
       uuid: 'chart-alpha',
       runsCountToCompare: 10,
       metricKey: 'metric-alpha',
@@ -65,7 +74,7 @@ describe('RunsCompareV2', () => {
       isGenerated: true,
     },
     {
-      type: RunsCompareChartType.BAR,
+      type: RunsChartType.BAR,
       uuid: 'chart-beta',
       runsCountToCompare: 10,
       metricKey: 'metric-beta',
@@ -74,7 +83,7 @@ describe('RunsCompareV2', () => {
       isGenerated: true,
     },
     {
-      type: RunsCompareChartType.BAR,
+      type: RunsChartType.BAR,
       uuid: 'chart-gamma',
       runsCountToCompare: 10,
       metricKey: 'metric-gamma',
@@ -83,7 +92,7 @@ describe('RunsCompareV2', () => {
       isGenerated: true,
     },
     {
-      type: RunsCompareChartType.BAR,
+      type: RunsChartType.BAR,
       uuid: 'chart-omega',
       runsCountToCompare: 10,
       metricKey: 'tmp/metric-omega',
@@ -92,6 +101,21 @@ describe('RunsCompareV2', () => {
       isGenerated: true,
     },
   ];
+
+  const testMultipleMetricsLineChart: RunsChartsLineCardConfig = {
+    type: RunsChartType.LINE,
+    runsCountToCompare: 10,
+    metricSectionId: 'metric-section-1',
+    deleted: false,
+    isGenerated: true,
+    uuid: 'two-metric-line-chart',
+    metricKey: '',
+    lineSmoothness: 0,
+    scaleType: 'linear',
+    xAxisKey: RunsChartsLineChartXAxisType.STEP,
+    selectedXAxisMetricKey: '',
+    selectedMetricKeys: ['metric-beta', 'metric-alpha'],
+  };
 
   const compareRunSections = [
     {
@@ -121,8 +145,8 @@ describe('RunsCompareV2', () => {
   });
 
   beforeEach(() => {
-    jest.mocked(shouldEnableShareExperimentViewByTags).mockReturnValue(true);
     jest.mocked(shouldEnableDeepLearningUI).mockReturnValue(true);
+    jest.mocked(shouldEnableRunGrouping).mockReturnValue(false);
     jest.mocked(useUpdateExperimentViewUIState).mockReturnValue(updateUIState);
     jest.mocked(useMultipleChartsMetricHistory).mockReturnValue({
       isLoading: false,
@@ -143,12 +167,18 @@ describe('RunsCompareV2', () => {
   const createComponentMock = ({
     comparedRuns = [],
     latestMetricsByRunUuid = {},
+    groupBy = '',
   }: {
     comparedRuns?: RunRowType[];
     latestMetricsByRunUuid?: Record<string, MetricEntitiesByName>;
+    groupBy?: string;
   } = {}) => {
     return renderWithIntl(
-      <MockedReduxStoreProvider state={{ entities: { paramsByRunUuid: {}, latestMetricsByRunUuid } }}>
+      <Provider
+        store={configureStore([thunk, promiseMiddleware()])({
+          entities: { paramsByRunUuid: {}, latestMetricsByRunUuid },
+        })}
+      >
         <RunsCompareV2
           comparedRuns={comparedRuns}
           experimentTags={{}}
@@ -157,9 +187,9 @@ describe('RunsCompareV2', () => {
           paramKeyList={[]}
           compareRunCharts={currentUIState.compareRunCharts}
           compareRunSections={currentUIState.compareRunSections}
-          groupBy=""
+          groupBy={groupBy}
         />
-      </MockedReduxStoreProvider>,
+      </Provider>,
     );
   };
 
@@ -1020,6 +1050,9 @@ describe('RunsCompareV2', () => {
   });
 
   test('search functionality filters metric charts', async () => {
+    // For this test, add chart with multiple metrics at the end
+    currentUIState.compareRunCharts = [...testCharts, testMultipleMetricsLineChart];
+
     await act(async () => {
       createComponentMock();
     });
@@ -1027,11 +1060,11 @@ describe('RunsCompareV2', () => {
     expect(screen.queryByRole('heading', { name: 'metric-beta' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'metric-gamma' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).toBeInTheDocument();
 
     // Paste search query into searchbox
-    await act(async () => {
-      userEvent.paste(screen.getByRole('searchbox'), 'alpha');
-    });
+    await userEvent.click(screen.getByRole('searchbox'));
+    await userEvent.paste('alpha');
 
     const modelMetricsSection = screen.getByText('Model metrics');
     const sectionHeader = modelMetricsSection.closest(
@@ -1047,5 +1080,72 @@ describe('RunsCompareV2', () => {
     expect(screen.queryByRole('heading', { name: 'metric-gamma' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'metric-alpha' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).toBeInTheDocument();
+  });
+
+  test('correctly determines chart types run groups mixed with ungrouped runs', async () => {
+    jest.mocked(shouldEnableRunGrouping).mockReturnValue(true);
+
+    currentUIState.compareRunCharts = undefined;
+    currentUIState.compareRunSections = undefined;
+
+    // Render a component with a group and a run:
+    // - a group contains aggregated "metric_1" data indicating history
+    // - a group contains aggregated "metric_2" data not indicating any history
+    // - a run contains "metric_3" data indicating history
+    await act(async () => {
+      createComponentMock({
+        groupBy: 'metric_1',
+        comparedRuns: [
+          {
+            runUuid: '',
+            groupParentInfo: {
+              groupId: 'some_group',
+              aggregatedMetricData: {
+                metric_1: {
+                  key: 'metric_1',
+                  value: 123,
+                  maxStep: 5,
+                },
+                metric_2: {
+                  key: 'metric_2',
+                  value: 123,
+                  maxStep: 0,
+                },
+              },
+            },
+          },
+          {
+            runUuid: 'run_1',
+            runName: 'First run',
+            runInfo: { run_uuid: 'run_1' },
+            runDateAndNestInfo: { belongsToGroup: false },
+          },
+        ] as any,
+        latestMetricsByRunUuid: {
+          run_1: {
+            metric_3: { key: 'metric_3', value: 1, step: 3 },
+          },
+        } as any,
+      });
+    });
+
+    // Assert correct chart types for metrics
+    expect(currentUIState.compareRunCharts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metricKey: 'metric_1',
+          type: 'LINE',
+        }),
+        expect.objectContaining({
+          metricKey: 'metric_2',
+          type: 'BAR',
+        }),
+        expect.objectContaining({
+          metricKey: 'metric_3',
+          type: 'LINE',
+        }),
+      ]),
+    );
   });
 });

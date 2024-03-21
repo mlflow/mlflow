@@ -132,90 +132,35 @@ jobs:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
-        if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers' || (matrix.package == 'torch' && startsWith(matrix.version, '2.'))
-      - name: Get python version
-        id: get-python-version
-        run: |
-          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
-          echo "version=$python_version" >> $GITHUB_OUTPUT
+        if: matrix.free_disk_space
       - uses: ./.github/actions/setup-python
         with:
-          python-version: ${{ steps.get-python-version.outputs.version }}
+          python-version: ${{ matrix.python }}
       - uses: ./.github/actions/setup-pyenv
-      - name: Get Java version
-        id: get-java-version
-        run: |
-          if [ "${{ matrix.package }}" = "mleap" ]
-          then
-            pip install packaging
-            supports_java11=$(python -c "from packaging.version import parse; print(parse('${{ matrix.version }}') >= parse('0.21.0'))")
-            if [ "$supports_java11" = "True" ]
-            then
-              java_version=11
-            else
-              java_version=8
-            fi
-          elif [ "${{ matrix.package }}" = "pyspark" ]; then
-            pip install packaging
-            use_java17=$(python -c "from packaging.version import parse; print('${{ matrix.version }}' == 'dev' or parse('${{ matrix.version }}') > parse('3.4.1'))")
-            if [ "$use_java17" = "True" ]; then
-              java_version=17
-            else
-              java_version=11
-            fi
-          else
-            java_version=11
-          fi
-          echo "version=$java_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-java
         with:
-          java-version: ${{ steps.get-java-version.outputs.version }}
+          java-version: ${{ matrix.java }}
           distribution: "adopt"
       - name: Install mlflow & test dependencies
         run: |
-          python --version
-          # prophet==1.0.1 can only be installed `setup.py install` fallback but this was removed
-          # in pip 23.1. See https://github.com/pypa/pip/issues/8368 more details.
-          if [ "${{ matrix.package }}==${{ matrix.version }}" = "prophet==1.0.1" ]
-          then
-            PIP_SPEC="<23.1"
-          else
-            PIP_SPEC=""
-          fi
-          pip install -U "pip$PIP_SPEC" wheel
-          pip install -e .[extras]
+          pip install wheel
+          pip install .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-          # temp workaround before langchain_community release the following PR in a new version
-          # https://github.com/langchain-ai/langchain/pull/15691
-          if [ "${{ matrix.package }}/${{ matrix.category }}" = "langchain/autologging" ]
-          then
-            pip uninstall -y langchain_community
-            pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/community
-          fi
-      - name: Install pydantic no-binary for langchain
-        if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
-        run: |
-          pip uninstall pydantic -y
-          # 0.0.267 is the minimum version that supports Pydantic v2
-          # We need to install from source because cythonized pydantic 
-          # objects can't be serialized https://github.com/cloudpipe/cloudpickle/issues/408
-          pip install pydantic --no-binary :all:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
-      - name: Prefetch Transformer models
-        if: matrix.package == 'transformers' && matrix.category == 'models'
+      - name: Pre-test
+        if: matrix.pre_test
         run: |
-          python tests/transformers/helper.py
+          ${{ matrix.pre_test }}
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
-          PACKAGE_VERSION: ${{ matrix.version }}
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |

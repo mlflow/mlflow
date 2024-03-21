@@ -61,7 +61,10 @@ _SAVE_FORMAT_KEY = "save_format"
 _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.cb"
 
+model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
+
 _logger = logging.getLogger(__name__)
+_DUMMY = "hoge"
 
 
 def get_default_pip_requirements():
@@ -341,7 +344,7 @@ class _CatboostModelWrapper:
     def __init__(self, cb_model):
         self.cb_model = cb_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

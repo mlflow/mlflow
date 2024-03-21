@@ -11,11 +11,6 @@ export const EXPERIMENT_PARENT_ID_TAG = 'mlflow.parentRunId';
 export const EXPERIMENT_LOG_MODEL_HISTORY_TAG = 'mlflow.log-model.history';
 export const EXPERIMENT_RUNS_TABLE_ROW_HEIGHT = 32;
 
-export enum RUNS_VISIBILITY_MODE {
-  'SHOWALL' = 'SHOWALL',
-  'HIDEALL' = 'HIDEALL',
-}
-
 const MLFLOW_NOTEBOOK_TYPE = 'NOTEBOOK';
 const MLFLOW_EXPERIMENT_TYPE = 'MLFLOW_EXPERIMENT';
 

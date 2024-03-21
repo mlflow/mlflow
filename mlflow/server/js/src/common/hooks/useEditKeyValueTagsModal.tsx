@@ -145,6 +145,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
       footer={
         <RestoreAntDDefaultClsPrefix>
           <Button
+            componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_147"
             dangerouslyUseFocusPseudoClass
             onClick={hideModal}
             /**
@@ -172,6 +173,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
               }
             >
               <Button
+                componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_174"
                 dangerouslyUseFocusPseudoClass
                 disabled={!hasNewValues}
                 loading={isLoading}
@@ -246,6 +248,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
           })}
         >
           <Button
+            componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_248"
             htmlType="submit"
             aria-label={intl.formatMessage({
               defaultMessage: 'Add tag',
@@ -303,7 +306,12 @@ function UnsavedTagPopoverTrigger({
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <Button dangerouslyUseFocusPseudoClass loading={isLoading} type="primary">
+        <Button
+          componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_306"
+          dangerouslyUseFocusPseudoClass
+          loading={isLoading}
+          type="primary"
+        >
           {intl.formatMessage({
             defaultMessage: 'Save tags',
             description: 'Key-value tag editor modal > Manage Tag save button',
@@ -313,7 +321,10 @@ function UnsavedTagPopoverTrigger({
       <Popover.Content align="end" aria-label={shownText}>
         <Typography.Paragraph css={{ maxWidth: 400 }}>{shownText}</Typography.Paragraph>
         <Popover.Close asChild>
-          <Button onClick={onSaveTask}>
+          <Button
+            componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_316"
+            onClick={onSaveTask}
+          >
             {intl.formatMessage({
               defaultMessage: 'Yes, save and close',
               description: 'Key-value tag editor modal > Unsaved tag message > Yes, save and close button',
@@ -321,7 +332,11 @@ function UnsavedTagPopoverTrigger({
           </Button>
         </Popover.Close>
         <Popover.Close asChild>
-          <Button type="primary" css={{ marginLeft: theme.spacing.sm }}>
+          <Button
+            componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_324"
+            type="primary"
+            css={{ marginLeft: theme.spacing.sm }}
+          >
             {intl.formatMessage({
               defaultMessage: 'Cancel',
               description: 'Key-value tag editor modal > Unsaved tag message > cancel button',

@@ -118,6 +118,7 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
         return editing ? (
           <span>
             <Button
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_120"
               type="link"
               onClick={() => this.save(record.key)}
               style={{ marginRight: 10 }}
@@ -129,6 +130,7 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
               />
             </Button>
             <Button
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_131"
               type="link"
               // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
               onClick={() => this.cancel(record.key)}
@@ -143,12 +145,14 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
         ) : (
           <span>
             <Button
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_145"
               icon={<PencilIcon />}
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
               data-testid="editable-table-button-edit"
             />
             <Button
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_151"
               icon={<TrashIcon />}
               disabled={editingKey !== ''}
               onClick={() => this.setState({ deletingKey: record.key })}

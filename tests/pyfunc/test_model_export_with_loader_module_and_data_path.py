@@ -25,7 +25,7 @@ from tests.helper_functions import _assert_pip_requirements
 
 def _load_pyfunc(path):
     with open(path, "rb") as f:
-        return pickle.load(f, encoding="latin1")  # pylint: disable=unexpected-keyword-arg
+        return pickle.load(f, encoding="latin1")
 
 
 @pytest.fixture
