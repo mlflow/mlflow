@@ -223,9 +223,11 @@ class APIRequest:
                         response = self.lc_model.invoke(
                             prepared_request_json, config={"callbacks": callback_handlers}
                         )
-                elif isinstance(self.request_json, list) and isinstance(
-                    self.lc_model, runnables_supports_batch_types()
-                ):
+                elif isinstance(self.request_json, list):
+                    if not isinstance(self.lc_model, runnables_supports_batch_types()):
+                        raise MlflowException(
+                            "Model does not support batch inference."
+                        )
                     response = self.lc_model.batch(
                         prepared_request_json, config={"callbacks": callback_handlers}
                     )
