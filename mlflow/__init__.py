@@ -105,7 +105,7 @@ from mlflow.config import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
-from mlflow.tracing.python_api import start_span, trace
+from mlflow.tracing.python_api import start_detached_span, start_span, trace
 from mlflow.tracking._model_registry.fluent import (
     register_model,
     search_model_versions,
@@ -209,8 +209,7 @@ __all__ = [
     "set_tags",
     "set_tracking_uri",
     "start_run",
-    # Tracing Fluent APIs
-    "get_traces",
+    "start_detached_span",
     "start_span",
     "trace",
 ]

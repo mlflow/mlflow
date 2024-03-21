@@ -122,19 +122,50 @@ def start_span(
             mlflow_span = NoOpMLflowSpanWrapper()
             yield mlflow_span
     finally:
-        mlflow_span._end()
+        mlflow_span.end()
 
 
-def get_traces(n: int = 1) -> List:
+def start_detached_span(
+    name: str = "span",
+    span_type: Optional[str] = None,
+    parent: Optional[MLflowSpanWrapper] = None,
+):
     """
-    Get the last n traces.
+    Create a new span and start it without attaching it to the global trace context.
+
+    This is an imperative API to manually create a new span under a specific trace id and parent
+    span, unlike the higher-level APIs like `@mlflow.trace()` and `with mlflow.start_span()`,
+    which automatically manage the span lifecycle and parent-child relationship.
+
+    This API is particularly useful for the case where the automatic context management is not
+    sufficient, such as callback-based instrumentation where span start and end are not in the same
+    call stack, or multi-threaded applications where the context is not propagated automatically.
+
+    To conclude the span for logging, call `span.end()`.
 
     Args:
-        n: The number of traces to return.
+        name: The name of the span.
+        span_type: The type of the span. Can be either a string or a SpanType enum value.
+        parent: The parent span. If None, the span to be created is a root span.
 
-    Returns:
-        A list of Trace objects.
+    Example:
+
+    .. code-block:: python
+
+            span = mlflow.start_detached_span("my_span")
+
+            child_span = mlflow.start_detached_span("child_span", parent=span)
+            child_span.set_attributes({"key": "value"})
+            child_span.end()
+
+            span.set_attribute("key", "value")
+            span.end()
     """
-    from mlflow.tracing.clients import get_trace_client
-
-    return get_trace_client().get_traces(n)
+    try:
+        tracer = get_tracer(get_caller_module())
+        context = trace_api.set_span_in_context(parent._span if parent else None)
+        span = tracer.start_span(name=name, context=context)
+        return MLflowSpanWrapper(span, span_type=span_type)
+    except Exception as e:
+        _logger.warning(f"Failed to start span with name {name}: {e}")
+        return NoOpMLflowSpanWrapper()

@@ -81,7 +81,7 @@ class MLflowSpanWrapper:
     ):
         self._span.add_event(name, attributes, timestamp)
 
-    def _end(self):
+    def end(self):
         # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
         # by the user. However, there is not way to set the status when using
         # @mlflow.trace decorator. Therefore, we just automatically set the status
@@ -197,5 +197,5 @@ class NoOpMLflowSpanWrapper:
     ):
         pass
 
-    def _end(self):
+    def end(self):
         pass

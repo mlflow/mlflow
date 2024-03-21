@@ -4,6 +4,7 @@ from unittest import mock
 import mlflow
 from mlflow.tracing.types.constant import TraceAttributeKey
 from mlflow.tracing.types.model import SpanType, StatusCode
+from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
 
 def test_trace(mock_client):
@@ -151,6 +152,80 @@ def test_start_span_context_manager(mock_client):
     model.predict(1, 2)
 
     trace = mlflow.get_traces()[0]
+    trace_info = trace.trace_info
+    assert trace_info.trace_id is not None
+    assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
+    assert trace_info.status.status_code == StatusCode.OK
+    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 25}'
+
+    spans = trace.trace_data.spans
+    assert len(spans) == 3
+
+    span_name_to_span = {span.name: span for span in spans}
+    root_span = span_name_to_span["root_span"]
+    assert root_span.start_time == trace_info.start_time
+    assert root_span.end_time == trace_info.end_time
+    assert root_span.parent_span_id is None
+    assert root_span.span_type == SpanType.UNKNOWN
+    assert root_span.inputs == {"x": 1, "y": 2}
+    assert root_span.outputs == {"output": 25}
+
+    child_span_1 = span_name_to_span["child_span_1"]
+    assert child_span_1.parent_span_id == root_span.context.span_id
+    assert child_span_1.span_type == SpanType.LLM
+    assert child_span_1.inputs == {"z": 3}
+    assert child_span_1.outputs == {"output": 5}
+    assert child_span_1.attributes == {"delta": 2}
+
+    child_span_2 = span_name_to_span["child_span_2"]
+    assert child_span_2.parent_span_id == root_span.context.span_id
+    assert child_span_2.span_type == SpanType.UNKNOWN
+    assert child_span_2.inputs == {"t": 5}
+    assert child_span_2.outputs == {"output": 25}
+    assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e9
+
+
+def test_start_detached_span(mock_client):
+    class TestModel:
+        def predict(self, x, y):
+            root_span = mlflow.start_detached_span(name="root_span")
+            root_span.set_inputs({"x": x, "y": y})
+
+            z = x + y
+
+            child_span = mlflow.start_detached_span(
+                "child_span_1", span_type=SpanType.LLM, parent=root_span
+            )
+            child_span.set_inputs({"z": z})
+
+            z = z + 2
+
+            child_span.set_outputs({"output": z})
+            child_span.set_attributes({"delta": 2})
+            child_span.end()
+
+            res = self.square(z, parent=root_span)
+            root_span.set_outputs({"output": res})
+            root_span.end()
+            return res
+
+        def square(self, t, parent: MLflowSpanWrapper = None):
+            span = mlflow.start_detached_span("child_span_2", parent=parent)
+            span.set_inputs({"t": t})
+
+            res = t**2
+            time.sleep(0.1)
+
+            span.set_outputs({"output": res})
+            span.end()
+            return res
+
+    model = TestModel()
+    model.predict(1, 2)
+
+    mock_client.log_trace.assert_called_once()
+    trace = mock_client.log_trace.call_args[0][0]
     trace_info = trace.trace_info
     assert trace_info.trace_id is not None
     assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
