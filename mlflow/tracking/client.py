@@ -1567,7 +1567,11 @@ class MlflowClient:
             import PIL
 
             if not isinstance(image, PIL.Image.Image):
-                raise TypeError("Unsupported image object type.")
+                raise TypeError(
+                    f"Unsupported image object type: {type(image)}. "
+                    "`mlflow.log_image` must be one of numpy.ndarray, "
+                    "PIL.Image.Image, and mlflow.Image."
+                )
 
         if artifact_file is not None:
             with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
