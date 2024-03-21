@@ -986,6 +986,13 @@ def contains_path_separator(path):
     return any((sep in path) for sep in (os.path.sep, os.path.altsep) if sep is not None)
 
 
+def contains_percent(path):
+    """
+    Returns True if a path contains a percent character, False otherwise.
+    """
+    return "%" in path
+
+
 def read_chunk(path: os.PathLike, size: int, start_byte: int = 0) -> bytes:
     """Read a chunk of bytes from a file.
 
