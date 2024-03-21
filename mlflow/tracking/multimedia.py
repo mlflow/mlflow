@@ -107,7 +107,6 @@ class Image:
     Args:
         image: Image can be a numpy array, a PIL image, or a file path to an image.
 
-    Example:
     .. code-block:: python
         :caption: Example
         import mlflow
