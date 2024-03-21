@@ -235,7 +235,7 @@ def test_duplicated_log_image_with_step():
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
-        assert len(files) == 2 * 3
+        assert len(files) == 2 * 3  # 2 images and 3 files per image
 
 
 def test_duplicated_log_image_with_timestamp():

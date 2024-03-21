@@ -175,7 +175,7 @@ class Image:
         """
         return self.image
 
-    def save(self, path) -> None:
+    def save(self, path: str) -> None:
         """
         Save the image to a file.
 
