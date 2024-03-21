@@ -183,22 +183,22 @@ def is_in_databricks_repo_notebook():
         return False
 
 
-DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
+_DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
 
 
-def get_databricks_runtime_version_string():
+def get_databricks_runtime_version():
     if ver := os.environ.get("DATABRICKS_RUNTIME_VERSION"):
         return ver
-    if os.path.exists(DATABRICKS_VERSION_FILE_PATH):
+    if os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
         # In Databricks DCS cluster, it doesn't have DATABRICKS_RUNTIME_VERSION
         # environment variable, we have to read version from the version file.
-        with open(DATABRICKS_VERSION_FILE_PATH) as f:
+        with open(_DATABRICKS_VERSION_FILE_PATH) as f:
             return f.read().strip()
     return None
 
 
 def is_in_databricks_runtime():
-    return get_databricks_runtime_version_string() is not None
+    return get_databricks_runtime_version() is not None
 
 
 def is_dbfs_fuse_available():
@@ -819,7 +819,7 @@ class DatabricksRuntimeVersion(NamedTuple):
 
     @classmethod
     def parse(cls):
-        dbr_version = get_databricks_runtime_version_string()
+        dbr_version = get_databricks_runtime_version()
         try:
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":
