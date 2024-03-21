@@ -604,12 +604,9 @@ class _LangChainModelWrapper:
         Returns:
             Model predictions.
         """
-        messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        return_first_element = isinstance(self.lc_model, runnables_supports_batch_types()) and not isinstance(
-            data, pd.DataFrame
-        )
+        messages, return_first_element = self._prepare_messages(data)
         results = process_api_requests(lc_model=self.lc_model, requests=messages)
         return results[0] if return_first_element else results
 
@@ -633,12 +630,9 @@ class _LangChainModelWrapper:
         Returns:
             Model predictions.
         """
-        messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
-            data, pd.DataFrame
-        )
+        messages, return_first_element = self._prepare_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
             requests=messages,
@@ -662,15 +656,15 @@ class _LangChainModelWrapper:
             return data
 
         if isinstance(data, pd.DataFrame):
-            return _convert_ndarray_to_list(data.to_dict(orient="records"))
+            return _convert_ndarray_to_list(data.to_dict(orient="records")), False
 
         data = _convert_ndarray_to_list(data)
-        if isinstance(self.lc_model, runnables_supports_batch_types()):
-            return [data]
+        if isinstance(self.lc_model, runnables_supports_batch_types()) or isinstance(data, list):
+            return [data], True
         if isinstance(data, list) and (
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
         ):
-            return data
+            return data, False
         raise mlflow.MlflowException.invalid_parameter_value(
             "Input must be a pandas DataFrame or a list of strings "
             "or a list of dictionaries "
