@@ -56,8 +56,13 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body):
-        endpoint, method = _METHOD_TO_INFO[api]
+    def _call_endpoint(self, api, json_body, endpoint=None):
+        if endpoint:
+            # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
+            # /mlflow/traces/{trace_id}/info.
+            _, method = _METHOD_TO_INFO[api]
+        else:
+            endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
@@ -230,7 +235,8 @@ class RestStore(AbstractStore):
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
         req_body = message_to_json(GetTraceInfo(trace_id=trace_id))
-        response_proto = self._call_endpoint(GetTraceInfo, req_body)
+        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{trace_id}/info"
+        response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
 
     def log_metric(self, run_id, metric):
