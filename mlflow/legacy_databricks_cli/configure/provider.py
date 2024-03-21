@@ -204,6 +204,8 @@ class DefaultConfigProvider(DatabricksConfigProvider):
     """Look for credentials in a chain of default locations."""
 
     def __init__(self):
+        # The order of providers here will be used to determine
+        # the precedence order for the config provider used in `get_config`
         self._providers = (
             SparkTaskContextConfigProvider(),
             EnvironmentVariableConfigProvider(),
