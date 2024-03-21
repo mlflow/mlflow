@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2.11.3 (2024-03-21)
+
+MLflow 2.11.3 includes several major features and improvements
+
+Bug fixes:
+
+- [] Fix databricks runtime checking issue in databricks DCS cluster (#11483, @WeichenXu123)
+- [Models] Fix an issue with chat request validation for LangChain flavor (#11478, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#11494, #11436, @sunishsheth2009; #11468, @victorsun123; #11473, @daniellok-db
+
 ## 2.11.2 (2024-03-19)
 
 MLflow 2.11.2 is a patch release that introduces corrections for the support of custom transformer models, resolves LangChain integration problems, and includes several fixes to enhance stability.
