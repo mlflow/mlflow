@@ -237,6 +237,11 @@ class APIRequest:
                         raise MlflowException(
                             "Model does not support batch inference."
                         )
+                elif isinstance(self.request_json, list):
+                    if not isinstance(self.lc_model, runnables_supports_batch_types()):
+                        raise MlflowException(
+                            "Model does not support batch inference."
+                        )
                     response = self.lc_model.batch(
                         prepared_request_json, config={"callbacks": callback_handlers}
                     )
@@ -339,6 +344,13 @@ class APIRequest:
             message_content = response
         elif isinstance(response, AIMessage):
             message_content = response.content
+        elif isinstance(response, list):
+            # For batch inference, the inference result is a list,
+            # we need to convert every element in the list.
+            return [
+                APIRequest._try_transform_response_to_chat_format(elem)
+                for elem in response
+            ]
         else:
             return response
 
