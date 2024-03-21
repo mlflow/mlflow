@@ -305,6 +305,8 @@ class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
                 config = DatabricksModelServingConfigProvider._get_databricks_model_serving_config()
                 if config.is_valid:
                     return config
+            else:
+                return None
         except Exception as e:
             _logger.warning("Unexpected error resolving Databricks Model Serving config: %s", e)
 
