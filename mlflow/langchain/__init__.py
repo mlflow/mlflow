@@ -48,6 +48,7 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
+    runnables_supports_batch_types,
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
@@ -606,7 +607,7 @@ class _LangChainModelWrapper:
         messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
+        return_first_element = isinstance(self.lc_model, runnables_supports_batch_types()) and not isinstance(
             data, pd.DataFrame
         )
         results = process_api_requests(lc_model=self.lc_model, requests=messages)
@@ -664,7 +665,7 @@ class _LangChainModelWrapper:
             return _convert_ndarray_to_list(data.to_dict(orient="records"))
 
         data = _convert_ndarray_to_list(data)
-        if isinstance(self.lc_model, lc_runnables_types()):
+        if isinstance(self.lc_model, runnables_supports_batch_types()):
             return [data]
         if isinstance(data, list) and (
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
