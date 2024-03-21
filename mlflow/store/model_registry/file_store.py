@@ -39,6 +39,7 @@ from mlflow.store.model_registry import (
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.file_utils import (
     contains_path_separator,
+    contains_percent,
     exists,
     find,
     is_directory,
@@ -77,6 +78,11 @@ def _validate_model_name(name):
     if contains_path_separator(name):
         raise MlflowException(
             f"Invalid name: '{name}'. Registered model name cannot contain path separator",
+            INVALID_PARAMETER_VALUE,
+        )
+    if contains_percent(name):
+        raise MlflowException(
+            f"Invalid name: '{name}'. Registered model name cannot contain '%' character",
             INVALID_PARAMETER_VALUE,
         )
 
