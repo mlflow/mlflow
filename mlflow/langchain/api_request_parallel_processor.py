@@ -178,6 +178,7 @@ class APIRequest:
         Calls the LangChain API and stores results.
         """
         from langchain.schema import BaseRetriever
+        from mlflow.langchain.utils import lc_runnables_types
 
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
