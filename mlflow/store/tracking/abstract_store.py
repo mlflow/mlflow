@@ -234,7 +234,6 @@ class AbstractStore:
         """
         pass
 
-    @abstractmethod
     def create_trace(self, experiment_id, start_time, end_time, status, attributes, tags):
         """
         Create a trace under the specified experiment ID.
@@ -250,9 +249,8 @@ class AbstractStore:
         Returns:
             The created Trace object
         """
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     def get_trace_info(self, trace_id):
         """
         Get the trace matching the `trace_id`.
@@ -263,7 +261,7 @@ class AbstractStore:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
-        pass
+        raise NotImplementedError
 
     def log_metric(self, run_id, metric):
         """
