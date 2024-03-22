@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import contextlib
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 from opentelemetry import trace as trace_api
 
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
-from mlflow.tracing.utils import capture_function_input_args, get_caller_module
+from mlflow.tracing.utils import capture_function_input_args
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +18,6 @@ def trace(
     name: Optional[str] = None,
     span_type: Optional[str] = None,
     attributes: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, str]] = None,
 ):
     """
     Decorator that create a new span for the decorated function.
@@ -80,7 +81,7 @@ def trace(
 @contextlib.contextmanager
 def start_span(
     name: str = "span", span_type: Optional[str] = None, attributes: Optional[Dict[str, Any]] = None
-):
+) -> Generator[MLflowSpanWrapper]:
     """
     Context manager to create a new span and start it as the current span in the context.
 
@@ -102,7 +103,7 @@ def start_span(
     """
     # TODO: refactor this logic
     try:
-        tracer = get_tracer(get_caller_module())
+        tracer = get_tracer(__name__)
         span = tracer.start_span(name)
         span.set_attributes(attributes or {})
     except Exception:
@@ -125,47 +126,16 @@ def start_span(
         mlflow_span.end()
 
 
-def start_detached_span(
-    name: str = "span",
-    span_type: Optional[str] = None,
-    parent: Optional[MLflowSpanWrapper] = None,
-):
+def get_traces(n: int = 1) -> List:
     """
-    Create a new span and start it without attaching it to the global trace context.
-
-    This is an imperative API to manually create a new span under a specific trace id and parent
-    span, unlike the higher-level APIs like `@mlflow.trace()` and `with mlflow.start_span()`,
-    which automatically manage the span lifecycle and parent-child relationship.
-
-    This API is particularly useful for the case where the automatic context management is not
-    sufficient, such as callback-based instrumentation where span start and end are not in the same
-    call stack, or multi-threaded applications where the context is not propagated automatically.
-
-    To conclude the span for logging, call `span.end()`.
+    Get the last n traces.
 
     Args:
-        name: The name of the span.
-        span_type: The type of the span. Can be either a string or a SpanType enum value.
-        parent: The parent span. If None, the span to be created is a root span.
+        n: The number of traces to return.
 
-    Example:
-
-    .. code-block:: python
-
-            span = mlflow.start_detached_span("my_span")
-
-            child_span = mlflow.start_detached_span("child_span", parent=span)
-            child_span.set_attributes({"key": "value"})
-            child_span.end()
-
-            span.set_attribute("key", "value")
-            span.end()
+    Returns:
+        A list of Trace objects.
     """
-    try:
-        tracer = get_tracer(get_caller_module())
-        context = trace_api.set_span_in_context(parent._span if parent else None)
-        span = tracer.start_span(name=name, context=context)
-        return MLflowSpanWrapper(span, span_type=span_type)
-    except Exception as e:
-        _logger.warning(f"Failed to start span with name {name}: {e}")
-        return NoOpMLflowSpanWrapper()
+    from mlflow.tracing.clients import get_trace_client
+
+    return get_trace_client().get_traces(n)

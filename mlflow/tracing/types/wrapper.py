@@ -27,7 +27,11 @@ class MLflowSpanWrapper:
 
     @property
     def trace_id(self):
-        return self._span.context.trace_id
+        return self._span.get_span_context().trace_id
+
+    @property
+    def span_id(self):
+        return self._span.get_span_context().span_id
 
     @property
     def name(self):
@@ -54,6 +58,14 @@ class MLflowSpanWrapper:
     @property
     def status(self) -> Status:
         return Status(self._span.status.status_code, self._span.status.description)
+
+    @property
+    def inputs(self):
+        return self._inputs
+
+    @property
+    def outputs(self):
+        return self._outputs
 
     def set_inputs(self, inputs: Dict[str, Any]):
         self._inputs = inputs
@@ -103,7 +115,7 @@ class MLflowSpanWrapper:
 
         self._span._span_processor.on_end(self)
 
-    def _to_mlflow_span(self):
+    def to_mlflow_span(self):
         """
         Create an MLflow Span object from this wrapper and the original Span object.
         """
@@ -151,6 +163,10 @@ class NoOpMLflowSpanWrapper:
         return None
 
     @property
+    def id(self):
+        return None
+
+    @property
     def name(self):
         return None
 
@@ -172,6 +188,14 @@ class NoOpMLflowSpanWrapper:
 
     @property
     def status(self):
+        return None
+
+    @property
+    def inputs(self):
+        return None
+
+    @property
+    def outputs(self):
         return None
 
     def set_inputs(self, inputs: Dict[str, Any]):

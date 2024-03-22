@@ -1,18 +1,16 @@
 import json
 import logging
-import threading
-from contextvars import ContextVar
 from typing import Any, Dict, Optional, Sequence
 
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.tracing.clients import TraceClient
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
     TRUNCATION_SUFFIX,
     TraceAttributeKey,
 )
-from mlflow.tracing.types.model import Span, Trace, TraceData, TraceInfo
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
@@ -34,7 +32,7 @@ class MLflowSpanExporter(SpanExporter):
 
     def __init__(self, client: TraceClient):
         self._client = client
-        self._trace_aggregator = InMemoryTraceDataAggregator.get_instance()
+        self._trace_manager = InMemoryTraceManager.get_instance()
 
     def export(self, spans: Sequence[MLflowSpanWrapper]):
         """
@@ -46,7 +44,6 @@ class MLflowSpanExporter(SpanExporter):
                 takes the wrapper object, so we can carry additional MLflow-specific
                 information such as inputs and outputs.
         """
-        mlflow_spans = []
         for span in spans:
             if not isinstance(span, MLflowSpanWrapper):
                 _logger.warning(
@@ -55,40 +52,33 @@ class MLflowSpanExporter(SpanExporter):
                 )
                 continue
 
-            mlflow_span = span._to_mlflow_span()
-            self._trace_aggregator.add_span(mlflow_span)
-            mlflow_spans.append(mlflow_span)
+            self._trace_manager.add_or_update_span(span)
 
         # Exporting the trace when the root span is found. Note that we need to loop over
         # the input list again, because the root span might not be the last span in the list.
         # We must ensure the all child spans are added to the trace before exporting it.
-        for span in mlflow_spans:
+        for span in spans:
             if span.parent_span_id is None:
                 self._export_trace(span)
 
-    def _export_trace(self, root_span: Span):
-        trace_data = self._trace_aggregator.pop_trace(root_span.context.trace_id)
-        if trace_data is None:
-            _logger.warning(f"Trace data with ID {root_span.context.trace_id} not found.")
+    def _export_trace(self, root_span: MLflowSpanWrapper):
+        trace_id = root_span.trace_id
+        trace = self._trace_manager.pop_trace(trace_id)
+        if trace is None:
+            _logger.warning(f"Trace data with ID {trace_id} not found.")
             return
 
-        # Create a TraceInfo object from the root span information
-        trace_info = TraceInfo(
-            trace_id=root_span.context.trace_id,
-            # TODO: Hardcoding as the requirement is still in TBD.
-            experiment_id="EXPERIMENT",
-            start_time=root_span.start_time,
-            end_time=root_span.end_time,
-            status=root_span.status,
-            attributes={
-                TraceAttributeKey.NAME: root_span.name,
-                TraceAttributeKey.INPUTS: self._serialize_inputs_outputs(root_span.inputs),
-                TraceAttributeKey.OUTPUTS: self._serialize_inputs_outputs(root_span.outputs),
-                # TODO: Add source attribute
-            },
-            tags={},
+        # Update a TraceInfo object with the root span information
+        info = trace.trace_info
+        info.start_time = root_span.start_time
+        info.end_time = root_span.end_time
+        info.status = root_span.status
+        info.attributes[TraceAttributeKey.NAME] = root_span.name
+        info.attributes[TraceAttributeKey.INPUTS] = self._serialize_inputs_outputs(root_span.inputs)
+        info.attributes[TraceAttributeKey.OUTPUTS] = self._serialize_inputs_outputs(
+            root_span.outputs
         )
-        trace = Trace(trace_info, trace_data)
+
         # TODO: Make this async
         self._client.log_trace(trace)
 
@@ -109,50 +99,3 @@ class MLflowSpanExporter(SpanExporter):
             trunc_length = MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(TRUNCATION_SUFFIX)
             serialized = serialized[:trunc_length] + TRUNCATION_SUFFIX
         return serialized
-
-
-class InMemoryTraceDataAggregator:
-    """
-    Simple in-memory store for trace_id -> TraceData (i.e. spans).
-    """
-
-    _instance_lock = threading.Lock()
-    _instance = ContextVar("InMemoryTraceDataAggregator", default=None)
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance.get() is None:
-            with cls._instance_lock:
-                if cls._instance.get() is None:
-                    cls._instance.set(InMemoryTraceDataAggregator())
-        return cls._instance.get()
-
-    def __init__(self):
-        self._traces: Dict[str, TraceData] = {}
-        self._lock = threading.Lock()  # Lock for _traces
-
-    def add_span(self, span: Span):
-        if not isinstance(span, Span):
-            _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
-            return
-
-        trace_id = span.context.trace_id
-        if trace_id not in self._traces:
-            with self._lock:
-                if trace_id not in self._traces:
-                    # NB: the first span might not be a root span, so we can only
-                    # set trace_id here. Other information will be propagated from
-                    # the root span when it ends.
-                    self._traces[trace_id] = TraceData([])
-
-        trace_data = self._traces[trace_id]
-        trace_data.spans.append(span)
-
-    def pop_trace(self, trace_id) -> Optional[TraceData]:
-        with self._lock:
-            return self._traces.pop(trace_id, None)
-
-    def flush(self):
-        """Clear all the aggregated trace data. This should only be used for testing."""
-        with self._lock:
-            self._traces.clear()
