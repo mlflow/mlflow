@@ -14610,35 +14610,6 @@ public final class DatabricksArtifacts {
      */
     com.google.protobuf.ByteString
         getTraceIdBytes();
-
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact write credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the runId field is set.
-     */
-    boolean hasRunId();
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact write credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The runId.
-     */
-    java.lang.String getRunId();
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact write credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for runId.
-     */
-    com.google.protobuf.ByteString
-        getRunIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.GetCredentialsForTraceDataDownload}
@@ -14654,7 +14625,6 @@ public final class DatabricksArtifacts {
     }
     private GetCredentialsForTraceDataDownload() {
       traceId_ = "";
-      runId_ = "";
     }
 
     @java.lang.Override
@@ -14692,12 +14662,6 @@ public final class DatabricksArtifacts {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               traceId_ = bs;
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              runId_ = bs;
               break;
             }
             default: {
@@ -15413,66 +15377,6 @@ public final class DatabricksArtifacts {
       }
     }
 
-    public static final int RUN_ID_FIELD_NUMBER = 2;
-    private volatile java.lang.Object runId_;
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact write credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the runId field is set.
-     */
-    @java.lang.Override
-    public boolean hasRunId() {
-      return ((bitField0_ & 0x00000002) != 0);
-    }
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact write credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The runId.
-     */
-    @java.lang.Override
-    public java.lang.String getRunId() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact write credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for runId.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getRunIdBytes() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -15490,9 +15394,6 @@ public final class DatabricksArtifacts {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, traceId_);
       }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runId_);
-      }
       unknownFields.writeTo(output);
     }
 
@@ -15504,9 +15405,6 @@ public final class DatabricksArtifacts {
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, traceId_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -15528,11 +15426,6 @@ public final class DatabricksArtifacts {
         if (!getTraceId()
             .equals(other.getTraceId())) return false;
       }
-      if (hasRunId() != other.hasRunId()) return false;
-      if (hasRunId()) {
-        if (!getRunId()
-            .equals(other.getRunId())) return false;
-      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -15547,10 +15440,6 @@ public final class DatabricksArtifacts {
       if (hasTraceId()) {
         hash = (37 * hash) + TRACE_ID_FIELD_NUMBER;
         hash = (53 * hash) + getTraceId().hashCode();
-      }
-      if (hasRunId()) {
-        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getRunId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -15687,8 +15576,6 @@ public final class DatabricksArtifacts {
         super.clear();
         traceId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        runId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -15721,10 +15608,6 @@ public final class DatabricksArtifacts {
           to_bitField0_ |= 0x00000001;
         }
         result.traceId_ = traceId_;
-        if (((from_bitField0_ & 0x00000002) != 0)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.runId_ = runId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -15777,11 +15660,6 @@ public final class DatabricksArtifacts {
         if (other.hasTraceId()) {
           bitField0_ |= 0x00000001;
           traceId_ = other.traceId_;
-          onChanged();
-        }
-        if (other.hasRunId()) {
-          bitField0_ |= 0x00000002;
-          runId_ = other.runId_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -15897,114 +15775,6 @@ public final class DatabricksArtifacts {
         onChanged();
         return this;
       }
-
-      private java.lang.Object runId_ = "";
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact write credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the runId field is set.
-       */
-      public boolean hasRunId() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact write credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The runId.
-       */
-      public java.lang.String getRunId() {
-        java.lang.Object ref = runId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact write credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for runId.
-       */
-      public com.google.protobuf.ByteString
-          getRunIdBytes() {
-        java.lang.Object ref = runId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact write credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact write credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearRunId() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        runId_ = getDefaultInstance().getRunId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact write credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -16078,35 +15848,6 @@ public final class DatabricksArtifacts {
      */
     com.google.protobuf.ByteString
         getTraceIdBytes();
-
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact read credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the runId field is set.
-     */
-    boolean hasRunId();
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact read credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The runId.
-     */
-    java.lang.String getRunId();
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact read credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for runId.
-     */
-    com.google.protobuf.ByteString
-        getRunIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.GetCredentialsForTraceDataUpload}
@@ -16122,7 +15863,6 @@ public final class DatabricksArtifacts {
     }
     private GetCredentialsForTraceDataUpload() {
       traceId_ = "";
-      runId_ = "";
     }
 
     @java.lang.Override
@@ -16160,12 +15900,6 @@ public final class DatabricksArtifacts {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               traceId_ = bs;
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              runId_ = bs;
               break;
             }
             default: {
@@ -16881,66 +16615,6 @@ public final class DatabricksArtifacts {
       }
     }
 
-    public static final int RUN_ID_FIELD_NUMBER = 2;
-    private volatile java.lang.Object runId_;
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact read credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the runId field is set.
-     */
-    @java.lang.Override
-    public boolean hasRunId() {
-      return ((bitField0_ & 0x00000002) != 0);
-    }
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact read credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The runId.
-     */
-    @java.lang.Override
-    public java.lang.String getRunId() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * The ID of the MLflow Run for which to fetch artifact read credentials
-     * </pre>
-     *
-     * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for runId.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getRunIdBytes() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -16958,9 +16632,6 @@ public final class DatabricksArtifacts {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, traceId_);
       }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runId_);
-      }
       unknownFields.writeTo(output);
     }
 
@@ -16972,9 +16643,6 @@ public final class DatabricksArtifacts {
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, traceId_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -16996,11 +16664,6 @@ public final class DatabricksArtifacts {
         if (!getTraceId()
             .equals(other.getTraceId())) return false;
       }
-      if (hasRunId() != other.hasRunId()) return false;
-      if (hasRunId()) {
-        if (!getRunId()
-            .equals(other.getRunId())) return false;
-      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -17015,10 +16678,6 @@ public final class DatabricksArtifacts {
       if (hasTraceId()) {
         hash = (37 * hash) + TRACE_ID_FIELD_NUMBER;
         hash = (53 * hash) + getTraceId().hashCode();
-      }
-      if (hasRunId()) {
-        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getRunId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -17155,8 +16814,6 @@ public final class DatabricksArtifacts {
         super.clear();
         traceId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        runId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -17189,10 +16846,6 @@ public final class DatabricksArtifacts {
           to_bitField0_ |= 0x00000001;
         }
         result.traceId_ = traceId_;
-        if (((from_bitField0_ & 0x00000002) != 0)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.runId_ = runId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -17245,11 +16898,6 @@ public final class DatabricksArtifacts {
         if (other.hasTraceId()) {
           bitField0_ |= 0x00000001;
           traceId_ = other.traceId_;
-          onChanged();
-        }
-        if (other.hasRunId()) {
-          bitField0_ |= 0x00000002;
-          runId_ = other.runId_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -17362,114 +17010,6 @@ public final class DatabricksArtifacts {
   }
   bitField0_ |= 0x00000001;
         traceId_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object runId_ = "";
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact read credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the runId field is set.
-       */
-      public boolean hasRunId() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact read credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The runId.
-       */
-      public java.lang.String getRunId() {
-        java.lang.Object ref = runId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact read credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for runId.
-       */
-      public com.google.protobuf.ByteString
-          getRunIdBytes() {
-        java.lang.Object ref = runId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact read credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact read credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearRunId() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        runId_ = getDefaultInstance().getRunId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * The ID of the MLflow Run for which to fetch artifact read credentials
-       * </pre>
-       *
-       * <code>optional string run_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        runId_ = value;
         onChanged();
         return this;
       }
@@ -17664,56 +17204,55 @@ public final class DatabricksArtifacts {
       "al_info\030\001 \001(\0132\036.mlflow.ArtifactCredentia" +
       "lInfo:_\342?(\n&com.databricks.rpc.RPC[$this" +
       ".Response]\342?1\n/com.databricks.mlflow.api" +
-      ".MlflowTrackingMessage\"\370\001\n\"GetCredential" +
+      ".MlflowTrackingMessage\"\342\001\n\"GetCredential" +
       "sForTraceDataDownload\022\026\n\010trace_id\030\001 \001(\tB" +
-      "\004\370\206\031\001\022\024\n\006run_id\030\002 \001(\tB\004\370\206\031\001\032C\n\010Response\022" +
-      "7\n\017credential_info\030\001 \001(\0132\036.mlflow.Artifa" +
-      "ctCredentialInfo:_\342?(\n&com.databricks.rp" +
-      "c.RPC[$this.Response]\342?1\n/com.databricks" +
-      ".mlflow.api.MlflowTrackingMessage\"\366\001\n Ge" +
-      "tCredentialsForTraceDataUpload\022\026\n\010trace_" +
-      "id\030\001 \001(\tB\004\370\206\031\001\022\024\n\006run_id\030\002 \001(\tB\004\370\206\031\001\032C\n\010" +
-      "Response\0227\n\017credential_info\030\001 \001(\0132\036.mlfl" +
-      "ow.ArtifactCredentialInfo:_\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\342?1\n/com.d" +
-      "atabricks.mlflow.api.MlflowTrackingMessa" +
-      "ge*s\n\026ArtifactCredentialType\022\021\n\rAZURE_SA" +
-      "S_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_SI" +
-      "GNED_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\0042" +
-      "\207\n\n DatabricksMlflowArtifactsService\022\234\001\n" +
-      "\025getCredentialsForRead\022\035.mlflow.GetCrede" +
-      "ntialsForRead\032&.mlflow.GetCredentialsFor" +
-      "Read.Response\"<\362\206\0318\n4\n\004POST\022&/mlflow/art" +
-      "ifacts/credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026" +
-      "getCredentialsForWrite\022\036.mlflow.GetCrede" +
-      "ntialsForWrite\032\'.mlflow.GetCredentialsFo" +
-      "rWrite.Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/a" +
-      "rtifacts/credentials-for-write\032\004\010\002\020\000\020\003\022\237" +
-      "\001\n\025createMultipartUpload\022\035.mlflow.Create" +
-      "MultipartUpload\032&.mlflow.CreateMultipart" +
-      "Upload.Response\"?\362\206\031;\n7\n\004POST\022)/mlflow/a" +
-      "rtifacts/create-multipart-upload\032\004\010\002\020\000\020\003" +
-      "\022\247\001\n\027completeMultipartUpload\022\037.mlflow.Co" +
-      "mpleteMultipartUpload\032(.mlflow.CompleteM" +
-      "ultipartUpload.Response\"A\362\206\031=\n9\n\004POST\022+/" +
-      "mlflow/artifacts/complete-multipart-uplo" +
-      "ad\032\004\010\002\020\000\020\003\022\260\001\n\031getPresignedUploadPartUrl" +
-      "\022!.mlflow.GetPresignedUploadPartUrl\032*.ml" +
-      "flow.GetPresignedUploadPartUrl.Response\"" +
-      "D\362\206\031@\n<\n\003GET\022//mlflow/artifacts/get-pres" +
-      "igned-upload-part-url\032\004\010\002\020\000\020\003\022\323\001\n\"getCre" +
-      "dentialsForTraceDataDownload\022*.mlflow.Ge" +
-      "tCredentialsForTraceDataDownload\0323.mlflo" +
-      "w.GetCredentialsForTraceDataDownload.Res" +
-      "ponse\"L\362\206\031H\nD\n\003GET\0227/mlflow/traces/{trac" +
-      "e_id}/credentials-for-data-download\032\004\010\002\020" +
-      "\000\020\003\022\313\001\n getCredentialsForTraceDataUpload" +
-      "\022(.mlflow.GetCredentialsForTraceDataUplo" +
-      "ad\0321.mlflow.GetCredentialsForTraceDataUp" +
-      "load.Response\"J\362\206\031F\nB\n\003GET\0225/mlflow/trac" +
-      "es/{trace_id}/credentials-for-data-uploa" +
-      "d\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.proto.ml" +
-      "flow\220\001\001\240\001\001\342?\002\020\001"
+      "\004\370\206\031\001\032C\n\010Response\0227\n\017credential_info\030\001 \001" +
+      "(\0132\036.mlflow.ArtifactCredentialInfo:_\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\342" +
+      "?1\n/com.databricks.mlflow.api.MlflowTrac" +
+      "kingMessage\"\340\001\n GetCredentialsForTraceDa" +
+      "taUpload\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Resp" +
+      "onse\0227\n\017credential_info\030\001 \001(\0132\036.mlflow.A" +
+      "rtifactCredentialInfo:_\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\342?1\n/com.datab" +
+      "ricks.mlflow.api.MlflowTrackingMessage*s" +
+      "\n\026ArtifactCredentialType\022\021\n\rAZURE_SAS_UR" +
+      "I\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_SIGNED" +
+      "_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\0042\207\n\n " +
+      "DatabricksMlflowArtifactsService\022\234\001\n\025get" +
+      "CredentialsForRead\022\035.mlflow.GetCredentia" +
+      "lsForRead\032&.mlflow.GetCredentialsForRead" +
+      ".Response\"<\362\206\0318\n4\n\004POST\022&/mlflow/artifac" +
+      "ts/credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getC" +
+      "redentialsForWrite\022\036.mlflow.GetCredentia" +
+      "lsForWrite\032\'.mlflow.GetCredentialsForWri" +
+      "te.Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/artif" +
+      "acts/credentials-for-write\032\004\010\002\020\000\020\003\022\237\001\n\025c" +
+      "reateMultipartUpload\022\035.mlflow.CreateMult" +
+      "ipartUpload\032&.mlflow.CreateMultipartUplo" +
+      "ad.Response\"?\362\206\031;\n7\n\004POST\022)/mlflow/artif" +
+      "acts/create-multipart-upload\032\004\010\002\020\000\020\003\022\247\001\n" +
+      "\027completeMultipartUpload\022\037.mlflow.Comple" +
+      "teMultipartUpload\032(.mlflow.CompleteMulti" +
+      "partUpload.Response\"A\362\206\031=\n9\n\004POST\022+/mlfl" +
+      "ow/artifacts/complete-multipart-upload\032\004" +
+      "\010\002\020\000\020\003\022\260\001\n\031getPresignedUploadPartUrl\022!.m" +
+      "lflow.GetPresignedUploadPartUrl\032*.mlflow" +
+      ".GetPresignedUploadPartUrl.Response\"D\362\206\031" +
+      "@\n<\n\003GET\022//mlflow/artifacts/get-presigne" +
+      "d-upload-part-url\032\004\010\002\020\000\020\003\022\323\001\n\"getCredent" +
+      "ialsForTraceDataDownload\022*.mlflow.GetCre" +
+      "dentialsForTraceDataDownload\0323.mlflow.Ge" +
+      "tCredentialsForTraceDataDownload.Respons" +
+      "e\"L\362\206\031H\nD\n\003GET\0227/mlflow/traces/{trace_id" +
+      "}/credentials-for-data-download\032\004\010\002\020\000\020\003\022" +
+      "\313\001\n getCredentialsForTraceDataUpload\022(.m" +
+      "lflow.GetCredentialsForTraceDataUpload\0321" +
+      ".mlflow.GetCredentialsForTraceDataUpload" +
+      ".Response\"J\362\206\031F\nB\n\003GET\0225/mlflow/traces/{" +
+      "trace_id}/credentials-for-data-upload\032\004\010" +
+      "\002\020\000\020\003B,\n\037com.databricks.api.proto.mlflow" +
+      "\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -17804,7 +17343,7 @@ public final class DatabricksArtifacts {
     internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor,
-        new java.lang.String[] { "TraceId", "RunId", });
+        new java.lang.String[] { "TraceId", });
     internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor =
       internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_fieldAccessorTable = new
@@ -17816,7 +17355,7 @@ public final class DatabricksArtifacts {
     internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor,
-        new java.lang.String[] { "TraceId", "RunId", });
+        new java.lang.String[] { "TraceId", });
     internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor =
       internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable = new
