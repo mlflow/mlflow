@@ -1,8 +1,10 @@
+import json
 import os
 import posixpath
 from collections import namedtuple
 
 import mlflow
+from mlflow.entities import FileInfo
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_fs_service_pb2 import FilesystemService, CreateDownloadUrlRequest, \
     CreateDownloadUrlResponse, ListRequest, ListResponse, CreateUploadUrlRequest, CreateUploadUrlResponse, \
@@ -74,75 +76,63 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
                 augmented_raise_for_status(response)
                 return response.headers["ETag"]
 
-    def list_artifacts(self, path):
-        fs_full_path = posixpath.join(self.artifact_uri, path)
+    def list_artifacts(self, path=''):
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
-        method = "GET"
 
-        paths = []
-        directories = [fs_full_path]
-        while directories:
-            directory = directories.pop()
-            page_token = ''
-            while True:
-                req_body = "" if not page_token else message_to_json(
-                    {"page_token": page_token}
-                )
-                endpoint = posixpath.join("/api/2.0/fs/directories", directory.lstrip('/'))
+        infos = []
+        page_token = ''
+        while True:
+            endpoint = posixpath.join("/api/2.0/fs/directories", self.artifact_uri.lstrip("/"), path)
+            req_body = json.dumps({"page_token": page_token}) if page_token else ""
 
-                response_proto = ListDirectoryResponse()
-                resp = call_endpoint(
-                    host_creds=db_creds,
-                    endpoint=endpoint,
-                    method=method,
-                    json_body=req_body,
-                    response_proto=response_proto,
-                )
-                for dir_entry in resp.contents:
-                    if dir_entry.is_directory:
-                        directories.append(dir_entry.path)
-                    else:
-                        paths.append(dir_entry.path)
-                page_token = resp.next_page_token
-                if not page_token:
-                    break
-        return paths
-
-    def _create_download_destination(self, src_artifact_path, dst_local_dir_path=None):
-        src_artifact_path = src_artifact_path.lstrip("/")  # Ensure relative path for posixpath.join
-        return super()._create_download_destination(src_artifact_path, dst_local_dir_path)
+            response_proto = ListDirectoryResponse()
+            resp = call_endpoint(
+                host_creds=db_creds,
+                endpoint=endpoint,
+                method="GET",
+                json_body=req_body,
+                response_proto=response_proto,
+            )
+            for dir_entry in resp.contents:
+                rel_path = posixpath.relpath(dir_entry.path, self.artifact_uri)
+                if dir_entry.is_directory:
+                    infos.append(FileInfo(rel_path, True, None))
+                else:
+                    infos.append(FileInfo(rel_path, False, dir_entry.file_size))
+            page_token = resp.next_page_token
+            if not page_token:
+                break
+        return sorted(infos, key=lambda f: f.path)
 
     def _get_read_credential_infos(self, remote_file_paths):
-        return [
-            ArtifactCredentialInfo(signed_url=self._get_presigned_url_and_headers(remote_file_path).url)
-            for remote_file_path in remote_file_paths
-        ]
+        credential_infos = []
+        for remote_file_path in remote_file_paths:
+            resp = self._get_presigned_url_and_headers(remote_file_path)
+            headers = [
+                ArtifactCredentialInfo.HttpHeader(name=header.name, value=header.value)
+                for header in resp.headers
+            ]
+            credential_infos.append(ArtifactCredentialInfo(signed_url=resp.url, headers=headers))
+        return credential_infos
 
     def _download_from_cloud(self, remote_file_path, local_path):
-        # raise NotImplementedError("this is for testing purposes only, not for production use.")
-        print(f"getting presigned url and headers for {remote_file_path}")
-        presigned_url, headers = self._get_presigned_url_and_headers(remote_file_path)
-        print(f"got presigned url and headers: {presigned_url}, {headers}")
-        print(f"downloading file using http uri: {presigned_url} to {local_path}")
+        resp = self._get_presigned_url_and_headers(remote_file_path)
+        presigned_url = resp.url
+        headers = {header.name: header.value for header in resp.headers}
         download_file_using_http_uri(http_uri=presigned_url, download_path=local_path, headers=headers)
-        print(f"downloaded file using http uri: {presigned_url} to {local_path}")
 
-    def _get_presigned_url_and_headers(self, remote_file_path) -> PresignedUrlAndHeaders:
-        # raise NotImplementedError("this is for testing purposes only, not for production use.")
+    def _get_presigned_url_and_headers(self, remote_file_path):
+        remote_file_full_path = posixpath.join(self.artifact_uri, remote_file_path)
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
         endpoint, method = _METHOD_TO_INFO[CreateDownloadUrlRequest]
         req_body = message_to_json(
-            CreateDownloadUrlRequest(path=remote_file_path)
+            CreateDownloadUrlRequest(path=remote_file_full_path)
         )
         response_proto = CreateDownloadUrlResponse()
-        resp = call_endpoint(
+        return call_endpoint(
             host_creds=db_creds,
             endpoint=endpoint,
             method=method,
             json_body=req_body,
             response_proto=response_proto,
-        )
-        return PresignedUrlAndHeaders(
-            url=resp.url,
-            headers={header.name: header.value for header in resp.headers},
         )
