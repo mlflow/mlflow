@@ -1,8 +1,10 @@
 import base64
+import json
 import logging
 import os
 import posixpath
 import uuid
+import tempfile
 
 import requests
 
@@ -198,19 +200,27 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
-    def _download_trace(self):
+    def download_trace(self, trace_id: str):
         """
         TODO
         """
-        cred_info = self._get_credential_infos(GetCredentialsForTraceDataDownload, self.run_id)
-        self._azure_adls_gen2_upload_file(cred_info, None)
+        json_body = message_to_json(GetCredentialsForTraceDataDownload(trace_id=trace_id))
+        response = self._call_endpoint(
+            DatabricksMlflowArtifactsService, GetCredentialsForTraceDataDownload, json_body
+        )
+        # cred_info = self._get_credential_infos(GetCredentialsForTraceDataDownload, self.run_id)
+        # self._azure_adls_gen2_upload_file(cred_info, None)
 
-    def _upload_trace(self, local_file):
+    def upload_trace(self, trace):
         """
         TODO
         """
         cred_info = self._get_credential_infos(GetCredentialsForTraceDataUpload, self.run_id)
-        self._azure_adls_gen2_upload_file(local_file, cred_info, None)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "traces.json")
+            with open(path, "w") as f:
+                json.dump(trace, f)
+            self._azure_adls_gen2_upload_file(path, cred_info, None)
 
     def _get_read_credential_infos(self, remote_file_paths):
         """

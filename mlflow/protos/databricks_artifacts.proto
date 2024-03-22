@@ -297,9 +297,6 @@ message GetCredentialsForTraceDataDownload {
 
   optional string trace_id = 1 [(validate_required) = true];
 
-  // The ID of the MLflow Run for which to fetch artifact write credentials
-  optional string run_id = 2 [(validate_required) = true];
-
   message Response {
     optional ArtifactCredentialInfo credential_info = 1;
   }
@@ -310,9 +307,6 @@ message GetCredentialsForTraceDataUpload {
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   optional string trace_id = 1 [(validate_required) = true];
-
-  // The ID of the MLflow Run for which to fetch artifact read credentials
-  optional string run_id = 2 [(validate_required) = true];
 
   message Response {
     optional ArtifactCredentialInfo credential_info = 1;

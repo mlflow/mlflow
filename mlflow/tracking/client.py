@@ -432,6 +432,18 @@ class MlflowClient:
         """
         return self._tracking_client.get_trace_info(request_id)
 
+    def download_trace(self, trace_id):
+        """
+        TODO
+        """
+        return self._tracking_client.download_trace(trace_id)
+
+    def upload_trace(self, trace_id, trace):
+        """
+        TODO
+        """
+        return self._tracking_client.upload_trace(trace_id, trace)
+
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
