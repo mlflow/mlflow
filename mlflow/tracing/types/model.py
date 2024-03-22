@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, Union
 
 from opentelemetry import trace as trace_api
 
+from mlflow.entities.trace_info import TraceInfo
+
 
 @dataclass
 class Trace:
@@ -36,30 +38,6 @@ class Trace:
             "application/databricks.mlflow.trace": self.to_json(),
             "text/plain": self.__repr__(),
         }
-
-
-@dataclass
-class TraceInfo:
-    """A lightweight object that contains the metadata of a trace.
-
-    Args:
-        trace_id: Unique identifier of the trace.
-        experiment_id: The ID of the experiment that contains the trace.
-        start_time: Start time of the trace in microseconds, inherited from the root span.
-        end_time: End time of the trace in microseconds, inherited from the root span.
-        status: Status of the trace, inherited from the root span.
-        attributes: Arbitrary string key-value pairs of other trace attributes such as
-            name, source, root-level inputs and outputs, etc.
-        tags: String key-value pairs to attach labels to the trace.
-    """
-
-    trace_id: str
-    experiment_id: str
-    start_time: int
-    end_time: int
-    status: Status
-    attributes: Dict[str, str]
-    tags: Dict[str, str]
 
 
 @dataclass

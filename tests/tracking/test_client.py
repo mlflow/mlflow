@@ -21,13 +21,15 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
+from mlflow.entities.trace_request_metadata import TraceRequestMetadata
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.types.constant import TraceAttributeKey
+from mlflow.tracing.types.constant import TraceMetadataKey
 from mlflow.tracing.types.model import SpanType, Status, StatusCode
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -44,6 +46,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
 )
+
+from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -162,7 +166,7 @@ def test_client_get_trace_info(mock_store):
     mock_store.get_trace_info.assert_called_once_with("1234567")
 
 
-def test_start_and_end_trace():
+def test_start_and_end_trace(mock_trace_client):
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
@@ -220,19 +224,20 @@ def test_start_and_end_trace():
     traces = mlflow.get_traces()
     assert len(traces) == 1
     trace_info = traces[0].trace_info
-    assert trace_info.trace_id is not None
-    assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e6  # at least 0.1 sec
+    assert trace_info.request_id is not None
+    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 25}'
+    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
+    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
     spans = traces[0].trace_data.spans
     assert len(spans) == 3
 
     span_name_to_span = {span.name: span for span in spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.start_time == trace_info.start_time
-    assert root_span.end_time == trace_info.end_time
+    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
     assert root_span.parent_span_id is None
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.inputs == {"x": 1, "y": 2}
@@ -253,7 +258,7 @@ def test_start_and_end_trace():
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
 
 
-def test_start_and_end_trace_before_all_span_end():
+def test_start_and_end_trace_before_all_span_end(mock_trace_client):
     # This test is to verify that the trace is still exported even if some spans are not ended
     import mlflow
     from mlflow.tracing.types.model import StatusCode
@@ -292,8 +297,9 @@ def test_start_and_end_trace_before_all_span_end():
     assert len(traces) == 1
 
     trace_info = traces[0].trace_info
-    assert trace_info.trace_id is not None
-    assert trace_info.start_time < trace_info.end_time
+    assert trace_info.request_id is not None
+    assert trace_info.timestamp_ms is not None
+    assert trace_info.execution_time_ms is not None
     assert trace_info.status.status_code == StatusCode.OK
 
     spans = traces[0].trace_data.spans
@@ -303,8 +309,8 @@ def test_start_and_end_trace_before_all_span_end():
     root_span = span_name_to_span["predict"]
     assert root_span.parent_span_id is None
     assert root_span.status.status_code == StatusCode.OK
-    assert root_span.start_time == trace_info.start_time
-    assert root_span.end_time == trace_info.end_time
+    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
 
     ended_span = span_name_to_span["ended-span"]
     assert ended_span.parent_span_id == root_span.context.span_id

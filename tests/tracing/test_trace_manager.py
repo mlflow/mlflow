@@ -84,12 +84,12 @@ def test_add_and_pop_span_thread_safety():
     trace_manager.flush()
 
     # Add spans from 10 different threads to 5 different traces
-    trace_ids = [f"trace_{i}" for i in range(5)]
+    request_ids = [f"trace_{i}" for i in range(5)]
     num_threads = 10
 
     def add_spans(thread_id):
-        for trace_id in trace_ids:
-            trace_manager.add_or_update_span(_create_test_span(trace_id, f"span_{thread_id}"))
+        for request_id in request_ids:
+            trace_manager.add_or_update_span(_create_test_span(request_id, f"span_{thread_id}"))
 
     threads = [Thread(target=add_spans, args=[i]) for i in range(num_threads)]
 
@@ -98,10 +98,10 @@ def test_add_and_pop_span_thread_safety():
     for thread in threads:
         thread.join()
 
-    for trace_id in trace_ids:
-        trace = trace_manager.pop_trace(trace_id)
+    for request_id in request_ids:
+        trace = trace_manager.pop_trace(request_id)
         assert trace is not None
-        assert trace.trace_info.trace_id == trace_id
+        assert trace.trace_info.request_id == request_id
         assert len(trace.trace_data.spans) == num_threads
 
 
@@ -109,13 +109,13 @@ def test_get_span_from_id():
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.flush()
 
-    trace_id_1 = "trace_1"
-    span_1_1 = _create_test_span(trace_id_1, "span")
-    span_1_2 = _create_test_span(trace_id_1, "child_span", parent_span_id=span_1_1.context.span_id)
+    request_id_1 = "trace_1"
+    span_1_1 = _create_test_span(request_id_1, "span")
+    span_1_2 = _create_test_span(request_id_1, "child_span", parent_span_id=span_1_1.span_id)
 
-    trace_id_2 = "trace_2"
-    span_2_1 = _create_test_span(trace_id_2, "span")
-    span_2_2 = _create_test_span(trace_id_2, "child_span", parent_span_id=span_2_1.context.span_id)
+    request_id_2 = "trace_2"
+    span_2_1 = _create_test_span(request_id_2, "span")
+    span_2_2 = _create_test_span(request_id_2, "child_span", parent_span_id=span_2_1.span_id)
 
     # Add a span for a new trace
     trace_manager.add_or_update_span(span_1_1)
@@ -123,36 +123,36 @@ def test_get_span_from_id():
     trace_manager.add_or_update_span(span_2_1)
     trace_manager.add_or_update_span(span_2_2)
 
-    assert trace_manager.get_span_from_id(trace_id_1, "span") == span_1_1
-    assert trace_manager.get_span_from_id(trace_id_2, "child_span") == span_2_2
+    assert trace_manager.get_span_from_id(request_id_1, "span") == span_1_1
+    assert trace_manager.get_span_from_id(request_id_2, "child_span") == span_2_2
 
 
 def test_ger_root_span_id():
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.flush()
 
-    trace_id_1 = "trace_1"
-    span_1_1 = _create_test_span(trace_id_1, "span")
-    span_1_2 = _create_test_span(trace_id_1, "child_span", parent_span_id=span_1_1.context.span_id)
+    request_id_1 = "trace_1"
+    span_1_1 = _create_test_span(request_id_1, "span")
+    span_1_2 = _create_test_span(request_id_1, "child_span", parent_span_id=span_1_1.span_id)
 
     # Add a span for a new trace
     trace_manager.add_or_update_span(span_1_1)
     trace_manager.add_or_update_span(span_1_2)
 
-    assert trace_manager.get_root_span_id(trace_id_1) == "span"
+    assert trace_manager.get_root_span_id(request_id_1) == "span"
 
     # Non-existing trace
     assert trace_manager.get_root_span_id("trace_2") is None
 
 
-def _create_test_span(trace_id, span_id, parent_span_id=None, start_time=None, end_time=None):
+def _create_test_span(request_id_1, span_id, parent_span_id=None, start_time=None, end_time=None):
     if start_time is None:
         start_time = time.time_ns()
     if end_time is None:
         end_time = time.time_ns()
 
     mock_span = mock.MagicMock()
-    mock_span.get_span_context().trace_id = trace_id
+    mock_span.get_span_context().trace_id = request_id_1
     mock_span.get_span_context().span_id = span_id
     mock_span.parent.span_id = parent_span_id
     mock_span.start_time = start_time

@@ -1,13 +1,14 @@
+from dataclasses import dataclass
 from typing import List, Optional
 
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.trace_request_metadata import TraceRequestMetadata
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.trace_tag import TraceTag
-from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 
 
+@dataclass
 class TraceInfo(_MLflowObject):
     """Metadata about a trace.
 
@@ -21,34 +22,13 @@ class TraceInfo(_MLflowObject):
         tags: tags associated with the trace.
     """
 
-    def __init__(
-        self,
-        request_id: str,
-        experiment_id: str,
-        timestamp_ms: int,
-        execution_time_ms: int,
-        status: TraceStatus,
-        request_metadata: Optional[List[TraceRequestMetadata]] = None,
-        tags: Optional[List[TraceTag]] = None,
-    ):
-        if request_id is None:
-            raise MlflowException("`request_id` cannot be None.")
-        if experiment_id is None:
-            raise MlflowException("`experiment_id` cannot be None.")
-        if timestamp_ms is None:
-            raise MlflowException("`timestamp_ms` cannot be None.")
-        if execution_time_ms is None:
-            raise MlflowException("`execution_time_ms` cannot be None.")
-        if status is None:
-            raise MlflowException("`status` cannot be None.")
-
-        self.request_id = request_id
-        self.experiment_id = experiment_id
-        self.timestamp_ms = timestamp_ms
-        self.execution_time_ms = execution_time_ms
-        self.status = status
-        self.request_metadata = request_metadata
-        self.tags = tags
+    request_id: str
+    experiment_id: str
+    timestamp_ms: int
+    execution_time_ms: Optional[int]
+    status: TraceStatus
+    request_metadata: Optional[List[TraceRequestMetadata]] = None
+    tags: Optional[List[TraceTag]] = None
 
     def __eq__(self, other):
         if type(other) is type(self):

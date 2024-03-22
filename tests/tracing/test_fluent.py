@@ -2,7 +2,7 @@ import time
 from unittest import mock
 
 import mlflow
-from mlflow.tracing.types.constant import TraceAttributeKey
+from mlflow.tracing.types.constant import TraceMetadataKey
 from mlflow.tracing.types.model import SpanType, StatusCode
 
 
@@ -31,19 +31,19 @@ def test_trace(mock_client):
 
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
-    assert trace_info.trace_id is not None
-    assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e6  # at least 0.1 sec
+    assert trace_info.request_id is not None
+    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 2, "y": 5}'
-    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 64}'
+    request_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
+    assert request_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert request_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 64}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
 
     span_name_to_span = {span.name: span for span in spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.start_time == trace_info.start_time
-    assert root_span.end_time == trace_info.end_time
+    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
     assert root_span.parent_span_id is None
     assert root_span.inputs == {"x": 2, "y": 5}
     assert root_span.outputs == {"output": 64}
@@ -85,10 +85,11 @@ def test_trace_handle_exception_during_prediction(mock_client):
     # Trace should be logged even if the function fails, with status code ERROR
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
-    assert trace_info.trace_id is not None
+    assert trace_info.request_id is not None
     assert trace_info.status.status_code == StatusCode.ERROR
-    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 2, "y": 5}'
-    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == ""
+    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
+    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == ""
 
     spans = trace.trace_data.spans
     assert len(spans) == 2
@@ -118,8 +119,9 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
     assert output == 7
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
-    assert trace_info.attributes[TraceAttributeKey.INPUTS] == ""
-    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 7}'
+    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
+    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == ""
+    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 7}'
 
 
 def test_start_span_context_manager(mock_client):
@@ -152,19 +154,20 @@ def test_start_span_context_manager(mock_client):
 
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
-    assert trace_info.trace_id is not None
-    assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e6  # at least 0.1 sec
+    assert trace_info.request_id is not None
+    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 25}'
+    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
+    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
 
     span_name_to_span = {span.name: span for span in spans}
     root_span = span_name_to_span["root_span"]
-    assert root_span.start_time == trace_info.start_time
-    assert root_span.end_time == trace_info.end_time
+    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
     assert root_span.parent_span_id is None
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.inputs == {"x": 1, "y": 2}
@@ -222,19 +225,20 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
 
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
-    assert trace_info.trace_id is not None
-    assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e6  # at least 0.1 sec
+    assert trace_info.request_id is not None
+    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status.status_code == StatusCode.OK
-    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 5}'
+    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
+    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 5}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 2
 
     span_name_to_span = {span.name: span for span in spans}
     root_span = span_name_to_span["root_span"]
-    assert root_span.start_time == trace_info.start_time
-    assert root_span.end_time == trace_info.end_time
+    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
     assert root_span.parent_span_id is None
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.inputs == {"x": 1, "y": 2}

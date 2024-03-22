@@ -31,6 +31,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.trace_tag import TraceTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
@@ -493,7 +494,8 @@ class MlflowClient:
             root_span.set_attributes(attributes)
 
         trace_info = trace_manager.get_trace_info(root_span.trace_id)
-        trace_info.tags.update(tags or {})
+        tags = [TraceTag(key=k, value=v) for k, v in (tags or {}).items()]
+        trace_info.tags.append(tags)
 
         return root_span
 

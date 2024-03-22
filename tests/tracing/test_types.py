@@ -31,17 +31,17 @@ def test_json_deserialization(mock_client):
 
     assert trace_json_as_dict == {
         "trace_info": {
-            "trace_id": trace.trace_info.trace_id,
+            "request_id": trace.trace_info.request_id,
             "experiment_id": "EXPERIMENT",
-            "start_time": trace.trace_info.start_time,
-            "end_time": trace.trace_info.end_time,
+            "timestamp_ms": trace.trace_info.timestamp_ms,
+            "execution_time_ms": trace.trace_info.execution_time_ms,
             "status": {"status_code": "StatusCode.OK", "description": ""},
-            "attributes": {
-                "name": "predict",
-                "inputs": '{"x": 2, "y": 5}',
-                "outputs": '{"output": 8}',
-            },
-            "tags": {},
+            "request_metadata": [
+                "<TraceRequestMetadata: key='name', value='predict'>",
+                "<TraceRequestMetadata: key='inputs', value='{\"x\": 2, \"y\": 5}'>",
+                "<TraceRequestMetadata: key='outputs', value='{\"output\": 8}'>",
+            ],
+            "tags": [],
         },
         "trace_data": {
             "spans": [

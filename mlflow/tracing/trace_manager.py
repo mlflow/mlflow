@@ -6,7 +6,11 @@ from typing import Dict, Optional
 
 from opentelemetry import trace as trace_api
 
-from mlflow.tracing.types.model import Status, StatusCode, Trace, TraceData, TraceInfo
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_request_metadata import TraceRequestMetadata
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_tag import TraceTag
+from mlflow.tracing.types.model import Trace, TraceData, TraceInfo
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
@@ -102,7 +106,7 @@ class InMemoryTraceManager:
             # NB: the first span might not be a root span, so we can only
             # set trace_id here. Other information will be propagated from
             # the root span when it ends.
-            self._create_empty_trace(trace_id)
+            self._create_empty_trace(trace_id, span.start_time)
 
         trace_data_dict = self._traces[trace_id].span_dict
         trace_data_dict[span.span_id] = span
@@ -110,19 +114,26 @@ class InMemoryTraceManager:
     def _create_empty_trace(
         self,
         trace_id: str,
+        start_time_ns: int,
         experiment_id: Optional[str] = None,
-        attributes: Optional[Dict[str, str]] = None,
+        request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ):
+        request_metadata = (
+            [TraceRequestMetadata(key, value) for (key, value) in request_metadata.items()]
+            if request_metadata
+            else []
+        )
+        tags = [TraceTag(key, value) for (key, value) in tags.items()] if tags else []
+
         trace_info = TraceInfo(
-            trace_id=trace_id,
-            experiment_id=experiment_id
-            or "EXPERIMENT",  # TODO: Fetch this from global state or create a new one
-            start_time=None,
-            end_time=None,
-            status=Status(StatusCode.UNSET),
-            attributes=attributes or {},
-            tags=tags or {},
+            request_id=trace_id,
+            experiment_id=experiment_id or "EXPERIMENT",  # TODO: Fetch this from global state
+            timestamp_ms=start_time_ns // 1_000_000,
+            execution_time_ms=None,
+            status=TraceStatus.UNSPECIFIED,
+            request_metadata=request_metadata,
+            tags=tags,
         )
         with self._lock:
             if trace_id in self._traces:
