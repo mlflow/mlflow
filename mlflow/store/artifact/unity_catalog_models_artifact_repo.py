@@ -1,3 +1,4 @@
+from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -7,6 +8,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -108,11 +110,14 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         Get underlying ArtifactRepository instance for model version blob
         storage
         """
-        scoped_token = self._get_scoped_token()
-        blob_storage_path = self._get_blob_storage_path()
-        return get_artifact_repo_from_storage_info(
-            storage_location=blob_storage_path, scoped_token=scoped_token
-        )
+        if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
+            return PresignedUrlArtifactRepository(f"/Models/{self.model_name.replace('.', '/')}/{self.model_version}")
+        else:
+            scoped_token = self._get_scoped_token()
+            blob_storage_path = self._get_blob_storage_path()
+            return get_artifact_repo_from_storage_info(
+                storage_location=blob_storage_path, scoped_token=scoped_token
+            )
 
     def list_artifacts(self, path=None):
         return self._get_artifact_repo().list_artifacts(path=path)

@@ -5,7 +5,8 @@ from collections import namedtuple
 import mlflow
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_fs_service_pb2 import FilesystemService, CreateDownloadUrlRequest, \
-    CreateDownloadUrlResponse, ListRequest, ListResponse, CreateUploadUrlRequest, CreateUploadUrlResponse
+    CreateDownloadUrlResponse, ListRequest, ListResponse, CreateUploadUrlRequest, CreateUploadUrlResponse, \
+    ListDirectoryResponse
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
@@ -76,22 +77,36 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
     def list_artifacts(self, path):
         fs_full_path = posixpath.join(self.artifact_uri, path)
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
-        endpoint, method = _METHOD_TO_INFO[ListRequest]
-        req_body = message_to_json(
-            ListRequest(
-                path=fs_full_path,
-                recursive=True
-            )
-        )
-        response_proto = ListResponse()
-        resp = call_endpoint(
-            host_creds=db_creds,
-            endpoint=endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=response_proto,
-        ).files
-        return resp
+        method = "GET"
+
+        paths = []
+        directories = [fs_full_path]
+        while directories:
+            directory = directories.pop()
+            page_token = ''
+            while True:
+                req_body = "" if not page_token else message_to_json(
+                    {"page_token": page_token}
+                )
+                endpoint = posixpath.join("/api/2.0/fs/directories", directory.lstrip('/'))
+
+                response_proto = ListDirectoryResponse()
+                resp = call_endpoint(
+                    host_creds=db_creds,
+                    endpoint=endpoint,
+                    method=method,
+                    json_body=req_body,
+                    response_proto=response_proto,
+                )
+                for dir_entry in resp.contents:
+                    if dir_entry.is_directory:
+                        directories.append(dir_entry.path)
+                    else:
+                        paths.append(dir_entry.path)
+                page_token = resp.next_page_token
+                if not page_token:
+                    break
+        return paths
 
     def _create_download_destination(self, src_artifact_path, dst_local_dir_path=None):
         src_artifact_path = src_artifact_path.lstrip("/")  # Ensure relative path for posixpath.join
