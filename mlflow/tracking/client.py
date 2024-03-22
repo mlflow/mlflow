@@ -112,14 +112,6 @@ class MlflowClient:
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
 
-        # NB: Tracing dependencies like OpenTelemetry SDK is not installed in mlflow-skinny.
-        try:
-            from mlflow.tracing.trace_manager import InMemoryTraceManager
-
-            self._trace_manager = InMemoryTraceManager.get_instance()
-        except ImportError:
-            pass
-
     @property
     def tracking_uri(self):
         return self._tracking_client.tracking_uri
@@ -486,9 +478,10 @@ class MlflowClient:
 
                 client.end_trace(trace_id)
         """
-        root_span = self._trace_manager.start_detached_span(name)
+        trace_manager = self._get_trace_manager()
+        root_span = trace_manager.start_detached_span(name)
 
-        trace_info = self._trace_manager.get_trace_info(root_span.trace_id)
+        trace_info = trace_manager.get_trace_info(root_span.trace_id)
         trace_info.attributes = attributes or {}
         trace_info.tags = tags or {}
 
@@ -505,12 +498,13 @@ class MlflowClient:
         Args:
             trace_id: The ID of the trace to end.
         """
-        root_span_id = self._trace_manager.get_root_span_id(trace_id)
+        trace_manager = self._get_trace_manager()
+        root_span_id = trace_manager.get_root_span_id(trace_id)
 
         if root_span_id is None:
             raise MlflowException(f"Trace with ID {trace_id} not found.")
 
-        root_span = self._trace_manager.get_span_from_id(trace_id, root_span_id)
+        root_span = trace_manager.get_span_from_id(trace_id, root_span_id)
         root_span.end()
 
     def start_span(
@@ -561,12 +555,17 @@ class MlflowClient:
                 "to start a new trace and root span."
             )
 
-        return self._trace_manager.start_detached_span(
+        return self._get_trace_manager().start_detached_span(
             name=name,
             trace_id=trace_id,
             parent_span_id=parent_span_id,
             span_type=span_type,
         )
+
+    def _get_trace_manager(self):
+        from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+        return InMemoryTraceManager.get_instance()
 
     def search_experiments(
         self,

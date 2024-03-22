@@ -360,6 +360,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.Object"),
     ("py:class", "mlflow.types.schema.ParamSchema"),
     ("py:class", "mlflow.types.schema.ParamSpec"),
+    ("py:class", "MLflowSpanWrapper"),
     ("py:class", "ModelSignature"),
     ("py:class", "ModelInputExample"),
     ("py:class", "Model"),
