@@ -363,6 +363,7 @@ spark:
       cd python
       pip install '.[connect]'
       pyspark --version
+      echo test
 
   models:
     minimum: "3.1.2"
