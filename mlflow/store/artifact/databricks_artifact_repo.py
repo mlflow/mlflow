@@ -3,8 +3,9 @@ import json
 import logging
 import os
 import posixpath
-import uuid
 import tempfile
+import uuid
+from pathlib import Path
 
 import requests
 
@@ -87,6 +88,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
+        self._run_id = None
+        self._run_relative_artifact_repo_root_path = None
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -109,21 +112,33 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(artifact_uri)
             or mlflow.tracking.get_tracking_uri()
         )
-        self.run_id = self._extract_run_id(self.artifact_uri)
-        # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
-        # the path of `artifact_uri` relative to the MLflow Run's artifact root
-        # (the `run_relative_artifact_repo_root_path`). All operations performed on this artifact
-        # repository will be performed relative to this computed location
-        artifact_repo_root_path = extract_and_normalize_path(artifact_uri)
-        run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
-        run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
-        run_relative_root_path = posixpath.relpath(
-            path=artifact_repo_root_path, start=run_artifact_root_path
-        )
-        # If the paths are equal, then use empty string over "./" for ListArtifact compatibility.
-        self.run_relative_artifact_repo_root_path = (
-            "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
-        )
+
+    @property
+    def run_id(self):
+        if self._run_id is None:
+            self._run_id = self._extract_run_id(self.artifact_uri)
+
+        return self._run_id
+
+    @property
+    def run_relative_artifact_repo_root_path(self):
+        if self._run_relative_artifact_repo_root_path is None:
+            # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
+            # the path of `artifact_uri` relative to the MLflow Run's artifact root
+            # (the `run_relative_artifact_repo_root_path`). All operations performed on this
+            # artifact repository will be performed relative to this computed location
+            artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
+            run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
+            run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
+            run_relative_root_path = posixpath.relpath(
+                path=artifact_repo_root_path, start=run_artifact_root_path
+            )
+            # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
+            self._run_relative_artifact_repo_root_path = (
+                "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
+            )
+
+        return self._run_relative_artifact_repo_root_path
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -142,9 +157,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         artifact_path = extract_and_normalize_path(artifact_uri)
         return artifact_path.split("/")[3]
 
-    def _call_endpoint(self, service, api, json_body):
+    def _call_endpoint(self, service, api, json_body, path_params=None):
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
+        if path_params:
+            endpoint = endpoint.format(**path_params)
         response_proto = api.Response()
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
 
@@ -200,27 +217,73 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
-    def download_trace(self, trace_id: str):
+    def download_trace(self, trace_id):
         """
-        TODO
-        """
-        json_body = message_to_json(GetCredentialsForTraceDataDownload(trace_id=trace_id))
-        response = self._call_endpoint(
-            DatabricksMlflowArtifactsService, GetCredentialsForTraceDataDownload, json_body
-        )
-        # cred_info = self._get_credential_infos(GetCredentialsForTraceDataDownload, self.run_id)
-        # self._azure_adls_gen2_upload_file(cred_info, None)
+        Downloads the trace data for the specified trace ID.
 
-    def upload_trace(self, trace):
+        Args:
+            trace_id: The trace ID for which to download trace data.
+
+        Returns:
+            A dictionary containing the trace data.
         """
-        TODO
+        cred = self._call_endpoint(
+            DatabricksMlflowArtifactsService,
+            GetCredentialsForTraceDataDownload,
+            None,
+            {"trace_id": trace_id},
+        )
+        signed_uri = cred.credential_info.signed_uri
+        headers = self._extract_headers_from_credentials(cred.credential_info.headers)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir, "traces.json")
+            download_file_using_http_uri(
+                signed_uri,
+                local_path,
+                headers=headers,
+            )
+            with local_path.open("r") as f:
+                return json.load(f)
+
+    def upload_trace(self, trace_id, trace):
         """
-        cred_info = self._get_credential_infos(GetCredentialsForTraceDataUpload, self.run_id)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "traces.json")
-            with open(path, "w") as f:
+        Uploads the trace data for the specified trace ID.
+
+        Args:
+            trace_id: The trace ID for which to upload trace data.
+            trace: The trace data to upload.
+
+        Returns:
+            None
+        """
+        cred = self._call_endpoint(
+            DatabricksMlflowArtifactsService,
+            GetCredentialsForTraceDataUpload,
+            None,
+            {"trace_id": trace_id},
+        )
+        signed_uri = cred.credential_info.signed_uri
+        headers = self._extract_headers_from_credentials(cred.credential_info.headers)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, "traces.json")
+            with temp_file.open("w") as f:
                 json.dump(trace, f)
-            self._azure_adls_gen2_upload_file(path, cred_info, None)
+
+            size = temp_file.stat().st_size
+            if cred.credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+                put_adls_file_creation(sas_url=signed_uri, headers=headers)
+                patch_adls_file_upload(
+                    sas_url=signed_uri,
+                    local_file=temp_file,
+                    start_byte=0,
+                    size=size,
+                    position=0,
+                    headers=headers,
+                    is_single=True,
+                )
+            else:
+                # Add more cloud providers here
+                raise NotImplementedError
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
