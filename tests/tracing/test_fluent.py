@@ -29,8 +29,7 @@ def test_trace(mock_client):
     model = TestModel()
     model.predict(2, 5)
 
-    mock_client.log_trace.assert_called_once()
-    trace = mock_client.log_trace.call_args[0][0]
+    trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.trace_id is not None
     assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
@@ -84,8 +83,7 @@ def test_trace_handle_exception_during_prediction(mock_client):
         pass
 
     # Trace should be logged even if the function fails, with status code ERROR
-    mock_client.log_trace.assert_called_once()
-    trace = mock_client.log_trace.call_args[0][0]
+    trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.trace_id is not None
     assert trace_info.status.status_code == StatusCode.ERROR
@@ -111,15 +109,14 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
         output = model.predict(2, 5)
 
     assert output == 7
-    mock_client.log_trace.assert_not_called()
+    assert mlflow.get_traces() == []
 
     # Exception during inspecting inputs: trace is logged without inputs field
     with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
-    mock_client.log_trace.assert_called_once()
-    trace = mock_client.log_trace.call_args[0][0]
+    trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.attributes[TraceAttributeKey.INPUTS] == ""
     assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 7}'
@@ -153,8 +150,7 @@ def test_start_span_context_manager(mock_client):
     model = TestModel()
     model.predict(1, 2)
 
-    mock_client.log_trace.assert_called_once()
-    trace = mock_client.log_trace.call_args[0][0]
+    trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.trace_id is not None
     assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec

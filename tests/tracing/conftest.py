@@ -1,7 +1,6 @@
-from unittest import mock
-
 import pytest
 
+from mlflow.tracing.clients.local import InMemoryTraceClient
 from mlflow.tracing.export.mlflow import InMemoryTraceDataAggregator
 from mlflow.tracing.provider import _setup_tracer_provider
 
@@ -26,8 +25,11 @@ def mock_client():
     with _TRACER_PROVIDER_SET_ONCE._lock:
         _TRACER_PROVIDER_SET_ONCE._done = False
 
-    mock_client = mock.MagicMock()
+    mock_client = InMemoryTraceClient.get_instance()
 
     _setup_tracer_provider(mock_client)
 
-    return mock_client
+    yield mock_client
+
+    # Clear traces collected in the buffer
+    mock_client._flush()

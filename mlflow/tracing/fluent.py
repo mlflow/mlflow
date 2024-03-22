@@ -1,6 +1,6 @@
 import contextlib
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -123,6 +123,21 @@ def start_span(
             yield mlflow_span
     finally:
         mlflow_span._end()
+
+
+def get_traces(n: int = 1) -> List:
+    """
+    Get the last n traces.
+
+    Args:
+        n: The number of traces to return.
+
+    Returns:
+        A list of Trace objects.
+    """
+    from mlflow.tracing.clients import get_trace_client
+
+    return get_trace_client().get_traces(n)
 
 
 # NB: Extracting as a function just to allow mocking in tests

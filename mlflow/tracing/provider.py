@@ -5,7 +5,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.util._once import Once
 
-from mlflow.tracing.client import TraceClient, get_trace_client
+from mlflow.tracing.clients import TraceClient, get_trace_client
 from mlflow.tracing.export.mlflow import MLflowSpanExporter
 
 # Once() object ensures a function is executed only once in a process.
