@@ -74,6 +74,7 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
+
 _logger = logging.getLogger(__name__)
 
 _STAGES_DEPRECATION_WARNING = (
@@ -111,9 +112,13 @@ class MlflowClient:
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
 
-        from mlflow.tracing.trace_manager import InMemoryTraceManager
+        # NB: Tracing dependencies like OpenTelemetry SDK is not installed in mlflow-skinny.
+        try:
+            from mlflow.tracing.trace_manager import InMemoryTraceManager
 
-        self._trace_manager = InMemoryTraceManager.get_instance()
+            self._trace_manager = InMemoryTraceManager.get_instance()
+        except ImportError:
+            pass
 
     @property
     def tracking_uri(self):
