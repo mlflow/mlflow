@@ -1,24 +1,25 @@
-import os
-
 import mlflow
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 
 
 def test_download_artifacts():
+    import os
     os.environ["MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED"] = "True"
-    mlflow.set_registry_uri("databricks-uc://azure-dogfood")
+    mlflow.set_registry_uri("databricks-uc://arclight-prototype")
 
     # uri = mlflow.MlflowClient().get_model_version_download_uri("artjen.test.newtestmodel", "2")
     # ModelsArtifactRepository(uri).download_artifacts(artifact_path="")
-    ModelsArtifactRepository("models:/artjen.default.new-model/2").download_artifacts(artifact_path="")
+    ModelsArtifactRepository("models:/main.default.newtestmodel/5").download_artifacts(artifact_path="")
     print("success")
 
 
 def test_upload_artifacts(tmp_path):
     from sklearn import datasets
     from sklearn.ensemble import RandomForestClassifier
+    import os
+    os.environ["MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED"] = "True"
 
-    mlflow.set_registry_uri("databricks-uc://azure-dogfood")
+    mlflow.set_registry_uri("databricks-uc://arclight-prototype")
 
     with mlflow.start_run():
         # Train a sklearn model on the iris dataset

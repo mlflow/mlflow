@@ -1,14 +1,12 @@
 import json
 import os
 import posixpath
-from collections import namedtuple
 
 import mlflow
 from mlflow.entities import FileInfo
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_fs_service_pb2 import FilesystemService, CreateDownloadUrlRequest, \
-    CreateDownloadUrlResponse, ListRequest, ListResponse, CreateUploadUrlRequest, CreateUploadUrlResponse, \
-    ListDirectoryResponse
+    CreateDownloadUrlResponse, CreateUploadUrlRequest, CreateUploadUrlResponse, ListDirectoryResponse
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
@@ -18,28 +16,25 @@ from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service,
 
 _METHOD_TO_INFO = extract_api_info_for_service(FilesystemService, _REST_API_PATH_PREFIX)
 
-PresignedUrlAndHeaders = namedtuple(
-    "PresignedUrlAndHeaders",
-    [
-        # presigned URL for the artifact
-        "url",
-        # headers to include in http request when using the presigned URL
-        "headers",
-    ],
-)
-
 
 class PresignedUrlArtifactRepository(CloudArtifactRepository):
     """
-    Stores artifacts on S3 using presigned URLs.
+    Stores and retrieves model artifacts using presigned URLs.
     """
 
     def __init__(self, artifact_uri):
         super().__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
-        raise NotImplementedError("this is for testing purposes only, not for production use.")
-        pass
+        artifact_file_path = os.path.basename(local_file)
+        if artifact_path:
+            artifact_file_path = posixpath.join(artifact_path, artifact_file_path)
+        cloud_credentials = self._get_write_credential_infos(remote_file_paths=[artifact_file_path])[0]
+        self._upload_to_cloud(
+            cloud_credential_info=cloud_credentials,
+            src_file_path=local_file,
+            artifact_file_path=None,
+        )
 
     def _get_write_credential_infos(self, remote_file_paths):
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
@@ -60,16 +55,18 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
                 json_body=req_body,
                 response_proto=response_proto,
             )
-            elem = PresignedUrlAndHeaders(
-                url=resp.url,
-                headers={header.name: header.value for header in resp.headers},
-            )
-            credential_infos.append(elem)
+            headers = [
+                ArtifactCredentialInfo.HttpHeader(name=header.name, value=header.value)
+                for header in resp.headers
+            ]
+            credential_infos.append(ArtifactCredentialInfo(signed_uri=resp.url, headers=headers))
         return credential_infos
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
-        presigned_url = cloud_credential_info.url
-        headers = cloud_credential_info.headers
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
+        # artifact_file_path is unused in this implementation because the presigned URL and local file path
+        # are sufficient for upload to cloud storage
+        presigned_url = cloud_credential_info.signed_uri
+        headers = {header.name: header.value for header in cloud_credential_info.headers}
         with open(src_file_path, "rb") as f:
             data = f.read()
             with cloud_storage_http_request("put", presigned_url, data=data, headers=headers) as response:
@@ -107,21 +104,21 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
     def _get_read_credential_infos(self, remote_file_paths):
         credential_infos = []
         for remote_file_path in remote_file_paths:
-            resp = self._get_presigned_url_and_headers(remote_file_path)
+            resp = self._get_download_presigned_url_and_headers(remote_file_path)
             headers = [
                 ArtifactCredentialInfo.HttpHeader(name=header.name, value=header.value)
                 for header in resp.headers
             ]
-            credential_infos.append(ArtifactCredentialInfo(signed_url=resp.url, headers=headers))
+            credential_infos.append(ArtifactCredentialInfo(signed_uri=resp.url, headers=headers))
         return credential_infos
 
     def _download_from_cloud(self, remote_file_path, local_path):
-        resp = self._get_presigned_url_and_headers(remote_file_path)
+        resp = self._get_download_presigned_url_and_headers(remote_file_path)
         presigned_url = resp.url
         headers = {header.name: header.value for header in resp.headers}
         download_file_using_http_uri(http_uri=presigned_url, download_path=local_path, headers=headers)
 
-    def _get_presigned_url_and_headers(self, remote_file_path):
+    def _get_download_presigned_url_and_headers(self, remote_file_path):
         remote_file_full_path = posixpath.join(self.artifact_uri, remote_file_path)
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
         endpoint, method = _METHOD_TO_INFO[CreateDownloadUrlRequest]
