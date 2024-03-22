@@ -5,7 +5,7 @@ import posixpath
 import mlflow
 from mlflow.entities import FileInfo
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
-from mlflow.protos.databricks_fs_service_pb2 import FilesystemService, CreateDownloadUrlRequest, \
+from mlflow.protos.databricks_filesystem_service_pb2 import FilesystemService, CreateDownloadUrlRequest, \
     CreateDownloadUrlResponse, CreateUploadUrlRequest, CreateUploadUrlResponse, ListDirectoryResponse
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
