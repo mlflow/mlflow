@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 2.11.3 (2024-03-21)
+
+MLflow 2.11.3 is a patch release that addresses a security exploit with the Open Source MLflow tracking server and miscellaneous Databricks integration fixes
+
+Bug fixes:
+
+- [Security] Address an LFI exploit related to misuse of url parameters (#11473, @daniellok-db)
+- [Databricks] Fix an issue with Databricks Runtime version acquisition when deploying a model using Databricks Docker Container Services (#11483, @WeichenXu123)
+- [Databricks] Correct an issue with credential management within Databricks Model Serving (#11468, @victorsun123)
+- [Models] Fix an issue with chat request validation for LangChain flavor (#11478, @BenWilson2)
+- [Models] Fixes for LangChain models that are logged as code (#11494, #11436 @sunishsheth2009)
+
+## 2.11.2 (2024-03-19)
+
+MLflow 2.11.2 is a patch release that introduces corrections for the support of custom transformer models, resolves LangChain integration problems, and includes several fixes to enhance stability.
+
+Bug fixes:
+
+- [Security] Address LFI exploit (#11376, @WeichenXu123)
+- [Models] Fix transformers models implementation to allow for custom model and component definitions to be loaded properly (#11412, #11428 @daniellok-db)
+- [Models] Fix the LangChain flavor implementation to support defining an MLflow model as code (#11370, @sunishsheth2009)
+- [Models] Fix LangChain VectorSearch parsing errors (#11438, @victorsun123)
+- [Models] Fix LangChain import issue with the community package (#11450, @sunishsheth2009)
+- [Models] Fix serialization errors with RunnableAssign in the LangChain flavor (#11358, @serena-ruan)
+- [Models] Address import issues with LangChain community for Databricks models (#11350, @liangz1)
+- [Registry] Fix model metadata sharing within Databricks Unity Catalog (#11357, #11392 @WeichenXu123)
+
+Small bug fixes and documentation updates:
+
+#11321, #11323, @michael-berk; #11326, #11455, @B-Step62; #11333, @cdancette; #11373, @es94129; #11429, @BenWilson2; #11413, @GuyAglionby; #11338, #11339, #11355, #11432, #11441, @daniellok-db; #11380, #11381, #11383, #11394, @WeichenXu123; #11446, @harupy;
+
 ## 2.11.1 (2024-03-06)
 
 MLflow 2.11.1 is a patch release, containing fixes for some Databricks integrations and other various issues.

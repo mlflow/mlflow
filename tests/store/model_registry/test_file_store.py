@@ -71,6 +71,13 @@ def test_create_registered_model_with_name_that_looks_like_path(store, tmp_path)
         store.get_registered_model(name)
 
 
+def test_create_registered_model_with_percent_in_name(store, tmp_path):
+    with pytest.raises(
+        MlflowException, match=r"Registered model name cannot contain '%' character"
+    ):
+        store.get_registered_model("m%6fdel")
+
+
 def _verify_registered_model(fs, name, rm_data):
     rm = fs.get_registered_model(name)
     assert rm.name == name

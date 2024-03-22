@@ -89,6 +89,100 @@ _logger = logging.getLogger(__name__)
 _FEATURE_STORE_FLAVOR = "databricks.feature_store.mlflow_model"
 
 
+def _is_scalar(x):
+    return np.isscalar(x) or x is None
+
+
+def _validate_params(params):
+    try:
+        _infer_param_schema(params)
+    except MlflowException:
+        _logger.warning(f"Invalid params found in input example: {params}")
+        raise
+
+
+def _is_ndarray(x):
+    return isinstance(x, np.ndarray) or (
+        isinstance(x, dict) and all(isinstance(ary, np.ndarray) for ary in x.values())
+    )
+
+
+def _is_sparse_matrix(x):
+    if not HAS_SCIPY:
+        # we can safely assume that if no scipy is installed,
+        # the user won't log scipy sparse matrices
+        return False
+    return isinstance(x, (csc_matrix, csr_matrix))
+
+
+def _handle_ndarray_nans(x: np.ndarray):
+    if np.issubdtype(x.dtype, np.number):
+        return np.where(np.isnan(x), None, x)
+    else:
+        return x
+
+
+def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+    if isinstance(input_array, dict):
+        result = {}
+        for name in input_array.keys():
+            result[name] = _handle_ndarray_nans(input_array[name]).tolist()
+        return {"inputs": result}
+    else:
+        return {"inputs": _handle_ndarray_nans(input_array).tolist()}
+
+
+def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
+    return {
+        "data": _handle_ndarray_nans(x.data).tolist(),
+        "indices": x.indices.tolist(),
+        "indptr": x.indptr.tolist(),
+        "shape": list(x.shape),
+    }
+
+
+def _handle_dataframe_nans(df: pd.DataFrame):
+    return df.where(df.notnull(), None)
+
+
+def _coerce_to_pandas_df(input_ex):
+    if isinstance(input_ex, dict):
+        # We need to be compatible with infer_schema's behavior, where
+        # it infers each value's type directly.
+        if all(
+            isinstance(x, str) or (isinstance(x, list) and all(_is_scalar(y) for y in x))
+            for x in input_ex.values()
+        ):
+            # e.g.
+            # data = {"a": "a", "b": ["a", "b", "c"]}
+            # >>> pd.DataFrame([data])
+            #    a          b
+            # 0  a  [a, b, c]
+            _logger.info(
+                "We convert input dictionaries to pandas DataFrames such that "
+                "each key represents a column, collectively constituting a "
+                "single row of data. If you would like to save data as "
+                "multiple rows, please convert your data to a pandas "
+                "DataFrame before passing to input_example."
+            )
+        input_ex = pd.DataFrame([input_ex])
+    elif np.isscalar(input_ex):
+        input_ex = pd.DataFrame([input_ex])
+    elif not isinstance(input_ex, pd.DataFrame):
+        input_ex = None
+    return input_ex
+
+
+def _handle_dataframe_input(df):
+    result = _handle_dataframe_nans(df).to_dict(orient="split")
+    # Do not include row index
+    del result["index"]
+    if all(df.columns == range(len(df.columns))):
+        # No need to write default column index out
+        del result["columns"]
+    return result
+
+
 class _Example:
     """
     Represents an input example for MLflow model.
@@ -131,100 +225,17 @@ class _Example:
     """
 
     def __init__(self, input_example: ModelInputExample):
-        def _is_scalar(x):
-            return np.isscalar(x) or x is None
+        try:
+            import pyspark.sql
 
-        def _validate_params(params):
-            try:
-                _infer_param_schema(params)
-            except MlflowException:
-                _logger.warning(f"Invalid params found in input example: {params}")
-                raise
-
-        def _is_ndarray(x):
-            return isinstance(x, np.ndarray) or (
-                isinstance(x, dict) and all(isinstance(ary, np.ndarray) for ary in x.values())
-            )
-
-        def _is_sparse_matrix(x):
-            if not HAS_SCIPY:
-                # we can safely assume that if no scipy is installed,
-                # the user won't log scipy sparse matrices
-                return False
-            return isinstance(x, (csc_matrix, csr_matrix))
-
-        def _handle_ndarray_nans(x: np.ndarray):
-            if np.issubdtype(x.dtype, np.number):
-                return np.where(np.isnan(x), None, x)
-            else:
-                return x
-
-        def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
-            if isinstance(input_array, dict):
-                result = {}
-                for name in input_array.keys():
-                    result[name] = _handle_ndarray_nans(input_array[name]).tolist()
-                return {"inputs": result}
-            else:
-                return {"inputs": _handle_ndarray_nans(input_array).tolist()}
-
-        def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
-            return {
-                "data": _handle_ndarray_nans(x.data).tolist(),
-                "indices": x.indices.tolist(),
-                "indptr": x.indptr.tolist(),
-                "shape": list(x.shape),
-            }
-
-        def _handle_dataframe_nans(df: pd.DataFrame):
-            return df.where(df.notnull(), None)
-
-        def _coerce_to_pandas_df(input_ex):
-            if isinstance(input_ex, dict):
-                # We need to be compatible with infer_schema's behavior, where
-                # it infers each value's type directly.
-                if all(
-                    isinstance(x, str) or (isinstance(x, list) and all(_is_scalar(y) for y in x))
-                    for x in input_ex.values()
-                ):
-                    # e.g.
-                    # data = {"a": "a", "b": ["a", "b", "c"]}
-                    # >>> pd.DataFrame([data])
-                    #    a          b
-                    # 0  a  [a, b, c]
-                    _logger.info(
-                        "We convert input dictionaries to pandas DataFrames such that "
-                        "each key represents a column, collectively constituting a "
-                        "single row of data. If you would like to save data as "
-                        "multiple rows, please convert your data to a pandas "
-                        "DataFrame before passing to input_example."
-                    )
-                input_ex = pd.DataFrame([input_ex])
-            elif np.isscalar(input_ex):
-                input_ex = pd.DataFrame([input_ex])
-            elif not isinstance(input_ex, pd.DataFrame):
-                try:
-                    import pyspark.sql.dataframe
-
-                    if isinstance(input_example, pyspark.sql.dataframe.DataFrame):
-                        raise MlflowException(
-                            "Examples can not be provided as Spark Dataframe. "
-                            "Please make sure your example is of a small size and "
-                            "turn it into a pandas DataFrame."
-                        )
-                except ImportError:
-                    pass
-                input_ex = None
-            return input_ex
-
-        def _handle_dataframe_input(df):
-            result = _handle_dataframe_nans(df).to_dict(orient="split")
-            # Do not include row index
-            del result["index"]
-            if all(df.columns == range(len(df.columns))):
-                # No need to write default column index out
-                del result["columns"]
-            return result
+            if isinstance(input_example, pyspark.sql.DataFrame):
+                raise MlflowException(
+                    "Examples can not be provided as Spark Dataframe. "
+                    "Please make sure your example is of a small size and "
+                    "turn it into a pandas DataFrame."
+                )
+        except ImportError:
+            pass
 
         self.info = {
             INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,

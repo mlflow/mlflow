@@ -2178,7 +2178,9 @@ def test_save_load_chain_as_code():
             code_paths=["tests/langchain/state_of_the_union.txt"],
         )
 
+    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2367,7 +2369,9 @@ def test_save_load_chain_as_code_optional_code_path():
             code_paths=[],
         )
 
+    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2393,3 +2397,13 @@ def test_save_load_chain_as_code_optional_code_path():
     assert langchain_flavor["databricks_dependency"] == {
         "databricks_chat_endpoint_name": ["fake-endpoint"]
     }
+
+
+def test_config_path_context():
+    with mlflow.langchain._config_path_context("tests/langchain/config.yml"):
+        assert (
+            mlflow.langchain._rag_utils.__databricks_rag_config_path__
+            == "tests/langchain/config.yml"
+        )
+
+    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
