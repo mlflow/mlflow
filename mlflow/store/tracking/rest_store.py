@@ -37,6 +37,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_trace_info_endpoint,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -235,7 +236,7 @@ class RestStore(AbstractStore):
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
         req_body = message_to_json(GetTraceInfo(trace_id=trace_id))
-        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{trace_id}/info"
+        endpoint = get_trace_info_endpoint(trace_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
 
