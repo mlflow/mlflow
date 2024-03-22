@@ -672,13 +672,10 @@ class _LangChainModelWrapper:
             # we should return the first element of the inference result
             # because we change input `data` to `[data]`
             return [data], True
-        if isinstance(data, list) and (
-            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
-        ):
+        if isinstance(data, list):
             return data, False
         raise mlflow.MlflowException.invalid_parameter_value(
-            "Input must be a pandas DataFrame or a list of strings "
-            "or a list of dictionaries "
+            "Input must be a pandas DataFrame or a list "
             f"for model {self.lc_model.__class__.__name__}"
         )
 

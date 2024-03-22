@@ -132,6 +132,7 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
     errors: dict
+    converted_chat_request_json: Optional[list]
     convert_chat_responses: bool
 
     def _prepare_to_serialize(self, response: dict):
@@ -190,12 +191,6 @@ class APIRequest:
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
             elif isinstance(self.lc_model, lc_runnables_types()):
-                (
-                    prepared_request_json,
-                    did_perform_chat_conversion,
-                ) = APIRequest._transform_request_json_for_chat_if_necessary(
-                    self.request_json, self.lc_model
-                )
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
@@ -203,7 +198,8 @@ class APIRequest:
                     # Expected Scalar value for String field 'query_text'
                     try:
                         response = self.lc_model.invoke(
-                            prepared_request_json, config={"callbacks": callback_handlers}
+                            self.converted_chat_request_json or self.request_json,
+                            config={"callbacks": callback_handlers}
                         )
                     except TypeError as e:
                         _logger.warning(
@@ -224,25 +220,19 @@ class APIRequest:
                         )
                 else:
                     response = self.lc_model.invoke(
-                        prepared_request_json, config={"callbacks": callback_handlers}
+                        self.converted_chat_request_json or self.request_json,
+                        config={"callbacks": callback_handlers}
                     )
-
-                if did_perform_chat_conversion or self.convert_chat_responses:
+                if self.converted_chat_request_json is not None or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
             else:
-                (
-                    prepared_request_json,
-                    did_perform_chat_conversion,
-                ) = APIRequest._transform_request_json_for_chat_if_necessary(
-                    self.request_json, self.lc_model
-                )
                 response = self.lc_model(
-                    prepared_request_json,
+                    self.converted_chat_request_json or self.request_json,
                     return_only_outputs=True,
                     callbacks=callback_handlers,
                 )
 
-                if did_perform_chat_conversion or self.convert_chat_responses:
+                if self.converted_chat_request_json is not None or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
                 elif len(response) == 1:
                     # to maintain existing code, single output chains will still return
@@ -385,7 +375,19 @@ def process_api_requests(
 
     results: list[tuple[int, str]] = []
     errors: dict = {}
-    requests_iter = enumerate(requests)
+
+    # Note: we should call `_transform_request_json_for_chat_if_necessary`
+    # for the whole batch data, because the conversion should obey the rule
+    # that if any record in the batch can't be converted, then all the record
+    # in this batch can't be converted.
+    (
+        converted_chat_requests,
+        did_perform_chat_conversion,
+    ) = APIRequest._transform_request_json_for_chat_if_necessary(
+        requests, lc_model
+    )
+
+    requests_iter = enumerate(zip(requests, converted_chat_requests))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
@@ -394,11 +396,14 @@ def process_api_requests(
                 _logger.warning(f"Retrying request {next_request.index}: {next_request}")
             elif req := next(requests_iter, None):
                 # get new request
-                index, request_json = req
+                index, (request_json, converted_chat_request_json) = req
+                if not did_perform_chat_conversion:
+                    converted_chat_request_json = None
                 next_request = APIRequest(
                     index=index,
                     lc_model=lc_model,
                     request_json=request_json,
+                    converted_chat_request_json=converted_chat_request_json,
                     results=results,
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,
