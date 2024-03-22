@@ -514,14 +514,37 @@ def save_model(
         mlflow_model.signature = infer_signature_from_llm_inference_task(
             llm_inference_task, signature
         )
+        # The model with LLM inference task should accept a standard dictionary format
+        # alone so the example should not be converted to pandas DataFrame
+        example_no_conversion = True
     elif signature is not None:
         mlflow_model.signature = signature
 
     if input_example is not None:
         input_example = format_input_example_for_special_cases(input_example, built_pipeline)
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
+
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    # Check task consistency between model metadata and task argument
+    #  NB: Using mlflow_model.metadata instead of passed metadata argument directly, because
+    #  metadata argument is not directly propagated from log_model() to save_model(), instead
+    #  via the mlflow_model object attribute.
+    if (
+        mlflow_model.metadata is not None
+        and (metadata_task := mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY])
+        and metadata_task != task
+    ):
+        raise MlflowException(
+            f"LLM v1 task type '{metadata_task}' is specified in "
+            "metadata, but it doesn't match the task type provided in the `task` argument: "
+            f"'{task}'. The mismatched task type may cause incorrect model inference behavior. "
+            "Please provide the correct LLM v1 task type in the `task` argument. E.g. "
+            f'`mlflow.transformers.save_model(task="{metadata_task}", ...)`',
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if prompt_template is not None:
         # prevent saving prompt templates for unsupported pipeline types
         if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
