@@ -16,6 +16,7 @@ from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service,
 
 _METHOD_TO_INFO = extract_api_info_for_service(FilesystemService, _REST_API_PATH_PREFIX)
 
+DIRECTORIES_ENDPOINT = "/api/2.0/fs/directories"
 
 class PresignedUrlArtifactRepository(CloudArtifactRepository):
     """
@@ -79,7 +80,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         infos = []
         page_token = ''
         while True:
-            endpoint = posixpath.join("/api/2.0/fs/directories", self.artifact_uri.lstrip("/"), path)
+            endpoint = posixpath.join(DIRECTORIES_ENDPOINT, self.artifact_uri.lstrip("/"), path)
             req_body = json.dumps({"page_token": page_token}) if page_token else ""
 
             response_proto = ListDirectoryResponse()
