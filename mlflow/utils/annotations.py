@@ -72,7 +72,6 @@ def developer_stable(func):
     return func
 
 
-
 _DEPRECATED_MARK_ATTR_NAME = "__deprecated"
 
 
