@@ -692,7 +692,7 @@ class PyFuncModel:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
 
-        _validate_prediction_input(data)
+        self._validate_prediction_input(data)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
         return self._predict_fn(data)
@@ -702,9 +702,9 @@ class PyFuncModel:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
-        _validate_prediction_input(data)
+        self._validate_prediction_input(data)
         if inspect.signature(self._predict_fn).parameters.get("params"):
-            return self.predict_stream_fn(data, params=params)
+            return self._predict_stream_fn(data, params=params)
         return self._predict_stream_fn(data)
 
 

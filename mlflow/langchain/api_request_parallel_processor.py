@@ -187,7 +187,7 @@ class APIRequest:
         elif isinstance(self.lc_model, lc_runnables_types()):
             def _predict_single_input(input_json):
                 if self.stream:
-                    return self.lc_model.invoke(
+                    return self.lc_model.stream(
                         input_json,
                         config={"callbacks": callback_handlers}
                     )
@@ -225,7 +225,7 @@ class APIRequest:
                     self.converted_chat_request_json or self.request_json
                 )
 
-            if self.converted_chat_request_json is not None and self.convert_chat_responses:
+            if self.converted_chat_request_json is not None or self.convert_chat_responses:
                 if self.stream:
                     # TODO: Convert it to chat chunk format
                     raise NotImplementedError()
@@ -430,6 +430,7 @@ def process_api_requests(
                     results=results,
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,
+                    stream=False,
                 )
                 status_tracker.start_task()
             else:
@@ -476,9 +477,15 @@ def process_stream_request(
     results: list[tuple[int, str]] = []
     errors: dict = {}
 
-    # Streaming only supports single input,
-    # so call `APIRequest.call_api` directly,
-    # no need to use thread pool.
+    (
+        converted_chat_requests,
+        did_perform_chat_conversion,
+    ) = APIRequest._transform_request_json_for_chat_if_necessary(
+        request_json, lc_model
+    )
+    if not did_perform_chat_conversion:
+        converted_chat_requests = None
+
     api_request = APIRequest(
         index=0,
         lc_model=lc_model,
@@ -486,6 +493,8 @@ def process_stream_request(
         results=results,
         errors=errors,
         convert_chat_responses=convert_chat_responses,
+        converted_chat_request_json=converted_chat_requests,
+        stream=True,
     )
 
     return api_request.single_call_api(callback_handlers)

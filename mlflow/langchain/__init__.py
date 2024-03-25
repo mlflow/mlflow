@@ -331,14 +331,13 @@ def save_model(
         )
         model_data_kwargs = {}
 
-    flavor_conf["predict_stream_fn"] = "predict_stream"
-
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
+        predict_stream_fn="predict_stream",
         **model_data_kwargs,
     )
 
@@ -695,7 +694,7 @@ class _LangChainModelWrapper:
             raise MlflowException("Langchain model predict_stream only supports single input.")
 
         data = _convert_ndarray_to_list(data)
-        return process_stream_request(lc_model=self.lc_model, requests=data)
+        return process_stream_request(lc_model=self.lc_model, request_json=data)
 
 
 class _TestLangChainWrapper(_LangChainModelWrapper):
