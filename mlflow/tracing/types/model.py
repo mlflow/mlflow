@@ -4,6 +4,8 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Union
 
+from opentelemetry import trace as trace_api
+
 
 @dataclass
 class Trace:
@@ -147,8 +149,6 @@ class Status:
 #     the OpenTelemetry Status class so users code doesn't have to import the OTel's
 #     StatusCode object, which makes future migration easier.
 class StatusCode:
-    from opentelemetry import trace as trace_api
-
     UNSET = trace_api.StatusCode.UNSET
     OK = trace_api.StatusCode.OK
     ERROR = trace_api.StatusCode.ERROR
