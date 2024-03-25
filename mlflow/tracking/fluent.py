@@ -233,7 +233,7 @@ def start_run(
             environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
             or the default experiment as defined by the tracking server.
         run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
-            created and ``run_name`` is not specified, a unique name will be generated for the run.
+            created and ``run_name`` is not specified, a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
