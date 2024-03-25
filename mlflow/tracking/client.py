@@ -1450,8 +1450,6 @@ class MlflowClient:
             .. _PIL.Image.Image:
                 https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
 
-            - `mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
-
         Numpy array support
             - data types:
 
