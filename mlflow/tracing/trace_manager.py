@@ -63,9 +63,9 @@ class InMemoryTraceManager:
             The newly created span (wrapped in MLflowSpanWrapper). If any error occurs, returns a
             NoOpMLflowSpanWrapper that has exact same interface but no-op implementations.
         """
-        try:
-            from mlflow.tracing.provider import get_tracer
+        from mlflow.tracing.provider import get_tracer
 
+        try:
             tracer = get_tracer(__name__)
             if parent_span_id:
                 parent_span = self.get_span_from_id(trace_id, parent_span_id)._span

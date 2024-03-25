@@ -1,4 +1,3 @@
-import os
 import pickle
 import time
 from unittest import mock
@@ -240,10 +239,6 @@ def test_start_and_end_trace():
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e9
 
 
-@pytest.mark.skipif(
-    "MLFLOW_SKINNY" in os.environ,
-    reason="Skinny client does not install OpenTelemetry",
-)
 def test_start_and_end_trace_before_all_span_end():
     # This test is to verify that the trace is still exported even if some spans are not ended
     import mlflow

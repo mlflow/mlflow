@@ -42,6 +42,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -111,6 +112,8 @@ class MlflowClient:
         # defined as an instance variable in the `MlflowClient` constructor; an instance variable
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
+
+        self._trace_manager = InMemoryTraceManager.get_instance()
 
     @property
     def tracking_uri(self):
@@ -478,10 +481,9 @@ class MlflowClient:
 
                 client.end_trace(trace_id)
         """
-        trace_manager = self._get_trace_manager()
-        root_span = trace_manager.start_detached_span(name)
+        root_span = self._trace_manager.start_detached_span(name)
 
-        trace_info = trace_manager.get_trace_info(root_span.trace_id)
+        trace_info = self._trace_manager.get_trace_info(root_span.trace_id)
         trace_info.attributes = attributes or {}
         trace_info.tags = tags or {}
 
@@ -498,13 +500,12 @@ class MlflowClient:
         Args:
             trace_id: The ID of the trace to end.
         """
-        trace_manager = self._get_trace_manager()
-        root_span_id = trace_manager.get_root_span_id(trace_id)
+        root_span_id = self._trace_manager.get_root_span_id(trace_id)
 
         if root_span_id is None:
             raise MlflowException(f"Trace with ID {trace_id} not found.")
 
-        root_span = trace_manager.get_span_from_id(trace_id, root_span_id)
+        root_span = self._trace_manager.get_span_from_id(trace_id, root_span_id)
         root_span.end()
 
     def start_span(
@@ -527,7 +528,8 @@ class MlflowClient:
             name: The name of the span.
             trace_id: The ID of the trace to attach the span to.
             span_type: The type of the span. Can be either a string or a SpanType enum value.
-            parent_span_id: The ID of the parent span.
+            parent_span_id: The ID of the parent span. The parent span can be a span created by
+                both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
 
         Example:
 
@@ -555,17 +557,12 @@ class MlflowClient:
                 "to start a new trace and root span."
             )
 
-        return self._get_trace_manager().start_detached_span(
+        return self._trace_manager.start_detached_span(
             name=name,
             trace_id=trace_id,
             parent_span_id=parent_span_id,
             span_type=span_type,
         )
-
-    def _get_trace_manager(self):
-        from mlflow.tracing.trace_manager import InMemoryTraceManager
-
-        return InMemoryTraceManager.get_instance()
 
     def search_experiments(
         self,

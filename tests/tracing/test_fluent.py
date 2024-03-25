@@ -183,3 +183,66 @@ def test_start_span_context_manager(mock_client):
     assert child_span_2.inputs == {"t": 5}
     assert child_span_2.outputs == {"output": 25}
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e9
+
+
+def test_start_span_context_manager_with_imperative_apis(mock_client):
+    # This test is to make sure that the spans created with fluent APIs and imperative APIs
+    # (via MLflow client) are correctly linked together. This usage is not recommended but
+    # should be supported for the advanced use cases like using LangChain callbacks as a
+    # part of broader tracing.
+    class TestModel:
+        def __init__(self):
+            self._mlflow_client = mlflow.tracking.MlflowClient()
+
+        def predict(self, x, y):
+            with mlflow.start_span(name="root_span") as root_span:
+                root_span.set_inputs({"x": x, "y": y})
+                z = x + y
+
+                child_span = self._mlflow_client.start_span(
+                    name="child_span_1",
+                    span_type=SpanType.LLM,
+                    trace_id=root_span.trace_id,
+                    parent_span_id=root_span.span_id,
+                )
+                child_span.set_inputs({"z": z})
+
+                z = z + 2
+                time.sleep(0.1)
+
+                child_span.set_outputs({"output": z})
+                child_span.set_attributes({"delta": 2})
+                child_span.end()
+
+                root_span.set_outputs({"output": z})
+            return z
+
+    model = TestModel()
+    model.predict(1, 2)
+
+    trace = mlflow.get_traces()[0]
+    trace_info = trace.trace_info
+    assert trace_info.trace_id is not None
+    assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e9  # at least 0.1 sec
+    assert trace_info.status.status_code == StatusCode.OK
+    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 5}'
+
+    spans = trace.trace_data.spans
+    assert len(spans) == 2
+
+    span_name_to_span = {span.name: span for span in spans}
+    root_span = span_name_to_span["root_span"]
+    assert root_span.start_time == trace_info.start_time
+    assert root_span.end_time == trace_info.end_time
+    assert root_span.parent_span_id is None
+    assert root_span.span_type == SpanType.UNKNOWN
+    assert root_span.inputs == {"x": 1, "y": 2}
+    assert root_span.outputs == {"output": 5}
+
+    child_span_1 = span_name_to_span["child_span_1"]
+    assert child_span_1.parent_span_id == root_span.context.span_id
+    assert child_span_1.span_type == SpanType.LLM
+    assert child_span_1.inputs == {"z": 3}
+    assert child_span_1.outputs == {"output": 5}
+    assert child_span_1.attributes == {"delta": 2}
