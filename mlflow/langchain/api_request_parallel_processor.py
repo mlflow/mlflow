@@ -132,6 +132,7 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
     errors: dict
+    converted_chat_request_json: Optional[list]
     convert_chat_responses: bool
     stream: bool
 
@@ -179,8 +180,7 @@ class APIRequest:
         Calls the LangChain API and stores results.
         """
         from langchain.schema import BaseRetriever
-
-        from mlflow.langchain.utils import lc_runnables_types, runnables_supports_batch_types
+        from mlflow.langchain.utils import lc_runnables_types
 
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
@@ -193,29 +193,25 @@ class APIRequest:
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
             elif isinstance(self.lc_model, lc_runnables_types()):
-                (
-                    prepared_request_json,
-                    did_perform_chat_conversion,
-                ) = APIRequest._transform_request_json_for_chat_if_necessary(
-                    self.request_json, self.lc_model
-                )
-
                 def _predict_single_input(input_json):
                     if self.stream:
                         return self.lc_model.invoke(
-                            input_json, config={"callbacks": callback_handlers}
+                            input_json,
+                            config={"callbacks": callback_handlers}
                         )
                     return self.lc_model.invoke(
-                        input_json, config={"callbacks": callback_handlers}
+                        input_json,
+                        config={"callbacks": callback_handlers}
                     )
-
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
                     # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field 'query_text'
                     try:
-                        response = _predict_single_input(prepared_request_json)
+                        response = _predict_single_input(
+                            self.converted_chat_request_json or self.request_json
+                        )
                     except TypeError as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -231,24 +227,12 @@ class APIRequest:
                         )
 
                         response = _predict_single_input(prepared_request_json)
-                elif isinstance(self.request_json, list):
-                    assert not self.stream, "Batch inference does not support streaming output."
-                    if not isinstance(self.lc_model, runnables_supports_batch_types()):
-                        raise MlflowException(
-                            "Model does not support batch inference."
-                        )
-                elif isinstance(self.request_json, list):
-                    if not isinstance(self.lc_model, runnables_supports_batch_types()):
-                        raise MlflowException(
-                            "Model does not support batch inference."
-                        )
-                    response = self.lc_model.batch(
-                        prepared_request_json, config={"callbacks": callback_handlers}
-                    )
                 else:
-                    response = _predict_single_input(prepared_request_json)
+                    response = _predict_single_input(
+                        self.converted_chat_request_json or self.request_json
+                    )
 
-                if did_perform_chat_conversion or self.convert_chat_responses:
+                if self.converted_chat_request_json is not None and self.convert_chat_responses:
                     if self.stream:
                         # TODO: Convert it to chat chunk format
                         raise NotImplementedError()
@@ -259,19 +243,14 @@ class APIRequest:
                 # but in tests it doesn't work correctly, it always returns the whole result
                 # in one chunk.
                 assert not self.stream, "Model inherits `langchain.chains.base.Chain` doesn't support streaming output."
-                (
-                    prepared_request_json,
-                    did_perform_chat_conversion,
-                ) = APIRequest._transform_request_json_for_chat_if_necessary(
-                    self.request_json, self.lc_model
-                )
+
                 response = self.lc_model(
-                    prepared_request_json,
+                    self.converted_chat_request_json or self.request_json,
                     return_only_outputs=True,
                     callbacks=callback_handlers,
                 )
 
-                if did_perform_chat_conversion or self.convert_chat_responses:
+                if self.converted_chat_request_json is not None or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
                 elif len(response) == 1:
                     # to maintain existing code, single output chains will still return
@@ -344,13 +323,6 @@ class APIRequest:
             message_content = response
         elif isinstance(response, AIMessage):
             message_content = response.content
-        elif isinstance(response, list):
-            # For batch inference, the inference result is a list,
-            # we need to convert every element in the list.
-            return [
-                APIRequest._try_transform_response_to_chat_format(elem)
-                for elem in response
-            ]
         else:
             return response
 
@@ -421,7 +393,19 @@ def process_api_requests(
 
     results: list[tuple[int, str]] = []
     errors: dict = {}
-    requests_iter = enumerate(requests)
+
+    # Note: we should call `_transform_request_json_for_chat_if_necessary`
+    # for the whole batch data, because the conversion should obey the rule
+    # that if any record in the batch can't be converted, then all the record
+    # in this batch can't be converted.
+    (
+        converted_chat_requests,
+        did_perform_chat_conversion,
+    ) = APIRequest._transform_request_json_for_chat_if_necessary(
+        requests, lc_model
+    )
+
+    requests_iter = enumerate(zip(requests, converted_chat_requests))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
@@ -430,11 +414,14 @@ def process_api_requests(
                 _logger.warning(f"Retrying request {next_request.index}: {next_request}")
             elif req := next(requests_iter, None):
                 # get new request
-                index, request_json = req
+                index, (request_json, converted_chat_request_json) = req
+                if not did_perform_chat_conversion:
+                    converted_chat_request_json = None
                 next_request = APIRequest(
                     index=index,
                     lc_model=lc_model,
                     request_json=request_json,
+                    converted_chat_request_json=converted_chat_request_json,
                     results=results,
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,

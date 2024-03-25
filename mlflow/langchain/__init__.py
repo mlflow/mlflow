@@ -49,7 +49,6 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
-    runnables_supports_batch_types,
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
@@ -669,23 +668,18 @@ class _LangChainModelWrapper:
             data = data.to_dict(orient="records")
 
         data = _convert_ndarray_to_list(data)
-        if isinstance(self.lc_model, runnables_supports_batch_types()) or not isinstance(data, list):
-            # If model supports batch inference,
-            # make all input rows into a batch, so convert `data` to `[data]`
-            # if the input data is not a list,
+        if not isinstance(data, list):
+            # if the input data is not a list (i.e. single input),
             # we still need to convert it to a one-element list `[data]`
             # because `process_api_requests` only accepts list as valid input.
-            # and in either of above cases,
+            # and in this case,
             # we should return the first element of the inference result
             # because we change input `data` to `[data]`
             return [data], True
-        if isinstance(data, list) and (
-            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
-        ):
+        if isinstance(data, list):
             return data, False
         raise mlflow.MlflowException.invalid_parameter_value(
-            "Input must be a pandas DataFrame or a list of strings "
-            "or a list of dictionaries "
+            "Input must be a pandas DataFrame or a list "
             f"for model {self.lc_model.__class__.__name__}"
         )
 
