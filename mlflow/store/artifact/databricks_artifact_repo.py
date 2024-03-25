@@ -262,15 +262,15 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             None,
             {"trace_id": trace_id},
         )
-        signed_uri = cred.credential_info.signed_uri
-        headers = self._extract_headers_from_credentials(cred.credential_info.headers)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, "traces.json")
             with temp_file.open("w") as f:
                 json.dump(trace, f)
 
-            size = temp_file.stat().st_size
             if cred.credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+                signed_uri = cred.credential_info.signed_uri
+                headers = self._extract_headers_from_credentials(cred.credential_info.headers)
+                size = temp_file.stat().st_size
                 put_adls_file_creation(sas_url=signed_uri, headers=headers)
                 patch_adls_file_upload(
                     sas_url=signed_uri,
@@ -281,9 +281,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     headers=headers,
                     is_single=True,
                 )
-            else:
-                # Add more cloud providers here
-                raise NotImplementedError
+            elif (
+                cred.credentials.type == ArtifactCredentialType.AZURE_SAS_URI
+                or cred.credentials.type == ArtifactCredentialType.AWS_PRESIGNED_URL
+                or cred.credentials.type == ArtifactCredentialType.GCP_SIGNED_URL
+            ):
+                self._signed_url_upload_file(cred, temp_file)
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
