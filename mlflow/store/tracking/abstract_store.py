@@ -234,16 +234,24 @@ class AbstractStore:
         """
         pass
 
-    def create_trace(self, experiment_id, start_time, end_time, status, attributes, tags):
+    def create_trace(
+        self,
+        experiment_id,
+        timestamp_ms,
+        execution_time_ms,
+        status,
+        request_metadata,
+        tags,
+    ):
         """
         Create a trace under the specified experiment ID.
 
         Args:
             experiment_id: String id of the experiment for this run.
-            start_time: int, start time of the trace.
-            end_time: int, end time of the trace.
+            timestamp_ms: int, start time of the trace, in millisecond.
+            execution_time_ms: int, duration of the trace, in millisecond.
             status: `TraceStatus`, status of the trace.
-            attributes: list of `TraceAttribute`, attributes of the trace.
+            request_metadata: list of `TraceRequestMetadata`, metadata of the trace.
             tags: list of `TraceTag`, tags of the trace.
 
         Returns:
@@ -251,12 +259,12 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def get_trace_info(self, trace_id):
+    def get_trace_info(self, request_id):
         """
-        Get the trace matching the `trace_id`.
+        Get the trace matching the `request_id`.
 
         Args:
-            trace_id: String id of the trace to fetch.
+            request_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.

@@ -11,7 +11,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceAttribute,
+    TraceRequestMetadata,
     TraceStatus,
     ViewType,
 )
@@ -134,14 +134,21 @@ def test_client_create_run_with_name(mock_store, mock_time):
 def test_client_create_trace(mock_store, mock_time):
     experiment_id = mock.Mock()
 
-    MlflowClient().create_trace(experiment_id, 123, 456, "OK", attributes={"key": "val"}, tags={})
+    MlflowClient().create_trace(
+        experiment_id,
+        123,
+        456,
+        "OK",
+        request_metadata={"key": "val"},
+        tags={},
+    )
 
     mock_store.create_trace.assert_called_once_with(
         experiment_id=experiment_id,
-        start_time=123,
-        end_time=456,
+        timestamp_ms=123,
+        execution_time_ms=456,
         status=TraceStatus.from_string("OK"),
-        attributes=[TraceAttribute("key", "val")],
+        request_metadata=[TraceRequestMetadata("key", "val")],
         tags=[],
     )
 

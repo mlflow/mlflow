@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.entities.trace_attribute import TraceAttribute
+from mlflow.entities.trace_request_metadata import TraceRequestMetadata
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.trace_tag import TraceTag
 from mlflow.exceptions import MlflowException
@@ -12,42 +12,42 @@ class TraceInfo(_MLflowObject):
     """Metadata about a trace.
 
     Args:
-        trace_id: id of the trace.
+        request_id: id of the trace.
         experiment_id: id of the experiment.
-        start_time: start time of the trace.
-        end_time: end time of the trace.
+        timestamp_ms: start time of the trace, in millisecond.
+        execution_time_ms: duration of the trace, in millisecond.
         status: status of the trace.
-        attributes: attributes associated with the trace.
+        request_metadata: request_metadata associated with the trace.
         tags: tags associated with the trace.
     """
 
     def __init__(
         self,
-        trace_id: str,
+        request_id: str,
         experiment_id: str,
-        start_time: int,
-        end_time: int,
+        timestamp_ms: int,
+        execution_time_ms: int,
         status: TraceStatus,
-        attributes: Optional[List[TraceAttribute]] = None,
+        request_metadata: Optional[List[TraceRequestMetadata]] = None,
         tags: Optional[List[TraceTag]] = None,
     ):
-        if trace_id is None:
-            raise MlflowException("`trace_id` cannot be None.")
+        if request_id is None:
+            raise MlflowException("`request_id` cannot be None.")
         if experiment_id is None:
             raise MlflowException("`experiment_id` cannot be None.")
-        if start_time is None:
-            raise MlflowException("`start_time` cannot be None.")
-        if end_time is None:
-            raise MlflowException("`end_time` cannot be None.")
+        if timestamp_ms is None:
+            raise MlflowException("`timestamp_ms` cannot be None.")
+        if execution_time_ms is None:
+            raise MlflowException("`execution_time_ms` cannot be None.")
         if status is None:
             raise MlflowException("`status` cannot be None.")
 
-        self.trace_id = trace_id
+        self.request_id = request_id
         self.experiment_id = experiment_id
-        self.start_time = start_time
-        self.end_time = end_time
+        self.timestamp_ms = timestamp_ms
+        self.execution_time_ms = execution_time_ms
         self.status = status
-        self.attributes = attributes
+        self.request_metadata = request_metadata
         self.tags = tags
 
     def __eq__(self, other):
@@ -57,23 +57,25 @@ class TraceInfo(_MLflowObject):
 
     def to_proto(self):
         proto = ProtoTraceInfo()
-        proto.trace_id = self.trace_id
+        proto.request_id = self.request_id
         proto.experiment_id = self.experiment_id
-        proto.start_time = self.start_time
-        proto.end_time = self.end_time
+        proto.timestamp_ms = self.timestamp_ms
+        proto.execution_time_ms = self.execution_time_ms
         proto.status = TraceStatus.from_string(self.status)
-        proto.attributes.extend([attr.to_proto() for attr in self.attributes])
+        proto.request_metadata.extend([attr.to_proto() for attr in self.request_metadata])
         proto.tags.extend([tag.to_proto() for tag in self.tags])
         return proto
 
     @classmethod
     def from_proto(cls, proto):
         return cls(
-            trace_id=proto.trace_id,
+            request_id=proto.request_id,
             experiment_id=proto.experiment_id,
-            start_time=proto.start_time,
-            end_time=proto.end_time,
+            timestamp_ms=proto.timestamp_ms,
+            execution_time_ms=proto.execution_time_ms,
             status=TraceStatus.to_string(proto.status),
-            attributes=[TraceAttribute.from_proto(attr) for attr in proto.attributes],
+            request_metadata=[
+                TraceRequestMetadata.from_proto(attr) for attr in proto.request_metadata
+            ],
             tags=[TraceTag.from_proto(tag) for tag in proto.tags],
         )

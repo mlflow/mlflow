@@ -1,8 +1,8 @@
 from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.protos.service_pb2 import TraceAttribute as ProtoTraceAttribute
+from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 
 
-class TraceAttribute(_MLflowObject):
+class TraceRequestMetadata(_MLflowObject):
     """Tag object associated with a trace."""
 
     def __init__(self, key, value):
@@ -26,7 +26,7 @@ class TraceAttribute(_MLflowObject):
         return self._value
 
     def to_proto(self):
-        param = ProtoTraceAttribute()
+        param = ProtoTraceRequestMetadata()
         param.key = self.key
         param.value = self.value
         return param

@@ -205,19 +205,19 @@ def test_requestor():
     with mock_http_request() as mock_http:
         store.create_trace(
             experiment_id="447585625682310",
-            start_time=123,
-            end_time=456,
+            timestamp_ms=123,
+            execution_time_ms=456,
             status="OK",
-            attributes=[],
+            request_metadata=[],
             tags=[],
         )
         body = message_to_json(
             CreateTrace(
                 experiment_id="447585625682310",
-                start_time=123,
-                end_time=456,
+                timestamp_ms=123,
+                execution_time_ms=456,
                 status="OK",
-                attributes=[],
+                request_metadata=[],
                 tags=[],
             )
         )

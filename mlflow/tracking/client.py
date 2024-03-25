@@ -366,23 +366,22 @@ class MlflowClient:
 
     def create_trace(
         self,
-        experiment_id: str,
-        start_time: int,
-        end_time: int,
-        status: str,
-        attributes: Optional[Dict[str, Any]] = None,
-        tags: Optional[Dict[str, Any]] = None,
-    ) -> TraceInfo:
-        """
-        Create a :py:class:`mlflow.entities.TraceInfo` object.
+        experiment_id,
+        timestamp_ms,
+        execution_time_ms,
+        status,
+        request_metadata=None,
+        tags=None,
+    ):
+        """Create a trace object and log in the backend store.
 
         Args:
             experiment_id: String id of the experiment for this run.
-            start_time: start time of the trace.
-            end_time: end time of the trace.
-            status: status of the trace.
-            attributes: attributes of the trace.
-            tags: tags of the trace.
+            timestamp_ms: int, start time of the trace, in millisecond.
+            execution_time_ms: int, duration of the trace, in millisecond.
+            status: string, status of the trace.
+            request_metadata: dict, metadata of the trace.
+            tags: dict, tags of the trace.
 
         Returns:
             :py:class:`mlflow.entities.TraceInfo` that was created.
@@ -405,19 +404,19 @@ class MlflowClient:
         """
         return self._tracking_client.create_trace(
             experiment_id,
-            start_time,
-            end_time,
+            timestamp_ms,
+            execution_time_ms,
             status,
-            attributes=attributes,
+            request_metadata=request_metadata,
             tags=tags,
         )
 
-    def get_trace_info(self, trace_id: str) -> TraceInfo:
+    def get_trace_info(self, request_id: str) -> TraceInfo:
         """
-        Get the trace matching the `trace_id`.
+        Get the trace matching the `request_id`.
 
         Args:
-            trace_id: String id of the trace to fetch.
+            request_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
@@ -428,10 +427,10 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             client = MlflowClient()
-            trace_id = "12345678"
-            trace = client.get_trace_info(trace_id)
+            request_id = "12345678"
+            trace = client.get_trace_info(request_id)
         """
-        return self._tracking_client.get_trace_info(trace_id)
+        return self._tracking_client.get_trace_info(request_id)
 
     def search_experiments(
         self,

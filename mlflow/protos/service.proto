@@ -1206,32 +1206,32 @@ message GetExperimentByName {
 // TraceInfo. Represents metadata of a trace.
 message TraceInfo {
   // Unique identifier for the trace.
-  optional string trace_id = 1;
+  optional string request_id = 1;
 
   // The ID of the experiment that contains the trace.
   optional string experiment_id = 2;
 
   // Unix timestamp of when the trace started in milliseconds.
-  optional int64 start_time = 3;
+  optional int64 timestamp_ms = 3;
 
-  // Unix timestamp of when the trace ended in milliseconds.
-  optional int64 end_time = 4;
+  // Unix timestamp of the duration of the trace in milliseconds.
+  optional int64 execution_time_ms = 4;
 
   // Overall status of the operation being traced (OK, error, etc.).
   optional TraceStatus status = 5;
 
-  // Other trace attributes.
-  repeated TraceAttribute attributes = 6;
+  // Other trace metadata.
+  repeated TraceRequestMetadata request_metadata = 6;
 
   // Tags for the trace.
   repeated TraceTag tags = 7;
 }
 
-message TraceAttribute {
-  // Key identifying this trace attribute.
+message TraceRequestMetadata{
+  // Key identifying this metadata.
   optional string key = 1;
 
-  // Value identifying this trace attribute.
+  // Value identifying this metadata.
   optional string value = 2;
 }
 
@@ -1261,16 +1261,16 @@ message CreateTrace {
   optional string experiment_id = 1;
 
   // Unix timestamp of when the trace started in milliseconds.
-  optional int64 start_time = 2;
+  optional int64 timestamp_ms = 2;
 
-  // Unix timestamp of when the trace ended in milliseconds.
-  optional int64 end_time = 3;
+  // Unix timestamp of the duration of the trace in milliseconds.
+  optional int64 execution_time_ms = 3;
 
   // Overall status of the operation being traced (OK, error, etc).
   optional TraceStatus status = 4;
 
   // Other trace attributes.
-  repeated TraceAttribute attributes = 5;
+  repeated TraceRequestMetadata request_metadata = 5;
 
   // Tags for the trace.
   repeated TraceTag tags = 6;
@@ -1286,7 +1286,7 @@ message GetTraceInfo {
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the trace to fetch. Must be provided.
-  optional string trace_id = 1;
+  optional string request_id = 1;
 
   message Response {
     // Metadata of the requested trace.
