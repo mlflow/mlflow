@@ -109,6 +109,7 @@ class Image:
 
     .. code-block:: python
         :caption: Example
+
         import mlflow
         import numpy as np
         from PIL import Image
