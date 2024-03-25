@@ -313,6 +313,10 @@ class RestStore(AbstractStore):
         req_body = message_to_json(DeleteRun(run_id=run_id))
         self._call_endpoint(DeleteRun, req_body)
 
+    def delete_runs(self, run_ids):
+        req_body = message_to_json(DeleteRun(run_id=run_ids))
+        self._call_endpoint(DeleteRun, req_body)
+
     def restore_run(self, run_id):
         req_body = message_to_json(RestoreRun(run_id=run_id))
         self._call_endpoint(RestoreRun, req_body)

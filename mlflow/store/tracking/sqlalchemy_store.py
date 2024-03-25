@@ -655,6 +655,15 @@ class SqlAlchemyStore(AbstractStore):
             run.deleted_time = get_current_time_millis()
             session.add(run)
 
+    def delete_runs(self, run_ids):
+        with self.ManagedSessionMaker() as session:
+            conditions = or_(*[SqlRun.run_uuid == run_id for run_id in run_ids])
+            runs = session.query(SqlRun).filter(conditions).all()
+            for run in runs:
+                run.lifecycle_stage = LifecycleStage.DELETED
+                run.deleted_time = get_current_time_millis()
+                session.add(run)
+
     def _hard_delete_run(self, run_id):
         """
         Permanently delete a run (metadata and metrics, tags, parameters).
