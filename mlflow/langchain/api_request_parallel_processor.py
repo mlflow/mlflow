@@ -173,93 +173,98 @@ class APIRequest:
                 for doc in response["source_documents"]
             ]
 
+    def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
+        from langchain.schema import BaseRetriever
+        from mlflow.langchain.utils import lc_runnables_types
+
+        if isinstance(self.lc_model, BaseRetriever):
+            assert not self.stream, "Model that inherits `BaseRetriever` does not support streaming output."
+            # Retrievers are invoked differently than Chains
+            docs = self.lc_model.get_relevant_documents(**self.request_json)
+            response = [
+                {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
+            ]
+        elif isinstance(self.lc_model, lc_runnables_types()):
+            def _predict_single_input(input_json):
+                if self.stream:
+                    return self.lc_model.invoke(
+                        input_json,
+                        config={"callbacks": callback_handlers}
+                    )
+                return self.lc_model.invoke(
+                    input_json,
+                    config={"callbacks": callback_handlers}
+                )
+
+            if isinstance(self.request_json, dict):
+                # This is a temporary fix for the case when spark_udf converts
+                # input into pandas dataframe with column name, while the model
+                # does not accept dictionaries as input, it leads to errors like
+                # Expected Scalar value for String field 'query_text'
+                try:
+                    response = _predict_single_input(
+                        self.converted_chat_request_json or self.request_json
+                    )
+                except TypeError as e:
+                    _logger.warning(
+                        f"Failed to invoke {self.lc_model.__class__.__name__} "
+                        f"with {self.request_json}. Error: {e!r}. Trying to "
+                        "invoke with the first value of the dictionary."
+                    )
+                    self.request_json = next(iter(self.request_json.values()))
+                    (
+                        prepared_request_json,
+                        did_perform_chat_conversion,
+                    ) = APIRequest._transform_request_json_for_chat_if_necessary(
+                        self.request_json, self.lc_model
+                    )
+
+                    response = _predict_single_input(prepared_request_json)
+            else:
+                response = _predict_single_input(
+                    self.converted_chat_request_json or self.request_json
+                )
+
+            if self.converted_chat_request_json is not None and self.convert_chat_responses:
+                if self.stream:
+                    # TODO: Convert it to chat chunk format
+                    raise NotImplementedError()
+                else:
+                    response = APIRequest._try_transform_response_to_chat_format(response)
+        else:
+            # Note: although `langchain.chains.base.Chain` has `stream` method,
+            # but in tests it doesn't work correctly, it always returns the whole result
+            # in one chunk.
+            assert not self.stream, "Model inherits `langchain.chains.base.Chain` doesn't support streaming output."
+
+            response = self.lc_model(
+                self.converted_chat_request_json or self.request_json,
+                return_only_outputs=True,
+                callbacks=callback_handlers,
+            )
+
+            if self.converted_chat_request_json is not None or self.convert_chat_responses:
+                response = APIRequest._try_transform_response_to_chat_format(response)
+            elif len(response) == 1:
+                # to maintain existing code, single output chains will still return
+                # only the result
+                response = response.popitem()[1]
+            else:
+                self._prepare_to_serialize(response)
+
+        return response
+
     def call_api(
         self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
     ):
         """
         Calls the LangChain API and stores results.
         """
-        from langchain.schema import BaseRetriever
-        from mlflow.langchain.utils import lc_runnables_types
-
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
         try:
-            if isinstance(self.lc_model, BaseRetriever):
-                assert not self.stream, "Model that inherits `BaseRetriever` does not support streaming output."
-                # Retrievers are invoked differently than Chains
-                docs = self.lc_model.get_relevant_documents(**self.request_json)
-                response = [
-                    {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
-                ]
-            elif isinstance(self.lc_model, lc_runnables_types()):
-                def _predict_single_input(input_json):
-                    if self.stream:
-                        return self.lc_model.invoke(
-                            input_json,
-                            config={"callbacks": callback_handlers}
-                        )
-                    return self.lc_model.invoke(
-                        input_json,
-                        config={"callbacks": callback_handlers}
-                    )
-                if isinstance(self.request_json, dict):
-                    # This is a temporary fix for the case when spark_udf converts
-                    # input into pandas dataframe with column name, while the model
-                    # does not accept dictionaries as input, it leads to errors like
-                    # Expected Scalar value for String field 'query_text'
-                    try:
-                        response = _predict_single_input(
-                            self.converted_chat_request_json or self.request_json
-                        )
-                    except TypeError as e:
-                        _logger.warning(
-                            f"Failed to invoke {self.lc_model.__class__.__name__} "
-                            f"with {self.request_json}. Error: {e!r}. Trying to "
-                            "invoke with the first value of the dictionary."
-                        )
-                        self.request_json = next(iter(self.request_json.values()))
-                        (
-                            prepared_request_json,
-                            did_perform_chat_conversion,
-                        ) = APIRequest._transform_request_json_for_chat_if_necessary(
-                            self.request_json, self.lc_model
-                        )
-
-                        response = _predict_single_input(prepared_request_json)
-                else:
-                    response = _predict_single_input(
-                        self.converted_chat_request_json or self.request_json
-                    )
-
-                if self.converted_chat_request_json is not None and self.convert_chat_responses:
-                    if self.stream:
-                        # TODO: Convert it to chat chunk format
-                        raise NotImplementedError()
-                    else:
-                        response = APIRequest._try_transform_response_to_chat_format(response)
-            else:
-                # Note: although `langchain.chains.base.Chain` has `stream` method,
-                # but in tests it doesn't work correctly, it always returns the whole result
-                # in one chunk.
-                assert not self.stream, "Model inherits `langchain.chains.base.Chain` doesn't support streaming output."
-
-                response = self.lc_model(
-                    self.converted_chat_request_json or self.request_json,
-                    return_only_outputs=True,
-                    callbacks=callback_handlers,
-                )
-
-                if self.converted_chat_request_json is not None or self.convert_chat_responses:
-                    response = APIRequest._try_transform_response_to_chat_format(response)
-                elif len(response) == 1:
-                    # to maintain existing code, single output chains will still return
-                    # only the result
-                    response = response.popitem()[1]
-                else:
-                    self._prepare_to_serialize(response)
-
             _logger.debug(f"Request #{self.index} succeeded with response: {response}")
+            response = self.single_call_api(callback_handlers)
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
@@ -469,7 +474,6 @@ def process_stream_request(
         )
 
     results: list[tuple[int, str]] = []
-    status_tracker = StatusTracker()
     errors: dict = {}
 
     # Streaming only supports single input,
@@ -484,9 +488,5 @@ def process_stream_request(
         convert_chat_responses=convert_chat_responses,
     )
 
-    status_tracker.start_task()
-    api_request.call_api(status_tracker, callback_handlers)
-    if status_tracker.num_tasks_failed > 0:
-        raise mlflow.MlflowException(errors[0])
+    return api_request.single_call_api(callback_handlers)
 
-    return results[0][1]
