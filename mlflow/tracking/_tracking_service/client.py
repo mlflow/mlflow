@@ -7,7 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import os
 from collections import OrderedDict
 from itertools import zip_longest
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.entities import (
     ExperimentTag,
@@ -625,13 +625,13 @@ class TrackingServiceClient:
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
-    def download_trace(self, trace_id):
+    def download_trace(self, trace_id: str) -> Dict[str, Any]:
         artifact_repo = self._get_artifact_repo_for_trace(trace_id)
         return artifact_repo.download_trace(trace_id)
 
-    def upload_trace(self, trace):
-        artifact_repo = self._get_artifact_repo_for_trace(trace.trace_info.trace_id)
-        return artifact_repo.upload_trace(trace)
+    def upload_trace(self, trace_id: str, trace_data: Dict[str, Any]) -> None:
+        artifact_repo = self._get_artifact_repo_for_trace(trace_id)
+        return artifact_repo.upload_trace(trace_id, trace_data)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.

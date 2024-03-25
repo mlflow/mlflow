@@ -6,6 +6,7 @@ import posixpath
 import tempfile
 import uuid
 from pathlib import Path
+from typing import Any, Dict
 
 import requests
 
@@ -45,7 +46,6 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     _complete_futures,
     _compute_num_chunks,
 )
-from mlflow.tracing.types.model import Trace
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
@@ -226,7 +226,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
-    def download_trace(self, trace_id):
+    def download_trace(self, trace_id: str) -> Dict[str, Any]:
         """
         Downloads the trace data for the specified trace ID.
 
@@ -259,25 +259,16 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                         f"Failed to parse trace data:\n{s}"
                     ) from e
 
-    def upload_trace(self, trace: Trace):
-        """
-        Uploads the trace data for the specified trace ID.
-
-        Args:
-            trace: The trace data to upload.
-
-        Returns:
-            None
-        """
+    def upload_trace(self, trace_id: str, trace_data: Dict[str, Any]) -> None:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataUpload,
-            path_params={"trace_id": trace.trace_info.trace_id},
+            path_params={"trace_id": trace_id},
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, "traces.json")
             with temp_file.open("w") as f:
-                f.write(trace.to_json())
+                json.dump(trace_data, f)
 
             if cred.credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 signed_uri = cred.credential_info.signed_uri
