@@ -242,6 +242,8 @@ To learn more about the nuances of the `transformers` flavor in MLflow, delve in
 
 - `Transformers Model as a Python Function <guide/index.html#loading-a-transformers-model-as-a-python-function>`_ : Familiarize yourself with the various ``transformers`` pipeline types compatible with the pyfunc model flavor. Understand the standardization of input and output formats in the pyfunc model implementation for the flavor, ensuring seamless integration with JSON and Pandas DataFrames.
 
+- `Saving Transformer Models with an OpenAI-Compatible Interface <guide/index.html#saving-transformer-pipelines-with-an-openai-compatible-inference-interface>`_: Deploying Transformer models with an OpenAI-compatible chat or completion interface is streamlined: just set the ``task`` parameter to ``llm/v1/chat`` or ``llm/v1/completion``.
+
 - `Prompt Template <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_: Learn how to save a prompt template with transformers pipelines to optimize inference with less boilerplate.
 
 - `Model Config and Model Signature Params for Inference <guide/index.html#using-model-config-and-model-signature-params-for-inference>`_: Learn how to leverage ``model_config`` and ``ModelSignature`` for flexible and customized model loading and inference.
