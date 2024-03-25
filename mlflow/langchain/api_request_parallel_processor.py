@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Literal, Optional, Set, Union
 import langchain.chains
 import pydantic
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.messages.ai import AIMessageChunk
 from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
@@ -89,6 +90,10 @@ class _ChatMessage(pydantic.BaseModel, extra="forbid"):
                 f"Unrecognized chat message role: {self.role}"
             )
 
+class _ChatDeltaMessage(pydantic.BaseModel, extra="forbid"):
+    role: str
+    content: str
+
 
 # NB: Even though _ChatRequest is only referenced in one method within this module
 # (as of 12/27/2023), it must be defined at the module level for compatibility with
@@ -99,8 +104,9 @@ class _ChatRequest(pydantic.BaseModel, extra="forbid"):
 
 class _ChatChoice(pydantic.BaseModel, extra="forbid"):
     index: int
-    message: _ChatMessage
+    message: Optional[_ChatMessage] = None
     finish_reason: Optional[str] = None
+    delta: Optional[_ChatDeltaMessage] = None
 
 
 class _ChatUsage(pydantic.BaseModel, extra="forbid"):
@@ -118,6 +124,16 @@ class _ChatResponse(pydantic.BaseModel, extra="forbid"):
     model: Optional[str] = None
     choices: List[_ChatChoice]
     usage: _ChatUsage
+
+
+class _ChatChunkResponse(pydantic.BaseModel, extra="forbid"):
+    id: Optional[str] = None
+    object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
+    created: int
+    # Make the model field optional since we may not be able to get a stable model identifier
+    # for an arbitrary LangChain model
+    model: Optional[str] = None
+    choices: List[_ChatChoice]
 
 
 @dataclass
@@ -185,14 +201,14 @@ class APIRequest:
                 {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
             ]
         elif isinstance(self.lc_model, lc_runnables_types()):
-            def _predict_single_input(input_json):
+            def _predict_single_input(single_input):
                 if self.stream:
                     return self.lc_model.stream(
-                        input_json,
+                        single_input,
                         config={"callbacks": callback_handlers}
                     )
                 return self.lc_model.invoke(
-                    input_json,
+                    single_input,
                     config={"callbacks": callback_handlers}
                 )
 
@@ -205,6 +221,7 @@ class APIRequest:
                     response = _predict_single_input(
                         self.converted_chat_request_json or self.request_json
                     )
+                    response = list(response)
                 except TypeError as e:
                     _logger.warning(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -227,8 +244,7 @@ class APIRequest:
 
             if self.converted_chat_request_json is not None or self.convert_chat_responses:
                 if self.stream:
-                    # TODO: Convert it to chat chunk format
-                    raise NotImplementedError()
+                    response = APIRequest._try_transform_response_iter_to_chat_format(response)
                 else:
                     response = APIRequest._try_transform_response_to_chat_format(response)
         else:
@@ -263,8 +279,8 @@ class APIRequest:
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
         try:
-            _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             response = self.single_call_api(callback_handlers)
+            _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
@@ -356,6 +372,50 @@ class APIRequest:
             return json.loads(transformed_response.json())
         else:
             return transformed_response.model_dump(mode="json")
+
+    @staticmethod
+    def _try_transform_response_iter_to_chat_format(chunk_iter):
+
+        def _gen_converted_chunk(message_content, finish_reason):
+            transformed_response = _ChatChunkResponse(
+                id=None,
+                created=int(time.time()),
+                model=None,
+                choices=[
+                    _ChatChoice(
+                        index=0,
+                        delta=_ChatDeltaMessage(
+                            role="assistant",
+                            content=message_content,
+                        ),
+                        finish_reason=finish_reason,
+                    )
+                ],
+            )
+
+            if Version(pydantic.__version__) < Version("2.0"):
+                return json.loads(transformed_response.json())
+            else:
+                return transformed_response.model_dump(mode="json")
+
+        def _convert(chunk):
+            if isinstance(chunk, str):
+                message_content = chunk
+            elif isinstance(chunk, AIMessageChunk):
+                message_content = chunk.content
+            else:
+                return chunk
+
+            return _gen_converted_chunk(message_content, finish_reason=None)
+
+        def _result_gen_fn():
+            for chunk in chunk_iter:
+                converted_chunk = _convert(chunk)
+                yield converted_chunk
+
+            yield _gen_converted_chunk('', finish_reason="stop")
+
+        return _result_gen_fn()
 
     @staticmethod
     def _get_lc_model_input_fields(lc_model) -> Set:
