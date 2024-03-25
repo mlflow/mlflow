@@ -657,7 +657,7 @@ class UcModelRegistryStore(BaseRestStore):
             ).model_version
             version_number = model_version.version
             if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
-                store = PresignedUrlArtifactRepository(f"/Models/{full_name.replace('.', '/')}/{version_number}")
+                store = PresignedUrlArtifactRepository(full_name, version_number)
             else:
                 scoped_token = self._get_temporary_model_version_write_credentials(
                     name=full_name, version=version_number

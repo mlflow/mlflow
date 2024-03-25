@@ -111,7 +111,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         storage
         """
         if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
-            return PresignedUrlArtifactRepository(f"/Models/{self.model_name.replace('.', '/')}/{self.model_version}")
+            return PresignedUrlArtifactRepository(self.model_name, self.model_version)
         else:
             scoped_token = self._get_scoped_token()
             blob_storage_path = self._get_blob_storage_path()

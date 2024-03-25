@@ -15,15 +15,16 @@ from mlflow.utils.request_utils import cloud_storage_http_request, augmented_rai
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service, _REST_API_PATH_PREFIX
 
 _METHOD_TO_INFO = extract_api_info_for_service(FilesystemService, _REST_API_PATH_PREFIX)
-
 DIRECTORIES_ENDPOINT = "/api/2.0/fs/directories"
+
 
 class PresignedUrlArtifactRepository(CloudArtifactRepository):
     """
     Stores and retrieves model artifacts using presigned URLs.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, model_full_name, model_version):
+        artifact_uri = posixpath.join("/Models", model_full_name.replace('.', '/'), str(model_version))
         super().__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
