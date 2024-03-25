@@ -462,7 +462,7 @@ Artifact Repository Plugins
 - `oci-mlflow <https://github.com/oracle/oci-mlflow>`_ Leverages Oracle Cloud Infrastructure (OCI) Object Storage service to store MLflow models artifacts.
 
 
-JFrog Artifactory MLFlow plugin
+JFrog Artifactory MLflow plugin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - `mlflow-jfrog-plugin <https://github.com/jfrog/mlflow-jfrog-plugin>`__ Optimize your artifact governance by seamlessly storing them in your preferred repository within JFrog Artifactory.
@@ -530,7 +530,7 @@ MLflow model logging code example:
     classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
 
     with mlflow.start_run():
-        mlflow.transformers.log_model(transformers_model=classifier, artifact_path=<model_name>)
+        mlflow.transformers.log_model(transformers_model=classifier, artifact_path=MODEL_NAME)
     mlflow.end_run()
 
 **Configuration**
