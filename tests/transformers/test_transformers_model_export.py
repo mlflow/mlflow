@@ -3575,10 +3575,14 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
     assert isinstance(inference[0], str)
     assert inference[0].startswith("How to save Transformer model?")
 
-    shutil.rmtree(model_path)
+    if Version(transformers.__version__) < Version("4.34.0"):
+        # Chat model is not supported for Transformers < 4.34.0
+        return
 
     # 3. Save local custom model with LLM v1 chat inference task -> saves successfully
     #    with the corresponding Transformers task
+    shutil.rmtree(model_path)
+
     mlflow.transformers.save_model(
         transformers_model=model_dict,
         path=model_path,
