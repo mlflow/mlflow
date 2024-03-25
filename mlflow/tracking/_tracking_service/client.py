@@ -582,22 +582,11 @@ class TrackingServiceClient:
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo_for_trace(self, trace_id):
-        # Temporary implementation until get_trace_info is implemented
-        import requests
-
-        resp = requests.get(
-            f"{os.environ['DATABRICKS_HOST']}/api/2.0/mlflow/traces/{trace_id}/info",
-            headers={"Authorization": f"Bearer {os.environ['DATABRICKS_TOKEN']}"},
-        )
-        resp.raise_for_status()
-        info = resp.json()
-        artifact_uri = next(
-            a for a in info["trace_info"]["attributes"] if a["key"] == "artifact_uri"
-        )
+        trace_info = self.get_trace_info(trace_id)
+        artifact_uri_attr = next(a for a in trace_info.attributes if a.key == "artifact_uri")
         artifact_uri = add_databricks_profile_info_to_artifact_uri(
-            artifact_uri["value"], self.tracking_uri
+            artifact_uri_attr.value, self.tracking_uri
         )
-
         return get_artifact_repository(artifact_uri)
 
     def _get_artifact_repo(self, run_id):
