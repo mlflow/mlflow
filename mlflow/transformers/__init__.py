@@ -61,6 +61,7 @@ from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_PREFIX,
     _METADATA_LLM_INFERENCE_TASK_KEY,
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
+    _get_default_task_for_llm_inference_task,
     convert_data_messages_with_chat_template,
     infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
@@ -1347,9 +1348,8 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
         )
 
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
-        from transformers.pipelines import get_task
-
-        task = get_task(model_dict[FlavorKey.MODEL].name_or_path)
+        default_task = _get_default_task_for_llm_inference_task(task)
+        task = _get_task_for_model(model.name_or_path, default_task=default_task)
 
     try:
         with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
@@ -1359,6 +1359,28 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
             "The provided model configuration cannot be created as a Pipeline. "
             "Please verify that all required and compatible components are "
             "specified with the correct keys.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+
+def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
+    """
+    Get the Transformers pipeline task type fro the model instance.
+
+    NB: The get_task() function only works for remote models available in the Hugging
+    Face hub, so the default task should be supplied when using a custom local model.
+    """
+    from transformers.pipelines import get_task
+
+    try:
+        return get_task(model_name_or_path)
+    except RuntimeError as e:
+        if default_task:
+            return default_task
+        raise MlflowException(
+            "The task could not be inferred from the model. If you are saving a custom "
+            "local model that is not available in the Hugging Face hub, please provide "
+            "the `task` argument to the `log_model` or `save_model` function.",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
