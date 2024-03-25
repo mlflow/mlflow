@@ -2,6 +2,12 @@ import contextlib
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
+from opentelemetry import trace as trace_api
+
+from mlflow.tracing.provider import get_tracer
+from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
+from mlflow.tracing.utils import capture_function_input_args, get_caller_module
+
 _logger = logging.getLogger(__name__)
 
 
@@ -47,7 +53,6 @@ def trace(
         attributes: A dictionary of attributes to set on the span.
         tags: A string tag that can be attached to the span.
     """
-    from mlflow.tracing.utils import capture_function_input_args
 
     def decorator(func):
         def wrapper(*args, **kwargs):
@@ -95,14 +100,9 @@ def start_span(
         span_type: The type of the span. Can be either a string or a SpanType enum value.
         attributes: A dictionary of attributes to set on the span.
     """
-    from opentelemetry import trace as trace_api
-
-    from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
-    from mlflow.tracing.utils import get_caller_module
-
     # TODO: refactor this logic
     try:
-        tracer = _get_tracer(get_caller_module())
+        tracer = get_tracer(get_caller_module())
         span = tracer.start_span(name)
         span.set_attributes(attributes or {})
     except Exception:
@@ -138,10 +138,3 @@ def get_traces(n: int = 1) -> List:
     from mlflow.tracing.clients import get_trace_client
 
     return get_trace_client().get_traces(n)
-
-
-# NB: Extracting as a function just to allow mocking in tests
-def _get_tracer(module_name: str):
-    from mlflow.tracing.provider import get_tracer
-
-    return get_tracer(module_name)
