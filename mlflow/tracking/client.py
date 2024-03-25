@@ -438,11 +438,11 @@ class MlflowClient:
         """
         return self._tracking_client.download_trace(trace_id)
 
-    def upload_trace(self, trace_id, trace):
+    def upload_trace(self, trace):
         """
         JUST FOR TESTING. REMOVE THIS BEFORE MERGE.
         """
-        return self._tracking_client.upload_trace(trace_id, trace)
+        return self._tracking_client.upload_trace(trace)
 
     def search_experiments(
         self,
