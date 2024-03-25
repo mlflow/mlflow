@@ -3407,12 +3407,37 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     assert mlmodel["model_size_bytes"] == expected_size
 
 
-@pytest.mark.parametrize("task", ["llm/v1/completions", "llm/v1/chat"])
-def test_text_generation_save_model_with_inference_task(task, text_generation_pipeline, model_path):
+@pytest.mark.parametrize(
+    ("task", "input_example"),
+    [
+        (
+            "llm/v1/completions",
+            {
+                "prompt": "How to learn Python in 3 weeks?",
+                "max_tokens": 10,
+                "stop": "Python",
+            },
+        ),
+        (
+            "llm/v1/chat",
+            {
+                "messages": [
+                    {"role": "system", "content": "Hello, how are you?"},
+                ],
+                "temperature": 0.5,
+                "max_tokens": 50,
+            },
+        ),
+    ],
+)
+def test_text_generation_save_model_with_inference_task(
+    task, input_example, text_generation_pipeline, model_path
+):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task=task,
+        input_example=input_example,
     )
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
@@ -3421,6 +3446,9 @@ def test_text_generation_save_model_with_inference_task(task, text_generation_pi
     assert flavor_config["inference_task"] == task
 
     assert mlmodel["metadata"]["task"] == task
+
+    saved_input_example = json.loads(model_path.joinpath("input_example.json").read_text())
+    assert saved_input_example == input_example
 
 
 def test_text_generation_save_model_with_invalid_inference_task(
@@ -3434,6 +3462,20 @@ def test_text_generation_save_model_with_invalid_inference_task(
             path=model_path,
             task="llm/v1/invalid",
         )
+
+
+def test_text_generation_log_model_with_mismatched_task(text_generation_pipeline):
+    with pytest.raises(
+        MlflowException, match=r"LLM v1 task type 'llm/v1/chat' is specified in metadata, but"
+    ):
+        with mlflow.start_run():
+            mlflow.transformers.log_model(
+                transformers_model=text_generation_pipeline,
+                artifact_path="model",
+                # Task argument and metadata task are different
+                task=None,
+                metadata={"task": "llm/v1/chat"},
+            )
 
 
 def test_text_generation_task_completions_predict_with_max_tokens(
