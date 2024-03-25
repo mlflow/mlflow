@@ -1450,6 +1450,8 @@ class MlflowClient:
             .. _PIL.Image.Image:
                 https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
 
+            - `mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
+
         Numpy array support
             - data types:
 
@@ -1502,20 +1504,6 @@ class MlflowClient:
             from PIL import Image
 
             image = Image.new("RGB", (100, 100))
-            with mlflow.start_run() as run:
-                client = mlflow.MlflowClient()
-                client.log_image(run.info.run_id, image, key="dogs", step=3)
-
-        .. code-block:: python
-            :caption: Time-stepped image logging with mlflow.Image example
-
-            import mlflow
-            from PIL import Image
-
-            # Saving an image to retrieve later.
-            Image.new("RGB", (100, 100)).save("image.png")
-
-            image = mlflow.Image("image.png")
             with mlflow.start_run() as run:
                 client = mlflow.MlflowClient()
                 client.log_image(run.info.run_id, image, key="dogs", step=3)
