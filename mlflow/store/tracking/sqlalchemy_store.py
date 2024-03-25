@@ -10,7 +10,7 @@ from typing import List, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, func, sql, text
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
