@@ -377,8 +377,8 @@ class MlflowClient:
 
         Args:
             experiment_id: String id of the experiment for this run.
-            timestamp_ms: int, start time of the trace, in millisecond.
-            execution_time_ms: int, duration of the trace, in millisecond.
+            timestamp_ms: int, start time of the trace, in milliseconds.
+            execution_time_ms: int, duration of the trace, in milliseconds.
             status: string, status of the trace.
             request_metadata: dict, metadata of the trace.
             tags: dict, tags of the trace.

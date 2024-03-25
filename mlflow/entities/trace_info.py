@@ -14,10 +14,10 @@ class TraceInfo(_MLflowObject):
     Args:
         request_id: id of the trace.
         experiment_id: id of the experiment.
-        timestamp_ms: start time of the trace, in millisecond.
-        execution_time_ms: duration of the trace, in millisecond.
+        timestamp_ms: start time of the trace, in milliseconds.
+        execution_time_ms: duration of the trace, in milliseconds.
         status: status of the trace.
-        request_metadata: request_metadata associated with the trace.
+        request_metadata: request metadata associated with the trace.
         tags: tags associated with the trace.
     """
 

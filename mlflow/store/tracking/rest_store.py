@@ -209,11 +209,11 @@ class RestStore(AbstractStore):
 
         Args:
             experiment_id: String id of the experiment for this run.
-            timestamp_ms: int, start time of the trace, in millisecond.
-            execution_time_ms: int, duration of the trace, in millisecond.
-            status: `TraceStatus`, status of the trace.
-            request_metadata: list of `TraceRequestMetadata`, metadata of the trace.
-            tags: list of `TraceTag`, tags of the trace.
+            timestamp_ms: int, start time of the trace, in milliseconds.
+            execution_time_ms: int, duration of the trace, in milliseconds.
+            status: `mlflow.entities.TraceStatus`, status of the trace.
+            request_metadata: list of `mlflow.entities.TraceRequestMetadata`, metadata of the trace.
+            tags: list of `mlflow.entities.TraceTag`, tags of the trace.
 
         Returns:
             The created Trace object
