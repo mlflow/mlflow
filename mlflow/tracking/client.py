@@ -1509,6 +1509,20 @@ class MlflowClient:
                 client.log_image(run.info.run_id, image, key="dogs", step=3)
 
         .. code-block:: python
+            :caption: Time-stepped image logging with mlflow.Image example
+
+            import mlflow
+            from PIL import Image
+
+            # Saving an image to retrieve later.
+            Image.new("RGB", (100, 100)).save("image.png")
+
+            image = mlflow.Image("image.png")
+            with mlflow.start_run() as run:
+                client = mlflow.MlflowClient()
+                client.log_image(run.info.run_id, image, key="dogs", step=3)
+
+        .. code-block:: python
             :caption: Legacy artifact file image logging numpy example
 
             import mlflow
