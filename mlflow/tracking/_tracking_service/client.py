@@ -625,11 +625,11 @@ class TrackingServiceClient:
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
-    def _download_trace(self, trace_id):
+    def download_trace(self, trace_id):
         artifact_repo = self._get_artifact_repo_for_trace(trace_id)
         return artifact_repo.download_trace(trace_id)
 
-    def _upload_trace(self, trace_id, trace):
+    def upload_trace(self, trace_id, trace):
         artifact_repo = self._get_artifact_repo_for_trace(trace_id)
         return artifact_repo.upload_trace(trace_id, trace)
 
