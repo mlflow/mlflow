@@ -94,6 +94,23 @@ def developer_stable(func):
     return func
 
 
+_DEPRECATED_MARK_ATTR_NAME = "__deprecated"
+
+
+def mark_deprecated(func):
+    """
+    Mark a function as deprecated by setting a private attribute on it.
+    """
+    setattr(func, _DEPRECATED_MARK_ATTR_NAME, True)
+
+
+def is_marked_deprecated(func):
+    """
+    Is the function marked as deprecated.
+    """
+    return getattr(func, _DEPRECATED_MARK_ATTR_NAME, False)
+
+
 def deprecated(alternative=None, since=None, impact=None):
     """Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
     called.
@@ -130,6 +147,8 @@ def deprecated(alternative=None, since=None, impact=None):
         if func.__doc__ is not None:
             indent = _get_min_indent_of_docstring(deprecated_func.__doc__)
             deprecated_func.__doc__ = indent + ".. Warning:: " + notice + "\n" + func.__doc__
+
+        mark_deprecated(deprecated_func)
 
         return deprecated_func
 
