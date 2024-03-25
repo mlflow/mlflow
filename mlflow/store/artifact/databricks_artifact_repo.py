@@ -116,6 +116,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     @property
     def run_id(self):
+        """
+        Lazily computes the run ID to avoid the run existence check when downloading/uploading
+        trace data.
+        """
         if self._run_id is None:
             self._run_id = self._extract_run_id(self.artifact_uri)
 
@@ -123,6 +127,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     @property
     def run_relative_artifact_repo_root_path(self):
+        """
+        Lazily computes the run-relative artifact repository root path to avoid the run existence
+        check when downloading/uploading trace data.
+        """
         if self._run_relative_artifact_repo_root_path is None:
             # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
             # the path of `artifact_uri` relative to the MLflow Run's artifact root
