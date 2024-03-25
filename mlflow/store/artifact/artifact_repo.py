@@ -3,7 +3,7 @@ import os
 import posixpath
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
@@ -323,6 +323,27 @@ class MultipartUploadMixin(ABC):
 
         """
         pass
+
+    def download_trace(self, trace_id: str) -> Dict[str, Any]:
+        """
+        Download the trace file for the given trace_id.
+
+        Args:
+            trace_id: The trace ID.
+
+        Returns:
+            The trace file as a dictionary.
+        """
+        raise NotImplementedError
+
+    def upload_trace(self, trace_data: Dict[str, Any]) -> None:
+        """
+        Download the trace file for the given trace_id.
+
+        Args:
+            trace_data: The trace data to upload.
+        """
+        raise NotImplementedError
 
 
 def verify_artifact_path(artifact_path):
