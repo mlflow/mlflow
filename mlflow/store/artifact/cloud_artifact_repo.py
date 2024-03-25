@@ -6,8 +6,6 @@ from abc import abstractmethod
 from collections import namedtuple
 from concurrent.futures import as_completed
 
-from typing import List
-
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
@@ -115,6 +113,30 @@ class CloudArtifactRepository(ArtifactRepository):
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
 
+        # For each batch of files, upload them in parallel and wait for completion
+        # TODO: change to class method
+        def upload_artifacts_iter():
+            for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+                write_credential_infos = self._get_write_credential_infos(
+                    remote_file_paths=[
+                        staged_upload.artifact_file_path for staged_upload in staged_upload_chunk
+                    ],
+                )
+
+                inflight_uploads = {}
+                for staged_upload, write_credential_info in zip(
+                    staged_upload_chunk, write_credential_infos
+                ):
+                    upload_future = self.thread_pool.submit(
+                        self._upload_to_cloud,
+                        cloud_credential_info=write_credential_info,
+                        src_file_path=staged_upload.src_file_path,
+                        artifact_file_path=staged_upload.artifact_file_path,
+                    )
+                    inflight_uploads[staged_upload.src_file_path] = upload_future
+
+                yield from inflight_uploads.items()
+
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
         ) as pbar:
@@ -123,7 +145,7 @@ class CloudArtifactRepository(ArtifactRepository):
                     "The progress bar can be disabled by setting the environment "
                     f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
                 )
-            for src_file_path, upload_future in self.upload_artifacts_iter(staged_uploads):
+            for src_file_path, upload_future in upload_artifacts_iter():
                 try:
                     upload_future.result()
                     pbar.update()
@@ -137,29 +159,6 @@ class CloudArtifactRepository(ArtifactRepository):
                     f" to {self.artifact_uri}: {failed_uploads}"
                 )
             )
-
-    # For each batch of files, upload them in parallel and wait for completion
-    def upload_artifacts_iter(self, staged_uploads: List[StagedArtifactUpload]):
-        for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-            write_credential_infos = self._get_write_credential_infos(
-                remote_file_paths=[
-                    staged_upload.artifact_file_path for staged_upload in staged_upload_chunk
-                ],
-            )
-
-            inflight_uploads = {}
-            for staged_upload, write_credential_info in zip(
-                    staged_upload_chunk, write_credential_infos
-            ):
-                upload_future = self.thread_pool.submit(
-                    self._upload_to_cloud,
-                    cloud_credential_info=write_credential_info,
-                    src_file_path=staged_upload.src_file_path,
-                    artifact_file_path=staged_upload.artifact_file_path,
-                )
-                inflight_uploads[staged_upload.src_file_path] = upload_future
-
-            yield from inflight_uploads.items()
 
     @abstractmethod
     def _get_write_credential_infos(self, remote_file_paths):
