@@ -1,7 +1,11 @@
 import json
+import os
 from unittest import mock
 from unittest.mock import ANY
 
+import requests
+
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_filesystem_service_pb2 import ListDirectoryResponse, DirectoryEntry, HttpHeader, \
     CreateDownloadUrlResponse, CreateDownloadUrlRequest, CreateUploadUrlResponse, CreateUploadUrlRequest
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository, DIRECTORIES_ENDPOINT
@@ -139,3 +143,69 @@ def test_get_write_credentials():
         for cred in creds:
             actual_headers.update({header.name: header.value for header in cred.headers})
         assert expected_headers == actual_headers
+
+
+def test_download_from_cloud():
+    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    remote_file_path = "some/remote/file/path"
+    with mock.patch(
+            f'{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_download_presigned_url_and_headers',
+            return_value=CreateDownloadUrlResponse(url=_make_pesigned_url(remote_file_path),
+                                                   headers=[HttpHeader(name=k, value=v) for k, v in
+                                                            _make_headers(remote_file_path).items()])
+    ) as mock_request, mock.patch(
+        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.download_file_using_http_uri"
+    ) as mock_download:
+        local_file = "local_file"
+        artifact_repo._download_from_cloud(remote_file_path, local_file)
+
+        mock_request.assert_called_once_with(remote_file_path)
+        mock_download.assert_called_once_with(http_uri=_make_pesigned_url(remote_file_path),
+                                              download_path=local_file,
+                                              headers=_make_headers(remote_file_path))
+
+
+def test_log_artifact():
+    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    local_file = "local_file"
+    artifact_path = "remote/file/location"
+    total_remote_path = f"{artifact_path}/{os.path.basename(local_file)}"
+    creds = ArtifactCredentialInfo(signed_uri=_make_pesigned_url(total_remote_path),
+                                   headers=[ArtifactCredentialInfo.HttpHeader(name=k, value=v) for k, v in
+                                            _make_headers(total_remote_path).items()])
+    with mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_write_credential_infos",
+            return_value=[creds]
+    ) as mock_request, mock.patch(
+        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._upload_to_cloud",
+        return_value=None
+    ) as mock_upload:
+        artifact_repo.log_artifact(local_file, artifact_path)
+        mock_request.assert_called_once_with(remote_file_paths=[total_remote_path])
+        mock_upload.assert_called_once_with(cloud_credential_info=creds,
+                                            src_file_path=local_file,
+                                            artifact_file_path=None)
+
+
+def test_upload_to_cloud(tmp_path):
+    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    local_file = os.path.join(tmp_path, "file.txt")
+    content = "content"
+    with open(local_file, "w") as f:
+        f.write(content)
+    remote_file_path = "some/remote/file/path"
+    resp = mock.create_autospec(requests.Response, return_value=None)
+    with mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.cloud_storage_http_request",
+            return_value=resp
+    ) as mock_cloud, mock.patch(
+        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.augmented_raise_for_status"
+    ) as mock_status:
+        cred_info = ArtifactCredentialInfo(signed_uri=_make_pesigned_url(remote_file_path),
+                                           headers=[ArtifactCredentialInfo.HttpHeader(name=k, value=v) for k, v in
+                                                    _make_headers(remote_file_path).items()])
+        artifact_repo._upload_to_cloud(cred_info, local_file, "some/irrelevant/path")
+        mock_cloud.assert_called_once_with("put", _make_pesigned_url(remote_file_path),
+                                           data=bytearray(content, "utf-8"),
+                                           headers=_make_headers(remote_file_path))
+        mock_status.assert_called_once_with(resp.__enter__())

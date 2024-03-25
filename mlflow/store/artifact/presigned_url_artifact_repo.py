@@ -73,7 +73,6 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
             data = f.read()
             with cloud_storage_http_request("put", presigned_url, data=data, headers=headers) as response:
                 augmented_raise_for_status(response)
-                return response.headers["ETag"]
 
     def list_artifacts(self, path=''):
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
