@@ -158,7 +158,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         artifact_path = extract_and_normalize_path(artifact_uri)
         return artifact_path.split("/")[3]
 
-    def _call_endpoint(self, service, api, json_body, path_params=None):
+    def _call_endpoint(self, service, api, json_body=None, path_params=None):
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
         if path_params:
@@ -231,8 +231,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,
-            None,
-            {"trace_id": trace_id},
+            path_params={"trace_id": trace_id},
         )
         signed_uri = cred.credential_info.signed_uri
         headers = self._extract_headers_from_credentials(cred.credential_info.headers)
@@ -259,8 +258,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataUpload,
-            None,
-            {"trace_id": trace.trace_info.trace_id},
+            path_params={"trace_id": trace.trace_info.trace_id},
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, "traces.json")
