@@ -131,6 +131,7 @@ tensorflow:
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
       ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
+      "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
