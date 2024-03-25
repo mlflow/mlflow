@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import trace as trace_api
 
@@ -82,7 +82,7 @@ def trace(
 @contextlib.contextmanager
 def start_span(
     name: str = "span", span_type: Optional[str] = None, attributes: Optional[Dict[str, Any]] = None
-) -> Generator[MLflowSpanWrapper]:
+):
     """
     Context manager to create a new span and start it as the current span in the context.
 

@@ -149,12 +149,13 @@ class NoOpMLflowSpanWrapper:
     so that user's setter calls do not raise runtime errors.
 
     E.g.
-    ```
-    with mlflow.start_span("span_name") as span:
-        # Even if the span creation fails, the following calls should pass.
-        span.set_inputs({"x": 1})
-        ...
-    ```
+
+    .. code-block:: python
+
+        with mlflow.start_span("span_name") as span:
+            # Even if the span creation fails, the following calls should pass.
+            span.set_inputs({"x": 1})
+            # Do something
 
     """
 
