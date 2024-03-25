@@ -24,7 +24,7 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
 )
 
-_METHOD_TO_INFO = extract_api_info_for_service(FilesystemService, _REST_API_PATH_PREFIX)
+FILESYSTEM_METHOD_TO_INFO = extract_api_info_for_service(FilesystemService, _REST_API_PATH_PREFIX)
 DIRECTORIES_ENDPOINT = "/api/2.0/fs/directories"
 
 
@@ -54,7 +54,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
 
     def _get_write_credential_infos(self, remote_file_paths):
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
-        endpoint, method = _METHOD_TO_INFO[CreateUploadUrlRequest]
+        endpoint, method = FILESYSTEM_METHOD_TO_INFO[CreateUploadUrlRequest]
         credential_infos = []
         for relative_path in remote_file_paths:
             fs_full_path = posixpath.join(self.artifact_uri, relative_path)
@@ -79,8 +79,8 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         # are sufficient for upload to cloud storage
         presigned_url = cloud_credential_info.signed_uri
         headers = {header.name: header.value for header in cloud_credential_info.headers}
-        with open(src_file_path, "rb") as f:
-            data = f.read()
+        with open(src_file_path, "rb") as source_file:
+            data = source_file.read()
             with cloud_storage_http_request(
                 "put", presigned_url, data=data, headers=headers
             ) as response:
@@ -136,7 +136,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
     def _get_download_presigned_url_and_headers(self, remote_file_path):
         remote_file_full_path = posixpath.join(self.artifact_uri, remote_file_path)
         db_creds = get_databricks_host_creds(mlflow.get_registry_uri())
-        endpoint, method = _METHOD_TO_INFO[CreateDownloadUrlRequest]
+        endpoint, method = FILESYSTEM_METHOD_TO_INFO[CreateDownloadUrlRequest]
         req_body = message_to_json(CreateDownloadUrlRequest(path=remote_file_full_path))
         response_proto = CreateDownloadUrlResponse()
         return call_endpoint(

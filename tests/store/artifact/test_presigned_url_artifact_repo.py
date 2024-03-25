@@ -3,8 +3,10 @@ import os
 from unittest import mock
 from unittest.mock import ANY
 
+import pytest
 import requests
 
+from mlflow.exceptions import RestException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_filesystem_service_pb2 import (
     CreateDownloadUrlRequest,
@@ -17,6 +19,7 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
 )
 from mlflow.store.artifact.presigned_url_artifact_repo import (
     DIRECTORIES_ENDPOINT,
+    FILESYSTEM_METHOD_TO_INFO,
     PresignedUrlArtifactRepository,
 )
 from mlflow.utils.proto_json_utils import message_to_json
@@ -78,6 +81,21 @@ def test_list_artifact_pagination():
         assert {r.file_size for r in resp} == {1, 2}
 
         assert mock_list.call_count == 3
+
+
+def test_list_artifacts_failure():
+    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    remote_file_path = "some/remote/file/path"
+    exc_code = "NOT_FOUND"
+    exc_message = "The directory being accessed is not found."
+    exc = RestException({"error_code": exc_code, "message": exc_message})
+    with mock.patch(
+        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
+    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+        artifact_repo._download_from_cloud(remote_file_path, "local_file")
+
+    assert exc_info.value.error_code == exc_code
+    assert str(exc_info.value) == f"{exc_code}: {exc_message}"
 
 
 def _make_pesigned_url(remote_path):
@@ -199,6 +217,22 @@ def test_download_from_cloud():
         )
 
 
+def test_download_from_cloud_fail():
+    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    remote_file_path = "some/remote/file/path"
+    endpoint, _ = FILESYSTEM_METHOD_TO_INFO[CreateDownloadUrlRequest]
+    exc_code = "ENDPOINT_NOT_FOUND"
+    exc_message = f"Endpoint not found for {endpoint.lstrip('api')}."
+    exc = RestException({"error_code": exc_code, "message": exc_message})
+    with mock.patch(
+        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
+    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+        artifact_repo._download_from_cloud(remote_file_path, "local_file")
+
+    assert exc_info.value.error_code == exc_code
+    assert str(exc_info.value) == f"{exc_code}: {exc_message}"
+
+
 def test_log_artifact():
     artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
     local_file = "local_file"
@@ -253,3 +287,19 @@ def test_upload_to_cloud(tmp_path):
             headers=_make_headers(remote_file_path),
         )
         mock_status.assert_called_once_with(resp.__enter__())
+
+
+def test_upload_to_cloud_fail():
+    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    remote_file_path = "some/remote/file/path"
+    endpoint, _ = FILESYSTEM_METHOD_TO_INFO[CreateUploadUrlRequest]
+    exc_code = "ENDPOINT_NOT_FOUND"
+    exc_message = f"Endpoint not found for {endpoint.lstrip('api')}."
+    exc = RestException({"error_code": exc_code, "message": exc_message})
+    with mock.patch(
+        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
+    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+        artifact_repo._download_from_cloud(remote_file_path, "local_file")
+
+    assert exc_info.value.error_code == exc_code
+    assert str(exc_info.value) == f"{exc_code}: {exc_message}"
