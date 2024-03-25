@@ -243,7 +243,13 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 headers=headers,
             )
             with local_path.open("r") as f:
-                return json.load(f)
+                s = f.read()
+                try:
+                    return json.loads(s)
+                except json.JSONDecodeError as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Failed to parse trace data:\n{s}"
+                    ) from e
 
     def upload_trace(self, trace: Trace):
         """
