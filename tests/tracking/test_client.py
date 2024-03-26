@@ -28,7 +28,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.types.constant import TraceAttributeKey
-from mlflow.tracing.types.model import SpanType, StatusCode
+from mlflow.tracing.types.model import SpanType, Status, StatusCode
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
@@ -161,7 +161,9 @@ def test_start_and_end_trace():
             self._client = MlflowClient()
 
         def predict(self, x, y):
-            root_span = self._client.start_trace(name="predict", tags={"tag": "tag_value"})
+            root_span = self._client.start_trace(
+                name="predict", inputs={"x": x, "y": y}, tags={"tag": "tag_value"}
+            )
             trace_id = root_span.trace_id
 
             z = x + y
@@ -171,33 +173,38 @@ def test_start_and_end_trace():
                 span_type=SpanType.LLM,
                 trace_id=trace_id,
                 parent_span_id=root_span.span_id,
+                inputs={"z": z},
             )
-            child_span.set_inputs({"z": z})
 
             z = z + 2
 
-            child_span.set_outputs({"output": z})
-            child_span.set_attributes({"delta": 2})
-            child_span.end()
+            self._client.end_span(
+                trace_id=trace_id,
+                span_id=child_span.span_id,
+                outputs={"output": z},
+                attributes={"delta": 2},
+            )
 
             res = self.square(z, trace_id, root_span.span_id)
-            root_span.set_inputs({"x": x, "y": y})
-            root_span.set_outputs({"output": res})
-
-            self._client.end_trace(trace_id)
+            self._client.end_trace(trace_id, outputs={"output": res}, status=Status(StatusCode.OK))
             return res
 
         def square(self, t, trace_id, parent_span_id):
             span = self._client.start_span(
-                "child_span_2", trace_id=trace_id, parent_span_id=parent_span_id
+                "child_span_2",
+                trace_id=trace_id,
+                parent_span_id=parent_span_id,
+                inputs={"t": t},
             )
-            span.set_inputs({"t": t})
 
             res = t**2
             time.sleep(0.1)
 
-            span.set_outputs({"output": res})
-            span.end()
+            self._client.end_span(
+                trace_id=trace_id,
+                span_id=span.span_id,
+                outputs={"output": res},
+            )
             return res
 
     model = TestModel()
@@ -257,7 +264,7 @@ def test_start_and_end_trace_before_all_span_end():
                 parent_span_id=root_span.span_id,
             )
             time.sleep(0.1)
-            child_span.end()
+            self._client.end_span(trace_id, child_span.span_id)
 
             res = self.square(x, trace_id, root_span.span_id)
             self._client.end_trace(trace_id)
