@@ -193,12 +193,6 @@ class APIRequest:
         from langchain.schema import BaseRetriever
         from mlflow.langchain.utils import lc_runnables_types
 
-        from langchain.schema import BaseRetriever
-
-        from mlflow.langchain.utils import lc_runnables_types
-
-        _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
-
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
             docs = self.lc_model.get_relevant_documents(**self.request_json)
@@ -206,15 +200,25 @@ class APIRequest:
                 {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
             ]
         elif isinstance(self.lc_model, lc_runnables_types()):
+            def _predict_single_input(single_input):
+                if self.stream:
+                    return self.lc_model.stream(
+                        single_input,
+                        config={"callbacks": callback_handlers}
+                    )
+                return self.lc_model.invoke(
+                    single_input,
+                    config={"callbacks": callback_handlers}
+                )
+
             if isinstance(self.request_json, dict):
                 # This is a temporary fix for the case when spark_udf converts
                 # input into pandas dataframe with column name, while the model
                 # does not accept dictionaries as input, it leads to errors like
                 # Expected Scalar value for String field 'query_text'
                 try:
-                    response = self.lc_model.invoke(
-                        self.converted_chat_request_json or self.request_json,
-                        config={"callbacks": callback_handlers},
+                    response = _predict_single_input(
+                        self.converted_chat_request_json or self.request_json
                     )
                 except TypeError as e:
                     _logger.warning(
@@ -230,16 +234,16 @@ class APIRequest:
                         self.request_json, self.lc_model
                     )
 
-                    response = self.lc_model.invoke(
-                        prepared_request_json, config={"callbacks": callback_handlers}
-                    )
+                    response = _predict_single_input(prepared_request_json)
             else:
-                response = self.lc_model.invoke(
-                    self.converted_chat_request_json or self.request_json,
-                    config={"callbacks": callback_handlers},
+                response = _predict_single_input(
+                    self.converted_chat_request_json or self.request_json
                 )
             if self.converted_chat_request_json is not None or self.convert_chat_responses:
-                response = APIRequest._try_transform_response_to_chat_format(response)
+                if self.stream:
+                    response = APIRequest._try_transform_response_iter_to_chat_format(response)
+                else:
+                    response = APIRequest._try_transform_response_to_chat_format(response)
         else:
             response = self.lc_model(
                 self.converted_chat_request_json or self.request_json,
