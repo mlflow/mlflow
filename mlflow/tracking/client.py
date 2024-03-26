@@ -18,7 +18,17 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import yaml
 
 import mlflow
-from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    Experiment,
+    FileInfo,
+    Metric,
+    Param,
+    Run,
+    RunTag,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
@@ -353,6 +363,74 @@ class MlflowClient:
             status: RUNNING
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
+
+    def create_trace(
+        self,
+        experiment_id,
+        timestamp_ms,
+        execution_time_ms,
+        status,
+        request_metadata=None,
+        tags=None,
+    ):
+        """Create a trace object and log in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: int, start time of the trace, in milliseconds.
+            execution_time_ms: int, duration of the trace, in milliseconds.
+            status: string, status of the trace.
+            request_metadata: dict, metadata of the trace.
+            tags: dict, tags of the trace.
+
+        Returns:
+            :py:class:`mlflow.entities.TraceInfo` that was created.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            experiment_id = "12345678"
+            tags = {"engineering": "ML Platform"}
+            trace = client.create_trace(
+                experiment_id,
+                start_time=123,
+                end_time=567,
+                status="OK",
+                tags=tags,
+            )
+        """
+        return self._tracking_client.create_trace(
+            experiment_id,
+            timestamp_ms,
+            execution_time_ms,
+            status,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
+
+    def get_trace_info(self, request_id: str) -> TraceInfo:
+        """
+        Get the trace matching the `request_id`.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            request_id = "12345678"
+            trace = client.get_trace_info(request_id)
+        """
+        return self._tracking_client.get_trace_info(request_id)
 
     def search_experiments(
         self,

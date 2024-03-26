@@ -4,7 +4,17 @@ from unittest import mock
 import pytest
 
 from mlflow import MlflowClient
-from mlflow.entities import ExperimentTag, Run, RunInfo, RunStatus, RunTag, SourceType, ViewType
+from mlflow.entities import (
+    ExperimentTag,
+    Run,
+    RunInfo,
+    RunStatus,
+    RunTag,
+    SourceType,
+    TraceRequestMetadata,
+    TraceStatus,
+    ViewType,
+)
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -119,6 +129,33 @@ def test_client_create_run_with_name(mock_store, mock_time):
         tags=[],
         run_name="my name",
     )
+
+
+def test_client_create_trace(mock_store, mock_time):
+    experiment_id = mock.Mock()
+
+    MlflowClient().create_trace(
+        experiment_id,
+        123,
+        456,
+        "OK",
+        request_metadata={"key": "val"},
+        tags={},
+    )
+
+    mock_store.create_trace.assert_called_once_with(
+        experiment_id=experiment_id,
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.from_string("OK"),
+        request_metadata=[TraceRequestMetadata("key", "val")],
+        tags=[],
+    )
+
+
+def test_client_get_trace_info(mock_store):
+    MlflowClient().get_trace_info("1234567")
+    mock_store.get_trace_info.assert_called_once_with("1234567")
 
 
 def test_client_create_experiment(mock_store):

@@ -15,6 +15,8 @@ from mlflow.entities import (
     Param,
     RunTag,
     SourceType,
+    TraceRequestMetadata,
+    TraceTag,
     ViewType,
 )
 from mlflow.exceptions import MlflowException
@@ -22,6 +24,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CreateRun,
+    CreateTrace,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
@@ -39,6 +42,8 @@ from mlflow.protos.service_pb2 import (
     SetTag,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
+from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
+from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
@@ -200,6 +205,39 @@ def test_requestor():
                 actual_tags, key=lambda t: t["key"]
             )
             assert expected_kwargs == actual_kwargs
+
+    with mock_http_request() as mock_http:
+        store.create_trace(
+            experiment_id="447585625682310",
+            timestamp_ms=123,
+            execution_time_ms=456,
+            status="OK",
+            request_metadata=[
+                TraceRequestMetadata("key1", "val1"),
+                TraceRequestMetadata("key2", "val2"),
+            ],
+            tags=[
+                TraceTag("tag1", "va1"),
+                TraceTag("tag2", "va2"),
+            ],
+        )
+        body = message_to_json(
+            CreateTrace(
+                experiment_id="447585625682310",
+                timestamp_ms=123,
+                execution_time_ms=456,
+                status="OK",
+                request_metadata=[
+                    ProtoTraceRequestMetadata(key="key1", value="val1"),
+                    ProtoTraceRequestMetadata(key="key2", value="val2"),
+                ],
+                tags=[
+                    ProtoTraceTag(key="tag1", value="va1"),
+                    ProtoTraceTag(key="tag2", value="va2"),
+                ],
+            )
+        )
+        _verify_requests(mock_http, creds, "traces", "POST", body)
 
     with mock_http_request() as mock_http:
         store.log_param("some_uuid", Param("k1", "v1"))

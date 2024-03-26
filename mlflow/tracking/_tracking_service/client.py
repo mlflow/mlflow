@@ -9,7 +9,17 @@ from collections import OrderedDict
 from itertools import zip_longest
 from typing import List, Optional
 
-from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
+from mlflow.entities import (
+    ExperimentTag,
+    Metric,
+    Param,
+    RunStatus,
+    RunTag,
+    TraceRequestMetadata,
+    TraceStatus,
+    TraceTag,
+    ViewType,
+)
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
@@ -143,6 +153,54 @@ class TrackingServiceClient:
             tags=[RunTag(key, value) for (key, value) in tags.items()],
             run_name=run_name,
         )
+
+    def create_trace(
+        self,
+        experiment_id,
+        timestamp_ms,
+        execution_time_ms,
+        status,
+        request_metadata=None,
+        tags=None,
+    ):
+        """Create a trace object and log in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: int, start time of the trace, in milliseconds.
+            execution_time_ms: int, duration of the trace, in milliseconds.
+            status: string, status of the trace.
+            request_metadata: dict, metadata of the trace.
+            tags: dict, tags of the trace.
+
+        Returns:
+            The created Trace object.
+        """
+        request_metadata = request_metadata or {}
+        tags = tags or {}
+
+        return self.store.create_trace(
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            execution_time_ms=execution_time_ms,
+            status=TraceStatus.from_string(status),
+            request_metadata=[
+                TraceRequestMetadata(key, value) for (key, value) in request_metadata.items()
+            ],
+            tags=[TraceTag(key, value) for (key, value) in tags.items()],
+        )
+
+    def get_trace_info(self, request_id):
+        """
+        Get the trace matching the `request_id`.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        return self.store.get_trace_info(request_id)
 
     def search_experiments(
         self,

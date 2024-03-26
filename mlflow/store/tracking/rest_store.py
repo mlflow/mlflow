@@ -1,11 +1,12 @@
 from typing import List, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, ViewType
+from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
     CreateRun,
+    CreateTrace,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
@@ -13,6 +14,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetMetricHistory,
     GetRun,
+    GetTraceInfo,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -35,6 +37,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_trace_info_endpoint,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -54,8 +57,13 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body):
-        endpoint, method = _METHOD_TO_INFO[api]
+    def _call_endpoint(self, api, json_body, endpoint=None):
+        if endpoint:
+            # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
+            # /mlflow/traces/{request_id}/info.
+            _, method = _METHOD_TO_INFO[api]
+        else:
+            endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
@@ -186,6 +194,59 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(CreateRun, req_body)
         return Run.from_proto(response_proto.run)
+
+    def create_trace(
+        self,
+        experiment_id,
+        timestamp_ms,
+        execution_time_ms,
+        status,
+        request_metadata,
+        tags,
+    ):
+        """
+        Create a trace under the specified experiment ID.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: int, start time of the trace, in milliseconds.
+            execution_time_ms: int, duration of the trace, in milliseconds.
+            status: `mlflow.entities.TraceStatus`, status of the trace.
+            request_metadata: list of `mlflow.entities.TraceRequestMetadata`, metadata of the trace.
+            tags: list of `mlflow.entities.TraceTag`, tags of the trace.
+
+        Returns:
+            The created Trace object
+        """
+        metadata_all = [metadata.to_proto() for metadata in request_metadata]
+        tags = [tag.to_proto() for tag in tags]
+        req_body = message_to_json(
+            CreateTrace(
+                experiment_id=str(experiment_id),
+                timestamp_ms=timestamp_ms,
+                execution_time_ms=execution_time_ms,
+                status=status,
+                request_metadata=metadata_all,
+                tags=tags,
+            )
+        )
+        response_proto = self._call_endpoint(CreateTrace, req_body)
+        return TraceInfo.from_proto(response_proto.trace_info)
+
+    def get_trace_info(self, request_id):
+        """
+        Get the trace matching the `request_id`.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        req_body = message_to_json(GetTraceInfo(request_id=request_id))
+        endpoint = get_trace_info_endpoint(request_id)
+        response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
+        return TraceInfo.from_proto(response_proto.trace_info)
 
     def log_metric(self, run_id, metric):
         """
