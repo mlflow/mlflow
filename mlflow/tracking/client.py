@@ -1597,9 +1597,7 @@ class MlflowClient:
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
-            compressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}%compressed"
-            )
+            compressed_filename = f"{uncompressed_filename}%compressed"
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
