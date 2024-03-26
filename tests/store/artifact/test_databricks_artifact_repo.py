@@ -54,7 +54,7 @@ def databricks_artifact_repo():
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_run_artifact_root", return_value=MOCK_RUN_ROOT_URI
     ):
-        return get_artifact_repository(
+        yield get_artifact_repository(
             "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
         )
 
