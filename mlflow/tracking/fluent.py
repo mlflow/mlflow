@@ -11,6 +11,7 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
@@ -1216,7 +1217,7 @@ def log_figure(
 
 
 def log_image(
-    image: Union["numpy.ndarray", "PIL.Image.Image"],
+    image: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image"],
     artifact_file: Optional[str] = None,
     key: Optional[str] = None,
     step: Optional[int] = None,
@@ -1225,12 +1226,17 @@ def log_image(
     """
     Logs an image in MLflow, supporting two use cases:
 
-    1. Time-stepped image logging: ideal for tracking changes or progressions through iterative
-        processes (e.g., during model training phases).
-        - Usage: `log_image(image, key=key, step=step, timestamp=timestamp)`
-    2. Artifact file image logging: best suited for static image logging where the image
-        is saved directly as a file artifact.
-        - Usage: `log_image(image, artifact_file)`
+    1. Time-stepped image logging:
+        Ideal for tracking changes or progressions through iterative processes (e.g.,
+        during model training phases).
+
+        - Usage: :code:`log_image(image, key=key, step=step, timestamp=timestamp)`
+
+    2. Artifact file image logging:
+        Best suited for static image logging where the image is saved directly as a file
+        artifact.
+
+        - Usage: :code:`log_image(image, artifact_file)`
 
     The following image formats are supported:
         - `numpy.ndarray`_
@@ -1241,6 +1247,8 @@ def log_image(
 
         .. _PIL.Image.Image:
             https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+        - :class:`mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
 
     Numpy array support
         - data types:
@@ -1269,7 +1277,9 @@ def log_image(
             will be stored as an artifact relative to the run's root directory (for
             example, "dir/image.png"). This parameter is kept for backward compatibility
             and should not be used together with `key`, `step`, or `timestamp`.
-        key: Image name for time-stepped image logging.
+        key: Image name for time-stepped image logging. This string may only contain
+            alphanumerics, underscores (_), dashes (-), periods (.), spaces ( ), and
+            slashes (/).
         step: Integer training step (iteration) at which the image was saved.
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
@@ -1295,6 +1305,19 @@ def log_image(
 
         with mlflow.start_run():
             mlflow.log_image(image, key="dogs", step=3)
+
+    .. code-block:: python
+        :caption: Time-stepped image logging with mlflow.Image example
+
+        import mlflow
+        from PIL import Image
+
+        # If you have a preexisting saved image
+        Image.new("RGB", (100, 100)).save("image.png")
+
+        image = mlflow.Image("image.png")
+        with mlflow.start_run() as run:
+            mlflow.log_image(run.info.run_id, image, key="dogs", step=3)
 
     .. code-block:: python
         :caption: Legacy artifact file image logging numpy example
