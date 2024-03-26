@@ -33,6 +33,7 @@ env:
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  PYTHONUTF8: "1"
 
 jobs:
   lint:

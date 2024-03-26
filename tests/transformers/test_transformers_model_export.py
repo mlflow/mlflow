@@ -3407,12 +3407,37 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     assert mlmodel["model_size_bytes"] == expected_size
 
 
-@pytest.mark.parametrize("task", ["llm/v1/completions", "llm/v1/chat"])
-def test_text_generation_save_model_with_inference_task(task, text_generation_pipeline, model_path):
+@pytest.mark.parametrize(
+    ("task", "input_example"),
+    [
+        (
+            "llm/v1/completions",
+            {
+                "prompt": "How to learn Python in 3 weeks?",
+                "max_tokens": 10,
+                "stop": "Python",
+            },
+        ),
+        (
+            "llm/v1/chat",
+            {
+                "messages": [
+                    {"role": "system", "content": "Hello, how are you?"},
+                ],
+                "temperature": 0.5,
+                "max_tokens": 50,
+            },
+        ),
+    ],
+)
+def test_text_generation_save_model_with_inference_task(
+    task, input_example, text_generation_pipeline, model_path
+):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task=task,
+        input_example=input_example,
     )
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
@@ -3421,6 +3446,9 @@ def test_text_generation_save_model_with_inference_task(task, text_generation_pi
     assert flavor_config["inference_task"] == task
 
     assert mlmodel["metadata"]["task"] == task
+
+    saved_input_example = json.loads(model_path.joinpath("input_example.json").read_text())
+    assert saved_input_example == input_example
 
 
 def test_text_generation_save_model_with_invalid_inference_task(
@@ -3434,6 +3462,20 @@ def test_text_generation_save_model_with_invalid_inference_task(
             path=model_path,
             task="llm/v1/invalid",
         )
+
+
+def test_text_generation_log_model_with_mismatched_task(text_generation_pipeline):
+    with pytest.raises(
+        MlflowException, match=r"LLM v1 task type 'llm/v1/chat' is specified in metadata, but"
+    ):
+        with mlflow.start_run():
+            mlflow.transformers.log_model(
+                transformers_model=text_generation_pipeline,
+                artifact_path="model",
+                # Task argument and metadata task are different
+                task=None,
+                metadata={"task": "llm/v1/chat"},
+            )
 
 
 def test_text_generation_task_completions_predict_with_max_tokens(
@@ -3506,6 +3548,67 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     assert output_dict["choices"][0]["text"] is not None
     assert output_dict["choices"][0]["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
+
+
+def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):
+    local_repo_path = tmp_path / "local_repo"
+    text_generation_pipeline.save_pretrained(local_repo_path)
+
+    locally_loaded_model = transformers.AutoModelWithLMHead.from_pretrained(local_repo_path)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(local_repo_path)
+    model_dict = {"model": locally_loaded_model, "tokenizer": tokenizer}
+
+    # 1. Save local custom model without specifying task -> raises MlflowException
+    with pytest.raises(MlflowException, match=r"The task could not be inferred"):
+        mlflow.transformers.save_model(transformers_model=model_dict, path=model_path)
+
+    # 2. Save local custom model with task -> saves successfully
+    mlflow.transformers.save_model(
+        transformers_model=model_dict,
+        path=model_path,
+        task="text-generation",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("How to save Transformer model?")
+    assert isinstance(inference[0], str)
+    assert inference[0].startswith("How to save Transformer model?")
+
+    if Version(transformers.__version__) < Version("4.34.0"):
+        # Chat model is not supported for Transformers < 4.34.0
+        return
+
+    # 3. Save local custom model with LLM v1 chat inference task -> saves successfully
+    #    with the corresponding Transformers task
+    shutil.rmtree(model_path)
+
+    mlflow.transformers.save_model(
+        transformers_model=model_dict,
+        path=model_path,
+        task="llm/v1/chat",
+    )
+
+    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+    flavor_config = mlmodel["flavors"]["transformers"]
+    assert flavor_config["task"] == "text-generation"
+    assert flavor_config["inference_task"] == "llm/v1/chat"
+    assert mlmodel["metadata"]["task"] == "llm/v1/chat"
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "How to save Transformer model?",
+                }
+            ]
+        }
+    )
+    assert isinstance(inference[0], dict)
+    assert inference[0]["choices"][0]["message"]["role"] == "assistant"
 
 
 def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipeline):
