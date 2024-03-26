@@ -1505,8 +1505,8 @@ def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spar
     )
 
 
-def test_store_use_presigned_url_store_when_disabled():
-    os.environ[MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name] = "False"
+def test_store_use_presigned_url_store_when_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "False")
     store_package = "mlflow.store._unity_catalog.registry.rest_store"
 
     uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
@@ -1530,8 +1530,8 @@ def test_store_use_presigned_url_store_when_disabled():
         )
 
 
-def test_store_use_presigned_url_store_when_enabled():
-    os.environ[MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name] = "True"
+def test_store_use_presigned_url_store_when_enabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "True")
     with mock.patch("mlflow.utils.databricks_utils.get_config"):
         uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
         model_version = ModelVersion(name="catalog.schema.model_1", version="1")

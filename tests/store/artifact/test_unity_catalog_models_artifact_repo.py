@@ -1,5 +1,4 @@
 import json
-import os
 from unittest import mock
 from unittest.mock import ANY
 
@@ -293,8 +292,8 @@ def test_get_feature_dependencies_doesnt_throw():
     )
 
 
-def test_store_use_presigned_url_store_when_disabled():
-    os.environ[MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name] = "False"
+def test_store_use_presigned_url_store_when_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "False")
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
 
     uc_store = UnityCatalogModelsArtifactRepository(
@@ -320,12 +319,12 @@ def test_store_use_presigned_url_store_when_disabled():
         )
 
 
-def test_store_use_presigned_url_store_when_enabled():
-    os.environ[MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name] = "True"
+def test_store_use_presigned_url_store_when_enabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "True")
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+        uc_store = UnityCatalogModelsArtifactRepository(
+            "models:/catalog.schema.model/1", "databricks-uc"
+        )
+        presigned_store = uc_store._get_artifact_repo()
 
-    uc_store = UnityCatalogModelsArtifactRepository(
-        "models:/catalog.schema.model/1", "databricks-uc"
-    )
-    presigned_store = uc_store._get_artifact_repo()
-
-    assert type(presigned_store) is PresignedUrlArtifactRepository
+        assert type(presigned_store) is PresignedUrlArtifactRepository
