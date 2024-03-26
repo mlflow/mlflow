@@ -1592,9 +1592,12 @@ class MlflowClient:
 
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
-            filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{uuid.uuid4()}"
-            uncompressed_filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{uuid.uuid4()}"
-            compressed_filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{uuid.uuid4()}%compressed"
+            filename_uuid = uuid.uuid4()
+            filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+            uncompressed_filename = (
+                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+            )
+            compressed_filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}%compressed"
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
