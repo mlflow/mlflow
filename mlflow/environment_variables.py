@@ -541,3 +541,9 @@ MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERS
 MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
     "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
 )
+
+# How long a trace can be buffered at the in-memory trace client before being abandoned.
+MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
+
+# How many traces to be buffered at the in-memory trace client.
+MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
