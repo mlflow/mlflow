@@ -11,6 +11,7 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
@@ -41,7 +42,6 @@ from mlflow.tracking import _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
-from mlflow.tracking.multimedia import Image
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -1217,7 +1217,7 @@ def log_figure(
 
 
 def log_image(
-    image: Union["numpy.ndarray", "PIL.Image.Image", "Image"],
+    image: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image"],
     artifact_file: Optional[str] = None,
     key: Optional[str] = None,
     step: Optional[int] = None,
