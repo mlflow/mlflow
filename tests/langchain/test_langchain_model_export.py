@@ -1169,7 +1169,11 @@ def test_simple_chat_model_inference():
     }
     expected_resp_content = {
         "role": "assistant",
-        "content": "system: You are a helpful assistant.\nai: What would you like to ask?\nhuman: Who owns MLflow?",
+        "content": (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?",
+        )
     }
     response1 = loaded_model.predict([input_example])
     assert len(response1) == 1
