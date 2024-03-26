@@ -1,6 +1,5 @@
 import logging
 import threading
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, Optional
@@ -31,15 +30,15 @@ class InMemoryTraceManager:
     """
 
     _instance_lock = threading.Lock()
-    _instance = ContextVar("InMemoryTraceManager", default=None)
+    _instance = None
 
     @classmethod
     def get_instance(cls):
-        if cls._instance.get() is None:
+        if cls._instance is None:
             with cls._instance_lock:
-                if cls._instance.get() is None:
-                    cls._instance.set(InMemoryTraceManager())
-        return cls._instance.get()
+                if cls._instance is None:
+                    cls._instance = InMemoryTraceManager()
+        return cls._instance
 
     def __init__(self):
         self._traces: Dict[str, _Trace] = {}
