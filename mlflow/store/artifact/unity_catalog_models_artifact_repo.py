@@ -112,12 +112,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         """
         if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
             return PresignedUrlArtifactRepository(self.model_name, self.model_version)
-        else:
-            scoped_token = self._get_scoped_token()
-            blob_storage_path = self._get_blob_storage_path()
-            return get_artifact_repo_from_storage_info(
-                storage_location=blob_storage_path, scoped_token=scoped_token
-            )
+
+        scoped_token = self._get_scoped_token()
+        blob_storage_path = self._get_blob_storage_path()
+        return get_artifact_repo_from_storage_info(
+            storage_location=blob_storage_path, scoped_token=scoped_token
+        )
 
     def list_artifacts(self, path=None):
         return self._get_artifact_repo().list_artifacts(path=path)

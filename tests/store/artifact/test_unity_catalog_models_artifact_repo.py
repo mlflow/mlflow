@@ -1,4 +1,5 @@
 import json
+import os
 from unittest import mock
 from unittest.mock import ANY
 
@@ -8,10 +9,13 @@ from requests import Response
 
 from mlflow import MlflowClient
 from mlflow.entities.file_info import FileInfo
+from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_uc_registry_messages_pb2 import TemporaryCredentials
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
@@ -287,3 +291,41 @@ def test_get_feature_dependencies_doesnt_throw():
         )
         == ""
     )
+
+
+def test_store_use_presigned_url_store_when_disabled():
+    os.environ[MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name] = "False"
+    store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
+
+    uc_store = UnityCatalogModelsArtifactRepository(
+        "models:/catalog.schema.model/1", "databricks-uc"
+    )
+    storage_location = "s3://some/storage/location"
+    creds = TemporaryCredentials()
+    with mock.patch(
+        f"{store_package}.UnityCatalogModelsArtifactRepository._get_scoped_token",
+        return_value=creds,
+    ) as temp_cred_mock, mock.patch(
+        f"{store_package}.UnityCatalogModelsArtifactRepository._get_blob_storage_path",
+        return_value=storage_location,
+    ) as get_location_mock, mock.patch(
+        f"{store_package}.get_artifact_repo_from_storage_info",
+    ) as get_artifact_repo_mock:
+        uc_store._get_artifact_repo()
+
+        temp_cred_mock.assert_called_once()
+        get_location_mock.assert_called_once()
+        get_artifact_repo_mock.assert_called_once_with(
+            storage_location=storage_location, scoped_token=creds
+        )
+
+
+def test_store_use_presigned_url_store_when_enabled():
+    os.environ[MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name] = "True"
+
+    uc_store = UnityCatalogModelsArtifactRepository(
+        "models:/catalog.schema.model/1", "databricks-uc"
+    )
+    presigned_store = uc_store._get_artifact_repo()
+
+    assert type(presigned_store) is PresignedUrlArtifactRepository
