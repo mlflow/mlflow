@@ -75,8 +75,8 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         return credential_infos
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
-        # artifact_file_path is unused in this implementation because the presigned URL and local file path
-        # are sufficient for upload to cloud storage
+        # artifact_file_path is unused in this implementation because the presigned URL
+        # and local file path are sufficient for upload to cloud storage
         presigned_url = cloud_credential_info.signed_uri
         headers = {header.name: header.value for header in cloud_credential_info.headers}
         with open(src_file_path, "rb") as source_file:

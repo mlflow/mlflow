@@ -47,7 +47,7 @@ sed -i'.old' -e "s/$OLD_SCALAPB/$NEW_SCALAPB/g" "$PROTOS/databricks_pb2.py" "$PR
 
 OLD_DATABRICKS="import databricks_pb2 as databricks__pb2"
 NEW_DATABRICKS="from . import databricks_pb2 as databricks__pb2"
-sed -i'.old' -e "s/$OLD_DATABRICKS/$NEW_DATABRICKS/g" "$PROTOS/service_pb2.py" "$PROTOS/model_registry_pb2.py" "$PROTOS/databricks_artifacts_pb2.py" "$PROTOS/mlflow_artifacts_pb2.py" "$PROTOS/internal_pb2.py" "$PROTOS/databricks_managed_catalog_service_pb2.py" "$PROTOS/databricks_managed_catalog_messages_pb2.py" "$PROTOS/databricks_uc_registry_service_pb2.py" "$PROTOS/databricks_uc_registry_messages_pb2.py" "$TEST_PROTOS/test_message_pb2.py"
+sed -i'.old' -e "s/$OLD_DATABRICKS/$NEW_DATABRICKS/g" "$PROTOS/service_pb2.py" "$PROTOS/model_registry_pb2.py" "$PROTOS/databricks_artifacts_pb2.py" "$PROTOS/mlflow_artifacts_pb2.py" "$PROTOS/internal_pb2.py" "$PROTOS/databricks_managed_catalog_service_pb2.py" "$PROTOS/databricks_managed_catalog_messages_pb2.py" "$PROTOS/databricks_uc_registry_service_pb2.py" "$PROTOS/databricks_uc_registry_messages_pb2.py" "$TEST_PROTOS/test_message_pb2.py" "$PROTOS/databricks_filesystem_service_pb2.py"
 
 OLD_DATABRICKS_UC_REGISTRY="import databricks_uc_registry_messages_pb2 as databricks__uc__registry__messages__pb2"
 NEW_DATABRICKS_UC_REGISTRY="from . import databricks_uc_registry_messages_pb2 as databricks_uc_registry_messages_pb2"
