@@ -1,7 +1,14 @@
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional
 
-from mlflow.entities import DatasetInput, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    TraceInfo,
+    TraceRequestMetadata,
+    TraceStatus,
+    TraceTag,
+    ViewType,
+)
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -234,29 +241,37 @@ class AbstractStore:
         """
         pass
 
-    def create_trace(self, experiment_id, start_time, end_time, status, attributes, tags):
+    def create_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        execution_time_ms: int,
+        status: TraceStatus,
+        request_metadata: List[TraceRequestMetadata],
+        tags: List[TraceTag],
+    ) -> TraceInfo:
         """
         Create a trace under the specified experiment ID.
 
         Args:
             experiment_id: String id of the experiment for this run.
-            start_time: int, start time of the trace.
-            end_time: int, end time of the trace.
-            status: `TraceStatus`, status of the trace.
-            attributes: list of `TraceAttribute`, attributes of the trace.
-            tags: list of `TraceTag`, tags of the trace.
+            timestamp_ms: int, start time of the trace, in milliseconds.
+            execution_time_ms: int, duration of the trace, in milliseconds.
+            status: `mlflow.entities.TraceStatus`, status of the trace.
+            request_metadata: list of `mlflow.entities.TraceRequestMetadata`, metadata of the trace.
+            tags: list of `mlflow.entities.TraceTag`, tags of the trace.
 
         Returns:
             The created Trace object
         """
         raise NotImplementedError
 
-    def get_trace_info(self, trace_id):
+    def get_trace_info(self, request_id: str) -> TraceInfo:
         """
-        Get the trace matching the `trace_id`.
+        Get the trace matching the `request_id`.
 
         Args:
-            trace_id: String id of the trace to fetch.
+            request_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.

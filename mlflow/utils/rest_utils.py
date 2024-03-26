@@ -221,6 +221,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     else:
         call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
+
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)
