@@ -15,19 +15,17 @@ def _extract_torch_dtype_if_set(pipeline) -> Optional[torch.dtype]:
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
-    from mlflow.transformers import _get_engine_type
-
-    if _get_engine_type(pipeline.model) != "torch":
+    try:
+        import torch
+    except ImportError:
+        # If torch is not installed, safe to assume the model doesn't have a custom torch_dtype
         return None
 
-    if torch_dtype := getattr(pipeline, _TORCH_DTYPE_KEY, None):
-        # Torch dtype value may be a string or a torch.dtype instance
-        torch_dtype = _deserialize_torch_dtype(torch_dtype)
-        return torch_dtype
+    # Check model dtype as pipeline's torch_dtype field doesn't always reflect the model's dtype
+    model_dtype = pipeline.model.dtype if hasattr(pipeline.model, "dtype") else None
 
-    # Transformers pipeline doesn't inherit underlying model's dtype, so we have to also check
-    # the model's dtype.
-    return getattr(pipeline.model, "dtype", None)
+    # If the underlying model is PyTorch model, dtype must be a torch.dtype instance
+    return model_dtype if isinstance(model_dtype, torch.dtype) else None
 
 
 def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
