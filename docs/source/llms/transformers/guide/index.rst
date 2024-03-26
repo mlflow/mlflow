@@ -139,11 +139,11 @@ loaded as a ``pyfunc`` and used to generate a response from a passed-in list of 
 
 
 Saving Transformer Pipelines with an OpenAI-Compatible Inference Interface
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------------------------------------------
 
 .. note::
 
-    This feature is only available in MLflow 2.11.0 and above.
+    This feature is only available in MLflow 2.11.0 and above. Also, the ``llm/v1/chat`` task type is only available for models saved with ``transformers >= 4.34.0``.
 
 
 MLflow's native transformers integration allows you to pass in the ``task`` param when saving a model 
@@ -152,11 +152,11 @@ accepts any of the `Transformers pipeline task types <https://huggingface.co/tas
 and above, we've added a few more MLflow-specific keys for ``text-generation`` pipelines.
 
 For ``text-generation`` pipelines, instead of specifying ``text-generation`` as the task type, you can provide 
-one of two string literals conforming to the `MLflow Deployments Server's endpoint_type specification <https://mlflow.org/docs/latest/llms/deployments/index.html#general-configuration-parameters>`_ 
-(``"llm/v1/embeddings"`` can be specified as a task on models saved with :py:func:`mlflow.sentence_transformers.save_model()`):
+one of two string literals conforming to the `MLflow Deployments Server's endpoint_type specification <https://mlflow.org/docs/latest/llms/deployments/index.html#general-configuration-parameters>`_:
 
 - ``"llm/v1/chat"`` for chat-style applications
 - ``"llm/v1/completions"`` for generic completions
+- (The last ``"llm/v1/embeddings"`` can be specified as a task on models saved with :py:func:`mlflow.sentence_transformers.save_model()`)
 
 For example:
 

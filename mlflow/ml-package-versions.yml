@@ -553,7 +553,8 @@ transformers:
     requirements:
       ">= 0.0.0": [
           "datasets",
-          "huggingface_hub",
+          # TODO: Unpin once https://github.com/huggingface/setfit/issues/504 is resolved
+          "huggingface_hub<0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
@@ -587,10 +588,10 @@ transformers:
         "4.38.2",
       ]
     requirements:
-      ">= 0.0.0":
-        [
+      ">= 0.0.0": [
           "datasets",
-          "huggingface_hub",
+          # TODO: Unpin once https://github.com/huggingface/setfit/issues/504 is resolved
+          "huggingface_hub<0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
@@ -612,9 +613,8 @@ transformers:
 openai:
   package_info:
     pip_release: "openai"
-    # TODO: Re-enable dev version test once we support OpenAI 1.0.0
-    # install_dev: |
-    #   pip install git+https://github.com/openai/openai-python
+    install_dev: |
+      pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
     maximum: "1.13.3"

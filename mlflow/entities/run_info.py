@@ -138,6 +138,10 @@ class RunInfo(_MLflowObject):
 
     @property
     def lifecycle_stage(self):
+        """
+        One of the values in :py:class:`mlflow.entities.lifecycle_stage.LifecycleStage`
+        describing the lifecycle stage of the run.
+        """
         return self._lifecycle_stage
 
     def to_proto(self):
