@@ -1142,6 +1142,9 @@ def test_save_load_runnable_parallel():
     }
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_simple_chat_model_inference():
     from langchain.chat_models.base import SimpleChatModel
 
