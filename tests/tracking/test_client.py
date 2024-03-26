@@ -210,7 +210,7 @@ def test_start_and_end_trace():
     model = TestModel()
     model.predict(1, 2)
 
-    traces = mlflow.get_traces(n=10)
+    traces = mlflow.get_traces()
     assert len(traces) == 1
     trace_info = traces[0].trace_info
     assert trace_info.trace_id is not None
@@ -281,7 +281,7 @@ def test_start_and_end_trace_before_all_span_end():
     model = TestModel()
     model.predict(1)
 
-    traces = mlflow.get_traces(n=10)
+    traces = mlflow.get_traces()
     assert len(traces) == 1
 
     trace_info = traces[0].trace_info
