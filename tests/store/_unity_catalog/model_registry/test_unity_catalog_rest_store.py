@@ -75,6 +75,7 @@ from mlflow.types.schema import ColSpec, DataType
 from mlflow.utils._unity_catalog_utils import (
     _ACTIVE_CATALOG_QUERY,
     _ACTIVE_SCHEMA_QUERY,
+    get_artifact_repo_from_storage_info,
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
@@ -1513,15 +1514,21 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
     model_version = ModelVersion(
         name="catalog.schema.model_1", version="1", storage_location="s3://some/storage/location"
     )
-    creds = TemporaryCredentials()
+    creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id="key", secret_access_key="secret", session_token="token"
+        )
+    )
     with mock.patch(
         f"{store_package}.UcModelRegistryStore._get_temporary_model_version_write_credentials",
         return_value=creds,
     ) as temp_cred_mock, mock.patch(
         f"{store_package}.get_artifact_repo_from_storage_info",
+        side_effect=get_artifact_repo_from_storage_info,
     ) as get_repo_mock:
-        uc_store._get_artifact_repo(model_version)
+        aws_store = uc_store._get_artifact_repo(model_version)
 
+        assert type(aws_store) is OptimizedS3ArtifactRepository
         temp_cred_mock.assert_called_once_with(
             name=model_version.name, version=model_version.version
         )
