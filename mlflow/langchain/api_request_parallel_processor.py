@@ -199,7 +199,7 @@ class APIRequest:
                     try:
                         response = self.lc_model.invoke(
                             self.converted_chat_request_json or self.request_json,
-                            config={"callbacks": callback_handlers}
+                            config={"callbacks": callback_handlers},
                         )
                     except TypeError as e:
                         _logger.warning(
@@ -221,7 +221,7 @@ class APIRequest:
                 else:
                     response = self.lc_model.invoke(
                         self.converted_chat_request_json or self.request_json,
-                        config={"callbacks": callback_handlers}
+                        config={"callbacks": callback_handlers},
                     )
                 if self.converted_chat_request_json is not None or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
@@ -383,9 +383,7 @@ def process_api_requests(
     (
         converted_chat_requests,
         did_perform_chat_conversion,
-    ) = APIRequest._transform_request_json_for_chat_if_necessary(
-        requests, lc_model
-    )
+    ) = APIRequest._transform_request_json_for_chat_if_necessary(requests, lc_model)
 
     requests_iter = enumerate(zip(requests, converted_chat_requests))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

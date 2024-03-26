@@ -647,6 +647,7 @@ class _LangChainModelWrapper:
         and `return_first_element` means if True, we should return the first element
         of inference result, otherwise we should return the whole inference result.
         """
+
         # numpy array is not json serializable, so we convert it to list
         # then send it to the model
         def _convert_ndarray_to_list(data):
