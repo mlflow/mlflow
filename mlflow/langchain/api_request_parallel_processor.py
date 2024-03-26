@@ -193,35 +193,29 @@ class APIRequest:
         from langchain.schema import BaseRetriever
         from mlflow.langchain.utils import lc_runnables_types
 
+        from langchain.schema import BaseRetriever
+
+        from mlflow.langchain.utils import lc_runnables_types
+
+        _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
+
         if isinstance(self.lc_model, BaseRetriever):
-            assert not self.stream, "Model that inherits `BaseRetriever` does not support streaming output."
             # Retrievers are invoked differently than Chains
             docs = self.lc_model.get_relevant_documents(**self.request_json)
             response = [
                 {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
             ]
         elif isinstance(self.lc_model, lc_runnables_types()):
-            def _predict_single_input(single_input):
-                if self.stream:
-                    return self.lc_model.stream(
-                        single_input,
-                        config={"callbacks": callback_handlers}
-                    )
-                return self.lc_model.invoke(
-                    single_input,
-                    config={"callbacks": callback_handlers}
-                )
-
             if isinstance(self.request_json, dict):
                 # This is a temporary fix for the case when spark_udf converts
                 # input into pandas dataframe with column name, while the model
                 # does not accept dictionaries as input, it leads to errors like
                 # Expected Scalar value for String field 'query_text'
                 try:
-                    response = _predict_single_input(
-                        self.converted_chat_request_json or self.request_json
+                    response = self.lc_model.invoke(
+                        self.converted_chat_request_json or self.request_json,
+                        config={"callbacks": callback_handlers},
                     )
-                    response = list(response)
                 except TypeError as e:
                     _logger.warning(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -236,23 +230,17 @@ class APIRequest:
                         self.request_json, self.lc_model
                     )
 
-                    response = _predict_single_input(prepared_request_json)
+                    response = self.lc_model.invoke(
+                        prepared_request_json, config={"callbacks": callback_handlers}
+                    )
             else:
-                response = _predict_single_input(
-                    self.converted_chat_request_json or self.request_json
+                response = self.lc_model.invoke(
+                    self.converted_chat_request_json or self.request_json,
+                    config={"callbacks": callback_handlers},
                 )
-
             if self.converted_chat_request_json is not None or self.convert_chat_responses:
-                if self.stream:
-                    response = APIRequest._try_transform_response_iter_to_chat_format(response)
-                else:
-                    response = APIRequest._try_transform_response_to_chat_format(response)
+                response = APIRequest._try_transform_response_to_chat_format(response)
         else:
-            # Note: although `langchain.chains.base.Chain` has `stream` method,
-            # but in tests it doesn't work correctly, it always returns the whole result
-            # in one chunk.
-            assert not self.stream, "Model inherits `langchain.chains.base.Chain` doesn't support streaming output."
-
             response = self.lc_model(
                 self.converted_chat_request_json or self.request_json,
                 return_only_outputs=True,
@@ -466,9 +454,7 @@ def process_api_requests(
     (
         converted_chat_requests,
         did_perform_chat_conversion,
-    ) = APIRequest._transform_request_json_for_chat_if_necessary(
-        requests, lc_model
-    )
+    ) = APIRequest._transform_request_json_for_chat_if_necessary(requests, lc_model)
 
     requests_iter = enumerate(zip(requests, converted_chat_requests))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

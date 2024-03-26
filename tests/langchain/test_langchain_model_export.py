@@ -1143,6 +1143,53 @@ def test_save_load_runnable_parallel():
 
 
 @pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_simple_chat_model_inference():
+    from langchain.chat_models.base import SimpleChatModel
+
+    class ChatModel(SimpleChatModel):
+        def _call(self, messages, stop, run_manager, **kwargs):
+            return "\n".join([f"{message.type}: {message.content}" for message in messages])
+
+        @property
+        def _llm_type(self) -> str:
+            return "chat model"
+
+    model = ChatModel()
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model")
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    expected_resp_content = {
+        "role": "assistant",
+        "content": (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        ),
+    }
+    response1 = loaded_model.predict([input_example])
+    assert len(response1) == 1
+    assert response1[0]["choices"][0]["message"] == expected_resp_content
+    response2 = loaded_model.predict(input_example)
+    assert response2["choices"][0]["message"] == expected_resp_content
+    response3 = loaded_model.predict([input_example, input_example])
+    assert len(response3) == 2
+    for i in range(2):
+        assert response3[i]["choices"][0]["message"] == expected_resp_content
+
+
+@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
 )
