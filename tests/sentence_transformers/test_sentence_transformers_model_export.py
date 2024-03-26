@@ -91,11 +91,15 @@ def test_logged_data_structure(model_path, basic_model):
     ) == expected_requirements
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
-    assert mlmodel["flavors"]["python_function"]["loader_module"] == "mlflow.sentence_transformers"
-    assert (
-        mlmodel["flavors"]["python_function"]["data"]
-        == mlflow.sentence_transformers.SENTENCE_TRANSFORMERS_DATA_PATH
-    )
+    assert "model_size_bytes" in mlmodel
+
+    pyfunc_flavor = mlmodel["flavors"]["python_function"]
+    assert pyfunc_flavor["loader_module"] == "mlflow.sentence_transformers"
+    assert pyfunc_flavor["data"] == mlflow.sentence_transformers.SENTENCE_TRANSFORMERS_DATA_PATH
+
+    st_flavor = mlmodel["flavors"]["sentence_transformers"]
+    assert st_flavor["source_model_name"] == "sentence-transformers/all-MiniLM-L6-v2"
+    assert st_flavor["pipeline_model_type"] == "BertModel"
 
 
 def test_model_logging_and_inference(basic_model):
