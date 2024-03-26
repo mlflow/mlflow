@@ -239,10 +239,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
 
     def download_trace(self) -> Dict[str, Any]:
-        """
-        Returns:
-            A dictionary containing the trace data.
-        """
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,
