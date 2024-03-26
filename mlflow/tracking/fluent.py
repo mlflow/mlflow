@@ -1226,23 +1226,29 @@ def log_image(
     """
     Logs an image in MLflow, supporting two use cases:
 
-    1. Time-stepped image logging: ideal for tracking changes or progressions through iterative
-        processes (e.g., during model training phases).
-        - Usage: `log_image(image, key=key, step=step, timestamp=timestamp)`
-    2. Artifact file image logging: best suited for static image logging where the image
-        is saved directly as a file artifact.
-        - Usage: `log_image(image, artifact_file)`
+    1. Time-stepped image logging:
+        Ideal for tracking changes or progressions through iterative processes (e.g.,
+        during model training phases).
+
+        - Usage: :code:`log_image(image, key=key, step=step, timestamp=timestamp)`
+
+    2. Artifact file image logging:
+        Best suited for static image logging where the image is saved directly as a file
+        artifact.
+
+        - Usage: :code:`log_image(image, artifact_file)`
 
     The following image formats are supported:
         - `numpy.ndarray`_
         - `PIL.Image.Image`_
-        - `mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
 
         .. _numpy.ndarray:
             https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
 
         .. _PIL.Image.Image:
             https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+        - :class:`mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
 
     Numpy array support
         - data types:
