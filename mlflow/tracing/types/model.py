@@ -22,6 +22,9 @@ class Trace:
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str)
 
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        return {"application/json": self.to_json(), "text/plain": "MLflow Trace Object"}
+
 
 @dataclass
 class TraceInfo:
