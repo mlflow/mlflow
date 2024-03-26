@@ -1,7 +1,14 @@
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional
 
-from mlflow.entities import DatasetInput, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    TraceInfo,
+    TraceRequestMetadata,
+    TraceStatus,
+    TraceTag,
+    ViewType,
+)
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -236,13 +243,13 @@ class AbstractStore:
 
     def create_trace(
         self,
-        experiment_id,
-        timestamp_ms,
-        execution_time_ms,
-        status,
-        request_metadata,
-        tags,
-    ):
+        experiment_id: str,
+        timestamp_ms: int,
+        execution_time_ms: int,
+        status: TraceStatus,
+        request_metadata: List[TraceRequestMetadata],
+        tags: List[TraceTag],
+    ) -> TraceInfo:
         """
         Create a trace under the specified experiment ID.
 
@@ -259,7 +266,7 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def get_trace_info(self, request_id):
+    def get_trace_info(self, request_id: str) -> TraceInfo:
         """
         Get the trace matching the `request_id`.
 
