@@ -167,6 +167,18 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return artifact_path.split("/")[3]
 
     def _call_endpoint(self, service, api, json_body=None, path_params=None):
+        """
+        Calls the specified REST endpoint with the specified JSON body and path parameters.
+
+        Args:
+            service: The service to call.
+            api: The API to call.
+            json_body: The JSON body of the request.
+            path_params: The path parameters to substitute into the endpoint URI.
+
+        Returns:
+            The response from the REST endpoint.
+        """
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
         if path_params:
