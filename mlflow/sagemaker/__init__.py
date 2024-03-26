@@ -1368,7 +1368,11 @@ def _truncate_name(name, max_length):
     available_length = max_length - 3
     start_len = available_length // 2
     end_len = available_length - start_len
-    return f"{name[:start_len]}...{name[-end_len:]}"
+    truncated_name = f"{name[:start_len]}---{name[-end_len:]}"
+    _logger.warning(
+        f"Truncated name {name} to {truncated_name} to coerce total character counts to < 64"
+    )
+    return truncated_name
 
 
 def _get_unique_name(base_name, unique_suffix, unique_id_length=20):

@@ -413,7 +413,9 @@ def test_update_deployment_with_serverless_config_when_endpoint_exists(
     configs = sagemaker_client.list_endpoint_configs()
     target_config = None
     for config in configs["EndpointConfigs"]:
-        if app_name[:8] in config["EndpointConfigName"]:
+        # NB: restricting the matching on the app_name due to truncation for
+        # a full randomized app_name exceeding the allowable character count of 63
+        if config["EndpointConfigName"].startswith(app_name[:8]):
             target_config = config
     if target_config is None:
         raise Exception("Endpoint config not found")
@@ -1673,9 +1675,9 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
 
 
 def test_truncate_name():
-    assert mfs._truncate_name("a" * 64, 63) == "a" * 30 + "..." + "a" * 30
+    assert mfs._truncate_name("a" * 64, 63) == "a" * 30 + "---" + "a" * 30
     assert mfs._truncate_name("a" * 10, 63) == "a" * 10
-    assert mfs._truncate_name("abcdefghijklmnopqrst", 10) == "abc...qrst"
+    assert mfs._truncate_name("abcdefghijklmnopqrst", 10) == "abc---qrst"
 
 
 def test_get_sagemaker_model_name():
@@ -1702,6 +1704,4 @@ def test_name_truncation_for_long_base_name():
     long_base_name = "a" * 100  # 100 characters long
     with mock.patch("mlflow.sagemaker.get_unique_resource_id", return_value="1234567890abcdef1234"):
         model_name = mfs._get_sagemaker_model_name(long_base_name)
-    assert model_name.endswith("-model-1234567890abcdef1234")
-    assert "..." in model_name
-    assert len(model_name) == 63
+    assert model_name == "aaaaaaaaaaaaaaaa---aaaaaaaaaaaaaaaaa-model-1234567890abcdef1234"
