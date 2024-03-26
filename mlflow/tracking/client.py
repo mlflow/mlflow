@@ -32,7 +32,11 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    FEATURE_DISABLED,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -592,10 +596,11 @@ class MlflowClient:
                 client.end_trace(trace_id)
         """
         if not parent_span_id:
-            _logger.warning(
+            raise MlflowException(
                 "start_span() must be called with an explicit parent_span_id."
                 "If you haven't start any span yet, use MLflowClient().start_trace() "
-                "to start a new trace and root span."
+                "to start a new trace and root span.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         trace_manager = InMemoryTraceManager.get_instance()

@@ -312,6 +312,11 @@ def test_start_and_end_trace_before_all_span_end():
     assert non_ended_span.status.status_code == StatusCode.UNSET
 
 
+def test_start_span_raise_error_when_parent_span_id_is_not_provided():
+    with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
+        mlflow.tracking.MlflowClient().start_span("span_name", trace_id="test", parent_span_id=None)
+
+
 def test_client_create_experiment(mock_store):
     MlflowClient().create_experiment("someName", "someLocation", {"key1": "val1", "key2": "val2"})
 

@@ -73,10 +73,12 @@ class MLflowSpanExporter(SpanExporter):
         info.start_time = root_span.start_time
         info.end_time = root_span.end_time
         info.status = root_span.status
-        info.attributes[TraceAttributeKey.NAME] = root_span.name
-        info.attributes[TraceAttributeKey.INPUTS] = self._serialize_inputs_outputs(root_span.inputs)
-        info.attributes[TraceAttributeKey.OUTPUTS] = self._serialize_inputs_outputs(
-            root_span.outputs
+        info.attributes.update(
+            {
+                TraceAttributeKey.NAME: root_span.name,
+                TraceAttributeKey.INPUTS: self._serialize_inputs_outputs(root_span.inputs),
+                TraceAttributeKey.OUTPUTS: self._serialize_inputs_outputs(root_span.outputs),
+            }
         )
 
         # TODO: Make this async

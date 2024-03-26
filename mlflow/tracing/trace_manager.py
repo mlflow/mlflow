@@ -1,7 +1,7 @@
 import logging
 import threading
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, Optional
 
@@ -18,7 +18,11 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class _Trace:
     trace_info: TraceInfo
-    span_dict: Dict[str, MLflowSpanWrapper]
+    span_dict: Dict[str, MLflowSpanWrapper] = field(default_factory=dict)
+
+    def to_mlflow_trace(self) -> Trace:
+        span_list = [span.to_mlflow_span() for span in self.span_dict.values()]
+        return Trace(self.trace_info, TraceData(spans=span_list))
 
 
 class InMemoryTraceManager:
@@ -121,14 +125,11 @@ class InMemoryTraceManager:
             attributes=attributes or {},
             tags=tags or {},
         )
-
-        if trace_id in self._traces:
-            _logger.warning("Trace with ID {trace_id} already exists.")
-            return
-
         with self._lock:
-            if trace_id not in self._traces:
-                self._traces[trace_id] = _Trace(trace_info, {})
+            if trace_id in self._traces:
+                _logger.warning(f"Trace with ID {trace_id} already exists.")
+                return
+            self._traces[trace_id] = _Trace(trace_info)
 
     def get_trace_info(self, trace_id: str) -> Optional[TraceInfo]:
         """
@@ -159,7 +160,7 @@ class InMemoryTraceManager:
         if trace:
             for span in trace.span_dict.values():
                 if span.parent_span_id is None:
-                    return span.context.span_id
+                    return span.span_id
 
         return None
 
@@ -169,12 +170,7 @@ class InMemoryTraceManager:
         """
         with self._lock:
             trace: _Trace = self._traces.pop(trace_id, None)
-
-        if trace is None:
-            return None
-
-        span_list = [span.to_mlflow_span() for span in trace.span_dict.values()]
-        return Trace(trace.trace_info, TraceData(spans=span_list))
+        return trace.to_mlflow_trace() if trace else None
 
     def flush(self):
         """Clear all the aggregated trace data. This should only be used for testing."""
