@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Sequence
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace_request_metadata import TraceRequestMetadata
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.clients import TraceClient
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.constant import (
@@ -73,7 +74,7 @@ class MLflowSpanExporter(SpanExporter):
         info = trace.trace_info
         info.timestamp_ms = root_span.start_time // 1_000  # microsecond to millisecond
         info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000
-        info.status = root_span.status
+        info.status = TraceStatus.from_span_status(root_span.status)
         info.request_metadata.extend(
             [
                 TraceRequestMetadata(key=TraceMetadataKey.NAME, value=root_span.name),

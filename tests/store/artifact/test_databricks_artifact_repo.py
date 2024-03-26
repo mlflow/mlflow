@@ -10,6 +10,7 @@ from unittest.mock import ANY
 import pytest
 from requests.models import Response
 
+from mlflow.entities import TraceData
 from mlflow.entities.file_info import FileInfo as FileInfoEntity
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
@@ -28,7 +29,6 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _MAX_CREDENTIALS_REQUEST_SIZE,
     DatabricksArtifactRepository,
 )
-from mlflow.tracing.types.model import TraceData
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"

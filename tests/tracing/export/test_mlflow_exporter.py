@@ -3,13 +3,13 @@ from unittest.mock import MagicMock
 import pandas as pd
 from opentelemetry.sdk.trace import ReadableSpan
 
+from mlflow.entities import SpanContext
 from mlflow.tracing.export.mlflow import MLflowSpanExporter
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
 )
-from mlflow.tracing.types.model import SpanContext
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
 

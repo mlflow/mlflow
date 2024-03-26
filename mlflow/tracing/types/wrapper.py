@@ -4,7 +4,8 @@ from typing import Any, Dict, Optional
 
 from opentelemetry import trace as trace_api
 
-from mlflow.tracing.types.model import Event, Span, SpanContext, SpanType, Status, StatusCode
+from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus
+from mlflow.entities.span import SpanType
 
 _logger = logging.getLogger(__name__)
 
@@ -63,8 +64,8 @@ class MLflowSpanWrapper:
         return self._span.parent.span_id
 
     @property
-    def status(self) -> Status:
-        return Status(self._span.status.status_code, self._span.status.description)
+    def status(self) -> SpanStatus:
+        return SpanStatus(self._span.status.status_code, self._span.status.description)
 
     @property
     def inputs(self) -> Dict[str, Any]:
@@ -89,24 +90,19 @@ class MLflowSpanWrapper:
     def set_attribute(self, key: str, value: Any):
         self._span.set_attribute(key, value)
 
-    def set_status(self, status_code: StatusCode, description: str = ""):
-        self._span.set_status(status_code, description)
+    def set_status(self, status: SpanStatus):
+        self._span.set_status(status.status_code, status.description)
 
-    def add_event(
-        self,
-        name: str,
-        attributes: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[int] = None,
-    ):
-        self._span.add_event(name, attributes, timestamp)
+    def add_event(self, event: SpanEvent):
+        self._span.add_event(event.name, event.attributes, event.timestamp)
 
     def end(self):
         # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
         # by the user. However, there is not way to set the status when using
         # @mlflow.trace decorator. Therefore, we just automatically set the status
         # to OK if it is not ERROR.
-        if self.status.status_code != StatusCode.ERROR:
-            self.set_status(StatusCode.OK)
+        if self.status.status_code != SpanStatus.StatusCode.ERROR:
+            self.set_status(SpanStatus(SpanStatus.StatusCode.OK))
 
         # Mimic the OTel's span end hook to pass this wrapper to processor/exporter
         # Ref: https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909
@@ -142,7 +138,8 @@ class MLflowSpanWrapper:
             # Convert from MappingProxyType to dict for serialization
             attributes=dict(self._span.attributes),
             events=[
-                Event(event.name, event.timestamp, event.attributes) for event in self._span.events
+                SpanEvent(event.name, event.timestamp, event.attributes)
+                for event in self._span.events
             ],
         )
 
@@ -218,15 +215,10 @@ class NoOpMLflowSpanWrapper:
     def set_attribute(self, key: str, value: Any):
         pass
 
-    def set_status(self, status_code: StatusCode, description: str = ""):
+    def set_status(self, status: SpanStatus):
         pass
 
-    def add_event(
-        self,
-        name: str,
-        attributes: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[int] = None,
-    ):
+    def add_event(self, event: SpanEvent):
         pass
 
     def end(self):

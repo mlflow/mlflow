@@ -3,7 +3,7 @@ import time
 from unittest import mock
 
 import mlflow
-from mlflow.tracing.types.model import SpanType
+from mlflow.entities import SpanType
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
 
@@ -35,7 +35,7 @@ def test_json_deserialization(mock_client):
             "experiment_id": "EXPERIMENT",
             "timestamp_ms": trace.trace_info.timestamp_ms,
             "execution_time_ms": trace.trace_info.execution_time_ms,
-            "status": {"status_code": "StatusCode.OK", "description": ""},
+            "status": 1,
             "request_metadata": [
                 "<TraceRequestMetadata: key='name', value='predict'>",
                 "<TraceRequestMetadata: key='inputs', value='{\"x\": 2, \"y\": 5}'>",

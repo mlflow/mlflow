@@ -2,8 +2,9 @@ import time
 from unittest import mock
 
 import mlflow
+from mlflow.entities.span import SpanType
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.types.constant import TraceMetadataKey
-from mlflow.tracing.types.model import SpanType, StatusCode
 
 
 def test_trace(mock_client):
@@ -33,7 +34,7 @@ def test_trace(mock_client):
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace_info.status.status_code == StatusCode.OK
+    assert trace_info.status == TraceStatus.OK
     request_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
     assert request_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert request_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 64}'
@@ -86,7 +87,7 @@ def test_trace_handle_exception_during_prediction(mock_client):
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
-    assert trace_info.status.status_code == StatusCode.ERROR
+    assert trace_info.status == TraceStatus.ERROR
     trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
     assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == ""
@@ -156,7 +157,7 @@ def test_start_span_context_manager(mock_client):
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace_info.status.status_code == StatusCode.OK
+    assert trace_info.status == TraceStatus.OK
     trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
     assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
@@ -227,7 +228,7 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace_info.status.status_code == StatusCode.OK
+    assert trace_info.status == TraceStatus.OK
     trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
     assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 5}'

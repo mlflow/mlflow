@@ -1,10 +1,10 @@
 import pytest
 from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
+from mlflow.entities import SpanStatus, TraceStatus, Trace, TraceInfo
 from mlflow.tracing.clients.local import InMemoryTraceClient
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.model import Status, StatusCode, Trace, TraceInfo
 
 
 @pytest.fixture(autouse=True)
@@ -50,7 +50,7 @@ def create_trace():
             experiment_id="test",
             start_time=0,
             end_time=1,
-            status=Status(StatusCode.OK),
+            status=SpanStatus(TraceStatus.OK),
             attributes={},
             tags={},
         ),

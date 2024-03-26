@@ -1,6 +1,5 @@
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities import SpanStatus, Trace, TraceInfo
 from mlflow.tracing.clients import InMemoryTraceClient
-from mlflow.tracing.types.model import Status, StatusCode, Trace
 
 
 def test_log_and_get_trace(monkeypatch, create_trace):
@@ -13,7 +12,7 @@ def test_log_and_get_trace(monkeypatch, create_trace):
                 experiment_id="test",
                 timestamp_ms=0,
                 execution_time_ms=1,
-                status=Status(StatusCode.OK),
+                status=SpanStatus(SpanStatus.StatusCode.OK),
                 request_metadata=[],
                 tags=[],
             ),

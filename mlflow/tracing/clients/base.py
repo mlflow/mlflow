@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from mlflow.tracing.types.model import Trace
+from mlflow.entities import Trace
 
 
 class TraceClient(ABC):

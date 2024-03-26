@@ -2,8 +2,8 @@ import time
 from threading import Thread
 from unittest import mock
 
+from mlflow.entities import Trace
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.model import Trace
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
 
