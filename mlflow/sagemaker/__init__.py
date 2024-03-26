@@ -1386,7 +1386,7 @@ def _get_sagemaker_model_name(endpoint_name):
 
 
 def _get_sagemaker_transform_model_name(job_name):
-    return _get_unique_name(job_name, "-transform-")
+    return _get_unique_name(job_name, "-model-")
 
 
 def _get_sagemaker_config_name(endpoint_name):
