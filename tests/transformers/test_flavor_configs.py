@@ -57,6 +57,7 @@ def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
         "source_model_name": "csarron/mobilebert-uncased-squad-v2",
         # "source_model_revision": "SOME_COMMIT_SHA",
         "framework": "pt",
+        "torch_dtype": "torch.float32",
         "components": ["tokenizer"],
         "tokenizer_type": "MobileBertTokenizerFast",
         "tokenizer_name": "csarron/mobilebert-uncased-squad-v2",
