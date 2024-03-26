@@ -768,6 +768,18 @@ def _delete_run():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _delete_runs():
+    request_message = _get_request_message(
+        DeleteRuns(), schema={"run_id": [_assert_required, _assert_list_of_strings]}
+    )
+    _get_tracking_store().delete_runs(request_message.run_id)
+    response_message = DeleteRuns.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _restore_run():
     request_message = _get_request_message(
         RestoreRun(), schema={"run_id": [_assert_required, _assert_string]}
