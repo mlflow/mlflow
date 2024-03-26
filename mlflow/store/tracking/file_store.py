@@ -533,13 +533,16 @@ class FileStore(AbstractStore):
 
     def delete_runs(self, run_ids):
         for run_id in run_ids:
-            run_info = self._get_run_info(run_id)
-            if run_info is None:
-                raise MlflowException(
-                    f"Run '{run_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
-                )
-            new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-            self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
+            try:
+                run_info = self._get_run_info(run_id)
+                if run_info is None:
+                    raise MlflowException(
+                        f"Run '{run_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
+                    )
+                new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
+                self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
+            except Exception as e:
+                logging.error(f"Failed to delete run '{run_id}': {str(e)!s}")
 
     def _hard_delete_run(self, run_id):
         """
