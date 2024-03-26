@@ -112,7 +112,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         """
         if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
             return PresignedUrlArtifactRepository(
-                self.registry_uri, self.model_name, self.model_version
+                get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
             )
 
         scoped_token = self._get_scoped_token()

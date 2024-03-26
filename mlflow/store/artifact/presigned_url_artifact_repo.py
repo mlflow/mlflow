@@ -13,7 +13,6 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     ListDirectoryResponse,
 )
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
-from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.request_utils import augmented_raise_for_status, cloud_storage_http_request
@@ -32,12 +31,12 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
     Stores and retrieves model artifacts using presigned URLs.
     """
 
-    def __init__(self, host_creds, model_full_name, model_version):
+    def __init__(self, db_creds, model_full_name, model_version):
         artifact_uri = posixpath.join(
             "/Models", model_full_name.replace(".", "/"), str(model_version)
         )
         super().__init__(artifact_uri)
-        self.host_creds = host_creds
+        self.db_creds = db_creds
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_file_path = os.path.basename(local_file)
@@ -53,7 +52,6 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         )
 
     def _get_write_credential_infos(self, remote_file_paths):
-        db_creds = get_databricks_host_creds(self.host_creds)
         endpoint, method = FILESYSTEM_METHOD_TO_INFO[CreateUploadUrlRequest]
         credential_infos = []
         for relative_path in remote_file_paths:
@@ -61,7 +59,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
             req_body = message_to_json(CreateUploadUrlRequest(path=fs_full_path))
             response_proto = CreateUploadUrlResponse()
             resp = call_endpoint(
-                host_creds=db_creds,
+                host_creds=self.db_creds,
                 endpoint=endpoint,
                 method=method,
                 json_body=req_body,
@@ -87,8 +85,6 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
                 augmented_raise_for_status(response)
 
     def list_artifacts(self, path=""):
-        db_creds = get_databricks_host_creds(self.host_creds)
-
         infos = []
         page_token = ""
         while True:
@@ -97,7 +93,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
 
             response_proto = ListDirectoryResponse()
             resp = call_endpoint(
-                host_creds=db_creds,
+                host_creds=self.db_creds,
                 endpoint=endpoint,
                 method="GET",
                 json_body=req_body,
@@ -135,12 +131,11 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
 
     def _get_download_presigned_url_and_headers(self, remote_file_path):
         remote_file_full_path = posixpath.join(self.artifact_uri, remote_file_path)
-        db_creds = get_databricks_host_creds(self.host_creds)
         endpoint, method = FILESYSTEM_METHOD_TO_INFO[CreateDownloadUrlRequest]
         req_body = message_to_json(CreateDownloadUrlRequest(path=remote_file_full_path))
         response_proto = CreateDownloadUrlResponse()
         return call_endpoint(
-            host_creds=db_creds,
+            host_creds=self.db_creds,
             endpoint=endpoint,
             method=method,
             json_body=req_body,
