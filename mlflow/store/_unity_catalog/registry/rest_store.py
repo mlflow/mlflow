@@ -739,7 +739,9 @@ class UcModelRegistryStore(BaseRestStore):
 
     def _get_artifact_repo(self, model_version):
         if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
-            return PresignedUrlArtifactRepository(model_version.name, model_version.version)
+            return PresignedUrlArtifactRepository(
+                self.get_host_creds(), model_version.name, model_version.version
+            )
 
         scoped_token = self._get_temporary_model_version_write_credentials(
             name=model_version.name, version=model_version.version

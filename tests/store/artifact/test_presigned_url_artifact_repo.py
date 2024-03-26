@@ -28,10 +28,18 @@ MODEL_NAME = "catalog.schema.model"
 MODEL_VERSION = 1
 MODEL_URI = "/Models/catalog/schema/model/1"
 PRESIGNED_URL_ARTIFACT_REPOSITORY = "mlflow.store.artifact.presigned_url_artifact_repo"
+_DATABRICKS_UC_SCHEME = "databricks-uc"
+
+
+@pytest.fixture(autouse=True)
+def run_around_tests():
+    # mock this call to credentials for all tests in suite
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+        yield
 
 
 def test_artifact_uri():
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     assert MODEL_URI == artifact_repo.artifact_uri
 
 
@@ -63,7 +71,7 @@ def mock_list_directory(*args, **kwargs):
 
 
 def test_list_artifact_pagination():
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
 
     with mock.patch(
         f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=mock_list_directory
@@ -84,7 +92,7 @@ def test_list_artifact_pagination():
 
 
 def test_list_artifacts_failure():
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     remote_file_path = "some/remote/file/path"
     exc_code = "NOT_FOUND"
     exc_message = "The directory being accessed is not found."
@@ -118,7 +126,7 @@ def mock_create_download_url(*args, **kwargs):
 
 def test_get_read_credentials():
     remote_file_paths = ["file", "dir/file1", "dir/file2"]
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
 
     download_url_endpoint = "/api/2.0/fs/create-download-url"
 
@@ -163,7 +171,7 @@ def mock_create_upload_url(*args, **kwargs):
 
 def test_get_write_credentials():
     remote_file_paths = ["file", "dir/file1", "dir/file2"]
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
 
     upload_url_endpoint = "/api/2.0/fs/create-upload-url"
 
@@ -193,7 +201,7 @@ def test_get_write_credentials():
 
 
 def test_download_from_cloud():
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     remote_file_path = "some/remote/file/path"
     with mock.patch(
         f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_download_presigned_url_and_headers",
@@ -218,7 +226,7 @@ def test_download_from_cloud():
 
 
 def test_download_from_cloud_fail():
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     remote_file_path = "some/remote/file/path"
     endpoint, _ = FILESYSTEM_METHOD_TO_INFO[CreateDownloadUrlRequest]
     exc_code = "ENDPOINT_NOT_FOUND"
@@ -234,7 +242,7 @@ def test_download_from_cloud_fail():
 
 
 def test_log_artifact():
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     local_file = "local_file"
     artifact_path = "remote/file/location"
     total_remote_path = f"{artifact_path}/{os.path.basename(local_file)}"
@@ -260,7 +268,7 @@ def test_log_artifact():
 
 
 def test_upload_to_cloud(tmp_path):
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     local_file = os.path.join(tmp_path, "file.txt")
     content = "content"
     with open(local_file, "w") as f:
@@ -290,7 +298,7 @@ def test_upload_to_cloud(tmp_path):
 
 
 def test_upload_to_cloud_fail():
-    artifact_repo = PresignedUrlArtifactRepository(MODEL_NAME, MODEL_VERSION)
+    artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     remote_file_path = "some/remote/file/path"
     endpoint, _ = FILESYSTEM_METHOD_TO_INFO[CreateUploadUrlRequest]
     exc_code = "ENDPOINT_NOT_FOUND"
