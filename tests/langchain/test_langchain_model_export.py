@@ -1172,8 +1172,8 @@ def test_simple_chat_model_inference():
         "content": (
             "system: You are a helpful assistant.\n"
             "ai: What would you like to ask?\n"
-            "human: Who owns MLflow?",
-        )
+            "human: Who owns MLflow?"
+        ),
     }
     response1 = loaded_model.predict([input_example])
     assert len(response1) == 1
