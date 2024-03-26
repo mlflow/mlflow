@@ -413,7 +413,7 @@ def test_update_deployment_with_serverless_config_when_endpoint_exists(
     configs = sagemaker_client.list_endpoint_configs()
     target_config = None
     for config in configs["EndpointConfigs"]:
-        if app_name in config["EndpointConfigName"]:
+        if app_name[:8] in config["EndpointConfigName"]:
             target_config = config
     if target_config is None:
         raise Exception("Endpoint config not found")
