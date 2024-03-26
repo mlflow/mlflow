@@ -657,7 +657,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_runs(self, run_ids):
         with self.ManagedSessionMaker() as session:
-            conditions = or_(*[SqlRun.run_uuid == run_id for run_id in run_ids])
+            conditions = SqlRun.run_uuid.in_(run_ids)
             runs = session.query(SqlRun).filter(conditions).all()
             for run in runs:
                 run.lifecycle_stage = LifecycleStage.DELETED
