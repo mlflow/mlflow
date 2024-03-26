@@ -8,6 +8,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteExperiment,
     DeleteRun,
+    DeleteRuns,
     DeleteTag,
     GetExperiment,
     GetExperimentByName,
