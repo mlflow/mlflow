@@ -23,7 +23,7 @@ def test_export():
             "key1": "value1",
         },
         start_time=0,
-        end_time=4,
+        end_time=4000, # nano seconds
     )
 
     otel_span_child_1 = ReadableSpan(
@@ -33,16 +33,16 @@ def test_export():
         attributes={
             "key2": "value2",
         },
-        start_time=1,
-        end_time=2,
+        start_time=1000,
+        end_time=2000,
     )
 
     otel_span_child_2 = ReadableSpan(
         name="test_span_child_2",
         context=SpanContext(trace_id, "span_id_3"),
         parent=otel_span_root.context,
-        start_time=2,
-        end_time=3,
+        start_time=2000,
+        end_time=3000,
     )
 
     mock_client = MagicMock()

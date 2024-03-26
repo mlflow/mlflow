@@ -26,31 +26,38 @@ class MLflowSpanWrapper:
         self._outputs = None
 
     @property
-    def trace_id(self):
+    def trace_id(self) -> str:
         return self._span.get_span_context().trace_id
 
     @property
-    def span_id(self):
+    def span_id(self) -> str:
         return self._span.get_span_context().span_id
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._span.name
 
     @property
-    def start_time(self):
-        return self._span._start_time
+    def start_time(self) -> int:
+        """
+        Get the start time of the span in microseconds.
+        """
+        # NB: The original open-telemetry timestamp is in nanoseconds
+        return self._span._start_time // 1_000
 
     @property
-    def end_time(self):
-        return self._span._end_time
+    def end_time(self) -> Optional[int]:
+        """
+        Get the end time of the span in microseconds.
+        """
+        return self._span._end_time // 1_000 if self._span._end_time else None
 
     @property
-    def context(self):
+    def context(self) -> SpanContext:
         return self._span.get_span_context()
 
     @property
-    def parent_span_id(self):
+    def parent_span_id(self) -> str:
         if self._span.parent is None:
             return None
         return self._span.parent.span_id
@@ -60,11 +67,11 @@ class MLflowSpanWrapper:
         return Status(self._span.status.status_code, self._span.status.description)
 
     @property
-    def inputs(self):
+    def inputs(self) -> Dict[str, Any]:
         return self._inputs
 
     @property
-    def outputs(self):
+    def outputs(self) -> Dict[str, Any]:
         return self._outputs
 
     def set_inputs(self, inputs: Dict[str, Any]):
@@ -123,15 +130,15 @@ class MLflowSpanWrapper:
             name=self._span.name,
             context=SpanContext(
                 trace_id=self.trace_id,
-                span_id=self._span.get_span_context().span_id,
+                span_id=self.span_id,
             ),
             parent_span_id=self.parent_span_id,
             span_type=self._span_type,
             status=self.status,
-            start_time=self._span._start_time,
-            end_time=self._span._end_time,
-            inputs=self._inputs,
-            outputs=self._outputs,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            inputs=self.inputs,
+            outputs=self.outputs,
             # Convert from MappingProxyType to dict for serialization
             attributes=dict(self._span.attributes),
             events=[
