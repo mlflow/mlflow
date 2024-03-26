@@ -1738,7 +1738,7 @@ class MlflowClient:
                     "Please install it via: pip install Pillow"
                 ) from exc
 
-            def process_image(image: PIL.Image.Image):
+            def process_image(image):
                 # remove extension from artifact_file
                 table_name, _ = os.path.splitext(artifact_file)
                 # save image to path
@@ -1762,7 +1762,7 @@ class MlflowClient:
                 }
 
             for column in data.columns:
-                isImage = data[column].map(lambda x: isinstance(x, (PIL.Image.Image)))
+                isImage = data[column].map(lambda x: isinstance(x, (PIL.Image.Image, Image)))
                 if any(isImage) and not all(isImage):
                     raise ValueError(
                         f"Column `{column}` contains a mix of images and non-images. "
