@@ -1688,7 +1688,7 @@ def test_get_sagemaker_model_name():
 
 def test_get_sagemaker_transform_model_name():
     transform_name = mfs._get_sagemaker_transform_model_name("testJob")
-    assert transform_name.startswith("testJob-transform-")
+    assert transform_name.startswith("testJob-model-")
     assert len(transform_name) <= 63
 
 
