@@ -1424,7 +1424,7 @@ class MlflowClient:
     def log_image(
         self,
         run_id: str,
-        image: Union["numpy.ndarray", "PIL.Image.Image"],
+        image: Union["numpy.ndarray", "PIL.Image.Image", "Image"],
         artifact_file: Optional[str] = None,
         key: Optional[str] = None,
         step: Optional[int] = None,
