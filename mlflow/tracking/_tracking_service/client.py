@@ -581,9 +581,9 @@ class TrackingServiceClient:
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
-    def _get_artifact_repo_for_trace(self, trace_id):
-        trace_info = self.get_trace_info(trace_id)
-        artifact_uri_attr = next(a for a in trace_info.attributes if a.key == "artifact_uri")
+    def _get_artifact_repo_for_trace(self, request_id):
+        trace_info = self.get_trace_info(request_id)
+        artifact_uri_attr = next(t for t in trace_info.tags if t.key == "mlflow.artifactLocation")
         artifact_uri = add_databricks_profile_info_to_artifact_uri(
             artifact_uri_attr.value, self.tracking_uri
         )
@@ -625,12 +625,12 @@ class TrackingServiceClient:
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
-    def download_trace(self, trace_id: str) -> Dict[str, Any]:
-        artifact_repo = self._get_artifact_repo_for_trace(trace_id)
+    def download_trace(self, request_id: str) -> Dict[str, Any]:
+        artifact_repo = self._get_artifact_repo_for_trace(request_id)
         return artifact_repo.download_trace()
 
-    def upload_trace(self, trace_id: str, trace_data: Dict[str, Any]) -> None:
-        artifact_repo = self._get_artifact_repo_for_trace(trace_id)
+    def upload_trace(self, request_id: str, trace_data: Dict[str, Any]) -> None:
+        artifact_repo = self._get_artifact_repo_for_trace(request_id)
         return artifact_repo.upload_trace(trace_data)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
