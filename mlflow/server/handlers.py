@@ -313,6 +313,12 @@ def _assert_string(x):
     assert isinstance(x, str)
 
 
+def _assert_list_of_strings(x):
+    assert isinstance(x, list)
+    for item in x:
+        _assert_string(item)
+
+
 def _assert_intlike(x):
     try:
         x = int(x)
