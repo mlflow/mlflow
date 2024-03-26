@@ -627,11 +627,11 @@ class TrackingServiceClient:
 
     def download_trace(self, trace_id: str) -> Dict[str, Any]:
         artifact_repo = self._get_artifact_repo_for_trace(trace_id)
-        return artifact_repo.download_trace(trace_id)
+        return artifact_repo.download_trace()
 
     def upload_trace(self, trace_id: str, trace_data: Dict[str, Any]) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_id)
-        return artifact_repo.upload_trace(trace_id, trace_data)
+        return artifact_repo.upload_trace(trace_data)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.

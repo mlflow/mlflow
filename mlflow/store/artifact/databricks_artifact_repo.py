@@ -226,20 +226,15 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
-    def download_trace(self, trace_id: str) -> Dict[str, Any]:
+    def download_trace(self) -> Dict[str, Any]:
         """
-        Downloads the trace data for the specified trace ID.
-
-        Args:
-            trace_id: The trace ID for which to download trace data.
-
         Returns:
             A dictionary containing the trace data.
         """
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,
-            path_params={"trace_id": trace_id},
+            path_params={"trace_id": self.run_id},
         )
         signed_uri = cred.credential_info.signed_uri
         headers = self._extract_headers_from_credentials(cred.credential_info.headers)
@@ -259,11 +254,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                         f"Failed to parse trace data:\n{s}"
                     ) from e
 
-    def upload_trace(self, trace_id: str, trace_data: Dict[str, Any]) -> None:
+    def upload_trace(self, trace_data: Dict[str, Any]) -> None:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataUpload,
-            path_params={"trace_id": trace_id},
+            path_params={"trace_id": self.run_id},
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, "traces.json")
