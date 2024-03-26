@@ -1192,89 +1192,22 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
     assert response_limited.json().get("metrics") == expected_metrics
 
 
-def test_get_metric_history_bulk_interval_calls_optimized_impl_when_expected(tmp_path):
-    from mlflow.server.handlers import get_metric_history_bulk_interval_handler
-
-    path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
-    uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
-    mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
-
-    flask_app = flask.Flask("test_flask_app")
-
-    class MockRequestArgs:
-        def __init__(self, args_dict):
-            self.args_dict = args_dict
-
-        def to_dict(
-            self,
-            flat,  # pylint: disable=unused-argument
-        ):
-            return self.args_dict
-
-        def get(self, key, default=None):
-            return self.args_dict.get(key, default)
-
-    def params_to_query_string(params):
-        query_string = []
-        for k, v in params.items():
-            if isinstance(v, list):
-                for item in v:
-                    query_string.append(f"{k}={item}")
-            else:
-                query_string.append(f"{k}={v}")
-        query_string = "&".join(query_string)
-        return bytes(query_string, "utf-8")
-
-    with mock.patch(
-        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
-    ), flask_app.test_request_context() as mock_context:
-        run_ids = [str(i) for i in range(10)]
-        params = {
-            "run_ids": run_ids,
-            "metric_key": "mock_key",
-            "start_step": 0,
-            "end_step": 9,
-            "max_results": 5,
-        }
-        mock_context.request.query_string = params_to_query_string(params)
-        mock_context.request.args = MockRequestArgs(params)
-
-        get_metric_history_bulk_interval_handler()
-
-        mock_store.get_max_step_for_metric.assert_not_called()
-        assert mock_store.get_metric_history_bulk_interval_from_steps.call_count == len(run_ids)
-        mock_store.get_metric_history_bulk_interval_from_steps.assert_called_with(
-            run_id=run_ids[-1],
-            metric_key="mock_key",
-            steps=[0, 2, 4, 6, 8, 9],
-            max_results=25000,
-        )
-
-    with mock.patch(
-        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
-    ), flask_app.test_request_context() as mock_context:
-        run_ids = [str(i) for i in range(10)]
-        params = {
-            "run_ids": run_ids,
-            "metric_key": "mock_key",
-            "max_results": 5,
-        }
-        mock_context.request.query_string = params_to_query_string(params)
-        mock_context.request.args = MockRequestArgs(params)
-
-        get_metric_history_bulk_interval_handler()
-
-        assert mock_store.get_max_step_for_metric.call_count == len(run_ids)
-        mock_store.get_max_step_for_metric.assert_called_with(
-            run_id=run_ids[-1], metric_key="mock_key"
-        )
-
-
-def test_get_sampled_steps_from_steps():
-    assert _get_sampled_steps_from_steps(1, 10, 5) == [1, 3, 5, 7, 9]
-    assert _get_sampled_steps_from_steps(1, 20, 4) == [1, 6, 11, 16]
-    assert _get_sampled_steps_from_steps(10, 100, 10) == [10, 20, 29, 38, 47, 56, 65, 74, 83, 92]
-    assert _get_sampled_steps_from_steps(0, 100, 5) == [0, 21, 41, 61, 81]
+@pytest.mark.parametrize(
+    ("min_step", "max_step", "max_results", "nums", "expected"),
+    [
+        # should be evenly spaced and include the beginning and
+        # end despite sometimes making it go above max_results
+        (0, 10, 5, list(range(10)), {0, 2, 4, 6, 8, 9}),
+        # if the clipped list is shorter than max_results,
+        # then everything will be returned
+        (4, 8, 5, list(range(10)), {4, 5, 6, 7, 8}),
+        # works if steps are logged in intervals
+        (0, 100, 5, list(range(0, 101, 20)), {0, 20, 40, 60, 80, 100}),
+        (0, 1000, 5, list(range(0, 1001, 10)), {0, 200, 400, 600, 800, 1000}),
+    ],
+)
+def test_get_sampled_steps_from_steps(min_step, max_step, max_results, nums, expected):
+    assert _get_sampled_steps_from_steps(min_step, max_step, max_results, nums) == expected
 
 
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
