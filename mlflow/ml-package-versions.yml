@@ -612,9 +612,8 @@ transformers:
 openai:
   package_info:
     pip_release: "openai"
-    # TODO: Re-enable dev version test once we support OpenAI 1.0.0
-    # install_dev: |
-    #   pip install git+https://github.com/openai/openai-python
+    install_dev: |
+      pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
     maximum: "1.13.3"
