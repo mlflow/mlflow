@@ -23,7 +23,7 @@ def test_export():
             "key1": "value1",
         },
         start_time=0,
-        end_time=4000, # nano seconds
+        end_time=4000,  # nano seconds
     )
 
     otel_span_child_1 = ReadableSpan(
