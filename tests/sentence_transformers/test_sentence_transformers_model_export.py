@@ -5,7 +5,9 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
+import sentence_transformers
 import yaml
+from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import ArrayType, DoubleType
 from sentence_transformers import SentenceTransformer
@@ -98,8 +100,14 @@ def test_logged_data_structure(model_path, basic_model):
     assert pyfunc_flavor["data"] == mlflow.sentence_transformers.SENTENCE_TRANSFORMERS_DATA_PATH
 
     st_flavor = mlmodel["flavors"]["sentence_transformers"]
-    assert st_flavor["source_model_name"] == "sentence-transformers/all-MiniLM-L6-v2"
     assert st_flavor["pipeline_model_type"] == "BertModel"
+    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
+        assert st_flavor["source_model_name"] == "sentence-transformers/all-MiniLM-L6-v2"
+    else:
+        # Before Transformers 2.3.0, the library loads the Transformers model after local snapshot
+        # download, so the name_or_path attribute points to the local filepath.
+        # https://github.com/UKPLab/sentence-transformers/commit/9db0f205adcf315d16961fea7e9e6906cb950d43
+        assert st_flavor["source_model_name"].endswith("sentence-transformers_all-MiniLM-L6-v2/")
 
 
 def test_model_logging_and_inference(basic_model):
