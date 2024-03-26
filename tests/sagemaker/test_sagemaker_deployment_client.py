@@ -1670,3 +1670,38 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
 
         assert isinstance(result, pd.DataFrame)
         assert list(result[0]) == [1, 2, 3]
+
+
+def test_truncate_name():
+    assert mfs._truncate_name("a" * 64, 63) == "a" * 30 + "..." + "a" * 30
+    assert mfs._truncate_name("a" * 10, 63) == "a" * 10
+    assert mfs._truncate_name("abcdefghijklmnopqrst", 10) == "abc...qrst"
+
+
+def test_get_sagemaker_model_name():
+    model_name = mfs._get_sagemaker_model_name("testEndpoint")
+    assert model_name.startswith("testEndpoint-model-")
+    assert len(model_name) <= 63
+
+
+def test_get_sagemaker_transform_model_name():
+    transform_name = mfs._get_sagemaker_transform_model_name("testJob")
+    assert transform_name.startswith("testJob-transform-")
+    assert len(transform_name) <= 63
+
+
+# Test unique name generation with the specified suffix for config names
+def test_get_sagemaker_config_name():
+    config_name = mfs._get_sagemaker_config_name("testConfig")
+    assert config_name.startswith("testConfig-config-")
+    assert len(config_name) <= 63
+
+
+# Test the behavior when the base name is too long and needs truncation
+def test_name_truncation_for_long_base_name():
+    long_base_name = "a" * 100  # 100 characters long
+    with mock.patch("mlflow.sagemaker.get_unique_resource_id", return_value="1234567890abcdef1234"):
+        model_name = mfs._get_sagemaker_model_name(long_base_name)
+    assert model_name.endswith("-model-1234567890abcdef1234")
+    assert "..." in model_name
+    assert len(model_name) == 63
