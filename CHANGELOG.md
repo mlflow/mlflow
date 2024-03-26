@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2.11.3 (2024-03-21)
+
+MLflow 2.11.3 is a patch release that addresses a security exploit with the Open Source MLflow tracking server and miscellaneous Databricks integration fixes
+
+Bug fixes:
+
+- [Security] Address an LFI exploit related to misuse of url parameters (#11473, @daniellok-db)
+- [Databricks] Fix an issue with Databricks Runtime version acquisition when deploying a model using Databricks Docker Container Services (#11483, @WeichenXu123)
+- [Databricks] Correct an issue with credential management within Databricks Model Serving (#11468, @victorsun123)
+- [Models] Fix an issue with chat request validation for LangChain flavor (#11478, @BenWilson2)
+- [Models] Fixes for LangChain models that are logged as code (#11494, #11436 @sunishsheth2009)
+
 ## 2.11.2 (2024-03-19)
 
 MLflow 2.11.2 is a patch release that introduces corrections for the support of custom transformer models, resolves LangChain integration problems, and includes several fixes to enhance stability.

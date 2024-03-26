@@ -5,6 +5,7 @@ import optuna
 import pytest
 import sklearn
 import sklearn.cluster
+import sklearn.datasets
 import torch
 from datasets import load_dataset
 from sentence_transformers.losses import CosineSimilarityLoss
@@ -453,6 +454,7 @@ def test_disable_sklearn_autologging_does_not_revert_with_trainer(iris_data, tra
     exp = mlflow.set_experiment(experiment_name="trainer_with_sklearn")
 
     transformers_trainer.train()
+    mlflow.flush_async_logging()
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0
