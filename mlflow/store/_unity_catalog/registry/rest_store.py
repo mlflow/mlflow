@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Run
+from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -62,6 +63,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
+from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.utils._spark_utils import _get_active_spark_session
@@ -727,16 +729,26 @@ class UcModelRegistryStore(BaseRestStore):
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
-            version_number = model_version.version
-            scoped_token = self._get_temporary_model_version_write_credentials(
-                name=full_name, version=version_number
-            )
-            store = get_artifact_repo_from_storage_info(
-                storage_location=model_version.storage_location, scoped_token=scoped_token
-            )
+
+            store = self._get_artifact_repo(model_version)
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
-            finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
+            finalized_mv = self._finalize_model_version(
+                name=full_name, version=model_version.version
+            )
             return model_version_from_uc_proto(finalized_mv)
+
+    def _get_artifact_repo(self, model_version):
+        if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
+            return PresignedUrlArtifactRepository(
+                self.get_host_creds(), model_version.name, model_version.version
+            )
+
+        scoped_token = self._get_temporary_model_version_write_credentials(
+            name=model_version.name, version=model_version.version
+        )
+        return get_artifact_repo_from_storage_info(
+            storage_location=model_version.storage_location, scoped_token=scoped_token
+        )
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
