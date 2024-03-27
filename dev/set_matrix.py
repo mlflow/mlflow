@@ -513,21 +513,37 @@ def set_action_output(name, value):
         f.write(f"{name}={value}\n")
 
 
+def find_split(matrix, n):
+    prev = ""
+    for idx, item in enumerate(matrix):
+        if prev != item.name and idx > n:
+            return idx
+        prev = item.name
+
+
 def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
-    is_matrix_empty = len(matrix) == 0
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
-    matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
-    print(divider("Matrix"))
-    print(json.dumps(matrix, indent=2, cls=CustomEncoder))
+    # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
+    # > A job matrix can generate a maximum of 256 jobs per workflow run.
+    MAX_JOBS = 256
+    # Ensure we can split the matrix into two jobs
+    assert len(matrix) <= MAX_JOBS * 2, f"Too many jobs: {len(matrix)} > {MAX_JOBS * 2}"
 
-    if "GITHUB_ACTIONS" in os.environ:
-        set_action_output("matrix", json.dumps(matrix, cls=CustomEncoder))
-        set_action_output("is_matrix_empty", "true" if is_matrix_empty else "false")
+    idx = find_split(matrix, len(matrix) // 2)
+    matrix1 = matrix[:idx]
+    matrix2 = matrix[idx:]
+    for idx, mat in enumerate((matrix1, matrix2), start=1):
+        mat = {"include": mat, "job_name": [x.job_name for x in mat]}
+        print(divider(f"Matrix {idx}"))
+        print(json.dumps(mat, indent=2, cls=CustomEncoder))
+        if "GITHUB_ACTIONS" in os.environ:
+            set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
+            set_action_output(f"is_matrix{idx}_empty", "true" if bool(mat) else "false")
 
 
 if __name__ == "__main__":
