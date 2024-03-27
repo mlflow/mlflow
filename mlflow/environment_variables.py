@@ -114,8 +114,8 @@ MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT"
 # Specifies whether to respect Retry-After header on status codes defined as
 # Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
 #: (default: ``True``)
-MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER = _EnvironmentVariable(
-    "MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", bool, True
+MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER = _BooleanEnvironmentVariable(
+    "MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", True
 )
 
 #: Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite

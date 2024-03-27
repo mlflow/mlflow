@@ -37,7 +37,7 @@ def http_request(
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     raise_on_status=True,
-    respect_retry_after_header=True,
+    respect_retry_after_header=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
