@@ -72,6 +72,12 @@ class TraceData:
 
     spans: List[Span]
 
+    dict = asdict
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(spans=[Span(**span) for span in d["spans"]])
+
 
 @dataclass
 class Span:
