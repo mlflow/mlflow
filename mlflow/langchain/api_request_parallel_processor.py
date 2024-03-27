@@ -90,7 +90,8 @@ class _ChatMessage(pydantic.BaseModel, extra="forbid"):
                 f"Unrecognized chat message role: {self.role}"
             )
 
-class _ChatDeltaMessage(pydantic.BaseModel, extra="forbid"):
+
+class _ChatDeltaMessage(pydantic.BaseModel):
     role: str
     content: str
 
@@ -108,7 +109,7 @@ class _ChatChoice(pydantic.BaseModel, extra="forbid"):
     finish_reason: Optional[str] = None
 
 
-class _ChatChoiceDelta(pydantic.BaseModel, extra="forbid"):
+class _ChatChoiceDelta(pydantic.BaseModel):
     index: int
     finish_reason: Optional[str] = None
     delta: _ChatDeltaMessage = None
@@ -131,7 +132,7 @@ class _ChatResponse(pydantic.BaseModel, extra="forbid"):
     usage: _ChatUsage
 
 
-class _ChatChunkResponse(pydantic.BaseModel, extra="forbid"):
+class _ChatChunkResponse(pydantic.BaseModel):
     id: Optional[str] = None
     object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
     created: int

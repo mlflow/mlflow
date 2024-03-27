@@ -685,7 +685,7 @@ class _LangChainModelWrapper:
 
     def predict_stream(
         self,
-        data: Union[Any, Dict[str, Any]],
+        data: Any,
         params: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         from mlflow.langchain.api_request_parallel_processor import process_stream_request

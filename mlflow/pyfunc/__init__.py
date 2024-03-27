@@ -622,7 +622,7 @@ class PyFuncModel:
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict", predict_stream_fn: str = None):
+    def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict", predict_stream_fn: Optional[str] = None):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
