@@ -1671,10 +1671,10 @@ class MlflowClient:
                 "toxicity": [0.0, 0.0],
             }
             client = MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_table(
-                run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
-            )
+            with mlflow.start_run() as run:
+                client.log_table(
+                    run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
+                )
 
         .. code-block:: python
             :test:
@@ -1710,7 +1710,7 @@ class MlflowClient:
             df = pd.DataFrame.from_dict(table_dict)
             client = MlflowClient()
             with mlflow.start_run() as run:
-                lient.log_table(run.info.run_id, data=df, artifact_file="image_gen.json")
+                client.log_table(run.info.run_id, data=df, artifact_file="image_gen.json")
         """
         import pandas as pd
 
