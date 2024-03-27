@@ -104,9 +104,14 @@ class _ChatRequest(pydantic.BaseModel, extra="forbid"):
 
 class _ChatChoice(pydantic.BaseModel, extra="forbid"):
     index: int
-    message: Optional[_ChatMessage] = None
+    message: _ChatMessage = None
     finish_reason: Optional[str] = None
-    delta: Optional[_ChatDeltaMessage] = None
+
+
+class _ChatChoiceDelta(pydantic.BaseModel, extra="forbid"):
+    index: int
+    finish_reason: Optional[str] = None
+    delta: _ChatDeltaMessage = None
 
 
 class _ChatUsage(pydantic.BaseModel, extra="forbid"):
@@ -374,7 +379,7 @@ class APIRequest:
                 created=int(time.time()),
                 model=None,
                 choices=[
-                    _ChatChoice(
+                    _ChatChoiceDelta(
                         index=0,
                         delta=_ChatDeltaMessage(
                             role="assistant",
