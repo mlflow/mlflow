@@ -277,11 +277,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     is_single=True,
                 )
             elif (
-                cred.credentials.type == ArtifactCredentialType.AZURE_SAS_URI
-                or cred.credentials.type == ArtifactCredentialType.AWS_PRESIGNED_URL
-                or cred.credentials.type == ArtifactCredentialType.GCP_SIGNED_URL
+                cred.credential_info.type == ArtifactCredentialType.AZURE_SAS_URI
+                or cred.credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL
+                or cred.credential_info.type == ArtifactCredentialType.GCP_SIGNED_URL
             ):
-                self._signed_url_upload_file(cred, temp_file)
+                self._signed_url_upload_file(cred.credential_info, temp_file)
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
