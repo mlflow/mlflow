@@ -22,30 +22,29 @@ class SpanStatus:
     status_code: TraceStatusCode
     description: str = ""
 
-    @staticmethod
-    def to_otel_status(status: SpanStatus) -> trace_api.Status:
+    def to_otel_status(self) -> trace_api.Status:
         """Convert our status object to OpenTelemetry status object."""
-        if status.status_code == TraceStatusCode.OK:
+        if self.status_code == TraceStatusCode.OK:
             status_code = trace_api.StatusCode.OK
-        elif status_code == TraceStatusCode.ERROR:
+        elif self.status_code == TraceStatusCode.ERROR:
             status_code = trace_api.StatusCode.ERROR
-        elif status_code == TraceStatusCode.UNSPECIFIED:
+        elif self.status_code == TraceStatusCode.UNSPECIFIED:
             status_code = trace_api.StatusCode.UNSET
         else:
             raise MlflowException(
-                f"Invalid status code: {status.status_code}", error_code=INVALID_PARAMETER_VALUE
+                f"Invalid status code: {self.status_code}", error_code=INVALID_PARAMETER_VALUE
             )
-        return trace_api.Status(status_code, status.description)
+        return trace_api.Status(status_code, self.description)
 
-    @staticmethod
-    def from_otel_status(otel_status: trace_api.Status) -> SpanStatus:
+    @classmethod
+    def from_otel_status(cls, otel_status: trace_api.Status) -> SpanStatus:
         """Convert OpenTelemetry status object to our status object."""
         if otel_status.status_code == trace_api.StatusCode.OK:
-            return SpanStatus(TraceStatusCode.OK, otel_status.description)
+            return cls(TraceStatusCode.OK, otel_status.description)
         elif otel_status.status_code == trace_api.StatusCode.ERROR:
-            return SpanStatus(TraceStatusCode.ERROR, otel_status.description)
+            return cls(TraceStatusCode.ERROR, otel_status.description)
         elif otel_status.status_code == trace_api.StatusCode.UNSET:
-            return SpanStatus(TraceStatusCode.UNSPECIFIED, otel_status.description)
+            return cls(TraceStatusCode.UNSPECIFIED, otel_status.description)
         else:
             raise MlflowException(
                 f"Got invalid status code from OpenTelemetry: {otel_status.status_code}",

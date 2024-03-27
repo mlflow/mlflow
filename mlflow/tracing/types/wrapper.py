@@ -100,7 +100,7 @@ class MLflowSpanWrapper:
         #     current requirements at least. Nevertheless, declaring the new class extending
         #     the OpenTelemetry Status class so users code doesn't have to import the OTel's
         #     StatusCode object, which makes future migration easier.
-        self._span.set_status(SpanStatus.to_otel_status(status))
+        self._span.set_status(status.to_otel_status())
 
     def add_event(self, event: SpanEvent):
         self._span.add_event(event.name, event.attributes, event.timestamp)
