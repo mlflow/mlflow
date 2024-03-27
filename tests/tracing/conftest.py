@@ -1,8 +1,8 @@
 import pytest
 
 from mlflow.tracing.clients.local import InMemoryTraceClient
-from mlflow.tracing.export.mlflow import InMemoryTraceDataAggregator
 from mlflow.tracing.provider import _setup_tracer_provider
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
 @pytest.fixture(autouse=True)
@@ -12,7 +12,7 @@ def clear_aggregator():
     (They should be exported and popped but just in case.)
     """
     yield
-    InMemoryTraceDataAggregator.get_instance()._traces.clear()
+    InMemoryTraceManager.get_instance()._traces.clear()
 
 
 @pytest.fixture

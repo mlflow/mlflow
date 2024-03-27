@@ -1,8 +1,10 @@
 import pickle
+import time
 from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import (
     ExperimentTag,
@@ -25,6 +27,8 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
+from mlflow.tracing.types.constant import TraceAttributeKey
+from mlflow.tracing.types.model import SpanType, Status, StatusCode
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
@@ -156,6 +160,168 @@ def test_client_create_trace(mock_store, mock_time):
 def test_client_get_trace_info(mock_store):
     MlflowClient().get_trace_info("1234567")
     mock_store.get_trace_info.assert_called_once_with("1234567")
+
+
+def test_start_and_end_trace():
+    class TestModel:
+        def __init__(self):
+            self._client = MlflowClient()
+
+        def predict(self, x, y):
+            root_span = self._client.start_trace(
+                name="predict", inputs={"x": x, "y": y}, tags={"tag": "tag_value"}
+            )
+            trace_id = root_span.trace_id
+
+            z = x + y
+
+            child_span = self._client.start_span(
+                "child_span_1",
+                span_type=SpanType.LLM,
+                trace_id=trace_id,
+                parent_span_id=root_span.span_id,
+                inputs={"z": z},
+            )
+
+            z = z + 2
+
+            self._client.end_span(
+                trace_id=trace_id,
+                span_id=child_span.span_id,
+                outputs={"output": z},
+                attributes={"delta": 2},
+            )
+
+            res = self.square(z, trace_id, root_span.span_id)
+            self._client.end_trace(trace_id, outputs={"output": res}, status=Status(StatusCode.OK))
+            return res
+
+        def square(self, t, trace_id, parent_span_id):
+            span = self._client.start_span(
+                "child_span_2",
+                trace_id=trace_id,
+                parent_span_id=parent_span_id,
+                inputs={"t": t},
+            )
+
+            res = t**2
+            time.sleep(0.1)
+
+            self._client.end_span(
+                trace_id=trace_id,
+                span_id=span.span_id,
+                outputs={"output": res},
+            )
+            return res
+
+    model = TestModel()
+    model.predict(1, 2)
+
+    traces = mlflow.get_traces()
+    assert len(traces) == 1
+    trace_info = traces[0].trace_info
+    assert trace_info.trace_id is not None
+    assert trace_info.start_time <= trace_info.end_time - 0.1 * 1e6  # at least 0.1 sec
+    assert trace_info.status.status_code == StatusCode.OK
+    assert trace_info.attributes[TraceAttributeKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.attributes[TraceAttributeKey.OUTPUTS] == '{"output": 25}'
+
+    spans = traces[0].trace_data.spans
+    assert len(spans) == 3
+
+    span_name_to_span = {span.name: span for span in spans}
+    root_span = span_name_to_span["predict"]
+    assert root_span.start_time == trace_info.start_time
+    assert root_span.end_time == trace_info.end_time
+    assert root_span.parent_span_id is None
+    assert root_span.span_type == SpanType.UNKNOWN
+    assert root_span.inputs == {"x": 1, "y": 2}
+    assert root_span.outputs == {"output": 25}
+
+    child_span_1 = span_name_to_span["child_span_1"]
+    assert child_span_1.parent_span_id == root_span.context.span_id
+    assert child_span_1.span_type == SpanType.LLM
+    assert child_span_1.inputs == {"z": 3}
+    assert child_span_1.outputs == {"output": 5}
+    assert child_span_1.attributes == {"delta": 2}
+
+    child_span_2 = span_name_to_span["child_span_2"]
+    assert child_span_2.parent_span_id == root_span.context.span_id
+    assert child_span_2.span_type == SpanType.UNKNOWN
+    assert child_span_2.inputs == {"t": 5}
+    assert child_span_2.outputs == {"output": 25}
+    assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
+
+
+def test_start_and_end_trace_before_all_span_end():
+    # This test is to verify that the trace is still exported even if some spans are not ended
+    import mlflow
+    from mlflow.tracing.types.model import StatusCode
+
+    class TestModel:
+        def __init__(self):
+            self._client = mlflow.tracking.MlflowClient()
+
+        def predict(self, x):
+            root_span = self._client.start_trace(name="predict")
+            trace_id = root_span.trace_id
+            child_span = self._client.start_span(
+                "ended-span",
+                trace_id=trace_id,
+                parent_span_id=root_span.span_id,
+            )
+            time.sleep(0.1)
+            self._client.end_span(trace_id, child_span.span_id)
+
+            res = self.square(x, trace_id, root_span.span_id)
+            self._client.end_trace(trace_id)
+            return res
+
+        def square(self, t, trace_id, parent_span_id):
+            self._client.start_span(
+                "non-ended-span", trace_id=trace_id, parent_span_id=parent_span_id
+            )
+            time.sleep(0.1)
+            # The span created above is not ended
+            return t**2
+
+    model = TestModel()
+    model.predict(1)
+
+    traces = mlflow.get_traces()
+    assert len(traces) == 1
+
+    trace_info = traces[0].trace_info
+    assert trace_info.trace_id is not None
+    assert trace_info.start_time < trace_info.end_time
+    assert trace_info.status.status_code == StatusCode.OK
+
+    spans = traces[0].trace_data.spans
+    assert len(spans) == 3  # The non-ended span should be also included in the trace
+
+    span_name_to_span = {span.name: span for span in spans}
+    root_span = span_name_to_span["predict"]
+    assert root_span.parent_span_id is None
+    assert root_span.status.status_code == StatusCode.OK
+    assert root_span.start_time == trace_info.start_time
+    assert root_span.end_time == trace_info.end_time
+
+    ended_span = span_name_to_span["ended-span"]
+    assert ended_span.parent_span_id == root_span.context.span_id
+    assert ended_span.start_time < ended_span.end_time
+    assert ended_span.status.status_code == StatusCode.OK
+
+    # The non-ended span should have null end_time and UNSET status
+    non_ended_span = span_name_to_span["non-ended-span"]
+    assert non_ended_span.parent_span_id == root_span.context.span_id
+    assert non_ended_span.start_time is not None
+    assert non_ended_span.end_time is None
+    assert non_ended_span.status.status_code == StatusCode.UNSET
+
+
+def test_start_span_raise_error_when_parent_span_id_is_not_provided():
+    with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
+        mlflow.tracking.MlflowClient().start_span("span_name", trace_id="test", parent_span_id=None)
 
 
 def test_client_create_experiment(mock_store):

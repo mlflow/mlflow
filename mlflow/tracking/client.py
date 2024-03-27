@@ -32,7 +32,11 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    FEATURE_DISABLED,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -42,6 +46,8 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.types.model import Status, StatusCode
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -72,6 +78,7 @@ if TYPE_CHECKING:
     import pandas
     import PIL
     import plotly
+
 
 _logger = logging.getLogger(__name__)
 
@@ -431,6 +438,217 @@ class MlflowClient:
             trace = client.get_trace_info(request_id)
         """
         return self._tracking_client.get_trace_info(request_id)
+
+    def start_trace(
+        self,
+        name: str,
+        inputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Dict[str, str]] = None,
+        tags: Optional[Dict[str, str]] = None,
+    ):
+        """
+        Create a new trace object and start a root span under it.
+
+        This is an imperative API to manually create a new span under a specific trace id and parent
+        span, unlike the higher-level APIs like `@mlflow.trace()` and `with mlflow.start_span()`,
+        which automatically manage the span lifecycle and parent-child relationship.
+
+        A trace started with this method must be ended by calling `end_trace(trace_id)`.
+
+        Args:
+            name: The name of the trace (and the root span).
+            inputs: Inputs to set on the root span of the trace.
+            attributes: A dictionary of attributes to set on the root span of the trace.
+            tags: A dictionary of tags to set on the trace.
+
+        Returns:
+            An MLflowSpanWrapper object representing the root span of the trace.
+
+        Example:
+
+        .. code-block:: python
+
+                from mlflow.tracking import MlflowClient
+
+                client = MlflowClient()
+
+                root_span = client.start_trace("my_trace")
+                trace_id = root_span.trace_id
+
+                # Create a child span
+                child_span = client.start_span(
+                    "child_span", trace_id=trace_id, parent_span_id=root_span.span_id
+                )
+                # Do something...
+                client.end_span(trace_id=trace_id, span_id=child_span.span_id)
+
+                client.end_trace(trace_id)
+        """
+        trace_manager = InMemoryTraceManager.get_instance()
+        root_span = trace_manager.start_detached_span(name)
+
+        if inputs:
+            root_span.set_inputs(inputs)
+        if attributes:
+            root_span.set_attributes(attributes)
+
+        trace_info = trace_manager.get_trace_info(root_span.trace_id)
+        trace_info.tags.update(tags or {})
+
+        return root_span
+
+    def end_trace(
+        self,
+        trace_id: str,
+        outputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        status: Status = Status(StatusCode.OK, ""),
+    ):
+        """
+        End the trace with the given trace ID. This will end the root span of the trace and
+        log the trace to the backend if configured.
+
+        If any of children spans are not ended, they will be ended forcefully with the status
+        `UNSET`. If the trace is already ended, this method will have no effect.
+
+        Args:
+            trace_id: The ID of the trace to end.
+            outputs: Outputs to set on the trace.
+            attributes: A dictionary of attributes to set on the trace. If the trace already has
+                attributes, the new attributes will be merged with the existing ones. If the same
+                key already exists, the new value will overwrite the old one.
+            status: The status of the trace. The default status is OK.
+        """
+        trace_manager = InMemoryTraceManager.get_instance()
+        root_span_id = trace_manager.get_root_span_id(trace_id)
+
+        if root_span_id is None:
+            raise MlflowException(f"Trace with ID {trace_id} not found.")
+
+        self.end_span(trace_id, root_span_id, outputs, attributes, status)
+
+    def start_span(
+        self,
+        name: str,
+        trace_id: str,
+        parent_span_id: str,
+        span_type: Optional[str] = None,
+        inputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Create a new span and start it without attaching it to the global trace context.
+
+        This is an imperative API to manually create a new span under a specific trace id and parent
+        span, unlike the higher-level APIs like `@mlflow.trace()` and `with mlflow.start_span()`,
+        which automatically manage the span lifecycle and parent-child relationship.
+
+        This API is useful for the case where the automatic context management is not sufficient,
+        such as callback-based instrumentation where span start and end are not in the same call
+        stack, or multi-threaded applications where the context is not propagated automatically.
+
+        To conclude the span for logging, call `span.end()`.
+
+        Args:
+            name: The name of the span.
+            trace_id: The ID of the trace to attach the span to.
+            span_type: The type of the span. Can be either a string or a SpanType enum value.
+            parent_span_id: The ID of the parent span. The parent span can be a span created by
+                both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
+            inputs: Inputs to set on the span.
+            attributes: A dictionary of attributes to set on the span.
+
+        Returns:
+            An MLflowSpanWrapper object representing the span.
+
+        Example:
+
+        .. code-block:: python
+
+                from mlflow.tracking import MlflowClient
+
+                client = MlflowClient()
+
+                span = client.start_trace("my_trace")
+
+                x = 2
+
+                # Create a child span
+                child_span = client.start_span(
+                    "child_span",
+                    trace_id=span.trace_id,
+                    parent_span_id=span.id,
+                    inputs={"x": 2},
+                )
+
+                y = x**2
+
+                client.end_span(
+                    trace_id=child_span.trace_id,
+                    span_id=child_span.span_id,
+                    attributes={"factor": 2},
+                    outputs={"y": y},
+                )
+
+                client.end_trace(trace_id)
+        """
+        if not parent_span_id:
+            raise MlflowException(
+                "start_span() must be called with an explicit parent_span_id."
+                "If you haven't start any span yet, use MLflowClient().start_trace() "
+                "to start a new trace and root span.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        span = trace_manager.start_detached_span(
+            name=name,
+            trace_id=trace_id,
+            parent_span_id=parent_span_id,
+            span_type=span_type,
+        )
+
+        if attributes:
+            span.set_attributes(attributes)
+        if inputs:
+            span.set_inputs(inputs)
+
+        return span
+
+    def end_span(
+        self,
+        trace_id: str,
+        span_id: str,
+        outputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        status: Status = Status(StatusCode.OK, ""),
+    ):
+        """
+        End the span with the given trace ID and span ID.
+
+        Args:
+            trace_id: The ID of the trace to end.
+            span_id: The ID of the span to end.
+            outputs: Outputs to set on the span.
+            attributes: A dictionary of attributes to set on the span. If the span already has
+                attributes, the new attributes will be merged with the existing ones. If the same
+                key already exists, the new value will overwrite the old one.
+            status: The status of the span. The default status is OK.
+        """
+        trace_manager = InMemoryTraceManager.get_instance()
+        span = trace_manager.get_span_from_id(trace_id, span_id)
+
+        if span is None:
+            _logger.warning(f"Span with ID {span_id} not found in trace with ID {trace_id}.")
+            return
+
+        if attributes:
+            span.set_attributes(attributes or {})
+        if outputs:
+            span.set_outputs(outputs)
+        span.set_status(status)
+
+        span.end()
 
     def search_experiments(
         self,

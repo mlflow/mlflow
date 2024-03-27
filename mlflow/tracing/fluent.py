@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import logging
 from typing import Any, Callable, Dict, List, Optional
@@ -5,8 +7,9 @@ from typing import Any, Callable, Dict, List, Optional
 from opentelemetry import trace as trace_api
 
 from mlflow.tracing.provider import get_tracer
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
-from mlflow.tracing.utils import capture_function_input_args, get_caller_module
+from mlflow.tracing.utils import capture_function_input_args
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +19,6 @@ def trace(
     name: Optional[str] = None,
     span_type: Optional[str] = None,
     attributes: Optional[Dict[str, Any]] = None,
-    tags: Optional[Dict[str, str]] = None,
 ):
     """
     Decorator that create a new span for the decorated function.
@@ -102,7 +104,7 @@ def start_span(
     """
     # TODO: refactor this logic
     try:
-        tracer = get_tracer(get_caller_module())
+        tracer = get_tracer(__name__)
         span = tracer.start_span(name)
         span.set_attributes(attributes or {})
     except Exception:
@@ -111,18 +113,20 @@ def start_span(
 
     try:
         if span is not None:
+            trace_manager = InMemoryTraceManager.get_instance()
             # Setting end_on_exit = False to suppress the default span
             # export and instead invoke MLflowSpanWrapper.end()
             with trace_api.use_span(span, end_on_exit=False):
                 mlflow_span = MLflowSpanWrapper(span, span_type=span_type)
                 mlflow_span.set_attributes(attributes or {})
+                trace_manager.add_or_update_span(mlflow_span)
                 yield mlflow_span
         else:
             # Span creation should not raise an exception
             mlflow_span = NoOpMLflowSpanWrapper()
             yield mlflow_span
     finally:
-        mlflow_span._end()
+        mlflow_span.end()
 
 
 def get_traces(n: int = 1) -> List:

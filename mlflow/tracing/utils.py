@@ -20,11 +20,3 @@ def capture_function_input_args(func, args, kwargs) -> Dict[str, Any]:
     except Exception:
         _logger.warning(f"Failed to capture inputs for function {func.__name__}.")
         return {}
-
-
-def get_caller_module() -> str:
-    try:
-        # The caller module is two frames up the stack (i.e. parent of the parent for this function)
-        return inspect.getmodule(inspect.currentframe().f_back.__back).__name__
-    except Exception:
-        return "unknown_module"
