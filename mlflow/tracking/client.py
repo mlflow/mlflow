@@ -1732,7 +1732,7 @@ class MlflowClient:
         # and save filepath
         if len(data.select_dtypes(include=["object"]).columns) > 0:
             try:
-                import PIL
+                from PIL import Image
             except ImportError as exc:
                 raise ImportError(
                     "`log_table` requires Pillow to verify if column contains PIL Image. "
@@ -1763,7 +1763,9 @@ class MlflowClient:
                 }
 
             for column in data.columns:
-                isImage = data[column].map(lambda x: isinstance(x, (PIL.Image.Image, Image)))
+                isImage = data[column].map(
+                    lambda x: isinstance(x, (Image.Image, mlflow.tracking.multimedia.Image))
+                )
                 if any(isImage) and not all(isImage):
                     raise ValueError(
                         f"Column `{column}` contains a mix of images and non-images. "
