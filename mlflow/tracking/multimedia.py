@@ -5,11 +5,10 @@ exposed to users at the top-level :py:mod:`mlflow` module.
 
 from typing import TYPE_CHECKING, Optional, Tuple, Union
 
-import mlflow
-
 if TYPE_CHECKING:
     import numpy
     import PIL
+    import mlflow
 
 COMPRESSED_IMAGE_SIZE = 256
 
