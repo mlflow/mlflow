@@ -7,17 +7,17 @@ from mlflow.utils.proto_json_utils import parse_dict
 
 
 class MlflowModelVersionStatus(graphene.Enum):
-    PENDING_REGISTRATION = "PENDING_REGISTRATION"
-    FAILED_REGISTRATION = "FAILED_REGISTRATION"
-    READY = "READY"
+    PENDING_REGISTRATION = 1
+    FAILED_REGISTRATION = 2
+    READY = 3
 
 
 class MlflowRunStatus(graphene.Enum):
-    RUNNING = "RUNNING"
-    SCHEDULED = "SCHEDULED"
-    FINISHED = "FINISHED"
-    FAILED = "FAILED"
-    KILLED = "KILLED"
+    RUNNING = 1
+    SCHEDULED = 2
+    FINISHED = 3
+    FAILED = 4
+    KILLED = 5
 
 
 class MlflowModelVersionTag(graphene.ObjectType):
