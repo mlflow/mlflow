@@ -2033,7 +2033,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     )
     assert response.status_code == 200
     json = response.json()
-    assert json["errors"] == None
+    assert json["errors"] is None
     assert (
         json["data"]["mlflowGetRun"]["run"]["info"]["status"] == created_run.info.status
     )
