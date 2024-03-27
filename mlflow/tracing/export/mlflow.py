@@ -73,7 +73,7 @@ class MLflowSpanExporter(SpanExporter):
         info = trace.trace_info
         info.timestamp_ms = root_span.start_time // 1_000  # microsecond to millisecond
         info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000
-        info.status = TraceStatus.from_span_status(root_span.status)
+        info.status = TraceStatus.from_string(root_span.status.status_code)
         info.request_metadata.update(
             {
                 TraceMetadataKey.NAME: root_span.name,

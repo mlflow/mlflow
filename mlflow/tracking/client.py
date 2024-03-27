@@ -509,7 +509,7 @@ class MlflowClient:
         log the trace to the backend if configured.
 
         If any of children spans are not ended, they will be ended forcefully with the status
-        `UNSET`. If the trace is already ended, this method will have no effect.
+        `TRACE_STATUS_UNSPECIFIED`. If the trace is already ended, this method will have no effect.
 
         Args:
             request_id: The ID of the trace to end.

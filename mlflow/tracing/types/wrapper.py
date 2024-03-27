@@ -65,7 +65,7 @@ class MLflowSpanWrapper:
 
     @property
     def status(self) -> SpanStatus:
-        return SpanStatus(self._span.status.status_code, self._span.status.description)
+        return SpanStatus.from_otel_status(self._span.status)
 
     @property
     def inputs(self) -> Dict[str, Any]:
@@ -91,7 +91,15 @@ class MLflowSpanWrapper:
         self._span.set_attribute(key, value)
 
     def set_status(self, status: SpanStatus):
-        self._span.set_status(status.status_code, status.description)
+        # NB: We need to set the OpenTelemetry native StatusCode, because span's set_status
+        #     method only accepts a StatusCode enum in their definition.
+        #     https://github.com/open-telemetry/opentelemetry-python/blob/8ed71b15fb8fc9534529da8ce4a21e686248a8f3/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L949
+        #     Working around this is possible, but requires some hack to handle automatic status
+        #     propagation mechanism, so here we just use the native object that meets our
+        #     current requirements at least. Nevertheless, declaring the new class extending
+        #     the OpenTelemetry Status class so users code doesn't have to import the OTel's
+        #     StatusCode object, which makes future migration easier.
+        self._span.set_status(SpanStatus.to_otel_status(status))
 
     def add_event(self, event: SpanEvent):
         self._span.add_event(event.name, event.attributes, event.timestamp)

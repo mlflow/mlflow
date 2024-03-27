@@ -313,12 +313,12 @@ def test_start_and_end_trace_before_all_span_end(mock_trace_client):
     assert ended_span.start_time < ended_span.end_time
     assert ended_span.status.status_code == SpanStatus.StatusCode.OK
 
-    # The non-ended span should have null end_time and UNSET status
+    # The non-ended span should have null end_time and UNSPECIFIED status
     non_ended_span = span_name_to_span["non-ended-span"]
     assert non_ended_span.parent_span_id == root_span.context.span_id
     assert non_ended_span.start_time is not None
     assert non_ended_span.end_time is None
-    assert non_ended_span.status.status_code == SpanStatus.StatusCode.UNSET
+    assert non_ended_span.status.status_code == SpanStatus.StatusCode.UNSPECIFIED
 
 
 def test_start_span_raise_error_when_parent_span_id_is_not_provided():

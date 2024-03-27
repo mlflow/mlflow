@@ -1,4 +1,3 @@
-from mlflow.entities.span_status import SpanStatus
 from mlflow.protos.service_pb2 import TraceStatus as ProtoTraceStatus
 
 
@@ -20,15 +19,6 @@ class TraceStatus:
                 f"status strings: {list(TraceStatus._STRING_TO_STATUS.keys())}"
             )
         return TraceStatus._STRING_TO_STATUS[status_str]
-
-    @staticmethod
-    def from_span_status(status: SpanStatus):
-        if status.status_code == SpanStatus.StatusCode.OK:
-            return TraceStatus.OK
-        elif status.status_code == SpanStatus.StatusCode.UNSET:
-            return TraceStatus.UNSPECIFIED
-        else:
-            return TraceStatus.ERROR
 
     @staticmethod
     def to_string(status):

@@ -15,18 +15,34 @@ class SpanStatus:
         description: Description of the status. Optional.
     """
 
-    status_code: trace_api.StatusCode
+    status_code: StatusCode
     description: str = ""
 
-    # NB: Using the OpenTelemetry native StatusCode values here, because span's set_status
-    #     method only accepts a StatusCode enum in their definition.
-    #     https://github.com/open-telemetry/opentelemetry-python/blob/8ed71b15fb8fc9534529da8ce4a21e686248a8f3/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L949
-    #     Working around this is possible, but requires some hack to handle automatic status
-    #     propagation mechanism, so here we just use the native object that meets our
-    #     current requirements at least. Nevertheless, declaring the new class extending
-    #     the OpenTelemetry Status class so users code doesn't have to import the OTel's
-    #     StatusCode object, which makes future migration easier.
     class StatusCode:
-        UNSET = trace_api.StatusCode.UNSET
-        OK = trace_api.StatusCode.OK
-        ERROR = trace_api.StatusCode.ERROR
+        # Importing here to avoid circular imports
+        from mlflow.entities.trace_status import TraceStatus
+
+        UNSPECIFIED = TraceStatus.to_string(TraceStatus.UNSPECIFIED)
+        OK = TraceStatus.to_string(TraceStatus.OK)
+        ERROR = TraceStatus.to_string(TraceStatus.ERROR)
+
+    @staticmethod
+    def to_otel_status(status: SpanStatus) -> trace_api.Status:
+        """Convert our status object to OpenTelemetry status object."""
+        if status.status_code == SpanStatus.StatusCode.OK:
+            status_code = trace_api.StatusCode.OK
+        elif status_code == SpanStatus.StatusCode.ERROR:
+            status_code = trace_api.StatusCode.ERROR
+        else:
+            status_code = trace_api.StatusCode.UNSET
+        return trace_api.Status(status_code, status.description)
+
+    @staticmethod
+    def from_otel_status(otel_status: trace_api.Status) -> SpanStatus:
+        """Convert OpenTelemetry status object to our status object."""
+        if otel_status.status_code == trace_api.StatusCode.OK:
+            return SpanStatus(SpanStatus.StatusCode.OK, otel_status.description)
+        elif otel_status.status_code == trace_api.StatusCode.ERROR:
+            return SpanStatus(SpanStatus.StatusCode.ERROR, otel_status.description)
+        else:
+            return SpanStatus(SpanStatus.StatusCode.UNSPECIFIED, otel_status.description)
