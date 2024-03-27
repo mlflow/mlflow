@@ -224,6 +224,17 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def delete_runs(self, run_ids):
+        """
+        Delete multiple runs.
+
+        Args:
+            run_ids: List of run ids to delete.
+
+        """
+        pass
+    
+    @abstractmethod
     def restore_run(self, run_id):
         """
         Restore a run.
