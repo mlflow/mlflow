@@ -146,6 +146,7 @@ class Image:
                 "`image` must be one of numpy.ndarray, "
                 "PIL.Image.Image, or a filepath to an image."
             )
+        self.size = self.image.size
 
     def to_list(self) -> list:
         """
