@@ -109,6 +109,7 @@ def _cached_get_request_session(
     # This is to avoid sharing the same Session object across processes, which can lead to issues
     # such as https://stackoverflow.com/q/3724900.
     _pid,
+    respect_retry_after_header=True,
 ):
     """
     This function should not be called directly. Instead, use `_get_request_session` below.
@@ -126,6 +127,7 @@ def _cached_get_request_session(
         "backoff_factor": backoff_factor,
         "backoff_jitter": backoff_jitter,
         "raise_on_status": raise_on_status,
+        "respect_retry_after_header": respect_retry_after_header,
     }
     urllib3_version = Version(urllib3.__version__)
     if urllib3_version >= Version("1.26.0"):
@@ -144,7 +146,14 @@ def _cached_get_request_session(
     return session
 
 
-def _get_request_session(max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status):
+def _get_request_session(
+    max_retries,
+    backoff_factor,
+    backoff_jitter,
+    retry_codes,
+    raise_on_status,
+    respect_retry_after_header,
+):
     """Returns a `Requests.Session` object for making an HTTP request.
 
     Args:
@@ -156,6 +165,8 @@ def _get_request_session(max_retries, backoff_factor, backoff_jitter, retry_code
         retry_codes: A list of HTTP response error codes that qualifies for retry.
         raise_on_status: Whether to raise an exception, or return a response, if status falls
             in retry_codes range and retries have been exhausted.
+        respect_retry_after_header: Whether to respect Retry-After header on status codes defined
+            as Retry.RETRY_AFTER_STATUS_CODES or not.
 
     Returns:
         requests.Session object.
@@ -168,6 +179,7 @@ def _get_request_session(max_retries, backoff_factor, backoff_jitter, retry_code
         retry_codes,
         raise_on_status,
         _pid=os.getpid(),
+        respect_retry_after_header=respect_retry_after_header,
     )
 
 
@@ -180,6 +192,7 @@ def _get_http_response_with_retries(
     retry_codes,
     raise_on_status=True,
     allow_redirects=None,
+    respect_retry_after_header=True,
     **kwargs,
 ):
     """Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -201,7 +214,12 @@ def _get_http_response_with_retries(
         requests.Response object.
     """
     session = _get_request_session(
-        max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status
+        max_retries,
+        backoff_factor,
+        backoff_jitter,
+        retry_codes,
+        raise_on_status,
+        respect_retry_after_header,
     )
 
     # the environment variable is hardcoded here to avoid importing mlflow.
