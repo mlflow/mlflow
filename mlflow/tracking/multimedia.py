@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     import numpy
     import PIL
 
-    import mlflow
 
 COMPRESSED_IMAGE_SIZE = 256
 
@@ -151,7 +150,7 @@ class Image:
             )
         self.size = self.image.size
 
-    def to_list(self) -> list:
+    def to_list(self):
         """
         Convert the image to a list of pixel values.
 
@@ -160,7 +159,7 @@ class Image:
         """
         return list(self.image.getdata())
 
-    def to_array(self) -> "numpy.ndarray":
+    def to_array(self):
         """
         Convert the image to a numpy array.
 
@@ -171,7 +170,7 @@ class Image:
 
         return np.array(self.image)
 
-    def to_pil(self) -> "PIL.Image.Image":
+    def to_pil(self):
         """
         Convert the image to a PIL image.
 
@@ -180,7 +179,7 @@ class Image:
         """
         return self.image
 
-    def save(self, path: str) -> None:
+    def save(self, path: str):
         """
         Save the image to a file.
 
@@ -189,7 +188,7 @@ class Image:
         """
         self.image.save(path)
 
-    def resize(self, size: Tuple[int, int]) -> "mlflow.Image":
+    def resize(self, size: Tuple[int, int]):
         """
         Resize the image to the specified size.
 
