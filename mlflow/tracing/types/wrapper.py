@@ -6,6 +6,7 @@ from opentelemetry import trace as trace_api
 
 from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus
 from mlflow.entities.span import SpanType
+from mlflow.tracing.types.constant import TraceStatusCode
 
 _logger = logging.getLogger(__name__)
 
@@ -109,8 +110,8 @@ class MLflowSpanWrapper:
         # by the user. However, there is not way to set the status when using
         # @mlflow.trace decorator. Therefore, we just automatically set the status
         # to OK if it is not ERROR.
-        if self.status.status_code != SpanStatus.StatusCode.ERROR:
-            self.set_status(SpanStatus(SpanStatus.StatusCode.OK))
+        if self.status.status_code != TraceStatusCode.ERROR:
+            self.set_status(SpanStatus(TraceStatusCode.OK))
 
         # Mimic the OTel's span end hook to pass this wrapper to processor/exporter
         # Ref: https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909

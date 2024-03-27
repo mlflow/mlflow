@@ -48,6 +48,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.types.constant import TraceStatusCode
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -502,7 +503,7 @@ class MlflowClient:
         request_id: str,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-        status: SpanStatus = SpanStatus(SpanStatus.StatusCode.OK),
+        status: SpanStatus = SpanStatus(TraceStatusCode.OK),
     ):
         """
         End the trace with the given trace ID. This will end the root span of the trace and
@@ -621,7 +622,7 @@ class MlflowClient:
         span_id: str,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-        status: SpanStatus = SpanStatus(SpanStatus.StatusCode.OK),
+        status: SpanStatus = SpanStatus(TraceStatusCode.OK),
     ):
         """
         End the span with the given trace ID and span ID.

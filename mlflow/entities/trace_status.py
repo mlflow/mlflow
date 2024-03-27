@@ -1,12 +1,13 @@
 from mlflow.protos.service_pb2 import TraceStatus as ProtoTraceStatus
+from mlflow.tracing.types.constant import TraceStatusCode
 
 
 class TraceStatus:
     """Enum for status of an :py:class:`mlflow.entities.TraceInfo`."""
 
-    UNSPECIFIED = ProtoTraceStatus.Value("TRACE_STATUS_UNSPECIFIED")
-    OK = ProtoTraceStatus.Value("OK")
-    ERROR = ProtoTraceStatus.Value("ERROR")
+    UNSPECIFIED = ProtoTraceStatus.Value(TraceStatusCode.UNSPECIFIED)
+    OK = ProtoTraceStatus.Value(TraceStatusCode.OK)
+    ERROR = ProtoTraceStatus.Value(TraceStatusCode.ERROR)
 
     _STRING_TO_STATUS = {k: ProtoTraceStatus.Value(k) for k in ProtoTraceStatus.keys()}
     _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
