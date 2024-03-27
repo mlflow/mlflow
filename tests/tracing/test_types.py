@@ -48,7 +48,7 @@ def test_json_deserialization(mock_client):
                 {
                     "name": "predict",
                     "context": {
-                        "trace_id": trace.trace_data.spans[0].context.trace_id,
+                        "request_id": trace.trace_data.spans[0].context.request_id,
                         "span_id": trace.trace_data.spans[0].context.span_id,
                     },
                     "span_type": "UNKNOWN",
@@ -64,7 +64,7 @@ def test_json_deserialization(mock_client):
                 {
                     "name": "add_one_with_custom_name",
                     "context": {
-                        "trace_id": trace.trace_data.spans[1].context.trace_id,
+                        "request_id": trace.trace_data.spans[1].context.request_id,
                         "span_id": trace.trace_data.spans[1].context.span_id,
                     },
                     "span_type": "LLM",
@@ -95,7 +95,7 @@ def test_wrapper_property():
 
     span = MLflowSpanWrapper(mock_otel_span)
 
-    assert span.trace_id == "trace_id"
+    assert span.request_id == "trace_id"
     assert span.span_id == "span_id"
     assert span.start_time == start_time // 1_000
     assert span.end_time == end_time // 1_000

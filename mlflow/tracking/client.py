@@ -454,7 +454,7 @@ class MlflowClient:
         span, unlike the higher-level APIs like `@mlflow.trace()` and `with mlflow.start_span()`,
         which automatically manage the span lifecycle and parent-child relationship.
 
-        A trace started with this method must be ended by calling `end_trace(trace_id)`.
+        A trace started with this method must be ended by calling `end_trace(request_id)`.
 
         Args:
             name: The name of the trace (and the root span).
@@ -474,16 +474,16 @@ class MlflowClient:
                 client = MlflowClient()
 
                 root_span = client.start_trace("my_trace")
-                trace_id = root_span.trace_id
+                request_id = root_span.request_id
 
                 # Create a child span
                 child_span = client.start_span(
-                    "child_span", trace_id=trace_id, parent_span_id=root_span.span_id
+                    "child_span", request_id=request_id, parent_span_id=root_span.span_id
                 )
                 # Do something...
-                client.end_span(trace_id=trace_id, span_id=child_span.span_id)
+                client.end_span(request_id=request_id, span_id=child_span.span_id)
 
-                client.end_trace(trace_id)
+                client.end_trace(request_id)
         """
         trace_manager = InMemoryTraceManager.get_instance()
         root_span = trace_manager.start_detached_span(name)
@@ -493,7 +493,7 @@ class MlflowClient:
         if attributes:
             root_span.set_attributes(attributes)
 
-        trace_info = trace_manager.get_trace_info(root_span.trace_id)
+        trace_info = trace_manager.get_trace_info(root_span.request_id)
         tags = [TraceTag(key=k, value=v) for k, v in (tags or {}).items()]
         trace_info.tags.append(tags)
 
@@ -501,7 +501,7 @@ class MlflowClient:
 
     def end_trace(
         self,
-        trace_id: str,
+        request_id: str,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
         status: SpanStatus = SpanStatus(SpanStatus.StatusCode.OK),
@@ -514,7 +514,7 @@ class MlflowClient:
         `UNSET`. If the trace is already ended, this method will have no effect.
 
         Args:
-            trace_id: The ID of the trace to end.
+            request_id: The ID of the trace to end.
             outputs: Outputs to set on the trace.
             attributes: A dictionary of attributes to set on the trace. If the trace already has
                 attributes, the new attributes will be merged with the existing ones. If the same
@@ -522,17 +522,17 @@ class MlflowClient:
             status: The status of the trace. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
-        root_span_id = trace_manager.get_root_span_id(trace_id)
+        root_span_id = trace_manager.get_root_span_id(request_id)
 
         if root_span_id is None:
-            raise MlflowException(f"Trace with ID {trace_id} not found.")
+            raise MlflowException(f"Trace with ID {request_id} not found.")
 
-        self.end_span(trace_id, root_span_id, outputs, attributes, status)
+        self.end_span(request_id, root_span_id, outputs, attributes, status)
 
     def start_span(
         self,
         name: str,
-        trace_id: str,
+        request_id: str,
         parent_span_id: str,
         span_type: Optional[str] = None,
         inputs: Optional[Dict[str, Any]] = None,
@@ -553,7 +553,7 @@ class MlflowClient:
 
         Args:
             name: The name of the span.
-            trace_id: The ID of the trace to attach the span to.
+            request_id: The ID of the trace to attach the span to.
             span_type: The type of the span. Can be either a string or a SpanType enum value.
             parent_span_id: The ID of the parent span. The parent span can be a span created by
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
@@ -578,7 +578,7 @@ class MlflowClient:
                 # Create a child span
                 child_span = client.start_span(
                     "child_span",
-                    trace_id=span.trace_id,
+                    request_id=span.request_id,
                     parent_span_id=span.id,
                     inputs={"x": 2},
                 )
@@ -586,13 +586,13 @@ class MlflowClient:
                 y = x**2
 
                 client.end_span(
-                    trace_id=child_span.trace_id,
+                    request_id=child_span.request_id,
                     span_id=child_span.span_id,
                     attributes={"factor": 2},
                     outputs={"y": y},
                 )
 
-                client.end_trace(trace_id)
+                client.end_trace(request_id)
         """
         if not parent_span_id:
             raise MlflowException(
@@ -605,7 +605,7 @@ class MlflowClient:
         trace_manager = InMemoryTraceManager.get_instance()
         span = trace_manager.start_detached_span(
             name=name,
-            trace_id=trace_id,
+            request_id=request_id,
             parent_span_id=parent_span_id,
             span_type=span_type,
         )
@@ -619,7 +619,7 @@ class MlflowClient:
 
     def end_span(
         self,
-        trace_id: str,
+        request_id: str,
         span_id: str,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
@@ -629,7 +629,7 @@ class MlflowClient:
         End the span with the given trace ID and span ID.
 
         Args:
-            trace_id: The ID of the trace to end.
+            request_id: The ID of the trace to end.
             span_id: The ID of the span to end.
             outputs: Outputs to set on the span.
             attributes: A dictionary of attributes to set on the span. If the span already has
@@ -638,10 +638,10 @@ class MlflowClient:
             status: The status of the span. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
-        span = trace_manager.get_span_from_id(trace_id, span_id)
+        span = trace_manager.get_span_from_id(request_id, span_id)
 
         if span is None:
-            _logger.warning(f"Span with ID {span_id} not found in trace with ID {trace_id}.")
+            _logger.warning(f"Span with ID {span_id} not found in trace with ID {request_id}.")
             return
 
         if attributes:

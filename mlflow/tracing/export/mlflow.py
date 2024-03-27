@@ -64,10 +64,10 @@ class MLflowSpanExporter(SpanExporter):
                 self._export_trace(span)
 
     def _export_trace(self, root_span: MLflowSpanWrapper):
-        trace_id = root_span.trace_id
-        trace = self._trace_manager.pop_trace(trace_id)
+        request_id = root_span.request_id
+        trace = self._trace_manager.pop_trace(request_id)
         if trace is None:
-            _logger.warning(f"Trace data with ID {trace_id} not found.")
+            _logger.warning(f"Trace data with ID {request_id} not found.")
             return
 
         # Update a TraceInfo object with the root span information

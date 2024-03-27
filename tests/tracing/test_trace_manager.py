@@ -17,44 +17,44 @@ def test_add_spans():
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.flush()
 
-    trace_id_1 = "trace_1"
-    span_1_1 = _create_test_span(trace_id_1, "span_1_1")
-    span_1_1_1 = _create_test_span(trace_id_1, "span_1_1_1", parent_span_id="span_1_1")
-    span_1_1_2 = _create_test_span(trace_id_1, "span_1_1_2", parent_span_id="span_1_1")
+    request_id_1 = "trace_1"
+    span_1_1 = _create_test_span(request_id_1, "span_1_1")
+    span_1_1_1 = _create_test_span(request_id_1, "span_1_1_1", parent_span_id="span_1_1")
+    span_1_1_2 = _create_test_span(request_id_1, "span_1_1_2", parent_span_id="span_1_1")
 
     # Add a span for a new trace
     trace_manager.add_or_update_span(span_1_1)
 
-    assert trace_id_1 in trace_manager._traces
-    assert len(trace_manager._traces[trace_id_1].span_dict) == 1
+    assert request_id_1 in trace_manager._traces
+    assert len(trace_manager._traces[request_id_1].span_dict) == 1
 
     # Add more spans to the same trace
     trace_manager.add_or_update_span(span_1_1_1)
     trace_manager.add_or_update_span(span_1_1_2)
 
-    assert len(trace_manager._traces[trace_id_1].span_dict) == 3
+    assert len(trace_manager._traces[request_id_1].span_dict) == 3
 
     # Add a span for another trace
-    trace_id_2 = "trace_2"
-    span_2_1 = _create_test_span(trace_id_2, "span_2_1")
-    span_2_1_1 = _create_test_span(trace_id_2, "span_2_1_1", parent_span_id="span_2_1")
+    request_id_2 = "trace_2"
+    span_2_1 = _create_test_span(request_id_2, "span_2_1")
+    span_2_1_1 = _create_test_span(request_id_2, "span_2_1_1", parent_span_id="span_2_1")
 
     trace_manager.add_or_update_span(span_2_1)
     trace_manager.add_or_update_span(span_2_1_1)
 
-    assert trace_id_2 in trace_manager._traces
-    assert len(trace_manager._traces[trace_id_2].span_dict) == 2
+    assert request_id_2 in trace_manager._traces
+    assert len(trace_manager._traces[request_id_2].span_dict) == 2
 
     # Pop the trace data
-    trace = trace_manager.pop_trace(trace_id_1)
+    trace = trace_manager.pop_trace(request_id_1)
     assert isinstance(trace, Trace)
     assert len(trace.trace_data.spans) == 3
-    assert trace_id_1 not in trace_manager._traces
+    assert request_id_1 not in trace_manager._traces
 
-    trace = trace_manager.pop_trace(trace_id_2)
+    trace = trace_manager.pop_trace(request_id_2)
     assert isinstance(trace, Trace)
     assert len(trace.trace_data.spans) == 2
-    assert trace_id_2 not in trace_manager._traces
+    assert request_id_2 not in trace_manager._traces
 
     # Pop a trace that does not exist
     assert trace_manager.pop_trace("trace_3") is None
@@ -66,17 +66,17 @@ def test_start_detached_span():
 
     # Root span will create a new trace
     root_span = trace_manager.start_detached_span(name="root_span")
-    trace_id = root_span.trace_id
+    request_id = root_span.request_id
     assert len(trace_manager._traces) == 1
-    assert trace_manager.get_root_span_id(trace_id) == root_span.span_id
+    assert trace_manager.get_root_span_id(request_id) == root_span.span_id
 
     # Child span will be added to the existing trace
     child_span = trace_manager.start_detached_span(
-        name="child_span", trace_id=trace_id, parent_span_id=root_span.span_id
+        name="child_span", request_id=request_id, parent_span_id=root_span.span_id
     )
 
     assert len(trace_manager._traces) == 1
-    assert trace_manager.get_span_from_id(trace_id, span_id=child_span.span_id) == child_span
+    assert trace_manager.get_span_from_id(request_id, span_id=child_span.span_id) == child_span
 
 
 def test_add_and_pop_span_thread_safety():

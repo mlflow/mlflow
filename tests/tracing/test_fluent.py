@@ -206,7 +206,7 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
                 child_span = self._mlflow_client.start_span(
                     name="child_span_1",
                     span_type=SpanType.LLM,
-                    trace_id=root_span.trace_id,
+                    request_id=root_span.request_id,
                     parent_span_id=root_span.span_id,
                 )
                 child_span.set_inputs({"z": z})

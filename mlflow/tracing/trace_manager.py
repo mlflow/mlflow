@@ -47,7 +47,7 @@ class InMemoryTraceManager:
     def start_detached_span(
         self,
         name: str,
-        trace_id: Optional[str] = None,
+        request_id: Optional[str] = None,
         parent_span_id: Optional[str] = None,
         span_type: Optional[str] = None,
     ) -> MLflowSpanWrapper:
@@ -57,8 +57,8 @@ class InMemoryTraceManager:
 
         Args:
             name: The name of the span.
-            trace_id: The trace ID for the span. Only used for getting the parent span for the given
-                parent_span_id. If not provided, a new trace will be created.
+            request_id: The request (trace) ID for the span. Only used for getting the parent span
+                for the given parent_span_id. If not provided, a new trace will be created.
             parent_span_id: The parent span ID of the span. If None, the span will be a root span.
             span_type: The type of the span.
 
@@ -71,7 +71,7 @@ class InMemoryTraceManager:
         try:
             tracer = get_tracer(__name__)
             if parent_span_id:
-                parent_span = self.get_span_from_id(trace_id, parent_span_id)._span
+                parent_span = self.get_span_from_id(request_id, parent_span_id)._span
                 context = trace_api.set_span_in_context(parent_span)
             else:
                 context = None
@@ -87,8 +87,8 @@ class InMemoryTraceManager:
     def add_or_update_span(self, span: MLflowSpanWrapper):
         """
         Store the given span in the in-memory trace data. If the trace does not exist, create a new
-        trace with the trace_id of the span. If the span ID already exists in the trace, update the
-        span with the new data.
+        trace with the request_id of the span. If the span ID already exists in the trace, update
+        the span with the new data.
 
         Args:
             span: The span to be stored.
@@ -97,19 +97,19 @@ class InMemoryTraceManager:
             _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
             return
 
-        trace_id = span.trace_id
-        if trace_id not in self._traces:
+        request_id = span.request_id
+        if request_id not in self._traces:
             # NB: the first span might not be a root span, so we can only
             # set trace_id here. Other information will be propagated from
             # the root span when it ends.
-            self._create_empty_trace(trace_id, span.start_time)
+            self._create_empty_trace(request_id, span.start_time)
 
-        trace_data_dict = self._traces[trace_id].span_dict
+        trace_data_dict = self._traces[request_id].span_dict
         trace_data_dict[span.span_id] = span
 
     def _create_empty_trace(
         self,
-        trace_id: str,
+        request_id: str,
         start_time_ns: int,
         experiment_id: Optional[str] = None,
         request_metadata: Optional[Dict[str, str]] = None,
@@ -123,7 +123,7 @@ class InMemoryTraceManager:
         tags = [TraceTag(key, value) for (key, value) in tags.items()] if tags else []
 
         trace_info = TraceInfo(
-            request_id=trace_id,
+            request_id=request_id,
             experiment_id=experiment_id or "EXPERIMENT",  # TODO: Fetch this from global state
             timestamp_ms=start_time_ns // 1_000_000,
             execution_time_ms=None,
@@ -132,36 +132,36 @@ class InMemoryTraceManager:
             tags=tags,
         )
         with self._lock:
-            if trace_id in self._traces:
-                _logger.warning(f"Trace with ID {trace_id} already exists.")
+            if request_id in self._traces:
+                _logger.warning(f"Trace with ID {request_id} already exists.")
                 return
-            self._traces[trace_id] = _Trace(trace_info)
+            self._traces[request_id] = _Trace(trace_info)
 
-    def get_trace_info(self, trace_id: str) -> Optional[TraceInfo]:
+    def get_trace_info(self, request_id: str) -> Optional[TraceInfo]:
         """
-        Get the trace info for the given trace_id.
+        Get the trace info for the given request_id.
         """
-        trace = self._traces.get(trace_id)
+        trace = self._traces.get(request_id)
         return trace.trace_info if trace else None
 
-    def get_span_from_id(self, trace_id: str, span_id: str) -> Optional[MLflowSpanWrapper]:
+    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[MLflowSpanWrapper]:
         """
-        Get a span object for the given trace_id and span_id.
+        Get a span object for the given request_id and span_id.
         """
         with self._lock:
-            trace = self._traces.get(trace_id)
+            trace = self._traces.get(request_id)
 
         return trace.span_dict.get(span_id) if trace else None
 
     # NB: Caching as this requires a linear search over all spans in the trace and
-    #   the return value should not change for the same trace_id.
+    #   the return value should not change for the same request_id.
     @lru_cache(maxsize=128)
-    def get_root_span_id(self, trace_id) -> Optional[str]:
+    def get_root_span_id(self, request_id) -> Optional[str]:
         """
         Get the root span ID for the given trace ID.
         """
         with self._lock:
-            trace = self._traces.get(trace_id)
+            trace = self._traces.get(request_id)
 
         if trace:
             for span in trace.span_dict.values():
@@ -170,12 +170,12 @@ class InMemoryTraceManager:
 
         return None
 
-    def pop_trace(self, trace_id) -> Optional[Trace]:
+    def pop_trace(self, request_id) -> Optional[Trace]:
         """
-        Pop the trace data for the given trace_id and return it as a ready-to-publish Trace object.
+        Pop the trace data for the given id and return it as a ready-to-publish Trace object.
         """
         with self._lock:
-            trace: _Trace = self._traces.pop(trace_id, None)
+            trace: _Trace = self._traces.pop(request_id, None)
         return trace.to_mlflow_trace() if trace else None
 
     def flush(self):

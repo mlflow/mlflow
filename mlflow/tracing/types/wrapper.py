@@ -27,7 +27,7 @@ class MLflowSpanWrapper:
         self._outputs = None
 
     @property
-    def trace_id(self) -> str:
+    def request_id(self) -> str:
         return self._span.get_span_context().trace_id
 
     @property
@@ -125,7 +125,7 @@ class MLflowSpanWrapper:
         return Span(
             name=self._span.name,
             context=SpanContext(
-                trace_id=self.trace_id,
+                request_id=self.request_id,
                 span_id=self.span_id,
             ),
             parent_span_id=self.parent_span_id,
@@ -164,7 +164,7 @@ class NoOpMLflowSpanWrapper:
     """
 
     @property
-    def trace_id(self):
+    def request_id(self):
         return None
 
     @property

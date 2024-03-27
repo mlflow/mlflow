@@ -16,7 +16,7 @@ class Span(_MLflowObject):
 
     Args:
         name: Name of the span.
-        context: SpanContext object that contains the trace_id and span_id.
+        context: SpanContext object that contains the request_id (= trace_id) and span_id.
         parent_span_id: Id of the parent span. If None, the span is the root span.
         span_type: Type of the span. Can be a pre-defined enum or a custom string.
         status: Status of the span.

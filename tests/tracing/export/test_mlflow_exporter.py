@@ -1,9 +1,9 @@
+from dataclasses import dataclass
 from unittest.mock import MagicMock
 
 import pandas as pd
 from opentelemetry.sdk.trace import ReadableSpan
 
-from mlflow.entities import SpanContext
 from mlflow.tracing.export.mlflow import MLflowSpanExporter
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
@@ -13,11 +13,17 @@ from mlflow.tracing.types.constant import (
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
 
+@dataclass
+class _MockSpanContext:
+    trace_id: str
+    span_id: str
+
+
 def test_export():
-    request_id = "trace_id"
+    trace_id = "trace_id"
     otel_span_root = ReadableSpan(
         name="test_span",
-        context=SpanContext(request_id, "span_id_1"),
+        context=_MockSpanContext(trace_id, "span_id_1"),
         parent=None,
         attributes={
             "key1": "value1",
@@ -28,7 +34,7 @@ def test_export():
 
     otel_span_child_1 = ReadableSpan(
         name="test_span_child_1",
-        context=SpanContext(request_id, "span_id_2"),
+        context=_MockSpanContext(trace_id, "span_id_2"),
         parent=otel_span_root.context,
         attributes={
             "key2": "value2",
@@ -39,7 +45,7 @@ def test_export():
 
     otel_span_child_2 = ReadableSpan(
         name="test_span_child_2",
-        context=SpanContext(request_id, "span_id_3"),
+        context=_MockSpanContext(trace_id, "span_id_3"),
         parent=otel_span_root.context,
         start_time=2_000_000,
         end_time=3_000_000,
@@ -67,7 +73,7 @@ def test_export():
 
     # Trace info should inherit fields from the root span
     trace_info = client_call_args.trace_info
-    assert trace_info.request_id == request_id
+    assert trace_info.request_id == trace_id
     assert trace_info.timestamp_ms == 0
     assert trace_info.execution_time_ms == 4
     trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}

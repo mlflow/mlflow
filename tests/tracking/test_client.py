@@ -176,14 +176,14 @@ def test_start_and_end_trace(mock_trace_client):
             root_span = self._client.start_trace(
                 name="predict", inputs={"x": x, "y": y}, tags={"tag": "tag_value"}
             )
-            trace_id = root_span.trace_id
+            request_id = root_span.request_id
 
             z = x + y
 
             child_span = self._client.start_span(
                 "child_span_1",
                 span_type=SpanType.LLM,
-                trace_id=trace_id,
+                request_id=request_id,
                 parent_span_id=root_span.span_id,
                 inputs={"z": z},
             )
@@ -191,22 +191,22 @@ def test_start_and_end_trace(mock_trace_client):
             z = z + 2
 
             self._client.end_span(
-                trace_id=trace_id,
+                request_id=request_id,
                 span_id=child_span.span_id,
                 outputs={"output": z},
                 attributes={"delta": 2},
             )
 
-            res = self.square(z, trace_id, root_span.span_id)
+            res = self.square(z, request_id, root_span.span_id)
             self._client.end_trace(
-                trace_id, outputs={"output": res}, status=SpanStatus(SpanStatus.StatusCode.OK)
+                request_id, outputs={"output": res}, status=SpanStatus(SpanStatus.StatusCode.OK)
             )
             return res
 
-        def square(self, t, trace_id, parent_span_id):
+        def square(self, t, request_id, parent_span_id):
             span = self._client.start_span(
                 "child_span_2",
-                trace_id=trace_id,
+                request_id=request_id,
                 parent_span_id=parent_span_id,
                 inputs={"t": t},
             )
@@ -215,7 +215,7 @@ def test_start_and_end_trace(mock_trace_client):
             time.sleep(0.1)
 
             self._client.end_span(
-                trace_id=trace_id,
+                request_id=request_id,
                 span_id=span.span_id,
                 outputs={"output": res},
             )
@@ -269,22 +269,22 @@ def test_start_and_end_trace_before_all_span_end(mock_trace_client):
 
         def predict(self, x):
             root_span = self._client.start_trace(name="predict")
-            trace_id = root_span.trace_id
+            request_id = root_span.request_id
             child_span = self._client.start_span(
                 "ended-span",
-                trace_id=trace_id,
+                request_id=request_id,
                 parent_span_id=root_span.span_id,
             )
             time.sleep(0.1)
-            self._client.end_span(trace_id, child_span.span_id)
+            self._client.end_span(request_id, child_span.span_id)
 
-            res = self.square(x, trace_id, root_span.span_id)
-            self._client.end_trace(trace_id)
+            res = self.square(x, request_id, root_span.span_id)
+            self._client.end_trace(request_id)
             return res
 
-        def square(self, t, trace_id, parent_span_id):
+        def square(self, t, request_id, parent_span_id):
             self._client.start_span(
-                "non-ended-span", trace_id=trace_id, parent_span_id=parent_span_id
+                "non-ended-span", request_id=request_id, parent_span_id=parent_span_id
             )
             time.sleep(0.1)
             # The span created above is not ended
@@ -327,7 +327,9 @@ def test_start_and_end_trace_before_all_span_end(mock_trace_client):
 
 def test_start_span_raise_error_when_parent_span_id_is_not_provided():
     with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
-        mlflow.tracking.MlflowClient().start_span("span_name", trace_id="test", parent_span_id=None)
+        mlflow.tracking.MlflowClient().start_span(
+            "span_name", request_id="test", parent_span_id=None
+        )
 
 
 def test_client_create_experiment(mock_store):
