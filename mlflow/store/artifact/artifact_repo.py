@@ -324,7 +324,7 @@ class MultipartUploadMixin(ABC):
         """
         pass
 
-    def download_trace(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> Dict[str, Any]:
         """
         Download the trace file for the given trace_id.
 
@@ -333,7 +333,7 @@ class MultipartUploadMixin(ABC):
         """
         raise NotImplementedError
 
-    def upload_trace(self, trace_data: Dict[str, Any]) -> None:
+    def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
         """
         Download the trace file for the given trace_id.
 

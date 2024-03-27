@@ -227,7 +227,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
-    def download_trace(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> Dict[str, Any]:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,
@@ -251,7 +251,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                         f"Failed to parse trace data:\n{s}"
                     ) from e
 
-    def upload_trace(self, trace_data: Dict[str, Any]) -> None:
+    def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataUpload,

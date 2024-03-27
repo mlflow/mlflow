@@ -25,6 +25,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.types.model import TraceData
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -616,6 +617,14 @@ class TrackingServiceClient:
             artifact_repo.log_artifacts(local_path, path_name)
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
+
+    def _download_trace_data(self, request_id: str) -> TraceData:
+        artifact_repo = self._get_artifact_repo_for_trace(request_id)
+        return artifact_repo.download_trace()
+
+    def _upload_trace_data(self, request_id: str, trace_data: TraceData) -> None:
+        artifact_repo = self._get_artifact_repo_for_trace(request_id)
+        return artifact_repo.upload_trace(trace_data)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
