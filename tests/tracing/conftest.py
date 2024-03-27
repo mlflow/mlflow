@@ -1,18 +1,24 @@
 import pytest
+from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
 from mlflow.tracing.clients.local import InMemoryTraceClient
-from mlflow.tracing.provider import _setup_tracer_provider
+from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
 @pytest.fixture(autouse=True)
-def clear_aggregator():
+def clear_singleton():
     """
-    Clear the trace data collected in the aggregator after each tests.
-    (They should be exported and popped but just in case.)
+    Clear the singleton instances after each tests to avoid side effects.
     """
-    yield
-    InMemoryTraceManager.get_instance()._traces.clear()
+    InMemoryTraceManager._instance = None
+    InMemoryTraceClient._instance = None
+
+    # Tracer provider also needs to be reset as it may hold reference to the singleton
+    with _TRACER_PROVIDER_SET_ONCE._lock:
+        _TRACER_PROVIDER_SET_ONCE._done = False
+    with _TRACER_PROVIDER_INITIALIZED._lock:
+        _TRACER_PROVIDER_INITIALIZED._done = False
 
 
 @pytest.fixture
