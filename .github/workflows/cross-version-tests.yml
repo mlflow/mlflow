@@ -57,8 +57,10 @@ jobs:
     permissions:
       issues: read # listLabelsOnIssue
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
+      matrix1: ${{ steps.set-matrix.outputs.matrix1 }}
+      matrix2: ${{ steps.set-matrix.outputs.matrix2 }}
+      is_matrix1_empty: ${{ steps.set-matrix.outputs.is_matrix1_empty }}
+      is_matrix2_empty: ${{ steps.set-matrix.outputs.is_matrix2_empty }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -117,14 +119,64 @@ jobs:
           else
             python dev/set_matrix.py
           fi
-  test:
+
+  test1:
     needs: set-matrix
-    if: ${{ needs.set-matrix.outputs.is_matrix_empty == 'false' }}
+    if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+        if: matrix.free_disk_space
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: "adopt"
+      - name: Install mlflow & test dependencies
+        run: |
+          pip install wheel
+          pip install .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - name: Pre-test
+        if: matrix.pre_test
+        run: |
+          ${{ matrix.pre_test }}
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          SPARK_LOCAL_IP: localhost
+          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
+        run: |
+          ${{ matrix.run }}
+
+  test2:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix2) }}
     steps:
       - uses: actions/checkout@v4
         with:
