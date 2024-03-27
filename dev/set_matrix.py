@@ -543,7 +543,7 @@ def main(args):
         print(json.dumps(mat, indent=2, cls=CustomEncoder))
         if "GITHUB_ACTIONS" in os.environ:
             set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
-            set_action_output(f"is_matrix{idx}_empty", "true" if bool(mat) else "false")
+            set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
 
 
 if __name__ == "__main__":
