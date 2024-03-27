@@ -4,7 +4,7 @@ from mlflow.tracing.clients.base import TraceClient
 from mlflow.tracing.clients.local import InMemoryTraceClient
 
 
-class IPythonTraceWrapper(InMemoryTraceClient):
+class IPythonTraceClient(InMemoryTraceClient):
     """
     Trace client that wraps the InMemoryTraceClient
     in IPython notebooks. The only purpose of this
@@ -17,7 +17,7 @@ class IPythonTraceWrapper(InMemoryTraceClient):
     @classmethod
     def get_instance(cls) -> InMemoryTraceClient:
         if cls._instance is None:
-            cls._instance = IPythonTraceWrapper()
+            cls._instance = IPythonTraceClient()
         return cls._instance
 
     def __init__(self):
