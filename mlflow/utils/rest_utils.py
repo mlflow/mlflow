@@ -8,6 +8,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
+    MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException, get_error_code
 from mlflow.protos import databricks_pb2
@@ -36,6 +37,7 @@ def http_request(
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     raise_on_status=True,
+    respect_retry_after_header=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -59,6 +61,8 @@ def http_request(
             read request.
         raise_on_status: Whether to raise an exception, or return a response, if status falls
             in retry_codes range and retries have been exhausted.
+        respect_retry_after_header: Whether to respect Retry-After header on status codes defined
+            as Retry.RETRY_AFTER_STATUS_CODES or not.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -68,9 +72,15 @@ def http_request(
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
     )
+    respect_retry_after_header = (
+        MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
+        if respect_retry_after_header is None
+        else respect_retry_after_header
+    )
     backoff_jitter = (
         MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
+
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
     hostname = host_creds.host
     auth_str = None
@@ -116,6 +126,7 @@ def http_request(
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
+            respect_retry_after_header=respect_retry_after_header,
             **kwargs,
         )
     except requests.exceptions.Timeout as to:
