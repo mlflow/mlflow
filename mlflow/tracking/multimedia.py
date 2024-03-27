@@ -137,7 +137,7 @@ class Image:
         if isinstance(image, str):
             self.image = Image.open(image)
         elif isinstance(image, (list, np.ndarray)):
-            image = convert_to_pil_image(np.array(image))
+            self.image = convert_to_pil_image(np.array(image))
         elif isinstance(image, Image.Image):
             self.image = image
         else:
