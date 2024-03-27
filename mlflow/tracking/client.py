@@ -1762,7 +1762,7 @@ class MlflowClient:
                 if extension in [".yml", ".yaml"]:
                     yaml.dump(dictionary, f, indent=2, default_flow_style=False)
                 else:
-                    json.dump(dictionary, f, indent=2)
+                    json.dump(dictionary, f, indent=2, default=str)
 
     def log_figure(
         self,

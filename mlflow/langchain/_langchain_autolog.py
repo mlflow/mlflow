@@ -384,7 +384,6 @@ def get_mlflow_langchain_callback():
             """Run when a chat model starts running."""
             if metadata:
                 kwargs.update({"metadata": metadata})
-            kwargs.update({"serialized": serialized})
             llm_inputs = {"messages": [[dumpd(msg) for msg in batch] for batch in messages]}
             llm_span = self._start_span(
                 span_name=name,
@@ -415,7 +414,6 @@ def get_mlflow_langchain_callback():
             inputs = {"prompts": prompts}
             if metadata:
                 kwargs.update({"metadata": metadata})
-            kwargs.update({"serialized": serialized})
             llm_span = self._start_span(
                 span_name=name,
                 parent_run_id=parent_run_id,
@@ -556,7 +554,6 @@ def get_mlflow_langchain_callback():
             """Start span for a chain run."""
             if metadata:
                 kwargs.update({"metadata": metadata})
-            kwargs.update({"serialized": serialized})
             # not considering streaming events for now
             chain_span = self._start_span(
                 span_name=name,
@@ -638,7 +635,6 @@ def get_mlflow_langchain_callback():
             """Start span for a tool run."""
             if metadata:
                 kwargs.update({"metadata": metadata})
-            kwargs.update({"serialized": serialized})
             tool_span = self._start_span(
                 span_name=name,
                 parent_run_id=parent_run_id,
@@ -704,7 +700,6 @@ def get_mlflow_langchain_callback():
             """Run when Retriever starts running."""
             if metadata:
                 kwargs.update({"metadata": metadata})
-            kwargs.update({"serialized": serialized})
             retriever_span = self._start_span(
                 span_name=name,
                 parent_run_id=parent_run_id,
