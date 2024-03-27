@@ -582,6 +582,14 @@ class TrackingServiceClient:
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
+    def _get_artifact_repo_for_trace(self, request_id):
+        trace_info = self.get_trace_info(request_id)
+        artifact_uri_attr = next(t for t in trace_info.tags if t.key == "mlflow.artifactLocation")
+        artifact_uri = add_databricks_profile_info_to_artifact_uri(
+            artifact_uri_attr.value, self.tracking_uri
+        )
+        return get_artifact_repository(artifact_uri)
+
     def _get_artifact_repo(self, run_id):
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = TrackingServiceClient._artifact_repos_cache.get(run_id)
@@ -620,11 +628,11 @@ class TrackingServiceClient:
 
     def _download_trace_data(self, request_id: str) -> TraceData:
         artifact_repo = self._get_artifact_repo_for_trace(request_id)
-        return TraceData.from_dict(artifact_repo.download_trace())
+        return TraceData.from_dict(artifact_repo.download_trace_data())
 
     def _upload_trace_data(self, request_id: str, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(request_id)
-        return artifact_repo.upload_trace(trace_data.dict())
+        return artifact_repo.upload_trace_data(trace_data.dict())
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
