@@ -189,7 +189,7 @@ class Image:
         """
         self.image.save(path)
 
-    def resize(self, size: Tuple[int, int]) -> mlflow.Image:
+    def resize(self, size: Tuple[int, int]) -> "mlflow.Image":
         """
         Resize the image to the specified size.
 
