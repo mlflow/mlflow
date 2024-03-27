@@ -684,7 +684,18 @@ def test_start_deleted_run():
             pass
     assert mlflow.active_run() is None
 
-
+def test_start_deleted_runs():
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as active_run:
+            run_ids.append(active_run.info.run_id)
+    tracking.MlflowClient().delete_runs(run_ids)
+    for run_id in run_ids:
+        with pytest.raises(MlflowException, match="because it is in the deleted state."):
+            with mlflow.start_run(run_id=run_id):
+                pass
+    assert mlflow.active_run() is None
+    
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_start_run_exp_id_0():
     mlflow.set_experiment("some-experiment")
