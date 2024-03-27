@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Union
 
@@ -123,7 +124,9 @@ class Span:
             "end_time": self.end_time,
             "inputs": json.dumps(self.inputs, default=str) if self.inputs else None,
             "outputs": json.dumps(self.outputs, default=str) if self.outputs else None,
-            "attributes": json.dumps(self.attributes, default=str) if self.attributes else None,
+            "attributes": json.dumps(self.attributes, cls=CustomEncoder)
+            if self.attributes
+            else None,
             "events": [event.json_dict() for event in self.events] if self.events else None,
         }
 
@@ -220,5 +223,22 @@ class Event:
         return {
             "name": self.name,
             "timestamp": self.timestamp,
-            "attributes": json.dumps(self.attributes, default=str) if self.attributes else None,
+            "attributes": json.dumps(self.attributes, cls=CustomEncoder)
+            if self.attributes
+            else None,
         }
+
+
+class CustomEncoder(json.JSONEncoder):
+    """
+    Custom encoder to handle json serialization.
+    """
+
+    def default(self, o):
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        try:
+            return super().default(o)
+        # temp solution to avoid error in serialization
+        except TypeError:
+            return str(o)
