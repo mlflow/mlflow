@@ -2454,3 +2454,61 @@ def test_config_path_context():
         )
 
     assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_simple_chat_model_stream_inference():
+    from langchain.chat_models.base import SimpleChatModel
+
+    class ChatModel(SimpleChatModel):
+        # TODO: implement `_stream` to make it a real stream test.
+        def _call(self, messages, stop, run_manager, **kwargs):
+            return "\n".join([f"{message.type}: {message.content}" for message in messages])
+
+        @property
+        def _llm_type(self) -> str:
+            return "chat model"
+
+    model = ChatModel()
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model")
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    expected_resp_content = {
+        "role": "assistant",
+        "content": (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        ),
+    }
+    chunk_iter = loaded_model.predict_stream(input_example)
+
+    with mock.patch("time.time", return_value=1677858242):
+        chunks = list(chunk_iter)
+
+        assert chunks == [{
+            'id': None, 'object': 'chat.completion.chunk', 'created': 1677858242, 'model': None,
+            'choices': [{
+                'index': 0, 'finish_reason': 'stop',
+                'delta': {
+                    'role': 'assistant',
+                    'content': (
+                        'system: You are a helpful assistant.\n'
+                        'ai: What would you like to ask?\n'
+                        'human: Who owns MLflow?'
+                    )
+                }
+            }]
+        }]

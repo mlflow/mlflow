@@ -138,7 +138,7 @@ class _ChatChunkResponse(pydantic.BaseModel, extra="forbid"):
     # Make the model field optional since we may not be able to get a stable model identifier
     # for an arbitrary LangChain model
     model: Optional[str] = None
-    choices: List[_ChatChoice]
+    choices: List[_ChatChoiceDelta]
 
 
 @dataclass
@@ -398,19 +398,32 @@ class APIRequest:
         def _convert(chunk):
             if isinstance(chunk, str):
                 message_content = chunk
+                finish_reason = None
+                need_append_finish_chunk = True
             elif isinstance(chunk, AIMessageChunk):
                 message_content = chunk.content
+                finish_reason = chunk.response_metadata.get('finish_reason')
+                need_append_finish_chunk = False
+            elif isinstance(chunk, AIMessage):
+                # The langchain chat model does not support stream
+                # so `model.stream` returns the whole result.
+                message_content = chunk.content
+                finish_reason = 'stop'
+                need_append_finish_chunk = False
             else:
-                return chunk
-
-            return _gen_converted_chunk(message_content, finish_reason=None)
+                return chunk, False
+            return (
+                _gen_converted_chunk(message_content, finish_reason=finish_reason),
+                need_append_finish_chunk,
+            )
 
         def _result_gen_fn():
+            need_append_finish_chunk = False
             for chunk in chunk_iter:
-                converted_chunk = _convert(chunk)
+                converted_chunk, need_append_finish_chunk = _convert(chunk)
                 yield converted_chunk
-
-            yield _gen_converted_chunk('', finish_reason="stop")
+            if need_append_finish_chunk:
+                yield _gen_converted_chunk('', finish_reason="stop")
 
         return _result_gen_fn()
 
