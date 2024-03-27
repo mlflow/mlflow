@@ -699,8 +699,9 @@ def test_invalid_response_structure_raises(gateway):
         backoff_jitter,
         retry_codes,
         raise_on_status,
+        respect_retry_after_header,
     ):
-        return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid())
+        return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid(), True)
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -735,8 +736,9 @@ def test_invalid_response_structure_no_raises(gateway):
         backoff_jitter,
         retry_codes,
         raise_on_status,
+        respect_retry_after_header,
     ):
-        return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid())
+        return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid(), True)
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -782,8 +784,9 @@ def test_invalid_query_request_raises(gateway):
         backoff_jitter,
         retry_codes,
         raise_on_status,
+        respect_retry_after_header,
     ):
-        return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid())
+        return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid(), True)
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
