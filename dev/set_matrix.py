@@ -513,7 +513,7 @@ def set_action_output(name, value):
         f.write(f"{name}={value}\n")
 
 
-def find_split(matrix, n):
+def find_split_idx(matrix, n):
     prev = ""
     for idx, item in enumerate(matrix):
         if prev != item.name and idx > n:
@@ -534,7 +534,7 @@ def main(args):
     # Ensure we can split the matrix into two jobs
     assert len(matrix) <= MAX_JOBS * 2, f"Too many jobs: {len(matrix)} > {MAX_JOBS * 2}"
 
-    idx = find_split(matrix, len(matrix) // 2)
+    idx = find_split_idx(matrix, len(matrix) // 2)
     matrix1 = matrix[:idx]
     matrix2 = matrix[idx:]
     for idx, mat in enumerate((matrix1, matrix2), start=1):
