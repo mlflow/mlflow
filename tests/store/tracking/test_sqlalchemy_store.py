@@ -892,6 +892,24 @@ def test_delete_run(store: SqlAlchemyStore):
         assert actual.run_uuid == deleted_run.info.run_id
 
 
+def test_delete_runs(store: SqlAlchemyStore):
+    runs = [_run_factory(store) for _ in range(2)]
+    run_ids = [run.info.run_id for run in runs]
+
+    store.delete_runs(run_ids)
+
+    with store.ManagedSessionMaker() as session:
+        for run_id in run_ids:
+            actual = session.query(models.SqlRun).filter_by(run_uuid=run_id).first()
+            assert actual.lifecycle_stage == entities.LifecycleStage.DELETED
+            assert (
+                actual.deleted_time is not None
+            )  # deleted time should be updated and thus not None anymore
+
+            deleted_run = store.get_run(run_id)
+            assert actual.run_uuid == deleted_run.info.run_id
+
+
 def test_hard_delete_run(store: SqlAlchemyStore):
     run = _run_factory(store)
     metric = entities.Metric("blahmetric", 100.0, get_current_time_millis(), 0)
@@ -922,6 +940,17 @@ def test_get_deleted_runs(store: SqlAlchemyStore):
     store.delete_run(run.info.run_uuid)
     deleted_run_ids = store._get_deleted_runs()
     assert deleted_run_ids == [run.info.run_uuid]
+
+
+def test_get_deleted_runs_with_delete_runs(store: SqlAlchemyStore):
+    runs = [_run_factory(store) for _ in range(2)]
+    run_ids = [run.info.run_id for run in runs]
+    deleted_run_ids = store._get_deleted_runs()
+    assert deleted_run_ids == []
+
+    store.delete_runs(run_ids)
+    deleted_run_ids = store._get_deleted_runs()
+    assert set(deleted_run_ids) == set(run_ids)
 
 
 def test_log_metric(store: SqlAlchemyStore):
