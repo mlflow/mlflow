@@ -231,7 +231,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataDownload,
-            path_params={"trace_id": self.run_id},
+            path_params={"request_id": self.run_id},
         )
         signed_uri = cred.credential_info.signed_uri
         headers = self._extract_headers_from_credentials(cred.credential_info.headers)
@@ -255,7 +255,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
             GetCredentialsForTraceDataUpload,
-            path_params={"trace_id": self.run_id},
+            path_params={"request_id": self.run_id},
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, "traces.json")

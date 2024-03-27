@@ -14595,21 +14595,21 @@ public final class DatabricksArtifacts {
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the traceId field is set.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
      */
-    boolean hasTraceId();
+    boolean hasRequestId();
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
      */
-    java.lang.String getTraceId();
+    java.lang.String getRequestId();
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
      */
     com.google.protobuf.ByteString
-        getTraceIdBytes();
+        getRequestIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.GetCredentialsForTraceDataDownload}
@@ -14624,7 +14624,7 @@ public final class DatabricksArtifacts {
       super(builder);
     }
     private GetCredentialsForTraceDataDownload() {
-      traceId_ = "";
+      requestId_ = "";
     }
 
     @java.lang.Override
@@ -14661,7 +14661,7 @@ public final class DatabricksArtifacts {
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              traceId_ = bs;
+              requestId_ = bs;
               break;
             }
             default: {
@@ -15329,23 +15329,23 @@ public final class DatabricksArtifacts {
     }
 
     private int bitField0_;
-    public static final int TRACE_ID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object traceId_;
+    public static final int REQUEST_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object requestId_;
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the traceId field is set.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
      */
     @java.lang.Override
-    public boolean hasTraceId() {
+    public boolean hasRequestId() {
       return ((bitField0_ & 0x00000001) != 0);
     }
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
      */
     @java.lang.Override
-    public java.lang.String getTraceId() {
-      java.lang.Object ref = traceId_;
+    public java.lang.String getRequestId() {
+      java.lang.Object ref = requestId_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -15353,24 +15353,24 @@ public final class DatabricksArtifacts {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          traceId_ = s;
+          requestId_ = s;
         }
         return s;
       }
     }
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getTraceIdBytes() {
-      java.lang.Object ref = traceId_;
+        getRequestIdBytes() {
+      java.lang.Object ref = requestId_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        traceId_ = b;
+        requestId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -15392,7 +15392,7 @@ public final class DatabricksArtifacts {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, traceId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, requestId_);
       }
       unknownFields.writeTo(output);
     }
@@ -15404,7 +15404,7 @@ public final class DatabricksArtifacts {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, traceId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, requestId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -15421,10 +15421,10 @@ public final class DatabricksArtifacts {
       }
       com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload) obj;
 
-      if (hasTraceId() != other.hasTraceId()) return false;
-      if (hasTraceId()) {
-        if (!getTraceId()
-            .equals(other.getTraceId())) return false;
+      if (hasRequestId() != other.hasRequestId()) return false;
+      if (hasRequestId()) {
+        if (!getRequestId()
+            .equals(other.getRequestId())) return false;
       }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
@@ -15437,9 +15437,9 @@ public final class DatabricksArtifacts {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasTraceId()) {
-        hash = (37 * hash) + TRACE_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getTraceId().hashCode();
+      if (hasRequestId()) {
+        hash = (37 * hash) + REQUEST_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRequestId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -15574,7 +15574,7 @@ public final class DatabricksArtifacts {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        traceId_ = "";
+        requestId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -15607,7 +15607,7 @@ public final class DatabricksArtifacts {
         if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.traceId_ = traceId_;
+        result.requestId_ = requestId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -15657,9 +15657,9 @@ public final class DatabricksArtifacts {
 
       public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload other) {
         if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.getDefaultInstance()) return this;
-        if (other.hasTraceId()) {
+        if (other.hasRequestId()) {
           bitField0_ |= 0x00000001;
-          traceId_ = other.traceId_;
+          requestId_ = other.requestId_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -15692,26 +15692,26 @@ public final class DatabricksArtifacts {
       }
       private int bitField0_;
 
-      private java.lang.Object traceId_ = "";
+      private java.lang.Object requestId_ = "";
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the traceId field is set.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the requestId field is set.
        */
-      public boolean hasTraceId() {
+      public boolean hasRequestId() {
         return ((bitField0_ & 0x00000001) != 0);
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The traceId.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The requestId.
        */
-      public java.lang.String getTraceId() {
-        java.lang.Object ref = traceId_;
+      public java.lang.String getRequestId() {
+        java.lang.Object ref = requestId_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            traceId_ = s;
+            requestId_ = s;
           }
           return s;
         } else {
@@ -15719,59 +15719,59 @@ public final class DatabricksArtifacts {
         }
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for traceId.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for requestId.
        */
       public com.google.protobuf.ByteString
-          getTraceIdBytes() {
-        java.lang.Object ref = traceId_;
+          getRequestIdBytes() {
+        java.lang.Object ref = requestId_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          traceId_ = b;
+          requestId_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The traceId to set.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The requestId to set.
        * @return This builder for chaining.
        */
-      public Builder setTraceId(
+      public Builder setRequestId(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-        traceId_ = value;
+        requestId_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
-      public Builder clearTraceId() {
+      public Builder clearRequestId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        traceId_ = getDefaultInstance().getTraceId();
+        requestId_ = getDefaultInstance().getRequestId();
         onChanged();
         return this;
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for traceId to set.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for requestId to set.
        * @return This builder for chaining.
        */
-      public Builder setTraceIdBytes(
+      public Builder setRequestIdBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-        traceId_ = value;
+        requestId_ = value;
         onChanged();
         return this;
       }
@@ -15833,21 +15833,21 @@ public final class DatabricksArtifacts {
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the traceId field is set.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
      */
-    boolean hasTraceId();
+    boolean hasRequestId();
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
      */
-    java.lang.String getTraceId();
+    java.lang.String getRequestId();
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
      */
     com.google.protobuf.ByteString
-        getTraceIdBytes();
+        getRequestIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.GetCredentialsForTraceDataUpload}
@@ -15862,7 +15862,7 @@ public final class DatabricksArtifacts {
       super(builder);
     }
     private GetCredentialsForTraceDataUpload() {
-      traceId_ = "";
+      requestId_ = "";
     }
 
     @java.lang.Override
@@ -15899,7 +15899,7 @@ public final class DatabricksArtifacts {
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              traceId_ = bs;
+              requestId_ = bs;
               break;
             }
             default: {
@@ -16567,23 +16567,23 @@ public final class DatabricksArtifacts {
     }
 
     private int bitField0_;
-    public static final int TRACE_ID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object traceId_;
+    public static final int REQUEST_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object requestId_;
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the traceId field is set.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
      */
     @java.lang.Override
-    public boolean hasTraceId() {
+    public boolean hasRequestId() {
       return ((bitField0_ & 0x00000001) != 0);
     }
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
      */
     @java.lang.Override
-    public java.lang.String getTraceId() {
-      java.lang.Object ref = traceId_;
+    public java.lang.String getRequestId() {
+      java.lang.Object ref = requestId_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -16591,24 +16591,24 @@ public final class DatabricksArtifacts {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          traceId_ = s;
+          requestId_ = s;
         }
         return s;
       }
     }
     /**
-     * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for traceId.
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getTraceIdBytes() {
-      java.lang.Object ref = traceId_;
+        getRequestIdBytes() {
+      java.lang.Object ref = requestId_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        traceId_ = b;
+        requestId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -16630,7 +16630,7 @@ public final class DatabricksArtifacts {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, traceId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, requestId_);
       }
       unknownFields.writeTo(output);
     }
@@ -16642,7 +16642,7 @@ public final class DatabricksArtifacts {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, traceId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, requestId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -16659,10 +16659,10 @@ public final class DatabricksArtifacts {
       }
       com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload) obj;
 
-      if (hasTraceId() != other.hasTraceId()) return false;
-      if (hasTraceId()) {
-        if (!getTraceId()
-            .equals(other.getTraceId())) return false;
+      if (hasRequestId() != other.hasRequestId()) return false;
+      if (hasRequestId()) {
+        if (!getRequestId()
+            .equals(other.getRequestId())) return false;
       }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
@@ -16675,9 +16675,9 @@ public final class DatabricksArtifacts {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasTraceId()) {
-        hash = (37 * hash) + TRACE_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getTraceId().hashCode();
+      if (hasRequestId()) {
+        hash = (37 * hash) + REQUEST_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRequestId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -16812,7 +16812,7 @@ public final class DatabricksArtifacts {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        traceId_ = "";
+        requestId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -16845,7 +16845,7 @@ public final class DatabricksArtifacts {
         if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.traceId_ = traceId_;
+        result.requestId_ = requestId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -16895,9 +16895,9 @@ public final class DatabricksArtifacts {
 
       public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload other) {
         if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.getDefaultInstance()) return this;
-        if (other.hasTraceId()) {
+        if (other.hasRequestId()) {
           bitField0_ |= 0x00000001;
-          traceId_ = other.traceId_;
+          requestId_ = other.requestId_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -16930,26 +16930,26 @@ public final class DatabricksArtifacts {
       }
       private int bitField0_;
 
-      private java.lang.Object traceId_ = "";
+      private java.lang.Object requestId_ = "";
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the traceId field is set.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the requestId field is set.
        */
-      public boolean hasTraceId() {
+      public boolean hasRequestId() {
         return ((bitField0_ & 0x00000001) != 0);
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The traceId.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The requestId.
        */
-      public java.lang.String getTraceId() {
-        java.lang.Object ref = traceId_;
+      public java.lang.String getRequestId() {
+        java.lang.Object ref = requestId_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            traceId_ = s;
+            requestId_ = s;
           }
           return s;
         } else {
@@ -16957,59 +16957,59 @@ public final class DatabricksArtifacts {
         }
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for traceId.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for requestId.
        */
       public com.google.protobuf.ByteString
-          getTraceIdBytes() {
-        java.lang.Object ref = traceId_;
+          getRequestIdBytes() {
+        java.lang.Object ref = requestId_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          traceId_ = b;
+          requestId_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The traceId to set.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The requestId to set.
        * @return This builder for chaining.
        */
-      public Builder setTraceId(
+      public Builder setRequestId(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-        traceId_ = value;
+        requestId_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
-      public Builder clearTraceId() {
+      public Builder clearRequestId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        traceId_ = getDefaultInstance().getTraceId();
+        requestId_ = getDefaultInstance().getRequestId();
         onChanged();
         return this;
       }
       /**
-       * <code>optional string trace_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for traceId to set.
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for requestId to set.
        * @return This builder for chaining.
        */
-      public Builder setTraceIdBytes(
+      public Builder setRequestIdBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-        traceId_ = value;
+        requestId_ = value;
         onChanged();
         return this;
       }
@@ -17204,55 +17204,55 @@ public final class DatabricksArtifacts {
       "al_info\030\001 \001(\0132\036.mlflow.ArtifactCredentia" +
       "lInfo:_\342?(\n&com.databricks.rpc.RPC[$this" +
       ".Response]\342?1\n/com.databricks.mlflow.api" +
-      ".MlflowTrackingMessage\"\342\001\n\"GetCredential" +
-      "sForTraceDataDownload\022\026\n\010trace_id\030\001 \001(\tB" +
-      "\004\370\206\031\001\032C\n\010Response\0227\n\017credential_info\030\001 \001" +
-      "(\0132\036.mlflow.ArtifactCredentialInfo:_\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\342" +
-      "?1\n/com.databricks.mlflow.api.MlflowTrac" +
-      "kingMessage\"\340\001\n GetCredentialsForTraceDa" +
-      "taUpload\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Resp" +
-      "onse\0227\n\017credential_info\030\001 \001(\0132\036.mlflow.A" +
-      "rtifactCredentialInfo:_\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\342?1\n/com.datab" +
-      "ricks.mlflow.api.MlflowTrackingMessage*s" +
-      "\n\026ArtifactCredentialType\022\021\n\rAZURE_SAS_UR" +
-      "I\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_SIGNED" +
-      "_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\0042\207\n\n " +
-      "DatabricksMlflowArtifactsService\022\234\001\n\025get" +
-      "CredentialsForRead\022\035.mlflow.GetCredentia" +
-      "lsForRead\032&.mlflow.GetCredentialsForRead" +
-      ".Response\"<\362\206\0318\n4\n\004POST\022&/mlflow/artifac" +
-      "ts/credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getC" +
-      "redentialsForWrite\022\036.mlflow.GetCredentia" +
-      "lsForWrite\032\'.mlflow.GetCredentialsForWri" +
-      "te.Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/artif" +
-      "acts/credentials-for-write\032\004\010\002\020\000\020\003\022\237\001\n\025c" +
-      "reateMultipartUpload\022\035.mlflow.CreateMult" +
-      "ipartUpload\032&.mlflow.CreateMultipartUplo" +
-      "ad.Response\"?\362\206\031;\n7\n\004POST\022)/mlflow/artif" +
-      "acts/create-multipart-upload\032\004\010\002\020\000\020\003\022\247\001\n" +
-      "\027completeMultipartUpload\022\037.mlflow.Comple" +
-      "teMultipartUpload\032(.mlflow.CompleteMulti" +
-      "partUpload.Response\"A\362\206\031=\n9\n\004POST\022+/mlfl" +
-      "ow/artifacts/complete-multipart-upload\032\004" +
-      "\010\002\020\000\020\003\022\260\001\n\031getPresignedUploadPartUrl\022!.m" +
-      "lflow.GetPresignedUploadPartUrl\032*.mlflow" +
-      ".GetPresignedUploadPartUrl.Response\"D\362\206\031" +
-      "@\n<\n\003GET\022//mlflow/artifacts/get-presigne" +
-      "d-upload-part-url\032\004\010\002\020\000\020\003\022\323\001\n\"getCredent" +
-      "ialsForTraceDataDownload\022*.mlflow.GetCre" +
-      "dentialsForTraceDataDownload\0323.mlflow.Ge" +
-      "tCredentialsForTraceDataDownload.Respons" +
-      "e\"L\362\206\031H\nD\n\003GET\0227/mlflow/traces/{trace_id" +
-      "}/credentials-for-data-download\032\004\010\002\020\000\020\003\022" +
-      "\313\001\n getCredentialsForTraceDataUpload\022(.m" +
-      "lflow.GetCredentialsForTraceDataUpload\0321" +
-      ".mlflow.GetCredentialsForTraceDataUpload" +
-      ".Response\"J\362\206\031F\nB\n\003GET\0225/mlflow/traces/{" +
-      "trace_id}/credentials-for-data-upload\032\004\010" +
-      "\002\020\000\020\003B,\n\037com.databricks.api.proto.mlflow" +
-      "\220\001\001\240\001\001\342?\002\020\001"
+      ".MlflowTrackingMessage\"\344\001\n\"GetCredential" +
+      "sForTraceDataDownload\022\030\n\nrequest_id\030\001 \001(" +
+      "\tB\004\370\206\031\001\032C\n\010Response\0227\n\017credential_info\030\001" +
+      " \001(\0132\036.mlflow.ArtifactCredentialInfo:_\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\342?1\n/com.databricks.mlflow.api.MlflowTr" +
+      "ackingMessage\"\342\001\n GetCredentialsForTrace" +
+      "DataUpload\022\030\n\nrequest_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010" +
+      "Response\0227\n\017credential_info\030\001 \001(\0132\036.mlfl" +
+      "ow.ArtifactCredentialInfo:_\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\342?1\n/com.d" +
+      "atabricks.mlflow.api.MlflowTrackingMessa" +
+      "ge*s\n\026ArtifactCredentialType\022\021\n\rAZURE_SA" +
+      "S_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_SI" +
+      "GNED_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\0042" +
+      "\213\n\n DatabricksMlflowArtifactsService\022\234\001\n" +
+      "\025getCredentialsForRead\022\035.mlflow.GetCrede" +
+      "ntialsForRead\032&.mlflow.GetCredentialsFor" +
+      "Read.Response\"<\362\206\0318\n4\n\004POST\022&/mlflow/art" +
+      "ifacts/credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026" +
+      "getCredentialsForWrite\022\036.mlflow.GetCrede" +
+      "ntialsForWrite\032\'.mlflow.GetCredentialsFo" +
+      "rWrite.Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/a" +
+      "rtifacts/credentials-for-write\032\004\010\002\020\000\020\003\022\237" +
+      "\001\n\025createMultipartUpload\022\035.mlflow.Create" +
+      "MultipartUpload\032&.mlflow.CreateMultipart" +
+      "Upload.Response\"?\362\206\031;\n7\n\004POST\022)/mlflow/a" +
+      "rtifacts/create-multipart-upload\032\004\010\002\020\000\020\003" +
+      "\022\247\001\n\027completeMultipartUpload\022\037.mlflow.Co" +
+      "mpleteMultipartUpload\032(.mlflow.CompleteM" +
+      "ultipartUpload.Response\"A\362\206\031=\n9\n\004POST\022+/" +
+      "mlflow/artifacts/complete-multipart-uplo" +
+      "ad\032\004\010\002\020\000\020\003\022\260\001\n\031getPresignedUploadPartUrl" +
+      "\022!.mlflow.GetPresignedUploadPartUrl\032*.ml" +
+      "flow.GetPresignedUploadPartUrl.Response\"" +
+      "D\362\206\031@\n<\n\003GET\022//mlflow/artifacts/get-pres" +
+      "igned-upload-part-url\032\004\010\002\020\000\020\003\022\325\001\n\"getCre" +
+      "dentialsForTraceDataDownload\022*.mlflow.Ge" +
+      "tCredentialsForTraceDataDownload\0323.mlflo" +
+      "w.GetCredentialsForTraceDataDownload.Res" +
+      "ponse\"N\362\206\031J\nF\n\003GET\0229/mlflow/traces/{requ" +
+      "est_id}/credentials-for-data-download\032\004\010" +
+      "\002\020\000\020\003\022\315\001\n getCredentialsForTraceDataUplo" +
+      "ad\022(.mlflow.GetCredentialsForTraceDataUp" +
+      "load\0321.mlflow.GetCredentialsForTraceData" +
+      "Upload.Response\"L\362\206\031H\nD\n\003GET\0227/mlflow/tr" +
+      "aces/{request_id}/credentials-for-data-u" +
+      "pload\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.prot" +
+      "o.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -17343,7 +17343,7 @@ public final class DatabricksArtifacts {
     internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor,
-        new java.lang.String[] { "TraceId", });
+        new java.lang.String[] { "RequestId", });
     internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor =
       internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_fieldAccessorTable = new
@@ -17355,7 +17355,7 @@ public final class DatabricksArtifacts {
     internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor,
-        new java.lang.String[] { "TraceId", });
+        new java.lang.String[] { "RequestId", });
     internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor =
       internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable = new

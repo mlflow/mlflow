@@ -84,7 +84,7 @@ service DatabricksMlflowArtifactsService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/traces/{trace_id}/credentials-for-data-download"
+        path: "/mlflow/traces/{request_id}/credentials-for-data-download"
         since {major: 2, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -95,7 +95,7 @@ service DatabricksMlflowArtifactsService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/traces/{trace_id}/credentials-for-data-upload"
+        path: "/mlflow/traces/{request_id}/credentials-for-data-upload"
         since {major: 2, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -295,7 +295,7 @@ message GetCredentialsForTraceDataDownload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
-  optional string trace_id = 1 [(validate_required) = true];
+  optional string request_id = 1 [(validate_required) = true];
 
   message Response {
     optional ArtifactCredentialInfo credential_info = 1;
@@ -306,7 +306,7 @@ message GetCredentialsForTraceDataUpload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
-  optional string trace_id = 1 [(validate_required) = true];
+  optional string request_id = 1 [(validate_required) = true];
 
   message Response {
     optional ArtifactCredentialInfo credential_info = 1;
