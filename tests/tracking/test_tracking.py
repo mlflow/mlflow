@@ -1162,6 +1162,10 @@ def test_log_table_with_pil_image_columns():
     assert df["image"][2]["type"] == "image"
 
 
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
 def test_log_table_with_invalid_image_columns():
     image = mlflow.Image([[1, 2, 3]])
     table_dict = {
