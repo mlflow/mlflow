@@ -652,13 +652,13 @@ class PyFuncModel:
                 )
 
         params = _validate_params(params, self.metadata)
-
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         if HAS_PYSPARK and isinstance(data, SparkDataFrame):
             _logger.warning(
                 "Input data is a Spark DataFrame. Note that behaviour for "
                 "Spark DataFrames is model dependent."
             )
+        return data
 
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
@@ -692,17 +692,16 @@ class PyFuncModel:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
 
-        self._validate_prediction_input(data)
+        data = self._validate_prediction_input(data)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
         return self._predict_fn(data)
-
 
     def predict_stream(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> Any:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
-        self._validate_prediction_input(data)
+        data = self._validate_prediction_input(data)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
         return self._predict_stream_fn(data)
