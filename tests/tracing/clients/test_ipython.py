@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from mlflow.tracing.clients import InMemoryTraceClient, IPythonTraceClient, get_trace_client
+from mlflow.tracing.clients import get_trace_client
 
 
 class MockIPython:
@@ -11,21 +11,26 @@ class MockIPython:
         self.execution_count += 1
 
 
-def test_get_trace_client_returns_correct_client(monkeypatch):
-    assert isinstance(get_trace_client(), InMemoryTraceClient)
-
+def test_display_is_not_called_without_ipython(monkeypatch, create_trace):
     # in an IPython environment, the interactive shell will
     # be returned. however, for test purposes, just mock that
     # the value is not None.
-    monkeypatch.setattr("IPython.get_ipython", lambda: True)
-    assert isinstance(get_trace_client(), IPythonTraceClient)
+    mock_display = Mock()
+    monkeypatch.setattr("IPython.display.display", mock_display)
+
+    client = get_trace_client()
+    client.log_trace(create_trace("a"))
+    assert mock_display.call_count == 0
+
+    monkeypatch.setattr("IPython.get_ipython", lambda: MockIPython())
+    client.log_trace(create_trace("b"))
+    assert mock_display.call_count == 1
 
 
 def test_ipython_client_only_logs_once_per_execution(monkeypatch, create_trace):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
     client = get_trace_client()
-    assert isinstance(client, IPythonTraceClient)
 
     mock_display_handle = Mock()
     mock_display = Mock(return_value=mock_display_handle)
