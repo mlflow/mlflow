@@ -101,7 +101,8 @@ def convert_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Imag
 # MLflow media object: Image
 class Image:
     """
-    Image media object for handling images in MLflow.
+    `mlflow.Image` is an image media object that provides a lightweight option
+    for handling images in MLflow.
     The image can be a numpy array, a PIL image, or a file path to an image. The image is
     stored as a PIL image and can be logged to MLflow using `mlflow.log_image` or
     `mlflow.log_table`.
