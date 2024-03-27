@@ -5,6 +5,8 @@ exposed to users at the top-level :py:mod:`mlflow` module.
 
 from typing import TYPE_CHECKING, Optional, Union
 
+import mlflow
+
 if TYPE_CHECKING:
     import numpy
     import PIL
@@ -185,3 +187,16 @@ class Image:
             path: File path to save the image.
         """
         self.image.save(path)
+
+    def resize(self, size: tuple) -> "mlflow.Image":
+        """
+        Resize the image to the specified size.
+
+        Args:
+            size: Size to resize the image to.
+
+        Returns:
+            A copy of the resized image object.
+        """
+        image = self.image.resize(size)
+        return Image(image)
