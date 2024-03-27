@@ -2102,6 +2102,39 @@ class MlflowClient:
         """
         self._tracking_client.delete_run(run_id)
 
+    def delete_runs(self, run_ids: List[str]) -> None:
+        """Deletes runs with the given IDs.
+
+        Args:
+            run_ids: List of unique run ids to delete.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            # Create runs under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run1 = client.create_run(experiment_id)
+            run2 = client.create_run(experiment_id)
+            run_ids = [run1.info.run_id, run2.info.run_id]
+            print(f"run_ids: {run_ids}; lifecycle_stage: {[run1.info.lifecycle_stage, run2.info.lifecycle_stage]}")
+            print("--")
+            client.delete_runs(run_ids)
+            del_run1 = client.get_run(run_ids[0])
+            del_run2 = client.get_run(run_ids[1])
+            print(f"run_ids: {run_ids}; lifecycle_stage: {[del_run1.info.lifecycle_stage, del_run2.info.lifecycle_stage]}")
+
+        .. code-block:: text
+            :caption: Output
+
+            run_ids: ['a61c7a1851324f7094e8d5014c58c8c8', 'b71d7a1851324f7094e8d5014c58c8c9']; lifecycle_stage: ['active', 'active']
+            run_ids: ['a61c7a1851324f7094e8d5014c58c8c8', 'b71d7a1851324f7094e8d5014c58c8c9']; lifecycle_stage: ['deleted', 'deleted']
+
+        """
+        self._tracking_client.delete_runs(run_ids)
+
     def restore_run(self, run_id: str) -> None:
         """Restores a deleted run with the given ID.
 
