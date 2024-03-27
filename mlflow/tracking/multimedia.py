@@ -3,7 +3,7 @@ Internal module implementing multi-media objects and utilities in MLflow. Multi-
 exposed to users at the top-level :py:mod:`mlflow` module.
 """
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 import mlflow
 
@@ -189,7 +189,7 @@ class Image:
         """
         self.image.save(path)
 
-    def resize(self, size: tuple) -> "mlflow.Image":
+    def resize(self, size: Tuple[int, int]) -> mlflow.Image:
         """
         Resize the image to the specified size.
 
