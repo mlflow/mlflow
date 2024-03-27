@@ -499,8 +499,9 @@ def get_mlflow_langchain_callback():
             self._end_span(llm_span, outputs=outputs)
             for i, generations in enumerate(response.generations):
                 for j, generation in enumerate(generations):
+                    text_complexity_metrics = self._analyze_text(generation.text) or {}
                     self._log_artifact(
-                        {"generation": generation.dict(), **self._analyze_text(generation.text)},
+                        {"generation": generation.dict(), **text_complexity_metrics},
                         f"llm_end_{llm_span.span_id}_generation_{i}_{j}",
                     )
             self.metrics["step"] += 1
