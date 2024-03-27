@@ -501,7 +501,6 @@ class MlflowClient:
     def end_trace(
         self,
         trace_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
         status: Status = Status(StatusCode.OK, ""),
@@ -515,7 +514,6 @@ class MlflowClient:
 
         Args:
             trace_id: The ID of the trace to end.
-            inputs: Inputs to set on the trace.
             outputs: Outputs to set on the trace.
             attributes: A dictionary of attributes to set on the trace. If the trace already has
                 attributes, the new attributes will be merged with the existing ones. If the same
@@ -528,7 +526,7 @@ class MlflowClient:
         if root_span_id is None:
             raise MlflowException(f"Trace with ID {trace_id} not found.")
 
-        self.end_span(trace_id, root_span_id, inputs, outputs, attributes, status)
+        self.end_span(trace_id, root_span_id, outputs, attributes, status)
 
     def start_span(
         self,
@@ -622,7 +620,6 @@ class MlflowClient:
         self,
         trace_id: str,
         span_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
         status: Status = Status(StatusCode.OK, ""),
@@ -633,7 +630,6 @@ class MlflowClient:
         Args:
             trace_id: The ID of the trace to end.
             span_id: The ID of the span to end.
-            inputs: Inputs to set on the span.
             outputs: Outputs to set on the span.
             attributes: A dictionary of attributes to set on the span. If the span already has
                 attributes, the new attributes will be merged with the existing ones. If the same
@@ -649,8 +645,6 @@ class MlflowClient:
 
         if attributes:
             span.set_attributes(attributes or {})
-        if inputs:
-            span.set_inputs(inputs)
         if outputs:
             span.set_outputs(outputs)
         span.set_status(status)
