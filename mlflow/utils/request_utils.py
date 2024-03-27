@@ -127,7 +127,7 @@ def _cached_get_request_session(
         "backoff_factor": backoff_factor,
         "backoff_jitter": backoff_jitter,
         "raise_on_status": raise_on_status,
-        "respect_retry_after_header": respect_retry_after_header
+        "respect_retry_after_header": respect_retry_after_header,
     }
     urllib3_version = Version(urllib3.__version__)
     if urllib3_version >= Version("1.26.0"):
@@ -147,7 +147,11 @@ def _cached_get_request_session(
 
 
 def _get_request_session(
-    max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status,
+    max_retries,
+    backoff_factor,
+    backoff_jitter,
+    retry_codes,
+    raise_on_status,
     respect_retry_after_header,
 ):
     """Returns a `Requests.Session` object for making an HTTP request.
@@ -210,7 +214,11 @@ def _get_http_response_with_retries(
         requests.Response object.
     """
     session = _get_request_session(
-        max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status,
+        max_retries,
+        backoff_factor,
+        backoff_jitter,
+        retry_codes,
+        raise_on_status,
         respect_retry_after_header,
     )
 

@@ -74,7 +74,8 @@ def http_request(
     )
     respect_retry_after_header = (
         MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
-        if respect_retry_after_header is None else respect_retry_after_header
+        if respect_retry_after_header is None
+        else respect_retry_after_header
     )
     backoff_jitter = (
         MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
