@@ -16,9 +16,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     TraceData,
-    TraceRequestMetadata,
     TraceStatus,
-    TraceTag,
     ViewType,
 )
 from mlflow.entities.dataset_input import DatasetInput
@@ -185,10 +183,8 @@ class TrackingServiceClient:
             timestamp_ms=timestamp_ms,
             execution_time_ms=execution_time_ms,
             status=TraceStatus.from_string(status),
-            request_metadata=[
-                TraceRequestMetadata(key, value) for (key, value) in request_metadata.items()
-            ],
-            tags=[TraceTag(key, value) for (key, value) in tags.items()],
+            request_metadata=request_metadata or {},
+            tags=tags or {},
         )
 
     def get_trace_info(self, request_id):

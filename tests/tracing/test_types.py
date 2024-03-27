@@ -36,12 +36,12 @@ def test_json_deserialization(mock_client):
             "timestamp_ms": trace.trace_info.timestamp_ms,
             "execution_time_ms": trace.trace_info.execution_time_ms,
             "status": 1,
-            "request_metadata": [
-                "<TraceRequestMetadata: key='name', value='predict'>",
-                "<TraceRequestMetadata: key='inputs', value='{\"x\": 2, \"y\": 5}'>",
-                "<TraceRequestMetadata: key='outputs', value='{\"output\": 8}'>",
-            ],
-            "tags": [],
+            "request_metadata": {
+                "name": "predict",
+                "inputs": '{"x": 2, "y": 5}',
+                "outputs": '{"output": 8}',
+            },
+            "tags": {},
         },
         "trace_data": {
             "spans": [

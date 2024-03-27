@@ -35,9 +35,8 @@ def test_trace(mock_client):
     assert trace_info.request_id is not None
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
-    request_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
-    assert request_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
-    assert request_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 64}'
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 64}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
@@ -88,9 +87,8 @@ def test_trace_handle_exception_during_prediction(mock_client):
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
     assert trace_info.status == TraceStatus.ERROR
-    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
-    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
-    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == ""
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == ""
 
     spans = trace.trace_data.spans
     assert len(spans) == 2
@@ -120,9 +118,8 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
     assert output == 7
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
-    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
-    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == ""
-    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 7}'
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == ""
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 7}'
 
 
 def test_start_span_context_manager(mock_client):
@@ -158,9 +155,8 @@ def test_start_span_context_manager(mock_client):
     assert trace_info.request_id is not None
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
-    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
-    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
@@ -229,9 +225,8 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     assert trace_info.request_id is not None
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
-    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
-    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 5}'
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 5}'
 
     spans = trace.trace_data.spans
     assert len(spans) == 2

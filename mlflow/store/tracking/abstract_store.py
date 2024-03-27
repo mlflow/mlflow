@@ -1,12 +1,10 @@
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from mlflow.entities import (
     DatasetInput,
     TraceInfo,
-    TraceRequestMetadata,
     TraceStatus,
-    TraceTag,
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
@@ -247,8 +245,8 @@ class AbstractStore:
         timestamp_ms: int,
         execution_time_ms: int,
         status: TraceStatus,
-        request_metadata: List[TraceRequestMetadata],
-        tags: List[TraceTag],
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
     ) -> TraceInfo:
         """
         Create a trace under the specified experiment ID.
@@ -258,8 +256,8 @@ class AbstractStore:
             timestamp_ms: int, start time of the trace, in milliseconds.
             execution_time_ms: int, duration of the trace, in milliseconds.
             status: `mlflow.entities.TraceStatus`, status of the trace.
-            request_metadata: list of `mlflow.entities.TraceRequestMetadata`, metadata of the trace.
-            tags: list of `mlflow.entities.TraceTag`, tags of the trace.
+            request_metadata: metadata of the trace.
+            tags: tags of the trace.
 
         Returns:
             The created Trace object

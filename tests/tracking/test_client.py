@@ -15,7 +15,6 @@ from mlflow.entities import (
     SourceType,
     SpanStatus,
     SpanType,
-    TraceRequestMetadata,
     TraceStatus,
     ViewType,
 )
@@ -23,8 +22,6 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
-from mlflow.entities.trace_request_metadata import TraceRequestMetadata
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -157,8 +154,8 @@ def test_client_create_trace(mock_store, mock_time):
         timestamp_ms=123,
         execution_time_ms=456,
         status=TraceStatus.from_string("OK"),
-        request_metadata=[TraceRequestMetadata("key", "val")],
-        tags=[],
+        request_metadata={"key": "val"},
+        tags={},
     )
 
 
@@ -230,9 +227,8 @@ def test_start_and_end_trace(mock_trace_client):
     assert trace_info.request_id is not None
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
-    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
-    assert trace_metadata_dict[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_metadata_dict[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
     spans = traces[0].trace_data.spans
     assert len(spans) == 3

@@ -212,8 +212,8 @@ class RestStore(AbstractStore):
             timestamp_ms: int, start time of the trace, in milliseconds.
             execution_time_ms: int, duration of the trace, in milliseconds.
             status: `mlflow.entities.TraceStatus`, status of the trace.
-            request_metadata: list of `mlflow.entities.TraceRequestMetadata`, metadata of the trace.
-            tags: list of `mlflow.entities.TraceTag`, tags of the trace.
+            request_metadata: metadata of the trace.
+            tags: tags of the trace.
 
         Returns:
             The created Trace object

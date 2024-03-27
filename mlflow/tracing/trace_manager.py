@@ -6,7 +6,7 @@ from typing import Dict, Optional
 
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import Trace, TraceData, TraceInfo, TraceRequestMetadata, TraceStatus, TraceTag
+from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
@@ -115,21 +115,14 @@ class InMemoryTraceManager:
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ):
-        request_metadata = (
-            [TraceRequestMetadata(key, value) for (key, value) in request_metadata.items()]
-            if request_metadata
-            else []
-        )
-        tags = [TraceTag(key, value) for (key, value) in tags.items()] if tags else []
-
         trace_info = TraceInfo(
             request_id=request_id,
             experiment_id=experiment_id or "EXPERIMENT",  # TODO: Fetch this from global state
             timestamp_ms=start_time_ns // 1_000_000,
             execution_time_ms=None,
             status=TraceStatus.UNSPECIFIED,
-            request_metadata=request_metadata,
-            tags=tags,
+            request_metadata=request_metadata or {},
+            tags=tags or {},
         )
         with self._lock:
             if request_id in self._traces:

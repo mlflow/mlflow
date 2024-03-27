@@ -27,9 +27,7 @@ from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_request_metadata import TraceRequestMetadata
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.entities.trace_tag import TraceTag
 from mlflow.entities.view_type import ViewType
 
 __all__ = [
@@ -58,8 +56,6 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
-    "TraceRequestMetadata",
     "TraceStatus",
-    "TraceTag",
     "_DatasetSummary",
 ]

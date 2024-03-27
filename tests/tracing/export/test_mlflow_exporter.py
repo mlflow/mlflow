@@ -76,16 +76,15 @@ def test_export():
     assert trace_info.request_id == trace_id
     assert trace_info.timestamp_ms == 0
     assert trace_info.execution_time_ms == 4
-    trace_metadata_dict = {meta.key: meta.value for meta in trace_info.request_metadata}
-    assert trace_metadata_dict[TraceMetadataKey.NAME] == "test_span"
+    assert trace_info.request_metadata[TraceMetadataKey.NAME] == "test_span"
 
     # Inputs and outputs in TraceInfo attributes should be serialized and truncated
-    inputs = trace_metadata_dict[TraceMetadataKey.INPUTS]
+    inputs = trace_info.request_metadata[TraceMetadataKey.INPUTS]
     assert inputs.startswith('{"input1": "very long input')
     assert inputs.endswith(TRUNCATION_SUFFIX)
     assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 
-    outputs = trace_metadata_dict[TraceMetadataKey.OUTPUTS]
+    outputs = trace_info.request_metadata[TraceMetadataKey.OUTPUTS]
     assert outputs.startswith('{"output1": "very long output')
     assert outputs.endswith(TRUNCATION_SUFFIX)
     assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
