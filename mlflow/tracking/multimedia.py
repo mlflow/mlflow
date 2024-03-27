@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional, Tuple, Union
 if TYPE_CHECKING:
     import numpy
     import PIL
+
     import mlflow
 
 COMPRESSED_IMAGE_SIZE = 256

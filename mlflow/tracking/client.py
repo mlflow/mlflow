@@ -1691,8 +1691,8 @@ class MlflowClient:
             }
             df = pd.DataFrame.from_dict(table_dict)
             client = MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
+            with mlflow.start_run() as run:
+                client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
 
         .. code-block:: python
             :test:
@@ -1709,8 +1709,8 @@ class MlflowClient:
             }
             df = pd.DataFrame.from_dict(table_dict)
             client = MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_table(run.info.run_id, data=df, artifact_file="image_gen.json")
+            with mlflow.start_run() as run:
+                lient.log_table(run.info.run_id, data=df, artifact_file="image_gen.json")
         """
         import pandas as pd
 
@@ -1728,14 +1728,15 @@ class MlflowClient:
             except ValueError:
                 data = pd.DataFrame([data])
 
-        # Check if column is Image object and save filepath
+        # Check if the column is a `PIL.Image.Image` or `mlflow.Image` object
+        # and save filepath
         if len(data.select_dtypes(include=["object"]).columns) > 0:
             try:
                 import PIL
             except ImportError as exc:
                 raise ImportError(
                     "`log_table` requires Pillow to verify if column contains PIL Image. "
-                    "Please install it via: pip install Pillow"
+                    "Please install it via: pip install pillow"
                 ) from exc
 
             def process_image(image):
