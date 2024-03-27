@@ -23,6 +23,7 @@ from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     disable_autologging,
@@ -266,10 +267,14 @@ def get_mlflow_langchain_callback():
             super().__init__()
             self._mlflow_client = MlflowClient()
             # create experiment if not exists
-            if experiment := self._mlflow_client.get_experiment_by_name(experiment_name):
-                self._experiment_id = experiment.experiment_id
+            if "DATABRICKS_RUNTIME_VERSION" in os.environ:
+                mlflow.set_tracking_uri("databricks")
+                self._experiment_id = _get_experiment_id()
             else:
-                self._experiment_id = self._mlflow_client.create_experiment(experiment_name)
+                if experiment := self._mlflow_client.get_experiment_by_name(experiment_name):
+                    self._experiment_id = experiment.experiment_id
+                else:
+                    self._experiment_id = self._mlflow_client.create_experiment(experiment_name)
             # create run if run_id is None
             if run_id is None:
                 rname = "".join(random.choices(string.ascii_uppercase + string.digits, k=7))
