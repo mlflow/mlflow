@@ -111,8 +111,8 @@ MLFLOW_HTTP_REQUEST_BACKOFF_JITTER = _EnvironmentVariable(
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
-# Specifies whether to respect Retry-After header on status codes defined as
-# Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
+#: Specifies whether to respect Retry-After header on status codes defined as
+#: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
 #: (default: ``True``)
 MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER = _BooleanEnvironmentVariable(
     "MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", True
