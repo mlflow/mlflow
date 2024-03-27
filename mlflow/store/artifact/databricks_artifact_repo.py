@@ -89,8 +89,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        self._run_id = None
-        self._run_relative_artifact_repo_root_path = None
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -113,22 +111,13 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(artifact_uri)
             or mlflow.tracking.get_tracking_uri()
         )
-
-    @property
-    def run_id(self):
-        """
-        Lazily computes the run ID to avoid the run existence check when downloading/uploading
-        trace data.
-        """
-        if self._run_id is None:
-            self._run_id = self._extract_run_id(self.artifact_uri)
-
-        return self._run_id
+        self.run_id = self._extract_run_id(self.artifact_uri)
+        self._run_relative_artifact_repo_root_path = None
 
     @property
     def run_relative_artifact_repo_root_path(self):
         """
-        Lazily computes the run-relative artifact repository root path to avoid the run existence
+        Lazily computes the run-relative artifact repository root path to skip the run existence
         check when downloading/uploading trace data.
         """
         if self._run_relative_artifact_repo_root_path is None:
