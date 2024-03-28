@@ -29,7 +29,6 @@ from typing import Any, Dict, List, Literal, Optional, Set, Union
 import langchain.chains
 import pydantic
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain_core.messages.ai import AIMessageChunk
 from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
@@ -372,6 +371,7 @@ class APIRequest:
 
     @staticmethod
     def _try_transform_response_iter_to_chat_format(chunk_iter):
+        from langchain_core.messages.ai import AIMessageChunk
 
         def _gen_converted_chunk(message_content, finish_reason):
             transformed_response = _ChatChunkResponse(
