@@ -1,10 +1,7 @@
-from mlflow.entities.trace import Trace
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_status import TraceStatus
 import pytest
 from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
-from mlflow.entities import SpanStatus, TraceStatus, Trace, TraceInfo
+from mlflow.entities import Trace, TraceInfo, TraceStatus
 from mlflow.tracing.clients.local import InMemoryTraceClient
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
