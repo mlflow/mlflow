@@ -548,8 +548,6 @@ def process_stream_request(
     ) = APIRequest._transform_request_json_for_chat_if_necessary(
         request_json, lc_model
     )
-    if not did_perform_chat_conversion:
-        converted_chat_requests = None
 
     api_request = APIRequest(
         index=0,
