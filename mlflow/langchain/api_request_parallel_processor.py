@@ -156,6 +156,7 @@ class APIRequest:
     errors: dict
     converted_chat_request_json: Optional[list]
     convert_chat_responses: bool
+    did_perform_chat_conversion: bool
     stream: bool
 
     def _prepare_to_serialize(self, response: dict):
@@ -223,9 +224,7 @@ class APIRequest:
                 # does not accept dictionaries as input, it leads to errors like
                 # Expected Scalar value for String field 'query_text'
                 try:
-                    response = _predict_single_input(
-                        self.converted_chat_request_json or self.request_json
-                    )
+                    response = _predict_single_input(self.request_json)
                 except TypeError as e:
                     _logger.warning(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -239,25 +238,25 @@ class APIRequest:
                     ) = APIRequest._transform_request_json_for_chat_if_necessary(
                         self.request_json, self.lc_model
                     )
+                    self.did_perform_chat_conversion = did_perform_chat_conversion
 
                     response = _predict_single_input(prepared_request_json)
             else:
-                response = _predict_single_input(
-                    self.converted_chat_request_json or self.request_json
-                )
-            if self.converted_chat_request_json is not None or self.convert_chat_responses:
+                response = _predict_single_input(self.request_json)
+
+            if self.did_perform_chat_conversion or self.convert_chat_responses:
                 if self.stream:
                     response = APIRequest._try_transform_response_iter_to_chat_format(response)
                 else:
                     response = APIRequest._try_transform_response_to_chat_format(response)
         else:
             response = self.lc_model(
-                self.converted_chat_request_json or self.request_json,
+                self.request_json,
                 return_only_outputs=True,
                 callbacks=callback_handlers,
             )
 
-            if self.converted_chat_request_json is not None or self.convert_chat_responses:
+            if self.did_perform_chat_conversion or self.convert_chat_responses:
                 response = APIRequest._try_transform_response_to_chat_format(response)
             elif len(response) == 1:
                 # to maintain existing code, single output chains will still return
@@ -479,7 +478,7 @@ def process_api_requests(
         did_perform_chat_conversion,
     ) = APIRequest._transform_request_json_for_chat_if_necessary(requests, lc_model)
 
-    requests_iter = enumerate(zip(requests, converted_chat_requests))
+    requests_iter = enumerate(converted_chat_requests)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
@@ -488,17 +487,15 @@ def process_api_requests(
                 _logger.warning(f"Retrying request {next_request.index}: {next_request}")
             elif req := next(requests_iter, None):
                 # get new request
-                index, (request_json, converted_chat_request_json) = req
-                if not did_perform_chat_conversion:
-                    converted_chat_request_json = None
+                index, converted_chat_request_json = req
                 next_request = APIRequest(
                     index=index,
                     lc_model=lc_model,
-                    request_json=request_json,
-                    converted_chat_request_json=converted_chat_request_json,
+                    request_json=converted_chat_request_json,
                     results=results,
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,
+                    did_perform_chat_conversion=did_perform_chat_conversion,
                     stream=False,
                 )
                 status_tracker.start_task()

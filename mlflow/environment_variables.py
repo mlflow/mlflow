@@ -111,6 +111,13 @@ MLFLOW_HTTP_REQUEST_BACKOFF_JITTER = _EnvironmentVariable(
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
+#: Specifies whether to respect Retry-After header on status codes defined as
+#: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
+#: (default: ``True``)
+MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER = _BooleanEnvironmentVariable(
+    "MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", True
+)
+
 #: Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite
 #: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header.
 #: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
@@ -536,3 +543,8 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: The OpenJDK version to install in the Docker image used for MLflow models.
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
+
+# Whether to use presigned URLs to interact with the Unity Catalog
+MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
+    "MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED", False
+)
