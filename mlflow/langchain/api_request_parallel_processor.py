@@ -153,7 +153,6 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
     errors: dict
-    converted_chat_request_json: Optional[list]
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
@@ -555,11 +554,11 @@ def process_stream_request(
     api_request = APIRequest(
         index=0,
         lc_model=lc_model,
-        request_json=request_json,
+        request_json=converted_chat_requests,
         results=results,
         errors=errors,
         convert_chat_responses=convert_chat_responses,
-        converted_chat_request_json=converted_chat_requests,
+        did_perform_chat_conversion=did_perform_chat_conversion,
         stream=True,
     )
 
