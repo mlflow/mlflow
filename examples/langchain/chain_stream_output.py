@@ -17,5 +17,5 @@ with mlflow.start_run() as run:
 
 loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-for chunk in loaded_model.predict_stream('Count to 10. E.g., 1, 2, 3, ...'):
+for chunk in loaded_model.predict_stream("Count to 10. E.g., 1, 2, 3, ..."):
     print(chunk, end="|")

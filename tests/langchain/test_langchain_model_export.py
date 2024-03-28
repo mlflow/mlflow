@@ -2498,20 +2498,28 @@ def test_simple_chat_model_stream_inference():
     with mock.patch("time.time", return_value=1677858242):
         chunks = list(chunk_iter)
 
-        assert chunks == [{
-            'id': None, 'object': 'chat.completion.chunk', 'created': 1677858242, 'model': None,
-            'choices': [{
-                'index': 0, 'finish_reason': 'stop',
-                'delta': {
-                    'role': 'assistant',
-                    'content': (
-                        'system: You are a helpful assistant.\n'
-                        'ai: What would you like to ask?\n'
-                        'human: Who owns MLflow?'
-                    )
-                }
-            }]
-        }]
+        assert chunks == [
+            {
+                "id": None,
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": None,
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {
+                            "role": "assistant",
+                            "content": (
+                                "system: You are a helpful assistant.\n"
+                                "ai: What would you like to ask?\n"
+                                "human: Who owns MLflow?"
+                            ),
+                        },
+                    }
+                ],
+            }
+        ]
 
 
 @pytest.mark.skipif(
@@ -2554,12 +2562,12 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_model):
     assert callback_handler1.num_llm_start_calls == 0
     assert callback_handler2.num_llm_start_calls == 0
 
-    assert (
-        list(pyfunc_loaded_model._model_impl._predict_stream_with_callbacks(
+    assert list(
+        pyfunc_loaded_model._model_impl._predict_stream_with_callbacks(
             {"industry": "tech"},
             callback_handlers=[callback_handler1, callback_handler2],
-        )) == ["Databricks"]
-    )
+        )
+    ) == ["Databricks"]
 
     # Test that the callback handlers were called
     assert callback_handler1.num_llm_start_calls == 1

@@ -76,6 +76,7 @@ def _load_model_from_config(path, model_config):
         return custom_type_to_loader_dict()[_type](config)
     elif _type == "openai-chat":
         from langchain_openai import ChatOpenAI
+
         config.pop("_type")
         return ChatOpenAI(**config)
     raise MlflowException(f"Unsupported type {_type} for loading.")

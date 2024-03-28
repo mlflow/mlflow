@@ -622,7 +622,13 @@ class PyFuncModel:
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict", predict_stream_fn: Optional[str] = None):
+    def __init__(
+        self,
+        model_meta: Model,
+        model_impl: Any,
+        predict_fn: str = "predict",
+        predict_stream_fn: Optional[str] = None,
+    ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
@@ -632,12 +638,16 @@ class PyFuncModel:
         self._predict_fn = getattr(model_impl, predict_fn)
         if predict_stream_fn:
             if not hasattr(model_impl, predict_stream_fn):
-                raise MlflowException(f"Model implementation is missing required {predict_stream_fn} method.")
+                raise MlflowException(
+                    f"Model implementation is missing required {predict_stream_fn} method."
+                )
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
 
-    def _validate_prediction_input(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncInput:
+    def _validate_prediction_input(
+        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
+    ) -> PyFuncInput:
         input_schema = self.metadata.get_input_schema()
         flavor = self.loader_module
         if input_schema is not None:
@@ -697,7 +707,9 @@ class PyFuncModel:
             return self._predict_fn(data, params=params)
         return self._predict_fn(data)
 
-    def predict_stream(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> Iterator[PyFuncOutput]:
+    def predict_stream(
+        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[PyFuncOutput]:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
@@ -705,7 +717,6 @@ class PyFuncModel:
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
         return self._predict_stream_fn(data)
-
 
     @experimental
     def unwrap_python_model(self):

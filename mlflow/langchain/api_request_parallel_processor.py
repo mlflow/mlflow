@@ -205,16 +205,13 @@ class APIRequest:
                 {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
             ]
         elif isinstance(self.lc_model, lc_runnables_types()):
+
             def _predict_single_input(single_input):
                 if self.stream:
                     return self.lc_model.stream(
-                        single_input,
-                        config={"callbacks": callback_handlers}
+                        single_input, config={"callbacks": callback_handlers}
                     )
-                return self.lc_model.invoke(
-                    single_input,
-                    config={"callbacks": callback_handlers}
-                )
+                return self.lc_model.invoke(single_input, config={"callbacks": callback_handlers})
 
             if isinstance(self.request_json, dict):
                 # This is a temporary fix for the case when spark_udf converts
@@ -401,13 +398,13 @@ class APIRequest:
                 need_append_finish_chunk = True
             elif isinstance(chunk, AIMessageChunk):
                 message_content = chunk.content
-                finish_reason = chunk.response_metadata.get('finish_reason')
+                finish_reason = chunk.response_metadata.get("finish_reason")
                 need_append_finish_chunk = False
             elif isinstance(chunk, AIMessage):
                 # The langchain chat model does not support stream
                 # so `model.stream` returns the whole result.
                 message_content = chunk.content
-                finish_reason = 'stop'
+                finish_reason = "stop"
                 need_append_finish_chunk = False
             else:
                 return chunk, False
@@ -422,7 +419,7 @@ class APIRequest:
                 converted_chunk, need_append_finish_chunk = _convert(chunk)
                 yield converted_chunk
             if need_append_finish_chunk:
-                yield _gen_converted_chunk('', finish_reason="stop")
+                yield _gen_converted_chunk("", finish_reason="stop")
 
         return _result_gen_fn()
 
@@ -534,6 +531,7 @@ def process_stream_request(
     convert_chat_responses: bool = False,
 ):
     from mlflow.langchain.utils import lc_runnables_types
+
     if not isinstance(lc_model, lc_runnables_types()):
         raise MlflowException(
             f"Model {lc_model.__class__.__name__} does not support streaming prediction output."
@@ -545,9 +543,7 @@ def process_stream_request(
     (
         converted_chat_requests,
         did_perform_chat_conversion,
-    ) = APIRequest._transform_request_json_for_chat_if_necessary(
-        request_json, lc_model
-    )
+    ) = APIRequest._transform_request_json_for_chat_if_necessary(request_json, lc_model)
 
     api_request = APIRequest(
         index=0,
@@ -561,4 +557,3 @@ def process_stream_request(
     )
 
     return api_request.single_call_api(callback_handlers)
-
