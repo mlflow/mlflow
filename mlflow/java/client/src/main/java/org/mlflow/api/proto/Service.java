@@ -71479,7 +71479,7 @@ public final class Service {
       "WN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHED" +
       "ULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILL" +
       "ED\020\005*>\n\013TraceStatus\022\034\n\030TRACE_STATUS_UNSP" +
-      "ECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\0022\266\033\n\rMlflowS" +
+      "ECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\0022\270\033\n\rMlflowS" +
       "ervice\022\246\001\n\023getExperimentByName\022\033.mlflow." +
       "GetExperimentByName\032$.mlflow.GetExperime" +
       "ntByName.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/" +
@@ -71564,11 +71564,11 @@ public final class Service {
       "nputs\022t\n\013createTrace\022\023.mlflow.CreateTrac" +
       "e\032\034.mlflow.CreateTrace.Response\"2\362\206\031.\n\034\n" +
       "\004POST\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\014Create Tr" +
-      "ace\022\207\001\n\014getTraceInfo\022\024.mlflow.GetTraceIn" +
-      "fo\032\035.mlflow.GetTraceInfo.Response\"B\362\206\031>\n" +
-      "+\n\003GET\022\036/mlflow/traces/{trace_id}/info\032\004" +
-      "\010\002\020\000\020\003*\rGet TraceInfoB\036\n\024org.mlflow.api." +
-      "proto\220\001\001\342?\002\020\001"
+      "ace\022\211\001\n\014getTraceInfo\022\024.mlflow.GetTraceIn" +
+      "fo\032\035.mlflow.GetTraceInfo.Response\"D\362\206\031@\n" +
+      "-\n\003GET\022 /mlflow/traces/{request_id}/info" +
+      "\032\004\010\002\020\000\020\003*\rGet TraceInfoB\036\n\024org.mlflow.ap" +
+      "i.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
