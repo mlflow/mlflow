@@ -432,18 +432,6 @@ class MlflowClient:
         """
         return self._tracking_client.get_trace_info(request_id)
 
-    def download_trace(self, request_id: str):
-        """
-        JUST FOR TESTING. REMOVE THIS BEFORE MERGE.
-        """
-        return self._tracking_client._download_trace_data(request_id)
-
-    def upload_trace(self, request_id: str, trace_data: Dict[str, Any]):
-        """
-        JUST FOR TESTING. REMOVE THIS BEFORE MERGE.
-        """
-        return self._tracking_client._upload_trace_data(request_id, trace_data)
-
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
