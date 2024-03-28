@@ -18,7 +18,7 @@ import logging
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -28,6 +28,7 @@ from packaging.version import Version
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
@@ -337,6 +338,7 @@ def save_model(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
+        predict_stream_fn="predict_stream",
         **model_data_kwargs,
     )
 
@@ -584,6 +586,20 @@ def _load_model(local_model_path, flavor_conf):
     return model
 
 
+# numpy array is not json serializable, so we convert it to list
+# then send it to the model
+def _convert_ndarray_to_list(data):
+    import numpy as np
+
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, list):
+        return [_convert_ndarray_to_list(d) for d in data]
+    if isinstance(data, dict):
+        return {k: _convert_ndarray_to_list(v) for k, v in data.items()}
+    return data
+
+
 class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
@@ -625,8 +641,9 @@ class _LangChainModelWrapper:
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
                     release without warning.
-            data: Callback handlers to pass to LangChain.
-
+            callback_handlers: Callback handlers to pass to LangChain.
+            convert_chat_responses: If true, forcibly convert response to chat model
+                response format.
         Returns:
             Model predictions.
         """
@@ -643,26 +660,11 @@ class _LangChainModelWrapper:
 
     def _prepare_messages(self, data):
         """
-        Return:
-            A tuple of 1. ``preprocessed_data`` (list) and 2. `return_first_element`` (bool).
-            If ``return_first_element`` is True, only the first element of the inference
-            result should be returned. If ``return_first_element`` is False, the whole
-            inference result should be returned.
+        Return a tuple of (preprocessed_data, return_first_element)
+        `preprocessed_data` is always a list,
+        and `return_first_element` means if True, we should return the first element
+        of inference result, otherwise we should return the whole inference result.
         """
-
-        # numpy array is not json serializable, so we convert it to list
-        # then send it to the model
-        def _convert_ndarray_to_list(data):
-            import numpy as np
-
-            if isinstance(data, np.ndarray):
-                return data.tolist()
-            if isinstance(data, list):
-                return [_convert_ndarray_to_list(d) for d in data]
-            if isinstance(data, dict):
-                return {k: _convert_ndarray_to_list(v) for k, v in data.items()}
-            return data
-
         if isinstance(data, pd.DataFrame):
             data = data.to_dict(orient="records")
 
@@ -680,6 +682,67 @@ class _LangChainModelWrapper:
         raise mlflow.MlflowException.invalid_parameter_value(
             "Input must be a pandas DataFrame or a list "
             f"for model {self.lc_model.__class__.__name__}"
+        )
+
+    def predict_stream(
+        self,
+        data: Any,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Iterator[str]:
+        """
+        Args:
+            data: Model input data, only single input is allowed.
+            params: Additional parameters to pass to the model for inference.
+
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+        Returns:
+            An iterator of model prediction chunks.
+        """
+        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+
+        # TODO: Q: shall we put `callback_handlers` in params ?
+        if isinstance(data, list):
+            raise MlflowException("Langchain model predict_stream only supports single input.")
+
+        data = _convert_ndarray_to_list(data)
+        return process_stream_request(
+            lc_model=self.lc_model,
+            request_json=data,
+        )
+
+    def _predict_stream_with_callbacks(
+        self,
+        data: Any,
+        params: Optional[Dict[str, Any]] = None,
+        callback_handlers=None,
+        convert_chat_responses=False,
+    ) -> Iterator[str]:
+        """
+        Args:
+            data: Model input data, only single input is allowed.
+            params: Additional parameters to pass to the model for inference.
+
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+            callback_handlers: Callback handlers to pass to LangChain.
+            convert_chat_responses: If true, forcibly convert response to chat model
+                response format.
+        Returns:
+            An iterator of model prediction chunks.
+        """
+        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+
+        # TODO: Q: shall we put `callback_handlers` in params ?
+        if isinstance(data, list):
+            raise MlflowException("Langchain model predict_stream only supports single input.")
+
+        data = _convert_ndarray_to_list(data)
+        return process_stream_request(
+            lc_model=self.lc_model,
+            request_json=data,
+            callback_handlers=callback_handlers,
+            convert_chat_responses=convert_chat_responses,
         )
 
 

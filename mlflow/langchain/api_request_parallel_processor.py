@@ -90,6 +90,11 @@ class _ChatMessage(pydantic.BaseModel, extra="forbid"):
             )
 
 
+class _ChatDeltaMessage(pydantic.BaseModel):
+    role: str
+    content: str
+
+
 # NB: Even though _ChatRequest is only referenced in one method within this module
 # (as of 12/27/2023), it must be defined at the module level for compatibility with
 # pydantic < 2
@@ -99,8 +104,14 @@ class _ChatRequest(pydantic.BaseModel, extra="forbid"):
 
 class _ChatChoice(pydantic.BaseModel, extra="forbid"):
     index: int
-    message: _ChatMessage
+    message: _ChatMessage = None
     finish_reason: Optional[str] = None
+
+
+class _ChatChoiceDelta(pydantic.BaseModel):
+    index: int
+    finish_reason: Optional[str] = None
+    delta: _ChatDeltaMessage = None
 
 
 class _ChatUsage(pydantic.BaseModel, extra="forbid"):
@@ -120,6 +131,16 @@ class _ChatResponse(pydantic.BaseModel, extra="forbid"):
     usage: _ChatUsage
 
 
+class _ChatChunkResponse(pydantic.BaseModel):
+    id: Optional[str] = None
+    object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
+    created: int
+    # Make the model field optional since we may not be able to get a stable model identifier
+    # for an arbitrary LangChain model
+    model: Optional[str] = None
+    choices: List[_ChatChoiceDelta]
+
+
 @dataclass
 class APIRequest:
     """
@@ -134,6 +155,7 @@ class APIRequest:
     errors: dict
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
+    stream: bool
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -172,77 +194,84 @@ class APIRequest:
                 for doc in response["source_documents"]
             ]
 
+    def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
+        from langchain.schema import BaseRetriever
+        from mlflow.langchain.utils import lc_runnables_types
+
+        if isinstance(self.lc_model, BaseRetriever):
+            # Retrievers are invoked differently than Chains
+            docs = self.lc_model.get_relevant_documents(**self.request_json)
+            response = [
+                {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
+            ]
+        elif isinstance(self.lc_model, lc_runnables_types()):
+
+            def _predict_single_input(single_input):
+                if self.stream:
+                    return self.lc_model.stream(
+                        single_input, config={"callbacks": callback_handlers}
+                    )
+                return self.lc_model.invoke(single_input, config={"callbacks": callback_handlers})
+
+            if isinstance(self.request_json, dict):
+                # This is a temporary fix for the case when spark_udf converts
+                # input into pandas dataframe with column name, while the model
+                # does not accept dictionaries as input, it leads to errors like
+                # Expected Scalar value for String field 'query_text'
+                try:
+                    response = _predict_single_input(self.request_json)
+                except TypeError as e:
+                    _logger.warning(
+                        f"Failed to invoke {self.lc_model.__class__.__name__} "
+                        f"with {self.request_json}. Error: {e!r}. Trying to "
+                        "invoke with the first value of the dictionary."
+                    )
+                    self.request_json = next(iter(self.request_json.values()))
+                    (
+                        prepared_request_json,
+                        did_perform_chat_conversion,
+                    ) = APIRequest._transform_request_json_for_chat_if_necessary(
+                        self.request_json, self.lc_model
+                    )
+                    self.did_perform_chat_conversion = did_perform_chat_conversion
+
+                    response = _predict_single_input(prepared_request_json)
+            else:
+                response = _predict_single_input(self.request_json)
+
+            if self.did_perform_chat_conversion or self.convert_chat_responses:
+                if self.stream:
+                    response = APIRequest._try_transform_response_iter_to_chat_format(response)
+                else:
+                    response = APIRequest._try_transform_response_to_chat_format(response)
+        else:
+            response = self.lc_model(
+                self.request_json,
+                return_only_outputs=True,
+                callbacks=callback_handlers,
+            )
+
+            if self.did_perform_chat_conversion or self.convert_chat_responses:
+                response = APIRequest._try_transform_response_to_chat_format(response)
+            elif len(response) == 1:
+                # to maintain existing code, single output chains will still return
+                # only the result
+                response = response.popitem()[1]
+            else:
+                self._prepare_to_serialize(response)
+
+        return response
+
     def call_api(
         self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
     ):
         """
         Calls the LangChain API and stores results.
         """
-        from langchain.schema import BaseRetriever
-
-        from mlflow.langchain.utils import lc_runnables_types
-
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
         try:
-            if isinstance(self.lc_model, BaseRetriever):
-                # Retrievers are invoked differently than Chains
-                docs = self.lc_model.get_relevant_documents(**self.request_json)
-                response = [
-                    {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
-                ]
-            elif isinstance(self.lc_model, lc_runnables_types()):
-                if isinstance(self.request_json, dict):
-                    # This is a temporary fix for the case when spark_udf converts
-                    # input into pandas dataframe with column name, while the model
-                    # does not accept dictionaries as input, it leads to errors like
-                    # Expected Scalar value for String field 'query_text'
-                    try:
-                        response = self.lc_model.invoke(
-                            self.request_json,
-                            config={"callbacks": callback_handlers},
-                        )
-                    except TypeError as e:
-                        _logger.warning(
-                            f"Failed to invoke {self.lc_model.__class__.__name__} "
-                            f"with {self.request_json}. Error: {e!r}. Trying to "
-                            "invoke with the first value of the dictionary."
-                        )
-                        self.request_json = next(iter(self.request_json.values()))
-                        (
-                            prepared_request_json,
-                            did_perform_chat_conversion,
-                        ) = APIRequest._transform_request_json_for_chat_if_necessary(
-                            self.request_json, self.lc_model
-                        )
-                        self.did_perform_chat_conversion = did_perform_chat_conversion
-
-                        response = self.lc_model.invoke(
-                            prepared_request_json, config={"callbacks": callback_handlers}
-                        )
-                else:
-                    response = self.lc_model.invoke(
-                        self.request_json,
-                        config={"callbacks": callback_handlers},
-                    )
-                if self.did_perform_chat_conversion or self.convert_chat_responses:
-                    response = APIRequest._try_transform_response_to_chat_format(response)
-            else:
-                response = self.lc_model(
-                    self.request_json,
-                    return_only_outputs=True,
-                    callbacks=callback_handlers,
-                )
-
-                if self.did_perform_chat_conversion or self.convert_chat_responses:
-                    response = APIRequest._try_transform_response_to_chat_format(response)
-                elif len(response) == 1:
-                    # to maintain existing code, single output chains will still return
-                    # only the result
-                    response = response.popitem()[1]
-                else:
-                    self._prepare_to_serialize(response)
-
+            response = self.single_call_api(callback_handlers)
             _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
@@ -337,6 +366,64 @@ class APIRequest:
             return transformed_response.model_dump(mode="json")
 
     @staticmethod
+    def _try_transform_response_iter_to_chat_format(chunk_iter):
+        from langchain_core.messages.ai import AIMessageChunk
+
+        def _gen_converted_chunk(message_content, finish_reason):
+            transformed_response = _ChatChunkResponse(
+                id=None,
+                created=int(time.time()),
+                model=None,
+                choices=[
+                    _ChatChoiceDelta(
+                        index=0,
+                        delta=_ChatDeltaMessage(
+                            role="assistant",
+                            content=message_content,
+                        ),
+                        finish_reason=finish_reason,
+                    )
+                ],
+            )
+
+            if Version(pydantic.__version__) < Version("2.0"):
+                return json.loads(transformed_response.json())
+            else:
+                return transformed_response.model_dump(mode="json")
+
+        def _convert(chunk):
+            if isinstance(chunk, str):
+                message_content = chunk
+                finish_reason = None
+                need_append_finish_chunk = True
+            elif isinstance(chunk, AIMessageChunk):
+                message_content = chunk.content
+                finish_reason = chunk.response_metadata.get("finish_reason")
+                need_append_finish_chunk = False
+            elif isinstance(chunk, AIMessage):
+                # The langchain chat model does not support stream
+                # so `model.stream` returns the whole result.
+                message_content = chunk.content
+                finish_reason = "stop"
+                need_append_finish_chunk = False
+            else:
+                return chunk, False
+            return (
+                _gen_converted_chunk(message_content, finish_reason=finish_reason),
+                need_append_finish_chunk,
+            )
+
+        def _result_gen_fn():
+            need_append_finish_chunk = False
+            for chunk in chunk_iter:
+                converted_chunk, need_append_finish_chunk = _convert(chunk)
+                yield converted_chunk
+            if need_append_finish_chunk:
+                yield _gen_converted_chunk("", finish_reason="stop")
+
+        return _result_gen_fn()
+
+    @staticmethod
     def _get_lc_model_input_fields(lc_model) -> Set:
         try:
             if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
@@ -405,6 +492,7 @@ def process_api_requests(
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,
                     did_perform_chat_conversion=did_perform_chat_conversion,
+                    stream=False,
                 )
                 status_tracker.start_task()
             else:
@@ -434,3 +522,38 @@ def process_api_requests(
             )
 
         return [res for _, res in sorted(results)]
+
+
+def process_stream_request(
+    lc_model,
+    request_json: Union[Any, Dict[str, Any]],
+    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    convert_chat_responses: bool = False,
+):
+    from mlflow.langchain.utils import lc_runnables_types
+
+    if not isinstance(lc_model, lc_runnables_types()):
+        raise MlflowException(
+            f"Model {lc_model.__class__.__name__} does not support streaming prediction output."
+        )
+
+    results: list[tuple[int, str]] = []
+    errors: dict = {}
+
+    (
+        converted_chat_requests,
+        did_perform_chat_conversion,
+    ) = APIRequest._transform_request_json_for_chat_if_necessary(request_json, lc_model)
+
+    api_request = APIRequest(
+        index=0,
+        lc_model=lc_model,
+        request_json=converted_chat_requests,
+        results=results,
+        errors=errors,
+        convert_chat_responses=convert_chat_responses,
+        did_perform_chat_conversion=did_perform_chat_conversion,
+        stream=True,
+    )
+
+    return api_request.single_call_api(callback_handlers)
