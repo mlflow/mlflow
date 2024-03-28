@@ -643,10 +643,11 @@ class _LangChainModelWrapper:
 
     def _prepare_messages(self, data):
         """
-        :return: A tuple of 1. ``preprocessed_data`` (list) and 2. `return_first_element`` (bool).
-                 If ``return_first_element`` is True, only the first element of the inference
-                 result should be returned. If ``return_first_element`` is False, the whole
-                 inference result should be returned.
+        Return:
+            A tuple of 1. ``preprocessed_data`` (list) and 2. `return_first_element`` (bool).
+            If ``return_first_element`` is True, only the first element of the inference
+            result should be returned. If ``return_first_element`` is False, the whole
+            inference result should be returned.
         """
 
         # numpy array is not json serializable, so we convert it to list
