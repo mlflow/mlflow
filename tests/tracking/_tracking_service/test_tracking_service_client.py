@@ -114,7 +114,6 @@ def test_upload_trace_data(tmp_path):
         ),
     ) as mock_get_trace_info, mock.patch(
         "mlflow.store.artifact.artifact_repo.ArtifactRepository.upload_trace_data",
-        return_value={"spans": []},
     ) as mock_upload_trace_data:
         client = TrackingServiceClient(tmp_path.as_uri())
         client._upload_trace_data(request_id="test", trace_data=TraceData())
