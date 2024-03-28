@@ -1,12 +1,11 @@
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List
 
-from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.span import Span
 
 
 @dataclass
-class TraceData(_MLflowObject):
+class TraceData:
     """A container object that holds the spans data of a trace.
 
     Args:

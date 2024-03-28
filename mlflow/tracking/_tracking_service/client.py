@@ -16,7 +16,6 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     TraceData,
-    TraceStatus,
     ViewType,
 )
 from mlflow.entities.dataset_input import DatasetInput
@@ -182,7 +181,7 @@ class TrackingServiceClient:
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             execution_time_ms=execution_time_ms,
-            status=TraceStatus.from_string(status),
+            status=status,
             request_metadata=request_metadata or {},
             tags=tags or {},
         )

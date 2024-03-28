@@ -34,7 +34,7 @@ def test_json_deserialization(mock_trace_client):
             "experiment_id": "EXPERIMENT",
             "timestamp_ms": trace.trace_info.timestamp_ms,
             "execution_time_ms": trace.trace_info.execution_time_ms,
-            "status": 1,
+            "status": "OK",
             "request_metadata": {
                 "name": "predict",
                 "inputs": '{"x": 2, "y": 5}',

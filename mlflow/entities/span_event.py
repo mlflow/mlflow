@@ -8,12 +8,14 @@ from mlflow.entities._mlflow_object import _MLflowObject
 @dataclass
 class SpanEvent(_MLflowObject):
     """
-    Point of time event that happened during the span.
+    An event that records a specific occurrences or moments in time
+    during a span, such as an exception being thrown.
 
     Args:
         name: Name of the event.
-        timestamp: Point of time when the event happened in microseconds.
-        attributes: Arbitrary key-value pairs of the event attributes.
+        timestamp:  The exact time the event occurred, measured in microseconds.
+        attributes: A collection of key-value pairs representing detailed
+            attributes of the event, such as the exception stack trace.
     """
 
     name: str

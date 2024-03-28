@@ -40,7 +40,7 @@ class TraceInfo(_MLflowObject):
         proto.experiment_id = self.experiment_id
         proto.timestamp_ms = self.timestamp_ms
         proto.execution_time_ms = self.execution_time_ms
-        proto.status = TraceStatus.from_string(self.status)
+        proto.status = self.status.to_proto()
 
         request_metadata = []
         for key, value in self.request_metadata.items():
@@ -67,7 +67,7 @@ class TraceInfo(_MLflowObject):
             experiment_id=proto.experiment_id,
             timestamp_ms=proto.timestamp_ms,
             execution_time_ms=proto.execution_time_ms,
-            status=TraceStatus.to_string(proto.status),
+            status=TraceStatus.from_proto(proto.status),
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
             tags={tag.key: tag.value for tag in proto.tags},
         )

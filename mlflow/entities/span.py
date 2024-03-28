@@ -38,7 +38,7 @@ class Span(_MLflowObject):
         start_time: Start time of the span in microseconds.
         end_time: End time of the span in microseconds.
         span_type: Type of the span. Can be a pre-defined enum or a custom string.
-        inputs: Inputs data of the span. Optional.
+        inputs: Input data of the span. Optional.
         outputs: Outputs data of the span. Optional.
         attributes: Arbitrary key-value pairs of the span attributes. Optional.
         events: List of events that happened during the span. Optional.
