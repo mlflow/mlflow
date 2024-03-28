@@ -1543,5 +1543,5 @@ def test_upload_trace_data(databricks_artifact_repo, cred_type):
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         return_value=cred,
     ), mock.patch("requests.Session.request", return_value=MockResponse(b"{}")):
-        trace_data = TraceData(spans=[]).dict()
+        trace_data = TraceData(spans=[]).to_dict()
         databricks_artifact_repo.upload_trace_data(trace_data)

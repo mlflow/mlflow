@@ -1,8 +1,8 @@
-from mlflow.exceptions import MlflowException
 import pytest
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import SpanStatus, TraceStatus
+from mlflow.exceptions import MlflowException
 
 
 @pytest.mark.parametrize("status_code", [TraceStatus.OK, "OK"])
@@ -22,7 +22,7 @@ def test_span_status_raise_invalid_status_code():
         (TraceStatus.OK, trace_api.StatusCode.OK),
         (TraceStatus.ERROR, trace_api.StatusCode.ERROR),
         (TraceStatus.UNSPECIFIED, trace_api.StatusCode.UNSET),
-    ]
+    ],
 )
 def test_otel_status_conversion(status_code, otel_status_code):
     span_status = SpanStatus(status_code, description="test")
