@@ -447,7 +447,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/traces/{trace_id}/info"
+        path: "/mlflow/traces/{request_id}/info"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
