@@ -1711,6 +1711,7 @@ class DefaultEvaluator(ModelEvaluator):
                 data[column] = self.other_output_columns[column]
 
         columns = {}
+
         for metric_name, metric_value in self.metrics_values.items():
             scores = metric_value.scores
             justifications = metric_value.justifications
@@ -1736,6 +1737,91 @@ class DefaultEvaluator(ModelEvaluator):
                 ).format("delta").saveAsTable(self.eval_results_path)
             except Exception as e:
                 _logger.info(f"Saving eval table to delta table failed. Reason: {e}")
+
+        if self.write_to_offline_eval_tables:
+            # get the experiment tags
+            experiment = mlflow.get_experiment(mlflow.get_run(self.run_id).info.experiment_id)
+            experiment_tags = experiment.tags
+            request_log_path = experiment_tags.get("MLFLOW_request_log_path")
+            feedback_log_path = experiment_tags.get("MLFLOW_feedback_log_path")
+
+            eval_table_spark = self.spark_session.createDataFrame(data)
+            from pyspark.sql import functions as F
+            from pyspark.sql.functions import (
+                array,
+                col,
+                concat_ws,
+                current_timestamp,
+                expr,
+                lit,
+                transform,
+            )
+
+            eval_results_table_with_id = eval_table_spark.withColumn("request_id", expr("uuid()"))
+
+            # Assuming df is your eval_results_table DataFrame
+            request_log_df = eval_results_table_with_id.select(
+                F.col("request_id").alias("request.request_id"),
+                lit("some_conversation_id").alias("request.conversation_id"),
+                lit("some_session_id").alias("request.session_id"),
+                current_timestamp().alias("request.timestamp"),
+                array("questions").alias("request.messages"),  # Wrap in array
+                F.col("outputs").alias("trace.choices"),
+                # F.col("source_documents").alias("trace.steps"),
+                concat_ws(
+                    "; ",
+                    transform(
+                        "source_documents",
+                        lambda x: concat_ws(
+                            ", ", x.metadata.language, x.metadata.source, x.metadata.title
+                        ),
+                    ),
+                ).alias("trace.steps"),
+                lit("some_app_version_id").alias("trace.app_version_id"),
+                lit("some_assessment_id").alias("trace.assessment_id"),
+            )
+
+            request_log_df.write.format("delta").mode("append").saveAsTable(request_log_path)
+
+            feedback_types_df = eval_results_table_with_id.withColumn(
+                "feedback_types",
+                F.array(
+                    F.struct(F.lit("latency").alias("key"), F.col("latency").alias("value")),
+                    F.struct(
+                        F.lit("token_count").alias("key"), F.col("token_count").alias("value")
+                    ),
+                    F.struct(
+                        F.lit("flesch_kincaid_grade_level").alias("key"),
+                        F.col("flesch_kincaid_grade_level/v1/score").alias("value"),
+                    ),
+                    F.struct(
+                        F.lit("ari_grade_level").alias("key"),
+                        F.col("ari_grade_level/v1/score").alias("value"),
+                    ),
+                    F.struct(
+                        F.lit("relevance").alias("key"), F.col("relevance/v1/score").alias("value")
+                    )
+                    # Add more structs for other feedback types
+                ),
+            )
+
+            feedback_log_df = feedback_types_df.withColumn(
+                "feedback", F.explode("feedback_types")
+            ).select(
+                expr("uuid()").alias(
+                    "assessment.assessment_id"
+                ),  # Generate unique assessment_id for each row
+                F.col("request_id").alias("assessment.request_id"),
+                F.lit("llm judge").alias("assessment.source.type"),
+                F.lit("some_source_id").alias("assessment.source.id"),
+                F.current_timestamp().alias("assessment.timestamp"),
+                col("feedback.key").alias("assessment.key"),
+                col("feedback.value")
+                .cast("string")
+                .alias("assessment.value"),  # Cast value to string
+            )
+
+            feedback_log_df.write.format("delta").mode("append").saveAsTable(feedback_log_path)
 
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
@@ -1891,6 +1977,9 @@ class DefaultEvaluator(ModelEvaluator):
         self.sample_weights = self.evaluator_config.get("sample_weights")
         self.eval_results_path = self.evaluator_config.get("eval_results_path")
         self.eval_results_mode = self.evaluator_config.get("eval_results_mode", "overwrite")
+        self.write_to_offline_eval_tables = self.evaluator_config.get(
+            "write_to_offline_eval_tables", False
+        )
 
         if self.eval_results_path:
             from mlflow.utils._spark_utils import _get_active_spark_session
@@ -1905,6 +1994,16 @@ class DefaultEvaluator(ModelEvaluator):
             if self.eval_results_mode not in ["overwrite", "append"]:
                 raise MlflowException(
                     message="eval_results_mode can only be 'overwrite' or 'append'. ",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        if self.write_to_offline_eval_tables:
+            from mlflow.utils._spark_utils import _get_active_spark_session
+
+            self.spark_session = _get_active_spark_session()
+            if not self.spark_session:
+                raise MlflowException(
+                    message="eval_results_path is only supported in Spark environment. ",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
