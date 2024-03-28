@@ -1,0 +1,52 @@
+name: Lint and Test Charts
+
+on: pull_request
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.12.1
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          check-latest: true
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.0
+
+      - name: Run chart-testing (list-changed)
+        id: list-changed
+        run: |
+          changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+          if [[ -n "$changed" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run helm unittest
+        if: steps.list-changed.outputs.changed == 'true'
+        uses: d3adb5/helm-unittest-action@v2
+        with:
+          helm-version: v3.8.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run chart-testing (lint)
+        if: steps.list-changed.outputs.changed == 'true'
+        run: ct lint --target-branch ${{ github.event.repository.default_branch }} --validate-maintainers=false
+
+      - name: Create kind cluster
+        if: steps.list-changed.outputs.changed == 'true'
+        uses: helm/kind-action@v1.8.0
+
+      - name: Run chart-testing (install)
+        if: steps.list-changed.outputs.changed == 'true'
+        run: ct install --target-branch ${{ github.event.repository.default_branch }}

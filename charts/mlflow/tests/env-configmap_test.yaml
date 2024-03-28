@@ -1,0 +1,17 @@
+suite: Test env configmap
+
+templates:
+  - env-configmap.yaml
+
+tests:
+  - it: Should contain `MLFLOW_OSS_ENDPOINT_URL` if use OSS as artifact storage
+    set:
+      artifactStore:
+        enabled: true
+        oss:
+          enabled: true
+          endpoint: oss://example-bucket/mlflow
+    asserts:
+      - equal:
+          path: data.MLFLOW_OSS_ENDPOINT_URL
+          value: oss://example-bucket/mlflow
