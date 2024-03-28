@@ -332,6 +332,7 @@ Deployment Guides and Tutorials
     deep-learning/index
     traditional-ml/index
     deployment/index
+    deployment_client
     tracking
     system-metrics/index
     projects

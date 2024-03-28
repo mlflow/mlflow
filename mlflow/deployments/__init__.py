@@ -1,11 +1,13 @@
 """
-Exposes functionality for deploying MLflow models to custom serving tools.
+Exposes functionality for deploying MLflow models to custom serving tools and for querying
+MLflow or other hosted models.
 
 Note: model deployment to AWS Sagemaker can currently be performed via the
 :py:mod:`mlflow.sagemaker` module. Model deployment to Azure can be performed by using the
 `azureml library <https://pypi.org/project/azureml-mlflow/>`_.
 
-MLflow does not currently provide built-in support for any other deployment targets, but support
+MLflow provides built-in support for Databricks and OpenAI deployments. MLflow does not
+currently provide built-in support for any other deployment targets, but support
 for custom targets can be installed via third-party plugins. See a list of known plugins
 `here <https://mlflow.org/docs/latest/plugins.html#deployment-plugins>`_.
 
