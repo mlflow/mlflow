@@ -62,16 +62,16 @@ def trace(
         def wrapper(*args, **kwargs):
             span_name = name or fn.__name__
 
-            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
-                if span:
+            try:
+                with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                     span.set_attribute("function_name", fn.__name__)
                     span.set_inputs(capture_function_input_args(fn, args, kwargs))
                     result = fn(*args, **kwargs)
                     span.set_outputs({"output": result})
                     return result
-                else:
-                    # If span creation fails, just call the function without tracing
-                    return fn(*args, **kwargs)
+            except Exception:
+                _logger.debug("Unexpected error occurred during tracing", exc_info=True)
+                return fn(*args, **kwargs)
 
         return wrapper
 
