@@ -14,6 +14,7 @@ Features:
 - Makes requests concurrently, to maximize throughput
 - Logs errors, to diagnose problems with requests
 """
+
 from __future__ import annotations
 
 import json
@@ -134,6 +135,7 @@ class APIRequest:
     errors: dict
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
+    configurables: Optional[Dict[str, Any]]
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -199,7 +201,10 @@ class APIRequest:
                     try:
                         response = self.lc_model.invoke(
                             self.request_json,
-                            config={"callbacks": callback_handlers},
+                            config={
+                                "callbacks": callback_handlers,
+                                "configurable": self.configurables,
+                            },
                         )
                     except TypeError as e:
                         _logger.warning(
@@ -217,12 +222,16 @@ class APIRequest:
                         self.did_perform_chat_conversion = did_perform_chat_conversion
 
                         response = self.lc_model.invoke(
-                            prepared_request_json, config={"callbacks": callback_handlers}
+                            prepared_request_json,
+                            config={
+                                "callbacks": callback_handlers,
+                                "configurable": self.configurables,
+                            },
                         )
                 else:
                     response = self.lc_model.invoke(
                         self.request_json,
-                        config={"callbacks": callback_handlers},
+                        config={"callbacks": callback_handlers, "configurable": self.configurables},
                     )
                 if self.did_perform_chat_conversion or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
@@ -246,9 +255,9 @@ class APIRequest:
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
-            self.errors[
-                self.index
-            ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            self.errors[self.index] = (
+                f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
+            )
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
@@ -364,6 +373,7 @@ def process_api_requests(
     max_workers: int = 10,
     callback_handlers: Optional[List[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
+    configurables: Optional[Dict[str, Any]] = None,
 ):
     """
     Processes API requests in parallel.
@@ -404,6 +414,7 @@ def process_api_requests(
                     errors=errors,
                     convert_chat_responses=convert_chat_responses,
                     did_perform_chat_conversion=did_perform_chat_conversion,
+                    configurables=configurables,
                 )
                 status_tracker.start_task()
             else:

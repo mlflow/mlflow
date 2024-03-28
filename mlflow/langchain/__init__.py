@@ -605,7 +605,9 @@ class _LangChainModelWrapper:
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         messages, return_first_element = self._prepare_messages(data)
-        results = process_api_requests(lc_model=self.lc_model, requests=messages)
+        results = process_api_requests(
+            lc_model=self.lc_model, requests=messages, configurables=params
+        )
         return results[0] if return_first_element else results
 
     @experimental
