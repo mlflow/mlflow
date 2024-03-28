@@ -18,7 +18,7 @@ import logging
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -641,8 +641,9 @@ class _LangChainModelWrapper:
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
                     release without warning.
-            data: Callback handlers to pass to LangChain.
-
+            callback_handlers: Callback handlers to pass to LangChain.
+            convert_chat_responses: If true, forcibly convert response to chat model
+                response format.
         Returns:
             Model predictions.
         """
@@ -687,7 +688,17 @@ class _LangChainModelWrapper:
         self,
         data: Any,
         params: Optional[Dict[str, Any]] = None,
-    ) -> List[str]:
+    ) -> Iterator[str]:
+        """
+        Args:
+            data: Model input data, only single input is allowed.
+            params: Additional parameters to pass to the model for inference.
+
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+        Returns:
+            An iterator of model prediction chunks.
+        """
         from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
         # TODO: Q: shall we put `callback_handlers` in params ?
@@ -695,7 +706,44 @@ class _LangChainModelWrapper:
             raise MlflowException("Langchain model predict_stream only supports single input.")
 
         data = _convert_ndarray_to_list(data)
-        return process_stream_request(lc_model=self.lc_model, request_json=data)
+        return process_stream_request(
+            lc_model=self.lc_model,
+            request_json=data,
+        )
+
+    def _predict_stream_with_callbacks(
+        self,
+        data: Any,
+        params: Optional[Dict[str, Any]] = None,
+        callback_handlers=None,
+        convert_chat_responses=False,
+    ) -> Iterator[str]:
+        """
+        Args:
+            data: Model input data, only single input is allowed.
+            params: Additional parameters to pass to the model for inference.
+
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+            callback_handlers: Callback handlers to pass to LangChain.
+            convert_chat_responses: If true, forcibly convert response to chat model
+                response format.
+        Returns:
+            An iterator of model prediction chunks.
+        """
+        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+
+        # TODO: Q: shall we put `callback_handlers` in params ?
+        if isinstance(data, list):
+            raise MlflowException("Langchain model predict_stream only supports single input.")
+
+        data = _convert_ndarray_to_list(data)
+        return process_stream_request(
+            lc_model=self.lc_model,
+            request_json=data,
+            callback_handlers=callback_handlers,
+            convert_chat_responses=convert_chat_responses,
+        )
 
 
 class _TestLangChainWrapper(_LangChainModelWrapper):

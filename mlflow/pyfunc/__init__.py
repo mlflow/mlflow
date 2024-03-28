@@ -697,7 +697,7 @@ class PyFuncModel:
             return self._predict_fn(data, params=params)
         return self._predict_fn(data)
 
-    def predict_stream(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> Any:
+    def predict_stream(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> Iterator[PyFuncOutput]:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
