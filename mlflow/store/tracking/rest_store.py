@@ -27,6 +27,8 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SetExperimentTag,
     SetTag,
+    TraceRequestMetadata,
+    TraceTag,
     UpdateExperiment,
     UpdateRun,
 )
@@ -212,22 +214,34 @@ class RestStore(AbstractStore):
             timestamp_ms: int, start time of the trace, in milliseconds.
             execution_time_ms: int, duration of the trace, in milliseconds.
             status: `mlflow.entities.TraceStatus`, status of the trace.
-            request_metadata: list of `mlflow.entities.TraceRequestMetadata`, metadata of the trace.
-            tags: list of `mlflow.entities.TraceTag`, tags of the trace.
+            request_metadata: metadata of the trace.
+            tags: tags of the trace.
 
         Returns:
             The created Trace object
         """
-        metadata_all = [metadata.to_proto() for metadata in request_metadata]
-        tags = [tag.to_proto() for tag in tags]
+        request_metadata_proto = []
+        for key, value in request_metadata.items():
+            attr = TraceRequestMetadata()
+            attr.key = key
+            attr.value = value
+            request_metadata_proto.append(attr)
+
+        tags_proto = []
+        for key, value in tags.items():
+            tag = TraceTag()
+            tag.key = key
+            tag.value = value
+            tags_proto.append(tag)
+
         req_body = message_to_json(
             CreateTrace(
                 experiment_id=str(experiment_id),
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=execution_time_ms,
                 status=status,
-                request_metadata=metadata_all,
-                tags=tags,
+                request_metadata=request_metadata_proto,
+                tags=tags_proto,
             )
         )
         response_proto = self._call_endpoint(CreateTrace, req_body)

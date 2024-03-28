@@ -10,6 +10,7 @@ from unittest.mock import ANY
 import pytest
 from requests.models import Response
 
+from mlflow.entities import TraceData
 from mlflow.entities.file_info import FileInfo as FileInfoEntity
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
@@ -28,7 +29,6 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _MAX_CREDENTIALS_REQUEST_SIZE,
     DatabricksArtifactRepository,
 )
-from mlflow.tracing.types.model import TraceData
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"
@@ -1543,5 +1543,5 @@ def test_upload_trace_data(databricks_artifact_repo, cred_type):
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         return_value=cred,
     ), mock.patch("requests.Session.request", return_value=MockResponse(b"{}")):
-        trace_data = TraceData(spans=[]).dict()
+        trace_data = TraceData(spans=[]).to_dict()
         databricks_artifact_repo.upload_trace_data(trace_data)

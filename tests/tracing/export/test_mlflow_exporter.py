@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -7,42 +8,47 @@ from mlflow.tracing.export.mlflow import MLflowSpanExporter
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
     TRUNCATION_SUFFIX,
-    TraceAttributeKey,
+    TraceMetadataKey,
 )
-from mlflow.tracing.types.model import SpanContext
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+
+
+@dataclass
+class _MockSpanContext:
+    trace_id: str
+    span_id: str
 
 
 def test_export():
     trace_id = "trace_id"
     otel_span_root = ReadableSpan(
         name="test_span",
-        context=SpanContext(trace_id, "span_id_1"),
+        context=_MockSpanContext(trace_id, "span_id_1"),
         parent=None,
         attributes={
             "key1": "value1",
         },
         start_time=0,
-        end_time=4000,  # nano seconds
+        end_time=4_000_000,  # nano seconds
     )
 
     otel_span_child_1 = ReadableSpan(
         name="test_span_child_1",
-        context=SpanContext(trace_id, "span_id_2"),
+        context=_MockSpanContext(trace_id, "span_id_2"),
         parent=otel_span_root.context,
         attributes={
             "key2": "value2",
         },
-        start_time=1000,
-        end_time=2000,
+        start_time=1_000_000,
+        end_time=2_000_000,
     )
 
     otel_span_child_2 = ReadableSpan(
         name="test_span_child_2",
-        context=SpanContext(trace_id, "span_id_3"),
+        context=_MockSpanContext(trace_id, "span_id_3"),
         parent=otel_span_root.context,
-        start_time=2000,
-        end_time=3000,
+        start_time=2_000_000,
+        end_time=3_000_000,
     )
 
     mock_client = MagicMock()
@@ -67,18 +73,18 @@ def test_export():
 
     # Trace info should inherit fields from the root span
     trace_info = client_call_args.trace_info
-    assert trace_info.trace_id == trace_id
-    assert trace_info.start_time == 0
-    assert trace_info.end_time == 4
-    assert trace_info.attributes[TraceAttributeKey.NAME] == "test_span"
+    assert trace_info.request_id == trace_id
+    assert trace_info.timestamp_ms == 0
+    assert trace_info.execution_time_ms == 4
+    assert trace_info.request_metadata[TraceMetadataKey.NAME] == "test_span"
 
     # Inputs and outputs in TraceInfo attributes should be serialized and truncated
-    inputs = trace_info.attributes[TraceAttributeKey.INPUTS]
+    inputs = trace_info.request_metadata[TraceMetadataKey.INPUTS]
     assert inputs.startswith('{"input1": "very long input')
     assert inputs.endswith(TRUNCATION_SUFFIX)
     assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 
-    outputs = trace_info.attributes[TraceAttributeKey.OUTPUTS]
+    outputs = trace_info.request_metadata[TraceMetadataKey.OUTPUTS]
     assert outputs.startswith('{"output1": "very long output')
     assert outputs.endswith(TRUNCATION_SUFFIX)
     assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE

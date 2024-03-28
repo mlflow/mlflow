@@ -4,7 +4,8 @@ from typing import Any, Dict, Optional
 
 from opentelemetry import trace as trace_api
 
-from mlflow.tracing.types.model import Event, Span, SpanContext, SpanType, Status, StatusCode
+from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, TraceStatus
+from mlflow.entities.span import SpanType
 
 _logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class MLflowSpanWrapper:
         self._outputs = None
 
     @property
-    def trace_id(self) -> str:
+    def request_id(self) -> str:
         return self._span.get_span_context().trace_id
 
     @property
@@ -63,8 +64,8 @@ class MLflowSpanWrapper:
         return self._span.parent.span_id
 
     @property
-    def status(self) -> Status:
-        return Status(self._span.status.status_code, self._span.status.description)
+    def status(self) -> SpanStatus:
+        return SpanStatus.from_otel_status(self._span.status)
 
     @property
     def inputs(self) -> Dict[str, Any]:
@@ -89,24 +90,27 @@ class MLflowSpanWrapper:
     def set_attribute(self, key: str, value: Any):
         self._span.set_attribute(key, value)
 
-    def set_status(self, status_code: StatusCode, description: str = ""):
-        self._span.set_status(status_code, description)
+    def set_status(self, status: SpanStatus):
+        # NB: We need to set the OpenTelemetry native StatusCode, because span's set_status
+        #     method only accepts a StatusCode enum in their definition.
+        #     https://github.com/open-telemetry/opentelemetry-python/blob/8ed71b15fb8fc9534529da8ce4a21e686248a8f3/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L949
+        #     Working around this is possible, but requires some hack to handle automatic status
+        #     propagation mechanism, so here we just use the native object that meets our
+        #     current requirements at least. Nevertheless, declaring the new class extending
+        #     the OpenTelemetry Status class so users code doesn't have to import the OTel's
+        #     StatusCode object, which makes future migration easier.
+        self._span.set_status(status.to_otel_status())
 
-    def add_event(
-        self,
-        name: str,
-        attributes: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[int] = None,
-    ):
-        self._span.add_event(name, attributes, timestamp)
+    def add_event(self, event: SpanEvent):
+        self._span.add_event(event.name, event.attributes, event.timestamp)
 
     def end(self):
         # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
         # by the user. However, there is not way to set the status when using
         # @mlflow.trace decorator. Therefore, we just automatically set the status
         # to OK if it is not ERROR.
-        if self.status.status_code != StatusCode.ERROR:
-            self.set_status(StatusCode.OK)
+        if self.status.status_code != TraceStatus.ERROR:
+            self.set_status(SpanStatus(TraceStatus.OK))
 
         # Mimic the OTel's span end hook to pass this wrapper to processor/exporter
         # Ref: https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909
@@ -129,7 +133,7 @@ class MLflowSpanWrapper:
         return Span(
             name=self._span.name,
             context=SpanContext(
-                trace_id=self.trace_id,
+                request_id=self.request_id,
                 span_id=self.span_id,
             ),
             parent_span_id=self.parent_span_id,
@@ -142,7 +146,13 @@ class MLflowSpanWrapper:
             # Convert from MappingProxyType to dict for serialization
             attributes=dict(self._span.attributes),
             events=[
-                Event(event.name, event.timestamp, event.attributes) for event in self._span.events
+                SpanEvent(
+                    name=event.name,
+                    timestamp=event.timestamp,
+                    # Convert from OpenTelemetry's BoundedAttributes class to a simple dict
+                    attributes=dict(event.attributes),
+                )
+                for event in self._span.events
             ],
         )
 
@@ -167,7 +177,7 @@ class NoOpMLflowSpanWrapper:
     """
 
     @property
-    def trace_id(self):
+    def request_id(self):
         return None
 
     @property
@@ -218,15 +228,10 @@ class NoOpMLflowSpanWrapper:
     def set_attribute(self, key: str, value: Any):
         pass
 
-    def set_status(self, status_code: StatusCode, description: str = ""):
+    def set_status(self, status: SpanStatus):
         pass
 
-    def add_event(
-        self,
-        name: str,
-        attributes: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[int] = None,
-    ):
+    def add_event(self, event: SpanEvent):
         pass
 
     def end(self):

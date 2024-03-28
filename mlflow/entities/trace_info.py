@@ -1,13 +1,13 @@
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import Dict, Optional
 
 from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.entities.trace_request_metadata import TraceRequestMetadata
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.entities.trace_tag import TraceTag
-from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
+from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 
 
+@dataclass
 class TraceInfo(_MLflowObject):
     """Metadata about a trace.
 
@@ -21,34 +21,13 @@ class TraceInfo(_MLflowObject):
         tags: tags associated with the trace.
     """
 
-    def __init__(
-        self,
-        request_id: str,
-        experiment_id: str,
-        timestamp_ms: int,
-        execution_time_ms: int,
-        status: TraceStatus,
-        request_metadata: Optional[List[TraceRequestMetadata]] = None,
-        tags: Optional[List[TraceTag]] = None,
-    ):
-        if request_id is None:
-            raise MlflowException("`request_id` cannot be None.")
-        if experiment_id is None:
-            raise MlflowException("`experiment_id` cannot be None.")
-        if timestamp_ms is None:
-            raise MlflowException("`timestamp_ms` cannot be None.")
-        if execution_time_ms is None:
-            raise MlflowException("`execution_time_ms` cannot be None.")
-        if status is None:
-            raise MlflowException("`status` cannot be None.")
-
-        self.request_id = request_id
-        self.experiment_id = experiment_id
-        self.timestamp_ms = timestamp_ms
-        self.execution_time_ms = execution_time_ms
-        self.status = status
-        self.request_metadata = request_metadata
-        self.tags = tags
+    request_id: str
+    experiment_id: str
+    timestamp_ms: int
+    execution_time_ms: Optional[int]
+    status: TraceStatus
+    request_metadata: Dict[str, str] = field(default_factory=dict)
+    tags: Dict[str, str] = field(default_factory=dict)
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -61,9 +40,24 @@ class TraceInfo(_MLflowObject):
         proto.experiment_id = self.experiment_id
         proto.timestamp_ms = self.timestamp_ms
         proto.execution_time_ms = self.execution_time_ms
-        proto.status = TraceStatus.from_string(self.status)
-        proto.request_metadata.extend([attr.to_proto() for attr in self.request_metadata])
-        proto.tags.extend([tag.to_proto() for tag in self.tags])
+        proto.status = self.status.to_proto()
+
+        request_metadata = []
+        for key, value in self.request_metadata.items():
+            attr = ProtoTraceRequestMetadata()
+            attr.key = key
+            attr.value = value
+            request_metadata.append(attr)
+        proto.request_metadata.extend(request_metadata)
+
+        tags = []
+        for key, value in self.tags.items():
+            tag = ProtoTraceRequestMetadata()
+            tag.key = key
+            tag.value = value
+            tags.append(tag)
+
+        proto.tags.extend(tags)
         return proto
 
     @classmethod
@@ -73,9 +67,7 @@ class TraceInfo(_MLflowObject):
             experiment_id=proto.experiment_id,
             timestamp_ms=proto.timestamp_ms,
             execution_time_ms=proto.execution_time_ms,
-            status=TraceStatus.to_string(proto.status),
-            request_metadata=[
-                TraceRequestMetadata.from_proto(attr) for attr in proto.request_metadata
-            ],
-            tags=[TraceTag.from_proto(tag) for tag in proto.tags],
+            status=TraceStatus.from_proto(proto.status),
+            request_metadata={attr.key: attr.value for attr in proto.request_metadata},
+            tags={tag.key: tag.value for tag in proto.tags},
         )

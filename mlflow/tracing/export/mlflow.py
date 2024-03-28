@@ -9,7 +9,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
     TRUNCATION_SUFFIX,
-    TraceAttributeKey,
+    TraceMetadataKey,
 )
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
@@ -62,22 +62,22 @@ class MLflowSpanExporter(SpanExporter):
                 self._export_trace(span)
 
     def _export_trace(self, root_span: MLflowSpanWrapper):
-        trace_id = root_span.trace_id
-        trace = self._trace_manager.pop_trace(trace_id)
+        request_id = root_span.request_id
+        trace = self._trace_manager.pop_trace(request_id)
         if trace is None:
-            _logger.warning(f"Trace data with ID {trace_id} not found.")
+            _logger.warning(f"Trace data with ID {request_id} not found.")
             return
 
         # Update a TraceInfo object with the root span information
         info = trace.trace_info
-        info.start_time = root_span.start_time
-        info.end_time = root_span.end_time
-        info.status = root_span.status
-        info.attributes.update(
+        info.timestamp_ms = root_span.start_time // 1_000  # microsecond to millisecond
+        info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000
+        info.status = root_span.status.status_code
+        info.request_metadata.update(
             {
-                TraceAttributeKey.NAME: root_span.name,
-                TraceAttributeKey.INPUTS: self._serialize_inputs_outputs(root_span.inputs),
-                TraceAttributeKey.OUTPUTS: self._serialize_inputs_outputs(root_span.outputs),
+                TraceMetadataKey.NAME: root_span.name,
+                TraceMetadataKey.INPUTS: self._serialize_inputs_outputs(root_span.inputs),
+                TraceMetadataKey.OUTPUTS: self._serialize_inputs_outputs(root_span.outputs),
             }
         )
 

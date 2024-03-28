@@ -200,8 +200,8 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def get_trace_info_endpoint(trace_id):
-    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{trace_id}/info"
+def get_trace_info_endpoint(request_id):
+    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}/info"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):

@@ -1,5 +1,5 @@
 # NB: These keys are placeholders and subject to change
-class TraceAttributeKey:
+class TraceMetadataKey:
     NAME = "name"
     INPUTS = "inputs"
     OUTPUTS = "outputs"

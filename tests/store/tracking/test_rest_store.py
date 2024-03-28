@@ -15,8 +15,6 @@ from mlflow.entities import (
     Param,
     RunTag,
     SourceType,
-    TraceRequestMetadata,
-    TraceTag,
     ViewType,
 )
 from mlflow.exceptions import MlflowException
@@ -212,14 +210,14 @@ def test_requestor():
             timestamp_ms=123,
             execution_time_ms=456,
             status="OK",
-            request_metadata=[
-                TraceRequestMetadata("key1", "val1"),
-                TraceRequestMetadata("key2", "val2"),
-            ],
-            tags=[
-                TraceTag("tag1", "va1"),
-                TraceTag("tag2", "va2"),
-            ],
+            request_metadata={
+                "key1": "val1",
+                "key2": "val2",
+            },
+            tags={
+                "tag1": "va1",
+                "tag2": "va2",
+            },
         )
         body = message_to_json(
             CreateTrace(
