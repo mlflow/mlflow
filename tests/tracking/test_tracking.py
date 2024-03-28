@@ -1178,3 +1178,34 @@ def test_log_table_with_invalid_image_columns():
         with mlflow.start_run():
             # Log the dictionary as a table
             mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_table_with_valid_image_columns():
+    class ImageObj:
+        def __init__(self):
+            self.size = (1, 1)
+
+        def resize(self, size):
+            return self
+
+        def save(self, path):
+            with open(path, "w+") as f:
+                f.write("dummy data")
+
+    image_obj = ImageObj()
+    image = mlflow.Image([[1, 2, 3]])
+
+    table_dict = {
+        "inputs": ["What is MLflow?", "What is Databricks?"],
+        "outputs": ["MLflow is ...", "Databricks is ..."],
+        "image": [image, image_obj],
+    }
+    # No error should be raised
+    artifact_file = "test_time.json"
+    with mlflow.start_run():
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)

@@ -1731,13 +1731,6 @@ class MlflowClient:
         # Check if the column is a `PIL.Image.Image` or `mlflow.Image` object
         # and save filepath
         if len(data.select_dtypes(include=["object"]).columns) > 0:
-            try:
-                from PIL import Image
-            except ImportError as exc:
-                raise ImportError(
-                    "`log_table` requires Pillow to verify if column contains PIL Image. "
-                    "Please install it via: pip install pillow"
-                ) from exc
 
             def process_image(image):
                 # remove extension from artifact_file
@@ -1762,10 +1755,17 @@ class MlflowClient:
                     "compressed_filepath": compressed_image_filepath,
                 }
 
-            for column in data.columns:
-                isImage = data[column].map(
-                    lambda x: isinstance(x, (Image.Image, mlflow.tracking.multimedia.Image))
+            def check_is_image_object(obj):
+                return (
+                    hasattr(obj, "save")
+                    and callable(getattr(obj, "save"))
+                    and hasattr(obj, "resize")
+                    and callable(getattr(obj, "resize"))
+                    and hasattr(obj, "size")
                 )
+
+            for column in data.columns:
+                isImage = data[column].map(lambda x: check_is_image_object(x))
                 if any(isImage) and not all(isImage):
                     raise ValueError(
                         f"Column `{column}` contains a mix of images and non-images. "
