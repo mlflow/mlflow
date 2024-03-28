@@ -102,6 +102,7 @@ def build(skinny: bool) -> None:
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "xethub": ["mlflow-xethub"],
+                "jfrog": ["mlflow-jfrog-plugin"],
             },
             "urls": {
                 "homepage": "https://mlflow.org",
