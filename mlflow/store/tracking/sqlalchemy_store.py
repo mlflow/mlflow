@@ -10,7 +10,7 @@ from typing import List, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, func, sql, text
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -654,6 +654,15 @@ class SqlAlchemyStore(AbstractStore):
             run.lifecycle_stage = LifecycleStage.DELETED
             run.deleted_time = get_current_time_millis()
             session.add(run)
+
+    def delete_runs(self, run_ids):
+        with self.ManagedSessionMaker() as session:
+            conditions = SqlRun.run_uuid.in_(run_ids)
+            runs = session.query(SqlRun).filter(conditions).all()
+            for run in runs:
+                run.lifecycle_stage = LifecycleStage.DELETED
+                run.deleted_time = get_current_time_millis()
+                session.add(run)
 
     def _hard_delete_run(self, run_id):
         """
