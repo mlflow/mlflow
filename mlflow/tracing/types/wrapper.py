@@ -17,7 +17,7 @@ class MLflowSpanWrapper:
     Span object, so need to implement the same interfaces as the original Span.
     """
 
-    def __init__(self, span: trace_api.Span, span_type: SpanType = SpanType.UNKNOWN):
+    def __init__(self, span: trace_api.Span, span_type: str = SpanType.UNKNOWN):
         self._span = span
         self._span_type = span_type
         self._inputs = None
@@ -93,7 +93,7 @@ class MLflowSpanWrapper:
         if not isinstance(key, str):
             _logger.warning(f"Attribute key must be a string, but got {type(key)}. Skipping.")
             return
-        self.set_attributes({key: value})
+        self._attributes[key] = value
 
     def set_status(self, status: SpanStatus):
         # NB: We need to set the OpenTelemetry native StatusCode, because span's set_status

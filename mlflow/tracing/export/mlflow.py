@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -84,21 +84,21 @@ class MLflowSpanExporter(SpanExporter):
         # TODO: Make this async
         self._client.log_trace(trace)
 
-    def _serialize_inputs_outputs(self, input_or_output: Optional[Dict[str, Any]]) -> str:
+    def _serialize_inputs_outputs(self, input_or_output: Optional[Any]) -> str:
         """
         Serialize inputs or outputs field of the span to a string, and truncate if necessary.
         """
         if not input_or_output:
             return ""
 
-        if type(input_or_output) is str:
-            serialized = input_or_output
-        else:
-            try:
-                serialized = json.dumps(input_or_output)
-            except TypeError:
-                # If not JSON-serializable, use string representation
-                serialized = str(input_or_output)
+        try:
+            serialized = json.dumps(input_or_output, default=str)
+        except TypeError:
+            # If not JSON/string serializable, raise a warning and return an empty string
+            _logger.warning(
+                "Failed to serialize inputs/outputs for a trace, an empty string will be recorded."
+            )
+            return ""
 
         if len(serialized) > MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE:
             trunc_length = MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(TRUNCATION_SUFFIX)

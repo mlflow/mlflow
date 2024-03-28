@@ -27,6 +27,7 @@ def test_json_deserialization(mock_trace_client):
             name="add_one_with_custom_name",
             attributes={
                 "delta": 1,
+                "metadata": {"foo": "bar"},
                 # Test for non-json-serializable input
                 "datetime": datetime_now,
             },
@@ -90,6 +91,7 @@ def test_json_deserialization(mock_trace_client):
                     "attributes": {
                         "delta": 1,
                         "datetime": str(datetime_now),
+                        "metadata": '{"foo": "bar"}',
                         "function_name": "add_one",
                     },
                     "events": [],
