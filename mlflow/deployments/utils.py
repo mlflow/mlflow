@@ -53,14 +53,14 @@ def resolve_endpoint_url(base_url: str, endpoint: str) -> str:
     return endpoint if _is_valid_uri(endpoint) else append_to_uri_path(base_url, endpoint)
 
 
-def set_deployments_target(target: str):
+def set_deployments_target(target: Optional[str]):
     """Sets the target deployment client for MLflow deployments
 
     Args:
         target: The full uri of a running MLflow deployments server or, if running on
             Databricks, "databricks".
     """
-    if not _is_valid_target(target):
+    if target is not None and not _is_valid_target(target):
         raise MlflowException.invalid_parameter_value(
             "The target provided is not a valid uri or 'databricks'"
         )

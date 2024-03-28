@@ -1,12 +1,18 @@
 from unittest import mock
 
 import pandas as pd
+import pytest
 
+from mlflow.deployments import set_deployments_target
 from mlflow.entities.param import Param
-from mlflow.gateway import set_gateway_uri
 from mlflow.promptlab import _PromptlabModel
 
-set_gateway_uri("http://localhost:5000")
+
+@pytest.fixture(autouse=True, scope="module")
+def set_target():
+    set_deployments_target("http://localhost:5000")
+    yield
+    set_deployments_target(None)
 
 
 def construct_model(route):
@@ -28,17 +34,18 @@ def test_promptlab_prompt_replacement():
     )
 
     model = construct_model("completions")
-    get_route_patch = mock.patch(
-        "mlflow.gateway.get_route", return_value=mock.Mock(route_type="llm/v1/completions")
-    )
-
-    with get_route_patch, mock.patch("mlflow.gateway.query") as mock_query:
+    with mock.patch(
+        "mlflow.deployments.mlflow.MlflowDeploymentClient.get_endpoint",
+        return_value=mock.Mock(endpoint_type="llm/v1/completions"),
+    ) as mock_get_endpoint, mock.patch(
+        "mlflow.deployments.mlflow.MlflowDeploymentClient.predict"
+    ) as mock_query:
         model.predict(data)
-
+        mock_get_endpoint.assert_called()
         calls = [
             mock.call(
-                route="completions",
-                data={
+                endpoint="completions",
+                inputs={
                     "prompt": f"Write me a story about {thing}.",
                     "temperature": 0.5,
                     "max_tokens": 10,
@@ -57,14 +64,16 @@ def test_promptlab_works_with_chat_route():
         ]
     }
     model = construct_model("chat")
-    get_route_patch = mock.patch(
-        "mlflow.gateway.get_route",
-        return_value=mock.Mock(route_type="llm/v1/chat"),
-    )
 
-    with get_route_patch, mock.patch("mlflow.gateway.query", return_value=mock_response):
+    with mock.patch(
+        "mlflow.deployments.mlflow.MlflowDeploymentClient.get_endpoint",
+        return_value=mock.Mock(endpoint_type="llm/v1/chat"),
+    ) as mock_get_endpoint, mock.patch(
+        "mlflow.deployments.mlflow.MlflowDeploymentClient.predict", return_value=mock_response
+    ) as mock_predict:
         response = model.predict(pd.DataFrame(data=[{"thing": "books"}]))
-
+        mock_get_endpoint.assert_called()
+        mock_predict.assert_called()
         assert response == ["test"]
 
 
@@ -78,11 +87,13 @@ def test_promptlab_works_with_completions_route():
         ]
     }
     model = construct_model("completions")
-    get_route_patch = mock.patch(
-        "mlflow.gateway.get_route", return_value=mock.Mock(route_type="llm/v1/completions")
-    )
-
-    with get_route_patch, mock.patch("mlflow.gateway.query", return_value=mock_response):
+    with mock.patch(
+        "mlflow.deployments.mlflow.MlflowDeploymentClient.get_endpoint",
+        return_value=mock.Mock(endpoint_type="llm/v1/completions"),
+    ) as mock_get_endpoint, mock.patch(
+        "mlflow.deployments.mlflow.MlflowDeploymentClient.predict", return_value=mock_response
+    ) as mock_predict:
         response = model.predict(pd.DataFrame(data=[{"thing": "books"}]))
-
+        mock_get_endpoint.assert_called()
+        mock_predict.assert_called()
         assert response == ["test"]

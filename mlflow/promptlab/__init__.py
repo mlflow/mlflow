@@ -18,7 +18,9 @@ class _PromptlabModel:
         self.prompt_template = prompt_template
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
-        from mlflow.gateway import query
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client()
 
         results = []
         for idx in inputs.index:
@@ -31,44 +33,48 @@ class _PromptlabModel:
             for key, value in prompt_parameters_as_dict.items():
                 prompt = re.sub(r"\{\{\s*" + key + r"\s*\}\}", value, prompt)
 
-            model_parameters_as_dict = {param.key: param.value for param in self.model_parameters}
+            model_parameters_as_dict = {
+                param.key: param.value
+                for param in self.model_parameters
+                if param.key != "route_type"
+            }
             query_data = self._construct_query_data(prompt)
 
-            response = query(
-                route=self.model_route, data={**query_data, **model_parameters_as_dict}
+            response = client.predict(
+                endpoint=self.model_route, inputs={**query_data, **model_parameters_as_dict}
             )
             results.append(self._parse_gateway_response(response))
 
         return results
 
     def _construct_query_data(self, prompt):
-        from mlflow.gateway import get_route
+        from mlflow.deployments import get_deploy_client
 
-        route_type = get_route(self.model_route).route_type
+        endpoint_type = get_deploy_client().get_endpoint(self.model_route).endpoint_type
 
-        if route_type == "llm/v1/completions":
+        if endpoint_type == "llm/v1/completions":
             return {"prompt": prompt}
-        elif route_type == "llm/v1/chat":
+        elif endpoint_type == "llm/v1/chat":
             return {"messages": [{"content": prompt, "role": "user"}]}
         else:
             raise MlflowException(
                 "Error when constructing gateway query: "
-                f"Unsupported route type for _PromptlabModel: {route_type}"
+                f"Unsupported route type for _PromptlabModel: {endpoint_type}"
             )
 
     def _parse_gateway_response(self, response):
-        from mlflow.gateway import get_route
+        from mlflow.deployments import get_deploy_client
 
-        route_type = get_route(self.model_route).route_type
+        endpoint_type = get_deploy_client().get_endpoint(self.model_route).endpoint_type
 
-        if route_type == "llm/v1/completions":
+        if endpoint_type == "llm/v1/completions":
             return response["choices"][0]["text"]
-        elif route_type == "llm/v1/chat":
+        elif endpoint_type == "llm/v1/chat":
             return response["choices"][0]["message"]["content"]
         else:
             raise MlflowException(
                 "Error when parsing gateway response: "
-                f"Unsupported route type for _PromptlabModel: {route_type}"
+                f"Unsupported route type for _PromptlabModel: {endpoint_type}"
             )
 
 
