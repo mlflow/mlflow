@@ -602,13 +602,13 @@ Example:
             "t5-small", model_max_length=100
         ),
         framework="pt",
-        torch_dtype=torch.bfloat16,
     )
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=my_pipeline,
             artifact_path="my_pipeline",
+            torch_dtype=torch.bfloat16,
         )
 
     # Illustrate that the torch data type is recorded in the flavor configuration
@@ -651,13 +651,13 @@ Example:
             "t5-small", model_max_length=100
         ),
         framework="pt",
-        torch_dtype=torch.bfloat16,
     )
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=my_pipeline,
             artifact_path="my_pipeline",
+            torch_dtype=torch.bfloat16,
         )
 
     loaded_pipeline = mlflow.transformers.load_model(

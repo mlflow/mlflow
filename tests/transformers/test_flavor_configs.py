@@ -57,6 +57,7 @@ def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
         "source_model_name": "csarron/mobilebert-uncased-squad-v2",
         # "source_model_revision": "SOME_COMMIT_SHA",
         "framework": "pt",
+        "torch_dtype": "torch.float32",
         "components": ["tokenizer"],
         "tokenizer_type": "MobileBertTokenizerFast",
         "tokenizer_name": "csarron/mobilebert-uncased-squad-v2",
@@ -66,6 +67,13 @@ def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
     assert len(conf.pop("source_model_revision")) == 40
     assert len(conf.pop("tokenizer_revision")) == 40
     assert conf == expected
+
+
+def test_flavor_config_torch_dtype_overridden_when_specified(small_qa_pipeline):
+    import torch
+
+    conf = build_flavor_config(small_qa_pipeline, torch_dtype=torch.float16, save_pretrained=False)
+    assert conf["torch_dtype"] == "torch.float16"
 
 
 def test_flavor_config_component_multi_modal(multi_modal_pipeline):
@@ -89,7 +97,7 @@ def test_flavor_config_component_multi_modal(multi_modal_pipeline):
 def test_flavor_config_component_multi_modal_save_pretrained_false(multi_modal_pipeline):
     pipeline, task, processor, expected_components = multi_modal_pipeline
 
-    conf = build_flavor_config(pipeline, processor, False)
+    conf = build_flavor_config(pipeline, processor, save_pretrained=False)
 
     assert "model_binary" not in conf
     assert conf["pipeline_model_type"] == "ViltForQuestionAnswering"

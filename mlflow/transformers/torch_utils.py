@@ -15,28 +15,17 @@ def _extract_torch_dtype_if_set(pipeline) -> Optional[torch.dtype]:
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
-    if torch_dtype := getattr(pipeline, _TORCH_DTYPE_KEY, None):
-        # Torch dtype value may be a string or a torch.dtype instance
-        if isinstance(torch_dtype, str):
-            torch_dtype = _deserialize_torch_dtype(torch_dtype)
-        return torch_dtype
-
     try:
         import torch
     except ImportError:
         # If torch is not installed, safe to assume the model doesn't have a custom torch_dtype
         return None
 
-    # Transformers pipeline doesn't inherit underlying model's dtype, so we have to also check
-    # the model's dtype.
-    model = pipeline.model
-    model_dtype = getattr(model.config, _TORCH_DTYPE_KEY, None) or getattr(model, "dtype", None)
+    # Check model dtype as pipeline's torch_dtype field doesn't always reflect the model's dtype
+    model_dtype = pipeline.model.dtype if hasattr(pipeline.model, "dtype") else None
 
-    # However, we should not extract dtype from parameters if it's default one (float32),
-    # to avoid setting torch_dtype for the model that doesn't support it.
-    if isinstance(model_dtype, str):
-        model_dtype = _deserialize_torch_dtype(model_dtype)
-    return model_dtype if model_dtype != torch.float32 else None
+    # If the underlying model is PyTorch model, dtype must be a torch.dtype instance
+    return model_dtype if isinstance(model_dtype, torch.dtype) else None
 
 
 def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
