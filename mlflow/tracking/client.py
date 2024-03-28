@@ -27,13 +27,13 @@ from mlflow.entities import (
     Run,
     RunTag,
     SpanStatus,
+    SpanType,
     TraceInfo,
     TraceStatus,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
