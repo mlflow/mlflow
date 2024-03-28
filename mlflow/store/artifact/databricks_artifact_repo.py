@@ -1,8 +1,12 @@
 import base64
+import json
 import logging
 import os
 import posixpath
+import tempfile
 import uuid
+from pathlib import Path
+from typing import Any, Dict
 
 import requests
 
@@ -26,6 +30,8 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     CreateMultipartUpload,
     DatabricksMlflowArtifactsService,
     GetCredentialsForRead,
+    GetCredentialsForTraceDataDownload,
+    GetCredentialsForTraceDataUpload,
     GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
     PartEtag,
@@ -106,20 +112,31 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             or mlflow.tracking.get_tracking_uri()
         )
         self.run_id = self._extract_run_id(self.artifact_uri)
-        # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
-        # the path of `artifact_uri` relative to the MLflow Run's artifact root
-        # (the `run_relative_artifact_repo_root_path`). All operations performed on this artifact
-        # repository will be performed relative to this computed location
-        artifact_repo_root_path = extract_and_normalize_path(artifact_uri)
-        run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
-        run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
-        run_relative_root_path = posixpath.relpath(
-            path=artifact_repo_root_path, start=run_artifact_root_path
-        )
-        # If the paths are equal, then use empty string over "./" for ListArtifact compatibility.
-        self.run_relative_artifact_repo_root_path = (
-            "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
-        )
+        self._run_relative_artifact_repo_root_path = None
+
+    @property
+    def run_relative_artifact_repo_root_path(self):
+        """
+        Lazily computes the run-relative artifact repository root path to skip the run existence
+        check when downloading/uploading trace data.
+        """
+        if self._run_relative_artifact_repo_root_path is None:
+            # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
+            # the path of `artifact_uri` relative to the MLflow Run's artifact root
+            # (the `run_relative_artifact_repo_root_path`). All operations performed on this
+            # artifact repository will be performed relative to this computed location
+            artifact_repo_root_path = extract_and_normalize_path(self.artifact_uri)
+            run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
+            run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
+            run_relative_root_path = posixpath.relpath(
+                path=artifact_repo_root_path, start=run_artifact_root_path
+            )
+            # If the paths are equal, then use empty string over "./" for ListArtifact compatibility
+            self._run_relative_artifact_repo_root_path = (
+                "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
+            )
+
+        return self._run_relative_artifact_repo_root_path
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -138,9 +155,23 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         artifact_path = extract_and_normalize_path(artifact_uri)
         return artifact_path.split("/")[3]
 
-    def _call_endpoint(self, service, api, json_body):
+    def _call_endpoint(self, service, api, json_body=None, path_params=None):
+        """
+        Calls the specified REST endpoint with the specified JSON body and path parameters.
+
+        Args:
+            service: The service to call.
+            api: The API to call.
+            json_body: The JSON body of the request.
+            path_params: The path parameters to substitute into the endpoint URI.
+
+        Returns:
+            The response from the REST endpoint.
+        """
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
+        if path_params:
+            endpoint = endpoint.format(**path_params)
         response_proto = api.Response()
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
 
@@ -195,6 +226,62 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return self._get_credential_infos(
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
+
+    def download_trace_data(self) -> Dict[str, Any]:
+        cred = self._call_endpoint(
+            DatabricksMlflowArtifactsService,
+            GetCredentialsForTraceDataDownload,
+            path_params={"request_id": self.run_id},
+        )
+        signed_uri = cred.credential_info.signed_uri
+        headers = self._extract_headers_from_credentials(cred.credential_info.headers)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_path = Path(temp_dir, "traces.json")
+            download_file_using_http_uri(
+                signed_uri,
+                local_path,
+                headers=headers,
+            )
+            with local_path.open("r") as f:
+                s = f.read()
+                try:
+                    return json.loads(s)
+                except json.JSONDecodeError as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Failed to parse trace data:\n{s}"
+                    ) from e
+
+    def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
+        cred = self._call_endpoint(
+            DatabricksMlflowArtifactsService,
+            GetCredentialsForTraceDataUpload,
+            path_params={"request_id": self.run_id},
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, "traces.json")
+            with temp_file.open("w") as f:
+                json.dump(trace_data, f)
+
+            if cred.credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+                signed_uri = cred.credential_info.signed_uri
+                headers = self._extract_headers_from_credentials(cred.credential_info.headers)
+                size = temp_file.stat().st_size
+                put_adls_file_creation(sas_url=signed_uri, headers=headers)
+                patch_adls_file_upload(
+                    sas_url=signed_uri,
+                    local_file=temp_file,
+                    start_byte=0,
+                    size=size,
+                    position=0,
+                    headers=headers,
+                    is_single=True,
+                )
+            elif (
+                cred.credential_info.type == ArtifactCredentialType.AZURE_SAS_URI
+                or cred.credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL
+                or cred.credential_info.type == ArtifactCredentialType.GCP_SIGNED_URL
+            ):
+                self._signed_url_upload_file(cred.credential_info, temp_file)
 
     def _get_read_credential_infos(self, remote_file_paths):
         """

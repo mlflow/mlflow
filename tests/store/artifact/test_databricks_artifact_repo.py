@@ -18,6 +18,7 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     CompleteMultipartUpload,
     CreateMultipartUpload,
     GetCredentialsForRead,
+    GetCredentialsForTraceDataUpload,
     GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
 )
@@ -27,6 +28,7 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _MAX_CREDENTIALS_REQUEST_SIZE,
     DatabricksArtifactRepository,
 )
+from mlflow.tracing.types.model import TraceData
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"
@@ -1480,3 +1482,66 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
             headers={"header": "abort"},
             timeout=None,
         )
+
+
+class MockResponse:
+    def __init__(self, content: bytes):
+        self.content = content
+
+    def iter_content(self, chunk_size):
+        yield self.content
+
+    def close(self):
+        pass
+
+    def raise_for_status(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_download_trace_data(databricks_artifact_repo, cred_type):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=cred_type,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        return_value=cred,
+    ), mock.patch("requests.Session.request", return_value=MockResponse(b'{"spans": []}')):
+        trace_data = databricks_artifact_repo.download_trace_data()
+        assert TraceData.from_dict(trace_data) == TraceData(spans=[])
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_upload_trace_data(databricks_artifact_repo, cred_type):
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI, type=cred_type)
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        return_value=cred,
+    ), mock.patch("requests.Session.request", return_value=MockResponse(b"{}")):
+        trace_data = TraceData(spans=[]).dict()
+        databricks_artifact_repo.upload_trace_data(trace_data)
