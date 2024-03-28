@@ -1,6 +1,5 @@
-import json
 from dataclasses import asdict, dataclass, field
-from typing import List
+from typing import Any, Dict, List
 
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.span import Span
@@ -20,5 +19,5 @@ class TraceData(_MLflowObject):
     def from_dict(cls, d):
         return cls(spans=[Span(**span) for span in d["spans"]])
 
-    def to_json(self) -> str:
-        return json.dumps(asdict(self))
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)

@@ -147,7 +147,12 @@ class MLflowSpanWrapper:
             # Convert from MappingProxyType to dict for serialization
             attributes=dict(self._span.attributes),
             events=[
-                SpanEvent(event.name, event.timestamp, event.attributes)
+                SpanEvent(
+                    name=event.name,
+                    timestamp=event.timestamp,
+                    # Convert from OpenTelemetry's BoundedAttributes class to a simple dict
+                    attributes=dict(event.attributes),
+                )
                 for event in self._span.events
             ],
         )
