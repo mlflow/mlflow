@@ -85,7 +85,7 @@ def test_export():
     assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 
     outputs = trace_info.request_metadata[TraceMetadataKey.OUTPUTS]
-    assert outputs.startswith("very long output")
+    assert outputs.startswith('"very long output')
     assert outputs.endswith(TRUNCATION_SUFFIX)
     assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 
@@ -99,10 +99,11 @@ def test_export():
 def test_serialize_inputs_outputs():
     exporter = MLflowSpanExporter(MagicMock())
     assert exporter._serialize_inputs_outputs({"x": 1, "y": 2}) == '{"x": 1, "y": 2}'
+    assert exporter._serialize_inputs_outputs("string input") == '"string input"'
     # Truncate long inputs
     assert len(exporter._serialize_inputs_outputs({"x": "very long input" * 100})) == 300
     # non-JSON-serializable inputs
     assert (
         exporter._serialize_inputs_outputs({"input": pd.DataFrame({"x": [1], "y": [2]})})
-        == "{'input':    x  y\n0  1  2}"
+        == '{"input": "   x  y\\n0  1  2"}'
     )

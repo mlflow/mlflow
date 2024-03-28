@@ -91,7 +91,7 @@ def test_json_deserialization(mock_trace_client):
                     "attributes": {
                         "delta": 1,
                         "datetime": str(datetime_now),
-                        "metadata": '{"foo": "bar"}',
+                        "metadata": {"foo": "bar"},
                         "function_name": "add_one",
                     },
                     "events": [],
