@@ -48,6 +48,9 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "sentence_transformers"
+_TRANSFORMER_SOURCE_MODEL_NAME_KEY = "source_model_name"
+_TRANSFORMER_MODEL_TYPE_KEY = "pipeline_model_type"
+
 SENTENCE_TRANSFORMERS_DATA_PATH = "model.sentence_transformer"
 _INFERENCE_CONFIG_PATH = "inference_config"
 _LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
@@ -206,10 +209,12 @@ def save_model(
         model_config=model_config,
         code=code_dir_subpath,
     )
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         sentence_transformers_version=sentence_transformers.__version__,
         code=code_dir_subpath,
+        **_get_transformers_model_metadata(model),
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -240,6 +245,30 @@ def save_model(
     write_to(str(path.joinpath(_REQUIREMENTS_FILE_NAME)), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
+
+
+def _get_transformers_model_metadata(model) -> Dict[str, str]:
+    """
+    Extract metadata about the underlying Transformers model, such as the model class name
+    and the repository id.
+
+    Args:
+        model: A SentenceTransformer model instance.
+
+    Returns:
+        A dictionary containing metadata about the Transformers model.
+    """
+    from sentence_transformers.models import Transformer
+
+    # NB: We assume the SentenceTransformer model contains only up to one Transformer model.
+    for module in model.modules():
+        if isinstance(module, Transformer):
+            model_instance = module.auto_model
+            return {
+                _TRANSFORMER_SOURCE_MODEL_NAME_KEY: model_instance.name_or_path,
+                _TRANSFORMER_MODEL_TYPE_KEY: model_instance.__class__.__name__,
+            }
+    return {}
 
 
 @experimental
