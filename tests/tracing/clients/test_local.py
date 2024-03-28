@@ -1,4 +1,4 @@
-from mlflow.entities import SpanStatus, Trace, TraceInfo, TraceStatus
+from mlflow.entities import SpanStatus, Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.tracing.clients import InMemoryTraceClient
 
 
@@ -13,10 +13,10 @@ def test_log_and_get_trace(monkeypatch, create_trace):
                 timestamp_ms=0,
                 execution_time_ms=1,
                 status=SpanStatus(TraceStatus.OK),
-                request_metadata=[],
-                tags=[],
+                request_metadata={},
+                tags={},
             ),
-            trace_data=[],
+            trace_data=TraceData(),
         )
 
     client = InMemoryTraceClient.get_instance()

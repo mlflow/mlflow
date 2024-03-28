@@ -1,7 +1,7 @@
 import pytest
 from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
-from mlflow.entities import Trace, TraceInfo, TraceStatus
+from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.tracing.clients.local import InMemoryTraceClient
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -54,5 +54,5 @@ def create_trace():
             request_metadata={},
             tags={},
         ),
-        trace_data=[],
+        trace_data=TraceData(),
     )

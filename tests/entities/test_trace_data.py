@@ -1,3 +1,5 @@
+import pytest
+
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -22,10 +24,10 @@ def test_json_deserialization(mock_trace_client):
             raise Exception("Error!")
 
     model = TestModel()
-    try:
+
+    # Verify the exception is not absorbed by the context manager
+    with pytest.raises(Exception, match="Error!"):
         model.predict(2, 5)
-    except Exception:
-        pass
 
     trace_data = mlflow.get_traces()[0].trace_data
     trace_data_dict = trace_data.to_dict()
