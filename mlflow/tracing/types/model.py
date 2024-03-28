@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Union
 
@@ -20,7 +21,13 @@ class Trace:
     trace_data: TraceData
 
     def to_json(self) -> str:
-        return json.dumps(asdict(self), default=str)
+        return json.dumps(
+            {
+                "trace_info": asdict(self.trace_info),
+                "trace_data": self.trace_data.json_dict(),
+            },
+            default=str,
+        )
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
@@ -72,6 +79,9 @@ class TraceData:
 
     spans: List[Span]
 
+    def json_dict(self):
+        return {"spans": [span.json_dict() for span in self.spans]}
+
 
 @dataclass
 class Span:
@@ -103,6 +113,23 @@ class Span:
     attributes: Optional[Dict[str, Any]] = None
     events: Optional[List[Event]] = None
 
+    def json_dict(self) -> Dict[str, Union[str, Dict[str, Any]]]:
+        return {
+            "name": self.name,
+            "context": asdict(self.context),
+            "parent_span_id": self.parent_span_id,
+            "span_type": str(self.span_type),
+            "status": self.status.json_dict(),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "inputs": json.dumps(self.inputs, default=str) if self.inputs else None,
+            "outputs": json.dumps(self.outputs, default=str) if self.outputs else None,
+            "attributes": json.dumps(self.attributes, cls=CustomEncoder)
+            if self.attributes
+            else None,
+            "events": [event.json_dict() for event in self.events] if self.events else None,
+        }
+
 
 @dataclass
 class SpanContext:
@@ -133,7 +160,6 @@ class SpanType:
     CHAIN = "CHAIN"
     AGENT = "AGENT"
     TOOL = "TOOL"
-    CHAT_MODEL = "CHAT_MODEL"
     RETRIEVER = "RETRIEVER"
     PARSER = "PARSER"
     EMBEDDING = "EMBEDDING"
@@ -154,6 +180,12 @@ class Status:
     status_code: StatusCode
     description: str = ""
 
+    def json_dict(self):
+        return {
+            "status_code": str(self.status_code),
+            "description": self.description,
+        }
+
 
 # NB: Using the OpenTelemetry native StatusCode values here, because span's set_status
 #     method only accepts a StatusCode enum in their definition.
@@ -167,6 +199,9 @@ class StatusCode:
     UNSET = trace_api.StatusCode.UNSET
     OK = trace_api.StatusCode.OK
     ERROR = trace_api.StatusCode.ERROR
+
+    def __str__(self):
+        return str(self.value)
 
 
 @dataclass
@@ -183,3 +218,27 @@ class Event:
     name: str
     timestamp: Optional[int]
     attributes: Optional[Dict[str, Any]] = None
+
+    def json_dict(self):
+        return {
+            "name": self.name,
+            "timestamp": self.timestamp,
+            "attributes": json.dumps(self.attributes, cls=CustomEncoder)
+            if self.attributes
+            else None,
+        }
+
+
+class CustomEncoder(json.JSONEncoder):
+    """
+    Custom encoder to handle json serialization.
+    """
+
+    def default(self, o):
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        try:
+            return super().default(o)
+        # temp solution to avoid error in serialization
+        except TypeError:
+            return str(o)
