@@ -28,6 +28,7 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _MAX_CREDENTIALS_REQUEST_SIZE,
     DatabricksArtifactRepository,
 )
+from mlflow.tracing.types.model import TraceData
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"
@@ -1522,8 +1523,8 @@ def test_download_trace_data(databricks_artifact_repo, cred_type):
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         return_value=cred,
     ), mock.patch("requests.Session.request", return_value=MockResponse(b'{"spans": []}')):
-        trace = databricks_artifact_repo.download_trace_data()
-        assert trace == {"spans": []}
+        trace_data = databricks_artifact_repo.download_trace_data()
+        assert TraceData.from_dict(trace_data) == TraceData(spans=[])
 
 
 @pytest.mark.parametrize(
@@ -1542,4 +1543,5 @@ def test_upload_trace_data(databricks_artifact_repo, cred_type):
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         return_value=cred,
     ), mock.patch("requests.Session.request", return_value=MockResponse(b"{}")):
-        databricks_artifact_repo.upload_trace_data({"spans": []})
+        trace_data = TraceData(spans=[]).dict()
+        databricks_artifact_repo.upload_trace_data(trace_data)
