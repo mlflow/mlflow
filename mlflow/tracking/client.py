@@ -1670,8 +1670,8 @@ class MlflowClient:
                 "outputs": ["MLflow is ...", "Databricks is ..."],
                 "toxicity": [0.0, 0.0],
             }
-            client = MlflowClient()
             with mlflow.start_run() as run:
+                client = MlflowClient()
                 client.log_table(
                     run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
                 )
@@ -1690,8 +1690,8 @@ class MlflowClient:
                 "toxicity": [0.0, 0.0],
             }
             df = pd.DataFrame.from_dict(table_dict)
-            client = MlflowClient()
             with mlflow.start_run() as run:
+                client = MlflowClient()
                 client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
 
         .. code-block:: python
@@ -1708,8 +1708,8 @@ class MlflowClient:
                 "outputs": [image, image],
             }
             df = pd.DataFrame.from_dict(table_dict)
-            client = MlflowClient()
             with mlflow.start_run() as run:
+                client = MlflowClient()
                 client.log_table(run.info.run_id, data=df, artifact_file="image_gen.json")
         """
         import pandas as pd
@@ -1748,7 +1748,7 @@ class MlflowClient:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as artifact_path:
                     compressed_image.save(artifact_path)
 
-                # store a dictionary object indicating its an image path
+                # return a dictionary object indicating its an image path
                 return {
                     "type": "image",
                     "filepath": image_filepath,
