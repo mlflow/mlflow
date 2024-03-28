@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import SpanType
+from mlflow.entities import Trace
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
@@ -21,15 +22,19 @@ def trace(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
-):
+) -> Callable:
     """
-    Decorator that create a new span for the decorated function.
+    A decorator that create a new span for the decorated function.
 
-    The span will automatically captures the input and output of the function. When it is applied to
-    a method, it doesn't capture the `self` argument.
+    When you decorate a function with this :py:func:`@mlflow.trace() <trace>` decorator,
+    a span will be created for the scope of the decorated function. The span will automatically
+    capture the input and output of the function. When it is applied to a method, it doesn't
+    capture the `self` argument. Any exception raised within the function will set the span
+    status to ``ERROR`` and detailed information such as exception message and stacktrace
+    will be recorded to the ``attributes`` field of the span.
 
-    For example, the following code will yield a span with the name "my_function", capturing the
-    input arguments `x` and `y`, and the output of the function.
+    For example, the following code will yield a span with the name ``"my_function"``,
+    capturing the input arguments ``x`` and ``y``, and the output of the function.
 
     .. code-block:: python
 
@@ -37,7 +42,8 @@ def trace(
         def my_function(x, y):
             return x + y
 
-    Also this can be directly applied to a function call like this:
+    This is equivalent to doing the following using the :py:func:`mlflow.start_span` context
+    manager, but requires less boilerplate code.
 
     .. code-block:: python
 
@@ -45,17 +51,32 @@ def trace(
             return x + y
 
 
-        mlflow.trace(my_function)(1, 2)
+        with mlflow.start_span("my_function") as span:
+            span.set_inputs({"x": x, "y": y})
+            result = my_function(x, y)
+            span.set_outputs({"output": result})
 
-    This works same as the previous example, but can be useful when you want to trace a function
-    that is not defined by yourself.
+
+    .. tip::
+
+        The @mlflow.trace decorator is useful when you want to trace a function defined by
+        yourself. However, you may also want to trace a function in external libraries. In
+        such case, you can use this ``mlflow.trace()`` function to directly wrap the function,
+        instead of using as the decorator. This will creates an exact same span as the
+        one created by the decorator i.e. captures information from the function call.
+
+        .. code-block:: python
+
+            from some.external.library import predict
+
+            mlflow.trace(predict)(1, 2)
 
     Args:
-        func: The function to be decorated. Must not be provided when using as a decorator.
+        func: The function to be decorated. Must **not** be provided when using as a decorator.
         name: The name of the span. If not provided, the name of the function will be used.
-        span_type: The type of the span. Can be either a string or a SpanType enum value.
+        span_type: The type of the span. Can be either a string or a
+            :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
         attributes: A dictionary of attributes to set on the span.
-        tags: A string tag that can be attached to the span.
     """
 
     def decorator(fn):
@@ -84,21 +105,59 @@ def start_span(
     """
     Context manager to create a new span and start it as the current span in the context.
 
-    Example:
+    This context manager automatically manages the span lifecycle and parent-child relationships.
+    The span will be ended when the context manager exists. Any exception raised within the
+    context manager will set the span status to ``ERROR``, and detailed information such as
+    exception message and stacktrace will be recorded to the ``attributes`` field of the span.
+    New spans can be created within the context manager, then they will be assigned as children
+    spans.
 
     .. code-block:: python
 
         with mlflow.start_span("my_span") as span:
             span.set_inputs({"x": 1, "y": 2})
+
             z = x + y
+
             span.set_outputs(z)
             span.set_attribute("key", "value")
             # do something
 
+    When this context manager is used in the top-level scope, i.e. not within another span context,
+    the span will be treated as a root span. The root span doesn't have a parent reference and
+    **the entire trace will be logged when the root span is ended**.
+
+
+    .. tip::
+
+        If you want more explicit control over the trace lifecycle, you can use
+        :py:func:`MLflow Client APIs <mlflow.client.MlflowClient.start_trace>`. It provides lower
+        level to start and end traces manually, as well as setting the parent spans explicitly.
+        However, it is generally recommended to use this context manager as long as it satisfies
+        your requirements, because it requires less boilerplate code and is less error-prone.
+
+    .. note::
+
+        The context manager doesn't propagate the span context across threads. If you want to create
+        a child span in a different thread, you should use
+        :py:func:`MLflow Client APIs <mlflow.client.MlflowClient.start_trace>`
+        and pass the parent span ID explicitly.
+
+    .. note::
+
+        All spans created under the root span (i.e. a single trace) are buffered in memory and
+        not exported until the root span is ended. The buffer has a default size of 1000 traces
+        and TTL of 1 hour. You can configure the buffer size and TTL using the environment variables
+        ``MLFLOW_TRACE_BUFFER_MAX_SIZE`` and ``MLFLOW_TRACE_BUFFER_TTL_SECONDS`` respectively.
+
     Args:
         name: The name of the span.
-        span_type: The type of the span. Can be either a string or a SpanType enum value.
+        span_type: The type of the span. Can be either a string or
+            a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
         attributes: A dictionary of attributes to set on the span.
+
+    Returns:
+        Yields an :py:class:`mlflow.tracing.MLflowSpanWrapper` that represents the created span.
     """
     # TODO: refactor this logic
     try:
@@ -127,7 +186,7 @@ def start_span(
         mlflow_span.end()
 
 
-def get_traces(n: int = 1) -> List:
+def get_traces(n: int = 1) -> List[Trace]:
     """
     Get the last n traces.
 
@@ -135,7 +194,7 @@ def get_traces(n: int = 1) -> List:
         n: The number of traces to return.
 
     Returns:
-        A list of Trace objects.
+        A list of :py:class:`mlflow.entities.Trace` objects.
     """
     from mlflow.tracing.clients import get_trace_client
 
