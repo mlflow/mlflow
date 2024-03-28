@@ -48,11 +48,18 @@ class Provider(str, Enum):
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
     MISTRAL = "mistral"
+    TOGETHERAI = "togetherai"
 
     @classmethod
     def values(cls):
         return {p.value for p in cls}
 
+class TogetherAIConfig(ConfigModel):
+    togetherai_api_key: str
+
+    @validator("togetherai_api_key", pre=True)
+    def validate_togetherai_api_key(cls, value): 
+        return _resolve_api_key_from_input(value)
 
 class RouteType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
@@ -232,6 +239,7 @@ config_types = {
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
     Provider.MISTRAL: MistralConfig,
+    Provider.TOGETHERAI: TogetherAIConfig,
 }
 
 
@@ -291,6 +299,7 @@ class Model(ConfigModel):
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
             MistralConfig,
+            TogetherAIConfig,
         ]
     ] = None
 
@@ -520,3 +529,5 @@ def _validate_config(config_path: str) -> GatewayConfig:
         return _load_route_config(config_path)
     except ValidationError as e:
         raise MlflowException.invalid_parameter_value(f"Invalid gateway configuration: {e}") from e
+
+
