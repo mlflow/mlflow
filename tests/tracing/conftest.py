@@ -1,3 +1,6 @@
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 import pytest
 from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
@@ -46,12 +49,12 @@ def mock_client():
 def create_trace():
     return lambda id: Trace(
         trace_info=TraceInfo(
-            trace_id=id,
+            request_id=id,
             experiment_id="test",
-            start_time=0,
-            end_time=1,
-            status=SpanStatus(TraceStatus.OK),
-            attributes={},
+            timestamp_ms=0,
+            execution_time_ms=1,
+            status=TraceStatus.OK,
+            request_metadata={},
             tags={},
         ),
         trace_data=[],
