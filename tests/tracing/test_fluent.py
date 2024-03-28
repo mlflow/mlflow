@@ -1,6 +1,8 @@
 import time
 from unittest import mock
 
+import pytest
+
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace_status import TraceStatus
@@ -77,10 +79,8 @@ def test_trace_handle_exception_during_prediction(mock_client):
 
     model = TestModel()
 
-    try:
+    with pytest.raises(ValueError, match=r"Some error"):
         model.predict(2, 5)
-    except ValueError:
-        pass
 
     # Trace should be logged even if the function fails, with status code ERROR
     trace = mlflow.get_traces()[0]
