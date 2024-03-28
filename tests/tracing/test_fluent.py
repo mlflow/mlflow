@@ -1,11 +1,11 @@
 import time
+from datetime import datetime
 from unittest import mock
 
 import pytest
 
 import mlflow
-from mlflow.entities.span import SpanType
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities import SpanType, TraceStatus
 from mlflow.tracing.types.constant import TraceMetadataKey
 
 
@@ -38,7 +38,7 @@ def test_trace(mock_client):
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 64}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
@@ -48,19 +48,19 @@ def test_trace(mock_client):
     assert root_span.start_time // 1e3 == trace_info.timestamp_ms
     assert root_span.parent_span_id is None
     assert root_span.inputs == {"x": 2, "y": 5}
-    assert root_span.outputs == {"output": 64}
+    assert root_span.outputs == 64
     assert root_span.attributes == {"function_name": "predict"}
 
     child_span_1 = span_name_to_span["add_one_with_custom_name"]
     assert child_span_1.parent_span_id == root_span.context.span_id
     assert child_span_1.inputs == {"z": 7}
-    assert child_span_1.outputs == {"output": 8}
+    assert child_span_1.outputs == 8
     assert child_span_1.attributes == {"function_name": "add_one", "delta": 1}
 
     child_span_2 = span_name_to_span["square"]
     assert child_span_2.parent_span_id == root_span.context.span_id
     assert child_span_2.inputs == {"t": 8}
-    assert child_span_2.outputs == {"output": 64}
+    assert child_span_2.outputs == 64
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
     assert child_span_2.attributes == {"function_name": "square"}
 
@@ -119,10 +119,12 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == ""
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 7}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
 
 
 def test_start_span_context_manager(mock_client):
+    datetime_now = datetime.now()
+
     class TestModel:
         def predict(self, x, y):
             with mlflow.start_span(name="root_span") as root_span:
@@ -130,13 +132,13 @@ def test_start_span_context_manager(mock_client):
                 z = x + y
 
                 with mlflow.start_span(name="child_span_1", span_type=SpanType.LLM) as child_span:
-                    child_span.set_inputs({"z": z})
+                    child_span.set_inputs(z)
                     z = z + 2
-                    child_span.set_outputs({"output": z})
-                    child_span.set_attributes({"delta": 2})
+                    child_span.set_outputs(z)
+                    child_span.set_attributes({"delta": 2, "time": datetime_now})
 
                 res = self.square(z)
-                root_span.set_outputs({"output": res})
+                root_span.set_outputs(res)
             return res
 
         def square(self, t):
@@ -144,7 +146,7 @@ def test_start_span_context_manager(mock_client):
                 span.set_inputs({"t": t})
                 res = t**2
                 time.sleep(0.1)
-                span.set_outputs({"output": res})
+                span.set_outputs(res)
                 return res
 
     model = TestModel()
@@ -156,7 +158,7 @@ def test_start_span_context_manager(mock_client):
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "25"
 
     spans = trace.trace_data.spans
     assert len(spans) == 3
@@ -168,20 +170,20 @@ def test_start_span_context_manager(mock_client):
     assert root_span.parent_span_id is None
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.inputs == {"x": 1, "y": 2}
-    assert root_span.outputs == {"output": 25}
+    assert root_span.outputs == 25
 
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_span_id == root_span.context.span_id
     assert child_span_1.span_type == SpanType.LLM
-    assert child_span_1.inputs == {"z": 3}
-    assert child_span_1.outputs == {"output": 5}
-    assert child_span_1.attributes == {"delta": 2}
+    assert child_span_1.inputs == 3
+    assert child_span_1.outputs == 5
+    assert child_span_1.attributes == {"delta": 2, "time": datetime_now}
 
     child_span_2 = span_name_to_span["child_span_2"]
     assert child_span_2.parent_span_id == root_span.context.span_id
     assert child_span_2.span_type == SpanType.UNKNOWN
     assert child_span_2.inputs == {"t": 5}
-    assert child_span_2.outputs == {"output": 25}
+    assert child_span_2.outputs == 25
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
 
 
@@ -205,16 +207,16 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
                     request_id=root_span.request_id,
                     parent_span_id=root_span.span_id,
                 )
-                child_span.set_inputs({"z": z})
+                child_span.set_inputs(z)
 
                 z = z + 2
                 time.sleep(0.1)
 
-                child_span.set_outputs({"output": z})
+                child_span.set_outputs(z)
                 child_span.set_attributes({"delta": 2})
                 child_span.end()
 
-                root_span.set_outputs({"output": z})
+                root_span.set_outputs(z)
             return z
 
     model = TestModel()
@@ -226,7 +228,7 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 5}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
 
     spans = trace.trace_data.spans
     assert len(spans) == 2
@@ -238,11 +240,11 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     assert root_span.parent_span_id is None
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.inputs == {"x": 1, "y": 2}
-    assert root_span.outputs == {"output": 5}
+    assert root_span.outputs == 5
 
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_span_id == root_span.context.span_id
     assert child_span_1.span_type == SpanType.LLM
-    assert child_span_1.inputs == {"z": 3}
-    assert child_span_1.outputs == {"output": 5}
+    assert child_span_1.inputs == 3
+    assert child_span_1.outputs == 5
     assert child_span_1.attributes == {"delta": 2}

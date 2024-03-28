@@ -65,7 +65,7 @@ def test_export():
     # Export the root span -> client call
     root_span = MLflowSpanWrapper(otel_span_root)
     root_span.set_inputs({"input1": "very long input" * 100})
-    root_span.set_outputs({"output1": "very long output" * 100})
+    root_span.set_outputs("very long output" * 100)
     exporter.export([root_span])
 
     assert mock_client.log_trace.call_count == 1
@@ -85,7 +85,7 @@ def test_export():
     assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 
     outputs = trace_info.request_metadata[TraceMetadataKey.OUTPUTS]
-    assert outputs.startswith('{"output1": "very long output')
+    assert outputs.startswith("very long output")
     assert outputs.endswith(TRUNCATION_SUFFIX)
     assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
 

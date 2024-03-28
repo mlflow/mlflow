@@ -7,7 +7,7 @@ from typing import Dict, Optional
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
+from mlflow.entities import SpanType, Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
@@ -57,7 +57,7 @@ class InMemoryTraceManager:
         name: str,
         request_id: Optional[str] = None,
         parent_span_id: Optional[str] = None,
-        span_type: Optional[str] = None,
+        span_type: str = SpanType.UNKNOWN,
     ) -> MLflowSpanWrapper:
         """
         Start a new OpenTelemetry span that is not part of the current trace context, but with the
