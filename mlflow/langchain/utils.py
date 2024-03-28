@@ -154,27 +154,6 @@ def supported_lc_types():
 
 
 @lru_cache
-def runnables_supports_batch_types():
-    try:
-        from langchain.schema.runnable import (
-            RunnableLambda,
-            RunnableSequence,
-        )
-
-        types = (RunnableSequence, RunnableLambda)
-    except ImportError:
-        types = ()
-
-    try:
-        from langchain.schema.runnable import RunnableParallel
-
-        types += (RunnableParallel,)
-    except ImportError:
-        pass
-    return types
-
-
-@lru_cache
 def custom_type_to_loader_dict():
     # helper function to load output_parsers from config
     def _load_output_parser(config: dict) -> dict:
