@@ -179,8 +179,7 @@ class APIRequest:
         Calls the LangChain API and stores results.
         """
         from langchain.schema import BaseRetriever
-
-        from mlflow.langchain.utils import lc_runnables_types
+        from langchain_core.runnables import Runnable
 
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
@@ -191,7 +190,7 @@ class APIRequest:
                 response = [
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
-            elif isinstance(self.lc_model, lc_runnables_types()):
+            elif isinstance(self.lc_model, Runnable):
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
