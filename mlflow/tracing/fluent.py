@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 
 def trace(
-    _func: Optional[Callable] = None,
+    func: Optional[Callable] = None,
     name: Optional[str] = None,
     span_type: Optional[str] = None,
     attributes: Optional[Dict[str, Any]] = None,
@@ -49,34 +49,31 @@ def trace(
     that is not defined by yourself.
 
     Args:
-        _func: The function to be decorated. Must not be provided when using as a decorator.
+        func: The function to be decorated. Must not be provided when using as a decorator.
         name: The name of the span. If not provided, the name of the function will be used.
         span_type: The type of the span. Can be either a string or a SpanType enum value.
         attributes: A dictionary of attributes to set on the span.
         tags: A string tag that can be attached to the span.
     """
 
-    def decorator(func):
+    def decorator(fn):
         def wrapper(*args, **kwargs):
-            span_name = name or func.__name__
+            span_name = name or fn.__name__
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 if span:
-                    span.set_attribute("function_name", func.__name__)
-                    span.set_inputs(capture_function_input_args(func, args, kwargs))
-                    result = func(*args, **kwargs)
+                    span.set_attribute("function_name", fn.__name__)
+                    span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                    result = fn(*args, **kwargs)
                     span.set_outputs({"output": result})
                     return result
                 else:
                     # If span creation fails, just call the function without tracing
-                    return func(*args, **kwargs)
+                    return fn(*args, **kwargs)
 
         return wrapper
 
-    if _func is not None:
-        return decorator(_func)
-
-    return decorator
+    return decorator(func) if func else decorator
 
 
 @contextlib.contextmanager
