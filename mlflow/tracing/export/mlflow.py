@@ -91,11 +91,14 @@ class MLflowSpanExporter(SpanExporter):
         if not input_or_output:
             return ""
 
-        try:
-            serialized = json.dumps(input_or_output)
-        except TypeError:
-            # If not JSON-serializable, use string representation
-            serialized = str(input_or_output)
+        if type(input_or_output) is str:
+            serialized = input_or_output
+        else:
+            try:
+                serialized = json.dumps(input_or_output)
+            except TypeError:
+                # If not JSON-serializable, use string representation
+                serialized = str(input_or_output)
 
         if len(serialized) > MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE:
             trunc_length = MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(TRUNCATION_SUFFIX)

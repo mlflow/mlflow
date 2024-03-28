@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import trace as trace_api
 
+from mlflow.entities import SpanType
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
@@ -18,7 +19,7 @@ _logger = logging.getLogger(__name__)
 def trace(
     func: Optional[Callable] = None,
     name: Optional[str] = None,
-    span_type: Optional[str] = None,
+    span_type: str = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
 ):
     """
@@ -67,7 +68,7 @@ def trace(
                     span.set_attribute("function_name", fn.__name__)
                     span.set_inputs(capture_function_input_args(fn, args, kwargs))
                     result = fn(*args, **kwargs)
-                    span.set_outputs({"output": result})
+                    span.set_outputs(result)
                     return result
                 else:
                     # If span creation fails, just call the function without tracing
@@ -80,7 +81,9 @@ def trace(
 
 @contextlib.contextmanager
 def start_span(
-    name: str = "span", span_type: Optional[str] = None, attributes: Optional[Dict[str, Any]] = None
+    name: str = "span",
+    span_type: Optional[str] = SpanType.UNKNOWN,
+    attributes: Optional[Dict[str, Any]] = None,
 ):
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -92,7 +95,7 @@ def start_span(
         with mlflow.start_span("my_span") as span:
             span.set_inputs({"x": 1, "y": 2})
             z = x + y
-            span.set_outputs({"z": z})
+            span.set_outputs(z)
             span.set_attribute("key", "value")
             # do something
 

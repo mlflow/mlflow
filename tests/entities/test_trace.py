@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 import mlflow
 from mlflow.entities import SpanType
@@ -7,6 +8,8 @@ from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F40
 
 
 def test_json_deserialization(mock_trace_client):
+    datetime_now = datetime.now()
+
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):
@@ -15,7 +18,13 @@ def test_json_deserialization(mock_trace_client):
             return z  # noqa: RET504
 
         @mlflow.trace(
-            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
+            span_type=SpanType.LLM,
+            name="add_one_with_custom_name",
+            attributes={
+                "delta": 1,
+                # Test for non-json-serializable input
+                "datetime": datetime_now,
+            },
         )
         def add_one(self, z):
             return z + 1
@@ -38,7 +47,7 @@ def test_json_deserialization(mock_trace_client):
             "request_metadata": {
                 "name": "predict",
                 "inputs": '{"x": 2, "y": 5}',
-                "outputs": '{"output": 8}',
+                "outputs": "8",
             },
             "tags": {},
         },
@@ -56,7 +65,7 @@ def test_json_deserialization(mock_trace_client):
                     "end_time": trace.trace_data.spans[0].end_time,
                     "status": {"status_code": "OK", "description": ""},
                     "inputs": {"x": 2, "y": 5},
-                    "outputs": {"output": 8},
+                    "outputs": 8,
                     "attributes": {"function_name": "predict"},
                     "events": [],
                 },
@@ -72,8 +81,12 @@ def test_json_deserialization(mock_trace_client):
                     "end_time": trace.trace_data.spans[1].end_time,
                     "status": {"status_code": "OK", "description": ""},
                     "inputs": {"z": 7},
-                    "outputs": {"output": 8},
-                    "attributes": {"delta": 1, "function_name": "add_one"},
+                    "outputs": 8,
+                    "attributes": {
+                        "delta": 1,
+                        "datetime": str(datetime_now),
+                        "function_name": "add_one",
+                    },
                     "events": [],
                 },
             ],
