@@ -1709,6 +1709,58 @@ class MlflowClient:
             # for data like {"inputs": "What is MLflow?"}
             except ValueError:
                 data = pd.DataFrame([data])
+
+        # Check if column is Image object and save filepath
+        if len(data.select_dtypes(include=["object"]).columns) > 0:
+            try:
+                import PIL
+            except ImportError as exc:
+                raise ImportError(
+                    "`log_table` requires Pillow to verify if column contains PIL Image. "
+                    "Please install it via: pip install Pillow"
+                ) from exc
+
+            def process_image(image: PIL.Image.Image):
+                # remove extension from artifact_file
+                table_name, _ = os.path.splitext(artifact_file)
+                # save image to path
+                filepath = posixpath.join("table_images", table_name, str(uuid.uuid4()))
+                image_filepath = filepath + ".png"
+                compressed_image_filepath = filepath + ".webp"
+                with self._log_artifact_helper(run_id, image_filepath) as artifact_path:
+                    image.save(artifact_path)
+
+                # save compressed image to path
+                # TODO: when other PR is merged, use helper functions in multimedia module.
+                width, height = image.size
+                if width > height:
+                    new_width = 256
+                    new_height = int(height * (new_width / width))
+                else:
+                    new_height = 256
+                    new_width = int(width * (new_height / height))
+                compressed_image = image.resize((new_width, new_height))
+                with self._log_artifact_helper(run_id, compressed_image_filepath) as artifact_path:
+                    compressed_image.save(artifact_path)
+
+                # store a dictionary object indicating its an image path
+                return {
+                    "type": "image",
+                    "filepath": image_filepath,
+                    "compressed_filepath": compressed_image_filepath,
+                }
+
+            for column in data.columns:
+                isImage = data[column].map(lambda x: isinstance(x, (PIL.Image.Image)))
+                if any(isImage) and not all(isImage):
+                    raise ValueError(
+                        f"Column `{column}` contains a mix of images and non-images. "
+                        "Please ensure that all elements in the column are of the same type."
+                    )
+                elif all(isImage):
+                    # Save files to artifact storage
+                    data[column] = data[column].map(lambda x: process_image(x))
+
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
