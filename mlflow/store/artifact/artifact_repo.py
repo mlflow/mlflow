@@ -266,6 +266,24 @@ class ArtifactRepository:
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
+    def download_trace_data(self) -> Dict[str, Any]:
+        """
+        Download the trace data.
+
+        Returns:
+            The trace data as a dictionary.
+        """
+        raise NotImplementedError
+
+    def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
+        """
+        Upload the trace data.
+
+        Args:
+            trace_data: The trace data to upload.
+        """
+        raise NotImplementedError
+
 
 class MultipartUploadMixin(ABC):
     @abstractmethod
@@ -323,24 +341,6 @@ class MultipartUploadMixin(ABC):
 
         """
         pass
-
-    def download_trace_data(self) -> Dict[str, Any]:
-        """
-        Download the trace data.
-
-        Returns:
-            The trace data as a dictionary.
-        """
-        raise NotImplementedError
-
-    def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
-        """
-        Upload the trace data.
-
-        Args:
-            trace_data: The trace data to upload.
-        """
-        raise NotImplementedError
 
 
 def verify_artifact_path(artifact_path):

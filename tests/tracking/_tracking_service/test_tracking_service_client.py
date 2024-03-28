@@ -3,6 +3,10 @@ from unittest import mock
 import pytest
 
 from mlflow.entities import Run, RunInfo
+from mlflow.entities.span_status import SpanStatus
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 
@@ -70,3 +74,49 @@ def test_artifact_repo_is_cached_per_run_id(tmp_path):
             "some_run_id"
         )
         assert artifact_repo is another_artifact_repo
+
+
+def test_download_trace_data(tmp_path):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
+        return_value=TraceInfo(
+            request_id="test",
+            experiment_id="test",
+            timestamp_ms=0,
+            execution_time_ms=1,
+            status=SpanStatus(TraceStatus.OK),
+            request_metadata={},
+            tags={"mlflow.artifactLocation": "test"},
+        ),
+    ) as mock_get_trace_info, mock.patch(
+        "mlflow.store.artifact.artifact_repo.ArtifactRepository.download_trace_data",
+        return_value={"spans": []},
+    ) as mock_download_trace_data:
+        client = TrackingServiceClient(tmp_path.as_uri())
+        trace_data = client._download_trace_data(request_id="test")
+        assert trace_data == TraceData()
+
+        mock_get_trace_info.assert_called_once()
+        mock_download_trace_data.assert_called_once()
+
+
+def test_upload_trace_data(tmp_path):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
+        return_value=TraceInfo(
+            request_id="test",
+            experiment_id="test",
+            timestamp_ms=0,
+            execution_time_ms=1,
+            status=SpanStatus(TraceStatus.OK),
+            request_metadata={},
+            tags={"mlflow.artifactLocation": "test"},
+        ),
+    ) as mock_get_trace_info, mock.patch(
+        "mlflow.store.artifact.artifact_repo.ArtifactRepository.upload_trace_data",
+        return_value={"spans": []},
+    ) as mock_upload_trace_data:
+        client = TrackingServiceClient(tmp_path.as_uri())
+        client._upload_trace_data(request_id="test", trace_data=TraceData())
+        mock_get_trace_info.assert_called_once()
+        mock_upload_trace_data.assert_called_once()
