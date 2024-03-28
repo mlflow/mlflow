@@ -101,13 +101,28 @@ def test_logged_data_structure(model_path, basic_model):
 
     st_flavor = mlmodel["flavors"]["sentence_transformers"]
     assert st_flavor["pipeline_model_type"] == "BertModel"
-    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
-        assert st_flavor["source_model_name"] == "sentence-transformers/all-MiniLM-L6-v2"
-    else:
-        # Before Transformers 2.3.0, the library loads the Transformers model after local snapshot
-        # download, so the name_or_path attribute points to the local filepath.
-        # https://github.com/UKPLab/sentence-transformers/commit/9db0f205adcf315d16961fea7e9e6906cb950d43
-        assert st_flavor["source_model_name"].endswith("sentence-transformers_all-MiniLM-L6-v2/")
+    assert st_flavor["source_model_name"] == "sentence-transformers/all-MiniLM-L6-v2"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        (
+            "sentence-transformers/all-MiniLM-L6-v2",
+            "sentence-transformers/all-MiniLM-L6-v2",
+        ),
+        (
+            "/path/to/local/path/sentence-transformers_all-MiniLM-L6-v2",
+            "sentence-transformers/all-MiniLM-L6-v2",
+        ),
+        (
+            "/path/to/local/path/custom-user-009_model_name_with_underscore",
+            "custom-user-009/model_name_with_underscore",
+        ),
+    ],
+)
+def test_get_transformers_model_name(model_name, expected):
+    assert mlflow.sentence_transformers._get_transformers_model_name(model_name) == expected
 
 
 def test_model_logging_and_inference(basic_model):
