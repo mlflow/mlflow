@@ -18,6 +18,7 @@ import logging
 import os
 import shlex
 import sys
+import time
 import traceback
 from typing import Dict, NamedTuple, Optional, Tuple
 
@@ -362,6 +363,22 @@ def invocations(data, content_type, model, input_schema):
         )
 
     # Do the prediction
+    stream = params.get("stream", False)
+    if stream and not model.stream:
+        return flask.Response(
+            response={"error": "Model does not support streaming"},
+            status=415,
+            mimetype="text/plain",
+        )
+
+    if stream and model.stream:
+
+        def generate():
+            for x in model.predict_stream(data, params):
+                time.sleep(0.2)
+                yield json.dumps(x.dict()) + "\n"
+
+        return flask.Response(generate(), status=200)
     try:
         if inspect.signature(model.predict).parameters.get("params"):
             raw_predictions = model.predict(data, params=params)
@@ -435,10 +452,10 @@ def init(model: PyFuncModel):
         generate predictions and convert them back to json.
         """
 
+        data = flask.request.data.decode("utf-8")
         # Content-Type can include other attributes like CHARSET
         # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
-        # TODO: Suport ";" in quoted parameter values
-        data = flask.request.data.decode("utf-8")
+        # TODO: Support ";" in quoted parameter values
         content_type = flask.request.content_type
         result = invocations(data, content_type, model, input_schema)
 
@@ -490,6 +507,7 @@ def get_cmd(
     host: Optional[int] = None,
     timeout: Optional[int] = None,
     nworkers: Optional[int] = None,
+    stream: bool = False,
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
@@ -526,5 +544,6 @@ def get_cmd(
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
+    command_env["MLFLOW_STREAM"] = str(stream)
 
     return command, command_env

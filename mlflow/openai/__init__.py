@@ -52,6 +52,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import DataType, ParamSchema, ParamSpec
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
@@ -247,6 +248,10 @@ def _get_input_schema(task, content):
         return Schema([ColSpec(type="string")])
 
 
+def _is_streamable(task: str) -> bool:
+    return task in ("chat.completions", "completions")
+
+
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
@@ -262,6 +267,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     example_no_conversion=False,
+    stream=None,
     **kwargs,
 ):
     """
@@ -338,7 +344,6 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     task = _get_task_name(task)
-
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -361,6 +366,7 @@ def save_model(
         mlflow_model.signature = ModelSignature(
             inputs=_get_input_schema(task, messages),
             outputs=Schema([ColSpec(type="string", name=None)]),
+            params=ParamSchema([ParamSpec("stream", DataType.boolean, False, None)]),
         )
     elif task == "completions":
         prompt = kwargs.get("prompt")
@@ -388,6 +394,7 @@ def save_model(
         yaml.safe_dump(model_dict, f)
 
     if task in _PYFUNC_SUPPORTED_TASKS:
+        stream = _is_streamable(task) if stream is None else stream
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.openai",
@@ -395,6 +402,7 @@ def save_model(
             conda_env=_CONDA_ENV_FILE_NAME,
             python_env=_PYTHON_ENV_FILE_NAME,
             code=code_dir_subpath,
+            stream=stream,
         )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -461,6 +469,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     example_no_conversion=False,
+    stream=None,
     **kwargs,
 ):
     """
@@ -556,6 +565,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         example_no_conversion=example_no_conversion,
+        stream=stream,
         **kwargs,
     )
 
@@ -811,6 +821,18 @@ class _OpenAIWrapper:
             return self._predict_completions(data, params or {})
         elif self.task == "embeddings":
             return self._predict_embeddings(data, params or {})
+
+    def predict_stream(self, data, params: Optional[Dict[str, Any]] = None):
+        from openai import OpenAI
+
+        client = OpenAI()
+        content = data.tolist()[0] if not isinstance(data, str) else data
+        return client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": content}],
+            **(params or {}),
+            stream=True,
+        )
 
 
 def _load_pyfunc(path):
