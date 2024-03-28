@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
@@ -57,6 +58,7 @@ def trace(
     """
 
     def decorator(fn):
+        @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             span_name = name or fn.__name__
 
