@@ -18,5 +18,5 @@ class SpanEvent(_MLflowObject):
 
     name: str
     # Use current time if not provided.
-    timestamp: Optional[int] = field(default_factory=lambda: int(time.time() * 1e6))
+    timestamp: Optional[int] = field(default=int(time.time() * 1e6))
     attributes: Dict[str, Any] = field(default_factory=dict)
