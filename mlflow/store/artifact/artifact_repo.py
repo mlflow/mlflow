@@ -326,7 +326,7 @@ class MultipartUploadMixin(ABC):
 
     def download_trace_data(self) -> Dict[str, Any]:
         """
-        Download the trace file for the given trace_id.
+        Download the trace data.
 
         Returns:
             The trace data as a dictionary.
@@ -335,7 +335,7 @@ class MultipartUploadMixin(ABC):
 
     def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
         """
-        Download the trace file for the given trace_id.
+        Upload the trace data.
 
         Args:
             trace_data: The trace data to upload.

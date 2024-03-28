@@ -1512,7 +1512,7 @@ class MockResponse:
         ArtifactCredentialType.GCP_SIGNED_URL,
     ],
 )
-def test_download_trace(databricks_artifact_repo, cred_type):
+def test_download_trace_data(databricks_artifact_repo, cred_type):
     cred_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI,
         type=cred_type,
@@ -1521,9 +1521,9 @@ def test_download_trace(databricks_artifact_repo, cred_type):
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         return_value=cred,
-    ), mock.patch("requests.Session.request", return_value=MockResponse(b'{"key": "value"}')):
-        trace = databricks_artifact_repo.download_trace()
-        assert trace == {"key": "value"}
+    ), mock.patch("requests.Session.request", return_value=MockResponse(b'{"spans": []}')):
+        trace = databricks_artifact_repo.download_trace_data()
+        assert trace == {"spans": []}
 
 
 @pytest.mark.parametrize(
@@ -1535,11 +1535,11 @@ def test_download_trace(databricks_artifact_repo, cred_type):
         ArtifactCredentialType.GCP_SIGNED_URL,
     ],
 )
-def test_upload_trace(databricks_artifact_repo, cred_type):
+def test_upload_trace_data(databricks_artifact_repo, cred_type):
     cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI, type=cred_type)
     cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         return_value=cred,
     ), mock.patch("requests.Session.request", return_value=MockResponse(b"{}")):
-        databricks_artifact_repo.upload_trace({"foo": "bar"})
+        databricks_artifact_repo.upload_trace_data({"spans": []})
