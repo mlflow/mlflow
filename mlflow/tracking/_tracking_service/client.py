@@ -625,7 +625,7 @@ class TrackingServiceClient:
 
     def _upload_trace_data(self, request_id: str, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(request_id)
-        return artifact_repo.upload_trace_data(trace_data.dict())
+        return artifact_repo.upload_trace_data(trace_data.to_dict())
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
