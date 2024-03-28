@@ -80,7 +80,7 @@ _active_experiment_id = None
 _last_active_run_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
-NUM_RUNS_PER_PAGE_PANDAS = 10000
+NUM_RUNS_PER_PAGE_PANDAS = 1000
 
 _logger = logging.getLogger(__name__)
 
