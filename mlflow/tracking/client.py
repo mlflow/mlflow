@@ -33,6 +33,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
@@ -533,7 +534,7 @@ class MlflowClient:
         name: str,
         request_id: str,
         parent_span_id: str,
-        span_type: Optional[str] = None,
+        span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
     ):
@@ -621,7 +622,7 @@ class MlflowClient:
         request_id: str,
         span_id: str,
         outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Any] = None,
         status: SpanStatus = SpanStatus(TraceStatus.OK),
     ):
         """
