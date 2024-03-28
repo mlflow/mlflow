@@ -107,6 +107,56 @@ def test_add_and_pop_span_thread_safety():
         assert len(trace.trace_data.spans) == num_threads
 
 
+def test_traces_buffer_expires_after_ttl(monkeypatch):
+    # Clear singleton instance to patch TTL
+    InMemoryTraceManager._instance = None
+    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.flush()
+
+    trace_id_1 = "trace_1"
+    span_1_1 = _create_test_span(trace_id_1, "span")
+    trace_manager.add_or_update_span(span_1_1)
+
+    assert trace_id_1 in trace_manager._traces
+    assert len(trace_manager._traces[trace_id_1].span_dict) == 1
+
+    time.sleep(1)
+
+    assert trace_id_1 not in trace_manager._traces
+
+    # Clear singleton instance again to avoid side effects to other tests
+    InMemoryTraceManager._instance = None
+
+
+def test_traces_buffer_max_size_limit(monkeypatch):
+    # Clear singleton instance to patch buffer size
+    InMemoryTraceManager._instance = None
+    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE", "1")
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.flush()
+
+    trace_id_1 = "trace_1"
+    span_1_1 = _create_test_span(trace_id_1, "span")
+    trace_manager.add_or_update_span(span_1_1)
+
+    assert trace_id_1 in trace_manager._traces
+    assert len(trace_manager._traces) == 1
+
+    trace_id_2 = "trace_2"
+    span_2_1 = _create_test_span(trace_id_2, "span")
+    trace_manager.add_or_update_span(span_2_1)
+
+    assert trace_id_1 not in trace_manager._traces
+    assert trace_id_2 in trace_manager._traces
+    assert len(trace_manager._traces) == 1
+
+    # Clear singleton instance again to avoid side effects to other tests
+    InMemoryTraceManager._instance = None
+
+
 def test_get_span_from_id():
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.flush()

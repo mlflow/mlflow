@@ -4,9 +4,14 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, Optional
 
+from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_BUFFER_MAX_SIZE,
+    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
+)
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
@@ -41,7 +46,10 @@ class InMemoryTraceManager:
         return cls._instance
 
     def __init__(self):
-        self._traces: Dict[str, _Trace] = {}
+        self._traces: Dict[str, _Trace] = TTLCache(
+            maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+            ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+        )
         self._lock = threading.Lock()  # Lock for _traces
 
     def start_detached_span(

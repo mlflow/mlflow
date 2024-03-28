@@ -22,6 +22,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
+  "cachetools<6,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
   "entrypoints<1",
