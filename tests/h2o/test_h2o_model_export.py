@@ -16,7 +16,7 @@ from sklearn import datasets
 import mlflow
 import mlflow.h2o
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow import pyfunc
+from mlflow import MlflowException, pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -88,9 +88,20 @@ def h2o_custom_env(tmp_path):
     return conda_env
 
 
-def test_model_save_load(h2o_iris_model, model_path):
+@pytest.mark.parametrize(
+    ("model_format"),
+    [
+        ("binary"),
+        ("mojo"),
+        (None),
+    ],
+)
+def test_model_save_load(h2o_iris_model, model_path, model_format):
     h2o_model = h2o_iris_model.model
-    mlflow.h2o.save_model(h2o_model=h2o_model, path=model_path)
+    if model_format is None:
+        mlflow.h2o.save_model(h2o_model=h2o_model, path=model_path)
+    else:
+        mlflow.h2o.save_model(h2o_model=h2o_model, path=model_path, model_format=model_format)
 
     # Loading h2o model
     h2o_model_loaded = mlflow.h2o.load_model(model_path)
@@ -397,3 +408,22 @@ def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signa
 
     mlflow_model = Model.load(model_uri)
     assert mlflow_model.signature == h2o_iris_model_signature
+
+
+def test_validate_export_format_invalid():
+    with pytest.raises(MlflowException, match="Unrecognized model export format"):
+        mlflow.h2o._validate_export_format(model_format="xyz")
+
+
+@pytest.mark.parametrize(
+    ("model_format"),
+    [
+        ("binary"),
+        ("mojo"),
+    ],
+)
+def test_validate_export_format_valid(model_format):
+    try:
+        mlflow.h2o._validate_export_format(model_format=model_format)
+    except MlflowException:
+        pytest.fail("Unexpected Exception in mlflow.h2o._validate_export_format")
