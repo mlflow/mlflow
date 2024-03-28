@@ -16,6 +16,7 @@ from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.steps.train import TrainStep
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.metrics import (
+    _format_numbers,
     _get_builtin_metrics,
     _get_custom_metrics,
     _get_extended_task,
@@ -292,9 +293,9 @@ class EvaluateStep(BaseStep):
                 return pd.Series("", row.index)
 
         metric_table_html = BaseCard.render_table(
-            metric_df.style.format({"training": "{:.6g}", "validation": "{:.6g}"}).apply(
-                row_style, axis=1
-            )
+            metric_df.style.format(
+                {"training": _format_numbers, "validation": _format_numbers}
+            ).apply(row_style, axis=1)
         )
 
         card.add_tab(
