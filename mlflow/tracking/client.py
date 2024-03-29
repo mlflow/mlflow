@@ -1670,11 +1670,11 @@ class MlflowClient:
                 "outputs": ["MLflow is ...", "Databricks is ..."],
                 "toxicity": [0.0, 0.0],
             }
-            client = MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_table(
-                run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
-            )
+            with mlflow.start_run() as run:
+                client = MlflowClient()
+                client.log_table(
+                    run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
+                )
 
         .. code-block:: python
             :test:
@@ -1690,9 +1690,27 @@ class MlflowClient:
                 "toxicity": [0.0, 0.0],
             }
             df = pd.DataFrame.from_dict(table_dict)
-            client = MlflowClient()
-            run = client.create_run(experiment_id="0")
-            client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
+            with mlflow.start_run() as run:
+                client = MlflowClient()
+                client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
+
+        .. code-block:: python
+            :test:
+            :caption: Image Column Example
+
+            import mlflow
+            import pandas as pd
+            from mlflow import MlflowClient
+
+            image = mlflow.Image([[1, 2, 3]])
+            table_dict = {
+                "inputs": ["Show me a dog", "Show me a cat"],
+                "outputs": [image, image],
+            }
+            df = pd.DataFrame.from_dict(table_dict)
+            with mlflow.start_run() as run:
+                client = MlflowClient()
+                client.log_table(run.info.run_id, data=df, artifact_file="image_gen.json")
         """
         import pandas as pd
 
@@ -1709,6 +1727,54 @@ class MlflowClient:
             # for data like {"inputs": "What is MLflow?"}
             except ValueError:
                 data = pd.DataFrame([data])
+
+        # Check if the column is a `PIL.Image.Image` or `mlflow.Image` object
+        # and save filepath
+        if len(data.select_dtypes(include=["object"]).columns) > 0:
+
+            def process_image(image):
+                # remove extension from artifact_file
+                table_name, _ = os.path.splitext(artifact_file)
+                # save image to path
+                filepath = posixpath.join("table_images", table_name, str(uuid.uuid4()))
+                image_filepath = filepath + ".png"
+                compressed_image_filepath = filepath + ".webp"
+                with self._log_artifact_helper(run_id, image_filepath) as artifact_path:
+                    image.save(artifact_path)
+
+                # save compressed image to path
+                compressed_image = compress_image_size(image)
+
+                with self._log_artifact_helper(run_id, compressed_image_filepath) as artifact_path:
+                    compressed_image.save(artifact_path)
+
+                # return a dictionary object indicating its an image path
+                return {
+                    "type": "image",
+                    "filepath": image_filepath,
+                    "compressed_filepath": compressed_image_filepath,
+                }
+
+            def check_is_image_object(obj):
+                return (
+                    hasattr(obj, "save")
+                    and callable(getattr(obj, "save"))
+                    and hasattr(obj, "resize")
+                    and callable(getattr(obj, "resize"))
+                    and hasattr(obj, "size")
+                )
+
+            for column in data.columns:
+                isImage = data[column].map(lambda x: check_is_image_object(x))
+                if any(isImage) and not all(isImage):
+                    raise ValueError(
+                        f"Column `{column}` contains a mix of images and non-images. "
+                        "Please ensure that all elements in the column are of the same type."
+                    )
+                elif all(isImage):
+                    # Save files to artifact storage
+                    data[column] = data[column].map(lambda x: process_image(x))
+
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
