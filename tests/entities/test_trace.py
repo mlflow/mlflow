@@ -130,12 +130,12 @@ def test_trace_serialize_langchain_base_message():
     )
 
     message_json = json.dumps(message, cls=_TraceJSONEncoder)
-    # "additional_kwargs" field is added by Langchain
-    assert message_json == (
-        '{"content": [{"role": "system", "content": "Hello, World!"}, '
-        '{"role": "user", "content": "Hi!"}], "additional_kwargs": {}, "type": "chat"}'
-    )
-    assert json.loads(message_json) == {
+    # LangChain message model contains a few more default fields actually. But we
+    # only check if the following subset of the expected dictionary is present in
+    # the loaded JSON rather than exact equality, because the LangChain BaseModel
+    # has been changing frequently and the additional default fields may differ
+    # across versions installed on developers' machines.
+    expected_dict_subset = {
         "content": [
             {
                 "role": "system",
@@ -147,5 +147,6 @@ def test_trace_serialize_langchain_base_message():
             },
         ],
         "type": "chat",
-        "additional_kwargs": {},
     }
+    loaded = json.loads(message_json)
+    assert expected_dict_subset.items() <= loaded.items()
