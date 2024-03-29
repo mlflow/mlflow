@@ -1,11 +1,11 @@
 import json
 import logging
 import pathlib
+import re
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-import re
 import yaml
 
 import mlflow
@@ -272,22 +272,27 @@ def _get_transformers_model_metadata(model) -> Dict[str, str]:
         if isinstance(module, Transformer):
             model_instance = module.auto_model
             return {
-                _TRANSFORMER_SOURCE_MODEL_NAME_KEY: _get_transformers_model_name(model_instance.name_or_path),
+                _TRANSFORMER_SOURCE_MODEL_NAME_KEY: _get_transformers_model_name(
+                    model_instance.name_or_path
+                ),
                 _TRANSFORMER_MODEL_TYPE_KEY: model_instance.__class__.__name__,
             }
     return {}
+
 
 def _get_transformers_model_name(model_name_or_path):
     """
     Extract the Transformers model name from name_or_path attribute of a Transformer model.
 
-    Normally the name_or_path attribute just points to the model name, but in Sentence Transformers < 2.3.0,
-    the library loads the Transformers model after local snapshot download, so the name_or_path attribute
-    points to the local filepath.
+    Normally the name_or_path attribute just points to the model name, but in Sentence
+    Transformers < 2.3.0, the library loads the Transformers model after local snapshot
+    download, so the name_or_path attribute points to the local filepath.
     https://github.com/UKPLab/sentence-transformers/commit/9db0f205adcf315d16961fea7e9e6906cb950d43
     """
-    # NB: We have to check the normal repo pattern xxx/yyy because it can match local path pattern as well
-    if not _HF_REPO_NAME_PATTERN.match(model_name_or_path) and (m := _LOCAL_SNAPSHOT_PATH_PATTERN.match(model_name_or_path)):
+    # NB: We have to check the normal repo pattern xxx/yyy as it can match local path pattern too
+    if not _HF_REPO_NAME_PATTERN.match(model_name_or_path) and (
+        m := _LOCAL_SNAPSHOT_PATH_PATTERN.match(model_name_or_path)
+    ):
         return f"{m.group(1)}/{m.group(2)}"
     return model_name_or_path
 

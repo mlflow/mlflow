@@ -5,9 +5,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
-import sentence_transformers
 import yaml
-from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import ArrayType, DoubleType
 from sentence_transformers import SentenceTransformer
