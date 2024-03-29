@@ -555,7 +555,7 @@ class MlflowClient:
         This is an imperative API to manually create a new span under a specific trace id
         and parent span, unlike the higher-level APIs like
         :py:func:`@mlflow.trace <mlflow.trace>` decorator and
-        py:func:`with mlflow.start_span() <mlflow.start_span>` context manager, which
+        :py:func:`with mlflow.start_span() <mlflow.start_span>` context manager, which
         automatically manage the span lifecycle and parent-child relationship.
 
         This API is useful for the case where the automatic context management is not
@@ -615,7 +615,7 @@ class MlflowClient:
             request_id: The ID of the trace to attach the span to. This is synonym to
                 trace_id` in OpenTelemetry.
             span_type: The type of the span. Can be either a string or a
-                py:class:`SpanType <mlflow.entities.SpanType>` enum value.
+                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
             parent_span_id: The ID of the parent span. The parent span can be a span created by
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
             inputs: Inputs to set on the span.
