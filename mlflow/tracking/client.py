@@ -605,9 +605,9 @@ class MlflowClient:
 
             However, **the opposite does not work**. You cannot use the fluent APIs within
             the span created by this MlflowClient API. This is because the fluent APIs
-            fetches the current span from the managed context, which is not set by the Mlflow
-            Client APIs. Once you create a span with the Mlflow Client APIs, all children
-            spans must be created with the Mlflow Client APIs. Please be cautious when using
+            fetches the current span from the managed context, which is not set by the MLflow
+            Client APIs. Once you create a span with the MLflow Client APIs, all children
+            spans must be created with the MLflow Client APIs. Please be cautious when using
             this mixed approach, as it can lead to unexpected behavior if not used properly.
 
         Args:
