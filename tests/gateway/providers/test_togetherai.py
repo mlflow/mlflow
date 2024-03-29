@@ -113,11 +113,76 @@ def embeddings_config():
             "provider": "togetherai",
             "name": "togethercomputer/m2-bert-80M-8k-retrieval",
             "config": {
-                "togetherai_key": "key",
+                "togetherai_api_key": "key",
             },
         },
     }
     
+def embeddings_response():
+    return {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": [
+              0.44990748,
+              -0.2521129,
+              -0.43091708,
+              0.214978
+            ],
+            "index": 0
+          }
+        ],
+        "model": "togethercomputer/m2-bert-80M-8k-retrieval",
+        "request_id": "840fc1b5bb2830cb-SEA"
+    }
+
+@pytest.mark.asyncio
+async def test_embeddings():
+
+    config = embeddings_config()
+    resp = embeddings_response()
+
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+    "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        
+        provider = TogetherAIProvider(RouteConfig(**config))
+
+        payload = {
+            "input": "Our solar system orbits the Milky Way galaxy at about 515,000 mph.",
+            "model": "togethercomputer/m2-bert-80M-8k-retrieval"
+        }
+
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+
+        assert jsonable_encoder(response) == {
+              "object": "list",
+              "data": [
+                {
+                  "object": "embedding",
+                  "embedding": [
+                    0.44990748,
+                    -0.2521129,
+                    -0.43091708,
+                    0.214978
+                  ],
+                  "index": 0
+                }
+              ],
+              "model": "togethercomputer/m2-bert-80M-8k-retrieval",
+              "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+
+
+        mock_post.assert_called_once_with(
+            "https://api.together.xyz/v1/embeddings",
+            json={
+                "input": "Our solar system orbits the Milky Way galaxy at about 515,000 mph.",
+                "model": "togethercomputer/m2-bert-80M-8k-retrieval",
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 def chat_config():
     return {
