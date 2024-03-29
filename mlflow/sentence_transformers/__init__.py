@@ -60,8 +60,7 @@ _LLM_V1_EMBEDDING_INPUT_KEY = "input"
 # Patterns to extract HuggingFace model repository name from the local snapshot path.
 # The path format would be like /path/to/{username}_{modelname}, where user name can
 # only contain number, letters, and dashes.
-_HF_REPO_NAME_PATTERN = re.compile(r"[0-9a-zA-Z-]+/[^\/]+")
-_LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/[\w/-]+/([0-9a-zA-Z-]+)_([^\/]+)")
+_LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/([0-9a-zA-Z-]+)_([^\/]+)/$")
 
 model_data_artifact_paths = [SENTENCE_TRANSFORMERS_DATA_PATH]
 
@@ -289,10 +288,7 @@ def _get_transformers_model_name(model_name_or_path):
     download, so the name_or_path attribute points to the local filepath.
     https://github.com/UKPLab/sentence-transformers/commit/9db0f205adcf315d16961fea7e9e6906cb950d43
     """
-    # NB: We have to check the normal repo pattern xxx/yyy as it can match local path pattern too
-    if not _HF_REPO_NAME_PATTERN.match(model_name_or_path) and (
-        m := _LOCAL_SNAPSHOT_PATH_PATTERN.match(model_name_or_path)
-    ):
+    if m := _LOCAL_SNAPSHOT_PATH_PATTERN.search(model_name_or_path):
         return f"{m.group(1)}/{m.group(2)}"
     return model_name_or_path
 

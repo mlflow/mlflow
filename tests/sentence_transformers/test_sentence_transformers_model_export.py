@@ -110,11 +110,11 @@ def test_logged_data_structure(model_path, basic_model):
             "sentence-transformers/all-MiniLM-L6-v2",
         ),
         (
-            "/path/to/local/path/sentence-transformers_all-MiniLM-L6-v2",
+            "/path./to_/local-/path?/sentence-transformers_all-MiniLM-L6-v2/",
             "sentence-transformers/all-MiniLM-L6-v2",
         ),
         (
-            "/path/to/local/path/custom-user-009_model_name_with_underscore",
+            "/path/to/local/path/custom-user-009_model_name_with_underscore/",
             "custom-user-009/model_name_with_underscore",
         ),
     ],
