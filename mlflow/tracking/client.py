@@ -1632,7 +1632,9 @@ class MlflowClient:
 
             # Log tag indicating that the run includes logged image
             run = self.get_run(run_id)
+            print(run.data.tags.get(MLFLOW_LOGGED_IMAGES))
             if run.data.tags.get(MLFLOW_LOGGED_IMAGES) is None:
+                print("SETTING TAG for ", run_id)
                 self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True)
 
     def _check_artifact_file_string(self, artifact_file: str):
