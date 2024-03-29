@@ -25,7 +25,7 @@ Automatic instrumentation
 Fluent APIs
 ~~~~~~~~~~~
 
-Fluent APIs are high-level APIs that allows developers to instrument their code with minimal changes. The APIs are designed to be easy to use that manages the spans parent-child relationships and set some fields of the span automatically. When instrumenting Python code, it is generally recommended to use Fluent APIs over Mlflow Client APIs as they are more user-friendly and less error-prone.
+Fluent APIs are high-level APIs that allows developers to instrument their code with minimal changes. The APIs are designed to be easy to use that manages the spans parent-child relationships and set some fields of the span automatically. When instrumenting Python code, it is generally recommended to use Fluent APIs over MLflow Client APIs as they are more user-friendly and less error-prone.
 
 
 .. autofunction:: mlflow.trace
