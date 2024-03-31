@@ -840,7 +840,7 @@ message DeleteRuns {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // IDs of the runs to delete.
-  repeated string run_id = 1 [(validate_required) = true];
+  repeated string run_ids = 1 [(validate_required) = true];
 
   message Response {}
 }
