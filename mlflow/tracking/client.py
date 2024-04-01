@@ -450,6 +450,7 @@ class MlflowClient:
     def start_trace(
         self,
         name: str,
+        span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
@@ -471,6 +472,7 @@ class MlflowClient:
 
         Args:
             name: The name of the trace (and the root span).
+            span_type: The type of the span.
             inputs: Inputs to set on the root span of the trace.
             attributes: A dictionary of attributes to set on the root span of the trace.
             tags: A dictionary of tags to set on the trace.
@@ -518,7 +520,7 @@ class MlflowClient:
             )
 
         trace_manager = InMemoryTraceManager.get_instance()
-        root_span = trace_manager.start_detached_span(name)
+        root_span = trace_manager.start_detached_span(name, span_type=span_type)
 
         if inputs:
             root_span.set_inputs(inputs)

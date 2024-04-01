@@ -65,7 +65,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         else:
             # When parent_run_id is None, this is root component so start trace
             span = self._mlflow_client.start_trace(
-                name=span_name, inputs=inputs, attributes=attributes
+                name=span_name, span_type=span_type, inputs=inputs, attributes=attributes
             )
         self._run_span_mapping[str(run_id)] = span
         return span
@@ -111,7 +111,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             # we use LLM for chat models as well
             span_type=SpanType.LLM,
             run_id=run_id,
-            inputs={"messages": messages},
+            inputs=messages,
             attributes=kwargs,
         )
 
@@ -219,9 +219,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         llm_span.add_event(SpanEvent.from_exception(error))
         self._end_span(llm_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
 
-    def _get_chain_inputs(self, inputs: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
-        return inputs if isinstance(inputs, dict) else {"input": inputs}
-
     @override
     def on_chain_start(
         self,
@@ -245,7 +242,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             parent_run_id=parent_run_id,
             span_type=SpanType.CHAIN,
             run_id=run_id,
-            inputs=self._get_chain_inputs(inputs),
+            inputs=inputs,
             attributes=kwargs,
         )
 
@@ -302,7 +299,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             parent_run_id=parent_run_id,
             span_type=SpanType.TOOL,
             run_id=run_id,
-            inputs={"input_str": input_str},
+            inputs=input_str,
             attributes=kwargs,
         )
 
@@ -346,7 +343,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             parent_run_id=parent_run_id,
             span_type=SpanType.RETRIEVER,
             run_id=run_id,
-            inputs={"query": query},
+            inputs=query,
             attributes=kwargs,
         )
 
@@ -354,7 +351,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_retriever_end(self, documents: Sequence[Document], *, run_id: UUID, **kwargs: Any):
         """Run when Retriever ends running."""
         retriever_span = self._get_span_by_run_id(run_id)
-        self._end_span(retriever_span, outputs={"documents": documents})
+        self._end_span(retriever_span, outputs=documents)
 
     @override
     def on_retriever_error(
