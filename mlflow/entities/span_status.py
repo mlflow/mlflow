@@ -52,7 +52,11 @@ class SpanStatus:
                 )
 
     def to_otel_status(self) -> trace_api.Status:
-        """Convert our status object to OpenTelemetry status object."""
+        """
+        Convert :py:class:`mlflow.entities.SpanStatus` object to OpenTelemetry status object.
+
+        :meta private:
+        """
         if self.status_code not in SpanStatus._mlflow_status_code_to_otel:
             raise MlflowException(
                 f"Invalid status code: {self.status_code}", error_code=INVALID_PARAMETER_VALUE
@@ -63,7 +67,11 @@ class SpanStatus:
 
     @classmethod
     def from_otel_status(cls, otel_status: trace_api.Status) -> SpanStatus:
-        """Convert OpenTelemetry status object to our status object."""
+        """
+        Convert OpenTelemetry status object to our status object.
+
+        :meta private:
+        """
         if otel_status.status_code not in cls._otel_status_code_to_mlflow:
             raise MlflowException(
                 f"Got invalid status code from OpenTelemetry: {otel_status.status_code}",

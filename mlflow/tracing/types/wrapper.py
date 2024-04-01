@@ -13,8 +13,11 @@ class MLflowSpanWrapper:
     """
     A wrapper around OpenTelemetry's Span object to provide MLflow-specific functionality.
 
-    This class is passed to the exporter class to be processed on behalf of the OpenTelemetry's
-    Span object, so need to implement the same interfaces as the original Span.
+    This class should expose the (subset of) same APIs as the OpenTelemetry's
+    Span object, so there should be no difference from the user's perspective.
+    The wrapper is only used for the span creation and mutation at runtime, and
+    will be converted to the immutable :py:class:`Span <mlflow.entities.Span>` object once
+    the span is ended, before being sent to the logging client.
     """
 
     def __init__(self, span: trace_api.Span, span_type: str = SpanType.UNKNOWN):
@@ -28,60 +31,74 @@ class MLflowSpanWrapper:
 
     @property
     def request_id(self) -> str:
+        """
+        The request ID of the span, a unique identifier for the trace it belongs to.
+        Request ID is equivalent to the trace ID in OpenTelemetry.
+        """
         return self._span.get_span_context().trace_id
 
     @property
     def span_id(self) -> str:
+        """The ID of the span. This is only unique within a trace."""
         return self._span.get_span_context().span_id
 
     @property
     def name(self) -> str:
+        """The name of the span."""
         return self._span.name
 
     @property
     def start_time(self) -> int:
-        """
-        Get the start time of the span in microseconds.
-        """
+        """The start time of the span in microseconds."""
         # NB: The original open-telemetry timestamp is in nanoseconds
         return self._span._start_time // 1_000
 
     @property
     def end_time(self) -> Optional[int]:
-        """
-        Get the end time of the span in microseconds.
-        """
+        """The end time of the span in microseconds."""
         return self._span._end_time // 1_000 if self._span._end_time else None
 
     @property
     def context(self) -> SpanContext:
+        """The :py:class:`SpanContext <mlflow.entities.SpanContext>` object attached to the span."""
         return self._span.get_span_context()
 
     @property
     def parent_span_id(self) -> str:
+        """The span ID of the parent span."""
         if self._span.parent is None:
             return None
         return self._span.parent.span_id
 
     @property
     def status(self) -> SpanStatus:
+        """The status of the span."""
         return SpanStatus.from_otel_status(self._span.status)
 
     @property
     def inputs(self) -> Dict[str, Any]:
+        """The input values of the span."""
         return self._inputs
 
     @property
     def outputs(self) -> Dict[str, Any]:
+        """The output values of the span."""
         return self._outputs
 
     def set_inputs(self, inputs: Any):
+        """Set the input values to the span."""
         self._inputs = inputs
 
     def set_outputs(self, outputs: Any):
+        """Set the output values to the span."""
         self._outputs = outputs
 
     def set_attributes(self, attributes: Dict[str, Any]):
+        """
+        Set the attributes to the span. The attributes must be a dictionary of key-value pairs.
+        This method is additive, i.e. it will add new attributes to the existing ones. If an
+        attribute with the same key already exists, it will be overwritten.
+        """
         if not isinstance(attributes, dict):
             _logger.warning(
                 f"Attributes must be a dictionary, but got {type(attributes)}. Skipping."
@@ -90,12 +107,14 @@ class MLflowSpanWrapper:
         self._attributes.update(attributes)
 
     def set_attribute(self, key: str, value: Any):
+        """Set a single attribute to the span."""
         if not isinstance(key, str):
             _logger.warning(f"Attribute key must be a string, but got {type(key)}. Skipping.")
             return
         self._attributes[key] = value
 
     def set_status(self, status: SpanStatus):
+        """Set the status of the span."""
         # NB: We need to set the OpenTelemetry native StatusCode, because span's set_status
         #     method only accepts a StatusCode enum in their definition.
         #     https://github.com/open-telemetry/opentelemetry-python/blob/8ed71b15fb8fc9534529da8ce4a21e686248a8f3/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L949
@@ -107,9 +126,20 @@ class MLflowSpanWrapper:
         self._span.set_status(status.to_otel_status())
 
     def add_event(self, event: SpanEvent):
+        """Add an event to the span."""
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
     def end(self):
+        """
+        End the span. This method mimics the OTel's span end hook to pass this wrapper to
+        processor/exporter.
+        https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909
+
+        This method should not be called directly by the user, only by called via fluent APIs
+        context exit or by MlflowClient APIs.
+
+        :meta private:
+        """
         # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
         # by the user. However, there is not way to set the status when using
         # @mlflow.trace decorator. Therefore, we just automatically set the status
@@ -117,8 +147,6 @@ class MLflowSpanWrapper:
         if self.status.status_code != TraceStatus.ERROR:
             self.set_status(SpanStatus(TraceStatus.OK))
 
-        # Mimic the OTel's span end hook to pass this wrapper to processor/exporter
-        # Ref: https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909
         with self._span._lock:
             if self._span._start_time is None:
                 _logger.warning("Calling end() on a not started span. Ignoring.")
@@ -134,6 +162,8 @@ class MLflowSpanWrapper:
     def to_mlflow_span(self):
         """
         Create an MLflow Span object from this wrapper and the original Span object.
+
+        :meta private:
         """
         return Span(
             name=self._span.name,
