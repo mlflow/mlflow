@@ -220,7 +220,7 @@ def get_mlflow_langchain_tracer():
             self._mlflow_client = MlflowClient()
             self._run_span_mapping: Dict[str, MLflowSpanWrapper] = {}
 
-        def _get_span_by_run_id(self, run_id: Union[str, UUID]) -> Optional[MLflowSpanWrapper]:
+        def _get_span_by_run_id(self, run_id: UUID) -> Optional[MLflowSpanWrapper]:
             if span := self._run_span_mapping.get(str(run_id)):
                 return span
             raise MlflowException(f"Span for run_id {run_id!s} not found.")
@@ -228,9 +228,9 @@ def get_mlflow_langchain_tracer():
         def _start_span(
             self,
             span_name: str,
-            parent_run_id: Optional[Union[str, UUID]],
+            parent_run_id: Optional[UUID],
             span_type: str,
-            run_id: Union[str, UUID],
+            run_id: UUID,
             inputs: Optional[Dict[str, Any]] = None,
             attributes: Optional[Dict[str, Any]] = None,
         ) -> MLflowSpanWrapper:
