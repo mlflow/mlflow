@@ -250,7 +250,7 @@ def fake_classifier_chat_model():
     from langchain.chat_models.base import SimpleChatModel
     from langchain.schema.messages import BaseMessage
 
-    class FakeMLflowClassifier(SimpleChatModel):
+    class FakeMlflowClassifier(SimpleChatModel):
         """Fake Chat Model wrapper for testing purposes."""
 
         def _call(
@@ -270,7 +270,7 @@ def fake_classifier_chat_model():
         def _llm_type(self) -> str:
             return "fake mlflow classifier"
 
-    return FakeMLflowClassifier()
+    return FakeMlflowClassifier()
 
 
 def test_langchain_native_save_and_load_model(model_path):

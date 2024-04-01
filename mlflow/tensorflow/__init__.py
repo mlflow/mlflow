@@ -29,7 +29,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback  # noqa: F401
+from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -96,6 +96,9 @@ _KERAS_MODEL_DATA_PATH = "data"
 _TF2MODEL_SUBPATH = "tf2model"
 
 model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
+
+
+MLflowCallback = MlflowCallback  # for backwards compatibility
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
