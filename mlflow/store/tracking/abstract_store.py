@@ -233,7 +233,7 @@ class AbstractStore:
 
         """
         pass
-    
+
     @abstractmethod
     def restore_run(self, run_id):
         """

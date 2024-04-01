@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -32,10 +33,7 @@ from mlflow.environment_variables import (
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
-)
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
@@ -1755,6 +1753,7 @@ def delete_run(run_id: str) -> None:
     """
     MlflowClient().delete_run(run_id)
 
+
 def delete_runs(run_ids: List[str]) -> None:
     """
     Deletes runs with the given IDs.
@@ -1786,6 +1785,7 @@ def delete_runs(run_ids: List[str]) -> None:
 
     """
     MlflowClient().delete_runs(run_ids)
+
 
 def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
     """
