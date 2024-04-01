@@ -251,7 +251,6 @@ forced-separate = ["tests"]
 [tool.clint]
 exclude = [
   "docs",
-  "examples",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
   "mlflow/server/js",
