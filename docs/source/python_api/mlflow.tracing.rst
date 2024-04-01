@@ -5,7 +5,7 @@ mlflow.tracing
 
     This is a tentative documentation for the development period. The main objective is to serve as an up-to-date internal reference for API specifications and notable implementation details. The documentation must be updated and polished before the official release.
 
-MLflow Tracing SDKs provide Python APIs to instrument machine learning application, so that developers can easily debug and monitor their systems.
+MLflow Tracing Python APIs instrument machine learning application, so that developers can easily debug and monitor their systems.
 
 .. contents:: Table of Contents
   :local:
@@ -25,7 +25,7 @@ Automatic instrumentation
 Fluent APIs
 ~~~~~~~~~~~
 
-Fluent APIs are high-level APIs that allows developers to instrument their code with minimal changes. The APIs are designed to be easy to use that manages the spans parent-child relationships and set some fields of the span automatically. When instrumenting Python code, it is generally recommended to use Fluent APIs over MLflow Client APIs as they are more user-friendly and less error-prone.
+Fluent APIs are high-level APIs that allow developers to instrument their code with minimal changes. The APIs are designed to be easy to use that manages the spans parent-child relationships and set some fields of the span automatically. When instrumenting Python code, it is generally recommended to use Fluent APIs over MLflow Client APIs as they are more user-friendly and less error-prone.
 
 
 .. autofunction:: mlflow.trace

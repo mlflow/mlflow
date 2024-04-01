@@ -24,7 +24,7 @@ def trace(
     attributes: Optional[Dict[str, Any]] = None,
 ) -> Callable:
     """
-    A decorator that create a new span for the decorated function.
+    A decorator that creates a new span for the decorated function.
 
     When you decorate a function with this :py:func:`@mlflow.trace() <trace>` decorator,
     a span will be created for the scope of the decorated function. The span will automatically
@@ -62,7 +62,7 @@ def trace(
         The @mlflow.trace decorator is useful when you want to trace a function defined by
         yourself. However, you may also want to trace a function in external libraries. In
         such case, you can use this ``mlflow.trace()`` function to directly wrap the function,
-        instead of using as the decorator. This will creates an exact same span as the
+        instead of using as the decorator. This will create the exact same span as the
         one created by the decorator i.e. captures information from the function call.
 
         .. code-block:: python
@@ -106,10 +106,10 @@ def start_span(
     Context manager to create a new span and start it as the current span in the context.
 
     This context manager automatically manages the span lifecycle and parent-child relationships.
-    The span will be ended when the context manager exists. Any exception raised within the
+    The span will be ended when the context manager exits. Any exception raised within the
     context manager will set the span status to ``ERROR``, and detailed information such as
     exception message and stacktrace will be recorded to the ``attributes`` field of the span.
-    New spans can be created within the context manager, then they will be assigned as children
+    New spans can be created within the context manager, then they will be assigned as child
     spans.
 
     .. code-block:: python
