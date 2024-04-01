@@ -231,6 +231,3 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
                 global_step=self.global_step,
                 metric_dict={k: float(v) for k, v in logs.items()},
             )
-
-
-MLflowCallback = MlflowCallback  # for backward compatibility
