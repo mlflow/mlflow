@@ -1762,6 +1762,7 @@ class MlflowClient:
                 if extension in [".yml", ".yaml"]:
                     yaml.dump(dictionary, f, indent=2, default_flow_style=False)
                 else:
+                    # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
     def log_figure(

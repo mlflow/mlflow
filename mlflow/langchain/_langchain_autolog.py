@@ -189,7 +189,6 @@ def get_mlflow_langchain_tracer():
     from langchain.callbacks.base import BaseCallbackHandler
     from langchain_core.agents import AgentAction, AgentFinish
     from langchain_core.documents import Document
-    from langchain_core.load import dumpd
     from langchain_core.messages import BaseMessage
     from langchain_core.outputs import (
         ChatGeneration,
@@ -199,28 +198,22 @@ def get_mlflow_langchain_tracer():
     )
     from tenacity import RetryCallState
 
-    from mlflow.entities import ExceptionEvent, SpanEvent, SpanType
-    from mlflow.entities.span_status import SpanStatus
-    from mlflow.entities.trace_status import TraceStatus
-    from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+    from mlflow.entities import SpanEvent, SpanStatus, SpanType, TraceStatus
+    from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
     class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
         """
-        Callback for auto-logging artifacts.
+        Callback for auto-logging traces.
         We need to inherit ExceptionSafeAbstractClass to avoid invalid new
         input arguments added to original function call.
-        Args:
-            tracking_uri: MLflow tracking server uri.
-            experiment_name: Name of the experiment.
-            run_id: Id of the run to log the artifacts.
         """
 
         def __init__(self):
             super().__init__()
             self._mlflow_client = MlflowClient()
-            self._run_span_mapping: Dict[str, MLflowSpanWrapper] = {}
+            self._run_span_mapping: Dict[str, MlflowSpanWrapper] = {}
 
-        def _get_span_by_run_id(self, run_id: UUID) -> Optional[MLflowSpanWrapper]:
+        def _get_span_by_run_id(self, run_id: UUID) -> Optional[MlflowSpanWrapper]:
             if span := self._run_span_mapping.get(str(run_id)):
                 return span
             raise MlflowException(f"Span for run_id {run_id!s} not found.")
@@ -233,7 +226,7 @@ def get_mlflow_langchain_tracer():
             run_id: UUID,
             inputs: Optional[Dict[str, Any]] = None,
             attributes: Optional[Dict[str, Any]] = None,
-        ) -> MLflowSpanWrapper:
+        ) -> MlflowSpanWrapper:
             """Start MLflow Span (or Trace if it is root component)"""
             parent = self._get_span_by_run_id(parent_run_id) if parent_run_id else None
             if parent:
@@ -255,7 +248,7 @@ def get_mlflow_langchain_tracer():
 
         def _end_span(
             self,
-            span: MLflowSpanWrapper,
+            span: MlflowSpanWrapper,
             outputs=None,
             attributes=None,
             status=SpanStatus(TraceStatus.OK),
@@ -288,14 +281,13 @@ def get_mlflow_langchain_tracer():
             """Run when a chat model starts running."""
             if metadata:
                 kwargs.update({"metadata": metadata})
-            llm_inputs = {"messages": [[dumpd(msg) for msg in batch] for batch in messages]}
             self._start_span(
                 span_name=name or "chat model",
                 parent_run_id=parent_run_id,
                 # we use LLM for chat models as well
                 span_type=SpanType.LLM,
                 run_id=run_id,
-                inputs=llm_inputs,
+                inputs={"messages": messages},
                 attributes=kwargs,
             )
 
@@ -387,9 +379,7 @@ def get_mlflow_langchain_tracer():
                 for j, generation in enumerate(generations):
                     output_generation = outputs["generations"][i][j]
                     if "message" in output_generation:
-                        output_generation["message"] = dumpd(
-                            cast(ChatGeneration, generation).message
-                        )
+                        output_generation["message"] = cast(ChatGeneration, generation).message
             self._end_span(llm_span, outputs=outputs)
 
         @override
@@ -402,7 +392,7 @@ def get_mlflow_langchain_tracer():
         ):
             """Handle an error for an LLM run."""
             llm_span = self._get_span_by_run_id(run_id)
-            llm_span.add_event(ExceptionEvent(error))
+            llm_span.add_event(SpanEvent.from_exception(error))
             self._end_span(llm_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
 
         def _get_chain_inputs(self, inputs: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
@@ -463,7 +453,7 @@ def get_mlflow_langchain_tracer():
             chain_span = self._get_span_by_run_id(run_id)
             if inputs:
                 chain_span.set_inputs(self._get_chain_inputs(inputs))
-            chain_span.add_event(ExceptionEvent(error))
+            chain_span.add_event(SpanEvent.from_exception(error))
             self._end_span(chain_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
 
         @override
@@ -496,7 +486,7 @@ def get_mlflow_langchain_tracer():
         def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any):
             """Run when tool ends running."""
             tool_span = self._get_span_by_run_id(run_id)
-            self._end_span(tool_span, outputs={"output": str(output)})
+            self._end_span(tool_span, outputs=str(output))
 
         @override
         def on_tool_error(
@@ -508,7 +498,7 @@ def get_mlflow_langchain_tracer():
         ):
             """Run when tool errors."""
             tool_span = self._get_span_by_run_id(run_id)
-            tool_span.add_event(ExceptionEvent(error))
+            tool_span.add_event(SpanEvent.from_exception(error))
             self._end_span(tool_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
 
         @override
@@ -552,7 +542,7 @@ def get_mlflow_langchain_tracer():
         ):
             """Run when Retriever errors."""
             retriever_span = self._get_span_by_run_id(run_id)
-            retriever_span.add_event(ExceptionEvent(error))
+            retriever_span.add_event(SpanEvent.from_exception(error))
             self._end_span(retriever_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
 
         @override
