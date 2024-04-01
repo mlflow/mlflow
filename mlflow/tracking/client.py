@@ -28,6 +28,7 @@ from mlflow.entities import (
     Run,
     RunTag,
     SpanStatus,
+    SpanType,
     TraceInfo,
     TraceStatus,
     ViewType,
@@ -535,7 +536,7 @@ class MlflowClient:
         name: str,
         request_id: str,
         parent_span_id: str,
-        span_type: Optional[str] = None,
+        span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
     ):
@@ -623,7 +624,7 @@ class MlflowClient:
         request_id: str,
         span_id: str,
         outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Any] = None,
         status: SpanStatus = SpanStatus(TraceStatus.OK),
     ):
         """

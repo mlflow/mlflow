@@ -50,7 +50,7 @@ class Span(_MLflowObject):
     status: SpanStatus
     start_time: int
     end_time: int
-    span_type: Optional[str] = field(default=SpanType.UNKNOWN)
+    span_type: str = SpanType.UNKNOWN
     inputs: Optional[Dict[str, Any]] = None
     outputs: Optional[Dict[str, Any]] = None
     attributes: Dict[str, Any] = field(default_factory=dict)

@@ -4,8 +4,7 @@ from typing import Any, Dict, Optional
 
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, TraceStatus
-from mlflow.entities.span import SpanType
+from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, SpanType, TraceStatus
 
 _logger = logging.getLogger(__name__)
 
@@ -18,13 +17,14 @@ class MLflowSpanWrapper:
     Span object, so need to implement the same interfaces as the original Span.
     """
 
-    def __init__(self, span: trace_api.Span, span_type: SpanType = None):
+    def __init__(self, span: trace_api.Span, span_type: str = SpanType.UNKNOWN):
         self._span = span
-        # NB: Default to UNKNOWN type, but not use it as default in the constructor
-        #  cuz some upstream function want to pass None by default.
-        self._span_type = span_type or SpanType.UNKNOWN
+        self._span_type = span_type
         self._inputs = None
         self._outputs = None
+        # NB: We don't use the OpenTelemetry's attributes because it only accepts
+        #  a limited set of types as primitive values, but we want to allow any type.
+        self._attributes = {}
 
     @property
     def request_id(self) -> str:
@@ -75,20 +75,25 @@ class MLflowSpanWrapper:
     def outputs(self) -> Dict[str, Any]:
         return self._outputs
 
-    def set_inputs(self, inputs: Dict[str, Any]):
+    def set_inputs(self, inputs: Any):
         self._inputs = inputs
 
-    def set_outputs(self, outputs: Dict[str, Any]):
+    def set_outputs(self, outputs: Any):
         self._outputs = outputs
 
     def set_attributes(self, attributes: Dict[str, Any]):
-        try:
-            self._span.set_attributes(attributes)
-        except Exception as e:
-            _logger.warning(f"Failed to set attributes {attributes} on span {self.name}: {e}")
+        if not isinstance(attributes, dict):
+            _logger.warning(
+                f"Attributes must be a dictionary, but got {type(attributes)}. Skipping."
+            )
+            return
+        self._attributes.update(attributes)
 
     def set_attribute(self, key: str, value: Any):
-        self._span.set_attribute(key, value)
+        if not isinstance(key, str):
+            _logger.warning(f"Attribute key must be a string, but got {type(key)}. Skipping.")
+            return
+        self._attributes[key] = value
 
     def set_status(self, status: SpanStatus):
         # NB: We need to set the OpenTelemetry native StatusCode, because span's set_status
@@ -143,8 +148,8 @@ class MLflowSpanWrapper:
             end_time=self.end_time,
             inputs=self.inputs,
             outputs=self.outputs,
-            # Convert from MappingProxyType to dict for serialization
-            attributes=dict(self._span.attributes),
+            # NB: There may be some attributes set by OpenTelemetry automatically
+            attributes={**self._span.attributes, **self._attributes},
             events=[
                 SpanEvent(
                     name=event.name,
