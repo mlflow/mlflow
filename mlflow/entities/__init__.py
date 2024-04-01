@@ -51,7 +51,6 @@ __all__ = [
     "Span",
     "SpanContext",
     "SpanEvent",
-    "ExceptionEvent",
     "SpanStatus",
     "SpanType",
     "Trace",
