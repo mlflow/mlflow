@@ -2,8 +2,6 @@ import inspect
 import logging
 from typing import Any, Dict
 
-from mlflow.exceptions import MlflowException
-
 _logger = logging.getLogger(__name__)
 
 

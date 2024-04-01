@@ -41,6 +41,7 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -749,18 +750,34 @@ class MlflowClient:
         """
         Set a tag on the trace with the given trace ID.
 
+        The trace can be ongoing one or the one that has already ended and recorded in the backend.
+        Below is an example of setting a tag on an ongoing trace. You can replace the ``request_id``
+        parameter to setting a tag on an already ended trace.
+
+        .. code-block:: python
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+
+            root_span = client.start_trace("my_trace")
+            client.set_trace_tag(root_span.request_id, "key", "value")
+            client.end_trace(root_span.request_id)
+
         Args:
             request_id: The ID of the trace to set the tag on.
-            key: The string key of the tag.
-            value: The string value of the tag.
+            key: The string key of the tag. Must be shorter than 250 characters.
+            value: The string value of the tag. Must be shorter than 250 characters.
         """
+        TraceInfo.validate_tag_key_value(key, value)
 
         # Trying to set the tag on the ongoing trace first
         trace_manager = InMemoryTraceManager.get_instance()
         try:
             trace_manager.set_trace_tag(request_id, key, value)
+            return
         except MlflowException as e:
-            if e.error_code != RESOURCE_DOES_NOT_EXIST:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                 raise
 
         # If the trace is not ongoing, try to set the tag on the trace in the backend

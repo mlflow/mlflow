@@ -4,8 +4,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from cachetools import TTLCache
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import SpanType, Trace, TraceData, TraceInfo, TraceStatus
@@ -13,6 +11,8 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
@@ -124,7 +124,9 @@ class InMemoryTraceManager:
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ):
-        TraceInfo.validate_tags(tags)
+        tags = tags or {}
+        for key, value in tags.items():
+            TraceInfo.validate_tag_key_value(key, value)
 
         trace_info = TraceInfo(
             request_id=request_id,
@@ -143,14 +145,16 @@ class InMemoryTraceManager:
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """Set a tag on the trace with the given request_id."""
-        TraceInfo.validate_tags({key: value})
+        TraceInfo.validate_tag_key_value(key, value)
 
         with self._lock:
             if trace := self._traces.get(request_id):
                 trace.trace_info.tags[key] = value
                 return
 
-        raise MlflowException(f"Trace with ID {request_id} not found.", error_code=RESOURCE_DOES_NOT_EXIST)
+        raise MlflowException(
+            f"Trace with ID {request_id} not found.", error_code=RESOURCE_DOES_NOT_EXIST
+        )
 
     def get_trace_info(self, request_id: str) -> Optional[TraceInfo]:
         """

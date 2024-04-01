@@ -198,6 +198,17 @@ class TrackingServiceClient:
         """
         return self.store.get_trace_info(request_id)
 
+    def set_trace_tag(self, request_id, key, value):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        self.store.set_trace_tag(request_id, key, value)
+
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,

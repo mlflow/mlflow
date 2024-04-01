@@ -101,7 +101,7 @@ def test_serialize_inputs_outputs():
     assert exporter._serialize_inputs_outputs({"x": 1, "y": 2}) == '{"x": 1, "y": 2}'
     assert exporter._serialize_inputs_outputs("string input") == '"string input"'
     # Truncate long inputs
-    assert len(exporter._serialize_inputs_outputs({"x": "very long input" * 100})) == 300
+    assert len(exporter._serialize_inputs_outputs({"x": "very long input" * 100})) == 250
     # non-JSON-serializable inputs
     assert (
         exporter._serialize_inputs_outputs({"input": pd.DataFrame({"x": [1], "y": [2]})})
