@@ -22,7 +22,6 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
-from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -329,19 +328,24 @@ def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
             mlflow.tracking.MlflowClient().start_trace("test")
 
 
-@mock.patch("mlflow.tracking.client.get_trace_client")
-def test_end_trace_raise_error_when_trace_not_active(mock_get_trace_client):
-    mock_trace_client = mock_get_trace_client.return_value
-
-    # Case 1: the trace already ended
-    mock_trace_client.get_trace.return_value = Trace(None, [])
-    with pytest.raises(MlflowException, match=r"Trace with ID test already finished"):
-        mlflow.tracking.MlflowClient().end_trace("test")
-
-    # Case 2: the trace does not exist
-    mock_trace_client.get_trace.return_value = None
+def test_end_trace_raise_error_when_trace_not_exist(clear_singleton):
     with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
         mlflow.tracking.MlflowClient().end_trace("test")
+
+
+def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
+    client = mlflow.tracking.MlflowClient()
+
+    root_span = client.start_trace("test")
+    client.end_trace(root_span.request_id)
+
+    trace = mlflow.get_traces()[-1]
+    assert trace.trace_info.request_id == root_span.request_id
+
+    with pytest.raises(
+        MlflowException, match=f"Trace with ID {root_span.request_id} already finished"
+    ):
+        client.end_trace(root_span.request_id)
 
 
 def test_start_span_raise_error_when_parent_span_id_is_not_provided():
