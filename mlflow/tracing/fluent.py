@@ -7,8 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import SpanType
-from mlflow.entities import Trace
+from mlflow.entities import SpanType, Trace
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
