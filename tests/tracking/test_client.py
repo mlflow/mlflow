@@ -329,20 +329,24 @@ def test_start_span_raise_error_when_parent_span_id_is_not_provided():
         )
 
 
+def test_end_span_raise_error_when_span_not_active():
+    with pytest.raises(MlflowException, match=r"Span with ID test_span not found in"):
+        mlflow.tracking.MlflowClient().end_span("test_trace", "test_span")
+
+
 @mock.patch("mlflow.tracking.client.get_trace_client")
 def test_end_trace_raise_error_when_trace_not_active(mock_get_trace_client):
     mock_trace_client = mock_get_trace_client.return_value
-    test_request_id = "test"
 
     # Case 1: the trace already ended
     mock_trace_client.get_trace.return_value = Trace(None, [])
     with pytest.raises(MlflowException, match=r"Trace with ID test already finished"):
-        mlflow.tracking.MlflowClient().end_trace(test_request_id)
+        mlflow.tracking.MlflowClient().end_trace("test")
 
     # Case 2: the trace does not exist
     mock_trace_client.get_trace.return_value = None
     with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
-        mlflow.tracking.MlflowClient().end_trace(test_request_id)
+        mlflow.tracking.MlflowClient().end_trace("test")
 
 
 def test_client_create_experiment(mock_store):

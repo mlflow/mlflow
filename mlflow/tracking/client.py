@@ -713,8 +713,10 @@ class MlflowClient:
         span = trace_manager.get_span_from_id(request_id, span_id)
 
         if span is None:
-            _logger.warning(f"Span with ID {span_id} not found in trace with ID {request_id}.")
-            return
+            raise MlflowException(
+                f"Span with ID {span_id} not found in trace with ID {request_id}.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
 
         if attributes:
             span.set_attributes(attributes or {})
