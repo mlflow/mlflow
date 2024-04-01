@@ -31,10 +31,13 @@ else:
         model_data_artifact_paths,
         save_model,
     )
+    from mlflow.utils.annotations import deprecated
 
     FLAVOR_NAME = "keras"
 
-    MLflowCallback = MlflowCallback  # for backwards compatibility
+    MLflowCallback = deprecated(
+        MlflowCallback, alternative="mlflow.keras.MlflowCallback"
+    )  # for backwards compatibility
 
     __all__ = [
         "_load_pyfunc",

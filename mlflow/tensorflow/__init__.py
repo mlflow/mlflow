@@ -35,6 +35,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.autologging_utils import (
     PatchFunction,
     autologging_integration,
@@ -98,7 +99,9 @@ _TF2MODEL_SUBPATH = "tf2model"
 model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
 
 
-MLflowCallback = MlflowCallback  # for backwards compatibility
+MLflowCallback = deprecated(
+    MlflowCallback, alternative="mlflow.keras.MlflowCallback"
+)  # for backwards compatibility
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
