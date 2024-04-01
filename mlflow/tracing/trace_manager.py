@@ -12,7 +12,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class _Trace:
     trace_info: TraceInfo
-    span_dict: Dict[str, MLflowSpanWrapper] = field(default_factory=dict)
+    span_dict: Dict[str, MlflowSpanWrapper] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
         span_list = [span.to_mlflow_span() for span in self.span_dict.values()]
@@ -58,7 +58,7 @@ class InMemoryTraceManager:
         request_id: Optional[str] = None,
         parent_span_id: Optional[str] = None,
         span_type: str = SpanType.UNKNOWN,
-    ) -> MLflowSpanWrapper:
+    ) -> MlflowSpanWrapper:
         """
         Start a new OpenTelemetry span that is not part of the current trace context, but with the
         explicit parent span ID if provided.
@@ -71,8 +71,8 @@ class InMemoryTraceManager:
             span_type: The type of the span.
 
         Returns:
-            The newly created span (wrapped in MLflowSpanWrapper). If any error occurs, returns a
-            NoOpMLflowSpanWrapper that has exact same interface but no-op implementations.
+            The newly created span (wrapped in MlflowSpanWrapper). If any error occurs, returns a
+            NoOpMlflowSpanWrapper that has exact same interface but no-op implementations.
         """
         from mlflow.tracing.provider import get_tracer
 
@@ -84,15 +84,15 @@ class InMemoryTraceManager:
             else:
                 context = None
 
-            span = MLflowSpanWrapper(tracer.start_span(name, context=context), span_type=span_type)
+            span = MlflowSpanWrapper(tracer.start_span(name, context=context), span_type=span_type)
 
             self.add_or_update_span(span)
             return span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
-            return NoOpMLflowSpanWrapper()
+            return NoOpMlflowSpanWrapper()
 
-    def add_or_update_span(self, span: MLflowSpanWrapper):
+    def add_or_update_span(self, span: MlflowSpanWrapper):
         """
         Store the given span in the in-memory trace data. If the trace does not exist, create a new
         trace with the request_id of the span. If the span ID already exists in the trace, update
@@ -101,7 +101,7 @@ class InMemoryTraceManager:
         Args:
             span: The span to be stored.
         """
-        if not isinstance(span, MLflowSpanWrapper):
+        if not isinstance(span, MlflowSpanWrapper):
             _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
             return
 
@@ -145,7 +145,7 @@ class InMemoryTraceManager:
         trace = self._traces.get(request_id)
         return trace.trace_info if trace else None
 
-    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[MLflowSpanWrapper]:
+    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[MlflowSpanWrapper]:
         """
         Get a span object for the given request_id and span_id.
         """

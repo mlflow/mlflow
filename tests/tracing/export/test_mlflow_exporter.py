@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 import pandas as pd
 from opentelemetry.sdk.trace import ReadableSpan
 
-from mlflow.tracing.export.mlflow import MLflowSpanExporter
+from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
 )
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
 
 @dataclass
@@ -52,18 +52,18 @@ def test_export():
     )
 
     mock_client = MagicMock()
-    exporter = MLflowSpanExporter(mock_client)
+    exporter = MlflowSpanExporter(mock_client)
 
     # Export the first child span -> no client call
-    exporter.export([MLflowSpanWrapper(otel_span_child_1)])
+    exporter.export([MlflowSpanWrapper(otel_span_child_1)])
     assert mock_client.log_trace.call_count == 0
 
     # Export the second child span -> no client call
-    exporter.export([MLflowSpanWrapper(otel_span_child_2)])
+    exporter.export([MlflowSpanWrapper(otel_span_child_2)])
     assert mock_client.log_trace.call_count == 0
 
     # Export the root span -> client call
-    root_span = MLflowSpanWrapper(otel_span_root)
+    root_span = MlflowSpanWrapper(otel_span_root)
     root_span.set_inputs({"input1": "very long input" * 100})
     root_span.set_outputs("very long output" * 100)
     exporter.export([root_span])
@@ -97,7 +97,7 @@ def test_export():
 
 
 def test_serialize_inputs_outputs():
-    exporter = MLflowSpanExporter(MagicMock())
+    exporter = MlflowSpanExporter(MagicMock())
     assert exporter._serialize_inputs_outputs({"x": 1, "y": 2}) == '{"x": 1, "y": 2}'
     assert exporter._serialize_inputs_outputs("string input") == '"string input"'
     # Truncate long inputs

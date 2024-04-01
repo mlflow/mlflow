@@ -9,7 +9,7 @@ from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, SpanType, 
 _logger = logging.getLogger(__name__)
 
 
-class MLflowSpanWrapper:
+class MlflowSpanWrapper:
     """
     A wrapper around OpenTelemetry's Span object to provide MLflow-specific functionality.
 
@@ -192,12 +192,12 @@ class MLflowSpanWrapper:
         )
 
 
-class NoOpMLflowSpanWrapper:
+class NoOpMlflowSpanWrapper:
     """
-    No-op implementation of all MLflowSpanWrapper.
+    No-op implementation of all MlflowSpanWrapper.
 
     This instance should be returned from the mlflow.start_span context manager when span
-    creation fails. This class should have exactly the same interface as MLflowSpanWrapper
+    creation fails. This class should have exactly the same interface as MlflowSpanWrapper
     so that user's setter calls do not raise runtime errors.
 
     E.g.

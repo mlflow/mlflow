@@ -1,7 +1,7 @@
 import time
 from unittest import mock
 
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
 
 def test_wrapper_property():
@@ -15,7 +15,7 @@ def test_wrapper_property():
     mock_otel_span._end_time = end_time
     mock_otel_span.parent.span_id = "parent_span_id"
 
-    span = MLflowSpanWrapper(mock_otel_span)
+    span = MlflowSpanWrapper(mock_otel_span)
 
     assert span.request_id == "trace_id"
     assert span.span_id == "span_id"

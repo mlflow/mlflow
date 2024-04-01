@@ -51,7 +51,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -450,7 +450,7 @@ class MlflowClient:
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
-    ) -> MLflowSpanWrapper:
+    ) -> MlflowSpanWrapper:
         """
         Create a new trace object and start a root span under it.
 
@@ -473,7 +473,7 @@ class MlflowClient:
             tags: A dictionary of tags to set on the trace.
 
         Returns:
-            An :py:class:`MLflowSpanWrapper <mlflow.tracing.MLflowSpanWrapper>` object
+            An :py:class:`MlflowSpanWrapper <mlflow.tracing.MlflowSpanWrapper>` object
             representing the root span of the trace.
 
         Example:
@@ -548,7 +548,7 @@ class MlflowClient:
         span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-    ) -> MLflowSpanWrapper:
+    ) -> MlflowSpanWrapper:
         """
         Create a new span and start it without attaching it to the global trace context.
 
@@ -622,7 +622,7 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span.
 
         Returns:
-            An :py:class:`mlflow.tracing.MLflowSpanWrapper` object representing the span.
+            An :py:class:`mlflow.tracing.MlflowSpanWrapper` object representing the span.
 
         Example:
 
