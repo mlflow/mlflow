@@ -356,7 +356,7 @@ def test_start_span_raise_error_when_parent_span_id_is_not_provided():
 
 
 def test_end_span_raise_error_when_span_not_active():
-    with pytest.raises(MlflowException, match=r"Span with ID test_span not found in"):
+    with pytest.raises(MlflowException, match=r"Span with ID test_span is not found or"):
         mlflow.tracking.MlflowClient().end_span("test_trace", "test_span")
 
 
