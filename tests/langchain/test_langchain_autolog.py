@@ -16,7 +16,6 @@ from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 import mlflow
 from mlflow import MlflowClient
 from mlflow.langchain._langchain_autolog import (
-    BASIC_METRICS,
     INFERENCE_FILE_NAME,
     UNSUPPORT_LOG_MODEL_MESSAGE,
     _combine_input_and_output,
@@ -34,52 +33,64 @@ from mlflow.utils.openai_utils import (
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
 
+from langchain_community.callbacks.mlflow_callback import (
+    get_text_complexity_metrics,
+    mlflow_callback_metrics,
+)
+
+MLFLOW_CALLBACK_METRICS = mlflow_callback_metrics()
+TEXT_COMPLEXITY_METRICS = get_text_complexity_metrics()
+
 
 def get_mlflow_callback_artifacts(
     contains_llm=True,
+    contains_on_text_action=True,
+    llm_new_token=False,
     contains_chain=False,
     contains_tool=False,
     contains_agent=False,
     contains_agent_action=False,
     contains_retriever=False,
 ):
-    artifacts = [re.compile(r"trace_\d+\.json")]
+    artifacts = [
+        "table_action_records.html",
+    ]
     if contains_llm:
-        artifacts.extend(
-            [
-                re.compile(r"llm_start_\d+\.json"),
-                re.compile(r"llm_end_\d+_generation_\d+_\d+\.json"),
-            ]
-        )
+        artifacts += [
+            "chat_html.html",
+            "table_session_analysis.html",
+            re.compile(r"llm_start_\d+_prompt_\d+\.json"),
+            re.compile(r"llm_end_\d+_generation_\d+\.json"),
+        ]
+    if llm_new_token:
+        artifacts += [re.compile(r"llm_new_tokens_\d+\.json")]
     if contains_chain:
-        artifacts.extend(
-            [
-                re.compile(r"chain_start_\d+\.json"),
-                re.compile(r"chain_end_\d+\.json"),
-            ]
-        )
+        artifacts += [
+            re.compile(r"chain_start_\d+\.json"),
+            re.compile(r"chain_end_\d+\.json"),
+        ]
     if contains_tool:
-        artifacts.extend(
-            [
-                re.compile(r"tool_start_\d+\.json"),
-                re.compile(r"tool_end_\d+\.json"),
-            ]
-        )
+        artifacts += [
+            re.compile(r"tool_start_\d+\.json"),
+            re.compile(r"tool_end_\d+\.json"),
+        ]
     if contains_agent:
-        artifacts.append(
+        artifacts += [
             re.compile(r"agent_finish_\d+\.json"),
-        )
+        ]
     if contains_agent_action:
-        artifacts.append(
+        artifacts += [
             re.compile(r"agent_action_\d+\.json"),
-        )
+        ]
+    if contains_on_text_action:
+        artifacts += [
+            re.compile(r"on_text_\d+\.json"),
+        ]
     if contains_retriever:
-        artifacts.extend(
-            [
-                re.compile(r"retriever_start_\d+\.json"),
-                re.compile(r"retriever_end_\d+\.json"),
-            ]
-        )
+        artifacts += [
+            re.compile(r"retriever_start_\d+\.json"),
+            re.compile(r"retriever_end_\d+\.json"),
+        ]
     return artifacts
 
 
@@ -265,7 +276,7 @@ def test_llmchain_autolog_metrics():
             model.invoke("MLflow")
         client = MlflowClient()
         metrics = client.get_run(run.info.run_id).data.metrics
-        for metric_key in BASIC_METRICS:
+        for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
     assert mlflow.active_run() is None
 
@@ -278,7 +289,10 @@ def test_llmchain_autolog_artifacts():
             model.invoke("MLflow")
         artifacts = get_artifacts(run.info.run_id)
         for artifact_name in get_mlflow_callback_artifacts():
-            assert any(artifact_name.match(artifact) for artifact in artifacts)
+            if isinstance(artifact_name, str):
+                assert artifact_name in artifacts
+            else:
+                assert any(artifact_name.match(artifact) for artifact in artifacts)
 
 
 def test_loaded_llmchain_autolog():
@@ -383,14 +397,17 @@ def test_agent_autolog_metrics_and_artifacts():
             model(input)
         client = MlflowClient()
         metrics = client.get_run(run.info.run_id).data.metrics
-        for metric_key in BASIC_METRICS:
+        for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
 
         artifacts = get_artifacts(run.info.run_id)
         for artifact_name in get_mlflow_callback_artifacts(
             contains_agent=True, contains_chain=True
         ):
-            assert any(artifact_name.match(artifact) for artifact in artifacts)
+            if isinstance(artifact_name, str):
+                assert artifact_name in artifacts
+            else:
+                assert any(artifact_name.match(artifact) for artifact in artifacts)
     assert mlflow.active_run() is None
 
 
@@ -465,12 +482,15 @@ def test_runnable_sequence_autolog_metrics_and_artifacts():
         chain.invoke(input_example)
     client = MlflowClient()
     metrics = client.get_run(run.info.run_id).data.metrics
-    for metric_key in BASIC_METRICS:
+    for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
         assert metric_key in metrics
 
     artifacts = get_artifacts(run.info.run_id)
-    for artifact_name in get_mlflow_callback_artifacts():
-        assert any(artifact_name.match(artifact) for artifact in artifacts)
+    for artifact_name in get_mlflow_callback_artifacts(contains_on_text_action=False):
+        if isinstance(artifact_name, str):
+            assert artifact_name in artifacts
+        else:
+            assert any(artifact_name.match(artifact) for artifact in artifacts)
     assert mlflow.active_run() is None
 
 
@@ -545,15 +565,19 @@ def test_retriever_metrics_and_artifacts(tmp_path):
         model.get_relevant_documents(query)
     client = MlflowClient()
     metrics = client.get_run(run.info.run_id).data.metrics
-    for metric_key in BASIC_METRICS:
+    for metric_key in MLFLOW_CALLBACK_METRICS:
         assert metric_key in metrics
 
     artifacts = get_artifacts(run.info.run_id)
     for artifact_name in get_mlflow_callback_artifacts(
         contains_llm=False,
+        contains_on_text_action=False,
         contains_retriever=True,
     ):
-        assert any(artifact_name.match(artifact) for artifact in artifacts)
+        if isinstance(artifact_name, str):
+            assert artifact_name in artifacts
+        else:
+            assert any(artifact_name.match(artifact) for artifact in artifacts)
     assert mlflow.active_run() is None
 
 

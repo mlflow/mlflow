@@ -22,7 +22,7 @@ from mlflow.entities.run_tag import RunTag
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.span_context import SpanContext
-from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_event import ExceptionEvent, SpanEvent
 from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -51,6 +51,7 @@ __all__ = [
     "Span",
     "SpanContext",
     "SpanEvent",
+    "ExceptionEvent",
     "SpanStatus",
     "SpanType",
     "Trace",

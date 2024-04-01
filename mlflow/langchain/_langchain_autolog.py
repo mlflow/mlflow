@@ -695,7 +695,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     finally:
         # Terminate the run if it is not managed by the user
         if active_run is None or active_run.info.run_id != mlflow_callback.run_id:
-            mlflow.MlflowClient().set_terminated(mlflow_callback.run_id)
+            mlflow.MlflowClient().set_terminated(mlflow_callback.mlflg.run_id)
     try:
         mlflow_tracer.flush_tracker()
     except Exception as e:
@@ -742,7 +742,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                         "model",
                         input_example=input_example,
                         registered_model_name=registered_model_name,
-                        run_id=mlflow_callback.run_id,
+                        run_id=mlflow_callback.mlflg.run_id,
                     )
             except Exception as e:
                 _logger.warning(f"Failed to log model due to error {e}.")
@@ -752,7 +752,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     # Even if the model is not logged, we keep a single run per model
     if _update_langchain_model_config(self):
         if not hasattr(self, "run_id"):
-            self.run_id = mlflow_callback.run_id
+            self.run_id = mlflow_callback.mlflg.run_id
         if not hasattr(self, "session_id"):
             self.session_id = session_id
         self.inference_id = inference_id + 1
@@ -774,6 +774,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                 f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
                 f"file due to error {e}."
             )
-        mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.run_id)
+        mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
 
     return result
