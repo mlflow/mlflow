@@ -1,11 +1,15 @@
-
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
-from mlflow.gateway.config import TogetherAIConfig, RouteConfig
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
-from mlflow.gateway.schemas import chat, completions, embeddings
-
+import json 
 
 from typing import Dict, Any, AsyncGenerator, AsyncIterable
+
+from mlflow.gateway.schemas import chat, completions, embeddings
+
+from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+
+from mlflow.gateway.config import TogetherAIConfig, RouteConfig
+from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+
 
 class TogetherAIAdapter(ProviderAdapter): 
 
@@ -102,7 +106,48 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
-        raise NotImplementedError
+
+            #Response example (after manually calling API): 
+
+            #{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' },', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 1630, 'content': ' },'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            # },{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            #
+            #{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' {', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 371, 'content': ' {'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            # {{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            #
+            #{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '   ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 2287, 'content': '   '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            #   {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' "', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 345, 'content': ' "'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+            # "{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': 'name', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 861, 'content': 'name'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+
+            ## LAST CHUNK 
+            #name{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '":', 'logprobs': None, 'finish_reason': 'length', 'delta': {'token_id': 1264, 'content': '":'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': {'prompt_tokens': 17, 'completion_tokens': 200, 'total_tokens': 217}}
+            #":[DONE]
+
+        return completions.StreamResponsePayload(
+            id=resp.get("id"), 
+            created=resp.get("created"), 
+            model=config.model.name,
+            choices=[
+                completions.StreamChoice(
+                    index=idx,
+                    finish_reason=choice.get("finish_reason"), #TODO this is questionable since the finish reason comes from togetherai api
+                    delta=completions.StreamDelta(
+                        role=None,
+                        content=choice.get("text")
+                    )
+                )
+
+                for idx, choice in enumerate(resp.get("choices"))
+            ],
+            # usage is not included in OpenAI StreamResponsePayload
+            #usage=completions.CompletionsUsage(
+            #    prompt_tokens=usage.get("prompt_tokens") if usage else None,
+            #    input_tokens=usage.get("completion_tokens") if usage else None,
+            #    total_tokens=usage.get("total_tokens") if usage else None,
+            #)
+        )
 
     @classmethod
     def completions_to_model(cls, payload, config):
@@ -149,7 +194,8 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def completions_streaming_to_model(cls, payload, config):
-        raise NotImplementedError
+        # parameters for streaming completions are the same as the standard completions
+        return TogetherAIAdapter.completions_to_model(payload, config)
 
     @classmethod
     def model_to_chat(cls, resp, config):
@@ -256,10 +302,6 @@ class TogetherAIProvider(BaseProvider):
     def auth_headers(self): 
         return {"Authorization": f"Bearer {self.togetherai_config.togetherai_api_key}"} 
 
-
-    def _add_model_to_payload(self, payload: chat.RequestPayload):
-        return {"model":self.config.model.name, **payload}
-
     async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await send_request(
             headers=self.auth_headers,
@@ -277,14 +319,10 @@ class TogetherAIProvider(BaseProvider):
         )
 
 
-    def _add_model_to_payload(self, payload: chat.RequestPayload):
-        return {"model":self.config.model.name, **payload}
-
-    async def embeddings(self, payload: chat.RequestPayload):
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
-        #self.check_for_model_field(payload)
 
         resp = await self._request(
             path="embeddings",
@@ -295,8 +333,37 @@ class TogetherAIProvider(BaseProvider):
         )
 
         return TogetherAIAdapter.model_to_embeddings(resp, self.config)
+    
+    # WARNING CHANGING THE ORDER OF METHODS HERE FOR SOME REASON CAUSES AN ERROR
+    # completions MODULE IS INTERPERTED AS THE completions function
+    async def completions_stream(self, payload: completions.RequestPayload) -> AsyncIterable[completions.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
 
-    async def completions(self, payload: chat.RequestPayload) -> completions.ResponsePayload:
+        payload = jsonable_encoder(payload, exclude_none=True)
+
+        stream = await self._stream_request(
+            path="completions",
+            payload={
+                "model": self.config.model.name, 
+                **TogetherAIAdapter.completions_streaming_to_model(payload, self.config)
+            }
+        )
+
+        async for chunk in stream:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            
+            chunk = strip_sse_prefix(chunk.decode("utf-8"))
+            if chunk == "[DONE]":
+                return
+
+            resp = json.loads(chunk)
+            yield TogetherAIAdapter.model_to_completions_streaming(resp, self.config)
+
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
