@@ -77,7 +77,7 @@ LAZY_BUILTIN_IMPORT = Rule(
 MLFLOW_CLASS_NAME = Rule(
     "Z0003",
     "mlflow-class-name",
-    "Should use `Mlflow` in class name, not `MLflow`.",
+    "Should use `Mlflow` in class name, not `MLflow` or `MLFlow`.",
 )
 
 
@@ -114,7 +114,7 @@ class Linter(ast.NodeVisitor):
         return bool(self.stack)
 
     def _mlflow_class_name(self, node: ast.ClassDef) -> None:
-        if not node.name.startswith("_") and "MLflow" in node.name:
+        if not node.name.startswith("_") and ("MLflow" in node.name or "MLFlow" in node.name):
             self._check(node, MLFLOW_CLASS_NAME)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
