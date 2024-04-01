@@ -6,7 +6,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.util._once import Once
 
 from mlflow.tracing.clients import TraceClient, get_trace_client
-from mlflow.tracing.export.mlflow import MLflowSpanExporter
+from mlflow.tracing.export.mlflow import MlflowSpanExporter
 
 # Once() object ensures a function is executed only once in a process.
 # Note that it doesn't work as expected in a distributed environment.
@@ -31,7 +31,7 @@ def _setup_tracer_provider(client: Optional[TraceClient] = None):
     client = client or get_trace_client()
 
     # TODO: Make factory method for exporters once we support more sink destinations
-    exporter = MLflowSpanExporter(client)
+    exporter = MlflowSpanExporter(client)
 
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))

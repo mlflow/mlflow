@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 from opentelemetry.sdk.trace import ReadableSpan
 
-from mlflow.tracing.export.mlflow import MLflowSpanExporter
+from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
     TRUNCATION_SUFFIX,
@@ -52,7 +52,7 @@ def test_export():
     )
 
     mock_client = MagicMock()
-    exporter = MLflowSpanExporter(mock_client)
+    exporter = MlflowSpanExporter(mock_client)
 
     # Export the first child span -> no client call
     exporter.export([MlflowSpanWrapper(otel_span_child_1)])
@@ -97,7 +97,7 @@ def test_export():
 
 
 def test_serialize_inputs_outputs():
-    exporter = MLflowSpanExporter(MagicMock())
+    exporter = MlflowSpanExporter(MagicMock())
     assert exporter._serialize_inputs_outputs({"x": 1, "y": 2}) == '{"x": 1, "y": 2}'
     assert exporter._serialize_inputs_outputs("string input") == '"string input"'
     # Truncate long inputs

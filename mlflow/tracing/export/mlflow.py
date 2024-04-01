@@ -16,7 +16,7 @@ from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 _logger = logging.getLogger(__name__)
 
 
-class MLflowSpanExporter(SpanExporter):
+class MlflowSpanExporter(SpanExporter):
     """
     An exporter implementation that logs the traces to MLflow.
 
