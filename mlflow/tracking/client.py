@@ -37,6 +37,7 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
@@ -497,6 +498,24 @@ class MlflowClient:
 
                 client.end_trace(request_id)
         """
+        # Validate no active trace is set in the global context. If there is an active trace,
+        # the span created by this method will be a child span under the active trace rather than
+        # a root span of a new trace, which is not desired behavior.
+        if span := mlflow.get_current_active_span():
+            raise MlflowException(
+                f"Another trace is already set in the global context with ID {span.request_id}. "
+                "It appears that you have already started a trace using fluent APIs like "
+                "`@mlflow.trace()` or `with mlflow.start_span()`. However, it is not allowed "
+                "to call MlflowClient.start_trace() under an active trace created by fluent APIs, "
+                "because it may lead to unexpected behavior. To resolve this issue, consider the "
+                "following options:\n"
+                " - If you want to create a child span under the active trace, use "
+                "`with mlflow.start_span()` or `MlflowClient.start_span()` instead."
+                " - If you want to start multiple traces in parallel, avoid using fluent APIs "
+                "and create all traces using `MlflowClient.start_trace()`.",
+                error_code=BAD_REQUEST,
+            )
+
         trace_manager = InMemoryTraceManager.get_instance()
         root_span = trace_manager.start_detached_span(name)
 
