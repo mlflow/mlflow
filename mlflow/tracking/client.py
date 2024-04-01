@@ -3,6 +3,7 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+
 import contextlib
 import json
 import logging
@@ -23,9 +24,7 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.artifact.utils.models import (
-    get_model_name_and_version,
-)
+from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -43,10 +42,7 @@ from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_LOGGED_ARTIFACTS,
-    MLFLOW_PARENT_RUN_ID,
-)
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
@@ -2119,12 +2115,16 @@ class MlflowClient:
             run1 = client.create_run(experiment_id)
             run2 = client.create_run(experiment_id)
             run_ids = [run1.info.run_id, run2.info.run_id]
-            print(f"run_ids: {run_ids}; lifecycle_stage: {[run1.info.lifecycle_stage, run2.info.lifecycle_stage]}")
+            print(
+                f"run_ids: {run_ids}; lifecycle_stage: {[run1.info.lifecycle_stage, run2.info.lifecycle_stage]}"
+            )
             print("--")
             client.delete_runs(run_ids)
             del_run1 = client.get_run(run_ids[0])
             del_run2 = client.get_run(run_ids[1])
-            print(f"run_ids: {run_ids}; lifecycle_stage: {[del_run1.info.lifecycle_stage, del_run2.info.lifecycle_stage]}")
+            print(
+                f"run_ids: {run_ids}; lifecycle_stage: {[del_run1.info.lifecycle_stage, del_run2.info.lifecycle_stage]}"
+            )
 
         .. code-block:: text
             :caption: Output
@@ -2132,7 +2132,7 @@ class MlflowClient:
             run_ids: ['a61c7a1851324f7094e8d5014c58c8c8', 'b71d7a1851324f7094e8d5014c58c8c9']; lifecycle_stage: ['active', 'active']
             run_ids: ['a61c7a1851324f7094e8d5014c58c8c8', 'b71d7a1851324f7094e8d5014c58c8c9']; lifecycle_stage: ['deleted', 'deleted']
 
-        """
+        """  # noqa: E501
         self._tracking_client.delete_runs(run_ids)
 
     def restore_run(self, run_id: str) -> None:

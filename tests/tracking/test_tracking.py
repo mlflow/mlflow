@@ -30,10 +30,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import (
-    MAX_METRICS_PER_BATCH,
-    MAX_PARAMS_TAGS_PER_BATCH,
-)
+from mlflow.utils.validation import MAX_METRICS_PER_BATCH, MAX_PARAMS_TAGS_PER_BATCH
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
@@ -684,6 +681,7 @@ def test_start_deleted_run():
             pass
     assert mlflow.active_run() is None
 
+
 def test_start_deleted_runs():
     run_ids = []
     for _ in range(2):
@@ -695,7 +693,8 @@ def test_start_deleted_runs():
             with mlflow.start_run(run_id=run_id):
                 pass
     assert mlflow.active_run() is None
-    
+
+
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_start_run_exp_id_0():
     mlflow.set_experiment("some-experiment")
