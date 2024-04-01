@@ -8,7 +8,7 @@ from mlflow.utils.autologging_utils import ExceptionSafeClass
 
 
 @experimental
-class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
+class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
     """Callback for logging Keras metrics/params/model/... to MLflow.
 
     This callback logs model metadata at training begins, and logs training metrics every epoch or
@@ -48,7 +48,7 @@ class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[mlflow.keras.MLflowCallback()],
+                callbacks=[mlflow.keras.MlflowCallback()],
             )
     """
 

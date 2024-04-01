@@ -74,6 +74,11 @@ LAZY_BUILTIN_IMPORT = Rule(
     "lazy-builtin-import",
     "Builtin modules must be imported at the top level.",
 )
+MLFLOW_CLASS_NAME = Rule(
+    "Z0003",
+    "mlflow-class-name",
+    "Should use `Mlflow` in class name, not `MLflow` or `MLFlow`.",
+)
 
 
 class Linter(ast.NodeVisitor):
@@ -108,9 +113,14 @@ class Linter(ast.NodeVisitor):
     def _is_in_function(self) -> bool:
         return bool(self.stack)
 
+    def _mlflow_class_name(self, node: ast.ClassDef) -> None:
+        if not node.name.startswith("_") and ("MLflow" in node.name or "MLFlow" in node.name):
+            self._check(node, MLFLOW_CLASS_NAME)
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
+        self._mlflow_class_name(node)
         self.generic_visit(node)
         self.stack.pop()
 

@@ -6,7 +6,7 @@ from mlflow.utils.autologging_utils import ExceptionSafeClass
 from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
 
-class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
+class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
     """Callback for logging Tensorflow training metrics to MLflow.
 
     This callback logs model information at training start, and logs training metrics every epoch or
@@ -49,7 +49,7 @@ class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[MLflowCallback(run)],
+                callbacks=[mlflow.keras.MlflowCallback(run)],
             )
     """
 

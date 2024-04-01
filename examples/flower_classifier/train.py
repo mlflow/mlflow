@@ -86,7 +86,7 @@ def run(training_data, test_ratio, epochs, batch_size, image_width, image_height
     )
 
 
-class MLflowLogger(Callback):
+class MlflowLogger(Callback):
     """
     Keras callback for logging metrics and final model with MLflow.
 
@@ -225,7 +225,7 @@ def train(
                     epochs=epochs,
                     batch_size=batch_size,
                     callbacks=[
-                        MLflowLogger(
+                        MlflowLogger(
                             model=model,
                             x_train=x_train,
                             y_train=y_train,

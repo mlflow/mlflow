@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 import mlflow
-from mlflow.tensorflow.callback import MLflowCallback
+from mlflow.tensorflow.callback import MlflowCallback
 
 
 @pytest.mark.parametrize(("log_every_epoch", "log_every_n_steps"), [(True, None), (False, 1)])
@@ -28,7 +28,7 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
     )
 
     with mlflow.start_run() as run:
-        mlflow_callback = MLflowCallback(
+        mlflow_callback = MlflowCallback(
             run=run,
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
