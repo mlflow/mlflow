@@ -21,6 +21,7 @@ from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_tag import RunTag
+from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
@@ -48,6 +49,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetRegisteredModelRequest,
     Job,
     LineageHeaderInfo,
+    ModelVersion,
     Notebook,
     SearchModelVersionsRequest,
     SearchRegisteredModelsRequest,
@@ -68,10 +70,12 @@ from mlflow.store._unity_catalog.registry.rest_store import (
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.types.schema import ColSpec, DataType
 from mlflow.utils._unity_catalog_utils import (
     _ACTIVE_CATALOG_QUERY,
     _ACTIVE_SCHEMA_QUERY,
+    get_artifact_repo_from_storage_info,
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
@@ -1500,3 +1504,44 @@ def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spar
     _verify_requests(
         mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=name)
     )
+
+
+def test_store_use_presigned_url_store_when_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "False")
+    store_package = "mlflow.store._unity_catalog.registry.rest_store"
+
+    uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
+    model_version = ModelVersion(
+        name="catalog.schema.model_1", version="1", storage_location="s3://some/storage/location"
+    )
+    creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id="key", secret_access_key="secret", session_token="token"
+        )
+    )
+    with mock.patch(
+        f"{store_package}.UcModelRegistryStore._get_temporary_model_version_write_credentials",
+        return_value=creds,
+    ) as temp_cred_mock, mock.patch(
+        f"{store_package}.get_artifact_repo_from_storage_info",
+        side_effect=get_artifact_repo_from_storage_info,
+    ) as get_repo_mock:
+        aws_store = uc_store._get_artifact_repo(model_version)
+
+        assert type(aws_store) is OptimizedS3ArtifactRepository
+        temp_cred_mock.assert_called_once_with(
+            name=model_version.name, version=model_version.version
+        )
+        get_repo_mock.assert_called_once_with(
+            storage_location=model_version.storage_location, scoped_token=creds
+        )
+
+
+def test_store_use_presigned_url_store_when_enabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "True")
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+        uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
+        model_version = ModelVersion(name="catalog.schema.model_1", version="1")
+        presigned_store = uc_store._get_artifact_repo(model_version)
+
+        assert type(presigned_store) is PresignedUrlArtifactRepository

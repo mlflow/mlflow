@@ -604,12 +604,9 @@ class _LangChainModelWrapper:
         Returns:
             Model predictions.
         """
-        messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
-            data, pd.DataFrame
-        )
+        messages, return_first_element = self._prepare_messages(data)
         results = process_api_requests(lc_model=self.lc_model, requests=messages)
         return results[0] if return_first_element else results
 
@@ -633,12 +630,9 @@ class _LangChainModelWrapper:
         Returns:
             Model predictions.
         """
-        messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
-            data, pd.DataFrame
-        )
+        messages, return_first_element = self._prepare_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
             requests=messages,
@@ -648,6 +642,14 @@ class _LangChainModelWrapper:
         return results[0] if return_first_element else results
 
     def _prepare_messages(self, data):
+        """
+        Return:
+            A tuple of 1. ``preprocessed_data`` (list) and 2. `return_first_element`` (bool).
+            If ``return_first_element`` is True, only the first element of the inference
+            result should be returned. If ``return_first_element`` is False, the whole
+            inference result should be returned.
+        """
+
         # numpy array is not json serializable, so we convert it to list
         # then send it to the model
         def _convert_ndarray_to_list(data):
@@ -662,18 +664,21 @@ class _LangChainModelWrapper:
             return data
 
         if isinstance(data, pd.DataFrame):
-            return _convert_ndarray_to_list(data.to_dict(orient="records"))
+            data = data.to_dict(orient="records")
 
         data = _convert_ndarray_to_list(data)
-        if isinstance(self.lc_model, lc_runnables_types()):
-            return [data]
-        if isinstance(data, list) and (
-            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
-        ):
-            return data
+        if not isinstance(data, list):
+            # if the input data is not a list (i.e. single input),
+            # we still need to convert it to a one-element list `[data]`
+            # because `process_api_requests` only accepts list as valid input.
+            # and in this case,
+            # we should return the first element of the inference result
+            # because we change input `data` to `[data]`
+            return [data], True
+        if isinstance(data, list):
+            return data, False
         raise mlflow.MlflowException.invalid_parameter_value(
-            "Input must be a pandas DataFrame or a list of strings "
-            "or a list of dictionaries "
+            "Input must be a pandas DataFrame or a list "
             f"for model {self.lc_model.__class__.__name__}"
         )
 
