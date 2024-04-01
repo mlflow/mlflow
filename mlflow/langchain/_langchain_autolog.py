@@ -242,8 +242,11 @@ def get_mlflow_langchain_callback():
     )
     from tenacity import RetryCallState
 
-    from mlflow.tracing.types.model import Trace
-    from mlflow.tracing.types.wrapper import MLflowSpanWrapper, SpanType, Status, StatusCode
+    from mlflow.entities import SpanEvent, SpanType
+    from mlflow.entities.span_status import SpanStatus
+    from mlflow.entities.trace import Trace
+    from mlflow.entities.trace_status import TraceStatus
+    from mlflow.tracing.types.wrapper import MLflowSpanWrapper
 
     class MLflowLangchainCallback(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
         """
@@ -306,7 +309,7 @@ def get_mlflow_langchain_callback():
             if parent:
                 span = self._mlflow_client.start_span(
                     name=span_name,
-                    trace_id=parent.trace_id,
+                    request_id=parent.request_id,
                     parent_span_id=parent.span_id,
                     span_type=span_type,
                     inputs=inputs,
@@ -323,11 +326,11 @@ def get_mlflow_langchain_callback():
             span: MLflowSpanWrapper,
             outputs=None,
             attributes=None,
-            status=Status(StatusCode.OK, ""),
+            status=SpanStatus(TraceStatus.OK, ""),
         ):
             """Close MLflow Span (or Trace if it is root component)"""
             self._mlflow_client.end_span(
-                trace_id=span.trace_id,
+                request_id=span.request_id,
                 span_id=span.span_id,
                 outputs=outputs,
                 attributes=attributes,
@@ -394,7 +397,9 @@ def get_mlflow_langchain_callback():
                 inputs=llm_inputs,
                 attributes=kwargs,
             )
-            llm_span.add_event("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            llm_span.add_event(
+                SpanEvent("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._log_artifact({**llm_inputs, "kwargs": kwargs}, f"llm_start_{llm_span.span_id}")
 
         @override
@@ -422,7 +427,9 @@ def get_mlflow_langchain_callback():
                 inputs=inputs,
                 attributes=kwargs,
             )
-            llm_span.add_event("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            llm_span.add_event(
+                SpanEvent("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._log_artifact(
                 {"prompts": prompts, "kwargs": kwargs}, f"llm_start_{llm_span.span_id}"
             )
@@ -446,9 +453,11 @@ def get_mlflow_langchain_callback():
             if chunk:
                 event_kwargs["chunk"] = chunk
             llm_span.add_event(
-                name="new_token",
-                timestamp=int(datetime.now(timezone.utc).timestamp()),
-                attributes=event_kwargs,
+                SpanEvent(
+                    name="new_token",
+                    timestamp=int(datetime.now(timezone.utc).timestamp()),
+                    attributes=event_kwargs,
+                )
             )
             self.metrics["step"] += 1
             self.metrics["llm_new_tokens"] += 1
@@ -478,9 +487,11 @@ def get_mlflow_langchain_callback():
                 retry_d["outcome"] = "success"
                 retry_d["result"] = str(retry_state.outcome.result())
             span.add_event(
-                name="retry",
-                timestamp=int(datetime.now(timezone.utc).timestamp()),
-                attributes=retry_d,
+                SpanEvent(
+                    name="retry",
+                    timestamp=int(datetime.now(timezone.utc).timestamp()),
+                    attributes=retry_d,
+                )
             )
 
         @override
@@ -495,7 +506,9 @@ def get_mlflow_langchain_callback():
                         output_generation["message"] = dumpd(
                             cast(ChatGeneration, generation).message
                         )
-            llm_span.add_event("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            llm_span.add_event(
+                SpanEvent("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._end_span(llm_span, outputs=outputs)
             for i, generations in enumerate(response.generations):
                 for j, generation in enumerate(generations):
@@ -519,12 +532,14 @@ def get_mlflow_langchain_callback():
             """Handle an error for an LLM run."""
             llm_span = self._get_span_by_run_id(run_id)
             llm_span.add_event(
-                "error",
-                timestamp=int(datetime.now(timezone.utc).timestamp()),
-                attributes={"error": str(error)},
+                SpanEvent(
+                    "error",
+                    timestamp=int(datetime.now(timezone.utc).timestamp()),
+                    attributes={"error": str(error)},
+                )
             )
             error_message = self._get_stacktrace(error)
-            self._end_span(llm_span, status=Status(StatusCode.ERROR, error_message))
+            self._end_span(llm_span, status=SpanStatus(TraceStatus.ERROR, error_message))
             self.metrics["step"] += 1
             self.metrics["errors"] += 1
 
@@ -564,7 +579,9 @@ def get_mlflow_langchain_callback():
                 inputs=self._get_chain_inputs(inputs),
                 attributes=kwargs,
             )
-            chain_span.add_event("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            chain_span.add_event(
+                SpanEvent("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._log_artifact(
                 {"inputs": self._format_data_to_string(inputs), "kwargs": kwargs},
                 f"chain_start_{chain_span.span_id}",
@@ -584,7 +601,9 @@ def get_mlflow_langchain_callback():
         ):
             """Run when chain ends running."""
             chain_span = self._get_span_by_run_id(run_id)
-            chain_span.add_event("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            chain_span.add_event(
+                SpanEvent("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             if inputs:
                 chain_span.set_inputs(self._get_chain_inputs(inputs))
             self._end_span(chain_span, outputs=outputs)
@@ -608,14 +627,16 @@ def get_mlflow_langchain_callback():
             """Run when chain errors."""
             chain_span = self._get_span_by_run_id(run_id)
             chain_span.add_event(
-                "error",
-                timestamp=int(datetime.now(timezone.utc).timestamp()),
-                attributes={"error": str(error)},
+                SpanEvent(
+                    "error",
+                    timestamp=int(datetime.now(timezone.utc).timestamp()),
+                    attributes={"error": str(error)},
+                )
             )
             if inputs:
                 chain_span.set_inputs(self._get_chain_inputs(inputs))
             error_message = self._get_stacktrace(error)
-            self._end_span(chain_span, status=Status(StatusCode.ERROR, error_message))
+            self._end_span(chain_span, status=SpanStatus(TraceStatus.ERROR, error_message))
             self.metrics["step"] += 1
             self.metrics["errors"] += 1
 
@@ -644,7 +665,9 @@ def get_mlflow_langchain_callback():
                 inputs={"input_str": input_str},
                 attributes=kwargs,
             )
-            tool_span.add_event("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            tool_span.add_event(
+                SpanEvent("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._log_artifact(
                 {"input_str": input_str, "kwargs": kwargs}, f"tool_start_{tool_span.span_id}"
             )
@@ -656,7 +679,9 @@ def get_mlflow_langchain_callback():
         def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any):
             """Run when tool ends running."""
             tool_span = self._get_span_by_run_id(run_id)
-            tool_span.add_event("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            tool_span.add_event(
+                SpanEvent("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._end_span(tool_span, outputs={"output": str(output)})
             self._log_artifact(
                 {"output": str(output), "kwargs": kwargs}, f"tool_end_{tool_span.span_id}"
@@ -676,12 +701,14 @@ def get_mlflow_langchain_callback():
             """Run when tool errors."""
             tool_span = self._get_span_by_run_id(run_id)
             tool_span.add_event(
-                "error",
-                timestamp=int(datetime.now(timezone.utc).timestamp()),
-                attributes={"error": str(error)},
+                SpanEvent(
+                    "error",
+                    timestamp=int(datetime.now(timezone.utc).timestamp()),
+                    attributes={"error": str(error)},
+                )
             )
             error_message = self._get_stacktrace(error)
-            self._end_span(tool_span, status=Status(StatusCode.ERROR, error_message))
+            self._end_span(tool_span, status=SpanStatus(TraceStatus.ERROR, error_message))
             self.metrics["step"] += 1
             self.metrics["errors"] += 1
 
@@ -709,7 +736,9 @@ def get_mlflow_langchain_callback():
                 inputs={"query": query},
                 attributes=kwargs,
             )
-            retriever_span.add_event("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            retriever_span.add_event(
+                SpanEvent("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._log_artifact(
                 {"query": query, "kwargs": kwargs}, f"retriever_start_{retriever_span.span_id}"
             )
@@ -721,7 +750,9 @@ def get_mlflow_langchain_callback():
         def on_retriever_end(self, documents: Sequence[Document], *, run_id: UUID, **kwargs: Any):
             """Run when Retriever ends running."""
             retriever_span = self._get_span_by_run_id(run_id)
-            retriever_span.add_event("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            retriever_span.add_event(
+                SpanEvent("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             self._end_span(retriever_span, outputs={"documents": documents})
             retriever_documents = [
                 {
@@ -751,12 +782,14 @@ def get_mlflow_langchain_callback():
             """Run when Retriever errors."""
             retriever_span = self._get_span_by_run_id(run_id)
             retriever_span.add_event(
-                "error",
-                timestamp=int(datetime.now(timezone.utc).timestamp()),
-                attributes={"error": str(error)},
+                SpanEvent(
+                    "error",
+                    timestamp=int(datetime.now(timezone.utc).timestamp()),
+                    attributes={"error": str(error)},
+                )
             )
             error_message = self._get_stacktrace(error)
-            self._end_span(retriever_span, status=Status(StatusCode.ERROR, error_message))
+            self._end_span(retriever_span, status=SpanStatus(TraceStatus.ERROR, error_message))
             self.metrics["step"] += 1
             self.metrics["errors"] += 1
 
@@ -780,7 +813,7 @@ def get_mlflow_langchain_callback():
                 attributes=kwargs,
             )
             agent_action_span.add_event(
-                "start", timestamp=int(datetime.now(timezone.utc).timestamp())
+                SpanEvent("start", timestamp=int(datetime.now(timezone.utc).timestamp()))
             )
             self._log_artifact(
                 {
@@ -806,7 +839,9 @@ def get_mlflow_langchain_callback():
         ) -> Any:
             """Run on agent end."""
             agent_span = self._get_span_by_run_id(run_id)
-            agent_span.add_event("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            agent_span.add_event(
+                SpanEvent("end", timestamp=int(datetime.now(timezone.utc).timestamp()))
+            )
             kwargs.update({"log": finish.log})
             self._end_span(agent_span, outputs=finish.return_values, attributes=kwargs)
             self._log_artifact(
@@ -837,9 +872,11 @@ def get_mlflow_langchain_callback():
                 _logger.warning("Span not found for text event. Skipping text event logging.")
             else:
                 span.add_event(
-                    "text",
-                    timestamp=int(datetime.now(timezone.utc).timestamp()),
-                    attributes={"text": text},
+                    SpanEvent(
+                        "text",
+                        timestamp=int(datetime.now(timezone.utc).timestamp()),
+                        attributes={"text": text},
+                    )
                 )
             self.metrics["step"] += 1
             self.metrics["text_counts"] += 1
@@ -848,7 +885,7 @@ def get_mlflow_langchain_callback():
         def _log_trace(self, trace: Trace):
             self._log_artifact(
                 {"trace": trace.to_json()},
-                f"trace_{trace.trace_info.trace_id}",
+                f"trace_{trace.trace_info.request_id}",
             )
 
         def flush_tracker(self):
