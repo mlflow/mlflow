@@ -510,7 +510,7 @@ class MlflowClient:
                 "because it may lead to unexpected behavior. To resolve this issue, consider the "
                 "following options:\n"
                 " - If you want to create a child span under the active trace, use "
-                "`with mlflow.start_span()` or `MlflowClient.start_span()` instead."
+                "`with mlflow.start_span()` or `MlflowClient.start_span()` instead.\n"
                 " - If you want to start multiple traces in parallel, avoid using fluent APIs "
                 "and create all traces using `MlflowClient.start_trace()`.",
                 error_code=BAD_REQUEST,
@@ -733,7 +733,7 @@ class MlflowClient:
 
         if span is None:
             raise MlflowException(
-                f"Span with ID {span_id} not found in trace with ID {request_id}.",
+                f"Span with ID {span_id} is not found or already finished.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
