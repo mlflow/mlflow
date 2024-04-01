@@ -50,6 +50,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.clients import get_trace_client
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -536,7 +537,17 @@ class MlflowClient:
         root_span_id = trace_manager.get_root_span_id(request_id)
 
         if root_span_id is None:
-            raise MlflowException(f"Trace with ID {request_id} not found.")
+            # TODO: Replace this with backend store check once we have backend support
+            if get_trace_client().get_trace(request_id=request_id):
+                raise MlflowException(
+                    f"Trace with ID {request_id} already finished.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                raise MlflowException(
+                    f"Trace with ID {request_id} not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
 

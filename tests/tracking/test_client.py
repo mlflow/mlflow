@@ -22,6 +22,7 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -326,6 +327,22 @@ def test_start_span_raise_error_when_parent_span_id_is_not_provided():
         mlflow.tracking.MlflowClient().start_span(
             "span_name", request_id="test", parent_span_id=None
         )
+
+
+@mock.patch("mlflow.tracking.client.get_trace_client")
+def test_end_trace_raise_error_when_trace_not_active(mock_get_trace_client):
+    mock_trace_client = mock_get_trace_client.return_value
+    test_request_id = "test"
+
+    # Case 1: the trace already ended
+    mock_trace_client.get_trace.return_value = Trace(None, [])
+    with pytest.raises(MlflowException, match=r"Trace with ID test already finished"):
+        mlflow.tracking.MlflowClient().end_trace(test_request_id)
+
+    # Case 2: the trace does not exist
+    mock_trace_client.get_trace.return_value = None
+    with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
+        mlflow.tracking.MlflowClient().end_trace(test_request_id)
 
 
 def test_client_create_experiment(mock_store):

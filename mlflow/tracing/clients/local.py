@@ -1,6 +1,6 @@
 from collections import deque
 from trace import Trace
-from typing import List
+from typing import List, Optional
 
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
@@ -73,6 +73,19 @@ class InMemoryTraceClient(TraceClient):
             A list of Trace objects.
         """
         return list(self.queue) if n is None else list(self.queue)[-n:]
+
+    def get_trace(self, request_id: str) -> Optional[Trace]:
+        """
+        Get the trace with the given request_id.
+
+        Args:
+            request_id: The request_id of the trace to return.
+        Returns:
+            A Trace object.
+        """
+        for trace in self.queue:
+            if trace.trace_info.request_id == request_id:
+                return trace
 
     def _flush(self):
         self.queue.clear()
