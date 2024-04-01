@@ -389,7 +389,7 @@ def get_mlflow_langchain_callback():
                 kwargs.update({"metadata": metadata})
             llm_inputs = {"messages": [[dumpd(msg) for msg in batch] for batch in messages]}
             llm_span = self._start_span(
-                span_name=name,
+                span_name=name or "chat model",
                 parent_run_id=parent_run_id,
                 # we use LLM for chat models as well
                 span_type=SpanType.LLM,
@@ -420,7 +420,7 @@ def get_mlflow_langchain_callback():
             if metadata:
                 kwargs.update({"metadata": metadata})
             llm_span = self._start_span(
-                span_name=name,
+                span_name=name or "llm",
                 parent_run_id=parent_run_id,
                 span_type=SpanType.LLM,
                 run_id=run_id,
@@ -572,7 +572,7 @@ def get_mlflow_langchain_callback():
                 kwargs.update({"metadata": metadata})
             # not considering streaming events for now
             chain_span = self._start_span(
-                span_name=name,
+                span_name=name or "chain",
                 parent_run_id=parent_run_id,
                 span_type=SpanType.CHAIN,
                 run_id=run_id,
@@ -658,7 +658,7 @@ def get_mlflow_langchain_callback():
             if metadata:
                 kwargs.update({"metadata": metadata})
             tool_span = self._start_span(
-                span_name=name,
+                span_name=name or "tool",
                 parent_run_id=parent_run_id,
                 span_type=SpanType.TOOL,
                 run_id=run_id,
@@ -729,7 +729,7 @@ def get_mlflow_langchain_callback():
             if metadata:
                 kwargs.update({"metadata": metadata})
             retriever_span = self._start_span(
-                span_name=name,
+                span_name=name or "retriever",
                 parent_run_id=parent_run_id,
                 span_type=SpanType.RETRIEVER,
                 run_id=run_id,
@@ -881,12 +881,15 @@ def get_mlflow_langchain_callback():
             self.metrics["step"] += 1
             self.metrics["text_counts"] += 1
 
-        # TODO: update this method to log traces to mlflow
+        # TODO: remove this once we support logging TraceData
         def _log_trace(self, trace: Trace):
-            self._log_artifact(
-                {"trace": trace.to_json()},
-                f"trace_{trace.trace_info.request_id}",
-            )
+            try:
+                self._log_artifact(
+                    {"trace": trace.to_json()},
+                    f"trace_{trace.trace_info.request_id}",
+                )
+            except Exception as e:
+                _logger.warning(f"Failed to log trace due to error {e}.")
 
         def flush_tracker(self):
             mlflow.log_metrics(self.metrics, run_id=self.run_id)
