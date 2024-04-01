@@ -200,7 +200,7 @@ def get_traces(n: int = 1) -> List[Trace]:
     return get_trace_client().get_traces(n)
 
 
-def get_current_active_span() -> Optional[MLflowSpanWrapper]:
+def get_current_active_span():
     """
     Get the current active span in the global context.
 
