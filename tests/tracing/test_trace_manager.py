@@ -6,7 +6,7 @@ from opentelemetry import trace as trace_api
 
 from mlflow.entities import Trace
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
 
 def test_aggregator_singleton():
@@ -213,4 +213,4 @@ def _create_test_span(request_id_1, span_id, parent_span_id=None, start_time=Non
     mock_span.status.status_code = trace_api.StatusCode.OK
     mock_span.status.description = ""
 
-    return MLflowSpanWrapper(mock_span)
+    return MlflowSpanWrapper(mock_span)

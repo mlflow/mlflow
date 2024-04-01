@@ -59,9 +59,9 @@ MLflow Client APIs
     :noindex:
 
 
-MLflowSpanWrapper
+MlflowSpanWrapper
 ~~~~~~~~~~~~~~~~~
 
-.. autoclass:: mlflow.tracing.types.wrapper.MLflowSpanWrapper
+.. autoclass:: mlflow.tracing.types.wrapper.MlflowSpanWrapper
     :members:
 

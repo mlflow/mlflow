@@ -11,7 +11,7 @@ from mlflow.tracing.types.constant import (
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
 )
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
 
@@ -34,20 +34,20 @@ class MLflowSpanExporter(SpanExporter):
         self._client = client
         self._trace_manager = InMemoryTraceManager.get_instance()
 
-    def export(self, spans: Sequence[MLflowSpanWrapper]):
+    def export(self, spans: Sequence[MlflowSpanWrapper]):
         """
         Export the spans to MLflow backend.
 
         Args:
-            spans: A sequence of MLflowSpanWrapper objects to be exported. The base
+            spans: A sequence of MlflowSpanWrapper objects to be exported. The base
                 OpenTelemetry (OTel) exporter should take OTel spans but this exporter
                 takes the wrapper object, so we can carry additional MLflow-specific
                 information such as inputs and outputs.
         """
         for span in spans:
-            if not isinstance(span, MLflowSpanWrapper):
+            if not isinstance(span, MlflowSpanWrapper):
                 _logger.warning(
-                    "Span exporter expected MLflowSpanWrapper, but got "
+                    "Span exporter expected MlflowSpanWrapper, but got "
                     f"{type(span)}. Skipping the span."
                 )
                 continue
@@ -61,7 +61,7 @@ class MLflowSpanExporter(SpanExporter):
             if span.parent_span_id is None:
                 self._export_trace(span)
 
-    def _export_trace(self, root_span: MLflowSpanWrapper):
+    def _export_trace(self, root_span: MlflowSpanWrapper):
         request_id = root_span.request_id
         trace = self._trace_manager.pop_trace(request_id)
         if trace is None:

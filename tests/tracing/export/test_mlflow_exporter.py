@@ -10,7 +10,7 @@ from mlflow.tracing.types.constant import (
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
 )
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
 
 @dataclass
@@ -55,15 +55,15 @@ def test_export():
     exporter = MLflowSpanExporter(mock_client)
 
     # Export the first child span -> no client call
-    exporter.export([MLflowSpanWrapper(otel_span_child_1)])
+    exporter.export([MlflowSpanWrapper(otel_span_child_1)])
     assert mock_client.log_trace.call_count == 0
 
     # Export the second child span -> no client call
-    exporter.export([MLflowSpanWrapper(otel_span_child_2)])
+    exporter.export([MlflowSpanWrapper(otel_span_child_2)])
     assert mock_client.log_trace.call_count == 0
 
     # Export the root span -> client call
-    root_span = MLflowSpanWrapper(otel_span_root)
+    root_span = MlflowSpanWrapper(otel_span_root)
     root_span.set_inputs({"input1": "very long input" * 100})
     root_span.set_outputs("very long output" * 100)
     exporter.export([root_span])

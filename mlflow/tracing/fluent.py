@@ -10,7 +10,7 @@ from opentelemetry import trace as trace_api
 from mlflow.entities import SpanType, Trace
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.wrapper import MLflowSpanWrapper, NoOpMLflowSpanWrapper
+from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 from mlflow.tracing.utils import capture_function_input_args
 
 _logger = logging.getLogger(__name__)
@@ -156,7 +156,7 @@ def start_span(
         attributes: A dictionary of attributes to set on the span.
 
     Returns:
-        Yields an :py:class:`mlflow.tracing.MLflowSpanWrapper` that represents the created span.
+        Yields an :py:class:`mlflow.tracing.MlflowSpanWrapper` that represents the created span.
     """
     # TODO: refactor this logic
     try:
@@ -171,15 +171,15 @@ def start_span(
         if span is not None:
             trace_manager = InMemoryTraceManager.get_instance()
             # Setting end_on_exit = False to suppress the default span
-            # export and instead invoke MLflowSpanWrapper.end()
+            # export and instead invoke MlflowSpanWrapper.end()
             with trace_api.use_span(span, end_on_exit=False):
-                mlflow_span = MLflowSpanWrapper(span, span_type=span_type)
+                mlflow_span = MlflowSpanWrapper(span, span_type=span_type)
                 mlflow_span.set_attributes(attributes or {})
                 trace_manager.add_or_update_span(mlflow_span)
                 yield mlflow_span
         else:
             # Span creation should not raise an exception
-            mlflow_span = NoOpMLflowSpanWrapper()
+            mlflow_span = NoOpMlflowSpanWrapper()
             yield mlflow_span
     finally:
         mlflow_span.end()
