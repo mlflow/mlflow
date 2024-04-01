@@ -745,6 +745,27 @@ class MlflowClient:
 
         span.end()
 
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given trace ID.
+
+        Args:
+            request_id: The ID of the trace to set the tag on.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+
+        # Trying to set the tag on the ongoing trace first
+        trace_manager = InMemoryTraceManager.get_instance()
+        try:
+            trace_manager.set_trace_tag(request_id, key, value)
+        except MlflowException as e:
+            if e.error_code != RESOURCE_DOES_NOT_EXIST:
+                raise
+
+        # If the trace is not ongoing, try to set the tag on the trace in the backend
+        self._tracking_client.set_trace_tag(request_id, key, value)
+
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,

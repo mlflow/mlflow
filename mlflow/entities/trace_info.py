@@ -3,8 +3,11 @@ from typing import Dict, Optional
 
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
+from mlflow.tracing.types.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
 
 @dataclass
@@ -71,3 +74,30 @@ class TraceInfo(_MLflowObject):
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
             tags={tag.key: tag.value for tag in proto.tags},
         )
+
+    @staticmethod
+    def validate_tags(tags: Optional[Dict[str, str]]):
+        """
+        Validate tag key and value.
+        """
+        tags = tags or {}
+        for key, value in tags.items():
+            if not key or not isinstance(key, str):
+                raise MlflowException(f"Key for trace tag must be a non-empty string. Got: {key}", INVALID_PARAMETER_VALUE)
+
+            if not value or not isinstance(value, str):
+                raise MlflowException(f"Value for trace tag must be a non-empty string. Got: {value} for key '{key}'", INVALID_PARAMETER_VALUE)
+
+            if len(key) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
+                raise MlflowException(
+                    f"Key for trace tag exceeds the maximum allowed length of "
+                    f"{MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS} characters. Got: {len(key)}",
+                    INVALID_PARAMETER_VALUE,
+                )
+
+            if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
+                raise MlflowException(
+                    f"Value for trace tag exceeds the maximum allowed length of "
+                    f"{MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS} characters. Got: {len(value)} for key '{key}'",
+                    INVALID_PARAMETER_VALUE,
+                )

@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from cachetools import TTLCache
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import SpanType, Trace, TraceData, TraceInfo, TraceStatus
@@ -122,6 +124,8 @@ class InMemoryTraceManager:
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ):
+        TraceInfo.validate_tags(tags)
+
         trace_info = TraceInfo(
             request_id=request_id,
             experiment_id=experiment_id or "EXPERIMENT",  # TODO: Fetch this from global state
@@ -136,6 +140,17 @@ class InMemoryTraceManager:
                 _logger.warning(f"Trace with ID {request_id} already exists.")
                 return
             self._traces[request_id] = _Trace(trace_info)
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """Set a tag on the trace with the given request_id."""
+        TraceInfo.validate_tags({key: value})
+
+        with self._lock:
+            if trace := self._traces.get(request_id):
+                trace.trace_info.tags[key] = value
+                return
+
+        raise MlflowException(f"Trace with ID {request_id} not found.", error_code=RESOURCE_DOES_NOT_EXIST)
 
     def get_trace_info(self, request_id: str) -> Optional[TraceInfo]:
         """
