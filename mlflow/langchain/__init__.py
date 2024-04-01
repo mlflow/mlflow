@@ -272,7 +272,7 @@ def save_model(
     code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
 
     if signature is None:
-        if input_example is not None:
+        if input_example is not None and not isinstance(lc_model, str):
             wrapped_model = _LangChainModelWrapper(lc_model)
             signature = _infer_signature_from_input_example(input_example, wrapped_model)
         else:
