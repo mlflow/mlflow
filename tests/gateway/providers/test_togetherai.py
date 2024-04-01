@@ -187,13 +187,93 @@ async def test_embeddings():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/completions/chat",
+        "route_type": "llm/v1/chat",
         "model": {
             "provider": "togetherai",
-            "name": "togethercomputer/m2-bert-80M-8k-retrieval",
+            "name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
             "config": {
-                "togetherai_key": "key",
+                "togetherai_api_key": "key",
             },
         },
     }
 
+
+def chat_response():
+
+    return {
+      "id": "8448080b880415ea-SJC",
+      "choices": [
+        {
+          "message": {
+            "role": "assistant",
+            "content": "Its Artyom!"
+          }
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 13,
+        "completion_tokens": 7,
+        "total_tokens": 20
+      },
+      "created": 1705090115,
+      "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+      "object": "chat.completion"
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat():
+    
+    config = chat_config()
+    resp = chat_response()
+
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+    "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        
+        provider = TogetherAIProvider(RouteConfig(**config))
+
+        payload = {
+            "messages": [
+                {"role": "user", "content": "Who's the protagonist in Metro 2033?"}
+             ],
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "max_tokens": 200, 
+            "temperature": 1.0,
+            "n": 1,
+        }
+
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert jsonable_encoder(response) == {
+              "id": "8448080b880415ea-SJC",
+              "object": "chat.completion",
+              "created": 1705090115,
+              "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+              "choices": [{
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "Its Artyom!",
+                },
+                "finish_reason": None
+              }],
+              "usage": {
+                "prompt_tokens": 13,
+                "completion_tokens": 7,
+                "total_tokens": 20
+              }
+        }
+
+
+        mock_post.assert_called_once_with(
+            "https://api.together.xyz/v1/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "Who's the protagonist in Metro 2033?"}],
+                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "max_tokens": 200, 
+                "temperature": 1.0,
+                "n": 1,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )

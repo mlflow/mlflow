@@ -153,7 +153,48 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat(cls, resp, config):
-        raise NotImplementedError
+        # Example response (https://docs.together.ai/reference/chat-completions): 
+        #{
+        #   "id": "8448080b880415ea-SJC",
+        #   "choices": [
+        #    {
+        #        "message": {
+        #           "role": "assistant",
+        #           "content": "San Francisco is a vibrant and culturally rich city located in Northern California. It is known for its steep rolling hills, iconic landmarks, and cool, foggy weather. Here are some of the top attractions in San Francisco:\n\n1. The Golden Gate Bridge: This iconic red suspension bridge spans the Golden Gate Strait and is one of the most famous landmarks in the world.\n2. Alcatraz Island: Once a federal prison, Alcatraz Island is now a popular tourist destination. Visitors can take a ferry to the island and explore the prison buildings and learn about its infamous inmates.\n3. Fisherman's Wharf: This popular tourist area is known for its seafood restaurants, shopping, and attractions such as the sea lion colony at Pier 39 and the USS Hornet Museum.\n4. Chinatown: San Francisco's Chinatown is one of the oldest and largest in North America, and is a great place to explore Chinese culture, cuisine, and shopping.\n5. The Presidio: This national park is located at the northern tip of the San Francisco Peninsula and offers hiking trails, beaches, and stunning views of the Golden Gate Bridge.\n6. The Painted Ladies: These colorful Victorian homes are one of the most photographed sites in San Francisco.\n7. Cable Cars: These historic cable cars offer a unique way to get around the city's steep hills and are a fun way to see the sights.\n8. Union Square: This central plaza is surrounded by shops, restaurants, and theaters, and is a popular gathering place for both locals and tourists.\n9. The Ferry Building Marketplace: This historic building houses a food hall featuring local artisanal food and drink vendors.\n10. The Exploratorium: This interactive science museum is located on the Embarcadero and offers hands-on exhibits and educational programs for all ages.\n\nSan Francisco is also known for its cultural diversity, progressive values, and vibrant arts scene, making it a must-visit destination for any traveler."
+        #         }
+        #     }
+        #   ],
+        #   "usage": {
+        #     "prompt_tokens": 31,
+        #     "completion_tokens": 455,
+        #     "total_tokens": 486
+        #   },
+        #   "created": 1705090115,
+        #   "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        #   "object": "chat.completion"
+        #}
+        return chat.ResponsePayload(
+            id=resp["id"],
+            object="chat.completion",
+            created=resp["created"],
+            model=config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role="assistant",
+                        content=c["message"]["content"],
+                    ),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["choices"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                completion_tokens=resp["usage"]["completion_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
+        )
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
@@ -161,7 +202,15 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def chat_to_model(cls, payload, config):
-        raise NotImplementedError
+
+        if "prompt" in payload: 
+            raise HTTPException(
+                status_code=422,
+                detail="Parameter prompt used in chat endpoint. You should provide a list of messages, meaning the conversation so far.",
+            )
+
+        # completions and chat endpoint contain the same parameters
+        return TogetherAIAdapter.completions_to_model(payload, config) 
 
     @classmethod
     def chat_streaming_to_model(cls, payload, config):
@@ -263,5 +312,17 @@ class TogetherAIProvider(BaseProvider):
         return TogetherAIAdapter.model_to_completions(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise NotImplementedError 
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+
+        resp = await self._request(
+            path="chat/completions",
+            payload={
+                "model": self.config.model.name, 
+                **TogetherAIAdapter.chat_to_model(payload, self.config)
+            }
+        )
+
+        return TogetherAIAdapter.model_to_chat(resp, self.config)
 
