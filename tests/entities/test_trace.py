@@ -111,7 +111,7 @@ def _is_langchain_v0_1():
         return None
 
 
-@pytest.mark.skipif(not _is_langchain_v0_1(), reason="langchain is not installed")
+@pytest.mark.skipif(not _is_langchain_v0_1(), reason="langchain>=0.1 is not installed")
 def test_trace_serialize_langchain_base_message():
     from langchain_core.messages import BaseMessage
 
