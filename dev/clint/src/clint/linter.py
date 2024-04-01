@@ -114,7 +114,7 @@ class Linter(ast.NodeVisitor):
         return bool(self.stack)
 
     def _mlflow_class_name(self, node: ast.ClassDef) -> None:
-        if not node.name.startswith("_") and ("MLflow" in node.name or "MLFlow" in node.name):
+        if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(node, MLFLOW_CLASS_NAME)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:

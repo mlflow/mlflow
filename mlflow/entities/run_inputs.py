@@ -1,17 +1,17 @@
 from typing import Any, Dict, List
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.protos.service_pb2 import RunInputs as ProtoRunInputs
 
 
-class RunInputs(_MLflowObject):
+class RunInputs(_MlflowObject):
     """RunInputs object."""
 
     def __init__(self, dataset_inputs: List[DatasetInput]) -> None:
         self._dataset_inputs = dataset_inputs
 
-    def __eq__(self, other: _MLflowObject) -> bool:
+    def __eq__(self, other: _MlflowObject) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False

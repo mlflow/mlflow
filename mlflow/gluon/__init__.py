@@ -436,10 +436,10 @@ def autolog(
 
     from mxnet.gluon.contrib.estimator import Estimator
 
-    from mlflow.gluon._autolog import __MLflowGluonCallback
+    from mlflow.gluon._autolog import __MlflowGluonCallback
 
     def getGluonCallback(metrics_logger):
-        return __MLflowGluonCallback(log_models, metrics_logger)
+        return __MlflowGluonCallback(log_models, metrics_logger)
 
     def fit(original, self, *args, **kwargs):
         # Wrap `fit` execution within a batch metrics logger context.
