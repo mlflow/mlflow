@@ -469,6 +469,18 @@ service MlflowService {
       rpc_doc_title: "Search Traces",
     };
   }
+
+  rpc deleteTraces(DeleteTraces) returns (DeleteTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/databricks/traces/delete-traces"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Traces",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -1334,5 +1346,28 @@ message SearchTraces {
     // Information about traces that match the search criteria.
     repeated TraceInfo traces = 1;
     optional string next_page_token = 2;
+  }
+}
+
+message DeleteTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the associated experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion
+  // The maximum timestamp in milliseconds since the UNIX epoch for deleting traces.
+  optional int64 max_timestamp_millis = 2;
+
+  // The maximum number of traces to delete.
+  optional int32 max_traces = 3;
+
+  // Case 2: request_ids must be specified for ID-based deletion
+  // A set of request IDs to delete
+  repeated string request_ids = 4;
+
+  message Response {
+    optional int32 traces_deleted = 1;
   }
 }
