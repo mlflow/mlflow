@@ -1725,7 +1725,7 @@ class MlflowClient:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
-        JSON format is used.
+        JSON format is used, and we stringify objects that can't be JSON-serialized.
 
         Args:
             run_id: String ID of the run.
