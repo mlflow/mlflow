@@ -29,7 +29,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback  # noqa: F401
+from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -96,6 +96,9 @@ _KERAS_MODEL_DATA_PATH = "data"
 _TF2MODEL_SUBPATH = "tf2model"
 
 model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
+
+
+MLflowCallback = MlflowCallback  # for backwards compatibility
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -935,16 +938,16 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
     input list, and returns the new list and appropriate log directory.
     """
     from mlflow.tensorflow.autologging import _TensorBoard
-    from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback
+    from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
-        if isinstance(callback, MLflowCallback):
+        if isinstance(callback, MlflowCallback):
             raise MlflowException(
-                "MLflow autologging must be turned off if an `MLflowCallback` is explicitly added "
-                "to the callback list. You are creating an `MLflowCallback` while having "
+                "MLflow autologging must be turned off if an `MlflowCallback` is explicitly added "
+                "to the callback list. You are creating an `MlflowCallback` while having "
                 "autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` "
-                "to disable autologging or remove `MLflowCallback` from the callback list. "
+                "to disable autologging or remove `MlflowCallback` from the callback list. "
             )
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
@@ -953,7 +956,7 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
 
     callbacks.append(
-        MLflowCallback(
+        MlflowCallback(
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
         )
@@ -1050,8 +1053,8 @@ def autolog(
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
     Note that autologging cannot be used together with explicit MLflow callback, i.e.,
-    `mlflow.tensorflow.MLflowCallback`, because it will cause the same metrics to be logged twice.
-    If you want to include `mlflow.tensorflow.MLflowCallback` in the callback list, please turn off
+    `mlflow.tensorflow.MlflowCallback`, because it will cause the same metrics to be logged twice.
+    If you want to include `mlflow.tensorflow.MlflowCallback` in the callback list, please turn off
     autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     Args:

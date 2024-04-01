@@ -86,9 +86,9 @@ implementation via this default callback, you can write your own callback to log
 Using the Predefined Callback
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-MLflow offers a predefined callback :py:class:`mlflow.tensorflow.MLflowCallback` that you can use or
+MLflow offers a predefined callback :py:class:`mlflow.tensorflow.MlflowCallback` that you can use or
 extend to log information to MLflow. The callback function provides the same functionality as autologging
-and is suitable for users willing to have a better control of the experiment. Using ``mlflow.tensorflow.MLflowCallback``
+and is suitable for users willing to have a better control of the experiment. Using ``mlflow.tensorflow.MlflowCallback``
 is the same as other Keras callbacks:
 
 .. code-block:: python
@@ -99,10 +99,10 @@ is the same as other Keras callbacks:
             label,
             batch_size=5,
             epochs=2,
-            callbacks=[mlflow.tensorflow.MLflowCallback()],
+            callbacks=[mlflow.tensorflow.MlflowCallback()],
         )
 
-You can change the logging frequency in :py:class:`mlflow.tensorflow.MLflowCallback` by setting
+You can change the logging frequency in :py:class:`mlflow.tensorflow.MlflowCallback` by setting
 ``log_every_epoch`` and ``log_every_n_steps``, by default metrics are logged per epoch. Please refer to
 the API documentation for more details.
 
@@ -122,7 +122,7 @@ in log scale:
     import math
     import mlflow
 
-    class MLflowCallback(keras.callbacks.Callback):
+    class MlflowCallback(keras.callbacks.Callback):
         def on_epoch_end(self, epoch, logs=None):
             logs = logs or {}
             for k, v in logs.items():

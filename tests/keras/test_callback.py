@@ -4,7 +4,7 @@ import keras
 import numpy as np
 
 import mlflow
-from mlflow.keras.callback import MLflowCallback
+from mlflow.keras.callback import MlflowCallback
 from mlflow.tracking.fluent import flush_async_logging
 
 
@@ -29,7 +29,7 @@ def test_keras_mlflow_callback_log_every_epoch():
 
     num_epochs = 2
     with mlflow.start_run() as run:
-        mlflow_callback = MLflowCallback(log_every_epoch=True)
+        mlflow_callback = MlflowCallback(log_every_epoch=True)
         model.fit(
             data,
             label,
@@ -82,7 +82,7 @@ def test_keras_mlflow_callback_log_every_n_steps():
     log_every_n_steps = 1
     num_epochs = 2
     with mlflow.start_run() as run:
-        mlflow_callback = MLflowCallback(log_every_epoch=False, log_every_n_steps=log_every_n_steps)
+        mlflow_callback = MlflowCallback(log_every_epoch=False, log_every_n_steps=log_every_n_steps)
         model.fit(
             data,
             label,
