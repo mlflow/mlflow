@@ -25,11 +25,12 @@ class SpanEvent(_MlflowObject):
     timestamp: Optional[int] = field(default=int(time.time() * 1e6))
     attributes: Dict[str, Any] = field(default_factory=dict)
 
-    def from_exception(self, exception: Exception):
+    @classmethod
+    def from_exception(cls, exception: Exception):
         "Create a span event from an exception."
 
-        stack_trace = self._get_stacktrace(exception)
-        self.__init__(
+        stack_trace = cls._get_stacktrace(exception)
+        cls.__init__(
             name="exception",
             attributes={
                 "exception.message": str(exception),
