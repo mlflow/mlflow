@@ -1,6 +1,8 @@
+import json
 import posixpath
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
+from mlflow.exceptions import MlflowException
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
@@ -147,6 +149,44 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         augmented_raise_for_status(response)
         return DatabricksEndpoint(response.json())
 
+    def _call_endpoint_stream(
+        self,
+        *,
+        method: str,
+        prefix: str = "/api/2.0",
+        route: Optional[str] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+        timeout: Optional[int] = None,
+    ) -> Iterator[str]:
+        call_kwargs = {}
+        if method.lower() == "get":
+            call_kwargs["params"] = json_body
+        else:
+            call_kwargs["json"] = json_body
+
+        response = http_request(
+            host_creds=get_databricks_host_creds(self.target_uri),
+            endpoint=posixpath.join(prefix, "serving-endpoints", route or ""),
+            method=method,
+            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            raise_on_status=False,
+            retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
+            extra_headers={"X-Databricks-Endpoints-API-Client": "Databricks Deployment Client"},
+            stream=True,  # Receive response content in streaming way.
+            **call_kwargs,
+        )
+        augmented_raise_for_status(response)
+
+        def result_gen_fn():
+            # Streaming response content are composed of multiple lines.
+            # Each line format depends on specific endpoint
+            for line in response.iter_lines(decode_unicode=True):
+                # filter out keep-alive new lines
+                if line:
+                    yield line
+
+        return result_gen_fn()
+
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
@@ -206,6 +246,40 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             json_body=inputs,
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
         )
+
+    @experimental
+    def predict_stream(self, deployment_name=None, inputs=None, endpoint=None) -> Iterator[Dict[str, Any]]:
+        """
+        Submit a query to a configured provider endpoint, and get streaming response
+
+        Args:
+            deployment_name: Unused.
+            inputs: The inputs to the query, as a dictionary.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            An iterator of dictionary containing the response from the endpoint.
+        """
+        inputs = inputs or {}
+
+        # Add stream=True param in request body to get streaming response
+        # See https://docs.databricks.com/api/workspace/servingendpoints/query#stream
+        chunk_line_iter = self._call_endpoint_stream(
+            method="POST",
+            prefix="/",
+            route=posixpath.join(endpoint, "invocations"),
+            json_body={**inputs, "stream": True},
+            timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
+        )
+
+        def result_gen_fn():
+            for line in chunk_line_iter:
+                key, value = line.split(":", 1)
+                if key != "data":
+                    raise MlflowException("Unknown response format.")
+                yield json.loads(value)
+
+        return result_gen_fn()
 
     @experimental
     def create_endpoint(self, name, config=None):

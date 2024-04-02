@@ -156,6 +156,9 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         except Exception as e:
             raise MlflowException(f"Error response from OpenAI:\n {e}")
 
+    def predict_stream(self, deployment_name=None, inputs=None, endpoint=None):
+        raise NotImplementedError()
+
     def create_endpoint(self, name, config=None):
         """
         .. warning::

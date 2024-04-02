@@ -2861,6 +2861,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=f"There was an error while getting model prediction: {exc}\n"
             )
 
+    def predict_stream(self, deployment_name=None, inputs=None, endpoint=None):
+        raise NotImplementedError()
+
     def explain(self, deployment_name=None, df=None, endpoint=None):
         """
         *This function has not been implemented and will be coming in the future.*
