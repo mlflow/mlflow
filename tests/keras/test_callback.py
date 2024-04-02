@@ -111,3 +111,7 @@ def test_keras_mlflow_callback_log_every_n_steps():
         key="validation_loss",
     )
     assert len(validation_loss_history) == num_epochs
+
+
+def test_old_callback_still_exists():
+    assert mlflow.keras.MLflowCallback is mlflow.keras.MlflowCallback
