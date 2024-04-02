@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 import sklearn
 import sklearn.linear_model as glm
+import sklearn.naive_bayes as nb
 import sklearn.neighbors as knn
 import yaml
 from packaging.version import Version
@@ -96,6 +97,14 @@ def sklearn_logreg_model(iris_df):
     linear_lr = glm.LogisticRegression()
     linear_lr.fit(X, y)
     return ModelWithData(model=linear_lr, inference_data=X)
+
+
+@pytest.fixture(scope="module")
+def sklearn_gaussian_model(iris_df):
+    X, y = iris_df
+    gaussian_nb = nb.GaussianNB()
+    gaussian_nb.fit(X, y)
+    return ModelWithData(model=gaussian_nb, inference_data=X)
 
 
 @pytest.fixture(scope="module")
@@ -768,12 +777,18 @@ def test_log_model_with_code_paths(sklearn_knn_model):
         add_mock.assert_called()
 
 
-def test_log_predict_proba(sklearn_logreg_model):
-    model, inference_dataframe = sklearn_logreg_model
-    expected_scores = model.predict_proba(inference_dataframe)
+@pytest.mark.parametrize(
+    "predict_fn", ["predict", "predict_proba", "predict_log_proba", "predict_joint_log_proba"]
+)
+def test_log_model_with_custom_pyfunc_predict_fn(sklearn_gaussian_model, predict_fn):
+    if Version(sklearn.__version__) < Version("1.2.0") and predict_fn == "predict_joint_log_proba":
+        pytest.skip("predict_joint_log_proba is not available in scikit-learn < 1.2.0")
+
+    model, inference_dataframe = sklearn_gaussian_model
+    expected_scores = getattr(model, predict_fn)(inference_dataframe)
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path, pyfunc_predict_fn="predict_proba")
+        mlflow.sklearn.log_model(model, artifact_path, pyfunc_predict_fn=predict_fn)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     loaded_model = pyfunc.load_model(model_uri)
