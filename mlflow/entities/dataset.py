@@ -1,10 +1,10 @@
 from typing import Optional
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Dataset as ProtoDataset
 
 
-class Dataset(_MLflowObject):
+class Dataset(_MlflowObject):
     """Dataset object associated with an experiment."""
 
     def __init__(
@@ -23,7 +23,7 @@ class Dataset(_MLflowObject):
         self._schema = schema
         self._profile = profile
 
-    def __eq__(self, other: _MLflowObject) -> bool:
+    def __eq__(self, other: _MlflowObject) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False

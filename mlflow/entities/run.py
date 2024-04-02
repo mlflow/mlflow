@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_inputs import RunInputs
@@ -8,7 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
 
 
-class Run(_MLflowObject):
+class Run(_MlflowObject):
     """
     Run object.
     """
