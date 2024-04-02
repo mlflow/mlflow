@@ -54,7 +54,7 @@ class TraceInfo(_MLflowObject):
         for key, value in self.tags.items():
             tag = ProtoTraceRequestMetadata()
             tag.key = key
-            tag.value = str(value)
+            tag.value = value
             tags.append(tag)
 
         proto.tags.extend(tags)

@@ -526,7 +526,8 @@ class MlflowClient:
             root_span.set_attributes(attributes)
 
         trace_info = trace_manager.get_trace_info(root_span.request_id)
-        trace_info.tags.update(tags or {})
+        if tags:
+            trace_info.tags.update({k: str(v) for k, v in tags.items()})
 
         return root_span
 
@@ -772,7 +773,7 @@ class MlflowClient:
         # Trying to set the tag on the active trace first
         trace_manager = InMemoryTraceManager.get_instance()
         try:
-            trace_manager.set_trace_tag(request_id, key, value)
+            trace_manager.set_trace_tag(request_id, key, str(value))
             return
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
