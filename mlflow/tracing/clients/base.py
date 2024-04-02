@@ -5,10 +5,11 @@ from mlflow.entities import Trace
 
 class TraceClient(ABC):
     @abstractmethod
-    def log_trace(self, trace: Trace):
+    def get_trace(self, request_id: str):
+        """Get the trace with the given request_id."""
         pass
 
-
-class NoOpClient(TraceClient):
+    @abstractmethod
     def log_trace(self, trace: Trace):
+        """Log the given trace."""
         pass

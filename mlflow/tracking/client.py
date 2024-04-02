@@ -37,6 +37,7 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
@@ -50,6 +51,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.clients import get_trace_client
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -496,6 +498,24 @@ class MlflowClient:
 
                 client.end_trace(request_id)
         """
+        # Validate no active trace is set in the global context. If there is an active trace,
+        # the span created by this method will be a child span under the active trace rather than
+        # a root span of a new trace, which is not desired behavior.
+        if span := mlflow.get_current_active_span():
+            raise MlflowException(
+                f"Another trace is already set in the global context with ID {span.request_id}. "
+                "It appears that you have already started a trace using fluent APIs like "
+                "`@mlflow.trace()` or `with mlflow.start_span()`. However, it is not allowed "
+                "to call MlflowClient.start_trace() under an active trace created by fluent APIs "
+                "because it may lead to unexpected behavior. To resolve this issue, consider the "
+                "following options:\n"
+                " - To create a child span under the active trace, use "
+                "`with mlflow.start_span()` or `MlflowClient.start_span()` instead.\n"
+                " - To start multiple traces in parallel, avoid using fluent APIs "
+                "and create all traces using `MlflowClient.start_trace()`.",
+                error_code=BAD_REQUEST,
+            )
+
         trace_manager = InMemoryTraceManager.get_instance()
         root_span = trace_manager.start_detached_span(name)
 
@@ -536,7 +556,17 @@ class MlflowClient:
         root_span_id = trace_manager.get_root_span_id(request_id)
 
         if root_span_id is None:
-            raise MlflowException(f"Trace with ID {request_id} not found.")
+            # TODO: Replace this with backend store check once we have backend support
+            if get_trace_client().get_trace(request_id=request_id):
+                raise MlflowException(
+                    f"Trace with ID {request_id} already finished.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                raise MlflowException(
+                    f"Trace with ID {request_id} not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
 
@@ -702,8 +732,10 @@ class MlflowClient:
         span = trace_manager.get_span_from_id(request_id, span_id)
 
         if span is None:
-            _logger.warning(f"Span with ID {span_id} not found in trace with ID {request_id}.")
-            return
+            raise MlflowException(
+                f"Span with ID {span_id} is not found or already finished.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
 
         if attributes:
             span.set_attributes(attributes or {})

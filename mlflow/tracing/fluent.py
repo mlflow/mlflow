@@ -198,3 +198,25 @@ def get_traces(n: int = 1) -> List[Trace]:
     from mlflow.tracing.clients import get_trace_client
 
     return get_trace_client().get_traces(n)
+
+
+def get_current_active_span():
+    """
+    Get the current active span in the global context.
+
+    .. attention::
+
+        This only works when the span is created with fluent APIs like `@mlflow.trace` or
+        `with mlflow.start_span`. If a span is created with MlflowClient APIs, it won't be
+        attached to the global context so this function will not return it.
+
+    Returns:
+        The current active span if exists, otherwise None.
+    """
+    otel_span = trace_api.get_current_span()
+    if otel_span is None:
+        return None
+
+    span_context = otel_span.get_span_context()
+    trace_manager = InMemoryTraceManager.get_instance()
+    return trace_manager.get_span_from_id(span_context.trace_id, span_context.span_id)
