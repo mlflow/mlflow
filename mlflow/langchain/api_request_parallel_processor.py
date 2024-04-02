@@ -462,8 +462,8 @@ def process_api_requests(
     status_tracker = StatusTracker()  # single instance to track a collection of variables
     next_request = None  # variable to hold the next request to call
 
-    results: list[tuple[int, str]] = []
-    errors: dict = {}
+    results = []
+    errors = {}
 
     # Note: we should call `_transform_request_json_for_chat_if_necessary`
     # for the whole batch data, because the conversion should obey the rule
@@ -537,8 +537,8 @@ def process_stream_request(
             f"Model {lc_model.__class__.__name__} does not support streaming prediction output."
         )
 
-    results: list[tuple[int, str]] = []
-    errors: dict = {}
+    results = []
+    errors = {}
 
     (
         converted_chat_requests,

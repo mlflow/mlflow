@@ -7,7 +7,7 @@ from langchain_core.output_parsers import StrOutputParser
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
 # Initialize the OpenAI model and the prompt template
-llm = OpenAI(temperature=0.9, max_tokens=3900)
+llm = OpenAI()
 
 # Create the LLMChain with the specified model and prompt
 chain = llm | StrOutputParser()

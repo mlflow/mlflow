@@ -608,7 +608,7 @@ class _LangChainModelWrapper:
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
         params: Optional[Dict[str, Any]] = None,
-    ) -> List[str]:
+    ) -> List[Union[str, Dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -633,7 +633,7 @@ class _LangChainModelWrapper:
         params: Optional[Dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> List[str]:
+    ) -> List[Union[str, Dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -688,7 +688,7 @@ class _LangChainModelWrapper:
         self,
         data: Any,
         params: Optional[Dict[str, Any]] = None,
-    ) -> Iterator[str]:
+    ) -> Iterator[Union[str, Dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -717,7 +717,7 @@ class _LangChainModelWrapper:
         params: Optional[Dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> Iterator[str]:
+    ) -> Iterator[Union[str, Dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
