@@ -452,6 +452,25 @@ class MlflowClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ):
+        """
+        Return traces that match the given list of search expressions within the experiments.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of traces desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_traces`` call.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
+        """
         return self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
