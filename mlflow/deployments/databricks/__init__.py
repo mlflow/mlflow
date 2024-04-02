@@ -277,6 +277,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 key, value = line.split(":", 1)
                 if key != "data":
                     raise MlflowException("Unknown response format.")
+
+                value = value.strip()
+                if value == "[DONE]":
+                    # Databricks endpoint streaming response ends with
+                    # a line of "data: [DONE]"
+                    return
+
                 yield json.loads(value)
 
         return result_gen_fn()
