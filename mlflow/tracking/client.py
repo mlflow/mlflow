@@ -509,9 +509,9 @@ class MlflowClient:
                 "to call MlflowClient.start_trace() under an active trace created by fluent APIs "
                 "because it may lead to unexpected behavior. To resolve this issue, consider the "
                 "following options:\n"
-                " - If you want to create a child span under the active trace, use "
+                " - To create a child span under the active trace, use "
                 "`with mlflow.start_span()` or `MlflowClient.start_span()` instead.\n"
-                " - If you want to start multiple traces in parallel, avoid using fluent APIs "
+                " - To start multiple traces in parallel, avoid using fluent APIs "
                 "and create all traces using `MlflowClient.start_trace()`.",
                 error_code=BAD_REQUEST,
             )

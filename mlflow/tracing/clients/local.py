@@ -66,12 +66,12 @@ class InMemoryTraceClient(TraceClient):
             self.queue.append(trace)
         self._display_trace(trace)
 
-    def get_traces(self, n: int = 10) -> List[Trace]:
+    def get_traces(self, n: Optional[int] = 10) -> List[Trace]:
         """
         Get the last n traces from the buffer.
 
         Args:
-            n: The number of traces to return.
+            n: The number of traces to return. If None, return all traces.
         Returns:
             A list of Trace objects.
         """

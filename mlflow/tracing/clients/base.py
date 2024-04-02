@@ -5,7 +5,7 @@ from mlflow.entities import Trace
 
 class TraceClient(ABC):
     @abstractmethod
-    def get_trace(self, request_id: Trace):
+    def get_trace(self, request_id: str):
         """Get the trace with the given request_id."""
         pass
 
