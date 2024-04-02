@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+import json
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 import requests
 
@@ -140,6 +141,41 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         )
         augmented_raise_for_status(response)
         return response.json()
+
+    def _call_endpoint_stream(
+        self,
+        method: str,
+        route: str,
+        json_body: Optional[str] = None,
+        timeout: Optional[int] = None,
+    ) -> Iterator[str]:
+        call_kwargs = {}
+        if method.lower() == "get":
+            call_kwargs["params"] = json_body
+        else:
+            call_kwargs["json"] = json_body
+
+        response = http_request(
+            host_creds=get_default_host_creds(self.target_uri),
+            endpoint=route,
+            method=method,
+            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
+            raise_on_status=False,
+            stream=True,  # Receive response content in streaming way.
+            **call_kwargs,
+        )
+        augmented_raise_for_status(response)
+
+        def result_gen_fn():
+            # Streaming response content are composed of multiple lines.
+            # Each line format depends on specific endpoint
+            for line in response.iter_lines(decode_unicode=True):
+                # filter out keep-alive new lines
+                if line:
+                    yield line
+
+        return result_gen_fn()
 
     @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
@@ -305,6 +341,50 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             return self._call_endpoint(
                 "POST", query_route, inputs, MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
             )
+        except MlflowException as e:
+            if isinstance(e.__cause__, requests.exceptions.Timeout):
+                raise MlflowException(
+                    message=(
+                        "The provider has timed out while generating a response to your "
+                        "query. Please evaluate the available parameters for the query "
+                        "that you are submitting. Some parameter values and inputs can "
+                        "increase the computation time beyond the allowable route "
+                        f"timeout of {MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT} "
+                        "seconds."
+                    ),
+                    error_code=BAD_REQUEST,
+                )
+            raise e
+
+    @experimental
+    def predict_stream(self, deployment_name=None, inputs=None, endpoint=None) -> Iterator[Dict[str, Any]]:
+        """
+        Submit a query to a configured provider endpoint, and get streaming response
+
+        Args:
+            deployment_name: Unused.
+            inputs: The inputs to the query, as a dictionary.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            An iterator of dictionary containing the response from the endpoint.
+        """
+        query_route = join_paths(
+            MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
+        )
+        try:
+            chunk_line_iter = self._call_endpoint_stream(
+                "POST", query_route, inputs, MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
+            )
+
+            def result_gen_fn():
+                for line in chunk_line_iter:
+                    key, value = line.split(":", 1)
+                    if key != "data":
+                        raise MlflowException("Unknown response format.")
+                    yield json.loads(value)
+
+            return result_gen_fn()
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
                 raise MlflowException(
