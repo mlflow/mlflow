@@ -75960,7 +75960,7 @@ public final class Service {
       "\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003" +
       "\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*>\n\013TraceStatus\022" +
       "\034\n\030TRACE_STATUS_UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n" +
-      "\005ERROR\020\0022\305\035\n\rMlflowService\022\246\001\n\023getExperi" +
+      "\005ERROR\020\0022\272\035\n\rMlflowService\022\246\001\n\023getExperi" +
       "mentByName\022\033.mlflow.GetExperimentByName\032" +
       "$.mlflow.GetExperimentByName.Response\"L\362" +
       "\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by-n" +
@@ -76051,11 +76051,11 @@ public final class Service {
       "nfo\022w\n\014searchTraces\022\024.mlflow.SearchTrace" +
       "s\032\035.mlflow.SearchTraces.Response\"2\362\206\031.\n\033" +
       "\n\003GET\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\rSearch Tr" +
-      "aces\022\221\001\n\014deleteTraces\022\024.mlflow.DeleteTra" +
-      "ces\032\035.mlflow.DeleteTraces.Response\"L\362\206\031H" +
-      "\n5\n\004POST\022\'/mlflow/databricks/traces/dele" +
-      "te-traces\032\004\010\002\020\000\020\003*\rDelete TracesB\036\n\024org." +
-      "mlflow.api.proto\220\001\001\342?\002\020\001"
+      "aces\022\206\001\n\014deleteTraces\022\024.mlflow.DeleteTra" +
+      "ces\032\035.mlflow.DeleteTraces.Response\"A\362\206\031=" +
+      "\n*\n\004POST\022\034/mlflow/traces/delete-traces\032\004" +
+      "\010\002\020\000\020\003*\rDelete TracesB\036\n\024org.mlflow.api." +
+      "proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
