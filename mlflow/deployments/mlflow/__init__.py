@@ -375,9 +375,11 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         try:
             inputs = inputs or {}
 
+            # Add stream=True param in request body to get streaming response
+            # See https://docs.databricks.com/api/workspace/servingendpoints/query#stream
             chunk_line_iter = self._call_endpoint_stream(
                 "POST", query_route,
-                {**inputs, "stream": True},  # Add stream=True param to get streaming response
+                {**inputs, "stream": True},
                 MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
             )
 
