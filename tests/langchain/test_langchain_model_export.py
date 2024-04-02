@@ -1986,9 +1986,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     signature = infer_signature(model_input=input_example)
 
     chain = ChatModel()
-    assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == AIMessage(
-        content="You own MLflow"
-    )
+    result = chain.invoke([HumanMessage(content="Who owns MLflow?")])
+    assert isinstance(result, AIMessage)
+    assert result.content == "You own MLflow"
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -1996,9 +1996,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    assert loaded_model.invoke([HumanMessage(content="Who owns MLflow?")]) == AIMessage(
-        content="You own MLflow"
-    )
+    result = loaded_model.invoke([HumanMessage(content="Who owns MLflow?")])
+    assert isinstance(result, AIMessage)
+    assert result.content == "You own MLflow"
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mock.patch("time.time", return_value=1677858242):
@@ -2523,9 +2523,12 @@ def test_save_load_chain_as_code_optional_code_path():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [APIRequest._try_transform_response_to_chat_format(answer)]
-    }
+    # avoid minor diff of created time in the response
+    prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    prediction_result["predictions"][0]["created"] = 123
+    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction["created"] = 123
+    assert prediction_result == {"predictions": [expected_prediction]}
 
     langchain_flavor = model_info.flavors["langchain"]
     assert langchain_flavor["databricks_dependency"] == {
