@@ -2456,25 +2456,62 @@ def test_config_path_context():
     assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
-def test_simple_chat_model_stream_inference():
+def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
+    from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
+    from langchain.schema.messages import BaseMessage, AIMessageChunk
+    from langchain_core.outputs import ChatGenerationChunk
+    from typing import Iterator
 
-    class ChatModel(SimpleChatModel):
-        # TODO: implement `_stream` to make it a real stream test.
-        def _call(self, messages, stop, run_manager, **kwargs):
-            return "\n".join([f"{message.type}: {message.content}" for message in messages])
+    class FakeChatStreamModel(SimpleChatModel):
+        """Fake Chat Stream Model wrapper for testing purposes."""
+
+        endpoint_name: str = "fake-stream-endpoint"
+
+        def _call(
+            self,
+            messages: List[BaseMessage],
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> str:
+            return "Databricks"
+
+        def _stream(
+            self,
+            messages: List[BaseMessage],
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> Iterator[ChatGenerationChunk]:
+            for chunk_content, finish_reason in [("Da", None), ("tab", None), ("ricks", "stop")]:
+                chunk = ChatGenerationChunk(
+                    message=AIMessageChunk(content=chunk_content),
+                    generation_info={"finish_reason": finish_reason},
+                )
+                if run_manager:
+                    run_manager.on_llm_new_token(chunk.text, chunk=chunk)
+
+                yield chunk
 
         @property
         def _llm_type(self) -> str:
-            return "chat model"
+            return "fake chat model"
 
-    model = ChatModel()
+    return FakeChatStreamModel(endpoint_name=endpoint_name)
 
+
+@pytest.fixture
+def fake_chat_stream_model():
+    return get_fake_chat_stream_model()
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_simple_chat_model_stream_inference(fake_chat_stream_model):
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, "model")
+        model_info = mlflow.langchain.log_model(fake_chat_stream_model, "model")
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
@@ -2485,14 +2522,7 @@ def test_simple_chat_model_stream_inference():
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    expected_resp_content = {
-        "role": "assistant",
-        "content": (
-            "system: You are a helpful assistant.\n"
-            "ai: What would you like to ask?\n"
-            "human: Who owns MLflow?"
-        ),
-    }
+
     chunk_iter = loaded_model.predict_stream(input_example)
 
     with mock.patch("time.time", return_value=1677858242):
@@ -2507,25 +2537,44 @@ def test_simple_chat_model_stream_inference():
                 "choices": [
                     {
                         "index": 0,
-                        "finish_reason": "stop",
-                        "delta": {
-                            "role": "assistant",
-                            "content": (
-                                "system: You are a helpful assistant.\n"
-                                "ai: What would you like to ask?\n"
-                                "human: Who owns MLflow?"
-                            ),
-                        },
+                        "finish_reason": None,
+                        "delta": {"role": "assistant", "content": "Da"},
                     }
                 ],
-            }
+            },
+            {
+                "id": None,
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": None,
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {"role": "assistant", "content": "tab"},
+                    }
+                ],
+            },
+            {
+                "id": None,
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": None,
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {"role": "assistant", "content": "ricks"},
+                    }
+                ],
+            },
         ]
 
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_simple_chat_model_stream_with_callbacks(fake_chat_model):
+def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
     from langchain.callbacks.base import BaseCallbackHandler
     from langchain.prompts import ChatPromptTemplate
     from langchain.schema.output_parser import StrOutputParser
@@ -2544,7 +2593,7 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_model):
             self.num_llm_start_calls += 1
 
     prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
-    chain = prompt | fake_chat_model | StrOutputParser()
+    chain = prompt | fake_chat_stream_model | StrOutputParser()
     # Test the basic functionality of the chain
     assert chain.invoke({"industry": "tech"}) == "Databricks"
 
@@ -2567,7 +2616,7 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_model):
             {"industry": "tech"},
             callback_handlers=[callback_handler1, callback_handler2],
         )
-    ) == ["Databricks"]
+    ) == ["Da", "tab", "ricks"]
 
     # Test that the callback handlers were called
     assert callback_handler1.num_llm_start_calls == 1
