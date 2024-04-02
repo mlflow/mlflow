@@ -1,3 +1,4 @@
+import threading
 from collections import deque
 from trace import Trace
 from typing import List, Optional
@@ -26,6 +27,7 @@ class InMemoryTraceClient(TraceClient):
     def __init__(self):
         queue_size = MLFLOW_TRACING_CLIENT_BUFFER_SIZE.get()
         self.queue = deque(maxlen=queue_size)
+        self._lock = threading.Lock()  # Lock for accessing the queue
 
         # used for displaying traces in IPython notebooks
         self._prev_execution_count = -1
@@ -60,7 +62,8 @@ class InMemoryTraceClient(TraceClient):
             pass
 
     def log_trace(self, trace: Trace):
-        self.queue.append(trace)
+        with self._lock:
+            self.queue.append(trace)
         self._display_trace(trace)
 
     def get_traces(self, n: int = 10) -> List[Trace]:
@@ -72,7 +75,9 @@ class InMemoryTraceClient(TraceClient):
         Returns:
             A list of Trace objects.
         """
-        return list(self.queue) if n is None else list(self.queue)[-n:]
+        with self._lock:
+            trace_list = list(self.queue)
+        return trace_list if n is None else trace_list[-n:]
 
     def get_trace(self, request_id: str) -> Optional[Trace]:
         """
@@ -83,9 +88,10 @@ class InMemoryTraceClient(TraceClient):
         Returns:
             A Trace object.
         """
-        for trace in self.queue:
-            if trace.trace_info.request_id == request_id:
-                return trace
+        with self._lock:
+            for trace in self.queue:
+                if trace.trace_info.request_id == request_id:
+                    return trace
 
     def _flush(self):
         self.queue.clear()

@@ -506,7 +506,7 @@ class MlflowClient:
                 f"Another trace is already set in the global context with ID {span.request_id}. "
                 "It appears that you have already started a trace using fluent APIs like "
                 "`@mlflow.trace()` or `with mlflow.start_span()`. However, it is not allowed "
-                "to call MlflowClient.start_trace() under an active trace created by fluent APIs, "
+                "to call MlflowClient.start_trace() under an active trace created by fluent APIs "
                 "because it may lead to unexpected behavior. To resolve this issue, consider the "
                 "following options:\n"
                 " - If you want to create a child span under the active trace, use "
