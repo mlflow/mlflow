@@ -4,6 +4,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 from opentelemetry.sdk.trace import ReadableSpan
 
+from mlflow.entities import Span, SpanContext, SpanStatus, TraceStatus
+from mlflow.entities.trace_data import TraceData
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
@@ -107,3 +109,42 @@ def test_serialize_inputs_outputs():
         exporter._serialize_inputs_outputs({"input": pd.DataFrame({"x": [1], "y": [2]})})
         == '{"input": "   x  y\\n0  1  2"}'
     )
+
+
+def test_deduplicate_span_names():
+    span_names = ["red", "red", "blue", "red", "green", "blue"]
+
+    spans = []
+    for i, span_name in enumerate(span_names):
+        spans.append(
+            Span(
+                name=span_name,
+                context=SpanContext("trace_id", span_id=i),
+                parent_span_id=None,
+                status=SpanStatus(TraceStatus.OK),
+                start_time=0,
+                end_time=1,
+            )
+        )
+    trace_data = TraceData(spans=spans)
+    exporter = MlflowSpanExporter(MagicMock())
+    exporter._deduplicate_span_names_in_place(trace_data)
+
+    assert [span.name for span in trace_data.spans] == [
+        "red_1",
+        "red_2",
+        "blue_1",
+        "red_3",
+        "green",
+        "blue_2",
+    ]
+    # Check if the span order is preserved
+    assert [span.context.span_id for span in trace_data.spans] == [0, 1, 2, 3, 4, 5]
+
+
+def test_deduplicate_span_names_empty_spans():
+    trace_data = TraceData(spans=[])
+    exporter = MlflowSpanExporter(MagicMock())
+    exporter._deduplicate_span_names_in_place(trace_data)
+
+    assert trace_data.spans == []

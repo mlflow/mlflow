@@ -1,9 +1,11 @@
 import json
 import logging
+from collections import Counter
 from typing import Any, Optional, Sequence
 
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.entities import TraceData
 from mlflow.tracing.clients import TraceClient
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.constant import (
@@ -81,6 +83,9 @@ class MlflowSpanExporter(SpanExporter):
             }
         )
 
+        # Rename spans to have unique names
+        self._deduplicate_span_names_in_place(trace.trace_data)
+
         # TODO: Make this async
         self._client.log_trace(trace)
 
@@ -104,3 +109,26 @@ class MlflowSpanExporter(SpanExporter):
             trunc_length = MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(TRUNCATION_SUFFIX)
             serialized = serialized[:trunc_length] + TRUNCATION_SUFFIX
         return serialized
+
+    def _deduplicate_span_names_in_place(self, trace_data: TraceData):
+        """
+        Deduplicate span names in the trace data by appending an index number to the span name.
+
+        This is only applied when there are more than one span with the same name. The span
+        names are modified in place to avoid unnecessary copying.
+
+        E.g.
+            ["red", "red"] -> ["red_1", "red_2"]
+            ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
+
+        Args:
+            trace_data: The trace data object to deduplicate span names.
+        """
+        span_name_counter = Counter(span.name for span in trace_data.spans)
+        # Filter to only duplicated spans
+        span_name_counter = {name: count for name, count in span_name_counter.items() if count > 1}
+        # Add index to the duplicated span names
+        for span in trace_data.spans[::-1]:
+            if count := span_name_counter.get(span.name):
+                span_name_counter[span.name] -= 1
+                span.name = f"{span.name}_{count}"

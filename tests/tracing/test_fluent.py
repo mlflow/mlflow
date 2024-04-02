@@ -131,7 +131,7 @@ def test_start_span_context_manager(mock_client):
                 root_span.set_inputs({"x": x, "y": y})
                 z = x + y
 
-                with mlflow.start_span(name="child_span_1", span_type=SpanType.LLM) as child_span:
+                with mlflow.start_span(name="child_span", span_type=SpanType.LLM) as child_span:
                     child_span.set_inputs(z)
                     z = z + 2
                     child_span.set_outputs(z)
@@ -142,7 +142,7 @@ def test_start_span_context_manager(mock_client):
             return res
 
         def square(self, t):
-            with mlflow.start_span(name="child_span_2") as span:
+            with mlflow.start_span(name="child_span") as span:
                 span.set_inputs({"t": t})
                 res = t**2
                 time.sleep(0.1)
@@ -172,6 +172,7 @@ def test_start_span_context_manager(mock_client):
     assert root_span.inputs == {"x": 1, "y": 2}
     assert root_span.outputs == 25
 
+    # Span with duplicate name should be renamed to have an index number like "_1", "_2", ...
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_span_id == root_span.context.span_id
     assert child_span_1.span_type == SpanType.LLM
