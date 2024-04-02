@@ -9,7 +9,7 @@ from mlflow.utils.autologging_utils import (
 )
 
 
-class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeAbstractClass):
+class __MlflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeAbstractClass):
     """Callback for auto-logging metrics and parameters."""
 
     def __init__(self, client, metrics_logger, run_id, log_models, log_every_n_epoch):
@@ -101,7 +101,7 @@ def patched_fit(original, self, *args, **kwargs):
     log_every_n_epoch = get_autologging_config(mlflow.paddle.FLAVOR_NAME, "log_every_n_epoch", 1)
 
     early_stop_callback = None
-    mlflow_callback = __MLflowPaddleCallback(
+    mlflow_callback = __MlflowPaddleCallback(
         client, metrics_logger, run_id, log_models, log_every_n_epoch
     )
     if "callbacks" in kwargs:

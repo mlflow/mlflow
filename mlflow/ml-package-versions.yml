@@ -717,7 +717,11 @@ johnsnowlabs:
 promptflow:
   package_info:
     pip_release: "promptflow"
+    # Install dev subpackages to ensure test running on the latest code
     install_dev: |
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow-tracing
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow-core
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow-devkit
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
