@@ -373,8 +373,12 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
         )
         try:
+            inputs = inputs or {}
+
             chunk_line_iter = self._call_endpoint_stream(
-                "POST", query_route, inputs, MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
+                "POST", query_route,
+                {**inputs, "stream": True},  # Add stream=True param to get streaming response
+                MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
             )
 
             def result_gen_fn():
