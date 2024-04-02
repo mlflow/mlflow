@@ -1,13 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
-from mlflow.tracing.types.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
 
 @dataclass
