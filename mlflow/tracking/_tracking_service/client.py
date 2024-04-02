@@ -221,7 +221,8 @@ class TrackingServiceClient:
         )
         traces = [
             Trace(
-                trace_info=trace_info, trace_data=self._download_trace_data(trace_info.request_id)
+                trace_info=trace_info,
+                trace_data=self._download_trace_data(trace_info.request_id),
             )
             for trace_info in trace_infos
         ]
