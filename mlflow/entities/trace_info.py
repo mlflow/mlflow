@@ -1,14 +1,14 @@
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 
 
 @dataclass
-class TraceInfo(_MLflowObject):
+class TraceInfo(_MlflowObject):
     """Metadata about a trace.
 
     Args:

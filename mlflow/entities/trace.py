@@ -5,13 +5,13 @@ from dataclasses import asdict, dataclass
 
 from packaging.version import Version
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 
 
 @dataclass
-class Trace(_MLflowObject):
+class Trace(_MlflowObject):
     """A trace object. (TODO: Add conceptual guide for tracing.)
 
     Args:
