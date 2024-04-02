@@ -35,8 +35,8 @@ else:
 
     FLAVOR_NAME = "keras"
 
-    MLflowCallback = deprecated(
-        MlflowCallback, alternative="mlflow.keras.MlflowCallback"
+    MLflowCallback = deprecated(alternative="mlflow.keras.MlflowCallback")(
+        MlflowCallback
     )  # for backwards compatibility
 
     __all__ = [

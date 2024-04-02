@@ -99,8 +99,8 @@ _TF2MODEL_SUBPATH = "tf2model"
 model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
 
 
-MLflowCallback = deprecated(
-    MlflowCallback, alternative="mlflow.keras.MlflowCallback"
+MLflowCallback = deprecated(alternative="mlflow.keras.MlflowCallback")(
+    MlflowCallback
 )  # for backwards compatibility
 
 
