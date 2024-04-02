@@ -474,7 +474,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/databricks/traces/delete-traces"
+        path: "/mlflow/traces/delete-traces"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
