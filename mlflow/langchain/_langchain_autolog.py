@@ -196,7 +196,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     import langchain
     from langchain_community.callbacks import MlflowCallbackHandler
 
-    class _MLflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
+    class _MlflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
         """
         Callback for auto-logging metrics and parameters.
         We need to inherit ExceptionSafeAbstractClass to avoid invalid new
@@ -235,7 +235,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     # callback logs artifacts into, to avoid overriding artifacts
     session_id = getattr(self, "session_id", uuid.uuid4().hex)
     inference_id = getattr(self, "inference_id", 0)
-    mlflow_callback = _MLflowLangchainCallback(
+    mlflow_callback = _MlflowLangchainCallback(
         tracking_uri=mlflow.get_tracking_uri(),
         run_id=run_id,
         artifacts_dir=f"artifacts-{session_id}-{inference_id}",

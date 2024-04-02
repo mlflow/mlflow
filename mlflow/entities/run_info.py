@@ -1,4 +1,4 @@
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
@@ -26,7 +26,7 @@ class orderable_attribute(property):
     pass
 
 
-class RunInfo(_MLflowObject):
+class RunInfo(_MlflowObject):
     """
     Metadata about a run.
     """
