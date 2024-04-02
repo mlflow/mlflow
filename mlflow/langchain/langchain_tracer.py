@@ -106,7 +106,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when a chat model starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
-        llm_inputs = {"messages": [[dumpd(msg) for msg in batch] for batch in messages]}
+        llm_inputs = {"messages": [[msg.dict() for msg in batch] for batch in messages]}
         self._start_span(
             span_name=name or "chat model",
             parent_run_id=parent_run_id,
@@ -131,7 +131,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         **kwargs: Any,
     ) -> None:
         """Run when LLM (non-chat models) starts running."""
-        inputs = {"prompts": prompts}
         if metadata:
             kwargs.update({"metadata": metadata})
         self._start_span(
@@ -139,7 +138,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             parent_run_id=parent_run_id,
             span_type=SpanType.LLM,
             run_id=run_id,
-            inputs=inputs,
+            inputs={"prompts": prompts},
             attributes=kwargs,
         )
 
