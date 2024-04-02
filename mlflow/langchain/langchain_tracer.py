@@ -5,7 +5,6 @@ from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.documents import Document
-from langchain_core.load import dumpd
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import (
     ChatGeneration,
@@ -204,7 +203,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             for j, generation in enumerate(generations):
                 output_generation = outputs["generations"][i][j]
                 if "message" in output_generation:
-                    output_generation["message"] = dumpd(cast(ChatGeneration, generation).message)
+                    output_generation["message"] = (cast(ChatGeneration, generation).message).dict()
         self._end_span(llm_span, outputs=outputs)
 
     @override
