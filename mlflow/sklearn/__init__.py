@@ -526,8 +526,8 @@ class _SklearnModelWrapper:
         # Patch the model with custom predict functions that can be specified
         # via `pyfunc_predict_fn` argument when saving or logging.
         for predict_fn in self._SUPPORTED_CUSTOM_PREDICT_FN:
-            if hasattr(self.sklearn_model, predict_fn):
-                setattr(self, predict_fn, getattr(self.sklearn_model, predict_fn))
+            if fn := getattr(self.sklearn_model, predict_fn, None):
+                setattr(self, predict_fn, fn)
 
     def predict(
         self,
