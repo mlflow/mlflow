@@ -465,7 +465,7 @@ class MlflowClient:
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-            :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that satisfy the search
+            :py:class:`Trace <mlflow.entities.Trace>` objects that satisfy the search
             expressions. If the underlying tracking store supports pagination, the token for the
             next page may be obtained via the ``token`` attribute of the returned object; however,
             some store implementations may not support pagination and thus the returned token would

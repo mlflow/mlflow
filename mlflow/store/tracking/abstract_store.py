@@ -296,9 +296,9 @@ class AbstractStore:
                 a ``search_traces`` call.
 
         Returns:
-            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-            :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for the
+            A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
+            satisfy the search expressions and a pagination token for the next page of results.
+            If the underlying tracking store supports pagination, the token for the
             next page may be obtained via the ``token`` attribute of the returned object; however,
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.

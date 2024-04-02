@@ -19,9 +19,11 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     GET_METRIC_HISTORY_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -210,13 +212,20 @@ class TrackingServiceClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ):
-        return self.store.search_traces(
+        trace_infos, token = self.store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
         )
+        traces = [
+            Trace(
+                trace_info=trace_info, trace_data=self._download_trace_data(trace_info.request_id)
+            )
+            for trace_info in trace_infos
+        ]
+        return PagedList(traces, token)
 
     def search_experiments(
         self,

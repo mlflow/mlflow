@@ -281,8 +281,8 @@ class RestStore(AbstractStore):
         )
         req_body = message_to_json(st)
         response_proto = self._call_endpoint(SearchTraces, req_body)
-        traces = [TraceInfo.from_proto(t) for t in response_proto.traces]
-        return PagedList(traces, response_proto.next_page_token or None)
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None
 
     def log_metric(self, run_id, metric):
         """
