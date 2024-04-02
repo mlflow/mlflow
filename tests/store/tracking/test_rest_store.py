@@ -550,7 +550,7 @@ def test_search_traces():
         }
     )
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.search_traces(
+        trace_infos, token = store.search_traces(
             experiment_ids=request.experiment_ids,
             filter_string=request.filter,
             max_results=request.max_results,
@@ -558,7 +558,7 @@ def test_search_traces():
             page_token=request.page_token,
         )
         _verify_requests(mock_http, creds, "traces", "GET", message_to_json(request))
-        assert res == [
+        assert trace_infos == [
             TraceInfo(
                 request_id="tr-1234",
                 experiment_id="1234",
@@ -569,4 +569,4 @@ def test_search_traces():
                 tags={"k": "v"},
             )
         ]
-        assert res.token == "token"
+        assert token == "token"
