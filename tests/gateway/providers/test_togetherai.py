@@ -1,20 +1,16 @@
-import math
 from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.togetherai import TogetherAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
 
-from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
 def completions_config():
     return {
@@ -60,13 +56,13 @@ async def test_completions():
     with mock.patch("time.time", return_value=1677858242), mock.patch(
     "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        
+
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
             "prompt": "Whats the capital of France?",
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "max_tokens": 200, 
+            "max_tokens": 200,
             "temperature": 1.0,
             "n": 1,
         }
@@ -139,7 +135,7 @@ def completion_stream_response_incomplete():
 
 @pytest.mark.parametrize("resp", [completion_stream_response(), completion_stream_response_incomplete()])
 @pytest.mark.asyncio
-async def test_completions_stream(resp): 
+async def test_completions_stream(resp):
     config = completions_config()
 
     with mock.patch("time.time", return_value=1677858242), mock.patch(
@@ -148,7 +144,7 @@ async def test_completions_stream(resp):
         provider = TogetherAIProvider(RouteConfig(**config))
         payload = {
             "model":"mistralai/Mixtral-8x7B-v0.1",
-            "prompt": "This is a test", 
+            "prompt": "This is a test",
             "temperature": 1,
             "n": 1,
         }
@@ -172,8 +168,8 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": "test"}, 
-                        "finish_reason": None, 
+                        "delta": {"role": None, "content": "test"},
+                        "finish_reason": None,
                         "index": 0
                     }
                 ],
@@ -195,7 +191,7 @@ async def test_completions_stream(resp):
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
             },
-        ] 
+        ]
 
         mock_post.assert_called_once_with(
             "https://api.together.xyz/v1/completions",
@@ -221,7 +217,7 @@ def embeddings_config():
             },
         },
     }
-    
+
 def embeddings_response():
     return {
         "object": "list",
@@ -250,7 +246,7 @@ async def test_embeddings():
     with mock.patch("time.time", return_value=1677858242), mock.patch(
     "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        
+
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -327,14 +323,14 @@ def chat_response():
 
 @pytest.mark.asyncio
 async def test_chat():
-    
+
     config = chat_config()
     resp = chat_response()
 
     with mock.patch("time.time", return_value=1677858242), mock.patch(
     "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        
+
         provider = TogetherAIProvider(RouteConfig(**config))
 
         payload = {
@@ -342,7 +338,7 @@ async def test_chat():
                 {"role": "user", "content": "Who's the protagonist in Metro 2033?"}
              ],
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "max_tokens": 200, 
+            "max_tokens": 200,
             "temperature": 1.0,
             "n": 1,
         }
@@ -375,7 +371,7 @@ async def test_chat():
             json={
                 "messages": [{"role": "user", "content": "Who's the protagonist in Metro 2033?"}],
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-                "max_tokens": 200, 
+                "max_tokens": 200,
                 "temperature": 1.0,
                 "n": 1,
             },
