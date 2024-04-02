@@ -781,6 +781,19 @@ def test_log_predict_proba(sklearn_logreg_model):
     np.testing.assert_array_almost_equal(expected_scores, actual_scores)
 
 
+def test_log_predict_log_proba(sklearn_logreg_model):
+    model, inference_dataframe = sklearn_logreg_model
+    expected_scores = model.predict_log_proba(inference_dataframe)
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path, pyfunc_predict_fn="predict_log_proba")
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    loaded_model = pyfunc.load_model(model_uri)
+    actual_scores = loaded_model.predict(inference_dataframe)
+    np.testing.assert_array_almost_equal(expected_scores, actual_scores)
+
+
 def test_virtualenv_subfield_points_to_correct_path(sklearn_logreg_model, model_path):
     mlflow.sklearn.save_model(sklearn_logreg_model.model, path=model_path)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)

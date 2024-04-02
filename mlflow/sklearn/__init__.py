@@ -534,6 +534,10 @@ class _SklearnModelWrapper:
         if hasattr(self.sklearn_model, "predict_proba"):
             return self.sklearn_model.predict_proba(*args, **kwargs)
 
+    def predict_log_proba(self, *args, **kwargs):
+        if hasattr(self.sklearn_model, "predict_log_proba"):
+            return self.sklearn_model.predict_log_proba(*args, **kwargs)
+
     def score(self, *args, **kwargs):
         if hasattr(self.sklearn_model, "score"):
             return self.sklearn_model.score(*args, **kwargs)
