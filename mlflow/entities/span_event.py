@@ -2,11 +2,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 
 
 @dataclass
-class SpanEvent(_MLflowObject):
+class SpanEvent(_MlflowObject):
     """
     An event that records a specific occurrences or moments in time
     during a span, such as an exception being thrown.

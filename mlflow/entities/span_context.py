@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 
 
 @dataclass
-class SpanContext(_MLflowObject):
+class SpanContext(_MlflowObject):
     """
     Following OpenTelemetry spec, request_id (=trace_id) and span_id
     are packed into SpanContext object.
