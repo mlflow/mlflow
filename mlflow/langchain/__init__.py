@@ -314,6 +314,8 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    streamable = isinstance(lc_model, lc_runnables_types())
+
     if not isinstance(lc_model, str):
         model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
         flavor_conf = {
@@ -339,6 +341,7 @@ def save_model(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
+        streamable=streamable,
         **model_data_kwargs,
     )
 
@@ -362,6 +365,7 @@ def save_model(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
         code=code_dir_subpath,
+        streamable=streamable,
         **flavor_conf,
     )
     if size := get_total_file_size(path):
@@ -733,7 +737,6 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
-        # TODO: Q: shall we put `callback_handlers` in params ?
         if isinstance(data, list):
             raise MlflowException("Langchain model predict_stream only supports single input.")
 
