@@ -781,6 +781,9 @@ def test_log_model_with_code_paths(sklearn_knn_model):
     "predict_fn", ["predict", "predict_proba", "predict_log_proba", "predict_joint_log_proba"]
 )
 def test_log_model_with_custom_pyfunc_predict_fn(sklearn_gaussian_model, predict_fn):
+    if Version(sklearn.__version__) < Version("1.2.0") and predict_fn == "predict_joint_log_proba":
+        pytest.skip("predict_joint_log_proba is not available in scikit-learn < 1.2.0")
+
     model, inference_dataframe = sklearn_gaussian_model
     expected_scores = getattr(model, predict_fn)(inference_dataframe)
     artifact_path = "model"
