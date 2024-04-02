@@ -750,9 +750,9 @@ class MlflowClient:
         """
         Set a tag on the trace with the given trace ID.
 
-        The trace can be ongoing one or the one that has already ended and recorded in the backend.
-        Below is an example of setting a tag on an ongoing trace. You can replace the ``request_id``
-        parameter to setting a tag on an already ended trace.
+        The trace can be an active one or the one that has already ended and recorded in the
+        backend. Below is an example of setting a tag on an active trace. You can replace the
+        ``request_id`` parameter to setting a tag on an already ended trace.
 
         .. code-block:: python
 
@@ -769,7 +769,7 @@ class MlflowClient:
             key: The string key of the tag. Must be shorter than 250 characters.
             value: The string value of the tag. Must be shorter than 250 characters.
         """
-        # Trying to set the tag on the ongoing trace first
+        # Trying to set the tag on the active trace first
         trace_manager = InMemoryTraceManager.get_instance()
         try:
             trace_manager.set_trace_tag(request_id, key, value)
@@ -778,7 +778,7 @@ class MlflowClient:
             if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                 raise
 
-        # If the trace is not ongoing, try to set the tag on the trace in the backend
+        # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
 
     def search_experiments(
