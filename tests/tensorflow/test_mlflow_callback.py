@@ -53,3 +53,7 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
     assert "sparse_categorical_accuracy" in run_metrics
     assert model_info["optimizer_name"].lower() == "adam"
     np.testing.assert_almost_equal(float(model_info["optimizer_learning_rate"]), 0.001)
+
+
+def test_old_callback_still_exists():
+    assert mlflow.tensorflow.MLflowCallback is mlflow.tensorflow.MlflowCallback
