@@ -4,7 +4,6 @@ import os
 import re
 import shutil
 import sqlite3
-import tempfile
 from contextlib import contextmanager
 from operator import itemgetter
 from typing import Any, DefaultDict, Dict, List, Mapping, Optional
@@ -2260,7 +2259,7 @@ def test_save_load_chain_as_code():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_as_code_multiple_times():
+def test_save_load_chain_as_code_multiple_times(tmp_path):
     config_path = "tests/langchain/config.yml"
     input_example = {
         "messages": [
@@ -2323,8 +2322,7 @@ def test_save_load_chain_as_code_multiple_times():
     assert loaded_model.middle[0].messages[0].prompt.template == base_config["llm_prompt_template"]
 
     file_name = "config_updated.yml"
-    temp_dir = tempfile.gettempdir()
-    new_config_file = os.path.join(temp_dir, file_name)
+    new_config_file = str(tmp_path.joinpath(file_name))
 
     new_config = base_config.copy()
     new_config["llm_prompt_template"] = "new_template"
