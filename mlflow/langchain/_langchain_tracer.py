@@ -205,7 +205,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             for j, generation in enumerate(generations):
                 output_generation = outputs["generations"][i][j]
                 if "message" in output_generation:
-                    output_generation["message"] = cast(ChatGeneration, generation).message
+                    output_generation["message"] = dumpd(cast(ChatGeneration, generation).message)
         self._end_span(llm_span, outputs=outputs)
 
     @override
