@@ -771,20 +771,12 @@ def _load_model_from_local_fs(local_model_path):
         else:
             config_path = None
 
-        flavor_code_path = flavor_conf.get(_CODE_PATH)
-        if flavor_code_path is not None:
-            code_path = os.path.join(
-                local_model_path,
-                flavor_code_config,
-                os.path.basename(flavor_code_path),
-            )
-        else:
-            # Note if the _CODE_PATH config doesn't exist, we default the path to chain.py
-            code_path = os.path.join(
-                local_model_path,
-                flavor_code_config,
-                "chain.py",
-            )
+        flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
+        code_path = os.path.join(
+            local_model_path,
+            flavor_code_config,
+            os.path.basename(flavor_code_path),
+        )
 
         return _load_model_code_path(code_path, config_path)
     else:
