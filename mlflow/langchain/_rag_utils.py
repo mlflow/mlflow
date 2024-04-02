@@ -8,6 +8,7 @@ from typing import Optional
 # The following constant is used in flavor configuration to specify the code paths
 # that should be set using _set_config_path when the model is loaded by code.
 _CODE_CONFIG = "_code_config"
+_CODE_PATH = "_code_path"
 
 __databricks_rag_chain__ = None
 __databricks_rag_config_path__ = None

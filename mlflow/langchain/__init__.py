@@ -14,8 +14,11 @@ LangChain (native) format
 
 import contextlib
 import functools
+import importlib.util
 import logging
 import os
+import sys
+import uuid
 import warnings
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Union
@@ -32,7 +35,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _CODE_CONFIG, _set_config_path
+from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -58,7 +61,7 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     autologging_is_disabled,
@@ -80,7 +83,6 @@ from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
-    _add_code_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -325,9 +327,9 @@ def save_model(
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
         flavor_conf = (
-            {_CODE_CONFIG: code_paths[0]}
+            {_CODE_CONFIG: code_paths[0], _CODE_PATH: lc_model}
             if code_paths and len(code_paths) >= 1
-            else {_CODE_CONFIG: None}
+            else {_CODE_CONFIG: None, _CODE_PATH: lc_model}
         )
         model_data_kwargs = {}
 
@@ -343,15 +345,11 @@ def save_model(
     if Version(langchain.__version__) >= Version("0.0.311"):
         checker_model = lc_model
         if isinstance(lc_model, str):
-            # If the model is a string, we are adding the model code path to the system path
-            # so it can be loaded correctly.
-            _add_code_to_system_path(os.path.dirname(lc_model))
-            (
-                _load_code_model(code_paths[0])
+            checker_model = (
+                _load_model_code_path(lc_model, code_paths[0])
                 if code_paths and len(code_paths) >= 1
-                else _load_code_model()
+                else _load_model_code_path(lc_model)
             )
-            checker_model = mlflow.langchain._rag_utils.__databricks_rag_chain__
 
         if databricks_dependency := _detect_databricks_dependencies(checker_model):
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
@@ -761,21 +759,28 @@ def _load_pyfunc(path):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     if _CODE_CONFIG in flavor_conf:
         path = flavor_conf.get(_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
         if path is not None:
-            code_path = os.path.join(
+            config_path = os.path.join(
                 local_model_path,
                 flavor_code_config,
-                os.path.basename(os.path.abspath(path)),
+                os.path.basename(path),
             )
         else:
-            code_path = None
+            config_path = None
 
-        return _load_code_model(code_path)
+        flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
+        code_path = os.path.join(
+            local_model_path,
+            flavor_code_config,
+            os.path.basename(flavor_code_path),
+        )
+
+        return _load_model_code_path(code_path, config_path)
     else:
+        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         return _load_model(local_model_path, flavor_conf)
 
 
@@ -815,14 +820,39 @@ def _config_path_context(code_path: Optional[str] = None):
         _set_config_path(None)
 
 
-def _load_code_model(code_path: Optional[str] = None):
-    with _config_path_context(code_path):
+# In the Python's module caching mechanism, which by default, prevents the
+# re-importation of previously loaded modules. This is particularly
+# problematic in contexts where it's necessary to reload a module (in this case,
+# the `model code path` module) multiple times within the same Python
+# runtime environment.
+# The issue at hand arises from the desire to import the `model code path` module
+# multiple times during a single runtime session. Normally, once a module is
+# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
+# the cached module rather than re-importing it.
+# To address this, the function dynamically imports the `model code path` module
+# under unique, dynamically generated module names. This is achieved by creating
+# a unique name for each import using a combination of the original module name
+# and a randomly generated UUID. This approach effectively bypasses the caching
+# mechanism, as each import is considered as a separate module by the Python interpreter.
+def _load_model_code_path(code_path: str, config_path: Optional[str] = None):
+    with _config_path_context(config_path):
         try:
-            import chain  # noqa: F401
+            new_module_name = f"code_model_{uuid.uuid4().hex}"
+            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[new_module_name] = module
+            spec.loader.exec_module(module)
         except ImportError as e:
             raise mlflow.MlflowException("Failed to import LangChain model.") from e
 
     return mlflow.langchain._rag_utils.__databricks_rag_chain__
+
+
+# TODO: We are keeping this method even though it is private because
+# rag studio is explicitly monkey patching it. Will remove soon.
+@deprecated(alternative="mlflow.langchain._load_model_code_path")
+def _load_code_model(config_path: Optional[str] = None):
+    pass
 
 
 @experimental
