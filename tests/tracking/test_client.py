@@ -164,6 +164,17 @@ def test_client_get_trace_info(mock_store):
     mock_store.get_trace_info.assert_called_once_with("1234567")
 
 
+def test_client_search_traces(mock_store):
+    MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
+
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["1", "2", "3"],
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    )
+
+
 def test_start_and_end_trace(mock_trace_client):
     class TestModel:
         def __init__(self):

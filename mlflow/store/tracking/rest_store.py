@@ -25,6 +25,7 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchRuns,
+    SearchTraces,
     SetExperimentTag,
     SetTag,
     TraceRequestMetadata,
@@ -33,6 +34,7 @@ from mlflow.protos.service_pb2 import (
     UpdateRun,
 )
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_TRACES_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -261,6 +263,26 @@ class RestStore(AbstractStore):
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        st = SearchTraces(
+            experiment_ids=experiment_ids,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+        req_body = message_to_json(st)
+        response_proto = self._call_endpoint(SearchTraces, req_body)
+        traces = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return PagedList(traces, response_proto.next_page_token or None)
 
     def log_metric(self, run_id, metric):
         """

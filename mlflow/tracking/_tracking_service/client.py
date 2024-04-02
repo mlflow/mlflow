@@ -22,7 +22,11 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import (
+    GET_METRIC_HISTORY_MAX_RESULTS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_MAX_RESULTS,
+)
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -197,6 +201,22 @@ class TrackingServiceClient:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
         return self.store.get_trace_info(request_id)
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        return self.store.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
 
     def search_experiments(
         self,
