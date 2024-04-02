@@ -162,7 +162,6 @@ def start_span(
     try:
         tracer = get_tracer(__name__)
         span = tracer.start_span(name)
-        span.set_attributes(attributes or {})
     except Exception:
         _logger.warning(f"Failed to start span with name {name}.")
         span = None
