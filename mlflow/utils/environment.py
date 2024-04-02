@@ -15,6 +15,7 @@ from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_INPUT_EXAMPLE_I
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION, insecure_hash
+from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _infer_requirements,
@@ -44,8 +45,6 @@ _CONDA_DEPENDENCY_REGEX = re.compile(
     r"(?P<operator><|>|<=|>=|=|==|!=)?"
     r"(?P<version>[\d.]+)?$"
 )
-
-_IS_UNIX = os.name != "nt"
 
 
 class _PythonEnv:
@@ -398,7 +397,7 @@ _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
 def infer_pip_requirements_with_timeout(model_uri, flavor, fallback):
     timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
 
-    if timeout and not _IS_UNIX:
+    if timeout and is_windows():
         timeout = None
         _logger.warning(
             "On Windows, timeout is not supported for model requirement inference. Therefore, "
@@ -850,10 +849,10 @@ class Environment:
         if not isinstance(command, list):
             command = [command]
 
-        separator = " && " if _IS_UNIX else " & "
+        separator = " && " if not is_windows() else " & "
 
         command = separator.join(map(str, self._activate_cmd + command))
-        command = ["bash", "-c", command] if _IS_UNIX else ["cmd", "/c", command]
+        command = ["bash", "-c", command] if not is_windows() else ["cmd", "/c", command]
         _logger.info("=== Running command '%s'", command)
         return _exec_cmd(
             command,

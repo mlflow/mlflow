@@ -7,7 +7,7 @@ from mlflow.environment_variables import MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _contains_params
 from mlflow.types.schema import ColSpec, DataType, Schema, TensorSpec
-from mlflow.utils.process import _IS_UNIX
+from mlflow.utils.os import is_windows
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 
 _logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def infer_or_get_default_signature(
     if example:
         try:
             timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
-            if timeout and not _IS_UNIX:
+            if timeout and is_windows():
                 timeout = None
                 _logger.warning(
                     "On Windows, timeout is not supported for model signature inference. "
