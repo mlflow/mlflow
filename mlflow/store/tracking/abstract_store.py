@@ -9,7 +9,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_MAX_RESULTS
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -280,7 +280,7 @@ class AbstractStore:
         self,
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
-        max_results: int = SEARCH_TRACES_MAX_RESULTS,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ):

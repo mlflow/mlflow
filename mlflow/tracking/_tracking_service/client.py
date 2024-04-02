@@ -27,7 +27,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     GET_METRIC_HISTORY_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
-    SEARCH_TRACES_MAX_RESULTS,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -208,7 +208,7 @@ class TrackingServiceClient:
         self,
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
-        max_results: int = SEARCH_TRACES_MAX_RESULTS,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ):
