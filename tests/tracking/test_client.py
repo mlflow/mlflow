@@ -166,12 +166,28 @@ def test_client_get_trace_info(mock_store):
 
 def test_client_search_traces(mock_store):
     MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
-
     mock_store.search_traces.assert_called_once_with(
         experiment_ids=["1", "2", "3"],
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        filter_string=None,
+        max_results=500,
         order_by=None,
         page_token=None,
+    )
+    mock_store.reset_mock()
+
+    MlflowClient().search_traces(
+        experiment_ids=["1", "2", "3"],
+        filter_string="trace.timestamp_ms > 123",
+        order_by=["timestamp_ms DESC"],
+        max_results=10,
+        page_token="token",
+    )
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["1", "2", "3"],
+        filter_string="trace.timestamp_ms > 123",
+        order_by=["timestamp_ms DESC"],
+        max_results=10,
+        page_token="token",
     )
 
 
