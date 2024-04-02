@@ -5,6 +5,7 @@ from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.documents import Document
+from langchain_core.load import dumpd
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import (
     ChatGeneration,
@@ -105,13 +106,14 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when a chat model starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
+        llm_inputs = {"messages": [[dumpd(msg) for msg in batch] for batch in messages]}
         self._start_span(
             span_name=name or "chat model",
             parent_run_id=parent_run_id,
             # we use LLM for chat models as well
             span_type=SpanType.LLM,
             run_id=run_id,
-            inputs=messages,
+            inputs=llm_inputs,
             attributes=kwargs,
         )
 
@@ -423,5 +425,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             )
 
     def flush_tracker(self):
+        # Make sure the trace renders in the notebook
         mlflow.get_traces()
         self._reset()
