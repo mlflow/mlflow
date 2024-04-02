@@ -1,7 +1,6 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from functools import lru_cache
 from typing import Dict, Optional
 
 from cachetools import TTLCache
@@ -154,9 +153,6 @@ class InMemoryTraceManager:
 
         return trace.span_dict.get(span_id) if trace else None
 
-    # NB: Caching as this requires a linear search over all spans in the trace and
-    #   the return value should not change for the same request_id.
-    @lru_cache(maxsize=128)
     def get_root_span_id(self, request_id) -> Optional[str]:
         """
         Get the root span ID for the given trace ID.

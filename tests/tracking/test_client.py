@@ -45,6 +45,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 
+from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
 
 
@@ -191,7 +192,7 @@ def test_client_search_traces(mock_store):
     )
 
 
-def test_start_and_end_trace(mock_trace_client):
+def test_start_and_end_trace(clear_singleton, mock_trace_client):
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
@@ -284,7 +285,7 @@ def test_start_and_end_trace(mock_trace_client):
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
 
 
-def test_start_and_end_trace_before_all_span_end(mock_trace_client):
+def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_client):
     # This test is to verify that the trace is still exported even if some spans are not ended
     class TestModel:
         def __init__(self):
@@ -348,11 +349,42 @@ def test_start_and_end_trace_before_all_span_end(mock_trace_client):
     assert non_ended_span.status.status_code == TraceStatus.UNSPECIFIED
 
 
+def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
+    with mlflow.start_span("fluent_span"):
+        with pytest.raises(MlflowException, match=r"Another trace is already set in the global"):
+            mlflow.tracking.MlflowClient().start_trace("test")
+
+
+def test_end_trace_raise_error_when_trace_not_exist(clear_singleton):
+    with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
+        mlflow.tracking.MlflowClient().end_trace("test")
+
+
+def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
+    client = mlflow.tracking.MlflowClient()
+
+    root_span = client.start_trace("test")
+    client.end_trace(root_span.request_id)
+
+    trace = mlflow.get_traces()[-1]
+    assert trace.trace_info.request_id == root_span.request_id
+
+    with pytest.raises(
+        MlflowException, match=f"Trace with ID {root_span.request_id} already finished"
+    ):
+        client.end_trace(root_span.request_id)
+
+
 def test_start_span_raise_error_when_parent_span_id_is_not_provided():
     with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
         mlflow.tracking.MlflowClient().start_span(
             "span_name", request_id="test", parent_span_id=None
         )
+
+
+def test_end_span_raise_error_when_span_not_active():
+    with pytest.raises(MlflowException, match=r"Span with ID test_span is not found or"):
+        mlflow.tracking.MlflowClient().end_span("test_trace", "test_span")
 
 
 def test_client_create_experiment(mock_store):
