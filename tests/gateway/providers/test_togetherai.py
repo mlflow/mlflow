@@ -377,3 +377,116 @@ async def test_chat():
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+def chat_stream_response():
+    return [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,'
+        b'"choices":[{"index":0,"text":"test","logprobs":null,"finish_reason":null,"delta":{"token_id":546,"content":"test"}}],"model":"test","usage":null}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,'
+        b'"choices":[{"index":0,"text":"test","logprobs":null,"finish_reason":null,"delta":{"token_id":4234,"content":"test"}}],"model":"test","usage":null}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,'
+        b'"choices":[{"index":0,"text":"test","logprobs":null,"finish_reason":"length","delta":{"token_id":1345,"content":"test"}}],"model":"test","usage":{"prompt_tokens":17,"completion_tokens":200,"total_tokens":217}}\n',
+        b"\n",
+        b"data: [DONE]\n",
+        b"\n"
+    ]
+
+
+def chat_stream_response_incomplete():
+    return [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,'
+        b'"choices":[{"index":0,"text":"test","logprobs":null,"finish_reason":null,"delta":{"token_id":546,"content":"test"}}],"model":"test","usage":null}\n',
+        b"\n",
+        # split chunk into two parts
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"choi'
+        b'ces":[{"index":0,"text":"test","logprobs":null,"finish_reason":null,"delta":{"token_id":4234,"content":"test"}}],"model":"test","usage":null}\n\n',
+        # split chunk into two parts
+        b'data: {"id":"test-id","object":"chat.completion.chunk","creat'
+        b'ed":1,"choices":[{"index":0,"text":"test","logprobs":null,"finish_reason":"length","delta":{"token_id":1345,"content":"test"}}],"model":"test","usage":{"prompt_tokens":17,"completion_tokens":200,"total_tokens":217}}\n',
+        b"\n",
+        b"data: [DONE]\n",
+        b"\n"
+    ]
+
+@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
+@pytest.mark.asyncio
+async def test_chat_stream(resp):
+    config = chat_config()
+
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = TogetherAIProvider(RouteConfig(**config))
+        payload = {
+            "model":"mistralai/Mixtral-8x7B-v0.1",
+            "messages": [
+                {"role": "system", "content": "This is a test"},
+                {"role": "user", "content": "This is a test"},
+                {"role": "assistant", "content": "This is a test"},
+                {"role": "user", "content": "This is a test"},
+            ],
+            "temperature": 1,
+            "n": 1,
+        }
+        response = provider.chat_stream(chat.RequestPayload(**payload))
+
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "choices": [
+                    {
+                        "delta": {"role":None,"content":"test"},
+                        "finish_reason": None,
+                        "index": 0,
+                    }
+                ],
+                "created": 1,
+                "id": "test-id",
+                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": "test"},
+                        "finish_reason": None,
+                        "index": 0
+                    }
+                ],
+                "created": 1,
+                "id": "test-id",
+                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": "test"},
+                        "finish_reason": "length",
+                        "index": 0,
+                    }
+                ],
+                "created": 1,
+                "id": "test-id",
+                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "object": "chat.completion.chunk",
+            },
+        ]
+
+        mock_post.assert_called_once_with(
+            "https://api.together.xyz/v1/chat/completions",
+            json={
+                "model": "mistralai/Mixtral-8x7B-v0.1",
+                "temperature": 1,
+                "messages": [
+                    {"role": "system", "content": "This is a test"},
+                    {"role": "user", "content": "This is a test"},
+                    {"role": "assistant", "content": "This is a test"},
+                    {"role": "user", "content": "This is a test"},
+                ],
+                "n": 1,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )

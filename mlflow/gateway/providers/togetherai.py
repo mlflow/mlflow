@@ -143,7 +143,7 @@ class TogetherAIAdapter(ProviderAdapter):
                     )
                 )
 
-                for idx, choice in enumerate(resp.get("choices"))
+                for idx, choice in enumerate(resp.get("choices", []))
             ],
             # usage is not included in OpenAI StreamResponsePayload
             #usage=completions.CompletionsUsage(
@@ -253,7 +253,37 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
-        raise NotImplementedError
+        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" According","logprobs":null,"finish_reason":null,"delta":{"token_id":6586,"content":" According"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" to","logprobs":null,"finish_reason":null,"delta":{"token_id":298,"content":" to"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" the","logprobs":null,"finish_reason":null,"delta":{"token_id":272,"content":" the"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" Econom","logprobs":null,"finish_reason":null,"delta":{"token_id":11003,"content":" Econom"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"ist","logprobs":null,"finish_reason":null,"delta":{"token_id":392,"content":"ist"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Intelligence","logprobs":null,"finish_reason":null,"delta":{"token_id":23091,"content":" Intelligence"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Unit","logprobs":null,"finish_reason":null,"delta":{"token_id":13332,"content":" Unit"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" World","logprobs":null,"finish_reason":null,"delta":{"token_id":3304,"content":" World"}}],"model":"mistr'
+        #b'alai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"wide","logprobs":null,"finish_reason":null,"delta":{"token_id":5734,"content":"wide"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Cost","logprobs":null,"finish_reason":null,"delta":{"token_id":9319,"content":" Cost"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" of","logprobs":null,"finish_reason":null,"delta":{"token_id":302,"content":" of"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Living","logprobs":null,"finish_reason":null,"delta":{"token_id":16303,"content":" Living"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Survey","logprobs":null,"finish_reason":null,"delta":{"token_id":24004,"content":" Survey"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" in","logprobs":null,"finish_reason":null,"delta":{"token_id":297,"content":" in"}}],"model":"mistralai/Mixtral-8x'
+        #b'7B-v0.1","usage":null}\n\n'
+        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" ","logprobs":null,"finish_reason":null,"delta":{"token_id":28705,"content":" "}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"2","logprobs":null,"finish_reason":null,"delta":{"token_id":28750,"content":"2"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"0","logprobs":null,"finish_reason":"length","delta":{"token_id":28734,"content":"0"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":{"prompt_tokens":93,"completion_tokens":200,"total_tokens":293}}\n\n'
+        #b'data: [DONE]\n\n'
+
+        return chat.StreamResponsePayload(
+            id=resp["id"],
+            model=config.model.name,
+            object="chat.completion.chunk",
+            created=resp["created"],
+            choices=[
+                chat.StreamChoice(
+                    index=idx, 
+                    # TODO: is this a good idea? This comes from the TogetherAI API
+                    finish_reason=choice.get("finish_reason"),
+                    delta=chat.StreamDelta(
+                        role=None,
+                        content=choice.get("text"),
+                    )
+                )
+                # Added enumerate and a default empty list
+                for idx, choice in enumerate(resp.get("choices", []))  
+            ],
+            usage=resp.get("usage")
+        )
 
     @classmethod
     def chat_to_model(cls, payload, config):
@@ -270,7 +300,8 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def chat_streaming_to_model(cls, payload, config):
-        raise NotImplementedError
+        # streaming and standard chat contain the same parameters
+        return TogetherAIAdapter.chat_to_model(payload, config)
 
     @classmethod
     def embeddings_to_model(cls, payload, config):
@@ -350,7 +381,10 @@ class TogetherAIProvider(BaseProvider):
 
     # WARNING CHANGING THE ORDER OF METHODS HERE FOR SOME REASON CAUSES AN ERROR
     # completions MODULE IS INTERPERTED AS THE completions function
-    async def completions_stream(self, payload: completions.RequestPayload) -> AsyncIterable[completions.StreamResponsePayload]:
+    async def completions_stream(
+        self, 
+        payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -391,6 +425,33 @@ class TogetherAIProvider(BaseProvider):
         )
 
         return TogetherAIAdapter.model_to_completions(resp, self.config)
+
+
+    async def chat_stream(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+
+        stream = await self._stream_request(
+            path="chat/completions",
+            payload={
+                "model": self.config.model.name,
+                **TogetherAIAdapter.chat_streaming_to_model(payload, self.config)
+            }
+        )
+
+        async for chunk in stream:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+
+            chunk = strip_sse_prefix(chunk.decode("utf-8"))
+            if chunk == "[DONE]":
+                return
+
+            resp = json.loads(chunk)
+            yield TogetherAIAdapter.model_to_chat_streaming(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
