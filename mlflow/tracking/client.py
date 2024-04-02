@@ -483,7 +483,7 @@ class MlflowClient:
 
         .. code-block:: python
 
-                from mlflow.tracking import MlflowClient
+                from mlflow import MlflowClient
 
                 client = MlflowClient()
 
@@ -616,7 +616,7 @@ class MlflowClient:
             .. code-block:: python
 
                 import mlflow
-                from mlflow.tracking import MlflowClient
+                from mlflow import MlflowClient
 
                 client = MlflowClient()
 
@@ -659,7 +659,7 @@ class MlflowClient:
 
         .. code-block:: python
 
-                from mlflow.tracking import MlflowClient
+                from mlflow import MlflowClient
 
                 client = MlflowClient()
 
@@ -756,7 +756,7 @@ class MlflowClient:
 
         .. code-block:: python
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
 
@@ -769,8 +769,6 @@ class MlflowClient:
             key: The string key of the tag. Must be shorter than 250 characters.
             value: The string value of the tag. Must be shorter than 250 characters.
         """
-        TraceInfo.validate_tag_key_value(key, value)
-
         # Trying to set the tag on the ongoing trace first
         trace_manager = InMemoryTraceManager.get_instance()
         try:

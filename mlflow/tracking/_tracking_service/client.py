@@ -207,7 +207,7 @@ class TrackingServiceClient:
             key: The string key of the tag.
             value: The string value of the tag.
         """
-        self.store.set_trace_tag(request_id, key, value)
+        self.store.set_trace_tag(request_id, key, str(value))
 
     def search_experiments(
         self,

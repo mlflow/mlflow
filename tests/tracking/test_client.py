@@ -360,7 +360,7 @@ def test_end_span_raise_error_when_span_not_active():
         mlflow.tracking.MlflowClient().end_span("test_trace", "test_span")
 
 
-def test_set_trace_tag_on_ongoing_trace(mock_trace_client):
+def test_set_trace_tag_on_ongoing_trace(clear_singleton, mock_trace_client):
     client = mlflow.tracking.MlflowClient()
 
     root_span = client.start_trace(name="test")
@@ -375,11 +375,6 @@ def test_set_trace_tag_on_ongoing_trace(mock_trace_client):
 def test_set_trace_tag_on_logged_trace(mock_store, mock_trace_client):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
     mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
-
-
-def test_set_trace_tag_raises_for_invalid_tag(mock_trace_client):
-    with pytest.raises(MlflowException, match=r"A value for a trace tag exceeds the maximum"):
-        mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "a" * 251)
 
 
 def test_client_create_experiment(mock_store):

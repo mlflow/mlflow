@@ -124,10 +124,6 @@ class InMemoryTraceManager:
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ):
-        tags = tags or {}
-        for key, value in tags.items():
-            TraceInfo.validate_tag_key_value(key, value)
-
         trace_info = TraceInfo(
             request_id=request_id,
             experiment_id=experiment_id or "EXPERIMENT",  # TODO: Fetch this from global state
@@ -145,11 +141,9 @@ class InMemoryTraceManager:
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """Set a tag on the trace with the given request_id."""
-        TraceInfo.validate_tag_key_value(key, value)
-
         with self._lock:
             if trace := self._traces.get(request_id):
-                trace.trace_info.tags[key] = value
+                trace.trace_info.tags[key] = str(value)
                 return
 
         raise MlflowException(

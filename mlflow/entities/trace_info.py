@@ -57,7 +57,7 @@ class TraceInfo(_MLflowObject):
         for key, value in self.tags.items():
             tag = ProtoTraceRequestMetadata()
             tag.key = key
-            tag.value = value
+            tag.value = str(value)
             tags.append(tag)
 
         proto.tags.extend(tags)
@@ -74,35 +74,3 @@ class TraceInfo(_MLflowObject):
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
             tags={tag.key: tag.value for tag in proto.tags},
         )
-
-    @staticmethod
-    def validate_tag_key_value(key: Any, value: Any):
-        """
-        Validate tag key and value.
-        """
-        if not key or not isinstance(key, str):
-            raise MlflowException(
-                f"A key for a trace tag must be a non-empty string. Got: {key}",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        if not isinstance(value, str):
-            raise MlflowException(
-                f"A value for a trace tag must be a string. Got: {value} for the key '{key}'",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        if len(key) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
-            raise MlflowException(
-                f"A key for a trace tag exceeds the maximum allowed length of "
-                f"{MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS} characters. Got: {len(key)}",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
-            raise MlflowException(
-                f"A value for a trace tag exceeds the maximum allowed length of "
-                f"{MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS} characters. "
-                "Got: {len(value)} for the key '{key}'",
-                INVALID_PARAMETER_VALUE,
-            )
