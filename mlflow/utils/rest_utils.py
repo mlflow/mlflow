@@ -4,6 +4,8 @@ import json
 import requests
 
 from mlflow.environment_variables import (
+    _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
+    _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
@@ -72,6 +74,7 @@ def http_request(
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
     )
+    _validate_retries_and_backoff_values(max_retries, backoff_factor)
     respect_retry_after_header = (
         MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
         if respect_retry_after_header is None
@@ -181,6 +184,41 @@ def verify_rest_response(response, endpoint):
         raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
 
     return response
+
+
+def _validate_retries_and_backoff_values(max_retries, backoff_factor):
+    max_retry_limit = _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT.get()
+    max_backoff_factor_limit = _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT.get()
+
+    if max_backoff_factor_limit < 0:
+        raise MlflowException(
+            "The current maximum backoff factor limit is invalid "
+            f"({max_backoff_factor_limit}). Cannot be negative."
+        )
+    if max_retry_limit < 0:
+        raise MlflowException(
+            f"The current maximum retry limit is invalid ({max_retry_limit}). "
+            "Cannot be negative."
+        )
+    if max_retries >= max_retry_limit:
+        raise MlflowException(
+            f"The configured max_retries ({max_retries}) are "
+            f"in excess of the maximum allowable retries ({max_retry_limit})"
+        )
+    if backoff_factor >= max_backoff_factor_limit:
+        raise MlflowException(
+            f"The configured backoff_factor ({backoff_factor}) are in excess "
+            "of the maximum allowable backoff_factor limit "
+            f"({max_backoff_factor_limit})"
+        )
+    if max_retries < 0:
+        raise MlflowException(
+            f"The max_retries value must be either 0 a positive integer. Got {max_retries}"
+        )
+    if backoff_factor < 0:
+        raise MlflowException(
+            f"The backoff_factor value must be either 0 a positive integer. Got {backoff_factor}"
+        )
 
 
 def _get_path(path_prefix, endpoint_path):
