@@ -118,9 +118,9 @@ class MlflowSpanWrapper:
         Set the status of the span.
 
         Args:
-            status: The status of the span. This can be a :py:class:`SpanStatus` object or
-                a string representing of the status code defined in :py:class:`TraceStatus`
-                e.g. ``"OK"``, ``"ERROR"``.
+            status: The status of the span. This can be a :py:class:`SpanStatus <mlflow.entities.SpanStatus>`
+                object or a string representing of the status code defined in
+                :py:class:`TraceStatus <mlflow.entities.TraceStatus>` e.g. ``"OK"``, ``"ERROR"``.
         """
         if isinstance(status, str):
             status = SpanStatus(status)
