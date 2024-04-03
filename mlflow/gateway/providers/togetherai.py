@@ -271,7 +271,7 @@ class TogetherAIAdapter(ProviderAdapter):
             created=resp["created"],
             choices=[
                 chat.StreamChoice(
-                    index=idx, 
+                    index=idx,
                     # TODO: is this a good idea? This comes from the TogetherAI API
                     finish_reason=choice.get("finish_reason"),
                     delta=chat.StreamDelta(
@@ -280,7 +280,7 @@ class TogetherAIAdapter(ProviderAdapter):
                     )
                 )
                 # Added enumerate and a default empty list
-                for idx, choice in enumerate(resp.get("choices", []))  
+                for idx, choice in enumerate(resp.get("choices", []))
             ],
             usage=resp.get("usage")
         )
@@ -382,7 +382,7 @@ class TogetherAIProvider(BaseProvider):
     # WARNING CHANGING THE ORDER OF METHODS HERE FOR SOME REASON CAUSES AN ERROR
     # completions MODULE IS INTERPERTED AS THE completions function
     async def completions_stream(
-        self, 
+        self,
         payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder

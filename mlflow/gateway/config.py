@@ -58,7 +58,7 @@ class TogetherAIConfig(ConfigModel):
     togetherai_api_key: str
 
     @validator("togetherai_api_key", pre=True)
-    def validate_togetherai_api_key(cls, value): 
+    def validate_togetherai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 class RouteType(str, Enum):
