@@ -85,7 +85,6 @@ Job Statuses
 
 .. |examples| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow-automation/mlflow/actions/workflows/examples.yml?query=workflow%3AExamples+event%3Aschedule
-    :alt: Examples Action Status
 .. |cross-version-tests| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/cross-version-tests.yml?branch=master&event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
     :target: https://github.com/mlflow-automation/mlflow/actions/workflows/cross-version-tests.yml?query=workflow%3A%22Cross+version+tests%22+event%3Aschedule
 .. |r-devel| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/r.yml?branch=master&event=schedule&label=r-devel&style=for-the-badge&logo=github
