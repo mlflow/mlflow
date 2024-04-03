@@ -320,10 +320,6 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                 )
             raise e
 
-    @experimental
-    def predict_stream(self, deployment_name=None, inputs=None, endpoint=None):
-        raise NotImplementedError()
-
 
 def run_local(name, model_uri, flavor=None, config=None):
     pass
