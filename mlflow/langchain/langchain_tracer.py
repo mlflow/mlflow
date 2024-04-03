@@ -31,9 +31,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     input arguments added to original function call.
     """
 
-    def __init__(self):
+    def __init__(self, parent_span=None):
         super().__init__()
         self._mlflow_client = MlflowClient()
+        self._parent_span = parent_span
         self._run_span_mapping: Dict[str, MlflowSpanWrapper] = {}
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[MlflowSpanWrapper]:
@@ -51,7 +52,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[Dict[str, Any]] = None,
     ) -> MlflowSpanWrapper:
         """Start MLflow Span (or Trace if it is root component)"""
-        parent = self._get_span_by_run_id(parent_run_id) if parent_run_id else None
+        # If parent_run_id is not None, we should still raise exception if parent span is not found
+        parent = self._get_span_by_run_id(parent_run_id) if parent_run_id else self._parent_span
         if parent:
             span = self._mlflow_client.start_span(
                 name=span_name,
