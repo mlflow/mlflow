@@ -212,7 +212,7 @@ class TrackingServiceClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ):
-        res = self.store.search_traces(
+        trace_infos, token = self.store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
@@ -224,9 +224,9 @@ class TrackingServiceClient:
                 trace_info=trace_info,
                 trace_data=self._download_trace_data(trace_info.request_id),
             )
-            for trace_info in res
+            for trace_info in trace_infos
         ]
-        return PagedList(traces, res.token)
+        return PagedList(traces, token)
 
     def set_trace_tag(self, request_id, key, value):
         """

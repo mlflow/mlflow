@@ -166,30 +166,32 @@ def test_client_get_trace_info(mock_store):
 
 
 def test_client_search_traces(mock_store):
-    MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
-    mock_store.search_traces.assert_called_once_with(
-        experiment_ids=["1", "2", "3"],
-        filter_string=None,
-        max_results=100,
-        order_by=None,
-        page_token=None,
-    )
-    mock_store.reset_mock()
+    client = MlflowClient()
+    with mock.patch.object(client, "_tracking_client") as mock_client:
+        client.search_traces(experiment_ids=["1", "2", "3"])
+        mock_client.search_traces.assert_called_once_with(
+            experiment_ids=["1", "2", "3"],
+            filter_string=None,
+            max_results=100,
+            order_by=None,
+            page_token=None,
+        )
+        mock_client.reset_mock()
 
-    MlflowClient().search_traces(
-        experiment_ids=["1", "2", "3"],
-        filter_string="trace.timestamp_ms > 123",
-        order_by=["timestamp_ms DESC"],
-        max_results=10,
-        page_token="token",
-    )
-    mock_store.search_traces.assert_called_once_with(
-        experiment_ids=["1", "2", "3"],
-        filter_string="trace.timestamp_ms > 123",
-        order_by=["timestamp_ms DESC"],
-        max_results=10,
-        page_token="token",
-    )
+        client.search_traces(
+            experiment_ids=["1", "2", "3"],
+            filter_string="trace.timestamp_ms > 123",
+            order_by=["timestamp_ms DESC"],
+            max_results=10,
+            page_token="token",
+        )
+        mock_client.search_traces.assert_called_once_with(
+            experiment_ids=["1", "2", "3"],
+            filter_string="trace.timestamp_ms > 123",
+            order_by=["timestamp_ms DESC"],
+            max_results=10,
+            page_token="token",
+        )
 
 
 def test_start_and_end_trace(clear_singleton, mock_trace_client):
