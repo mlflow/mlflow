@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import langchain.chains
+import langchain_core.runnables
 import pydantic
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
@@ -129,7 +130,7 @@ class APIRequest:
     """
 
     index: int
-    lc_model: langchain.chains.base.Chain
+    lc_model: langchain.chains.base.Chain | langchain_core.runnables.Runnable
     request_json: dict
     results: list[tuple[int, str]]
     errors: dict
@@ -175,24 +176,47 @@ class APIRequest:
             ]
 
     def call_api(
-        self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
+        self,
+        status_tracker: StatusTracker,
+        callback_handlers: Optional[List[BaseCallbackHandler]],
     ):
         """
         Calls the LangChain API and stores results.
         """
         from langchain.schema import BaseRetriever
-        from langchain_core.runnables import Runnable
+
+        from mlflow.langchain.utils import base_lc_types
 
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
         try:
+            config = {
+                "callbacks": callback_handlers,
+                "configurable": self.configurables,
+            }
+
             if isinstance(self.lc_model, BaseRetriever):
                 # Retrievers are invoked differently than Chains
                 docs = self.lc_model.get_relevant_documents(**self.request_json)
                 response = [
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
-            elif isinstance(self.lc_model, Runnable):
+            elif isinstance(self.lc_model, base_lc_types()):
+                response = self.lc_model.invoke(
+                    self.request_json,
+                    return_only_outputs=True,
+                    config=config,
+                )
+
+                if self.did_perform_chat_conversion or self.convert_chat_responses:
+                    response = APIRequest._try_transform_response_to_chat_format(response)
+                elif len(response) == 1:
+                    # to maintain existing code, single output chains will still return
+                    # only the result
+                    response = response.popitem()[1]
+                else:
+                    self._prepare_to_serialize(response)
+            else:
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
@@ -201,10 +225,7 @@ class APIRequest:
                     try:
                         response = self.lc_model.invoke(
                             self.request_json,
-                            config={
-                                "callbacks": callback_handlers,
-                                "configurable": self.configurables,
-                            },
+                            config=config,
                         )
                     except TypeError as e:
                         _logger.warning(
@@ -223,41 +244,23 @@ class APIRequest:
 
                         response = self.lc_model.invoke(
                             prepared_request_json,
-                            config={
-                                "callbacks": callback_handlers,
-                                "configurable": self.configurables,
-                            },
+                            config=config,
                         )
                 else:
                     response = self.lc_model.invoke(
                         self.request_json,
-                        config={"callbacks": callback_handlers, "configurable": self.configurables},
+                        config=config,
                     )
                 if self.did_perform_chat_conversion or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
-            else:
-                response = self.lc_model(
-                    self.request_json,
-                    return_only_outputs=True,
-                    callbacks=callback_handlers,
-                )
-
-                if self.did_perform_chat_conversion or self.convert_chat_responses:
-                    response = APIRequest._try_transform_response_to_chat_format(response)
-                elif len(response) == 1:
-                    # to maintain existing code, single output chains will still return
-                    # only the result
-                    response = response.popitem()[1]
-                else:
-                    self._prepare_to_serialize(response)
 
             _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
-            self.errors[self.index] = (
-                f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
-            )
+            self.errors[
+                self.index
+            ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 

@@ -47,7 +47,18 @@ def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
-    llm = Databricks(endpoint_name="databricks-mixtral-8x7b-instruct")
+    try:
+        import langchain_community
+
+        if Version(langchain_community.__version__) >= Version("0.0.27"):
+            llm = Databricks(
+                endpoint_name="databricks-mixtral-8x7b-instruct",
+                allow_dangerous_deserialization=True,
+            )
+        else:
+            llm = Databricks(endpoint_name="databricks-mixtral-8x7b-instruct")
+    except ImportError:
+        llm = Databricks(endpoint_name="databricks-mixtral-8x7b-instruct")
     d = defaultdict(list)
     _extract_databricks_dependencies_from_llm(llm, d)
     assert d.get(_DATABRICKS_LLM_ENDPOINT_NAME_KEY) == ["databricks-mixtral-8x7b-instruct"]
