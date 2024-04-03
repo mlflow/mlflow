@@ -15,6 +15,7 @@ from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, append_to_uri_path
 
 
@@ -65,7 +66,7 @@ def _get_root_uri_and_artifact_path(artifact_uri):
         artifact_uri: The *absolute* URI of the artifact.
     """
     if os.path.exists(artifact_uri):
-        if os.name != "nt":
+        if not is_windows():
             # If we're dealing with local files, just reference the direct pathing.
             # non-nt-based file systems can directly reference path information, while nt-based
             # systems need to url-encode special characters in directory listings to be able to

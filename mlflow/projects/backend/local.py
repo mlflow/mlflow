@@ -44,6 +44,7 @@ from mlflow.utils.databricks_utils import get_databricks_env_vars, is_in_databri
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.file_utils import get_or_create_nfs_tmp_dir
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
+from mlflow.utils.os import is_windows
 from mlflow.utils.virtualenv import (
     _PYENV_ROOT_DIR,
     _VIRTUALENV_ENVS_DIR,
@@ -272,7 +273,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.
-    if os.name != "nt":
+    if not is_windows():
         process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
     else:
         # process = subprocess.Popen(command, close_fds=True, cwd=work_dir, env=env)

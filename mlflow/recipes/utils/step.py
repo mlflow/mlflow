@@ -14,6 +14,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_running_in_ipython_environment,
 )
+from mlflow.utils.os import is_windows
 
 _logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ def display_html(html_data: Optional[str] = None, html_file_path: Optional[str] 
 # multiprocessing and pytest don't play well together on Windows.
 # Relevant code: https://github.com/ydataai/pandas-profiling/blob/f8bad5dde27e3f87f11ac74fb8966c034bc22db8/src/pandas_profiling/model/pandas/summary_pandas.py#L76-L97
 def _get_pool_size():
-    return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
+    return 1 if "PYTEST_CURRENT_TEST" in os.environ and is_windows() else 0
 
 
 def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:

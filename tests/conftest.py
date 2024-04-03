@@ -106,7 +106,7 @@ def clean_up_mlruns_directory(request):
         try:
             shutil.rmtree(mlruns_dir)
         except OSError:
-            if os.name == "nt":
+            if is_windows():
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
