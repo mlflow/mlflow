@@ -16,7 +16,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |license| |downloads| |slack| |twitter|
+|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge
     :target: https://mlflow.org/docs/latest/index.html
@@ -75,8 +75,6 @@ Packages
 .. |maven-spark| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven&label=mlflow-spark
     :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
     :alt: Maven Central - mlflow-spark
-
-|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images|
 
 
 Job Statuses
