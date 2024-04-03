@@ -667,6 +667,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_deleted_runs(self, older_than=0):
         """
         Get all deleted run ids.
+
         Args:
             older_than: get runs that is older than this variable in number of milliseconds.
                         defaults to 0 ms to get all deleted runs.
