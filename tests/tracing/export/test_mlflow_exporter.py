@@ -6,7 +6,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.types.constant import (
-    MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
+    MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
 )
@@ -82,12 +82,12 @@ def test_export():
     inputs = trace_info.request_metadata[TraceMetadataKey.INPUTS]
     assert inputs.startswith('{"input1": "very long input')
     assert inputs.endswith(TRUNCATION_SUFFIX)
-    assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
+    assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
     outputs = trace_info.request_metadata[TraceMetadataKey.OUTPUTS]
     assert outputs.startswith('"very long output')
     assert outputs.endswith(TRUNCATION_SUFFIX)
-    assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE
+    assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
     # All 3 spans should be in the logged trace data
     assert len(client_call_args.trace_data.spans) == 3
@@ -101,7 +101,7 @@ def test_serialize_inputs_outputs():
     assert exporter._serialize_inputs_outputs({"x": 1, "y": 2}) == '{"x": 1, "y": 2}'
     assert exporter._serialize_inputs_outputs("string input") == '"string input"'
     # Truncate long inputs
-    assert len(exporter._serialize_inputs_outputs({"x": "very long input" * 100})) == 300
+    assert len(exporter._serialize_inputs_outputs({"x": "very long input" * 100})) == 250
     # non-JSON-serializable inputs
     assert (
         exporter._serialize_inputs_outputs({"input": pd.DataFrame({"x": [1], "y": [2]})})

@@ -1371,3 +1371,22 @@ message DeleteTraces {
     optional int32 traces_deleted = 1;
   }
 }
+
+message SetTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace on which to set a tag.
+  optional string request_id = 1;
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2;
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string value = 3;
+
+  message Response {
+  }
+}

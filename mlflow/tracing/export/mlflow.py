@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.tracing.clients import TraceClient
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.constant import (
-    MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE,
+    MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
 )
@@ -100,7 +100,7 @@ class MlflowSpanExporter(SpanExporter):
             )
             return ""
 
-        if len(serialized) > MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE:
-            trunc_length = MAX_CHARS_IN_TRACE_INFO_ATTRIBUTE - len(TRUNCATION_SUFFIX)
+        if len(serialized) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
+            trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS - len(TRUNCATION_SUFFIX)
             serialized = serialized[:trunc_length] + TRUNCATION_SUFFIX
         return serialized

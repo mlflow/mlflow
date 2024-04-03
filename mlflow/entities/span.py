@@ -2,7 +2,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span_context import SpanContext
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus
@@ -27,7 +27,7 @@ class SpanType:
 
 
 @dataclass
-class Span(_MLflowObject):
+class Span(_MlflowObject):
     """A span object. (TODO: Add conceptual guide for span vs trace.)
 
     Args:

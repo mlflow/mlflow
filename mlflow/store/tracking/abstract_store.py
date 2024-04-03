@@ -276,6 +276,17 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        raise NotImplementedError
+
     def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run
