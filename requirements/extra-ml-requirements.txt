@@ -9,7 +9,7 @@ fastai>=2.4.1
 # Required by mlflow.spacy
 spacy>=3.3.0
 # Required by mlflow.tensorflow
-tensorflow-cpu>=2.8.0
+tensorflow>=2.10.0
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0

@@ -14,6 +14,7 @@ import numpy as np
 import openai
 import pytest
 import transformers
+import yaml
 from langchain import SQLDatabase
 from langchain.agents import AgentType, initialize_agent
 from langchain.chains import (
@@ -250,7 +251,7 @@ def fake_classifier_chat_model():
     from langchain.chat_models.base import SimpleChatModel
     from langchain.schema.messages import BaseMessage
 
-    class FakeMLflowClassifier(SimpleChatModel):
+    class FakeMlflowClassifier(SimpleChatModel):
         """Fake Chat Model wrapper for testing purposes."""
 
         def _call(
@@ -270,7 +271,7 @@ def fake_classifier_chat_model():
         def _llm_type(self) -> str:
             return "fake mlflow classifier"
 
-    return FakeMLflowClassifier()
+    return FakeMlflowClassifier()
 
 
 def test_langchain_native_save_and_load_model(model_path):
@@ -1985,9 +1986,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     signature = infer_signature(model_input=input_example)
 
     chain = ChatModel()
-    assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == AIMessage(
-        content="You own MLflow"
-    )
+    result = chain.invoke([HumanMessage(content="Who owns MLflow?")])
+    assert isinstance(result, AIMessage)
+    assert result.content == "You own MLflow"
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -1995,9 +1996,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    assert loaded_model.invoke([HumanMessage(content="Who owns MLflow?")]) == AIMessage(
-        content="You own MLflow"
-    )
+    result = loaded_model.invoke([HumanMessage(content="Who owns MLflow?")])
+    assert isinstance(result, AIMessage)
+    assert result.content == "You own MLflow"
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mock.patch("time.time", return_value=1677858242):
@@ -2222,7 +2223,7 @@ def test_save_load_chain_as_code():
             artifact_path="model_path",
             signature=signature,
             input_example=input_example,
-            code_paths=["tests/langchain/state_of_the_union.txt"],
+            code_paths=["tests/langchain/config.yml"],
         )
 
     assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
@@ -2253,6 +2254,92 @@ def test_save_load_chain_as_code():
     assert langchain_flavor["databricks_dependency"] == {
         "databricks_chat_endpoint_name": ["fake-endpoint"]
     }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_chain_as_code_multiple_times(tmp_path):
+    config_path = "tests/langchain/config.yml"
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    with mlflow.start_run():
+        signature = ModelSignature(
+            inputs=Schema(
+                [
+                    ColSpec(
+                        type=Array(
+                            Object(
+                                [
+                                    Property("role", DataType.string),
+                                    Property("content", DataType.string),
+                                ]
+                            ),
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property("return_trace", DataType.string, required=False),
+                            ]
+                        ),
+                        name="databricks_options",
+                        required=False,
+                    ),
+                ]
+            ),
+            outputs=Schema(
+                [
+                    ColSpec(name="id", type=DataType.string),
+                    ColSpec(name="object", type=DataType.string),
+                    ColSpec(name="created", type=DataType.long),
+                    ColSpec(name="model", type=DataType.string),
+                    ColSpec(name="choices", type=DataType.string),
+                    ColSpec(name="usage", type=DataType.string),
+                ]
+            ),
+        )
+
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/chain.py",
+            artifact_path="model_path",
+            signature=signature,
+            input_example=input_example,
+            code_paths=[config_path],
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    with open(config_path) as f:
+        base_config = yaml.safe_load(f)
+
+    assert loaded_model.middle[0].messages[0].prompt.template == base_config["llm_prompt_template"]
+
+    file_name = "config_updated.yml"
+    new_config_file = str(tmp_path.joinpath(file_name))
+
+    new_config = base_config.copy()
+    new_config["llm_prompt_template"] = "new_template"
+    with open(new_config_file, "w") as f:
+        yaml.dump(new_config, f)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/chain.py",
+            artifact_path="model_path",
+            signature=signature,
+            input_example=input_example,
+            code_paths=[new_config_file],
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.middle[0].messages[0].prompt.template == new_config["llm_prompt_template"]
 
 
 @pytest.mark.skipif(
@@ -2436,9 +2523,12 @@ def test_save_load_chain_as_code_optional_code_path():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [APIRequest._try_transform_response_to_chat_format(answer)]
-    }
+    # avoid minor diff of created time in the response
+    prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    prediction_result["predictions"][0]["created"] = 123
+    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction["created"] = 123
+    assert prediction_result == {"predictions": [expected_prediction]}
 
     langchain_flavor = model_info.flavors["langchain"]
     assert langchain_flavor["databricks_dependency"] == {

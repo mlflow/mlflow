@@ -3,11 +3,12 @@ Internal module implementing multi-media objects and utilities in MLflow. Multi-
 exposed to users at the top-level :py:mod:`mlflow` module.
 """
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     import numpy
     import PIL
+
 
 COMPRESSED_IMAGE_SIZE = 256
 
@@ -99,7 +100,8 @@ def convert_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Imag
 # MLflow media object: Image
 class Image:
     """
-    Image media object for handling images in MLflow.
+    `mlflow.Image` is an image media object that provides a lightweight option
+    for handling images in MLflow.
     The image can be a numpy array, a PIL image, or a file path to an image. The image is
     stored as a PIL image and can be logged to MLflow using `mlflow.log_image` or
     `mlflow.log_table`.
@@ -137,7 +139,7 @@ class Image:
         if isinstance(image, str):
             self.image = Image.open(image)
         elif isinstance(image, (list, np.ndarray)):
-            image = convert_to_pil_image(np.array(image))
+            self.image = convert_to_pil_image(np.array(image))
         elif isinstance(image, Image.Image):
             self.image = image
         else:
@@ -146,8 +148,9 @@ class Image:
                 "`image` must be one of numpy.ndarray, "
                 "PIL.Image.Image, or a filepath to an image."
             )
+        self.size = self.image.size
 
-    def to_list(self) -> list:
+    def to_list(self):
         """
         Convert the image to a list of pixel values.
 
@@ -156,7 +159,7 @@ class Image:
         """
         return list(self.image.getdata())
 
-    def to_array(self) -> "numpy.ndarray":
+    def to_array(self):
         """
         Convert the image to a numpy array.
 
@@ -167,7 +170,7 @@ class Image:
 
         return np.array(self.image)
 
-    def to_pil(self) -> "PIL.Image.Image":
+    def to_pil(self):
         """
         Convert the image to a PIL image.
 
@@ -176,7 +179,7 @@ class Image:
         """
         return self.image
 
-    def save(self, path: str) -> None:
+    def save(self, path: str):
         """
         Save the image to a file.
 
@@ -184,3 +187,16 @@ class Image:
             path: File path to save the image.
         """
         self.image.save(path)
+
+    def resize(self, size: Tuple[int, int]):
+        """
+        Resize the image to the specified size.
+
+        Args:
+            size: Size to resize the image to.
+
+        Returns:
+            A copy of the resized image object.
+        """
+        image = self.image.resize(size)
+        return Image(image)

@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 import mlflow
-from mlflow.tensorflow.callback import MLflowCallback
+from mlflow.tensorflow.callback import MlflowCallback
 
 
 @pytest.mark.parametrize(("log_every_epoch", "log_every_n_steps"), [(True, None), (False, 1)])
@@ -28,7 +28,7 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
     )
 
     with mlflow.start_run() as run:
-        mlflow_callback = MLflowCallback(
+        mlflow_callback = MlflowCallback(
             run=run,
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
@@ -53,3 +53,7 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
     assert "sparse_categorical_accuracy" in run_metrics
     assert model_info["optimizer_name"].lower() == "adam"
     np.testing.assert_almost_equal(float(model_info["optimizer_learning_rate"]), 0.001)
+
+
+def test_old_callback_still_exists():
+    assert mlflow.tensorflow.MLflowCallback is mlflow.tensorflow.MlflowCallback

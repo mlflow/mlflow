@@ -66,7 +66,7 @@ def _get_optimizer_name(optimizer):
         )
 
 
-class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
+class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     """
     Callback for auto-logging metrics and parameters.
     """
@@ -486,9 +486,9 @@ def patched_fit(original, self, *args, **kwargs):
                 early_stop_callback = callback
                 _log_early_stop_params(early_stop_callback, client, run_id)
 
-        if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
+        if not any(isinstance(callbacks, __MlflowPLCallback) for callbacks in self.callbacks):
             self.callbacks += [
-                __MLflowPLCallback(
+                __MlflowPLCallback(
                     client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
                 )
             ]
