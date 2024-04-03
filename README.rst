@@ -1,10 +1,11 @@
-Test
-----
+====
+TEST
+====
 
-|github| |not-github|
+|works| |dose-not-work|
 
-.. |github| image:: https://mlflow.org/docs/latest/index.html
-    :target: https://mlflow.org/docs/latest/index.html
+.. |works| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
+    :target: https://github.com/mlflow-automation/mlflow/actions/workflows/examples.yml?query=workflow%3AExamples+event%3Aschedule
 
-.. |not-github| image:: https://mlflow.org/docs/latest/_static/MLflow-logo-final-black.png
-    :target: https://mlflow.org/docs/latest/index.html
+.. |dose-not-work| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml.svg?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
+    :target: https://github.com/mlflow-automation/mlflow/actions/workflows/examples.yml?query=workflow%3AExamples+event%3Aschedule
