@@ -502,6 +502,21 @@ def set_can_manage_registered_model_permission(resp: Response):
     store.create_registered_model_permission(name, username, MANAGE.name)
 
 
+def delete_can_manage_registered_model_permission(resp: Response):
+    """
+    Delete registered model permission when the model is deleted.
+
+    We need to do this because the primary key of the registered model is the name,
+    unlike the experiment where the primary key is experiment_id (UUID). Therefore,
+    we have to delete the permission record when the model is deleted otherwise it
+    conflicts with the new model registered with the same name.
+    """
+    # Get model name from request context because it's not available in the response
+    name = request.get_json(force=True, silent=True)["name"]
+    username = authenticate_request().username
+    store.delete_registered_model_permission(name, username)
+
+
 def filter_search_experiments(resp: Response):
     if sender_is_admin():
         return
@@ -610,6 +625,7 @@ def filter_search_registered_models(resp: Response):
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
+    DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchRegisteredModels: filter_search_registered_models,
 }
