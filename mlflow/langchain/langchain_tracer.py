@@ -29,24 +29,26 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     Callback for auto-logging traces.
     We need to inherit ExceptionSafeAbstractClass to avoid invalid new
     input arguments added to original function call.
+
     Args:
-        parent_span: Optional parent span for the trace. If provided, the trace
-                     will be created as child of this span. Otherwise, a single trace
-                     will be created. Example usage:
+        parent_span: Optional parent span for the trace. If provided, spans will be
+            created under the given parent span. Otherwise, a single trace will be
+            created. Example usage:
 
-                     .. code-block:: python
-                        from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-                        from langchain_community.chat_models import ChatDatabricks
+            .. code-block:: python
 
-                        chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat")
-                        with mlflow.start_span("Custom root span") as root_span:
-                            chat_model.invoke(
-                                "What is MLflow",
-                                config={"callbacks": [MlflowLangchainTracer(root_span)]},
-                            )
+                from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+                from langchain_community.chat_models import ChatDatabricks
+
+                chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat")
+                with mlflow.start_span("Custom root span") as root_span:
+                    chat_model.invoke(
+                        "What is MLflow?",
+                        config={"callbacks": [MlflowLangchainTracer(root_span)]},
+                    )
     """
 
-    def __init__(self, parent_span: MlflowSpanWrapper = None):
+    def __init__(self, parent_span: Optional[MlflowSpanWrapper] = None):
         super().__init__()
         self._mlflow_client = MlflowClient()
         self._parent_span = parent_span
