@@ -12,7 +12,13 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
-from mlflow.exceptions import InvalidUrlException, MlflowException, RestException, get_error_code
+from mlflow.exceptions import (
+    INVALID_PARAMETER_VALUE,
+    InvalidUrlException,
+    MlflowException,
+    RestException,
+    get_error_code,
+)
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
@@ -74,7 +80,8 @@ def http_request(
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
     )
-    _validate_retries_and_backoff_values(max_retries, backoff_factor)
+    _validate_max_retries(max_retries)
+    _validate_backoff_factor(backoff_factor)
     respect_retry_after_header = (
         MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
         if respect_retry_after_header is None
@@ -186,38 +193,52 @@ def verify_rest_response(response, endpoint):
     return response
 
 
-def _validate_retries_and_backoff_values(max_retries, backoff_factor):
+def _validate_max_retries(max_retries):
     max_retry_limit = _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT.get()
+
+    if max_retry_limit < 0:
+        raise MlflowException(
+            message=f"The current maximum retry limit is invalid ({max_retry_limit}). "
+            "Cannot be negative.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if max_retries >= max_retry_limit:
+        raise MlflowException(
+            message=f"The configured max_retries value ({max_retries}) is "
+            f"in excess of the maximum allowable retries ({max_retry_limit})",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if max_retries < 0:
+        raise MlflowException(
+            message=f"The max_retries value must be either 0 a positive integer. Got {max_retries}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_backoff_factor(backoff_factor):
     max_backoff_factor_limit = _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT.get()
 
     if max_backoff_factor_limit < 0:
         raise MlflowException(
-            "The current maximum backoff factor limit is invalid "
-            f"({max_backoff_factor_limit}). Cannot be negative."
+            message="The current maximum backoff factor limit is invalid "
+            f"({max_backoff_factor_limit}). Cannot be negative.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
-    if max_retry_limit < 0:
-        raise MlflowException(
-            f"The current maximum retry limit is invalid ({max_retry_limit}). "
-            "Cannot be negative."
-        )
-    if max_retries >= max_retry_limit:
-        raise MlflowException(
-            f"The configured max_retries ({max_retries}) are "
-            f"in excess of the maximum allowable retries ({max_retry_limit})"
-        )
+
     if backoff_factor >= max_backoff_factor_limit:
         raise MlflowException(
-            f"The configured backoff_factor ({backoff_factor}) are in excess "
+            message=f"The configured backoff_factor value ({backoff_factor}) is in excess "
             "of the maximum allowable backoff_factor limit "
-            f"({max_backoff_factor_limit})"
+            f"({max_backoff_factor_limit})",
+            error_code=INVALID_PARAMETER_VALUE,
         )
-    if max_retries < 0:
-        raise MlflowException(
-            f"The max_retries value must be either 0 a positive integer. Got {max_retries}"
-        )
+
     if backoff_factor < 0:
         raise MlflowException(
-            f"The backoff_factor value must be either 0 a positive integer. Got {backoff_factor}"
+            message="The backoff_factor value must be either 0 a positive integer. "
+            f"Got {backoff_factor}",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
 

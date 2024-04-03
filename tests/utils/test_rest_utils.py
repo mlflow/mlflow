@@ -613,7 +613,7 @@ def test_http_request_max_retries(monkeypatch):
             http_request(host_creds, "/endpoint", "GET", max_retries=16)
         mock_request.assert_not_called()
         http_request(host_creds, "/endpoint", "GET", max_retries=3)
-        mock_request.assert_called()
+        mock_request.assert_called_once()
 
 
 def test_http_request_backoff_factor(monkeypatch):
@@ -625,7 +625,7 @@ def test_http_request_backoff_factor(monkeypatch):
             http_request(host_creds, "/endpoint", "GET", backoff_factor=250)
         mock_request.assert_not_called()
         http_request(host_creds, "/endpoint", "GET", backoff_factor=10)
-        mock_request.assert_called()
+        mock_request.assert_called_once()
 
 
 def test_http_request_negative_max_retries():
