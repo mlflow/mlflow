@@ -34,6 +34,8 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: https://twitter.com/MLflow
     :alt: Account Twitter
 
+.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1iffrtbly-UNU8hV03aV8feUeGmqf_uA
+
 Packages
 
 +---------------+-------------------------------------------------------------+
@@ -74,7 +76,6 @@ Packages
     :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
     :alt: Maven Central - mlflow-spark
 
-.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1iffrtbly-UNU8hV03aV8feUeGmqf_uA
 
 Job Statuses
 
