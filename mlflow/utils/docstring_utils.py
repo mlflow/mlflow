@@ -150,6 +150,7 @@ def format_docstring(param_docs):
         ...     '''
         >>> import textwrap
         >>> print(textwrap.dedent(func.__doc__).strip())
+
         Args:
             p1: doc1
             p2: doc2

@@ -172,6 +172,7 @@ select = [
   "B006",    # multiple-argument-default
   "B015",    # useless-comparison
   "D209",    # new-line-after-last-paragraph
+  "D411",    # no-blank-line-before-section
   "E",       # error
   "F",       # Pyflakes
   "C4",      # flake8-comprehensions
@@ -247,6 +248,9 @@ forced-separate = ["tests"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.clint]
 exclude = [
