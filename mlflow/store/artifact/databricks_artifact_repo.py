@@ -235,21 +235,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         signed_uri = cred.credential_info.signed_uri
         headers = self._extract_headers_from_credentials(cred.credential_info.headers)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            local_path = Path(temp_dir, "traces.json")
-            download_file_using_http_uri(
-                signed_uri,
-                local_path,
-                headers=headers,
-            )
-            with local_path.open("r") as f:
-                s = f.read()
-                try:
-                    return json.loads(s)
-                except json.JSONDecodeError as e:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Failed to parse trace data:\n{s}"
-                    ) from e
+        with cloud_storage_http_request("get", signed_uri, headers=headers) as resp:
+            augmented_raise_for_status(resp)
+            try:
+                return json.loads(resp.content)
+            except json.JSONDecodeError as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse trace data:\n{resp.content.decode()}"
+                ) from e
 
     def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
         cred = self._call_endpoint(
