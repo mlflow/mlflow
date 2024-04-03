@@ -2,9 +2,11 @@ import time
 from threading import Thread
 from unittest import mock
 
+import pytest
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
@@ -17,7 +19,6 @@ def test_aggregator_singleton():
 
 def test_add_spans():
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.flush()
 
     request_id_1 = "trace_1"
     span_1_1 = _create_test_span(request_id_1, "span_1_1")
@@ -64,7 +65,6 @@ def test_add_spans():
 
 def test_start_detached_span():
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.flush()
 
     # Root span will create a new trace
     root_span = trace_manager.start_detached_span(name="root_span")
@@ -83,7 +83,6 @@ def test_start_detached_span():
 
 def test_add_and_pop_span_thread_safety():
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.flush()
 
     # Add spans from 10 different threads to 5 different traces
     request_ids = [f"trace_{i}" for i in range(5)]
@@ -113,7 +112,6 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
 
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.flush()
 
     trace_id_1 = "trace_1"
     span_1_1 = _create_test_span(trace_id_1, "span")
@@ -136,7 +134,6 @@ def test_traces_buffer_max_size_limit(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE", "1")
 
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.flush()
 
     trace_id_1 = "trace_1"
     span_1_1 = _create_test_span(trace_id_1, "span")
@@ -159,7 +156,6 @@ def test_traces_buffer_max_size_limit(monkeypatch):
 
 def test_get_span_from_id():
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.flush()
 
     request_id_1 = "trace_1"
     span_1_1 = _create_test_span(request_id_1, "span")
@@ -181,7 +177,6 @@ def test_get_span_from_id():
 
 def test_ger_root_span_id():
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.flush()
 
     request_id_1 = "trace_1"
     span_1_1 = _create_test_span(request_id_1, "span")
@@ -197,14 +192,32 @@ def test_ger_root_span_id():
     assert trace_manager.get_root_span_id("trace_2") is None
 
 
-def _create_test_span(request_id_1, span_id, parent_span_id=None, start_time=None, end_time=None):
+def test_set_trace_tag():
+    trace_manager = InMemoryTraceManager.get_instance()
+
+    request_id = "trace_1"
+    span = _create_test_span(request_id, "span")
+    trace_manager.add_or_update_span(span)
+
+    trace_manager.set_trace_tag(request_id, "foo", "bar")
+    assert trace_manager.get_trace_info(request_id).tags == {"foo": "bar"}
+
+
+def test_set_trace_tag_raises_when_trace_not_found():
+    trace_manager = InMemoryTraceManager.get_instance()
+
+    with pytest.raises(MlflowException, match="Trace with ID test not found."):
+        trace_manager.set_trace_tag("test", "foo", "bar")
+
+
+def _create_test_span(request_id, span_id, parent_span_id=None, start_time=None, end_time=None):
     if start_time is None:
         start_time = time.time_ns()
     if end_time is None:
         end_time = time.time_ns()
 
     mock_span = mock.MagicMock()
-    mock_span.get_span_context().trace_id = request_id_1
+    mock_span.get_span_context().trace_id = request_id
     mock_span.get_span_context().span_id = span_id
     mock_span.parent.span_id = parent_span_id
     mock_span.start_time = start_time

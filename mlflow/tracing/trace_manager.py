@@ -11,6 +11,8 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
@@ -136,6 +138,17 @@ class InMemoryTraceManager:
                 _logger.warning(f"Trace with ID {request_id} already exists.")
                 return
             self._traces[request_id] = _Trace(trace_info)
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """Set a tag on the trace with the given request_id."""
+        with self._lock:
+            if trace := self._traces.get(request_id):
+                trace.trace_info.tags[key] = str(value)
+                return
+
+        raise MlflowException(
+            f"Trace with ID {request_id} not found.", error_code=RESOURCE_DOES_NOT_EXIST
+        )
 
     def get_trace_info(self, request_id: str) -> Optional[TraceInfo]:
         """

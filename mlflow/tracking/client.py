@@ -41,6 +41,7 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -517,7 +518,7 @@ class MlflowClient:
 
         .. code-block:: python
 
-                from mlflow.tracking import MlflowClient
+                from mlflow import MlflowClient
 
                 client = MlflowClient()
 
@@ -560,7 +561,8 @@ class MlflowClient:
             root_span.set_attributes(attributes)
 
         trace_info = trace_manager.get_trace_info(root_span.request_id)
-        trace_info.tags.update(tags or {})
+        if tags:
+            trace_info.tags.update({k: str(v) for k, v in tags.items()})
 
         return root_span
 
@@ -650,7 +652,7 @@ class MlflowClient:
             .. code-block:: python
 
                 import mlflow
-                from mlflow.tracking import MlflowClient
+                from mlflow import MlflowClient
 
                 client = MlflowClient()
 
@@ -693,7 +695,7 @@ class MlflowClient:
 
         .. code-block:: python
 
-                from mlflow.tracking import MlflowClient
+                from mlflow import MlflowClient
 
                 client = MlflowClient()
 
@@ -779,6 +781,41 @@ class MlflowClient:
         span.set_status(status)
 
         span.end()
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given trace ID.
+
+        The trace can be an active one or the one that has already ended and recorded in the
+        backend. Below is an example of setting a tag on an active trace. You can replace the
+        ``request_id`` parameter to setting a tag on an already ended trace.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            root_span = client.start_trace("my_trace")
+            client.set_trace_tag(root_span.request_id, "key", "value")
+            client.end_trace(root_span.request_id)
+
+        Args:
+            request_id: The ID of the trace to set the tag on.
+            key: The string key of the tag. Must be shorter than 250 characters.
+            value: The string value of the tag. Must be shorter than 250 characters.
+        """
+        # Trying to set the tag on the active trace first
+        trace_manager = InMemoryTraceManager.get_instance()
+        try:
+            trace_manager.set_trace_tag(request_id, key, str(value))
+            return
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise
+
+        # If the trace is not active, try to set the tag on the trace in the backend
+        self._tracking_client.set_trace_tag(request_id, key, value)
 
     def search_experiments(
         self,

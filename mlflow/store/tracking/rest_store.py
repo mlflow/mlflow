@@ -28,6 +28,7 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SetExperimentTag,
     SetTag,
+    SetTraceTag,
     TraceRequestMetadata,
     TraceTag,
     UpdateExperiment,
@@ -283,6 +284,18 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(SearchTraces, req_body)
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        req_body = message_to_json(SetTraceTag(request_id=request_id, key=key, value=value))
+        self._call_endpoint(SetTraceTag, req_body)
 
     def log_metric(self, run_id, metric):
         """
