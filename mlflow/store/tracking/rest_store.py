@@ -257,7 +257,7 @@ class RestStore(AbstractStore):
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
         request_ids: Optional[List[str]] = None,
-    ):
+    ) -> None:
         req_body = message_to_json(
             DeleteTraces(
                 experiment_id=experiment_id,

@@ -432,7 +432,7 @@ class MlflowClient:
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
         request_ids: Optional[List[str]] = None,
-    ):
+    ) -> None:
         """
         Delete traces based on the specified criteria.
 
