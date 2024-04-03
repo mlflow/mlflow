@@ -181,9 +181,6 @@ class TrackingServiceClient:
         Returns:
             The created Trace object.
         """
-        request_metadata = request_metadata or {}
-        tags = tags or {}
-
         return self.store.create_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
