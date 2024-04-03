@@ -433,6 +433,15 @@ class MlflowClient:
         max_traces: Optional[int] = None,
         request_ids: Optional[List[str]] = None,
     ):
+        """
+        Delete traces based on the specified criteria.
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+        """
         return self._tracking_client.delete_traces(
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
