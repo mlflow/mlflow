@@ -843,7 +843,7 @@ def _handle_readonly_on_windows(func, path, exc_info):
     """
     exc_type, exc_value = exc_info[:2]
     should_reattempt = (
-        os.name == "nt"
+        is_windows()
         and func in (os.unlink, os.rmdir)
         and issubclass(exc_type, PermissionError)
         and exc_value.winerror == 5
