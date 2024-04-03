@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 from promptflow import load_flow
-from promptflow._sdk.entities._flow import Flow
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -26,6 +25,8 @@ def get_promptflow_example_model():
 
 
 def test_promptflow_log_and_load_model():
+    from promptflow._sdk.entities._flows import Flow
+
     logged_model = log_promptflow_example_model(with_input_example=True)
     loaded_model = mlflow.promptflow.load_model(logged_model.model_uri)
 
