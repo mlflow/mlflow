@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
@@ -7,7 +7,6 @@ from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.documents import Document
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import (
-    ChatGeneration,
     ChatGenerationChunk,
     GenerationChunk,
     LLMResult,
@@ -108,14 +107,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when a chat model starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
-        llm_inputs = {"messages": [[msg.dict() for msg in batch] for batch in messages]}
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
             # we use LLM for chat models as well
             span_type=SpanType.LLM,
             run_id=run_id,
-            inputs=llm_inputs,
+            inputs=messages,
             attributes=kwargs,
         )
 
@@ -140,7 +138,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             parent_run_id=parent_run_id,
             span_type=SpanType.LLM,
             run_id=run_id,
-            inputs={"prompts": prompts},
+            inputs=prompts,
             attributes=kwargs,
         )
 
@@ -201,13 +199,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any):
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
-        outputs = response.dict()
-        for i, generations in enumerate(response.generations):
-            for j, generation in enumerate(generations):
-                output_generation = outputs["generations"][i][j]
-                if "message" in output_generation:
-                    output_generation["message"] = (cast(ChatGeneration, generation).message).dict()
-        self._end_span(llm_span, outputs=outputs)
+        self._end_span(llm_span, outputs=response.dict())
 
     @override
     def on_llm_error(
