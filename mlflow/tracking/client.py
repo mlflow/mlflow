@@ -436,6 +436,9 @@ class MlflowClient:
         """
         Delete traces based on the specified criteria.
 
+        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `request_ids` is specified.
+
         Args:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
