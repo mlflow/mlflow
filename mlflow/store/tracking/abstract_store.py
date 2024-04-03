@@ -9,7 +9,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -273,6 +273,35 @@ class AbstractStore:
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        raise NotImplementedError
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        """
+        Return traces that match the given list of search expressions within the experiments.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of traces desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_traces`` call.
+
+        Returns:
+            A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
+            satisfy the search expressions and a pagination token for the next page of results.
+            If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
         """
         raise NotImplementedError
 

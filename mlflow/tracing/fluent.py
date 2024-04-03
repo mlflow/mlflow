@@ -7,11 +7,14 @@ from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import trace as trace_api
 
+from mlflow import MlflowClient
 from mlflow.entities import SpanType, Trace
+from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 from mlflow.tracing.utils import capture_function_input_args
+from mlflow.utils import get_results_from_paginated_fn
 
 _logger = logging.getLogger(__name__)
 
@@ -197,6 +200,43 @@ def get_traces(n: int = 1) -> List[Trace]:
     from mlflow.tracing.clients import get_trace_client
 
     return get_trace_client().get_traces(n)
+
+
+def search_traces(
+    experiment_ids: List[str],
+    filter_string: Optional[str] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[List[str]] = None,
+):
+    """
+    Return traces that match the given list of search expressions within the experiments.
+
+    Args:
+        experiment_ids: List of experiment ids to scope the search.
+        filter_string: A search filter string.
+        max_results: Maximum number of traces desired. If None, all traces matching the search
+            expressions will be returned.
+        order_by: List of order_by clauses.
+
+    Returns:
+        A list of :py:class:`Trace <mlflow.entities.Trace>` objects that satisfy the search
+        expressions.
+    """
+
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_traces(
+            experiment_ids=experiment_ids,
+            max_results=number_to_get,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        max_results_per_page=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        max_results=max_results,
+    )
 
 
 def get_current_active_span():

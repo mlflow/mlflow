@@ -17,6 +17,7 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -36,6 +37,7 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchRuns,
+    SearchTraces,
     SetExperimentTag,
     SetTag,
 )
@@ -516,3 +518,55 @@ def test_get_metric_history_on_non_existent_metric_key():
         metrics = rest_store.get_metric_history(run_id="1", metric_key="test_metric")
         mock_request.assert_called_once()
         assert metrics == []
+
+
+def test_search_traces():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    request = SearchTraces(
+        experiment_ids=["0", "1"],
+        filter="trace.status = 'ERROR'",
+        max_results=1,
+        order_by=["timestamp_ms DESC"],
+        page_token="12345abcde",
+    )
+    response.text = json.dumps(
+        {
+            "traces": [
+                {
+                    "request_id": "tr-1234",
+                    "experiment_id": "1234",
+                    "timestamp_ms": 123,
+                    "execution_time_ms": 456,
+                    "status": "ERROR",
+                    "tags": [
+                        {"key": "k", "value": "v"},
+                    ],
+                },
+            ],
+            "next_page_token": "token",
+        }
+    )
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        trace_infos, token = store.search_traces(
+            experiment_ids=request.experiment_ids,
+            filter_string=request.filter,
+            max_results=request.max_results,
+            order_by=request.order_by,
+            page_token=request.page_token,
+        )
+        _verify_requests(mock_http, creds, "traces", "GET", message_to_json(request))
+        assert trace_infos == [
+            TraceInfo(
+                request_id="tr-1234",
+                experiment_id="1234",
+                timestamp_ms=123,
+                execution_time_ms=456,
+                status="ERROR",
+                request_metadata={},
+                tags={"k": "v"},
+            )
+        ]
+        assert token == "token"
