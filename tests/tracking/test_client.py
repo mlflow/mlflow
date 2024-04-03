@@ -170,7 +170,7 @@ def test_client_search_traces(mock_store):
     mock_store.search_traces.assert_called_once_with(
         experiment_ids=["1", "2", "3"],
         filter_string=None,
-        max_results=500,
+        max_results=100,
         order_by=None,
         page_token=None,
     )
