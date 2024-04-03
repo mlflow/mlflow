@@ -533,7 +533,7 @@ class MlflowClient:
         request_id: str,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-        status: SpanStatus = "OK",
+        status: Union[SpanStatus, str] = "OK",
     ):
         """
         End the trace with the given trace ID. This will end the root span of the trace and
@@ -551,7 +551,7 @@ class MlflowClient:
                 If the same key already exists, the new value will overwrite the old one.
             status: The status of the trace. This can be a
                 :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
-                of the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
@@ -730,7 +730,7 @@ class MlflowClient:
                 key already exists, the new value will overwrite the old one.
             status: The status of the span. This can be a
                 :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
-                of the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
