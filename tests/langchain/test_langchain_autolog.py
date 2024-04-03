@@ -230,6 +230,11 @@ def test_autolog_manage_run():
     assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
     assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
     mlflow.end_run()
+    trace = mlflow.get_traces()[0]
+    span = trace.trace_data.spans[0]
+    assert span.span_type == "CHAIN"
+    assert span.inputs == {"product": "MLflow"}
+    assert span.outputs == {"text": TEST_CONTENT}
 
 
 def test_autolog_manage_run_no_active_run():
@@ -388,6 +393,12 @@ def test_agent_autolog():
         assert model.invoke(input, return_only_outputs=True) == {"output": TEST_CONTENT}
         log_model_mock.assert_called_once()
 
+    trace = mlflow.get_traces()[0]
+    span = trace.trace_data.spans[0]
+    assert span.span_type == "CHAIN"
+    assert span.inputs == input
+    assert span.outputs == {"output": TEST_CONTENT}
+
 
 def test_agent_autolog_metrics_and_artifacts():
     mlflow.langchain.autolog()
@@ -473,6 +484,11 @@ def test_runnable_sequence_autolog():
         assert chain.invoke(input_example) == TEST_CONTENT
         assert chain.invoke(input_example) == TEST_CONTENT
         log_model_mock.assert_called_once()
+    trace = mlflow.get_traces()[0]
+    span = trace.trace_data.spans[0]
+    assert span.span_type == "CHAIN"
+    assert span.inputs == input_example
+    assert span.outputs == TEST_CONTENT
 
 
 def test_runnable_sequence_autolog_metrics_and_artifacts():
@@ -556,6 +572,11 @@ def test_retriever_autolog(tmp_path):
         model.get_relevant_documents(query)
         log_model_mock.assert_not_called()
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
+    trace = mlflow.get_traces()[0]
+    span = trace.trace_data.spans[0]
+    assert span.span_type == "RETRIEVER"
+    assert span.inputs == query
+    assert span.outputs[0].metadata == {"source": "tests/langchain/state_of_the_union.txt"}
 
 
 def test_retriever_metrics_and_artifacts(tmp_path):

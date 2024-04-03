@@ -450,6 +450,7 @@ class MlflowClient:
     def start_trace(
         self,
         name: str,
+        span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
@@ -471,6 +472,7 @@ class MlflowClient:
 
         Args:
             name: The name of the trace (and the root span).
+            span_type: The type of the span.
             inputs: Inputs to set on the root span of the trace.
             attributes: A dictionary of attributes to set on the root span of the trace.
             tags: A dictionary of tags to set on the trace.
@@ -518,7 +520,7 @@ class MlflowClient:
             )
 
         trace_manager = InMemoryTraceManager.get_instance()
-        root_span = trace_manager.start_detached_span(name)
+        root_span = trace_manager.start_detached_span(name, span_type=span_type)
 
         if inputs:
             root_span.set_inputs(inputs)
@@ -1723,7 +1725,7 @@ class MlflowClient:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
-        JSON format is used.
+        JSON format is used, and we stringify objects that can't be JSON-serialized.
 
         Args:
             run_id: String ID of the run.
@@ -1762,7 +1764,8 @@ class MlflowClient:
                 if extension in [".yml", ".yaml"]:
                     yaml.dump(dictionary, f, indent=2, default_flow_style=False)
                 else:
-                    json.dump(dictionary, f, indent=2)
+                    # Stringify objects that can't be JSON-serialized
+                    json.dump(dictionary, f, indent=2, default=str)
 
     def log_figure(
         self,

@@ -9,6 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import RunTag
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
@@ -104,7 +105,7 @@ def _update_langchain_model_config(model):
         return True
 
 
-def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
+def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
     if func_name == "invoke":
         from langchain.schema.runnable.config import RunnableConfig
 
@@ -117,11 +118,11 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
         else:
             config = kwargs.get("config", None)
         if config is None:
-            callbacks = [mlflow_callback]
+            callbacks = mlflow_callbacks
             config = RunnableConfig(callbacks=callbacks)
         else:
             callbacks = config.get("callbacks") or []
-            callbacks.append(mlflow_callback)
+            callbacks.extend(mlflow_callbacks)
             config["callbacks"] = callbacks
         if in_args:
             args = (args[0], config) + args[2:]
@@ -134,18 +135,18 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
         # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
         if len(args) >= 3:
             callbacks = args[2] or []
-            callbacks.append(mlflow_callback)
+            callbacks.extend(mlflow_callbacks)
             args = args[:2] + (callbacks,) + args[3:]
         else:
             callbacks = kwargs.get("callbacks") or []
-            callbacks.append(mlflow_callback)
+            callbacks.extend(mlflow_callbacks)
             kwargs["callbacks"] = callbacks
         return args, kwargs
 
     # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
     if func_name == "get_relevant_documents":
         callbacks = kwargs.get("callbacks") or []
-        callbacks.append(mlflow_callback)
+        callbacks.extend(mlflow_callbacks)
         kwargs["callbacks"] = callbacks
         return args, kwargs
 
@@ -196,6 +197,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     import langchain
     from langchain_community.callbacks import MlflowCallbackHandler
 
+    from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
     class _MlflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
         """
         Callback for auto-logging metrics and parameters.
@@ -241,11 +244,29 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         artifacts_dir=f"artifacts-{session_id}-{inference_id}",
         tags=tags,
     )
-    args, kwargs = _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs)
+    mlflow_tracer = MlflowLangchainTracer()
+    args, kwargs = _inject_mlflow_callbacks(
+        func_name, [mlflow_callback, mlflow_tracer], args, kwargs
+    )
     with disable_autologging():
         result = original(self, *args, **kwargs)
 
-    mlflow_callback.flush_tracker()
+    try:
+        mlflow_callback.flush_tracker()
+    except Exception as e:
+        if _MLFLOW_TESTING.get():
+            raise
+        _logger.warning(f"Failed to flush mlflow callback due to error {e}.")
+    finally:
+        # Terminate the run if it is not managed by the user
+        if active_run is None or active_run.info.run_id != mlflow_callback.run_id:
+            mlflow.MlflowClient().set_terminated(mlflow_callback.mlflg.run_id)
+    try:
+        mlflow_tracer.flush_tracker()
+    except Exception as e:
+        if _MLFLOW_TESTING.get():
+            raise
+        _logger.warning(f"Failed to flush mlflow tracer due to error {e}.")
 
     log_models = get_autologging_config(mlflow.langchain.FLAVOR_NAME, "log_models", False)
     log_input_examples = get_autologging_config(
@@ -319,9 +340,5 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                 f"file due to error {e}."
             )
         mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
-
-    # Terminate the run if it is not managed by the user
-    if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:
-        mlflow.MlflowClient().set_terminated(mlflow_callback.mlflg.run_id)
 
     return result
