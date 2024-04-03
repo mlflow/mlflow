@@ -237,7 +237,7 @@ class BaseDeploymentClient(abc.ABC):
         Returns:
             An iterator of dictionary containing the response from the endpoint.
         """
-        raise NotImplemented
+        raise NotImplementedError()
 
     def explain(self, deployment_name=None, df=None, endpoint=None):
         """
