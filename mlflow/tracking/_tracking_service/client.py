@@ -6,6 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import os
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import List, Optional
 
@@ -219,13 +220,14 @@ class TrackingServiceClient:
             order_by=order_by,
             page_token=page_token,
         )
-        traces = [
-            Trace(
-                trace_info=trace_info,
-                trace_data=self._download_trace_data(trace_info.request_id),
+        with ThreadPoolExecutor() as executor:
+            traces = executor.map(
+                lambda ti: Trace(
+                    trace_info=ti,
+                    trace_data=self._download_trace_data(ti.request_id),
+                ),
+                trace_infos,
             )
-            for trace_info in trace_infos
-        ]
         return PagedList(traces, token)
 
     def set_trace_tag(self, request_id, key, value):
