@@ -165,7 +165,7 @@ def test_client_get_trace_info(mock_store):
     mock_store.get_trace_info.assert_called_once_with("1234567")
 
 
-def test_client_search_traces(mock_store):
+def test_client_search_traces():
     client = MlflowClient()
     with mock.patch.object(client, "_tracking_client") as mock_client:
         client.search_traces(experiment_ids=["1", "2", "3"])
