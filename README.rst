@@ -1,7 +1,7 @@
 Test
 ----
 
-|github|
+|github| |not-github|
 
 .. |github| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml
     :target: https://mlflow.org/docs/latest/index.html
