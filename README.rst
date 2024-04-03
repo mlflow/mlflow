@@ -76,10 +76,12 @@ Packages
     :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
     :alt: Maven Central - mlflow-spark
 
+|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images|
+
 
 Job Statuses
 
-|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images|
+
 
 .. |examples| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow-automation/mlflow/actions/workflows/examples.yml?query=workflow%3AExamples+event%3Aschedule
