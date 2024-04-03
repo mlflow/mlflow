@@ -89,6 +89,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def _reset(self):
         self._run_span_mapping = {}
 
+    def _assign_span_name(self, serialized: Dict[str, Any], default_name="unknown") -> str:
+        return serialized.get("name", serialized.get("id", [default_name])[-1])
+
     @override
     def on_chat_model_start(
         self,
@@ -107,7 +110,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             kwargs.update({"metadata": metadata})
         llm_inputs = {"messages": [[msg.dict() for msg in batch] for batch in messages]}
         self._start_span(
-            span_name=name or "chat model",
+            span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
             # we use LLM for chat models as well
             span_type=SpanType.LLM,
@@ -133,7 +136,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if metadata:
             kwargs.update({"metadata": metadata})
         self._start_span(
-            span_name=name or "llm",
+            span_name=name or self._assign_span_name(serialized, "llm"),
             parent_run_id=parent_run_id,
             span_type=SpanType.LLM,
             run_id=run_id,
@@ -238,7 +241,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             kwargs.update({"metadata": metadata})
         # not considering streaming events for now
         self._start_span(
-            span_name=name or "chain",
+            span_name=name or self._assign_span_name(serialized, "chain"),
             parent_run_id=parent_run_id,
             span_type=SpanType.CHAIN,
             run_id=run_id,
@@ -295,7 +298,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if metadata:
             kwargs.update({"metadata": metadata})
         self._start_span(
-            span_name=name or "tool",
+            span_name=name or self._assign_span_name(serialized, "tool"),
             parent_run_id=parent_run_id,
             span_type=SpanType.TOOL,
             run_id=run_id,
@@ -339,7 +342,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if metadata:
             kwargs.update({"metadata": metadata})
         self._start_span(
-            span_name=name or "retriever",
+            span_name=name or self._assign_span_name(serialized, "retriever"),
             parent_run_id=parent_run_id,
             span_type=SpanType.RETRIEVER,
             run_id=run_id,
