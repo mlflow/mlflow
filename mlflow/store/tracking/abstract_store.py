@@ -264,6 +264,25 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ):
+        """
+        Delete traces based on the specified criteria.
+
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+        """
+        raise NotImplementedError
+
     def get_trace_info(self, request_id: str) -> TraceInfo:
         """
         Get the trace matching the `request_id`.

@@ -10,6 +10,7 @@ from mlflow.protos.service_pb2 import (
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
+    DeleteTraces,
     GetExperiment,
     GetExperimentByName,
     GetMetricHistory,
@@ -249,6 +250,23 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(CreateTrace, req_body)
         return TraceInfo.from_proto(response_proto.trace_info)
+
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ):
+        req_body = message_to_json(
+            DeleteTraces(
+                experiment_id=experiment_id,
+                max_timestamp_millis=max_timestamp_millis,
+                max_traces=max_traces,
+                request_ids=request_ids,
+            )
+        )
+        self._call_endpoint(DeleteTraces, req_body)
 
     def get_trace_info(self, request_id):
         """

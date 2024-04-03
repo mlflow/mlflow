@@ -426,6 +426,20 @@ class MlflowClient:
             tags=tags,
         )
 
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ):
+        return self._tracking_client.delete_traces(
+            experiment_id=experiment_id,
+            max_timestamp_millis=max_timestamp_millis,
+            max_traces=max_traces,
+            request_ids=request_ids,
+        )
+
     def get_trace_info(self, request_id: str) -> TraceInfo:
         """
         Get the trace matching the `request_id`.
