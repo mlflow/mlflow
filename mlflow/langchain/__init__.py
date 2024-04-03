@@ -594,7 +594,8 @@ class _LangChainModelWrapper:
         """
         Args:
             data: Model input data.
-            params: Additional parameters to pass to the model for inference.
+            params: Additional parameters passed to model during inference so that
+            config={"configurable": params}.
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
                     release without warning.
