@@ -72,6 +72,7 @@ class InMemoryTraceClient(TraceClient):
 
         Args:
             n: The number of traces to return. If None, return all traces.
+
         Returns:
             A list of Trace objects.
         """
@@ -85,6 +86,7 @@ class InMemoryTraceClient(TraceClient):
 
         Args:
             request_id: The request_id of the trace to return.
+
         Returns:
             A Trace object.
         """

@@ -64,4 +64,3 @@ MlflowSpanWrapper
 
 .. autoclass:: mlflow.tracing.types.wrapper.MlflowSpanWrapper
     :members:
-
