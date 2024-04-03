@@ -426,6 +426,33 @@ class MlflowClient:
             tags=tags,
         )
 
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Delete traces based on the specified criteria.
+
+        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `request_ids` is specified.
+
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+        """
+        return self._tracking_client.delete_traces(
+            experiment_id=experiment_id,
+            max_timestamp_millis=max_timestamp_millis,
+            max_traces=max_traces,
+            request_ids=request_ids,
+        )
+
     def get_trace_info(self, request_id: str) -> TraceInfo:
         """
         Get the trace matching the `request_id`.

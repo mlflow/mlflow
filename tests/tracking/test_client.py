@@ -194,6 +194,21 @@ def test_client_search_traces():
         )
 
 
+def test_client_delete_traces(mock_store):
+    MlflowClient().delete_traces(
+        experiment_id="0",
+        max_timestamp_millis=1,
+        max_traces=2,
+        request_ids=["tr-1234"],
+    )
+    mock_store.delete_traces.assert_called_once_with(
+        experiment_id="0",
+        max_timestamp_millis=1,
+        max_traces=2,
+        request_ids=["tr-1234"],
+    )
+
+
 def test_start_and_end_trace(clear_singleton, mock_trace_client):
     class TestModel:
         def __init__(self):
