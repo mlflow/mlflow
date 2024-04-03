@@ -212,7 +212,7 @@ class TrackingServiceClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
-    ):
+    ) -> PagedList[Trace]:
         trace_infos, token = self.store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
