@@ -435,6 +435,7 @@ class MlflowClient:
     ):
         """
         Delete traces based on the specified criteria.
+
         Args:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
