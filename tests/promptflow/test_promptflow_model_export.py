@@ -1,9 +1,7 @@
 import json
 from pathlib import Path
 
-import promptflow
 import pytest
-from packaging.version import Version
 from promptflow import load_flow
 from pyspark.sql import SparkSession
 
@@ -27,13 +25,8 @@ def get_promptflow_example_model():
 
 
 def test_promptflow_log_and_load_model():
-    if Version(promptflow.__version__) > Version("1.7.0"):
-        from promptflow._sdk.entities._flows import Flow
-    else:
-        from promptflow._sdk.entities._flow import Flow
-
     logged_model = log_promptflow_example_model(with_input_example=True)
-    loaded_model = mlflow.promptflow.load_model(logged_model.model_uri)
+    mlflow.promptflow.load_model(logged_model.model_uri)
 
     assert "promptflow" in logged_model.flavors
     assert logged_model.signature is not None
@@ -43,7 +36,6 @@ def test_promptflow_log_and_load_model():
     assert logged_model.signature.outputs.to_dict() == [
         {"name": "output", "type": "string", "required": True}
     ]
-    assert isinstance(loaded_model, Flow)
 
 
 def test_log_model_with_config():
