@@ -29,6 +29,7 @@ from mlflow.utils.environment import (
     _get_pip_deps,
 )
 from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.os import is_windows
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -252,7 +253,7 @@ def _get_mlflow_home():
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
-    if os.name != "nt":
+    if not is_windows():
         return subprocess.Popen(
             cmd,
             stdout=stdout,
@@ -312,7 +313,7 @@ class RestEndpoint:
         if self._proc.poll() is None:
             # Terminate the process group containing the scoring process.
             # This will terminate all child processes of the scoring process
-            if os.name != "nt":
+            if not is_windows():
                 pgrp = os.getpgid(self._proc.pid)
                 os.killpg(pgrp, signal.SIGTERM)
             else:

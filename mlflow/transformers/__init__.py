@@ -418,6 +418,7 @@ def save_model(
         signature: A Model Signature object that describes the input and output Schema of the
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
+
             Example:
 
             .. code-block:: python
@@ -870,6 +871,7 @@ def log_model(
         signature: A Model Signature object that describes the input and output Schema of the
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
+
             Example:
 
             .. code-block:: python

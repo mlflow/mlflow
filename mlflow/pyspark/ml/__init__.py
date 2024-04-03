@@ -38,6 +38,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_PARENT_RUN_ID,
 )
+from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     augmented_raise_for_status,
@@ -69,7 +70,7 @@ def _read_log_model_allowlist_from_file(allowlist_file):
     url_parsed = urlparse(allowlist_file)
     scheme = url_parsed.scheme
     path = url_parsed.path
-    if os.name == "nt" and not url_parsed.hostname:
+    if is_windows() and not url_parsed.hostname:
         path = scheme + "://" + path
         scheme = ""
     if scheme in ("file", ""):
