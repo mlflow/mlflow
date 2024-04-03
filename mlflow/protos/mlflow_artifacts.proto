@@ -182,4 +182,3 @@ message MultipartUploadPart {
 
   optional string url = 3;
 }
-

@@ -14,4 +14,3 @@ Additional dependencies can be installed to leverage the full feature set of MLf
 * To use the `mlflow.sklearn` component of MLflow Models, install `scikit-learn`, `numpy` and `pandas`.
 * To use SQL-based metadata storage, install `sqlalchemy`, `alembic`, and `sqlparse`.
 * To use serving-based features, install `flask` and `pandas`.
-

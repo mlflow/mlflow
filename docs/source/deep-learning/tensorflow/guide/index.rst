@@ -269,4 +269,3 @@ and ``shape`` of the input tensors, and wrap it with :py:func:`mlflow.types.Tens
 Please note that a model signature is not necessary for loading a model. You can still load the model
 and perform inferenece if you know the input format. However, it's a good practice to include the signature
 for better model understanding.
-

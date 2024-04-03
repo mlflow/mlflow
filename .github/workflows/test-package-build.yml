@@ -43,6 +43,7 @@ jobs:
         if: ${{ matrix.type == 'skinny' }}
         run: |
           cat pyproject.skinny.toml > pyproject.toml
+          echo "" >> README_SKINNY.rst
           cat README.rst >> README_SKINNY.rst
           cat README_SKINNY.rst > README.rst
 
