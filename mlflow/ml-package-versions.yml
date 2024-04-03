@@ -645,6 +645,7 @@ langchain:
           "numexpr",
           "hf_transfer",
         ]
+      "== 0.1.14": ["langchain-core<=0.1.37"]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
       # test both pydantic v1 and v2
