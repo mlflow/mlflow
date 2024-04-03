@@ -177,15 +177,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         )
         augmented_raise_for_status(response)
 
-        def result_gen_fn():
-            # Streaming response content are composed of multiple lines.
-            # Each line format depends on specific endpoint
-            for line in response.iter_lines(decode_unicode=True):
-                # filter out keep-alive new lines
-                if line:
-                    yield line
-
-        return result_gen_fn()
+        # Streaming response content are composed of multiple lines.
+        # Each line format depends on specific endpoint
+        return (
+            line
+            for line in response.iter_lines(decode_unicode=True)
+            if line  # filter out keep-alive new lines
+        )
 
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
