@@ -2,9 +2,7 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
@@ -12,6 +10,7 @@ from mlflow.gateway.providers.mixedbread import MixedBreadProvider
 from mlflow.gateway.schemas import embeddings
 
 from tests.gateway.tools import MockAsyncResponse
+
 
 def embeddings_config():
     return {
