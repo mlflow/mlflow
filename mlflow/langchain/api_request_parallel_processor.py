@@ -397,7 +397,10 @@ class APIRequest:
                 finish_reason = None
             elif isinstance(chunk, AIMessageChunk):
                 message_content = chunk.content
-                finish_reason = chunk.response_metadata.get("finish_reason")
+                if hasattr(chunk, "response_metadata"):
+                    finish_reason = chunk.response_metadata.get("finish_reason")
+                else:
+                    finish_reason = None
             elif isinstance(chunk, AIMessage):
                 # The langchain chat model does not support stream
                 # so `model.stream` returns the whole result.
