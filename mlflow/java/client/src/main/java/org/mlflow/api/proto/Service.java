@@ -71011,7 +71011,7 @@ public final class Service {
      * <pre>
      * A filter expression over trace attributes and tags that allows returning a subset of
      * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-     * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+     * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
      * </pre>
      *
      * <code>optional string filter = 2;</code>
@@ -71022,7 +71022,7 @@ public final class Service {
      * <pre>
      * A filter expression over trace attributes and tags that allows returning a subset of
      * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-     * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+     * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
      * </pre>
      *
      * <code>optional string filter = 2;</code>
@@ -71033,7 +71033,7 @@ public final class Service {
      * <pre>
      * A filter expression over trace attributes and tags that allows returning a subset of
      * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-     * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+     * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
      * </pre>
      *
      * <code>optional string filter = 2;</code>
@@ -71063,7 +71063,7 @@ public final class Service {
 
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -71073,7 +71073,7 @@ public final class Service {
         getOrderByList();
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -71082,7 +71082,7 @@ public final class Service {
     int getOrderByCount();
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -71092,7 +71092,7 @@ public final class Service {
     java.lang.String getOrderBy(int index);
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -72403,7 +72403,7 @@ public final class Service {
      * <pre>
      * A filter expression over trace attributes and tags that allows returning a subset of
      * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-     * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+     * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
      * </pre>
      *
      * <code>optional string filter = 2;</code>
@@ -72417,7 +72417,7 @@ public final class Service {
      * <pre>
      * A filter expression over trace attributes and tags that allows returning a subset of
      * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-     * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+     * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
      * </pre>
      *
      * <code>optional string filter = 2;</code>
@@ -72442,7 +72442,7 @@ public final class Service {
      * <pre>
      * A filter expression over trace attributes and tags that allows returning a subset of
      * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-     * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+     * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
      * </pre>
      *
      * <code>optional string filter = 2;</code>
@@ -72494,7 +72494,7 @@ public final class Service {
     private com.google.protobuf.LazyStringList orderBy_;
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -72506,7 +72506,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -72517,7 +72517,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -72529,7 +72529,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+     * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
      * </pre>
      *
      * <code>repeated string order_by = 4;</code>
@@ -73185,7 +73185,7 @@ public final class Service {
        * <pre>
        * A filter expression over trace attributes and tags that allows returning a subset of
        * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-       * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+       * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
        * </pre>
        *
        * <code>optional string filter = 2;</code>
@@ -73198,7 +73198,7 @@ public final class Service {
        * <pre>
        * A filter expression over trace attributes and tags that allows returning a subset of
        * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-       * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+       * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
        * </pre>
        *
        * <code>optional string filter = 2;</code>
@@ -73222,7 +73222,7 @@ public final class Service {
        * <pre>
        * A filter expression over trace attributes and tags that allows returning a subset of
        * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-       * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+       * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
        * </pre>
        *
        * <code>optional string filter = 2;</code>
@@ -73245,7 +73245,7 @@ public final class Service {
        * <pre>
        * A filter expression over trace attributes and tags that allows returning a subset of
        * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-       * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+       * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
        * </pre>
        *
        * <code>optional string filter = 2;</code>
@@ -73266,7 +73266,7 @@ public final class Service {
        * <pre>
        * A filter expression over trace attributes and tags that allows returning a subset of
        * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-       * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+       * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
        * </pre>
        *
        * <code>optional string filter = 2;</code>
@@ -73282,7 +73282,7 @@ public final class Service {
        * <pre>
        * A filter expression over trace attributes and tags that allows returning a subset of
        * traces. The syntax is a subset of SQL that supports ANDing together binary operations
-       * Example: ``trace.status = 'OK' and trace.start_time &gt; 1711089570679``.
+       * Example: ``trace.status = 'OK' and trace.timestamp_ms &gt; 1711089570679``.
        * </pre>
        *
        * <code>optional string filter = 2;</code>
@@ -73364,7 +73364,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73376,7 +73376,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73387,7 +73387,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73399,7 +73399,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73412,7 +73412,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73432,7 +73432,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73451,7 +73451,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73468,7 +73468,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>
@@ -73482,7 +73482,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+       * List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
        * </pre>
        *
        * <code>repeated string order_by = 4;</code>

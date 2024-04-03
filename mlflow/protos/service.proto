@@ -456,8 +456,8 @@ service MlflowService {
   }
 
   // Search for traces that satisfy specified filters
-  // (e.g. ``trace.status = 'OK' and trace.start_time > 1711089570679``), and retrieve the traces
-  // in a specified ordering (e.g. ``["start_time DESC"]``).
+  // (e.g. ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``), and retrieve the traces
+  // in a specified ordering (e.g. ``["timestamp_ms DESC"]``).
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
       endpoints: [{
@@ -1330,13 +1330,13 @@ message SearchTraces {
 
   // A filter expression over trace attributes and tags that allows returning a subset of
   // traces. The syntax is a subset of SQL that supports ANDing together binary operations
-  // Example: ``trace.status = 'OK' and trace.start_time > 1711089570679``.
+  // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
   optional string filter = 2;
 
   // Maximum number of traces desired. Max threshold is 500.
   optional int32 max_results = 3 [default = 100];
 
-  // List of columns for ordering the results, e.g. ``["start_time DESC"]``.
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
   repeated string order_by = 4;
 
   // Token indicating the page of traces to fetch.
