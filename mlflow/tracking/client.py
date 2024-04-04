@@ -455,10 +455,10 @@ class MlflowClient:
 
     def get_trace(self, request_id: str) -> Trace:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the specified ``request_id``.
 
         Args:
-            request_id: String id of the trace to fetch.
+            request_id: String ID of the trace to fetch.
 
         Returns:
             The retrieved :py:class:`Trace`.
