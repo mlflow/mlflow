@@ -180,9 +180,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         # Streaming response content are composed of multiple lines.
         # Each line format depends on specific endpoint
         return (
-            line
+            line.strip()
             for line in response.iter_lines(decode_unicode=True)
-            if line  # filter out keep-alive new lines
+            if line.strip()  # filter out keep-alive new lines
         )
 
     @experimental
