@@ -141,6 +141,7 @@ jobs:
         working-directory: mlflow/server/js
         run: |
           yarn lint:fix
+          yarn prettier:fix
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |
