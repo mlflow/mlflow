@@ -70,8 +70,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[Dict[str, Any]] = None,
     ) -> MlflowSpanWrapper:
         """Start MLflow Span (or Trace if it is root component)"""
-        # If parent_run_id is not None, we should still raise exception if parent span is not found
-        parent = self._get_span_by_run_id(parent_run_id) if parent_run_id else self._parent_span
+        parent = self._get_parent_span(parent_run_id)
         if parent:
             span = self._mlflow_client.start_span(
                 name=span_name,
@@ -88,6 +87,22 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             )
         self._run_span_mapping[str(run_id)] = span
         return span
+
+    def _get_parent_span(self, parent_run_id) -> Optional[MlflowSpanWrapper]:
+        """
+        Get parent span from multiple sources:
+        1. If parent_run_id is provided, get the corresponding span from the run -> span mapping
+        2. If parent_span argument is passed to the callback, use it as parent span
+        3. If there is an active span, use it as parent span
+        4. If none of the above, return None
+        """
+        if parent_run_id:
+            return self._get_span_by_run_id(parent_run_id)
+        elif self._parent_span:
+            return self._parent_span
+        elif active_span := mlflow.get_current_active_span():
+            return active_span
+        return None
 
     def _end_span(
         self,
