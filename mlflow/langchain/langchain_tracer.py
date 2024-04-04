@@ -5,6 +5,7 @@ from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.documents import Document
+from langchain_core.load.dump import dumpd
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import (
     ChatGenerationChunk,
@@ -175,7 +176,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         llm_span = self._get_span_by_run_id(run_id)
         event_kwargs = {"token": token}
         if chunk:
-            event_kwargs["chunk"] = chunk
+            event_kwargs["chunk"] = dumpd(chunk)
         llm_span.add_event(
             SpanEvent(
                 name="new_token",
@@ -272,7 +273,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when chain ends running."""
         chain_span = self._get_span_by_run_id(run_id)
         if inputs:
-            chain_span.set_inputs(self._get_chain_inputs(inputs))
+            chain_span.set_inputs(inputs)
         self._end_span(chain_span, outputs=outputs)
 
     @override
@@ -287,7 +288,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when chain errors."""
         chain_span = self._get_span_by_run_id(run_id)
         if inputs:
-            chain_span.set_inputs(self._get_chain_inputs(inputs))
+            chain_span.set_inputs(inputs)
         chain_span.add_event(SpanEvent.from_exception(error))
         self._end_span(chain_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
 
