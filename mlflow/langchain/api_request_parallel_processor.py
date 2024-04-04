@@ -111,7 +111,7 @@ class _ChatChoice(pydantic.BaseModel, extra="forbid"):
 class _ChatChoiceDelta(pydantic.BaseModel):
     index: int
     finish_reason: Optional[str] = None
-    delta: _ChatDeltaMessage = None
+    delta: _ChatDeltaMessage
 
 
 class _ChatUsage(pydantic.BaseModel, extra="forbid"):
