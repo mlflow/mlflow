@@ -460,7 +460,7 @@ class MlflowClient:
             request_id: String ID of the trace to fetch.
 
         Returns:
-            The retrieved :py:class:`Trace`.
+            The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
 
         .. code-block:: python
             :caption: Example
