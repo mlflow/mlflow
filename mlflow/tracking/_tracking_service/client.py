@@ -10,8 +10,6 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import List, Optional
 
-import requests
-
 from mlflow.entities import (
     ExperimentTag,
     Metric,
@@ -230,10 +228,8 @@ class TrackingServiceClient:
         def fn(trace_info: trace_info) -> Optional[TraceData]:
             try:
                 trace_data = self._download_trace_data(trace_info.request_id)
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 404:
-                    return None
-                raise
+            except Exception:
+                return None
             else:
                 return Trace(
                     trace_info=trace_info,
