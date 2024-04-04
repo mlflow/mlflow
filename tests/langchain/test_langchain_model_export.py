@@ -1932,8 +1932,13 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     }
 
     with mock.patch("time.time", return_value=1677858242):
-        assert pyfunc_loaded_model.predict(input_example) == [expected_chat_response]
-        assert pyfunc_loaded_model.predict([input_example, input_example]) == [
+        result1 = pyfunc_loaded_model.predict(input_example)
+        result1[0]["id"] = None
+        assert result1 == [expected_chat_response]
+        result2 = pyfunc_loaded_model.predict([input_example, input_example])
+        result2[0]["id"] = None
+        result2[1]["id"] = None
+        assert result2 == [
             expected_chat_response,
             expected_chat_response,
         ]
@@ -2002,7 +2007,10 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mock.patch("time.time", return_value=1677858242):
-        assert pyfunc_loaded_model.predict(input_example) == [
+        result = pyfunc_loaded_model.predict(input_example)
+        assert "id" in result[0], "Response message id is lost."
+        result[0]["id"] = None
+        assert result == [
             {
                 "id": None,
                 "object": "chat.completion",
@@ -2618,6 +2626,10 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model):
 
     with mock.patch("time.time", return_value=1677858242):
         chunks = list(chunk_iter)
+
+        for chunk in chunks:
+            assert "id" in chunk, "chunk id is lost."
+            chunk["id"] = None
 
         assert chunks == [
             {

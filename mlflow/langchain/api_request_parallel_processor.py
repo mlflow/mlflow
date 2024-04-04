@@ -335,13 +335,15 @@ class APIRequest:
     def _try_transform_response_to_chat_format(response):
         if isinstance(response, str):
             message_content = response
+            message_id = None
         elif isinstance(response, AIMessage):
             message_content = response.content
+            message_id = response.id
         else:
             return response
 
         transformed_response = _ChatResponse(
-            id=None,
+            id=message_id,
             created=int(time.time()),
             model=None,
             choices=[
@@ -372,9 +374,9 @@ class APIRequest:
 
         is_pydantic_v1 = Version(pydantic.__version__) < Version("2.0")
 
-        def _gen_converted_chunk(message_content, finish_reason):
+        def _gen_converted_chunk(message_content, message_id, finish_reason):
             transformed_response = _ChatChunkResponse(
-                id=None,
+                id=message_id,
                 created=int(time.time()),
                 model=None,
                 choices=[
@@ -397,9 +399,11 @@ class APIRequest:
         def _convert(chunk):
             if isinstance(chunk, str):
                 message_content = chunk
+                message_id = None
                 finish_reason = None
             elif isinstance(chunk, AIMessageChunk):
                 message_content = chunk.content
+                message_id = chunk.id
 
                 if response_metadata := getattr(chunk, "response_metadata", None):
                     finish_reason = response_metadata.get("finish_reason")
@@ -409,10 +413,15 @@ class APIRequest:
                 # The langchain chat model does not support stream
                 # so `model.stream` returns the whole result.
                 message_content = chunk.content
+                message_id = chunk.id
                 finish_reason = "stop"
             else:
                 return chunk
-            return _gen_converted_chunk(message_content, finish_reason=finish_reason)
+            return _gen_converted_chunk(
+                message_content,
+                message_id=message_id,
+                finish_reason=finish_reason,
+            )
 
         return map(_convert, chunk_iter)
 
