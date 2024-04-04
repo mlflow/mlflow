@@ -97,16 +97,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         status=SpanStatus(TraceStatus.OK),
     ):
         """Close MLflow Span (or Trace if it is root component)"""
-        # NB: Some chain
-        if str(span.run_id) in self._run_span_mapping:
-            self._mlflow_client.end_span(
-                request_id=span.request_id,
-                span_id=span.span_id,
-                outputs=outputs,
-                attributes=attributes,
-                status=status,
-            )
-        self._run_span_mapping.pop(str(span.run_id))
+        self._mlflow_client.end_span(
+            request_id=span.request_id,
+            span_id=span.span_id,
+            outputs=outputs,
+            attributes=attributes,
+            status=status,
+        )
 
     def _reset(self):
         self._run_span_mapping = {}
@@ -395,8 +392,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """
         Run on agent action.
 
-        NB: Agent actiond doesn't create a new LangChain Run, so instead of creating a new span, an action
-           will be recorded as an event of the existing span created by a parent chain.
+        NB: Agent action doesn't create a new LangChain Run, so instead of creating a new span,
+        an action will be recorded as an event of the existing span created by a parent chain.
         """
         span = self._get_span_by_run_id(run_id)
         span.add_event(
@@ -406,7 +403,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     "tool": action.tool,
                     "tool_input": dumps(action.tool_input),
                     "log": action.log,
-                }
+                },
             )
         )
 
@@ -423,10 +420,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         span.add_event(
             SpanEvent(
                 name="agent_finish",
-                attributes={
-                    "return_values": dumps(finish.return_values),
-                    "log": finish.log
-                }
+                attributes={"return_values": dumps(finish.return_values), "log": finish.log},
             )
         )
 
