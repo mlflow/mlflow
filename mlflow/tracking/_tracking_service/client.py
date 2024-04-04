@@ -238,13 +238,14 @@ class TrackingServiceClient:
 
         traces = []
         remaining = max_results
+        token = page_token
         while len(traces) < max_results:
             trace_infos, token = self.store.search_traces(
                 experiment_ids=experiment_ids,
                 filter_string=filter_string,
                 max_results=remaining,
                 order_by=order_by,
-                page_token=page_token,
+                page_token=token,
             )
             with ThreadPoolExecutor() as executor:
                 traces.extend(t for t in executor.map(fn, trace_infos) if t)
