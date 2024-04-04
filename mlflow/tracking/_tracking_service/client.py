@@ -159,7 +159,7 @@ class TrackingServiceClient:
             run_name=run_name,
         )
 
-    def create_trace(
+    def create_trace_info(
         self,
         experiment_id,
         timestamp_ms,
@@ -168,7 +168,7 @@ class TrackingServiceClient:
         request_metadata=None,
         tags=None,
     ):
-        """Create a trace object and log in the backend store.
+        """Create a TraceInfo object and log in the backend store.
 
         Args:
             experiment_id: String id of the experiment for this run.
@@ -179,9 +179,9 @@ class TrackingServiceClient:
             tags: dict, tags of the trace.
 
         Returns:
-            The created Trace object.
+            The created TraceInfo object.
         """
-        return self.store.create_trace(
+        return self.store.create_trace_info(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             execution_time_ms=execution_time_ms,

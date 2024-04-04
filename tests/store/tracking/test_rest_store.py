@@ -208,7 +208,7 @@ def test_requestor():
             assert expected_kwargs == actual_kwargs
 
     with mock_http_request() as mock_http:
-        store.create_trace(
+        store.create_trace_info(
             experiment_id="447585625682310",
             timestamp_ms=123,
             execution_time_ms=456,

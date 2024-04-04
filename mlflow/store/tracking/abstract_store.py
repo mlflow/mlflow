@@ -239,7 +239,7 @@ class AbstractStore:
         """
         pass
 
-    def create_trace(
+    def create_trace_info(
         self,
         experiment_id: str,
         timestamp_ms: int,
@@ -249,7 +249,7 @@ class AbstractStore:
         tags: Dict[str, str],
     ) -> TraceInfo:
         """
-        Create a trace under the specified experiment ID.
+        Create a TraceInfo object under the specified experiment ID.
 
         Args:
             experiment_id: String id of the experiment for this run.
@@ -260,7 +260,7 @@ class AbstractStore:
             tags: tags of the trace.
 
         Returns:
-            The created Trace object
+            The created TraceInfo object
         """
         raise NotImplementedError
 
