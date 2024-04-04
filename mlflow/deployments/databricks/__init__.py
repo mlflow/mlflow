@@ -2,7 +2,6 @@ import json
 import posixpath
 from typing import Any, Dict, Iterator, Optional
 
-from mlflow.exceptions import MlflowException
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
@@ -11,6 +10,7 @@ from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.utils import AttrDict
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
