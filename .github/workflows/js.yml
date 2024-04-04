@@ -69,7 +69,7 @@ jobs:
       - name: Run lint
         run: |
           yarn lint
-      - name: Run pretteir
+      - name: Run prettier
         run: |
           yarn prettier:check
       - name: Run extract-i18n lint
