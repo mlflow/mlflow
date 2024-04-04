@@ -622,7 +622,13 @@ class PyFuncModel:
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict"):
+    def __init__(
+        self,
+        model_meta: Model,
+        model_impl: Any,
+        predict_fn: str = "predict",
+        predict_stream_fn: Optional[str] = None,
+    ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
@@ -630,6 +636,39 @@ class PyFuncModel:
         self._model_meta = model_meta
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
+        if predict_stream_fn:
+            if not hasattr(model_impl, predict_stream_fn):
+                raise MlflowException(
+                    f"Model implementation is missing required {predict_stream_fn} method."
+                )
+            self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
+        else:
+            self._predict_stream_fn = None
+
+    def _validate_prediction_input(
+        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
+    ) -> PyFuncInput:
+        input_schema = self.metadata.get_input_schema()
+        flavor = self.loader_module
+        if input_schema is not None:
+            try:
+                data = _enforce_schema(data, input_schema, flavor)
+            except Exception as e:
+                # Include error in message for backwards compatibility
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to enforce schema of data '{data}' "
+                    f"with schema '{input_schema}'. "
+                    f"Error: {e}",
+                )
+
+        params = _validate_params(params, self.metadata)
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if HAS_PYSPARK and isinstance(data, SparkDataFrame):
+            _logger.warning(
+                "Input data is a Spark DataFrame. Note that behaviour for "
+                "Spark DataFrames is model dependent."
+            )
+        return data, params
 
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
@@ -662,30 +701,22 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        input_schema = self.metadata.get_input_schema()
-        flavor = self.loader_module
-        if input_schema is not None:
-            try:
-                data = _enforce_schema(data, input_schema, flavor)
-            except Exception as e:
-                # Include error in message for backwards compatibility
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to enforce schema of data '{data}' "
-                    f"with schema '{input_schema}'. "
-                    f"Error: {e}",
-                )
 
-        params = _validate_params(params, self.metadata)
-
+        data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
-        if HAS_PYSPARK and isinstance(data, SparkDataFrame):
-            _logger.warning(
-                "Input data is a Spark DataFrame. Note that behaviour for "
-                "Spark DataFrames is model dependent."
-            )
         return self._predict_fn(data)
+
+    def predict_stream(
+        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[PyFuncOutput]:
+        if self._predict_stream_fn is None:
+            raise MlflowException("This model does not support predict_stream method.")
+
+        data, params = self._validate_prediction_input(data, params)
+        if inspect.signature(self._predict_fn).parameters.get("params"):
+            return self._predict_stream_fn(data, params=params)
+        return self._predict_stream_fn(data)
 
     @experimental
     def unwrap_python_model(self):
@@ -870,7 +901,15 @@ def load_model(
             ) from None
         raise e
     predict_fn = conf.get("predict_fn", "predict")
-    return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
+    streamable = conf.get("streamable", False)
+    predict_stream_fn = conf.get("predict_stream_fn") if streamable else None
+
+    return PyFuncModel(
+        model_meta=model_meta,
+        model_impl=model_impl,
+        predict_fn=predict_fn,
+        predict_stream_fn=predict_stream_fn,
+    )
 
 
 class _ServedPyFuncModel(PyFuncModel):
