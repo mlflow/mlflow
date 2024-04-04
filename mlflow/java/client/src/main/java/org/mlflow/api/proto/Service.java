@@ -77530,7 +77530,7 @@ public final class Service {
       "\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022" +
       "\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*>\n" +
       "\013TraceStatus\022\034\n\030TRACE_STATUS_UNSPECIFIED" +
-      "\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\0022\272\035\n\rMlflowService\022" +
+      "\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\0022\305\036\n\rMlflowService\022" +
       "\246\001\n\023getExperimentByName\022\033.mlflow.GetExpe" +
       "rimentByName\032$.mlflow.GetExperimentByNam" +
       "e.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experim" +
@@ -77583,49 +77583,53 @@ public final class Service {
       "Set Experiment Tag\022f\n\006setTag\022\016.mlflow.Se" +
       "tTag\032\027.mlflow.SetTag.Response\"3\362\206\031/\n\"\n\004P" +
       "OST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set T" +
-      "ag\022u\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032.mlf" +
-      "low.DeleteTag.Response\"9\362\206\0315\n%\n\004POST\022\027/m" +
-      "lflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete Ta" +
-      "g\022e\n\006getRun\022\016.mlflow.GetRun\032\027.mlflow.Get" +
-      "Run.Response\"2\362\206\031*\n\035\n\003GET\022\020/mlflow/runs/" +
-      "get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022u\n\nsearchRuns\022\022" +
-      ".mlflow.SearchRuns\032\033.mlflow.SearchRuns.R" +
-      "esponse\"6\362\206\0312\n!\n\004POST\022\023/mlflow/runs/sear" +
-      "ch\032\004\010\002\020\000\020\001*\013Search Runs\022\203\001\n\rlistArtifact" +
-      "s\022\025.mlflow.ListArtifacts\032\036.mlflow.ListAr" +
-      "tifacts.Response\";\362\206\0317\n#\n\003GET\022\026/mlflow/a" +
-      "rtifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\225\001" +
-      "\n\020getMetricHistory\022\030.mlflow.GetMetricHis" +
-      "tory\032!.mlflow.GetMetricHistory.Response\"" +
-      "D\362\206\031@\n(\n\003GET\022\033/mlflow/metrics/get-histor" +
-      "y\032\004\010\002\020\000\020\001*\022Get Metric History\022\263\001\n\034getMet" +
-      "ricHistoryBulkInterval\022$.mlflow.GetMetri" +
-      "cHistoryBulkInterval\032-.mlflow.GetMetricH" +
-      "istoryBulkInterval.Response\">\362\206\031:\n6\n\003GET" +
-      "\022)/mlflow/metrics/get-history-bulk-inter" +
-      "val\032\004\010\002\020\013\020\003\022p\n\010logBatch\022\020.mlflow.LogBatc" +
-      "h\032\031.mlflow.LogBatch.Response\"7\362\206\0313\n$\n\004PO" +
-      "ST\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog " +
-      "Batch\022p\n\010logModel\022\020.mlflow.LogModel\032\031.ml" +
-      "flow.LogModel.Response\"7\362\206\0313\n$\n\004POST\022\026/m" +
-      "lflow/runs/log-model\032\004\010\002\020\000\020\001*\tLog Model\022" +
-      "u\n\tlogInputs\022\021.mlflow.LogInputs\032\032.mlflow" +
-      ".LogInputs.Response\"9\362\206\0315\n%\n\004POST\022\027/mlfl" +
-      "ow/runs/log-inputs\032\004\010\002\020\000\020\001*\nLog Inputs\022t" +
-      "\n\013createTrace\022\023.mlflow.CreateTrace\032\034.mlf" +
-      "low.CreateTrace.Response\"2\362\206\031.\n\034\n\004POST\022\016" +
-      "/mlflow/traces\032\004\010\002\020\000\020\003*\014Create Trace\022\211\001\n" +
-      "\014getTraceInfo\022\024.mlflow.GetTraceInfo\032\035.ml" +
-      "flow.GetTraceInfo.Response\"D\362\206\031@\n-\n\003GET\022" +
-      " /mlflow/traces/{request_id}/info\032\004\010\002\020\000\020" +
-      "\003*\rGet TraceInfo\022w\n\014searchTraces\022\024.mlflo" +
-      "w.SearchTraces\032\035.mlflow.SearchTraces.Res" +
-      "ponse\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/traces\032\004\010\002\020\000" +
-      "\020\003*\rSearch Traces\022\206\001\n\014deleteTraces\022\024.mlf" +
-      "low.DeleteTraces\032\035.mlflow.DeleteTraces.R" +
-      "esponse\"A\362\206\031=\n*\n\004POST\022\034/mlflow/traces/de" +
-      "lete-traces\032\004\010\002\020\000\020\003*\rDelete TracesB\036\n\024or" +
-      "g.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "ag\022\210\001\n\013setTraceTag\022\023.mlflow.SetTraceTag\032" +
+      "\034.mlflow.SetTraceTag.Response\"F\362\206\031B\n/\n\005P" +
+      "ATCH\022 /mlflow/traces/{request_id}/tags\032\004" +
+      "\010\002\020\000\020\003*\rSet Trace Tag\022u\n\tdeleteTag\022\021.mlf" +
+      "low.DeleteTag\032\032.mlflow.DeleteTag.Respons" +
+      "e\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delete-tag" +
+      "\032\004\010\002\020\000\020\001*\nDelete Tag\022e\n\006getRun\022\016.mlflow." +
+      "GetRun\032\027.mlflow.GetRun.Response\"2\362\206\031*\n\035\n" +
+      "\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272" +
+      "\214\031\000\022u\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033." +
+      "mlflow.SearchRuns.Response\"6\362\206\0312\n!\n\004POST" +
+      "\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Ru" +
+      "ns\022\203\001\n\rlistArtifacts\022\025.mlflow.ListArtifa" +
+      "cts\032\036.mlflow.ListArtifacts.Response\";\362\206\031" +
+      "7\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001" +
+      "*\016List Artifacts\022\225\001\n\020getMetricHistory\022\030." +
+      "mlflow.GetMetricHistory\032!.mlflow.GetMetr" +
+      "icHistory.Response\"D\362\206\031@\n(\n\003GET\022\033/mlflow" +
+      "/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric" +
+      " History\022\263\001\n\034getMetricHistoryBulkInterva" +
+      "l\022$.mlflow.GetMetricHistoryBulkInterval\032" +
+      "-.mlflow.GetMetricHistoryBulkInterval.Re" +
+      "sponse\">\362\206\031:\n6\n\003GET\022)/mlflow/metrics/get" +
+      "-history-bulk-interval\032\004\010\002\020\013\020\003\022p\n\010logBat" +
+      "ch\022\020.mlflow.LogBatch\032\031.mlflow.LogBatch.R" +
+      "esponse\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-" +
+      "batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010logModel\022\020.m" +
+      "lflow.LogModel\032\031.mlflow.LogModel.Respons" +
+      "e\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-model\032" +
+      "\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogInputs\022\021.mlflow" +
+      ".LogInputs\032\032.mlflow.LogInputs.Response\"9" +
+      "\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-inputs\032\004\010" +
+      "\002\020\000\020\001*\nLog Inputs\022t\n\013createTrace\022\023.mlflo" +
+      "w.CreateTrace\032\034.mlflow.CreateTrace.Respo" +
+      "nse\"2\362\206\031.\n\034\n\004POST\022\016/mlflow/traces\032\004\010\002\020\000\020" +
+      "\003*\014Create Trace\022\211\001\n\014getTraceInfo\022\024.mlflo" +
+      "w.GetTraceInfo\032\035.mlflow.GetTraceInfo.Res" +
+      "ponse\"D\362\206\031@\n-\n\003GET\022 /mlflow/traces/{requ" +
+      "est_id}/info\032\004\010\002\020\000\020\003*\rGet TraceInfo\022w\n\014s" +
+      "earchTraces\022\024.mlflow.SearchTraces\032\035.mlfl" +
+      "ow.SearchTraces.Response\"2\362\206\031.\n\033\n\003GET\022\016/" +
+      "mlflow/traces\032\004\010\002\020\000\020\003*\rSearch Traces\022\206\001\n" +
+      "\014deleteTraces\022\024.mlflow.DeleteTraces\032\035.ml" +
+      "flow.DeleteTraces.Response\"A\362\206\031=\n*\n\004POST" +
+      "\022\034/mlflow/traces/delete-traces\032\004\010\002\020\000\020\003*\r" +
+      "Delete TracesB\036\n\024org.mlflow.api.proto\220\001\001" +
+      "\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

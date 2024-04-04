@@ -253,6 +253,19 @@ service MlflowService {
     };
   }
 
+  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  rpc setTraceTag(SetTraceTag) returns (SetTraceTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{request_id}/tags"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Trace Tag",
+    };
+  }
+
   // Delete a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
