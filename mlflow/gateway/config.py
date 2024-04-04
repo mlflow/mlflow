@@ -68,6 +68,7 @@ class MixedBreadConfig(ConfigModel):
     def validate_mixedbread_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
+
 class CohereConfig(ConfigModel):
     cohere_api_key: str
 
@@ -240,7 +241,7 @@ config_types = {
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
     Provider.MISTRAL: MistralConfig,
-    Provider.MIXEDBREAD: MixedBreadConfig
+    Provider.MIXEDBREAD: MixedBreadConfig,
 }
 
 

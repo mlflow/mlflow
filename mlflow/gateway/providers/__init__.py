@@ -12,11 +12,11 @@ def get_provider(provider: Provider) -> Type[BaseProvider]:
     from mlflow.gateway.providers.cohere import CohereProvider
     from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
     from mlflow.gateway.providers.mistral import MistralProvider
+    from mlflow.gateway.providers.mixedbread import MixedBreadProvider
     from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
     from mlflow.gateway.providers.mosaicml import MosaicMLProvider
     from mlflow.gateway.providers.openai import OpenAIProvider
     from mlflow.gateway.providers.palm import PaLMProvider
-    from mlflow.gateway.providers.mixedbread import MixedBreadProvider
 
     provider_to_class = {
         Provider.OPENAI: OpenAIProvider,
@@ -29,7 +29,7 @@ def get_provider(provider: Provider) -> Type[BaseProvider]:
         Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HFTextGenerationInferenceServerProvider,
         Provider.BEDROCK: AmazonBedrockProvider,
         Provider.MISTRAL: MistralProvider,
-        Provider.MIXEDBREAD: MixedBreadProvider
+        Provider.MIXEDBREAD: MixedBreadProvider,
     }
     if prov := provider_to_class.get(provider):
         return prov

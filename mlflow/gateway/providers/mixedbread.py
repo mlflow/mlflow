@@ -1,7 +1,6 @@
-
 from typing import Any, Dict
 
-from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import MixedBreadConfig, RouteConfig
@@ -11,11 +10,10 @@ from mlflow.gateway.schemas import embeddings
 
 
 class MixedBreadAdapter(ProviderAdapter):
-
     @classmethod
     def embeddings_to_model(cls, resp, config):
         # Example from API reference(https://www.mixedbread.ai/api-reference/endpoints/embeddings#create-embeddings):
-        #{
+        # {
         #   "model": "UAE-Large-V1",
         #   "data": [
         #      {
@@ -41,7 +39,7 @@ class MixedBreadAdapter(ProviderAdapter):
         #      "total_tokens": 420
         #   },
         #   "normalized": true
-        #}
+        # }
 
         usage = resp.get("usage")
         prompt_tokens = None
@@ -56,45 +54,24 @@ class MixedBreadAdapter(ProviderAdapter):
             data=[
                 embeddings.EmbeddingObject(
                     index=idx,
-                    embedding=embedding_item['embedding'],
+                    embedding=embedding_item["embedding"],
                 )
                 for idx, embedding_item in enumerate(resp.get("data", []))
-                if 'embedding' in embedding_item
+                if "embedding" in embedding_item
             ],
             usage=embeddings.EmbeddingsUsage(
-                prompt_tokens=prompt_tokens,
-                total_tokens=total_tokens
+                prompt_tokens=prompt_tokens, total_tokens=total_tokens
             ),
         )
 
     @classmethod
     def model_to_embeddings(cls, payload, config):
-
-        #TODO maybe let the end API handle these?
-
-        if "encoding_format" in payload:
-            raise HTTPException(
-                status_code=422,
-                detail=("Parameter encoding_format in payload."
-                "Mixedbread does not support encoding_format.")
-            )
-
-        if "dimensions" in payload:
-            raise HTTPException(
-                "Invalid parameter dimensions in payload."
-                "The parameter is not supported in mixedbread."
-            )
-
-        if "user" in payload:
-            raise HTTPException(
-                "Invalid parameter user in payload."
-                "The parameter is not supported in mixedbread."
-            )
-
+        # same format as the openai with a few missing parameters
+        # let the end api handle these
         return payload
 
-class MixedBreadProvider(BaseProvider):
 
+class MixedBreadProvider(BaseProvider):
     NAME = "MixedBread"
 
     @property
@@ -103,47 +80,32 @@ class MixedBreadProvider(BaseProvider):
 
     @property
     def auth_headers(self):
-
         return {"Authorization": f"Bearer {self.mixedbread_config.mixedbread_api_key}"}
 
     async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-
         return await send_request(
-            headers=self.auth_headers,
-            base_url=self.base_url,
-            path=path,
-            payload=payload
+            headers=self.auth_headers, base_url=self.base_url, path=path, payload=payload
         )
 
     def __init__(self, config: RouteConfig) -> None:
-
         super().__init__(config)
 
-        if config.model.config is None or not isinstance(config.model.config,MixedBreadConfig):
+        if config.model.config is None or not isinstance(config.model.config, MixedBreadConfig):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid config type {config.model.config}"
             )
 
         self.mixedbread_config: MixedBreadConfig = config.model.config
 
-
-
-    async def embeddings(
-        self,
-        payload: embeddings.RequestPayload
-    ) -> embeddings.ResponsePayload:
-
-        from fastapi.encoders import jsonable_encoder
-
-
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
 
         resp = await self._request(
             path="embeddings",
             payload={
                 "model": self.config.model.name,
-                **MixedBreadAdapter.model_to_embeddings(payload, self.config)
-            }
+                **MixedBreadAdapter.model_to_embeddings(payload, self.config),
+            },
         )
 
         return MixedBreadAdapter.embeddings_to_model(resp, self.config)

@@ -25,6 +25,7 @@ def embeddings_config():
         },
     }
 
+
 def embeddings_response():
     return {
         "id": "bc57846a-3e56-4327-8acc-588ca1a37b8a",
@@ -49,6 +50,7 @@ def embeddings_response():
         "normalized": True,  # Corrected from 'true' to 'True'
     }
 
+
 @pytest.mark.asyncio
 async def test_embeddings():
     resp = embeddings_response()
@@ -56,14 +58,10 @@ async def test_embeddings():
     with mock.patch("time.time", return_value=1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-
         provider = MixedBreadProvider(RouteConfig(**config))
         payload = {
-            "input": [
-                'Who is german and likes bread?',
-                'Everybody in Germany.'
-            ],
-            "model": 'UAE-Large-V1',
+            "input": ["Who is german and likes bread?", "Everybody in Germany."],
+            "model": "UAE-Large-V1",
         }
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
 
@@ -92,11 +90,8 @@ async def test_embeddings():
         mock_post.assert_called_once_with(
             "https://api.mixedbread.ai/v1/embeddings",
             json={
-                "input": [
-                    'Who is german and likes bread?',
-                    'Everybody in Germany.'
-                ],
-                "model": "UAE-Large-V1"
+                "input": ["Who is german and likes bread?", "Everybody in Germany."],
+                "model": "UAE-Large-V1",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
