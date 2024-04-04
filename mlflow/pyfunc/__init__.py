@@ -902,10 +902,7 @@ def load_model(
         raise e
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
-    if streamable:
-        predict_stream_fn = conf.get("predict_stream_fn")
-    else:
-        predict_stream_fn = None
+    predict_stream_fn = conf.get("predict_stream_fn") if streamable else None
 
     return PyFuncModel(
         model_meta=model_meta,
