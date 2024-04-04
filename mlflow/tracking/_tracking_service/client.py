@@ -215,21 +215,9 @@ class TrackingServiceClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        trace_info = self._get_trace_info(request_id)
+        trace_info = self.store.get_trace_info(request_id)
         trace_data = self._download_trace_data(trace_info)
         return Trace(trace_info, trace_data)
-
-    def _get_trace_info(self, request_id):
-        """
-        Get the trace matching the `request_id`.
-
-        Args:
-            request_id: String id of the trace to fetch.
-
-        Returns:
-            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
-        """
-        return self.store.get_trace_info(request_id)
 
     def search_traces(
         self,
