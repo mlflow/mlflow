@@ -247,7 +247,7 @@ class TrackingServiceClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Trace]:
-        def fn(trace_info: TraceInfo) -> Optional[Trace]:
+        def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
             """
             Downloads the trace data for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
@@ -279,7 +279,7 @@ class TrackingServiceClient:
                     order_by=order_by,
                     page_token=next_token,
                 )
-                traces.extend(t for t in executor.map(fn, trace_infos) if t)
+                traces.extend(t for t in executor.map(download_trace_data, trace_infos) if t)
 
                 if not next_token:
                     break
