@@ -5,7 +5,7 @@ from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.documents import Document
-from langchain_core.load.dump import dumpd
+from langchain_core.load.dump import dumps
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import (
     ChatGenerationChunk,
@@ -176,7 +176,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         llm_span = self._get_span_by_run_id(run_id)
         event_kwargs = {"token": token}
         if chunk:
-            event_kwargs["chunk"] = dumpd(chunk)
+            event_kwargs["chunk"] = dumps(chunk)
         llm_span.add_event(
             SpanEvent(
                 name="new_token",
