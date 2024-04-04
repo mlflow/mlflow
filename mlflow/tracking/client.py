@@ -1631,7 +1631,7 @@ class MlflowClient:
                     )
 
             # Log tag indicating that the run includes logged image
-            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True)
+            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous=False)
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
