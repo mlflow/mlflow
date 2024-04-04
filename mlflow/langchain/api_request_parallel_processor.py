@@ -196,6 +196,7 @@ class APIRequest:
 
     def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
+
         from mlflow.langchain.utils import lc_runnables_types
 
         if isinstance(self.lc_model, BaseRetriever):

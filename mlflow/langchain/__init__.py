@@ -646,6 +646,7 @@ class _LangChainModelWrapper:
             callback_handlers: Callback handlers to pass to LangChain.
             convert_chat_responses: If true, forcibly convert response to chat model
                 response format.
+
         Returns:
             Model predictions.
         """
@@ -698,6 +699,7 @@ class _LangChainModelWrapper:
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
                     release without warning.
+
         Returns:
             An iterator of model prediction chunks.
         """
@@ -730,6 +732,7 @@ class _LangChainModelWrapper:
             callback_handlers: Callback handlers to pass to LangChain.
             convert_chat_responses: If true, forcibly convert response to chat model
                 response format.
+
         Returns:
             An iterator of model prediction chunks.
         """

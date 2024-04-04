@@ -2547,11 +2547,12 @@ def test_config_path_context():
 
 
 def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
+    from typing import Iterator
+
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.messages import BaseMessage, AIMessageChunk
+    from langchain.schema.messages import AIMessageChunk, BaseMessage
     from langchain_core.outputs import ChatGenerationChunk
-    from typing import Iterator
 
     class FakeChatStreamModel(SimpleChatModel):
         """Fake Chat Stream Model wrapper for testing purposes."""
