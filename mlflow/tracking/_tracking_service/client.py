@@ -270,21 +270,21 @@ class TrackingServiceClient:
         traces = []
         next_max_results = max_results
         next_token = page_token
-        while len(traces) < max_results:
-            trace_infos, next_token = self._search_traces(
-                experiment_ids=experiment_ids,
-                filter_string=filter_string,
-                max_results=next_max_results,
-                order_by=order_by,
-                page_token=next_token,
-            )
-            with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor() as executor:
+            while len(traces) < max_results:
+                trace_infos, next_token = self._search_traces(
+                    experiment_ids=experiment_ids,
+                    filter_string=filter_string,
+                    max_results=next_max_results,
+                    order_by=order_by,
+                    page_token=next_token,
+                )
                 traces.extend(t for t in executor.map(fn, trace_infos) if t)
 
-            if not next_token:
-                break
+                if not next_token:
+                    break
 
-            next_max_results = max_results - len(traces)
+                next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
 
