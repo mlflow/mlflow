@@ -632,8 +632,7 @@ langchain:
     minimum: "0.0.244"
     maximum: "0.1.9"
     requirements:
-      ">= 0.0.0":
-        [
+      ">= 0.0.0": [
           "pyspark",
           "transformers",
           "tensorflow<2.16",
@@ -644,8 +643,8 @@ langchain:
           "langchain-experimental",
           "numexpr",
           "hf_transfer",
+          "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
-      "== 0.1.14": ["langchain-core<=0.1.37"]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
       # test both pydantic v1 and v2
@@ -660,8 +659,7 @@ langchain:
     minimum: "0.1.4"
     maximum: "0.1.9"
     requirements:
-      ">= 0.0.0":
-        [
+      ">= 0.0.0": [
           "pyspark",
           "transformers",
           "tensorflow",
@@ -672,6 +670,7 @@ langchain:
           "langchain-experimental",
           "numexpr",
           "spacy",
+          "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
     run: |
       # For MlflowCallback text analysis

@@ -114,8 +114,6 @@ def _cached_get_request_session(
     """
     This function should not be called directly. Instead, use `_get_request_session` below.
     """
-    assert 0 <= max_retries < 10
-    assert 0 <= backoff_factor < 120
 
     retry_kwargs = {
         "total": max_retries,

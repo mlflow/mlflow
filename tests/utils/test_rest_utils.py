@@ -602,3 +602,45 @@ def test_provide_redirect_kwarg():
             verify=mock.ANY,
             timeout=120,
         )
+
+
+def test_http_request_max_retries(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT", "15")
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The configured max_retries"):
+            http_request(host_creds, "/endpoint", "GET", max_retries=16)
+        mock_request.assert_not_called()
+        http_request(host_creds, "/endpoint", "GET", max_retries=3)
+        mock_request.assert_called_once()
+
+
+def test_http_request_backoff_factor(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT", "200")
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The configured backoff_factor"):
+            http_request(host_creds, "/endpoint", "GET", backoff_factor=250)
+        mock_request.assert_not_called()
+        http_request(host_creds, "/endpoint", "GET", backoff_factor=10)
+        mock_request.assert_called_once()
+
+
+def test_http_request_negative_max_retries():
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The max_retries value must be either"):
+            http_request(host_creds, "/endpoint", "GET", max_retries=-1)
+        mock_request.assert_not_called()
+
+
+def test_http_request_negative_backoff_factor():
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The backoff_factor value must be"):
+            http_request(host_creds, "/endpoint", "GET", backoff_factor=-1)
+        mock_request.assert_not_called()

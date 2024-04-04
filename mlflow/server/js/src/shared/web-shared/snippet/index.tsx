@@ -1,7 +1,9 @@
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import python from 'react-syntax-highlighter/dist/cjs/languages/prism/python';
+import json from 'react-syntax-highlighter/dist/cjs/languages/prism/json';
 
 SyntaxHighlighter.registerLanguage('python', python);
+SyntaxHighlighter.registerLanguage('json', json);
 
 import duotoneDarkStyle from './theme/databricks-duotone-dark';
 import lightStyle from './theme/databricks-light';
@@ -22,7 +24,7 @@ const themesStyles: Record<CodeSnippetTheme, any> = {
   duotoneDark: duotoneDarkStyle,
 };
 
-export type CodeSnippetLanguage = 'python';
+export type CodeSnippetLanguage = 'python' | 'json';
 
 export interface CodeSnippetProps {
   /**
