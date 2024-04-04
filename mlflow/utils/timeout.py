@@ -3,7 +3,7 @@ from contextlib import contextmanager
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import NOT_IMPLEMENTED
-from mlflow.utils.process import _IS_UNIX
+from mlflow.utils.os import is_windows
 
 
 class MlflowTimeoutError(Exception):
@@ -24,7 +24,7 @@ def run_with_timeout(seconds):
             model.predict(data)
         ```
     """
-    if not _IS_UNIX:
+    if is_windows():
         raise MlflowException(
             "Timeouts are not implemented yet for non-Unix platforms",
             error_code=NOT_IMPLEMENTED,

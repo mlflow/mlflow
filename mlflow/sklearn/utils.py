@@ -903,6 +903,7 @@ def _backported_all_estimators(type_filter=None):
         'classifier', 'regressor', 'cluster' and 'transformer' to get
         estimators only of these specific types, or a list of these to
         get the estimators that fit at least one of the types.
+
     Returns
     -------
     estimators : list of tuples
