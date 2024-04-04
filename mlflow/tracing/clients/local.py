@@ -33,7 +33,7 @@ class InMemoryTraceClient(TraceClient):
         # used for displaying traces in IPython notebooks
         self._prev_execution_count = -1
 
-    def _display_trace(self, trace: Trace):
+    def _display_traces(self, traces: List[Trace]):
         """
         Display the trace in an IPython notebook. If multiple
         traces are generated in the same cell, only the last
@@ -46,7 +46,7 @@ class InMemoryTraceClient(TraceClient):
             from IPython import get_ipython
             from IPython.display import display
 
-            if get_ipython() is None:
+            if len(traces) == 0 or get_ipython() is None:
                 return
 
             def serialize_trace_list(traces: List[Trace]):
@@ -59,17 +59,28 @@ class InMemoryTraceClient(TraceClient):
             current_exec_count = get_ipython().execution_count
             if self._prev_execution_count != current_exec_count:
                 self._prev_execution_count = current_exec_count
-                self.display_handle = display(trace, display_id=True)
-                self._traces_to_display = [trace]
+                if len(traces) == 1:
+                    self.display_handle = display(traces[0], display_id=True)
+                else:
+                    self.display_handle = display(
+                        {
+                            "application/databricks.mlflow.trace": serialize_trace_list(traces),
+                            "text/plain": traces.__repr__(),
+                        },
+                        display_id=True,
+                        raw=True,
+                    )
+                self._traces_to_display = traces
             else:
-                self._traces_to_display.append(trace)
+                self._traces_to_display.extend(traces)
                 self.display_handle.update(
                     {
                         "application/databricks.mlflow.trace": serialize_trace_list(
                             self._traces_to_display
                         ),
                         "text/plain": self._traces_to_display.__repr__(),
-                    }
+                    },
+                    raw=True,
                 )
         except Exception:
             pass
@@ -77,7 +88,7 @@ class InMemoryTraceClient(TraceClient):
     def log_trace(self, trace: Trace):
         with self._lock:
             self.queue.append(trace)
-        self._display_trace(trace)
+        self._display_traces([trace])
 
     def get_traces(self, n: Optional[int] = 10) -> List[Trace]:
         """
@@ -91,7 +102,10 @@ class InMemoryTraceClient(TraceClient):
         """
         with self._lock:
             trace_list = list(self.queue)
-        return trace_list if n is None else trace_list[-n:]
+
+        traces = trace_list if n is None else trace_list[-n:]
+        self._display_traces(traces)
+        return traces
 
     def get_trace(self, request_id: str) -> Optional[Trace]:
         """
