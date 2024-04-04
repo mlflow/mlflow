@@ -204,7 +204,21 @@ class TrackingServiceClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id):
+    def get_trace(self, request_id) -> Trace:
+        """
+        Get the trace matching the ``request_id``.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
+        """
+        trace_info = self._get_trace_info(request_id)
+        trace_data = self._download_trace_data(request_id)
+        return Trace(trace_info, trace_data)
+
+    def _get_trace_info(self, request_id):
         """
         Get the trace matching the `request_id`.
 
@@ -632,7 +646,7 @@ class TrackingServiceClient:
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo_for_trace(self, request_id):
-        trace_info = self.get_trace_info(request_id)
+        trace_info = self._get_trace_info(request_id)
         artifact_uri = next(v for k, v in trace_info.tags.items() if k == "mlflow.artifactLocation")
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
