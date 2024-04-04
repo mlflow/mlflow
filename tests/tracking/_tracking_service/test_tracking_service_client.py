@@ -119,3 +119,49 @@ def test_upload_trace_data(tmp_path):
         client._upload_trace_data(request_id="test", trace_data=TraceData())
         mock_get_trace_info.assert_called_once()
         mock_upload_trace_data.assert_called_once()
+
+
+def test_search_traces(tmp_path):
+    client = TrackingServiceClient(tmp_path.as_uri())
+    with mock.patch.object(
+        client,
+        "_search_traces",
+        side_effect=[
+            (
+                [
+                    TraceInfo(
+                        request_id="test",
+                        experiment_id="test",
+                        timestamp_ms=0,
+                        execution_time_ms=0,
+                        status=SpanStatus(TraceStatus.OK),
+                        request_metadata={},
+                        tags={"mlflow.artifactLocation": "test"},
+                    )
+                ],
+                "token",
+            ),
+            (
+                [
+                    TraceInfo(
+                        request_id="test",
+                        experiment_id="test",
+                        timestamp_ms=1,
+                        execution_time_ms=1,
+                        status=SpanStatus(TraceStatus.OK),
+                        request_metadata={},
+                        tags={"mlflow.artifactLocation": "test"},
+                    )
+                ],
+                None,
+            ),
+        ],
+    ) as mock_search_traces, mock.patch.object(
+        client,
+        "_download_trace_data",
+        side_effect=[Exception("error"), TraceData()],
+    ) as mock_download_trace_data:
+        res = client.search_traces(experiment_ids=["0"], max_results=1)
+        assert len(res) == 1
+        assert mock_search_traces.call_count == 2
+        assert mock_download_trace_data.call_count == 2

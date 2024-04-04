@@ -217,6 +217,22 @@ class TrackingServiceClient:
         """
         return self.store.get_trace_info(request_id)
 
+    def _search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        return self.store.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
     def search_traces(
         self,
         experiment_ids: List[str],
@@ -240,7 +256,7 @@ class TrackingServiceClient:
         remaining = max_results
         token = page_token
         while len(traces) < max_results:
-            trace_infos, token = self.store.search_traces(
+            trace_infos, token = self._search_traces(
                 experiment_ids=experiment_ids,
                 filter_string=filter_string,
                 max_results=remaining,
