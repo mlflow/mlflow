@@ -83,7 +83,7 @@ export const ModelVersionTable = ({
   modelEntity,
   onMetadataUpdated,
   usingNextModelsUI,
-  aliases,
+  aliases
 }: ModelVersionTableProps) => {
   const aliasesByVersion = useMemo(() => {
     const result: Record<string, string[]> = {};
