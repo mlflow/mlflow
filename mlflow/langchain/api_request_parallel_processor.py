@@ -111,7 +111,7 @@ class _ChatChoice(pydantic.BaseModel, extra="forbid"):
 class _ChatChoiceDelta(pydantic.BaseModel):
     index: int
     finish_reason: Optional[str] = None
-    delta: _ChatDeltaMessage = None
+    delta: Optional[_ChatDeltaMessage] = None
 
 
 class _ChatUsage(pydantic.BaseModel, extra="forbid"):
@@ -369,6 +369,8 @@ class APIRequest:
     def _try_transform_response_iter_to_chat_format(chunk_iter):
         from langchain_core.messages.ai import AIMessageChunk
 
+        is_pydantic_v1 = Version(pydantic.__version__) < Version("2.0")
+
         def _gen_converted_chunk(message_content, finish_reason):
             transformed_response = _ChatChunkResponse(
                 id=None,
@@ -386,7 +388,7 @@ class APIRequest:
                 ],
             )
 
-            if Version(pydantic.__version__) < Version("2.0"):
+            if is_pydantic_v1:
                 return json.loads(transformed_response.json())
             else:
                 return transformed_response.model_dump(mode="json")
@@ -397,8 +399,9 @@ class APIRequest:
                 finish_reason = None
             elif isinstance(chunk, AIMessageChunk):
                 message_content = chunk.content
-                if hasattr(chunk, "response_metadata"):
-                    finish_reason = chunk.response_metadata.get("finish_reason")
+
+                if response_metadata := getattr(chunk, "response_metadata", None):
+                    finish_reason = response_metadata.get("finish_reason")
                 else:
                     finish_reason = None
             elif isinstance(chunk, AIMessage):
@@ -410,12 +413,7 @@ class APIRequest:
                 return chunk
             return _gen_converted_chunk(message_content, finish_reason=finish_reason)
 
-        def _result_gen_fn():
-            for chunk in chunk_iter:
-                converted_chunk = _convert(chunk)
-                yield converted_chunk
-
-        return _result_gen_fn()
+        return map(_convert, chunk_iter)
 
     @staticmethod
     def _get_lc_model_input_fields(lc_model) -> Set:
@@ -531,9 +529,6 @@ def process_stream_request(
             f"Model {lc_model.__class__.__name__} does not support streaming prediction output."
         )
 
-    results = []
-    errors = {}
-
     (
         converted_chat_requests,
         did_perform_chat_conversion,
@@ -543,8 +538,8 @@ def process_stream_request(
         index=0,
         lc_model=lc_model,
         request_json=converted_chat_requests,
-        results=results,
-        errors=errors,
+        results=None,
+        errors=None,
         convert_chat_responses=convert_chat_responses,
         did_perform_chat_conversion=did_perform_chat_conversion,
         stream=True,

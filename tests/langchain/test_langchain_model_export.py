@@ -2706,13 +2706,25 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
     assert callback_handler1.num_llm_start_calls == 0
     assert callback_handler2.num_llm_start_calls == 0
 
-    assert list(
-        pyfunc_loaded_model._model_impl._predict_stream_with_callbacks(
-            {"industry": "tech"},
-            callback_handlers=[callback_handler1, callback_handler2],
-        )
-    ) == ["Da", "tab", "ricks"]
+    stream = pyfunc_loaded_model._model_impl._predict_stream_with_callbacks(
+        {"industry": "tech"},
+        callback_handlers=[callback_handler1, callback_handler2],
+    )
+    assert list(stream) == ["Da", "tab", "ricks"]
 
     # Test that the callback handlers were called
     assert callback_handler1.num_llm_start_calls == 1
     assert callback_handler2.num_llm_start_calls == 1
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_langchain_model_not_streamable():
+    model = create_openai_llmchain()
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    with pytest.raises(MlflowException, match="This model does not support predict_stream method"):
+        loaded_model.predict_stream({"product": "shoe"})
