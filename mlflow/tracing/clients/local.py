@@ -6,6 +6,7 @@ from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
 from mlflow.tracing.display import get_display_handler
+from mlflow.tracking.client import MlflowClient
 
 
 class InMemoryTraceClient(TraceClient):
@@ -66,3 +67,16 @@ class InMemoryTraceClient(TraceClient):
 
     def _flush(self):
         self.queue.clear()
+
+
+class InMemoryTraceClientWithTracking(InMemoryTraceClient):
+    """
+    TODO: Add docstring
+    """
+
+    def log_trace(self, trace: Trace):
+        super().log_trace(trace)
+
+        client = MlflowClient()
+        client._create_trace_info(trace.trace_info)
+        client._upload_trace_data(trace.trace_info.request_id, trace.trace_data)

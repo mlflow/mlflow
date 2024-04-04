@@ -1,8 +1,13 @@
 from mlflow.tracing.clients.base import TraceClient
-from mlflow.tracing.clients.local import InMemoryTraceClient
+from mlflow.tracing.clients.local import InMemoryTraceClient, InMemoryTraceClientWithTracking
 
-__all__ = ["InMemoryTraceClient", "TraceClient", "get_trace_client"]
+__all__ = [
+    "InMemoryTraceClient",
+    "InMemoryTraceClientWithTracking",
+    "TraceClient",
+    "get_trace_client",
+]
 
 
 def get_trace_client() -> TraceClient:
-    return InMemoryTraceClient.get_instance()
+    return InMemoryTraceClientWithTracking.get_instance()
