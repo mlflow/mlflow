@@ -277,7 +277,7 @@ class TrackingServiceClient:
             with ThreadPoolExecutor() as executor:
                 traces.extend(t for t in executor.map(fn, trace_infos) if t)
 
-            if token is None:
+            if not token:
                 break
 
             remaining = max_results - len(traces)
