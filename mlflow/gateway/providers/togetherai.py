@@ -2,12 +2,15 @@ import json
 from typing import Any, AsyncGenerator, AsyncIterable, Dict
 
 from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import RouteConfig, TogetherAIConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import chat as chat_schema
+from mlflow.gateway.schemas import completions as completions_schema
+from mlflow.gateway.schemas import embeddings as embeddings_schema
 from mlflow.gateway.utils import strip_sse_prefix
 
 
@@ -49,16 +52,16 @@ class TogetherAIAdapter(ProviderAdapter):
         #  "request_id": "840fc1b5bb2830cb-SEA"
         # }
         # ```
-        return embeddings.ResponsePayload(
+        return embeddings_schema.ResponsePayload(
             data=[
-                embeddings.EmbeddingObject(
+                embeddings_schema.EmbeddingObject(
                     embedding=item["embedding"],
                     index=item["index"],
                 )
                 for item in resp["data"]
             ],
             model=config.model.name,
-            usage=embeddings.EmbeddingsUsage(prompt_tokens=None, total_tokens=None),
+            usage=embeddings_schema.EmbeddingsUsage(prompt_tokens=None, total_tokens=None),
         )
 
     @classmethod
@@ -81,19 +84,19 @@ class TogetherAIAdapter(ProviderAdapter):
         #  "object": "text_completion"
         # }
 
-        return completions.ResponsePayload(
+        return completions_schema.ResponsePayload(
             id=resp["id"],
             created=resp["created"],
             model=config.model.name,
             choices=[
-                completions.Choice(
+                completions_schema.Choice(
                     index=idx,
                     text=c["text"],
                     finish_reason=None,
                 )
                 for idx, c in enumerate(resp["choices"])
             ],
-            usage=completions.CompletionsUsage(
+            usage=completions_schema.CompletionsUsage(
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 completion_tokens=resp["usage"]["completion_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
@@ -116,20 +119,20 @@ class TogetherAIAdapter(ProviderAdapter):
         #   {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' "', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 345, 'content': ' "'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
         # "{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': 'name', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 861, 'content': 'name'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
 
-        ## LAST CHUNK
+        # LAST CHUNK
         # name{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '":', 'logprobs': None, 'finish_reason': 'length', 'delta': {'token_id': 1264, 'content': '":'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': {'prompt_tokens': 17, 'completion_tokens': 200, 'total_tokens': 217}}
         # ":[DONE]
 
-        return completions.StreamResponsePayload(
+        return completions_schema.StreamResponsePayload(
             id=resp.get("id"),
             created=resp.get("created"),
             model=config.model.name,
             choices=[
-                completions.StreamChoice(
+                completions_schema.StreamChoice(
                     index=idx,
                     # TODO this is questionable since the finish reason comes from togetherai api
                     finish_reason=choice.get("finish_reason"),
-                    delta=completions.StreamDelta(role=None, content=choice.get("text")),
+                    delta=completions_schema.StreamDelta(role=None, content=choice.get("text")),
                 )
                 for idx, choice in enumerate(resp.get("choices", []))
             ],
@@ -144,56 +147,46 @@ class TogetherAIAdapter(ProviderAdapter):
     @classmethod
     def completions_to_model(cls, payload, config):
         key_mapping = {
+            # Parameter that share common names or functionalities in OpenAI and TogetherAI
+            # TogetherAI parameter range for repetition penalty
             # repetition_penalty (-3.402823669209385e+38, 3.402823669209385e+38)
+            # OpenAI parameter range for frequency penalty and presence penalty
             # frequency_penalty (-2.0, 2.0)
             # presence_penalty (-2.0, 2.0)
             "frequency_penalty": "repetition_penalty",
+            # OpenAI parameter range for top_logprobs
             # top_logprobs (0, 20)
+            # TogetherAI parameter range for logprobs
             # logprobs (-2147483648,2147483648)
             "top_logprobs": "logprobs",
         }
+        # if user tries to use the OpenAI api format
+        # logprobs parameter in OpenAI is a boolean flag
+        # if logprobs is present in the payload top_logprobs should be specified
+        # condition one: check if logprobs is in payload
+        # if it is check if its set to true, since its boolean
+        logprobs_in_payload_condition = (
+            "logprobs" in payload and isinstance(payload["logprobs"], bool) and payload["logprobs"]
+        )
+        # if the above are true then top_logprobs should contain a value
+        # if it's not, it's wrong and logprobs should have been specified to false
+        # taken by the API reference (https://platform.openai.com/docs/api-reference/chat/create)
+        openai_logprobs_condition = logprobs_in_payload_condition and (
+            "top_logprobs" not in payload or not payload["top_logprobs"]
+        )
 
-        payload = rename_payload_keys(payload, key_mapping)
-
-        if "logprobs" in payload and payload["logprobs"] and "logprobs" not in payload:
+        if openai_logprobs_condition:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "Missing paramater in payload."
-                    "If flag logprobs parameter is set to True"
-                    "then logsprobs parameter must contain a value."
+                    "Missing parameter in payload. "
+                    "If flag logprobs parameter is set to True, "
+                    "then top_logprobs parameter must contain a value."
                 ),
             )
 
-        # TODO maybe let the api service handle these internally?
-
-        if "logitbias" in payload:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Invalid parameter in payload."
-                    "Parameter logitbias is not supported for togetherai."
-                ),
-            )
-
-        if "seed" in payload:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Invalid parameter in payload." "Parameter seed is not suuported of togetherai."
-                ),
-            )
-
-        if "presence_penalty" in payload:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Invalid parameter in payload."
-                    "Parameter presence_penalty is not supported for togetherai."
-                ),
-            )
-
-        return payload
+        # top_logprobs will get renamed to logprobs
+        return rename_payload_keys(payload, key_mapping)
 
     @classmethod
     def completions_streaming_to_model(cls, payload, config):
@@ -222,15 +215,15 @@ class TogetherAIAdapter(ProviderAdapter):
         #   "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         #   "object": "chat.completion"
         # }
-        return chat.ResponsePayload(
+        return chat_schema.ResponsePayload(
             id=resp["id"],
             object="chat.completion",
             created=resp["created"],
             model=config.model.name,
             choices=[
-                chat.Choice(
+                chat_schema.Choice(
                     index=idx,
-                    message=chat.ResponseMessage(
+                    message=chat_schema.ResponseMessage(
                         role="assistant",
                         content=c["message"]["content"],
                     ),
@@ -238,7 +231,7 @@ class TogetherAIAdapter(ProviderAdapter):
                 )
                 for idx, c in enumerate(resp["choices"])
             ],
-            usage=chat.ChatUsage(
+            usage=chat_schema.ChatUsage(
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 completion_tokens=resp["usage"]["completion_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
@@ -247,28 +240,23 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
-        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" According","logprobs":null,"finish_reason":null,"delta":{"token_id":6586,"content":" According"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" to","logprobs":null,"finish_reason":null,"delta":{"token_id":298,"content":" to"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" the","logprobs":null,"finish_reason":null,"delta":{"token_id":272,"content":" the"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" Econom","logprobs":null,"finish_reason":null,"delta":{"token_id":11003,"content":" Econom"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"ist","logprobs":null,"finish_reason":null,"delta":{"token_id":392,"content":"ist"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Intelligence","logprobs":null,"finish_reason":null,"delta":{"token_id":23091,"content":" Intelligence"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Unit","logprobs":null,"finish_reason":null,"delta":{"token_id":13332,"content":" Unit"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" World","logprobs":null,"finish_reason":null,"delta":{"token_id":3304,"content":" World"}}],"model":"mistr'
-        # b'alai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"wide","logprobs":null,"finish_reason":null,"delta":{"token_id":5734,"content":"wide"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Cost","logprobs":null,"finish_reason":null,"delta":{"token_id":9319,"content":" Cost"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" of","logprobs":null,"finish_reason":null,"delta":{"token_id":302,"content":" of"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Living","logprobs":null,"finish_reason":null,"delta":{"token_id":16303,"content":" Living"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Survey","logprobs":null,"finish_reason":null,"delta":{"token_id":24004,"content":" Survey"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" in","logprobs":null,"finish_reason":null,"delta":{"token_id":297,"content":" in"}}],"model":"mistralai/Mixtral-8x'
-        # b'7B-v0.1","usage":null}\n\n'
-        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" ","logprobs":null,"finish_reason":null,"delta":{"token_id":28705,"content":" "}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"2","logprobs":null,"finish_reason":null,"delta":{"token_id":28750,"content":"2"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"0","logprobs":null,"finish_reason":"length","delta":{"token_id":28734,"content":"0"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":{"prompt_tokens":93,"completion_tokens":200,"total_tokens":293}}\n\n'
-        # b'data: [DONE]\n\n'
+        # Response example (after running API manually):
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' The', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 415, 'content': ' The'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' City', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 3805, 'content': ' City'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' of', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 302, 'content': ' of'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' Paris', 'logprobs': None, 'finish_reason': 'length', 'delta': {'token_id': 5465, 'content': ' Paris'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': {'prompt_tokens': 93, 'completion_tokens': 100, 'total_tokens': 193}}
 
-        return chat.StreamResponsePayload(
+        return chat_schema.StreamResponsePayload(
             id=resp["id"],
             model=config.model.name,
             object="chat.completion.chunk",
             created=resp["created"],
             choices=[
-                chat.StreamChoice(
+                chat_schema.StreamChoice(
                     index=idx,
                     # TODO: is this a good idea? This comes from the TogetherAI API
                     finish_reason=choice.get("finish_reason"),
-                    delta=chat.StreamDelta(
+                    delta=chat_schema.StreamDelta(
                         role=None,
                         content=choice.get("text"),
                     ),
@@ -281,15 +269,6 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def chat_to_model(cls, payload, config):
-        if "prompt" in payload:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Parameter prompt used in chat endpoint."
-                    "You should provide a list of messages, meaning the conversation so far."
-                ),
-            )
-
         # completions and chat endpoint contain the same parameters
         return TogetherAIAdapter.completions_to_model(payload, config)
 
@@ -357,9 +336,9 @@ class TogetherAIProvider(BaseProvider):
             payload=payload,
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
+    async def embeddings(
+        self, payload: embeddings_schema.RequestPayload
+    ) -> embeddings_schema.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
 
         resp = await self._request(
@@ -372,13 +351,9 @@ class TogetherAIProvider(BaseProvider):
 
         return TogetherAIAdapter.model_to_embeddings(resp, self.config)
 
-    # WARNING CHANGING THE ORDER OF METHODS HERE FOR SOME REASON CAUSES AN ERROR
-    # completions MODULE IS INTERPERTED AS THE completions function
     async def completions_stream(
-        self, payload: completions.RequestPayload
-    ) -> AsyncIterable[completions.StreamResponsePayload]:
-        from fastapi.encoders import jsonable_encoder
-
+        self, payload: completions_schema.RequestPayload
+    ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
         payload = jsonable_encoder(payload, exclude_none=True)
 
         stream = await self._stream_request(
@@ -401,9 +376,9 @@ class TogetherAIProvider(BaseProvider):
             resp = json.loads(chunk)
             yield TogetherAIAdapter.model_to_completions_streaming(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
+    async def completions(
+        self, payload: completions_schema.RequestPayload
+    ) -> completions_schema.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
 
         resp = await self._request(
@@ -416,9 +391,7 @@ class TogetherAIProvider(BaseProvider):
 
         return TogetherAIAdapter.model_to_completions(resp, self.config)
 
-    async def chat_stream(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
+    async def chat_stream(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
 
         stream = await self._stream_request(
@@ -441,9 +414,7 @@ class TogetherAIProvider(BaseProvider):
             resp = json.loads(chunk)
             yield TogetherAIAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
+    async def chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
 
         resp = await self._request(
