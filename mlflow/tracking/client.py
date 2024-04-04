@@ -30,7 +30,6 @@ from mlflow.entities import (
     SpanStatus,
     SpanType,
     Trace,
-    TraceInfo,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel

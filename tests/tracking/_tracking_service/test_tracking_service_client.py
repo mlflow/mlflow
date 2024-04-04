@@ -88,7 +88,7 @@ def test_download_trace_data(tmp_path):
     )
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._get_trace_info",
-        return_value=trace_info
+        return_value=trace_info,
     ) as mock_get_trace_info, mock.patch(
         "mlflow.store.artifact.artifact_repo.ArtifactRepository.download_trace_data",
         return_value={"spans": []},
@@ -115,7 +115,7 @@ def test_upload_trace_data(tmp_path):
     )
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._get_trace_info",
-        return_value=trace_info
+        return_value=trace_info,
     ) as mock_get_trace_info, mock.patch(
         "mlflow.store.artifact.artifact_repo.ArtifactRepository.upload_trace_data",
     ) as mock_upload_trace_data:

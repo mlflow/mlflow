@@ -64,7 +64,9 @@ def mock_store():
 
 @pytest.fixture
 def mock_artifact_repo():
-    with mock.patch("mlflow.tracking._tracking_service.client.get_artifact_repository") as mock_get_repo:
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.get_artifact_repository"
+    ) as mock_get_repo:
         yield mock_get_repo.return_value
 
 
@@ -179,6 +181,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     MlflowClient().get_trace("1234567")
     mock_store.get_trace_info.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_called_once()
+
 
 def test_client_search_traces(mock_store, mock_artifact_repo):
     mock_traces = [
