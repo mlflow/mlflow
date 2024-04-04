@@ -18,10 +18,10 @@ from mlflow.entities import (
     RunTag,
     TraceData,
     ViewType,
-    trace_info,
 )
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -225,7 +225,7 @@ class TrackingServiceClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Trace]:
-        def fn(trace_info: trace_info) -> Optional[TraceData]:
+        def fn(trace_info: TraceInfo) -> Optional[TraceData]:
             try:
                 trace_data = self._download_trace_data(trace_info.request_id)
             except Exception:
