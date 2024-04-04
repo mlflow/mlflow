@@ -41,6 +41,7 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SetExperimentTag,
     SetTag,
+    SetTraceTag,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -593,4 +594,27 @@ def test_delete_traces():
             request_ids=request.request_ids,
         )
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
+        assert res is None
+
+
+def test_delete_traces():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    request_id = "tr-1234"
+    request = SetTraceTag(
+        key="k",
+        value="v",
+    )
+    response.text = "{}"
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.set_trace_tag(
+            request_id=request_id,
+            key=request.key,
+            value=request.value,
+        )
+        _verify_requests(
+            mock_http, creds, f"traces/{request_id}/tags", "PATCH", message_to_json(request)
+        )
         assert res is None
