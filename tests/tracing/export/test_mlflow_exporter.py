@@ -127,8 +127,7 @@ def test_deduplicate_span_names():
     ]
 
     trace_data = TraceData(spans=spans)
-    exporter = MlflowSpanExporter(MagicMock())
-    exporter._deduplicate_span_names_in_place(trace_data)
+    MlflowSpanExporter._deduplicate_span_names_in_place(trace_data)
 
     assert [span.name for span in trace_data.spans] == [
         "red_1",
@@ -144,7 +143,5 @@ def test_deduplicate_span_names():
 
 def test_deduplicate_span_names_empty_spans():
     trace_data = TraceData(spans=[])
-    exporter = MlflowSpanExporter(MagicMock())
-    exporter._deduplicate_span_names_in_place(trace_data)
-
+    MlflowSpanExporter._deduplicate_span_names_in_place(trace_data)
     assert trace_data.spans == []

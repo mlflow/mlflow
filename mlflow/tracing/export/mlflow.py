@@ -84,7 +84,7 @@ class MlflowSpanExporter(SpanExporter):
         )
 
         # Rename spans to have unique names
-        self._deduplicate_span_names_in_place(trace.trace_data)
+        MlflowSpanExporter._deduplicate_span_names_in_place(trace.trace_data)
 
         # TODO: Make this async
         self._client.log_trace(trace)
