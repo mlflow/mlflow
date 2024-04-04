@@ -624,6 +624,12 @@ class TrackingServiceClient:
         """
         self.store.delete_run(run_id)
 
+    def delete_runs(self, run_ids):
+        """
+        Deletes runs with the given IDs.
+        """
+        self.store.delete_runs(run_ids)
+
     def restore_run(self, run_id):
         """
         Restores a deleted run with the given ID.

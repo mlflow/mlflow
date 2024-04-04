@@ -10,7 +10,7 @@ from typing import List, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, func, sql, text
+from sqlalchemy import and_, func, text
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -146,9 +146,9 @@ class SqlAlchemyStore(AbstractStore):
                 # inefficiency from multiple threads waiting for the lock to check for engine
                 # existence if it has already been created.
                 if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
-                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[
-                        db_uri
-                    ] = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri] = (
+                        mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    )
         self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
@@ -655,6 +655,15 @@ class SqlAlchemyStore(AbstractStore):
             run.deleted_time = get_current_time_millis()
             session.add(run)
 
+    def delete_runs(self, run_ids):
+        with self.ManagedSessionMaker() as session:
+            conditions = SqlRun.run_uuid.in_(run_ids)
+            runs = session.query(SqlRun).filter(conditions).all()
+            for run in runs:
+                run.lifecycle_stage = LifecycleStage.DELETED
+                run.deleted_time = get_current_time_millis()
+                session.add(run)
+
     def _hard_delete_run(self, run_id):
         """
         Permanently delete a run (metadata and metrics, tags, parameters).
@@ -1082,9 +1091,9 @@ class SqlAlchemyStore(AbstractStore):
                     old_value = existing_params[0]
                     if old_value != param.value:
                         raise MlflowException(
-                            "Changing param values is not allowed. Param with key='{}' was already"
-                            " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                            " '{}'.".format(param.key, old_value, run_id, param.value),
+                            f"Changing param values is not allowed. Param with key='{param.key}' was already"  # noqa: E501
+                            f" logged with value='{old_value}' for run ID='{run_id}'. Attempted logging new value"  # noqa: E501
+                            f" '{param.value}'.",
                             INVALID_PARAMETER_VALUE,
                         )
                 else:
@@ -1226,9 +1235,8 @@ class SqlAlchemyStore(AbstractStore):
                     # apply retry here.
                     if attempt_number > max_retries:
                         raise MlflowException(
-                            "Failed to set tags with given within {} retries. Keys: {}".format(
-                                max_retries, [t.key for t in tags]
-                            )
+                            "Failed to set tags with given within "
+                            f"{max_retries} retries. Keys: {[t.key for t in tags]}"
                         )
                     sleep_duration = (2**attempt_number) - 1
                     sleep_duration += random.uniform(0, 1)
@@ -1444,9 +1452,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             dataset_uuids = {}
             for existing_dataset in existing_datasets:
-                dataset_uuids[
-                    (existing_dataset.name, existing_dataset.digest)
-                ] = existing_dataset.dataset_uuid
+                dataset_uuids[(existing_dataset.name, existing_dataset.digest)] = (
+                    existing_dataset.dataset_uuid
+                )
 
             # collect all objects to write to DB in a single list
             objs_to_write = []
@@ -1455,9 +1463,9 @@ class SqlAlchemyStore(AbstractStore):
             for dataset_input in dataset_inputs:
                 if (dataset_input.dataset.name, dataset_input.dataset.digest) not in dataset_uuids:
                     new_dataset_uuid = uuid.uuid4().hex
-                    dataset_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_dataset_uuid
+                    dataset_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_dataset_uuid
+                    )
                     objs_to_write.append(
                         SqlDataset(
                             dataset_uuid=new_dataset_uuid,
@@ -1483,9 +1491,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             input_uuids = {}
             for existing_input in existing_inputs:
-                input_uuids[
-                    (existing_input.source_id, existing_input.destination_id)
-                ] = existing_input.input_uuid
+                input_uuids[(existing_input.source_id, existing_input.destination_id)] = (
+                    existing_input.input_uuid
+                )
 
             # add input edges to objs_to_write
             for dataset_input in dataset_inputs:
@@ -1494,9 +1502,9 @@ class SqlAlchemyStore(AbstractStore):
                 ]
                 if (dataset_uuid, run_id) not in input_uuids:
                     new_input_uuid = uuid.uuid4().hex
-                    input_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_input_uuid
+                    input_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_input_uuid
+                    )
                     objs_to_write.append(
                         SqlInput(
                             input_uuid=new_input_uuid,

@@ -30,10 +30,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import (
-    MAX_METRICS_PER_BATCH,
-    MAX_PARAMS_TAGS_PER_BATCH,
-)
+from mlflow.utils.validation import MAX_METRICS_PER_BATCH, MAX_PARAMS_TAGS_PER_BATCH
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
@@ -682,6 +679,19 @@ def test_start_deleted_run():
     with pytest.raises(MlflowException, match="because it is in the deleted state."):
         with mlflow.start_run(run_id=run_id):
             pass
+    assert mlflow.active_run() is None
+
+
+def test_start_deleted_runs():
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as active_run:
+            run_ids.append(active_run.info.run_id)
+    tracking.MlflowClient().delete_runs(run_ids)
+    for run_id in run_ids:
+        with pytest.raises(MlflowException, match="because it is in the deleted state."):
+            with mlflow.start_run(run_id=run_id):
+                pass
     assert mlflow.active_run() is None
 
 

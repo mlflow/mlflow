@@ -76,10 +76,7 @@ from mlflow.utils.name_utils import _generate_random_name, _generate_unique_inte
 from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import (
-    append_to_uri_path,
-    resolve_uri_if_local,
-)
+from mlflow.utils.uri import append_to_uri_path, resolve_uri_if_local
 from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_batch_log_limits,
@@ -530,6 +527,20 @@ class FileStore(AbstractStore):
             )
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
+
+    def delete_runs(self, run_ids):
+        for run_id in run_ids:
+            try:
+                run_info = self._get_run_info(run_id)
+                if run_info is None:
+                    raise MlflowException(
+                        f"Run '{run_id}' metadata is in invalid state.",
+                        databricks_pb2.INVALID_STATE,
+                    )
+                new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
+                self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
+            except Exception as e:
+                logging.error(f"Failed to delete run '{run_id}': {str(e)!s}")
 
     def _hard_delete_run(self, run_id):
         """

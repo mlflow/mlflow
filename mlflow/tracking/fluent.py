@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -33,10 +34,7 @@ from mlflow.environment_variables import (
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
-)
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
@@ -1777,6 +1775,39 @@ def delete_run(run_id: str) -> None:
 
     """
     MlflowClient().delete_run(run_id)
+
+
+def delete_runs(run_ids: List[str]) -> None:
+    """
+    Deletes runs with the given IDs.
+
+    Args:
+        run_ids: List of unique run ids to delete.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        run_ids = []
+        for _ in range(2):
+            with mlflow.start_run() as run:
+                mlflow.log_param("p", 0)
+                run_ids.append(run.info.run_id)
+
+        mlflow.delete_runs(run_ids)
+
+        lifecycle_stages = [mlflow.get_run(run_id).info.lifecycle_stage for run_id in run_ids]
+        print(f"run_ids: {run_ids}; lifecycle_stages: {lifecycle_stages}")
+
+    .. code-block:: text
+        :caption: Output
+
+        run_ids = ['45f4af3e6fd349e58579b27fcb0b8277', 'b71d7a1851324f7094e8d5014c58c8c9']
+        lifecycle_stages = ['deleted', 'deleted']
+
+    """
+    MlflowClient().delete_runs(run_ids)
 
 
 def get_artifact_uri(artifact_path: Optional[str] = None) -> str:

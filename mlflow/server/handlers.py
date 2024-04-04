@@ -69,6 +69,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteExperiment,
     DeleteRun,
+    DeleteRuns,
     DeleteTag,
     GetExperiment,
     GetExperimentByName,
@@ -312,6 +313,12 @@ def initialize_backend_stores(
 
 def _assert_string(x):
     assert isinstance(x, str)
+
+
+def _assert_list_of_strings(x):
+    assert isinstance(x, list)
+    for item in x:
+        _assert_string(item)
 
 
 def _assert_intlike(x):
@@ -765,6 +772,18 @@ def _delete_run():
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_runs():
+    request_message = _get_request_message(
+        DeleteRuns(), schema={"run_id": [_assert_required, _assert_list_of_strings]}
+    )
+    _get_tracking_store().delete_runs(request_message.run_id)
+    response_message = DeleteRuns.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
 
 
 @catch_mlflow_exception
@@ -2316,6 +2335,7 @@ HANDLERS = {
     CreateRun: _create_run,
     UpdateRun: _update_run,
     DeleteRun: _delete_run,
+    DeleteRuns: _delete_runs,
     RestoreRun: _restore_run,
     LogParam: _log_param,
     LogMetric: _log_metric,
