@@ -139,7 +139,7 @@ def test_search_traces(tmp_path):
                         tags={"mlflow.artifactLocation": "test"},
                     )
                 ],
-                "token",
+                "token1",
             ),
             (
                 [
@@ -153,7 +153,7 @@ def test_search_traces(tmp_path):
                         tags={"mlflow.artifactLocation": "test"},
                     )
                 ],
-                None,
+                "token2",
             ),
         ],
     ) as mock_search_traces, mock.patch.object(
@@ -163,5 +163,6 @@ def test_search_traces(tmp_path):
     ) as mock_download_trace_data:
         res = client.search_traces(experiment_ids=["0"], max_results=1)
         assert len(res) == 1
+        assert res.token == "token2"
         assert mock_search_traces.call_count == 2
         assert mock_download_trace_data.call_count == 2
