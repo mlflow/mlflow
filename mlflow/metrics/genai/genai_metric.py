@@ -18,7 +18,7 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
 
 if TYPE_CHECKING:
@@ -56,6 +56,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 
 
 # Function to extract Score and Justification
+@developer_stable
 def _extract_score_and_justification(text):
     if text:
         text = re.sub(r"score", "score", text, flags=re.IGNORECASE)
