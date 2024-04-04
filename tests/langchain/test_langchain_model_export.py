@@ -6,7 +6,7 @@ import shutil
 import sqlite3
 from contextlib import contextmanager
 from operator import itemgetter
-from typing import Any, DefaultDict, Dict, List, Mapping, Optional
+from typing import Any, DefaultDict, Dict, Iterator, List, Mapping, Optional
 from unittest import mock
 
 import langchain
@@ -2547,8 +2547,6 @@ def test_config_path_context():
 
 
 def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
-    from typing import Iterator
-
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
     from langchain.schema.messages import AIMessageChunk, BaseMessage
