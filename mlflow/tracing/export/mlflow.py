@@ -110,12 +110,13 @@ class MlflowSpanExporter(SpanExporter):
             serialized = serialized[:trunc_length] + TRUNCATION_SUFFIX
         return serialized
 
-    def _deduplicate_span_names_in_place(self, trace_data: TraceData):
+    @staticmethod
+    def _deduplicate_span_names_in_place(trace_data: TraceData):
         """
         Deduplicate span names in the trace data by appending an index number to the span name.
 
-        This is only applied when there are more than one span with the same name. The span
-        names are modified in place to avoid unnecessary copying.
+        This is only applied when there are multiple spans with the same name. The span names
+        are modified in place to avoid unnecessary copying.
 
         E.g.
             ["red", "red"] -> ["red_1", "red_2"]
@@ -125,10 +126,10 @@ class MlflowSpanExporter(SpanExporter):
             trace_data: The trace data object to deduplicate span names.
         """
         span_name_counter = Counter(span.name for span in trace_data.spans)
-        # Filter to only duplicated spans
-        span_name_counter = {name: count for name, count in span_name_counter.items() if count > 1}
+        # Apply renaming only for duplicated spans
+        span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
         # Add index to the duplicated span names
-        for span in trace_data.spans[::-1]:
+        for span in trace_data.spans:
             if count := span_name_counter.get(span.name):
-                span_name_counter[span.name] -= 1
+                span_name_counter[span.name] += 1
                 span.name = f"{span.name}_{count}"

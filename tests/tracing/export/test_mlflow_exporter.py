@@ -114,18 +114,18 @@ def test_serialize_inputs_outputs():
 def test_deduplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
-    spans = []
-    for i, span_name in enumerate(span_names):
-        spans.append(
-            Span(
-                name=span_name,
-                context=SpanContext("trace_id", span_id=i),
-                parent_span_id=None,
-                status=SpanStatus(TraceStatus.OK),
-                start_time=0,
-                end_time=1,
-            )
+    spans = [
+        Span(
+            name=span_name,
+            context=SpanContext("trace_id", span_id=i),
+            parent_span_id=None,
+            status=SpanStatus(TraceStatus.OK),
+            start_time=0,
+            end_time=1,
         )
+        for i, span_name in enumerate(span_names)
+    ]
+
     trace_data = TraceData(spans=spans)
     exporter = MlflowSpanExporter(MagicMock())
     exporter._deduplicate_span_names_in_place(trace_data)
