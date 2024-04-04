@@ -2566,5 +2566,9 @@ def test_runnable_with_message_history_predict():
             code_paths=[],
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # functionally an assert that the params were passed, as RunnableWithMessageHistory throws
+    # an error if the expected configurable fields are not passed
     result = loaded_model.predict([input_example], params_example)
+
     assert result == [TEST_CONTENT]
