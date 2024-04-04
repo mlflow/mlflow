@@ -1,6 +1,6 @@
 import logging
 from time import time_ns
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from opentelemetry import trace as trace_api
 
@@ -113,8 +113,19 @@ class MlflowSpanWrapper:
             return
         self._attributes[key] = value
 
-    def set_status(self, status: SpanStatus):
-        """Set the status of the span."""
+    def set_status(self, status: Union[SpanStatus, str]):
+        """
+        Set the status of the span.
+
+        Args:
+            status: The status of the span. This can be a
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
+                of the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                e.g. ``"OK"``, ``"ERROR"``.
+        """
+        if isinstance(status, str):
+            status = SpanStatus(status)
+
         # NB: We need to set the OpenTelemetry native StatusCode, because span's set_status
         #     method only accepts a StatusCode enum in their definition.
         #     https://github.com/open-telemetry/opentelemetry-python/blob/8ed71b15fb8fc9534529da8ce4a21e686248a8f3/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L949

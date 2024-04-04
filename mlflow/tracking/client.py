@@ -30,7 +30,6 @@ from mlflow.entities import (
     SpanStatus,
     SpanType,
     TraceInfo,
-    TraceStatus,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
@@ -600,7 +599,7 @@ class MlflowClient:
         request_id: str,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-        status: SpanStatus = SpanStatus(TraceStatus.OK),
+        status: Union[SpanStatus, str] = "OK",
     ):
         """
         End the trace with the given trace ID. This will end the root span of the trace and
@@ -616,7 +615,10 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the trace. If the trace already
                 has attributes, the new attributes will be merged with the existing ones.
                 If the same key already exists, the new value will overwrite the old one.
-            status: The status of the trace. The default status is OK.
+            status: The status of the trace. This can be a
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
+                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
         root_span_id = trace_manager.get_root_span_id(request_id)
@@ -780,7 +782,7 @@ class MlflowClient:
         span_id: str,
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Any] = None,
-        status: SpanStatus = SpanStatus(TraceStatus.OK),
+        status: Union[SpanStatus, str] = "OK",
     ):
         """
         End the span with the given trace ID and span ID.
@@ -792,7 +794,10 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span. If the span already has
                 attributes, the new attributes will be merged with the existing ones. If the same
                 key already exists, the new value will overwrite the old one.
-            status: The status of the span. The default status is OK.
+            status: The status of the span. This can be a
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
+                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
         span = trace_manager.get_span_from_id(request_id, span_id)

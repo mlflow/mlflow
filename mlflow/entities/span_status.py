@@ -46,7 +46,7 @@ class SpanStatus:
                 self.status_code = TraceStatus(self.status_code)
             except ValueError:
                 raise MlflowException(
-                    f"{self.status_code} is not a valid TraceStatus value."
+                    f"{self.status_code} is not a valid TraceStatus value. "
                     f"Please use one of {[status.value for status in TraceStatus]}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
