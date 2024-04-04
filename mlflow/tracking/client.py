@@ -29,7 +29,7 @@ from mlflow.entities import (
     RunTag,
     SpanStatus,
     SpanType,
-    TraceInfo,
+    Trace,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
@@ -436,15 +436,15 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id: str) -> TraceInfo:
+    def get_trace(self, request_id: str) -> Trace:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the specified ``request_id``.
 
         Args:
-            request_id: String id of the trace to fetch.
+            request_id: String ID of the trace to fetch.
 
         Returns:
-            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+            The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
 
         .. code-block:: python
             :caption: Example
@@ -453,9 +453,9 @@ class MlflowClient:
 
             client = MlflowClient()
             request_id = "12345678"
-            trace = client.get_trace_info(request_id)
+            trace = client.get_trace(request_id)
         """
-        return self._tracking_client.get_trace_info(request_id)
+        return self._tracking_client.get_trace(request_id)
 
     def search_traces(
         self,

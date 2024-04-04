@@ -17,6 +17,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     TraceData,
+    TraceInfo,
     ViewType,
 )
 from mlflow.entities.dataset_input import DatasetInput
@@ -204,17 +205,19 @@ class TrackingServiceClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id):
+    def get_trace(self, request_id) -> Trace:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the ``request_id``.
 
         Args:
             request_id: String id of the trace to fetch.
 
         Returns:
-            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        return self.store.get_trace_info(request_id)
+        trace_info = self.store.get_trace_info(request_id)
+        trace_data = self._download_trace_data(trace_info)
+        return Trace(trace_info, trace_data)
 
     def search_traces(
         self,
@@ -235,7 +238,7 @@ class TrackingServiceClient:
             traces = executor.map(
                 lambda ti: Trace(
                     trace_info=ti,
-                    trace_data=self._download_trace_data(ti.request_id),
+                    trace_data=self._download_trace_data(ti),
                 ),
                 trace_infos,
             )
@@ -631,8 +634,7 @@ class TrackingServiceClient:
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
-    def _get_artifact_repo_for_trace(self, request_id):
-        trace_info = self.get_trace_info(request_id)
+    def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
         artifact_uri = next(v for k, v in trace_info.tags.items() if k == "mlflow.artifactLocation")
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
@@ -673,12 +675,12 @@ class TrackingServiceClient:
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
-    def _download_trace_data(self, request_id: str) -> TraceData:
-        artifact_repo = self._get_artifact_repo_for_trace(request_id)
+    def _download_trace_data(self, trace_info: TraceInfo) -> TraceData:
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return TraceData.from_dict(artifact_repo.download_trace_data())
 
-    def _upload_trace_data(self, request_id: str, trace_data: TraceData) -> None:
-        artifact_repo = self._get_artifact_repo_for_trace(request_id)
+    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return artifact_repo.upload_trace_data(trace_data.to_dict())
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
