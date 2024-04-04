@@ -705,9 +705,8 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
-        # TODO: Q: shall we put `callback_handlers` in params ?
         if isinstance(data, list):
-            raise MlflowException("Langchain model predict_stream only supports single input.")
+            raise MlflowException("LangChain model predict_stream only supports single input.")
 
         data = _convert_ndarray_to_list(data)
         return process_stream_request(
@@ -739,7 +738,7 @@ class _LangChainModelWrapper:
         from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
         if isinstance(data, list):
-            raise MlflowException("Langchain model predict_stream only supports single input.")
+            raise MlflowException("LangChain model predict_stream only supports single input.")
 
         data = _convert_ndarray_to_list(data)
         return process_stream_request(
