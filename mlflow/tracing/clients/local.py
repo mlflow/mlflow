@@ -1,3 +1,4 @@
+import json
 import threading
 from collections import deque
 from trace import Trace
@@ -48,6 +49,9 @@ class InMemoryTraceClient(TraceClient):
             if get_ipython() is None:
                 return
 
+            def serialize_trace_list(traces: List[Trace]):
+                return json.dumps([json.loads(trace.to_json()) for trace in traces])
+
             # check the current exec count to know if the user is
             # running the command in a new cell or not. this is
             # useful because the user might generate multiple traces
@@ -56,8 +60,17 @@ class InMemoryTraceClient(TraceClient):
             if self._prev_execution_count != current_exec_count:
                 self._prev_execution_count = current_exec_count
                 self.display_handle = display(trace, display_id=True)
+                self._traces_to_display = [trace]
             else:
-                self.display_handle.update(trace)
+                self._traces_to_display.append(trace)
+                self.display_handle.update(
+                    {
+                        "application/databricks.mlflow.trace": serialize_trace_list(
+                            self._traces_to_display
+                        ),
+                        "text/plain": self._traces_to_display.__repr__(),
+                    }
+                )
         except Exception:
             pass
 
