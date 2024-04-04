@@ -378,7 +378,7 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
-    def create_trace(
+    def _create_trace_info(
         self,
         experiment_id,
         timestamp_ms,
@@ -387,7 +387,7 @@ class MlflowClient:
         request_metadata=None,
         tags=None,
     ):
-        """Create a trace object and log in the backend store.
+        """Create a TraceInfo object and log in the backend store.
 
         Args:
             experiment_id: String id of the experiment for this run.
@@ -399,24 +399,8 @@ class MlflowClient:
 
         Returns:
             :py:class:`mlflow.entities.TraceInfo` that was created.
-
-        .. code-block:: python
-            :caption: Example
-
-            from mlflow import MlflowClient
-
-            client = MlflowClient()
-            experiment_id = "12345678"
-            tags = {"engineering": "ML Platform"}
-            trace = client.create_trace(
-                experiment_id,
-                start_time=123,
-                end_time=567,
-                status="OK",
-                tags=tags,
-            )
         """
-        return self._tracking_client.create_trace(
+        return self._tracking_client.create_trace_info(
             experiment_id,
             timestamp_ms,
             execution_time_ms,

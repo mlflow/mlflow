@@ -201,7 +201,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateRun, req_body)
         return Run.from_proto(response_proto.run)
 
-    def create_trace(
+    def create_trace_info(
         self,
         experiment_id,
         timestamp_ms,
@@ -211,7 +211,7 @@ class RestStore(AbstractStore):
         tags,
     ):
         """
-        Create a trace under the specified experiment ID.
+        Create a TraceInfo object under the specified experiment ID.
 
         Args:
             experiment_id: String id of the experiment for this run.
@@ -222,7 +222,7 @@ class RestStore(AbstractStore):
             tags: tags of the trace.
 
         Returns:
-            The created Trace object
+            The created TraceInfo object
         """
         request_metadata_proto = []
         for key, value in request_metadata.items():
