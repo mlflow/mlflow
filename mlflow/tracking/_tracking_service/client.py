@@ -247,7 +247,7 @@ class TrackingServiceClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Trace]:
-        def fn(trace_info: TraceInfo) -> Optional[TraceData]:
+        def fn(trace_info: TraceInfo) -> Optional[Trace]:
             try:
                 trace_data = self._download_trace_data(trace_info)
             except Exception:
