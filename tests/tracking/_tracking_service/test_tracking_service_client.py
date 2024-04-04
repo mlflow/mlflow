@@ -12,7 +12,7 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._trackingZ_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
 
 
@@ -76,7 +76,7 @@ def test_artifact_repo_is_cached_per_run_id(tmp_path):
         assert artifact_repo is another_artifact_repo
 
 
-def test_download_trace_data(tmp_path):
+def test_download_trace_data(tmp_path, mock_store):
     trace_info = TraceInfo(
         request_id="test",
         experiment_id="test",
@@ -87,9 +87,6 @@ def test_download_trace_data(tmp_path):
         tags={"mlflow.artifactLocation": "test"},
     )
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._get_trace_info",
-        return_value=trace_info,
-    ) as mock_get_trace_info, mock.patch(
         "mlflow.store.artifact.artifact_repo.ArtifactRepository.download_trace_data",
         return_value={"spans": []},
     ) as mock_download_trace_data:
@@ -99,11 +96,11 @@ def test_download_trace_data(tmp_path):
 
         mock_download_trace_data.assert_called_once()
         # The TraceInfo is already fetched prior to the upload_trace_data call,
-        # so we should not call _get_trace_info again
-        mock_get_trace_info.assert_not_called()
+        # so we should not call get_trace_info again
+        mock_store.get_trace_info.assert_not_called()
 
 
-def test_upload_trace_data(tmp_path):
+def test_upload_trace_data(tmp_path, mock_store):
     trace_info = TraceInfo(
         request_id="test",
         experiment_id="test",
@@ -114,9 +111,6 @@ def test_upload_trace_data(tmp_path):
         tags={"mlflow.artifactLocation": "test"},
     )
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._get_trace_info",
-        return_value=trace_info,
-    ) as mock_get_trace_info, mock.patch(
         "mlflow.store.artifact.artifact_repo.ArtifactRepository.upload_trace_data",
     ) as mock_upload_trace_data:
         client = TrackingServiceClient(tmp_path.as_uri())
@@ -124,4 +118,4 @@ def test_upload_trace_data(tmp_path):
         mock_upload_trace_data.assert_called_once()
         # The TraceInfo is already fetched prior to the upload_trace_data call,
         # so we should not call _get_trace_info again
-        mock_get_trace_info.assert_not_called()
+        mock_store.get_trace_info.assert_not_called()
