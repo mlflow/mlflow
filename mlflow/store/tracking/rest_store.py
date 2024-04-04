@@ -43,7 +43,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
-    get_delete_tags_endpoint,
+    get_set_trace_tag_endpoint,
     get_trace_info_endpoint,
 )
 
