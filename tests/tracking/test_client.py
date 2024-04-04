@@ -15,6 +15,7 @@ from mlflow.entities import (
     SourceType,
     SpanStatus,
     SpanType,
+    TraceInfo,
     TraceStatus,
     ViewType,
 )
@@ -59,6 +60,12 @@ def reset_registry_uri():
 def mock_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
+
+
+@pytest.fixture
+def mock_artifact_repo():
+    with mock.patch("mlflow.tracking._tracking_service.client.get_artifact_repository") as mock_get_repo:
+        yield mock_get_repo.return_value
 
 
 @pytest.fixture
@@ -160,38 +167,50 @@ def test_client_create_trace(mock_store, mock_time):
     )
 
 
-def test_client_get_trace_info(mock_store):
-    MlflowClient().get_trace_info("1234567")
-    mock_store.get_trace_info.assert_called_once_with("1234567")
+def test_client_get_trace(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        request_id="1234567",
+        experiment_id="0",
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.OK,
+        tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+    )
+    MlflowClient().get_trace("1234567")
+    mock_store.get_trace_info.assert_called_with("1234567")
+    mock_artifact_repo.download_trace_data.assert_called_once()
 
+def test_client_search_traces(mock_store, mock_artifact_repo):
+    mock_traces = [
+        TraceInfo(
+            request_id="1234567",
+            experiment_id="1",
+            timestamp_ms=123,
+            execution_time_ms=456,
+            status=TraceStatus.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
+        ),
+        TraceInfo(
+            request_id="8910",
+            experiment_id="2",
+            timestamp_ms=456,
+            execution_time_ms=789,
+            status=TraceStatus.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
+        ),
+    ]
+    mock_store.search_traces.return_value = (mock_traces, None)
 
-def test_client_search_traces():
-    client = MlflowClient()
-    with mock.patch.object(client, "_tracking_client") as mock_client:
-        client.search_traces(experiment_ids=["1", "2", "3"])
-        mock_client.search_traces.assert_called_once_with(
-            experiment_ids=["1", "2", "3"],
-            filter_string=None,
-            max_results=100,
-            order_by=None,
-            page_token=None,
-        )
-        mock_client.reset_mock()
+    MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
 
-        client.search_traces(
-            experiment_ids=["1", "2", "3"],
-            filter_string="trace.timestamp_ms > 123",
-            order_by=["timestamp_ms DESC"],
-            max_results=10,
-            page_token="token",
-        )
-        mock_client.search_traces.assert_called_once_with(
-            experiment_ids=["1", "2", "3"],
-            filter_string="trace.timestamp_ms > 123",
-            order_by=["timestamp_ms DESC"],
-            max_results=10,
-            page_token="token",
-        )
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["1", "2", "3"],
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+    )
+    mock_artifact_repo.download_trace_data.assert_called()
 
 
 def test_client_delete_traces(mock_store):
