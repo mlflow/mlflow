@@ -264,25 +264,25 @@ class TrackingServiceClient:
                 )
 
         traces = []
-        remaining = max_results
-        token = page_token
+        next_max_results = max_results
+        next_token = page_token
         while len(traces) < max_results:
-            trace_infos, token = self._search_traces(
+            trace_infos, next_token = self._search_traces(
                 experiment_ids=experiment_ids,
                 filter_string=filter_string,
-                max_results=remaining,
+                max_results=next_max_results,
                 order_by=order_by,
-                page_token=token,
+                page_token=next_token,
             )
             with ThreadPoolExecutor() as executor:
                 traces.extend(t for t in executor.map(fn, trace_infos) if t)
 
-            if not token:
+            if not next_token:
                 break
 
-            remaining = max_results - len(traces)
+            next_max_results = max_results - len(traces)
 
-        return PagedList(traces, token)
+        return PagedList(traces, next_token)
 
     def set_trace_tag(self, request_id, key, value):
         """
