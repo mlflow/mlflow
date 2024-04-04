@@ -177,7 +177,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
     )
     MlflowClient().get_trace("1234567")
-    mock_store.get_trace_info.assert_called_with("1234567")
+    mock_store.get_trace_info.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_called_once()
 
 def test_client_search_traces(mock_store, mock_artifact_repo):
@@ -211,6 +211,9 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
         page_token=None,
     )
     mock_artifact_repo.download_trace_data.assert_called()
+    # The TraceInfo is already fetched prior to the upload_trace_data call,
+    # so we should not call _get_trace_info again
+    mock_store.get_trace_info.assert_not_called()
 
 
 def test_client_delete_traces(mock_store):
