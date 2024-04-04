@@ -4,6 +4,7 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import logging
 import os
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
@@ -47,6 +48,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class TrackingServiceClient:
@@ -245,6 +248,11 @@ class TrackingServiceClient:
             try:
                 trace_data = self._download_trace_data(trace_info.request_id)
             except Exception:
+                _logger.debug(
+                    "Failed to download trace data for trace with request_id=%s",
+                    trace_info.request_id,
+                    exc_info=True,
+                )
                 return None
             else:
                 return Trace(
