@@ -1,8 +1,8 @@
 import threading
 from collections import deque
-from trace import Trace
 from typing import List, Optional
 
+from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
 

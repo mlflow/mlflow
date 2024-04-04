@@ -29,7 +29,7 @@ from mlflow.entities import (
     RunTag,
     SpanStatus,
     SpanType,
-    TraceInfo,
+    Trace,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
@@ -378,7 +378,7 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
-    def create_trace(
+    def _create_trace_info(
         self,
         experiment_id,
         timestamp_ms,
@@ -387,7 +387,7 @@ class MlflowClient:
         request_metadata=None,
         tags=None,
     ):
-        """Create a trace object and log in the backend store.
+        """Create a TraceInfo object and log in the backend store.
 
         Args:
             experiment_id: String id of the experiment for this run.
@@ -399,24 +399,8 @@ class MlflowClient:
 
         Returns:
             :py:class:`mlflow.entities.TraceInfo` that was created.
-
-        .. code-block:: python
-            :caption: Example
-
-            from mlflow import MlflowClient
-
-            client = MlflowClient()
-            experiment_id = "12345678"
-            tags = {"engineering": "ML Platform"}
-            trace = client.create_trace(
-                experiment_id,
-                start_time=123,
-                end_time=567,
-                status="OK",
-                tags=tags,
-            )
         """
-        return self._tracking_client.create_trace(
+        return self._tracking_client.create_trace_info(
             experiment_id,
             timestamp_ms,
             execution_time_ms,
@@ -452,15 +436,15 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id: str) -> TraceInfo:
+    def get_trace(self, request_id: str) -> Trace:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the specified ``request_id``.
 
         Args:
-            request_id: String id of the trace to fetch.
+            request_id: String ID of the trace to fetch.
 
         Returns:
-            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+            The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
 
         .. code-block:: python
             :caption: Example
@@ -469,9 +453,9 @@ class MlflowClient:
 
             client = MlflowClient()
             request_id = "12345678"
-            trace = client.get_trace_info(request_id)
+            trace = client.get_trace(request_id)
         """
-        return self._tracking_client.get_trace_info(request_id)
+        return self._tracking_client.get_trace(request_id)
 
     def search_traces(
         self,
@@ -756,7 +740,7 @@ class MlflowClient:
         if not parent_span_id:
             raise MlflowException(
                 "start_span() must be called with an explicit parent_span_id."
-                "If you haven't start any span yet, use MLflowClient().start_trace() "
+                "If you haven't started any span yet, use MLflowClient().start_trace() "
                 "to start a new trace and root span.",
                 error_code=INVALID_PARAMETER_VALUE,
             )

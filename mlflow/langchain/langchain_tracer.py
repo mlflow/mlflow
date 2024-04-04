@@ -5,6 +5,7 @@ from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.documents import Document
+from langchain_core.load.dump import dumps
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import (
     ChatGenerationChunk,
@@ -175,7 +176,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         llm_span = self._get_span_by_run_id(run_id)
         event_kwargs = {"token": token}
         if chunk:
-            event_kwargs["chunk"] = chunk
+            event_kwargs["chunk"] = dumps(chunk)
         llm_span.add_event(
             SpanEvent(
                 name="new_token",
@@ -272,7 +273,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when chain ends running."""
         chain_span = self._get_span_by_run_id(run_id)
         if inputs:
-            chain_span.set_inputs(self._get_chain_inputs(inputs))
+            chain_span.set_inputs(inputs)
         self._end_span(chain_span, outputs=outputs)
 
     @override
@@ -287,7 +288,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when chain errors."""
         chain_span = self._get_span_by_run_id(run_id)
         if inputs:
-            chain_span.set_inputs(self._get_chain_inputs(inputs))
+            chain_span.set_inputs(inputs)
         chain_span.add_event(SpanEvent.from_exception(error))
         self._end_span(chain_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
 
@@ -386,18 +387,24 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         action: AgentAction,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        """Run on agent action."""
-        kwargs.update({"log": action.log})
-        self._start_span(
-            span_name=action.tool,
-            parent_run_id=parent_run_id,
-            span_type=SpanType.AGENT,
-            run_id=run_id,
-            inputs={"tool_input": action.tool_input},
-            attributes=kwargs,
+        """
+        Run on agent action.
+
+        NB: Agent action doesn't create a new LangChain Run, so instead of creating a new span,
+        an action will be recorded as an event of the existing span created by a parent chain.
+        """
+        span = self._get_span_by_run_id(run_id)
+        span.add_event(
+            SpanEvent(
+                name="agent_action",
+                attributes={
+                    "tool": action.tool,
+                    "tool_input": dumps(action.tool_input),
+                    "log": action.log,
+                },
+            )
         )
 
     @override
@@ -406,13 +413,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         finish: AgentFinish,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         """Run on agent end."""
-        agent_span = self._get_span_by_run_id(run_id)
-        kwargs.update({"log": finish.log})
-        self._end_span(agent_span, outputs=finish.return_values, attributes=kwargs)
+        span = self._get_span_by_run_id(run_id)
+        span.add_event(
+            SpanEvent(
+                name="agent_finish",
+                attributes={"return_values": dumps(finish.return_values), "log": finish.log},
+            )
+        )
 
     @override
     def on_text(
