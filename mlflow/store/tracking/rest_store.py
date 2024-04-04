@@ -43,6 +43,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_set_trace_tag_endpoint,
     get_trace_info_endpoint,
 )
 
@@ -312,8 +313,8 @@ class RestStore(AbstractStore):
             key: The string key of the tag.
             value: The string value of the tag.
         """
-        req_body = message_to_json(SetTraceTag(request_id=request_id, key=key, value=value))
-        self._call_endpoint(SetTraceTag, req_body)
+        req_body = message_to_json(SetTraceTag(key=key, value=value))
+        self._call_endpoint(SetTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id))
 
     def log_metric(self, run_id, metric):
         """

@@ -215,6 +215,10 @@ def get_trace_info_endpoint(request_id):
     return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}/info"
 
 
+def get_set_trace_tag_endpoint(request_id):
+    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}/tags"
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
