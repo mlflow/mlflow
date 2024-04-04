@@ -137,7 +137,13 @@ class MlflowSpanWrapper:
         self._span.set_status(status.to_otel_status())
 
     def add_event(self, event: SpanEvent):
-        """Add an event to the span."""
+        """
+        Add an event to the span.
+
+        Args:
+            event: The event to add to the span. This should be a
+                :py:class:`SpanEvent <mlflow.entities.SpanEvent>` object.
+        """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
     def end(self):

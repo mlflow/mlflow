@@ -740,7 +740,7 @@ class MlflowClient:
         if not parent_span_id:
             raise MlflowException(
                 "start_span() must be called with an explicit parent_span_id."
-                "If you haven't start any span yet, use MLflowClient().start_trace() "
+                "If you haven't started any span yet, use MLflowClient().start_trace() "
                 "to start a new trace and root span.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
