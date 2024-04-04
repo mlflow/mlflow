@@ -30,7 +30,7 @@ class SpanEvent(_MlflowObject):
         "Create a span event from an exception."
 
         stack_trace = cls._get_stacktrace(exception)
-        cls.__init__(
+        return cls(
             name="exception",
             attributes={
                 "exception.message": str(exception),
