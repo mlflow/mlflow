@@ -227,14 +227,6 @@ class TrackingServiceClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Trace]:
-        trace_infos, token = self.store.search_traces(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-        )
-
         def fn(trace_info: trace_info) -> Optional[TraceData]:
             try:
                 trace_data = self._download_trace_data(trace_info.request_id)
@@ -248,8 +240,23 @@ class TrackingServiceClient:
                     trace_data=trace_data,
                 )
 
-        with ThreadPoolExecutor() as executor:
-            traces = [t for t in executor.map(fn, trace_infos) if t]
+        traces = []
+        remaining = max_results
+        while len(traces) < max_results:
+            trace_infos, token = self.store.search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=remaining,
+                order_by=order_by,
+                page_token=page_token,
+            )
+            with ThreadPoolExecutor() as executor:
+                traces.extend(t for t in executor.map(fn, trace_infos) if t)
+
+            if token is None:
+                break
+            remaining = max_results - len(traces)
+
         return PagedList(traces, token)
 
     def set_trace_tag(self, request_id, key, value):
