@@ -248,6 +248,10 @@ class TrackingServiceClient:
         page_token: Optional[str] = None,
     ) -> PagedList[Trace]:
         def fn(trace_info: TraceInfo) -> Optional[Trace]:
+            """
+            Downloads the trace data for the given trace_info and returns a Trace object.
+            If the download fails (e.g., the trace data is missing or corrupted), returns None.
+            """
             try:
                 trace_data = self._download_trace_data(trace_info)
             except Exception:
