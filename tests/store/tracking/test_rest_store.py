@@ -597,7 +597,7 @@ def test_delete_traces():
         assert res is None
 
 
-def test_delete_traces():
+def test_set_trace_tag():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
