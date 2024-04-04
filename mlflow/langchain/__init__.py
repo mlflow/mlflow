@@ -595,7 +595,7 @@ class _LangChainModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters passed to model during inference so that
-            config={"configurable": params}.
+                config={"configurable": params}.
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
                     release without warning.
@@ -699,7 +699,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
 
         Args:
             data: Model input data.
-            params: Additional parameters to pass to the model for inference.
+            params: Additional parameters passed to model during inference so that
+                config={"configurable": params}.
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
                     release without warning.
@@ -733,7 +734,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             mockContent = TEST_CONTENT
 
         with _mock_async_request(mockContent):
-            result = super().predict(data)
+            result = super().predict(data, params)
         if (
             hasattr(self.lc_model, "return_source_documents")
             and self.lc_model.return_source_documents

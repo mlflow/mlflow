@@ -2544,3 +2544,27 @@ def test_config_path_context():
         )
 
     assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.337"),
+    reason="feature not existing",
+)
+def test_runnable_with_message_history_predict():
+    with mlflow.start_run():
+        input_example = {"input": "test"}
+        params_example = {"session_id": "000000"}
+        output_example = [TEST_CONTENT]
+        signature = mlflow.models.signature.infer_signature(
+            input_example, output_example, params_example
+        )
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/runnable_with_message_history/chain.py",
+            artifact_path="model_path",
+            signature=signature,
+            input_example=input_example,
+            code_paths=[],
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = loaded_model.predict([input_example], params_example)
+    assert result == [TEST_CONTENT]
