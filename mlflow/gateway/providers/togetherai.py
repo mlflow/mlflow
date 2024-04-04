@@ -12,28 +12,25 @@ from mlflow.gateway.utils import strip_sse_prefix
 
 
 class TogetherAIAdapter(ProviderAdapter):
-
-
     def _scale_repetition_penalty(
         openai_frequency_penalty: float,
-        min_repetion_penalty=-3.402823669209385e+38,
-        max_repetion_penalty=3.402823669209385e+38
+        min_repetion_penalty=-3.402823669209385e38,
+        max_repetion_penalty=3.402823669209385e38,
     ):
-
         # Normalize OpenAI penalty to a 0-1 range
         # Transforming [-2, 2] to [0, 1] = (repetition_penalty - 1)/(max_repetion_penalty - 1)
         normalized_penalty = (openai_frequency_penalty + 2) / 4
 
-
-        return normalized_penalty * (max_repetion_penalty - min_repetion_penalty) + min_repetion_penalty
-
-
+        return (
+            normalized_penalty * (max_repetion_penalty - min_repetion_penalty)
+            + min_repetion_penalty
+        )
 
     @classmethod
     def model_to_embeddings(cls, resp, config):
-        #Response example: (https://docs.together.ai/docs/embeddings-rest)
-        #```
-        #{
+        # Response example: (https://docs.together.ai/docs/embeddings-rest)
+        # ```
+        # {
         #  "object": "list",
         #  "data": [
         #    {
@@ -50,27 +47,24 @@ class TogetherAIAdapter(ProviderAdapter):
         #  ],
         #  "model": "togethercomputer/m2-bert-80M-8k-retrieval",
         #  "request_id": "840fc1b5bb2830cb-SEA"
-        #}
-        #```
+        # }
+        # ```
         return embeddings.ResponsePayload(
             data=[
                 embeddings.EmbeddingObject(
-                    embedding=item['embedding'],
-                    index=item['index'],
+                    embedding=item["embedding"],
+                    index=item["index"],
                 )
-                for item in resp['data']
+                for item in resp["data"]
             ],
             model=config.model.name,
-            usage=embeddings.EmbeddingsUsage(
-                prompt_tokens=None,
-                total_tokens=None
-            )
+            usage=embeddings.EmbeddingsUsage(prompt_tokens=None, total_tokens=None),
         )
 
     @classmethod
     def model_to_completions(cls, resp, config):
         # Example response (https://docs.together.ai/reference/completions):
-        #{
+        # {
         #  "id": "8447f286bbdb67b3-SJC",
         #  "choices": [
         #    {
@@ -85,8 +79,7 @@ class TogetherAIAdapter(ProviderAdapter):
         #  "created": 1705089226,
         #  "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         #  "object": "text_completion"
-        #}
-
+        # }
 
         return completions.ResponsePayload(
             id=resp["id"],
@@ -103,30 +96,29 @@ class TogetherAIAdapter(ProviderAdapter):
             usage=completions.CompletionsUsage(
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 completion_tokens=resp["usage"]["completion_tokens"],
-                total_tokens=resp["usage"]["total_tokens"]
-            )
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
         )
 
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
+        # Response example (after manually calling API):
 
-            #Response example (after manually calling API):
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' },', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 1630, 'content': ' },'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # },{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' {', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 371, 'content': ' {'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # {{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '   ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 2287, 'content': '   '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #   {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' "', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 345, 'content': ' "'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # "{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': 'name', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 861, 'content': 'name'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
 
-            #{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' },', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 1630, 'content': ' },'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            # },{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            #
-            #{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' {', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 371, 'content': ' {'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            # {{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            #
-            #{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '   ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 2287, 'content': '   '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            #   {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' "', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 345, 'content': ' "'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-            # "{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': 'name', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 861, 'content': 'name'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-
-            ## LAST CHUNK
-            #name{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '":', 'logprobs': None, 'finish_reason': 'length', 'delta': {'token_id': 1264, 'content': '":'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': {'prompt_tokens': 17, 'completion_tokens': 200, 'total_tokens': 217}}
-            #":[DONE]
+        ## LAST CHUNK
+        # name{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '":', 'logprobs': None, 'finish_reason': 'length', 'delta': {'token_id': 1264, 'content': '":'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': {'prompt_tokens': 17, 'completion_tokens': 200, 'total_tokens': 217}}
+        # ":[DONE]
 
         return completions.StreamResponsePayload(
             id=resp.get("id"),
@@ -135,22 +127,18 @@ class TogetherAIAdapter(ProviderAdapter):
             choices=[
                 completions.StreamChoice(
                     index=idx,
-                    #TODO this is questionable since the finish reason comes from togetherai api
+                    # TODO this is questionable since the finish reason comes from togetherai api
                     finish_reason=choice.get("finish_reason"),
-                    delta=completions.StreamDelta(
-                        role=None,
-                        content=choice.get("text")
-                    )
+                    delta=completions.StreamDelta(role=None, content=choice.get("text")),
                 )
-
                 for idx, choice in enumerate(resp.get("choices", []))
             ],
             # usage is not included in OpenAI StreamResponsePayload
-            #usage=completions.CompletionsUsage(
+            # usage=completions.CompletionsUsage(
             #    prompt_tokens=usage.get("prompt_tokens") if usage else None,
             #    input_tokens=usage.get("completion_tokens") if usage else None,
             #    total_tokens=usage.get("total_tokens") if usage else None,
-            #)
+            # )
         )
 
     @classmethod
@@ -162,7 +150,7 @@ class TogetherAIAdapter(ProviderAdapter):
             "frequency_penalty": "repetition_penalty",
             # top_logprobs (0, 20)
             # logprobs (-2147483648,2147483648)
-            "top_logprobs": "logprobs"
+            "top_logprobs": "logprobs",
         }
 
         payload = rename_payload_keys(payload, key_mapping)
@@ -170,9 +158,11 @@ class TogetherAIAdapter(ProviderAdapter):
         if "logprobs" in payload and payload["logprobs"] and "logprobs" not in payload:
             raise HTTPException(
                 status_code=422,
-                detail=("Missing paramater in payload."
-                "If flag logprobs parameter is set to True"
-                "then logsprobs parameter must contain a value.")
+                detail=(
+                    "Missing paramater in payload."
+                    "If flag logprobs parameter is set to True"
+                    "then logsprobs parameter must contain a value."
+                ),
             )
 
         # TODO maybe let the api service handle these internally?
@@ -180,24 +170,28 @@ class TogetherAIAdapter(ProviderAdapter):
         if "logitbias" in payload:
             raise HTTPException(
                 status_code=422,
-                detail=("Invalid parameter in payload."
-                "Parameter logitbias is not supported for togetherai.")
+                detail=(
+                    "Invalid parameter in payload."
+                    "Parameter logitbias is not supported for togetherai."
+                ),
             )
 
         if "seed" in payload:
             raise HTTPException(
                 status_code=422,
-                detail=("Invalid parameter in payload."
-                "Parameter seed is not suuported of togetherai.")
+                detail=(
+                    "Invalid parameter in payload." "Parameter seed is not suuported of togetherai."
+                ),
             )
 
         if "presence_penalty" in payload:
             raise HTTPException(
                 status_code=422,
-                detail=("Invalid parameter in payload."
-                "Parameter presence_penalty is not supported for togetherai.")
+                detail=(
+                    "Invalid parameter in payload."
+                    "Parameter presence_penalty is not supported for togetherai."
+                ),
             )
-
 
         return payload
 
@@ -209,7 +203,7 @@ class TogetherAIAdapter(ProviderAdapter):
     @classmethod
     def model_to_chat(cls, resp, config):
         # Example response (https://docs.together.ai/reference/chat-completions):
-        #{
+        # {
         #   "id": "8448080b880415ea-SJC",
         #   "choices": [
         #    {
@@ -227,7 +221,7 @@ class TogetherAIAdapter(ProviderAdapter):
         #   "created": 1705090115,
         #   "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         #   "object": "chat.completion"
-        #}
+        # }
         return chat.ResponsePayload(
             id=resp["id"],
             object="chat.completion",
@@ -253,16 +247,16 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
-        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" According","logprobs":null,"finish_reason":null,"delta":{"token_id":6586,"content":" According"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" to","logprobs":null,"finish_reason":null,"delta":{"token_id":298,"content":" to"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" the","logprobs":null,"finish_reason":null,"delta":{"token_id":272,"content":" the"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" Econom","logprobs":null,"finish_reason":null,"delta":{"token_id":11003,"content":" Econom"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"ist","logprobs":null,"finish_reason":null,"delta":{"token_id":392,"content":"ist"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Intelligence","logprobs":null,"finish_reason":null,"delta":{"token_id":23091,"content":" Intelligence"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Unit","logprobs":null,"finish_reason":null,"delta":{"token_id":13332,"content":" Unit"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" World","logprobs":null,"finish_reason":null,"delta":{"token_id":3304,"content":" World"}}],"model":"mistr'
-        #b'alai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"wide","logprobs":null,"finish_reason":null,"delta":{"token_id":5734,"content":"wide"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Cost","logprobs":null,"finish_reason":null,"delta":{"token_id":9319,"content":" Cost"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
-        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" of","logprobs":null,"finish_reason":null,"delta":{"token_id":302,"content":" of"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Living","logprobs":null,"finish_reason":null,"delta":{"token_id":16303,"content":" Living"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Survey","logprobs":null,"finish_reason":null,"delta":{"token_id":24004,"content":" Survey"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" in","logprobs":null,"finish_reason":null,"delta":{"token_id":297,"content":" in"}}],"model":"mistralai/Mixtral-8x'
-        #b'7B-v0.1","usage":null}\n\n'
-        #b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" ","logprobs":null,"finish_reason":null,"delta":{"token_id":28705,"content":" "}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"2","logprobs":null,"finish_reason":null,"delta":{"token_id":28750,"content":"2"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"0","logprobs":null,"finish_reason":"length","delta":{"token_id":28734,"content":"0"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":{"prompt_tokens":93,"completion_tokens":200,"total_tokens":293}}\n\n'
-        #b'data: [DONE]\n\n'
+        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" According","logprobs":null,"finish_reason":null,"delta":{"token_id":6586,"content":" According"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" to","logprobs":null,"finish_reason":null,"delta":{"token_id":298,"content":" to"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" the","logprobs":null,"finish_reason":null,"delta":{"token_id":272,"content":" the"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051390,"choices":[{"index":0,"text":" Econom","logprobs":null,"finish_reason":null,"delta":{"token_id":11003,"content":" Econom"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"ist","logprobs":null,"finish_reason":null,"delta":{"token_id":392,"content":"ist"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Intelligence","logprobs":null,"finish_reason":null,"delta":{"token_id":23091,"content":" Intelligence"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Unit","logprobs":null,"finish_reason":null,"delta":{"token_id":13332,"content":" Unit"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" World","logprobs":null,"finish_reason":null,"delta":{"token_id":3304,"content":" World"}}],"model":"mistr'
+        # b'alai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"wide","logprobs":null,"finish_reason":null,"delta":{"token_id":5734,"content":"wide"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Cost","logprobs":null,"finish_reason":null,"delta":{"token_id":9319,"content":" Cost"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\n'
+        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" of","logprobs":null,"finish_reason":null,"delta":{"token_id":302,"content":" of"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Living","logprobs":null,"finish_reason":null,"delta":{"token_id":16303,"content":" Living"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" Survey","logprobs":null,"finish_reason":null,"delta":{"token_id":24004,"content":" Survey"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" in","logprobs":null,"finish_reason":null,"delta":{"token_id":297,"content":" in"}}],"model":"mistralai/Mixtral-8x'
+        # b'7B-v0.1","usage":null}\n\n'
+        # b'data: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":" ","logprobs":null,"finish_reason":null,"delta":{"token_id":28705,"content":" "}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"2","logprobs":null,"finish_reason":null,"delta":{"token_id":28750,"content":"2"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":null}\n\ndata: {"id":"86dfe9397f84eed4-ATH","object":"chat.completion.chunk","created":1712051391,"choices":[{"index":0,"text":"0","logprobs":null,"finish_reason":"length","delta":{"token_id":28734,"content":"0"}}],"model":"mistralai/Mixtral-8x7B-v0.1","usage":{"prompt_tokens":93,"completion_tokens":200,"total_tokens":293}}\n\n'
+        # b'data: [DONE]\n\n'
 
         return chat.StreamResponsePayload(
             id=resp["id"],
@@ -277,22 +271,23 @@ class TogetherAIAdapter(ProviderAdapter):
                     delta=chat.StreamDelta(
                         role=None,
                         content=choice.get("text"),
-                    )
+                    ),
                 )
                 # Added enumerate and a default empty list
                 for idx, choice in enumerate(resp.get("choices", []))
             ],
-            usage=resp.get("usage")
+            usage=resp.get("usage"),
         )
 
     @classmethod
     def chat_to_model(cls, payload, config):
-
         if "prompt" in payload:
             raise HTTPException(
                 status_code=422,
-                detail=("Parameter prompt used in chat endpoint."
-                "You should provide a list of messages, meaning the conversation so far.")
+                detail=(
+                    "Parameter prompt used in chat endpoint."
+                    "You should provide a list of messages, meaning the conversation so far."
+                ),
             )
 
         # completions and chat endpoint contain the same parameters
@@ -305,8 +300,8 @@ class TogetherAIAdapter(ProviderAdapter):
 
     @classmethod
     def embeddings_to_model(cls, payload, config):
-        #Example request (https://docs.together.ai/reference/embeddings):
-        #curl --request POST \
+        # Example request (https://docs.together.ai/reference/embeddings):
+        # curl --request POST \
         #   --url https://api.together.xyz/v1/embeddings \
         #   --header 'accept: application/json' \
         #   --header 'content-type: application/json' \
@@ -322,6 +317,7 @@ class TogetherAIAdapter(ProviderAdapter):
 
         return payload
 
+
 class TogetherAIProvider(BaseProvider):
     NAME = "TogetherAI"
 
@@ -332,11 +328,11 @@ class TogetherAIProvider(BaseProvider):
             raise MlflowException.invalid_parameter_value(
                 "Invalid config type {config.model.config}"
             )
-        self.togetherai_config:  TogetherAIConfig = config.model.config
+        self.togetherai_config: TogetherAIConfig = config.model.config
 
     @property
     def base_url(self):
-        #togetherai seems to support only this url
+        # togetherai seems to support only this url
         return "https://api.together.xyz/v1"
 
     @property
@@ -352,9 +348,7 @@ class TogetherAIProvider(BaseProvider):
         )
 
     async def _stream_request(
-        self,
-        path: str,
-        payload: Dict[str, Any]
+        self, path: str, payload: Dict[str, Any]
     ) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
             headers=self.auth_headers,
@@ -362,7 +356,6 @@ class TogetherAIProvider(BaseProvider):
             path=path,
             payload=payload,
         )
-
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -373,8 +366,8 @@ class TogetherAIProvider(BaseProvider):
             path="embeddings",
             payload={
                 "model": self.config.model.name,
-                **TogetherAIAdapter.embeddings_to_model(payload, self.config)
-            }
+                **TogetherAIAdapter.embeddings_to_model(payload, self.config),
+            },
         )
 
         return TogetherAIAdapter.model_to_embeddings(resp, self.config)
@@ -382,8 +375,7 @@ class TogetherAIProvider(BaseProvider):
     # WARNING CHANGING THE ORDER OF METHODS HERE FOR SOME REASON CAUSES AN ERROR
     # completions MODULE IS INTERPERTED AS THE completions function
     async def completions_stream(
-        self,
-        payload: completions.RequestPayload
+        self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
 
@@ -393,8 +385,8 @@ class TogetherAIProvider(BaseProvider):
             path="completions",
             payload={
                 "model": self.config.model.name,
-                **TogetherAIAdapter.completions_streaming_to_model(payload, self.config)
-            }
+                **TogetherAIAdapter.completions_streaming_to_model(payload, self.config),
+            },
         )
 
         async for chunk in stream:
@@ -402,14 +394,12 @@ class TogetherAIProvider(BaseProvider):
             if not chunk:
                 continue
 
-
             chunk = strip_sse_prefix(chunk.decode("utf-8"))
             if chunk == "[DONE]":
                 return
 
             resp = json.loads(chunk)
             yield TogetherAIAdapter.model_to_completions_streaming(resp, self.config)
-
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -420,12 +410,11 @@ class TogetherAIProvider(BaseProvider):
             path="completions",
             payload={
                 "model": self.config.model.name,
-                **TogetherAIAdapter.completions_to_model(payload, self.config)
-            }
+                **TogetherAIAdapter.completions_to_model(payload, self.config),
+            },
         )
 
         return TogetherAIAdapter.model_to_completions(resp, self.config)
-
 
     async def chat_stream(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -436,15 +425,14 @@ class TogetherAIProvider(BaseProvider):
             path="chat/completions",
             payload={
                 "model": self.config.model.name,
-                **TogetherAIAdapter.chat_streaming_to_model(payload, self.config)
-            }
+                **TogetherAIAdapter.chat_streaming_to_model(payload, self.config),
+            },
         )
 
         async for chunk in stream:
             chunk = chunk.strip()
             if not chunk:
                 continue
-
 
             chunk = strip_sse_prefix(chunk.decode("utf-8"))
             if chunk == "[DONE]":
@@ -462,9 +450,8 @@ class TogetherAIProvider(BaseProvider):
             path="chat/completions",
             payload={
                 "model": self.config.model.name,
-                **TogetherAIAdapter.chat_to_model(payload, self.config)
-            }
+                **TogetherAIAdapter.chat_to_model(payload, self.config),
+            },
         )
 
         return TogetherAIAdapter.model_to_chat(resp, self.config)
-
