@@ -255,6 +255,7 @@ class TrackingServiceClient:
 
             if token is None:
                 break
+
             remaining = max_results - len(traces)
 
         return PagedList(traces, token)
