@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import List, Optional
 
+import requests
+
 from mlflow.entities import (
     ExperimentTag,
     Metric,
@@ -18,6 +20,7 @@ from mlflow.entities import (
     RunTag,
     TraceData,
     ViewType,
+    trace_info,
 )
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
@@ -231,14 +234,22 @@ class TrackingServiceClient:
             order_by=order_by,
             page_token=page_token,
         )
+
+        def fn(trace_info: trace_info) -> Optional[TraceData]:
+            try:
+                trace_data = self._download_trace_data(trace_info.request_id)
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    return None
+                raise
+            else:
+                return Trace(
+                    trace_info=trace_info,
+                    trace_data=trace_data,
+                )
+
         with ThreadPoolExecutor() as executor:
-            traces = executor.map(
-                lambda ti: Trace(
-                    trace_info=ti,
-                    trace_data=self._download_trace_data(ti.request_id),
-                ),
-                trace_infos,
-            )
+            traces = [t for t in executor.map(fn, trace_infos) if t]
         return PagedList(traces, token)
 
     def set_trace_tag(self, request_id, key, value):
