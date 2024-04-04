@@ -2,7 +2,7 @@ import sys
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Sequence, Union
+from typing import Dict, Sequence, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 
@@ -28,7 +28,7 @@ class SpanEvent(_MlflowObject):
     name: str
     # Use current time if not provided. We need to use default factory otherwise
     # the default value will be fixed to the build time of the class.
-    timestamp: Optional[int] = field(default_factory=lambda: int(time.time() * 1e6))
+    timestamp: int = field(default_factory=lambda: int(time.time() * 1e6))
     attributes: Dict[str, Union[_AttrValueType, Sequence[_AttrValueType]]] = field(
         default_factory=dict
     )
