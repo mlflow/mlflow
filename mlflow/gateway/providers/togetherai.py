@@ -326,7 +326,7 @@ class TogetherAIProvider(BaseProvider):
         if config.model.config is None or not isinstance(config.model.config, TogetherAIConfig):
             # Should be unreachable
             raise MlflowException.invalid_parameter_value(
-                "Invalid config type {config.model.config}"
+                f"Invalid config type {config.model.config}"
             )
         self.togetherai_config: TogetherAIConfig = config.model.config
 
