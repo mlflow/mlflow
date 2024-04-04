@@ -215,7 +215,7 @@ def get_trace_info_endpoint(request_id):
     return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}/info"
 
 
-def get_delete_tags_endpoint(request_id):
+def get_set_trace_tag_endpoint(request_id):
     return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}/tags"
 
 
