@@ -2,10 +2,12 @@ import sys
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 
+
+_AttrValueType = Union[str, int, float, bool, bytes]
 
 @dataclass
 class SpanEvent(_MlflowObject):
@@ -18,12 +20,14 @@ class SpanEvent(_MlflowObject):
         timestamp:  The exact time the event occurred, measured in microseconds.
         attributes: A collection of key-value pairs representing detailed
             attributes of the event, such as the exception stack trace.
+            Attributes value must be one of ``[str, int, float, bool, bytes]``
+            or a sequence of these types.
     """
 
     name: str
     # Use current time if not provided.
     timestamp: Optional[int] = field(default=int(time.time() * 1e6))
-    attributes: Dict[str, Any] = field(default_factory=dict)
+    attributes: Dict[str, Union[_AttrValueType, Sequence[_AttrValueType]]] = field(default_factory=dict)
 
     @classmethod
     def from_exception(cls, exception: Exception):
