@@ -19,6 +19,7 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
+    _retry_with_new_creds,
 )
 
 
@@ -99,13 +100,18 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         local_file_path = os.path.abspath(local_file)
         file_name = os.path.basename(local_file_path)
 
-        dir_client = self.fs_client.get_directory_client(dest_path)
-        file_client = dir_client.get_file_client(file_name)
-        if os.path.getsize(local_file_path) == 0:
-            file_client.create_file()
-        else:
-            with open(local_file_path, "rb") as file:
-                file_client.upload_data(data=file, overwrite=True)
+        def creds_func():
+            dir_client = self.fs_client.get_directory_client(dest_path)
+            return dir_client.get_file_client(file_name)
+
+        def try_func(creds):
+            if os.path.getsize(local_file_path) == 0:
+                creds.create_file()
+            else:
+                with open(local_file_path, "rb") as file:
+                    creds.upload_data(data=file, overwrite=True)
+
+        _retry_with_new_creds(creds_func=creds_func, try_func=try_func)
 
     def list_artifacts(self, path=None):
         directory_to_list = self.base_data_lake_directory
@@ -136,11 +142,17 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def _download_from_cloud(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.base_data_lake_directory, remote_file_path)
         base_dir = posixpath.dirname(remote_full_path)
-        dir_client = self.fs_client.get_directory_client(base_dir)
-        filename = posixpath.basename(remote_full_path)
-        file_client = dir_client.get_file_client(filename)
-        with open(local_path, "wb") as file:
-            file_client.download_file().readinto(file)
+
+        def creds_func():
+            dir_client = self.fs_client.get_directory_client(base_dir)
+            filename = posixpath.basename(remote_full_path)
+            return dir_client.get_file_client(filename)
+
+        def try_func(creds):
+            with open(local_path, "wb") as file:
+                creds.download_file().readinto(file)
+
+        _retry_with_new_creds(creds_func=creds_func, try_func=try_func)
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
