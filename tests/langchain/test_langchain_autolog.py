@@ -470,7 +470,7 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
                 ("FakeChatModel", "LLM"),
                 ("StrOutputParser", "CHAIN"),
             ]
-        assert matched
+        assert matched, f"Spans do not match with the expected order: {spans}"
 
 
 # TODO: remove skip mark before merging the tracing feature branch to master
