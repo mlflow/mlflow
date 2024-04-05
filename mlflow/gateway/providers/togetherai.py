@@ -15,20 +15,6 @@ from mlflow.gateway.utils import strip_sse_prefix
 
 
 class TogetherAIAdapter(ProviderAdapter):
-    def _scale_repetition_penalty(
-        openai_frequency_penalty: float,
-        min_repetion_penalty=-3.402823669209385e38,
-        max_repetion_penalty=3.402823669209385e38,
-    ):
-        # Normalize OpenAI penalty to a 0-1 range
-        # Transforming [-2, 2] to [0, 1] = (repetition_penalty - 1)/(max_repetion_penalty - 1)
-        normalized_penalty = (openai_frequency_penalty + 2) / 4
-
-        return (
-            normalized_penalty * (max_repetion_penalty - min_repetion_penalty)
-            + min_repetion_penalty
-        )
-
     @classmethod
     def model_to_embeddings(cls, resp, config):
         # Response example: (https://docs.together.ai/docs/embeddings-rest)
@@ -106,21 +92,28 @@ class TogetherAIAdapter(ProviderAdapter):
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
         # Response example (after manually calling API):
-
-        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' },', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 1630, 'content': ' },'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # },{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
         #
-        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 28705, 'content': ' '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' {', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 371, 'content': ' {'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # {{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '\n', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 13, 'content': '\n'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk',
+        # 'created': 1711977238, 'choices': [{'index': 0, 'text': '   ',
+        # 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 2287, 'content': '   '}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
         #
-        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '   ', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 2287, 'content': '   '}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        #   {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': ' "', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 345, 'content': ' "'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # "{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': 'name', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 861, 'content': 'name'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk',
+        # 'created': 1711977238, 'choices': [{'index': 0, 'text': ' "', 'logprobs': None,
+        # 'finish_reason': None, 'delta': {'token_id': 345, 'content': ' "'}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #
+        # "{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk',
+        # 'created': 1711977238, 'choices': [{'index': 0, 'text': 'name', 'logprobs': None,
+        # 'finish_reason': None, 'delta': {'token_id': 861, 'content': 'name'}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #
         # LAST CHUNK
-        # name{'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk', 'created': 1711977238, 'choices': [{'index': 0, 'text': '":', 'logprobs': None, 'finish_reason': 'length', 'delta': {'token_id': 1264, 'content': '":'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': {'prompt_tokens': 17, 'completion_tokens': 200, 'total_tokens': 217}}
+        # {'id': '86d8d6e06df86f61-ATH', 'object': 'completion.chunk',
+        # 'created': 1711977238, 'choices': [{'index': 0, 'text': '":', 'logprobs': None,
+        # 'finish_reason': 'length', 'delta': {'token_id': 1264, 'content': '":'}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1',
+        # 'usage': {'prompt_tokens': 17, 'completion_tokens': 200, 'total_tokens': 217}}
         # ":[DONE]
 
         return completions_schema.StreamResponsePayload(
@@ -137,55 +130,44 @@ class TogetherAIAdapter(ProviderAdapter):
                 for idx, choice in enumerate(resp.get("choices", []))
             ],
             # usage is not included in OpenAI StreamResponsePayload
-            # usage=completions.CompletionsUsage(
-            #    prompt_tokens=usage.get("prompt_tokens") if usage else None,
-            #    input_tokens=usage.get("completion_tokens") if usage else None,
-            #    total_tokens=usage.get("total_tokens") if usage else None,
-            # )
         )
 
     @classmethod
     def completions_to_model(cls, payload, config):
         key_mapping = {
-            # Parameter that share common names or functionalities in OpenAI and TogetherAI
-            # TogetherAI parameter range for repetition penalty
-            # repetition_penalty (-3.402823669209385e+38, 3.402823669209385e+38)
-            # OpenAI parameter range for frequency penalty and presence penalty
-            # frequency_penalty (-2.0, 2.0)
-            # presence_penalty (-2.0, 2.0)
-            "frequency_penalty": "repetition_penalty",
-            # OpenAI parameter range for top_logprobs
-            # top_logprobs (0, 20)
-            # TogetherAI parameter range for logprobs
-            # logprobs (-2147483648,2147483648)
-            "top_logprobs": "logprobs",
+            # TogetherAI uses logprobs
+            # OpenAI uses top_logprobs
+            "top_logprobs": "logprobs"
         }
-        # if user tries to use the OpenAI api format
-        # logprobs parameter in OpenAI is a boolean flag
-        # if logprobs is present in the payload top_logprobs should be specified
-        # condition one: check if logprobs is in payload
-        # if it is check if its set to true, since its boolean
-        logprobs_in_payload_condition = (
-            "logprobs" in payload and isinstance(payload["logprobs"], bool) and payload["logprobs"]
-        )
-        # if the above are true then top_logprobs should contain a value
-        # if it's not, it's wrong and logprobs should have been specified to false
-        # taken by the API reference (https://platform.openai.com/docs/api-reference/chat/create)
-        openai_logprobs_condition = logprobs_in_payload_condition and (
-            "top_logprobs" not in payload or not payload["top_logprobs"]
+
+        # in openAI API the logprobs parameter
+        # is a boolean flag.
+        # Insert this here to prevent the user from mixing up the APIs
+        logprobs_in_payload_condition = "logprobs" in payload and not isinstance(
+            payload["logprobs"], int
         )
 
-        if openai_logprobs_condition:
+        if logprobs_in_payload_condition:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "Missing parameter in payload. "
-                    "If flag logprobs parameter is set to True, "
-                    "then top_logprobs parameter must contain a value."
+                    "Wrong type for logprobs." "If logprobs is set it should be an 32bit integer."
                 ),
             )
 
-        # top_logprobs will get renamed to logprobs
+        openai_top_logprobs_in_payload_condition = "top_logprobs" in payload and not isinstance(
+            payload["top_logprobs"], int
+        )
+
+        if openai_top_logprobs_in_payload_condition:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Wrong type for top_logprobs."
+                    "If top_logprobs is set it should a 32bit integer."
+                ),
+            )
+
         return rename_payload_keys(payload, key_mapping)
 
     @classmethod
@@ -241,10 +223,28 @@ class TogetherAIAdapter(ProviderAdapter):
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
         # Response example (after running API manually):
-        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' The', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 415, 'content': ' The'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' City', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 3805, 'content': ' City'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' of', 'logprobs': None, 'finish_reason': None, 'delta': {'token_id': 302, 'content': ' of'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
-        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk', 'created': 1712249578, 'choices': [{'index': 0, 'text': ' Paris', 'logprobs': None, 'finish_reason': 'length', 'delta': {'token_id': 5465, 'content': ' Paris'}}], 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': {'prompt_tokens': 93, 'completion_tokens': 100, 'total_tokens': 193}}
+        #
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk',
+        # 'created': 1712249578, 'choices': [{'index': 0, 'text': ' The', 'logprobs': None,
+        # 'finish_reason': None, 'delta': {'token_id': 415, 'content': ' The'}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk',
+        # 'created': 1712249578, 'choices': [{'index': 0, 'text': ' City', 'logprobs': None,
+        # 'finish_reason': None, 'delta': {'token_id': 3805, 'content': ' City'}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk',
+        # 'created': 1712249578, 'choices': [{'index': 0, 'text': ' of', 'logprobs': None,
+        # 'finish_reason': None, 'delta': {'token_id': 302, 'content': ' of'}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1', 'usage': None}
+        #
+        # LAST CHUNK
+        # {'id': '86f2cfd18f6b38ca-ATH', 'object': 'chat.completion.chunk',
+        # 'created': 1712249578, 'choices': [{'index': 0, 'text': ' Paris', 'logprobs': None,
+        # 'finish_reason': 'length', 'delta': {'token_id': 5465, 'content': ' Paris'}}],
+        # 'model': 'mistralai/Mixtral-8x7B-v0.1',
+        # 'usage': {'prompt_tokens': 93, 'completion_tokens': 100, 'total_tokens': 193}}
 
         return chat_schema.StreamResponsePayload(
             id=resp["id"],
@@ -254,7 +254,6 @@ class TogetherAIAdapter(ProviderAdapter):
             choices=[
                 chat_schema.StreamChoice(
                     index=idx,
-                    # TODO: is this a good idea? This comes from the TogetherAI API
                     finish_reason=choice.get("finish_reason"),
                     delta=chat_schema.StreamDelta(
                         role=None,

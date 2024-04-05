@@ -1,3 +1,4 @@
+import textwrap
 from unittest import mock
 
 import pytest
@@ -32,7 +33,16 @@ def completions_response():
         "choices": [
             {
                 "index": 0,
-                "text": "The capital of France is Paris. It's located in the north-central part of the country and is one of the most famous cities in the world, known for its iconic landmarks such as the Eiffel Tower, Louvre Museum, Notre-Dame Cathedral, and more. Paris is also the cultural, political, and economic center of France.",
+                "text": textwrap.dedent(
+                    """\
+                The capital of France is Paris.
+                It's located in the north-central part of the country
+                and is one of the most famous cities in the world,
+                known for its iconic landmarks such as the Eiffel Tower,
+                Louvre Museum, Notre-Dame Cathedral, and more.
+                Paris is also the cultural, political, and economic center of France.
+                """
+                ),
                 "finish_reason": None,
             }
         ],
@@ -68,7 +78,16 @@ async def test_completions():
             "choices": [
                 {
                     "index": 0,
-                    "text": "The capital of France is Paris. It's located in the north-central part of the country and is one of the most famous cities in the world, known for its iconic landmarks such as the Eiffel Tower, Louvre Museum, Notre-Dame Cathedral, and more. Paris is also the cultural, political, and economic center of France.",
+                    "text": textwrap.dedent(
+                        """\
+                    The capital of France is Paris.
+                    It's located in the north-central part of the country
+                    and is one of the most famous cities in the world,
+                    known for its iconic landmarks such as the Eiffel Tower,
+                    Louvre Museum, Notre-Dame Cathedral, and more.
+                    Paris is also the cultural, political, and economic center of France.
+                    """
+                    ),
                     "finish_reason": None,
                 }
             ],
