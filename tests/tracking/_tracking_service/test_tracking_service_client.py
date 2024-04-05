@@ -185,3 +185,36 @@ def test_search_traces(tmp_path):
         assert res.token == "token3"
         assert mock_search_traces.call_count == 3
         assert mock_download_trace_data.call_count == 3
+
+
+def test_search_traces_does_not_capture_unexpected_exceptions(tmp_path):
+    client = TrackingServiceClient(tmp_path.as_uri())
+    with mock.patch.object(
+        client,
+        "_search_traces",
+        side_effect=[
+            (
+                [
+                    TraceInfo(
+                        request_id="test",
+                        experiment_id="test",
+                        timestamp_ms=0,
+                        execution_time_ms=0,
+                        status=SpanStatus(TraceStatus.OK),
+                        request_metadata={},
+                        tags={"mlflow.artifactLocation": "test"},
+                    )
+                ],
+                "token1",
+            ),
+        ],
+    ) as mock_search_traces, mock.patch.object(
+        client,
+        "_download_trace_data",
+        side_effect=[ValueError("Unexpected exception")],
+    ) as mock_download_trace_data:
+        with pytest.raises(ValueError, match="Unexpected exception"):
+            client.search_traces(experiment_ids=["0"], max_results=1)
+
+        mock_search_traces.assert_called_once()
+        mock_download_trace_data.assert_called_once()
