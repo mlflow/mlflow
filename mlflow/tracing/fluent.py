@@ -13,7 +13,7 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
-from mlflow.tracing.utils import capture_function_input_args
+from mlflow.tracing.utils import capture_function_input_args, display_traces
 from mlflow.utils import get_results_from_paginated_fn
 
 _logger = logging.getLogger(__name__)
@@ -232,11 +232,18 @@ def search_traces(
             page_token=next_page_token,
         )
 
-    return get_results_from_paginated_fn(
+    results = get_results_from_paginated_fn(
         pagination_wrapper_func,
         max_results_per_page=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         max_results=max_results,
     )
+
+    try:
+        display_traces(results.to_list())
+    except Exception:
+        pass
+
+    return results
 
 
 def get_current_active_span():

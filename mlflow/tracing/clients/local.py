@@ -1,4 +1,3 @@
-import json
 import threading
 from collections import deque
 from typing import List, Optional
@@ -6,6 +5,7 @@ from typing import List, Optional
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
+from mlflow.tracing.utils import display_traces
 
 
 class InMemoryTraceClient(TraceClient):
@@ -44,44 +44,26 @@ class InMemoryTraceClient(TraceClient):
         """
         try:
             from IPython import get_ipython
-            from IPython.display import display
 
             if len(traces) == 0 or get_ipython() is None:
                 return
 
-            def serialize_trace_list(traces: List[Trace]):
-                return json.dumps([json.loads(trace.to_json()) for trace in traces])
-
             # check the current exec count to know if the user is
-            # running the command in a new cell or not. this is
-            # useful because the user might generate multiple traces
-            # in a single cell, and we only want to display the last one.
+            # running the command in a new cell or not. this is to
+            # determine if we should display a new trace component
+            # or update an existing one.
             current_exec_count = get_ipython().execution_count
             if self._prev_execution_count != current_exec_count:
                 self._prev_execution_count = current_exec_count
-                if len(traces) == 1:
-                    self.display_handle = display(traces[0], display_id=True)
-                else:
-                    self.display_handle = display(
-                        {
-                            "application/databricks.mlflow.trace": serialize_trace_list(traces),
-                            "text/plain": traces.__repr__(),
-                        },
-                        display_id=True,
-                        raw=True,
-                    )
                 self._traces_to_display = traces
+                self._display_handle = None
             else:
                 self._traces_to_display.extend(traces)
-                self.display_handle.update(
-                    {
-                        "application/databricks.mlflow.trace": serialize_trace_list(
-                            self._traces_to_display
-                        ),
-                        "text/plain": self._traces_to_display.__repr__(),
-                    },
-                    raw=True,
-                )
+
+            self._display_handle = display_traces(
+                self._traces_to_display,
+                self._display_handle,
+            )
         except Exception:
             pass
 
