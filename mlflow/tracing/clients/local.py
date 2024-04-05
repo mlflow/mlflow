@@ -71,7 +71,7 @@ class InMemoryTraceClient(TraceClient):
 
 class InMemoryTraceClientWithTracking(InMemoryTraceClient):
     """
-    InMemoryTraceClient with tracking capabilities.
+    `InMemoryTraceClient` with tracking capabilities.
     """
 
     def log_trace(self, trace: Trace):
