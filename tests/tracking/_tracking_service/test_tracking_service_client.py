@@ -202,7 +202,7 @@ def test_search_traces(tmp_path):
 def test_search_traces_download_failures(tmp_path):
     client = TrackingServiceClient(tmp_path.as_uri())
 
-    # Scenario 1: Reach max_results before exhausting all pages
+    # Scenario 1: Collect max_results traces before exhausting all pages
     with mock.patch.object(
         client,
         "_search_traces",
@@ -281,7 +281,7 @@ def test_search_traces_download_failures(tmp_path):
         assert mock_search_traces.call_count == 3
         assert mock_download_trace_data.call_count == 4
 
-    # Scenario 2: Exhaust all pages before reaching max_results
+    # Scenario 2: Exhaust all pages before collecting max_results traces
     client = TrackingServiceClient(tmp_path.as_uri())
     with mock.patch.object(
         client,
