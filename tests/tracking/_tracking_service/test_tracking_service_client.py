@@ -7,6 +7,7 @@ from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 
@@ -155,14 +156,32 @@ def test_search_traces(tmp_path):
                 ],
                 "token2",
             ),
+            (
+                [
+                    TraceInfo(
+                        request_id="test",
+                        experiment_id="test",
+                        timestamp_ms=1,
+                        execution_time_ms=1,
+                        status=SpanStatus(TraceStatus.OK),
+                        request_metadata={},
+                        tags={"mlflow.artifactLocation": "test"},
+                    )
+                ],
+                "token3",
+            ),
         ],
     ) as mock_search_traces, mock.patch.object(
         client,
         "_download_trace_data",
-        side_effect=[Exception("error"), TraceData()],
+        side_effect=[
+            MlflowTraceDataCorrupted(request_id="test"),
+            MlflowTraceDataNotFound(request_id="test"),
+            TraceData(),
+        ],
     ) as mock_download_trace_data:
         res = client.search_traces(experiment_ids=["0"], max_results=1)
         assert len(res) == 1
-        assert res.token == "token2"
-        assert mock_search_traces.call_count == 2
-        assert mock_download_trace_data.call_count == 2
+        assert res.token == "token3"
+        assert mock_search_traces.call_count == 3
+        assert mock_download_trace_data.call_count == 3
