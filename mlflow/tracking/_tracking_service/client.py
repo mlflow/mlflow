@@ -4,6 +4,7 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import logging
 import os
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
@@ -22,7 +23,8 @@ from mlflow.entities import (
 )
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
-from mlflow.exceptions import MlflowException
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
@@ -47,6 +49,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class TrackingServiceClient:
@@ -219,6 +223,22 @@ class TrackingServiceClient:
         trace_data = self._download_trace_data(trace_info)
         return Trace(trace_info, trace_data)
 
+    def _search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        return self.store.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
     def search_traces(
         self,
         experiment_ids: List[str],
@@ -227,22 +247,46 @@ class TrackingServiceClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Trace]:
-        trace_infos, token = self.store.search_traces(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-        )
+        def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
+            """
+            Downloads the trace data for the given trace_info and returns a Trace object.
+            If the download fails (e.g., the trace data is missing or corrupted), returns None.
+            """
+            try:
+                trace_data = self._download_trace_data(trace_info)
+            except (MlflowTraceDataNotFound, MlflowTraceDataCorrupted) as e:
+                _logger.debug(
+                    f"Failed to download trace data for trace with request_id={e.request_id}",
+                    trace_info.request_id,
+                    exc_info=True,
+                )
+                return None
+            else:
+                return Trace(
+                    trace_info=trace_info,
+                    trace_data=trace_data,
+                )
+
+        traces = []
+        next_max_results = max_results
+        next_token = page_token
         with ThreadPoolExecutor() as executor:
-            traces = executor.map(
-                lambda ti: Trace(
-                    trace_info=ti,
-                    trace_data=self._download_trace_data(ti),
-                ),
-                trace_infos,
-            )
-        return PagedList(traces, token)
+            while len(traces) < max_results:
+                trace_infos, next_token = self._search_traces(
+                    experiment_ids=experiment_ids,
+                    filter_string=filter_string,
+                    max_results=next_max_results,
+                    order_by=order_by,
+                    page_token=next_token,
+                )
+                traces.extend(t for t in executor.map(download_trace_data, trace_infos) if t)
+
+                if not next_token:
+                    break
+
+                next_max_results = max_results - len(traces)
+
+        return PagedList(traces, next_token)
 
     def set_trace_tag(self, request_id, key, value):
         """

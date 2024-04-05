@@ -23,7 +23,7 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialType,
     CompleteMultipartUpload,
@@ -236,13 +236,17 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         signed_uri = cred.credential_info.signed_uri
         headers = self._extract_headers_from_credentials(cred.credential_info.headers)
         with cloud_storage_http_request("get", signed_uri, headers=headers) as resp:
-            augmented_raise_for_status(resp)
+            try:
+                augmented_raise_for_status(resp)
+            except requests.HTTPError as e:
+                if e.response.status_code == 404:
+                    raise MlflowTraceDataNotFound(request_id=self.run_id) from e
+                raise
+
             try:
                 return json.loads(resp.content)
             except json.JSONDecodeError as e:
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to parse trace data:\n{resp.content.decode()}"
-                ) from e
+                raise MlflowTraceDataCorrupted(request_id=self.run_id) from e
 
     def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
         cred = self._call_endpoint(
