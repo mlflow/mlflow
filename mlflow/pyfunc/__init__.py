@@ -451,7 +451,7 @@ from mlflow.utils import (
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -634,7 +634,7 @@ class PyFuncModel:
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
-        self._model_impl = model_impl
+        self.__model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
         if predict_stream_fn:
             if not hasattr(model_impl, predict_stream_fn):
@@ -644,6 +644,16 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
+
+    @property
+    @developer_stable
+    def _model_impl(self) -> Any:
+        """
+        The underlying model implementation object.
+
+        NOTE: This is a stable developer API.
+        """
+        return self.__model_impl
 
     def _validate_prediction_input(
         self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
