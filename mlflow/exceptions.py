@@ -173,3 +173,17 @@ class _UnsupportedMultipartUploadException(MlflowException):
 
     def __init__(self):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
+class MlflowTraceDataNotFound(MlflowException):
+    """Exception thrown when trace data is not found"""
+
+    def __init__(self, request_id: str):
+        super().__init__(f"Trace data not found for {request_id}", error_code=NOT_FOUND)
+
+
+class MlflowTraceDataCorrupted(MlflowException):
+    """Exception thrown when trace data is corrupted"""
+
+    def __init__(self, request_id: str):
+        super().__init__(f"Trace data is corrupted for {request_id}", error_code=INVALID_STATE)

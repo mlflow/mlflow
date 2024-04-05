@@ -272,6 +272,10 @@ class ArtifactRepository:
 
         Returns:
             The trace data as a dictionary.
+
+        Raises:
+            - `MlflowTraceDataNotFound`: The trace data is not found.
+            - `MlflowTraceDataCorrupted`: The trace data is corrupted.
         """
         raise NotImplementedError
 

@@ -24,7 +24,7 @@ from mlflow.entities import (
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
@@ -254,9 +254,9 @@ class TrackingServiceClient:
             """
             try:
                 trace_data = self._download_trace_data(trace_info)
-            except Exception:
+            except (MlflowTraceDataNotFound, MlflowTraceDataCorrupted) as e:
                 _logger.debug(
-                    "Failed to download trace data for trace with request_id=%s",
+                    f"Failed to download trace data for trace with request_id={e.request_id}",
                     trace_info.request_id,
                     exc_info=True,
                 )
