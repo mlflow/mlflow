@@ -458,13 +458,13 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
         matched = False
         for parallel_spans_order in [parallel_spans, parallel_spans[::-1]]:
             matched |= spans == [
-                ("RunnableSequence", "CHAIN"),
+                ("RunnableSequence_1", "CHAIN"),
                 ("RunnableParallel<question,chat_history>", "CHAIN"),
-                ("RunnableSequence", "CHAIN"),
-                ("RunnableLambda", "CHAIN"),
+                ("RunnableSequence_2", "CHAIN"),
+                ("RunnableLambda_1", "CHAIN"),
                 (parallel_spans_order[0], "CHAIN"),
-                ("RunnableSequence", "CHAIN"),
-                ("RunnableLambda", "CHAIN"),
+                ("RunnableSequence_3", "CHAIN"),
+                ("RunnableLambda_2", "CHAIN"),
                 (parallel_spans_order[1], "CHAIN"),
                 ("PromptTemplate", "CHAIN"),
                 ("FakeChatModel", "LLM"),
