@@ -199,7 +199,7 @@ def test_search_traces(tmp_path):
         assert mock_download_trace_data.call_count == 4
 
 
-def test_search_traces_trace_data_download_failures(tmp_path):
+def test_search_traces_download_failures(tmp_path):
     client = TrackingServiceClient(tmp_path.as_uri())
 
     # Scenario 1: Reach max_results before exhausting all pages
