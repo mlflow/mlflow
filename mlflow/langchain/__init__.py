@@ -862,7 +862,7 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inputs_outputs=True,
+    log_inputs_outputs=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -895,7 +895,7 @@ def autolog(
         log_inputs_outputs: If ``True``, inference data and results are combined into a single
             pandas DataFrame and logged to MLflow Tracking as an artifact.
             If ``False``, inference data and results are not logged.
-            Default to ``True``.
+            Default to ``False``.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
