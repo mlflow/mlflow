@@ -360,7 +360,7 @@ spark:
       cd $temp_dir
       # -Pconnect -Phive is required by spark connect
       ./build/sbt -Pconnect -Phive clean package connect/assembly
-      cd python
+      cd python/packaging/classic
       pip install '.[connect]'
       pyspark --version
 
