@@ -56,7 +56,7 @@ class IPythonTraceDisplayClient:
                 self.traces_to_display = traces_dict
                 self.display_handle = None
             else:
-                self.traces_to_display.update(traces)
+                self.traces_to_display.update(traces_dict)
 
             deduped_trace_list = list(self.traces_to_display.values())
             if self.display_handle:
