@@ -130,6 +130,12 @@ def save_model(
     metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
+    .. note::
+
+        Saving Sentence Transformers models with custom code (i.e. models that require
+        ``trust_remote_code=True``) is supported in MLflow 2.12.0 and above.
+
+
     Save a trained ``sentence-transformers`` model to a path on the local file system.
 
     Args:
@@ -312,8 +318,12 @@ def log_model(
     metadata: Optional[Dict[str, Any]] = None,
 ):
     """
-    Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
+    .. note::
 
+        Logging Sentence Transformers models with custom code (i.e. models that require
+        ``trust_remote_code=True``) is supported in MLflow 2.12.0 and above.
+
+    Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
 
     .. code-block:: python
 
@@ -450,7 +460,11 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    return sentence_transformers.SentenceTransformer.load(str(local_model_dir))
+    # Always set trust_remote_code=True because we save the entire repository files in the model
+    # artifacts, so there is no risk of running untrusted code unless the logged artifact is
+    # modified by a malicious actor, which is much more broader security concern that even cannot
+    # be prevented by setting trust_remote_code=False.
+    return sentence_transformers.SentenceTransformer(str(local_model_dir), trust_remote_code=True)
 
 
 def _get_default_signature():

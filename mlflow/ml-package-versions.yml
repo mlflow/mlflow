@@ -694,7 +694,14 @@ sentence_transformers:
     minimum: "2.2.2"
     maximum: "2.4.0"
     requirements:
-      ">= 0.0.0": ["pyspark", "torch>1.6", "transformers>4.25", "hf_transfer"]
+      ">= 0.0.0": [
+          "pyspark",
+          "torch>1.6",
+          "transformers>4.25",
+          "hf_transfer",
+          # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
+          "einops",
+        ]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
 
