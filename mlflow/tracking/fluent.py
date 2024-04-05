@@ -1222,7 +1222,7 @@ def log_image(
     key: Optional[str] = None,
     step: Optional[int] = None,
     timestamp: Optional[int] = None,
-    synchronous: Optional[bool] = True,
+    synchronous: Optional[bool] = False,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
