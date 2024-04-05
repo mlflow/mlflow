@@ -634,6 +634,9 @@ class PyFuncModel:
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
+        # Set as a fully private internal-only instance variable in favor of marking _model_impl
+        # safe for developer use as an instance property, requiring a deprecation notice prior to
+        # changing or removing `_model_impl` due to external integration reliance on that attribute.
         self.__model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
         if predict_stream_fn:
@@ -650,6 +653,8 @@ class PyFuncModel:
     def _model_impl(self) -> Any:
         """
         The underlying model implementation object.
+
+        NOTE: This is a stable developer API.
         """
         return self.__model_impl
 
