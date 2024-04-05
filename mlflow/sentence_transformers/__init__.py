@@ -5,7 +5,9 @@ import re
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+from packaging.version import Version
 import pandas as pd
+import sentence_transformers
 import yaml
 
 import mlflow
@@ -61,6 +63,8 @@ _LLM_V1_EMBEDDING_INPUT_KEY = "input"
 # The path format would be like /path/to/{username}_{modelname}, where user name can
 # only contain number, letters, and dashes.
 _LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/([0-9a-zA-Z-]+)_([^\/]+)/$")
+
+_IS_REMOTE_CODE_SUPPORTED = Version(sentence_transformers.__version__) >= Version("2.3.0")
 
 model_data_artifact_paths = [SENTENCE_TRANSFORMERS_DATA_PATH]
 
@@ -460,11 +464,14 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    # Always set trust_remote_code=True because we save the entire repository files in the model
-    # artifacts, so there is no risk of running untrusted code unless the logged artifact is
-    # modified by a malicious actor, which is much more broader security concern that even cannot
-    # be prevented by setting trust_remote_code=False.
-    return sentence_transformers.SentenceTransformer(str(local_model_dir), trust_remote_code=True)
+    load_kwargs = {}
+    if _IS_REMOTE_CODE_SUPPORTED:
+        # Always set trust_remote_code=True because we save the entire repository files in
+        # the model artifacts, so there is no risk of running untrusted code unless the logged
+        # artifact is modified by a malicious actor, which is much more broader security
+        # concern that even cannot be prevented by setting trust_remote_code=False.
+        load_kwargs["trust_remote_code"] = True
+    return sentence_transformers.SentenceTransformer(str(local_model_dir), **load_kwargs)
 
 
 def _get_default_signature():
