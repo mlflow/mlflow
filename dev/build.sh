@@ -9,7 +9,7 @@ do
   if [ "$arg" == "--skinny" ]; then
     SKINNY=1
   elif [[ "$arg" == --python-path=* ]]; then
-    PYTHON_PATH="${arg#*=}"  # Extract the path after the equal sign
+    PYTHON_PATH="${arg#*=}"
   fi
 done
 
