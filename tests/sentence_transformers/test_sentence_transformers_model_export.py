@@ -3,10 +3,11 @@ import os
 from unittest import mock
 
 import numpy as np
-from packaging.version import Version
 import pandas as pd
 import pytest
+import sentence_transformers
 import yaml
+from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import ArrayType, DoubleType
 from sentence_transformers import SentenceTransformer
@@ -18,7 +19,6 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.sentence_transformers import _IS_REMOTE_CODE_SUPPORTED
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -68,8 +68,8 @@ def test_model_save_and_load(model_path, basic_model):
 
 
 @pytest.mark.skipif(
-    not _IS_REMOTE_CODE_SUPPORTED,
-    reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0"
+    Version(sentence_transformers.__version__) < Version("2.3.0"),
+    reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0",
 )
 def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
     mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
