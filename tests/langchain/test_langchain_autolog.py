@@ -449,28 +449,22 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        spans = [(s.name, s.span_type) for s in trace.trace_data.spans]
-
-        # "extract_questions" and "extract_history" are executed in RunnableParallel
-        # so the order of these two spans is not deterministic. To avoid flakiness,
-        # we have to check both possible orders.
-        parallel_spans = ["extract_question", "extract_history"]
-        matched = False
-        for parallel_spans_order in [parallel_spans, parallel_spans[::-1]]:
-            matched |= spans == [
-                ("RunnableSequence_1", "CHAIN"),
-                ("RunnableParallel<question,chat_history>", "CHAIN"),
-                ("RunnableSequence_2", "CHAIN"),
-                ("RunnableLambda_1", "CHAIN"),
-                (parallel_spans_order[0], "CHAIN"),
-                ("RunnableSequence_3", "CHAIN"),
-                ("RunnableLambda_2", "CHAIN"),
-                (parallel_spans_order[1], "CHAIN"),
-                ("PromptTemplate", "CHAIN"),
-                ("FakeChatModel", "LLM"),
-                ("StrOutputParser", "CHAIN"),
-            ]
-        assert matched, f"Spans do not match with the expected order: {spans}"
+        spans = {(s.name, s.span_type) for s in trace.trace_data.spans}
+        # Since the chain includes parallel execution, the order of some
+        # spans is not deterministic.
+        assert spans == {
+            ("RunnableSequence_1", "CHAIN"),
+            ("RunnableParallel<question,chat_history>", "CHAIN"),
+            ("RunnableSequence_2", "CHAIN"),
+            ("RunnableLambda_1", "CHAIN"),
+            ("extract_question", "CHAIN"),
+            ("RunnableSequence_3", "CHAIN"),
+            ("RunnableLambda_2", "CHAIN"),
+            ("extract_history", "CHAIN"),
+            ("PromptTemplate", "CHAIN"),
+            ("FakeChatModel", "LLM"),
+            ("StrOutputParser", "CHAIN"),
+        }
 
 
 # TODO: remove skip mark before merging the tracing feature branch to master
