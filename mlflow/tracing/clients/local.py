@@ -71,12 +71,11 @@ class InMemoryTraceClient(TraceClient):
 
 class InMemoryTraceClientWithTracking(InMemoryTraceClient):
     """
-    TODO: Add docstring
+    InMemoryTraceClient with tracking capabilities.
     """
 
     def log_trace(self, trace: Trace):
         super().log_trace(trace)
-
         client = MlflowClient()
         client._create_trace_info(trace.trace_info)
-        client._upload_trace_data(trace.trace_info.request_id, trace.trace_data)
+        client._upload_trace_data(trace.trace_info, trace.trace_data)
