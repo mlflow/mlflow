@@ -1158,6 +1158,9 @@ class MlflowClient:
         Args:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            synchronous: *Experimental* If True, blocks until the artifact is logged
+                successfully. If False, logs the artifacts asynchronously
+                and returns a future representing the logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -1242,7 +1245,7 @@ class MlflowClient:
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
     @contextlib.contextmanager
-    def _log_artifact_helper(self, run_id, artifact_file):
+    def _log_artifact_helper(self, run_id, artifact_file, synchronous=True):
         """Yields a temporary path to store a file, and then calls `log_artifact` against that path.
 
         Args:
@@ -1258,10 +1261,18 @@ class MlflowClient:
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        if synchronous:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = os.path.join(tmp_dir, filename)
+                yield tmp_path
+                self.log_artifact(run_id, tmp_path, artifact_dir)
+        else:
+            # call self.log_artifact asynchronously
+            # Manually create and manage a temporary directory
+            tmp_dir = tempfile.mkdtemp()
             tmp_path = os.path.join(tmp_dir, filename)
             yield tmp_path
-            self.log_artifact(run_id, tmp_path, artifact_dir)
+            self._tracking_client.log_artifact_async(run_id, tmp_path, artifact_dir, cleanup=True)
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -1608,17 +1619,21 @@ class MlflowClient:
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
-            with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
+            with self._log_artifact_helper(run_id, image_filepath, synchronous=False) as tmp_path:
                 image.save(tmp_path)
 
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-            with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+            with self._log_artifact_helper(
+                run_id, compressed_image_filepath, synchronous=False
+            ) as tmp_path:
                 compress_image_size(image).save(tmp_path)
 
             # Save metadata file
             metadata_filepath = f"{filename}.json"
-            with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
+            with self._log_artifact_helper(
+                run_id, metadata_filepath, synchronous=False
+            ) as tmp_path:
                 with open(tmp_path, "w+") as f:
                     json.dump(
                         {

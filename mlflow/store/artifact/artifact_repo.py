@@ -1,6 +1,7 @@
 import logging
 import os
 import posixpath
+import shutil
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional
@@ -11,6 +12,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
+from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
 
@@ -49,6 +51,13 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
+        def log_artifact_handler(local_file, artifact_path=None, cleanup=False):
+            self.log_artifact(local_file, artifact_path)
+            if cleanup:
+                shutil.rmtree(local_file)
+
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
+
     def _create_thread_pool(self):
         return ThreadPoolExecutor(max_workers=self.max_workers)
 
@@ -65,6 +74,32 @@ class ArtifactRepository:
                 artifact.
         """
         pass
+
+    def log_artifact_async(self, local_file, artifact_path=None, cleanup=False):
+        """
+        Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
+        place it within the run's artifacts. Run artifacts can be organized into directory, so you
+        can place the artifact in the directory this way. Cleanup tells the function whether to
+        cleanup the local_file after running log_artifact, since it could be a Temporary
+        Directory.
+
+        Args:
+            local_file: Path to artifact to log.
+            artifact_path: Directory within the run's artifact directory in which to log the
+                artifact.
+            cleanup: Indicator of whether to cleanup local file after upload.
+
+        Returns:
+            An :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance
+            that represents future for logging operation.
+        """
+
+        if not self._async_logging_queue.is_active():
+            self._async_logging_queue.activate()
+
+        return self._async_logging_queue.log_artifacts_async(
+            local_file=local_file, artifact_path=artifact_path, cleanup=cleanup
+        )
 
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):

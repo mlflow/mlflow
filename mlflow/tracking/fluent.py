@@ -1222,6 +1222,7 @@ def log_image(
     key: Optional[str] = None,
     step: Optional[int] = None,
     timestamp: Optional[int] = None,
+    synchronous: Optional[bool] = True,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
@@ -1283,6 +1284,7 @@ def log_image(
         step: Integer training step (iteration) at which the image was saved.
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
+        synchronous: *Experimental* If True, blocks until the image is logged successfully.
 
     .. code-block:: python
         :caption: Time-stepped image logging numpy example
@@ -1342,7 +1344,7 @@ def log_image(
             mlflow.log_image(image, "image.png")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp)
+    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
 
 
 @experimental

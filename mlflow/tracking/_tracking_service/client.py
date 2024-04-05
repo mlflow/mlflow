@@ -559,6 +559,23 @@ class TrackingServiceClient:
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
+    def log_artifact_async(self, run_id, local_path, artifact_path=None, cleanup=False):
+        """
+        Write a local file or directory to the remote ``artifact_uri`` asynchronously.
+
+        Args:
+            local_path: Path to the file or directory to write.
+            artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            cleanup: Whether to clean up local_path after upload is complete
+        """
+        artifact_repo = self._get_artifact_repo(run_id)
+        if os.path.isdir(local_path):
+            dir_name = os.path.basename(os.path.normpath(local_path))
+            artifact_path = (
+                os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
+            )
+        artifact_repo.log_artifact_async(local_path, artifact_path, cleanup)
+
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
 
