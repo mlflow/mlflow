@@ -1,0 +1,25 @@
+version: "2.4"
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server
+    container_name: mlflow-mssql-test-db
+    environment:
+      MSSQL_SA_PASSWORD: StrongPassword!
+      ACCEPT_EULA: "Y"
+    expose:
+      - 1433
+
+  mlflow:
+    container_name: mlflow-mssql-test
+    image: mlflow-docker-test
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile.full
+    #   args:
+    #     VERSION: 2.11
+    command: "mlflow server --backend-store-uri=mssql+pymssql://sa:StrongPassword!@mssql:1433 --host=0.0.0.0 --port=5000"
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mssql
