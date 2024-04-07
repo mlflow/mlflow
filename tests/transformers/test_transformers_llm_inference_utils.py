@@ -9,6 +9,7 @@ import torch
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature
 from mlflow.transformers.llm_inference_utils import (
+    _get_default_task_for_llm_inference_task,
     _get_finish_reason,
     _get_output_and_usage_from_tensor,
     _get_stopping_criteria,
@@ -167,3 +168,15 @@ def test_finish_reason():
         _get_finish_reason(total_tokens=20, completion_tokens=10, model_config={"max_length": 15})
         == "length"
     )
+
+
+@pytest.mark.parametrize(
+    ("inference_task", "expected_task"),
+    [
+        ("llm/v1/completions", "text-generation"),
+        ("llm/v1/chat", "text-generation"),
+        (None, None),
+    ],
+)
+def test_default_task_for_llm_inference_task(inference_task, expected_task):
+    assert _get_default_task_for_llm_inference_task(inference_task) == expected_task

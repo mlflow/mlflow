@@ -1,6 +1,7 @@
 import os
 from typing import Any, List, Optional
 
+import yaml
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.prompts import ChatPromptTemplate
@@ -52,23 +53,24 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
     return FakeChatModel(endpoint=endpoint)
 
 
-text_path = mlflow.langchain._rag_utils.__databricks_rag_config_path__
-assert (
-    os.path.basename(os.path.abspath(mlflow.langchain._rag_utils.__databricks_rag_config_path__))
-    == "state_of_the_union.txt"
-)
-assert os.path.exists(text_path)
+config_path = mlflow.langchain._rag_utils.__databricks_rag_config_path__
+assert os.path.exists(config_path)
+
+with open(config_path) as f:
+    base_config = yaml.safe_load(f)
+
+text_path = "tests/langchain/state_of_the_union.txt"
 loader = TextLoader(text_path)
 documents = loader.load()
 text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 docs = text_splitter.split_documents(documents)
-embeddings = FakeEmbeddings(size=5)
+
+assert base_config.get("embedding_size") == 5
+embeddings = FakeEmbeddings(size=base_config.get("embedding_size"))
 vectorstore = FAISS.from_documents(docs, embeddings)
 retriever = vectorstore.as_retriever()
 
-prompt = ChatPromptTemplate.from_template(
-    "Answer the following question based on the context: {context}\nQuestion: {question}"
-)
+prompt = ChatPromptTemplate.from_template(base_config.get("llm_prompt_template"))
 retrieval_chain = (
     {
         "context": retriever,

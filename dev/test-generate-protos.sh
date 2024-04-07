@@ -13,5 +13,3 @@ if [ "$GIT_STATUS" ]; then
 else
 	echo "Test successful - Protobuf files generated"
 fi
-
-

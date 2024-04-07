@@ -301,6 +301,27 @@ def load_custom_code_pipeline():
     )
 
 
+@prefetch
+@flaky()
+def load_custom_components_pipeline():
+    model = transformers.AutoModel.from_pretrained(
+        "hf-internal-testing/test_dynamic_model_with_tokenizer", trust_remote_code=True
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        "hf-internal-testing/test_dynamic_processor", trust_remote_code=True
+    )
+    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+        "hf-internal-testing/test_dynamic_processor",
+        trust_remote_code=True,
+    )
+    return transformers.pipeline(
+        task="feature-extraction",
+        model=model,
+        tokenizer=tokenizer,
+        feature_extractor=feature_extractor,
+    )
+
+
 def prefetch_models():
     """
     Prefetches models used in the test suite to avoid downloading them during the test run.

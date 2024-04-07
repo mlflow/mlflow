@@ -44,6 +44,8 @@ This script will:
 EOF
 }
 
+directory="$(pwd)/.venvs/mlflow-dev"
+MLFLOW_HOME="$(pwd)"
 while :
 do
   case "$1" in
@@ -226,6 +228,7 @@ pyenv install -s "$PY_INSTALL_VERSION"
 pyenv local "$PY_INSTALL_VERSION"
 pyenv exec pip install $(quiet_command) --upgrade pip
 pyenv exec pip install $(quiet_command) virtualenv
+pyenv exec pip install $(quiet_command) pre-commit
 
 VENV_DIR="$directory/bin/activate"
 
@@ -255,10 +258,11 @@ echo "Installing pip dependencies for development environment."
 
 # Install current checked out version of MLflow (local)
 pip install $(quiet_command) -e .[extras]
+pip install pre-commit
 
 if [[ -n "$full" ]]; then
   # Install dev requirements and test plugin
-  pip install $(quiet_command) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
+  pip install $(quiet_command) -r "$rd/dev-requirements.txt"
   # Install test plugin
   pip install $(quiet_command) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   echo "Finished installing pip dependencies."

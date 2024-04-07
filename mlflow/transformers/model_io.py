@@ -110,17 +110,37 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
 def _load_component(flavor_conf, name, local_path=None):
     import transformers
 
-    cls = getattr(transformers, flavor_conf[FlavorKey.COMPONENT_TYPE.format(name)])
+    _COMPONENT_TO_AUTOCLASS_MAP = {
+        FlavorKey.TOKENIZER: transformers.AutoTokenizer,
+        FlavorKey.FEATURE_EXTRACTOR: transformers.AutoFeatureExtractor,
+        FlavorKey.PROCESSOR: transformers.AutoProcessor,
+        FlavorKey.IMAGE_PROCESSOR: transformers.AutoImageProcessor,
+    }
+
+    component_name = flavor_conf[FlavorKey.COMPONENT_TYPE.format(name)]
+    if hasattr(transformers, component_name):
+        cls = getattr(transformers, component_name)
+        trust_remote = False
+    else:
+        if local_path is None:
+            raise MlflowException(
+                f"A custom component `{component_name}` was specified, "
+                "but no local config file was found to retrieve the "
+                "definition. Make sure your model was saved with "
+                "save_pretrained=True."
+            )
+        cls = _COMPONENT_TO_AUTOCLASS_MAP[name]
+        trust_remote = True
 
     if local_path is not None:
         # Load component from local file
         path = local_path.joinpath(_COMPONENTS_BINARY_DIR_NAME, name)
-        return cls.from_pretrained(str(path))
+        return cls.from_pretrained(str(path), trust_remote_code=trust_remote)
     else:
         # Load component from HuggingFace Hub
         repo = flavor_conf[FlavorKey.COMPONENT_NAME.format(name)]
         revision = flavor_conf.get(FlavorKey.COMPONENT_REVISION.format(name))
-        return cls.from_pretrained(repo, revision=revision)
+        return cls.from_pretrained(repo, revision=revision, trust_remote_code=trust_remote)
 
 
 def _load_class_from_transformers_config(model_name_or_path, revision=None):

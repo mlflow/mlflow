@@ -65,6 +65,7 @@ class _RetrieverChain(Chain):
     ) -> Dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
+
         Example:
 
         .. code-block:: python

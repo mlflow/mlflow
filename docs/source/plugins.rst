@@ -459,6 +459,7 @@ The library is available on PyPI here : <https://pypi.org/project/mlflow-elastic
 Artifact Repository Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
 - `oci-mlflow <https://github.com/oracle/oci-mlflow>`_ Leverages Oracle Cloud Infrastructure (OCI) Object Storage service to store MLflow models artifacts.
 
 
@@ -554,4 +555,3 @@ Notice this settings might cause significant storage usage and might require JFr
 .. code-block:: bash
 
     export ARTIFACTORY_ARTIFACTS_DELETE_SKIP=true
-

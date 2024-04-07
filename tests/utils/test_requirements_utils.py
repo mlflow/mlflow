@@ -10,6 +10,7 @@ import pytest
 import mlflow
 import mlflow.utils.requirements_utils
 from mlflow.utils.environment import infer_pip_requirements
+from mlflow.utils.os import is_windows
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
     _get_installed_version,
@@ -141,8 +142,8 @@ line-cont-eof\
     # pip's requirements parser collapses an absolute requirements file path:
     # https://github.com/pypa/pip/issues/10121
     # As a workaround, use a relative path on Windows.
-    absolute_req = abs_req.name if os.name == "nt" else str(abs_req)
-    absolute_con = abs_con.name if os.name == "nt" else str(abs_con)
+    absolute_req = abs_req.name if is_windows() else str(abs_req)
+    absolute_con = abs_con.name if is_windows() else str(abs_con)
     root_req.write_text(
         root_req_src.format(
             relative_req=rel_req.name,

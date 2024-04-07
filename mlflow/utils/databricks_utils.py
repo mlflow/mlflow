@@ -25,6 +25,9 @@ from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 _logger = logging.getLogger(__name__)
 
 
+_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
+
+
 def _use_repl_context_if_available(name):
     """Creates a decorator to insert a short circuit that returns the specified REPL context
     attribute if it's available.
@@ -165,7 +168,17 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    return "DATABRICKS_MODEL_SERVING_ENV" in os.environ
+    return "IS_IN_DATABRICKS_MODEL_SERVING_ENV" in os.environ
+
+
+# this should only be the case when we are in model serving environment
+# and OAuth token file exists in specified path
+def should_fetch_model_serving_environment_oauth():
+    return (
+        is_in_databricks_model_serving_environment()
+        and os.path.exists(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
+        and os.path.isfile(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH)
+    )
 
 
 def is_in_databricks_repo():
@@ -183,8 +196,22 @@ def is_in_databricks_repo_notebook():
         return False
 
 
+_DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
+
+
+def get_databricks_runtime_version():
+    if ver := os.environ.get("DATABRICKS_RUNTIME_VERSION"):
+        return ver
+    if os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
+        # In Databricks DCS cluster, it doesn't have DATABRICKS_RUNTIME_VERSION
+        # environment variable, we have to read version from the version file.
+        with open(_DATABRICKS_VERSION_FILE_PATH) as f:
+            return f.read().strip()
+    return None
+
+
 def is_in_databricks_runtime():
-    return "DATABRICKS_RUNTIME_VERSION" in os.environ
+    return get_databricks_runtime_version() is not None
 
 
 def is_dbfs_fuse_available():
@@ -425,13 +452,9 @@ def _fail_malformed_databricks_auth(profile):
     )
 
 
-# constant defined outside function for testing override
-_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
-
-
 # Helper function to attempt to read OAuth Token from
 # mounted file in Databricks Model Serving environment
-def _get_model_dependency_oauth_token(should_retry=True):
+def get_model_dependency_oauth_token(should_retry=True):
     try:
         with open(_MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH) as f:
             oauth_dict = json.load(f)
@@ -440,7 +463,7 @@ def _get_model_dependency_oauth_token(should_retry=True):
         # sleep and retry in case of any race conditions with OAuth refreshing
         if should_retry:
             time.sleep(0.5)
-            return _get_model_dependency_oauth_token(should_retry=False)
+            return get_model_dependency_oauth_token(should_retry=False)
         else:
             raise MlflowException(
                 "Unable to read Oauth credentials from file mount for Databricks "
@@ -448,10 +471,28 @@ def _get_model_dependency_oauth_token(should_retry=True):
             ) from e
 
 
-def _default_databricks_host_creds(server_uri):
+def get_databricks_host_creds(server_uri=None):
+    """
+    Reads in configuration necessary to make HTTP requests to a Databricks server. This
+    uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
+    If no Databricks CLI profile is found corresponding to the server URI, this function
+    will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
+    the server URI will need to be of the following format: "databricks://scope:prefix". In the
+    Databricks Secret Manager, we will query for a secret in the scope "<scope>" for secrets with
+    keys of the form "<prefix>-host" and "<prefix>-token". Note that this prefix *cannot* be empty
+    if trying to authenticate with this method. If found, those host credentials will be used. This
+    method will throw an exception if sufficient auth cannot be found.
+
+    Args:
+        server_uri: A URI that specifies the Databricks profile you want to use for making
+            requests.
+
+    Returns:
+        MlflowHostCreds which includes the hostname and authentication information necessary to
+        talk to the Databricks server.
+    """
     profile, path = get_db_info_from_uri(server_uri)
     config = ProfileConfigProvider(profile).get_config() if profile else get_config()
-    insecure = getattr(config, "insecure", False)
     # if a path is specified, that implies a Databricks tracking URI of the form:
     # databricks://profile-name/path-specifier
     if (not config or not config.host) and path:
@@ -465,6 +506,9 @@ def _default_databricks_host_creds(server_uri):
                 config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
+
+    insecure = hasattr(config, "insecure") and config.insecure
+
     if config.username is not None and config.password is not None:
         return MlflowHostCreds(
             config.host,
@@ -475,67 +519,6 @@ def _default_databricks_host_creds(server_uri):
     elif config.token:
         return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
-
-
-def _model_serving_env_databricks_host_creds():
-    # Since we do not record OAuth expiration time in OAuth file, perform periodic refresh
-    # of OAuth environment variable cache here. As currently configured (02/24) OAuth token
-    # in model serving environment is guaranteed to have at least 30 min remaining on TTL
-    # at any point in time but refresh at higher rate of every 5 min here to be safe
-    # and conform with refresh logic for Brickstore tables.
-    OAUTH_CACHE_REFRESH_DURATION_SEC = 5 * 60
-    OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
-    OAUTH_CACHE_EXPIRATION_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"
-    MODEL_SERVING_HOST_ENV_VAR = "DATABRICKS_MODEL_SERVING_HOST_URL"
-
-    # check if dependency is cached in env var before reading from file
-    oauth_token = ""
-    if (
-        OAUTH_CACHE_ENV_VAR in os.environ
-        and OAUTH_CACHE_EXPIRATION_ENV_VAR in os.environ
-        and float(os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR]) > time.time()
-    ):
-        oauth_token = os.environ[OAUTH_CACHE_ENV_VAR]
-    else:
-        oauth_token = _get_model_dependency_oauth_token()
-        os.environ[OAUTH_CACHE_ENV_VAR] = oauth_token
-        os.environ[OAUTH_CACHE_EXPIRATION_ENV_VAR] = str(
-            time.time() + OAUTH_CACHE_REFRESH_DURATION_SEC
-        )
-
-    return MlflowHostCreds(
-        os.environ[MODEL_SERVING_HOST_ENV_VAR], token=oauth_token, ignore_tls_verification=True
-    )
-
-
-def get_databricks_host_creds(server_uri=None):
-    """
-    Reads in configuration necessary to make HTTP requests to a Databricks server. This
-    uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
-    If no Databricks CLI profile is found corresponding to the server URI, this function
-    will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
-    the server URI will need to be of the following format: "databricks://scope:prefix". In the
-    Databricks Secret Manager, we will query for a secret in the scope "<scope>" for secrets with
-    keys of the form "<prefix>-host" and "<prefix>-token". Note that this prefix *cannot* be empty
-    if trying to authenticate with this method. If found, those host credentials will be used. This
-    method will throw an exception if sufficient auth cannot be found. If called, within Databricks
-    Model Serving environment, this method will attempt to read the OAuth token from where it would
-    expect to find it in the serving environment.
-
-    Args:
-        server_uri: A URI that specifies the Databricks profile you want to use for making
-            requests.
-
-    Returns:
-        MlflowHostCreds which includes the hostname and authentication information necessary to
-        talk to the Databricks server.
-    """
-    # if in model serving environment databricks attempt to fetch model dependency OAuth token
-    if is_in_databricks_model_serving_environment():
-        return _model_serving_env_databricks_host_creds()
-    # default host creds behavior if not fetching OAuth token for model serving dependency
-    else:
-        return _default_databricks_host_creds(server_uri)
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
@@ -805,7 +788,7 @@ class DatabricksRuntimeVersion(NamedTuple):
 
     @classmethod
     def parse(cls):
-        dbr_version = os.environ["DATABRICKS_RUNTIME_VERSION"]
+        dbr_version = get_databricks_runtime_version()
         try:
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":

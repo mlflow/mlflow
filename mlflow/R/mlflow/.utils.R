@@ -14,5 +14,21 @@ should_enable_cran_incoming_checks <- function() {
     publication_date <- as.Date(unname(desc[1, field]))
     today <- Sys.Date()
     days_since_last_release <- as.numeric(difftime(today, publication_date, units="days"))
-    days_since_last_release > 7
+    if (days_since_last_release < 7) {
+        return(FALSE)
+    }
+
+    # Skip the release frequency check if the number of releases in the last 180 days exceeds 6.
+    url <- "https://crandb.r-pkg.org/mlflow/all"
+    response <- httr::GET(url)
+    json_data <- httr::content(response, "parsed")
+    release_dates <- as.Date(sapply(json_data$timeline, function(x) substr(x, 1, 10)))
+    today <- Sys.Date()
+    days_ago_180 <- as.Date(today) - 180
+    recent_releases <- sum(release_dates >= days_ago_180)
+    if (recent_releases > 6) {
+        return(FALSE)
+    }
+
+    return(TRUE)
 }

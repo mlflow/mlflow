@@ -1,9 +1,9 @@
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.protos.service_pb2 import MetricWithRunId as ProtoMetricWithRunId
 
 
-class Metric(_MLflowObject):
+class Metric(_MlflowObject):
     """
     Metric object.
     """

@@ -32,6 +32,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PYTHONUTF8: "1"
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality

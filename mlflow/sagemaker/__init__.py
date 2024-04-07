@@ -1355,16 +1355,42 @@ def _get_deployment_config(flavor_name, env_override=None):
     return deployment_config
 
 
+def _truncate_name(name, max_length):
+    # NB: Sagemaker prevents the registration of models and configurations whose names
+    # exceed 63 characters in length. For reference:
+    # https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_Model.html
+    # https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_TransformJob.html
+    # https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ModelConfiguration.html
+    # This function middle-truncates the name provided to
+    # ensure that the least critical name information is not lost
+    if len(name) <= max_length:
+        return name
+    available_length = max_length - 3
+    start_len = available_length // 2
+    end_len = available_length - start_len
+    truncated_name = f"{name[:start_len]}---{name[-end_len:]}"
+    _logger.warning(
+        f"Truncated name {name} to {truncated_name} to coerce total character counts to < 64"
+    )
+    return truncated_name
+
+
+def _get_unique_name(base_name, unique_suffix, unique_id_length=20):
+    unique_resource_string = f"{unique_suffix}{get_unique_resource_id(unique_id_length)}"
+    max_length = 63 - len(unique_resource_string)
+    return _truncate_name(base_name, max_length) + unique_resource_string
+
+
 def _get_sagemaker_model_name(endpoint_name):
-    return f"{endpoint_name}-model-{get_unique_resource_id()}"
+    return _get_unique_name(endpoint_name, "-model-")
 
 
 def _get_sagemaker_transform_model_name(job_name):
-    return f"{job_name}-model-{get_unique_resource_id()}"
+    return _get_unique_name(job_name, "-model-")
 
 
 def _get_sagemaker_config_name(endpoint_name):
-    return f"{endpoint_name}-config-{get_unique_resource_id()}"
+    return _get_unique_name(endpoint_name, "-config-")
 
 
 def _get_sagemaker_config_tags(endpoint_name):

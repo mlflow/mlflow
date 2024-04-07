@@ -1,6 +1,7 @@
 import json
 import logging
 import pathlib
+import re
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -48,10 +49,18 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "sentence_transformers"
+_TRANSFORMER_SOURCE_MODEL_NAME_KEY = "source_model_name"
+_TRANSFORMER_MODEL_TYPE_KEY = "pipeline_model_type"
+
 SENTENCE_TRANSFORMERS_DATA_PATH = "model.sentence_transformer"
 _INFERENCE_CONFIG_PATH = "inference_config"
 _LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
 _LLM_V1_EMBEDDING_INPUT_KEY = "input"
+
+# Patterns to extract HuggingFace model repository name from the local snapshot path.
+# The path format would be like /path/to/{username}_{modelname}, where user name can
+# only contain number, letters, and dashes.
+_LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/([0-9a-zA-Z-]+)_([^\/]+)/$")
 
 model_data_artifact_paths = [SENTENCE_TRANSFORMERS_DATA_PATH]
 
@@ -206,10 +215,12 @@ def save_model(
         model_config=model_config,
         code=code_dir_subpath,
     )
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         sentence_transformers_version=sentence_transformers.__version__,
         code=code_dir_subpath,
+        **_get_transformers_model_metadata(model),
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -240,6 +251,46 @@ def save_model(
     write_to(str(path.joinpath(_REQUIREMENTS_FILE_NAME)), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
+
+
+def _get_transformers_model_metadata(model) -> Dict[str, str]:
+    """
+    Extract metadata about the underlying Transformers model, such as the model class name
+    and the repository id.
+
+    Args:
+        model: A SentenceTransformer model instance.
+
+    Returns:
+        A dictionary containing metadata about the Transformers model.
+    """
+    from sentence_transformers.models import Transformer
+
+    # NB: We assume the SentenceTransformer model contains only up to one Transformer model.
+    for module in model.modules():
+        if isinstance(module, Transformer):
+            model_instance = module.auto_model
+            return {
+                _TRANSFORMER_SOURCE_MODEL_NAME_KEY: _get_transformers_model_name(
+                    model_instance.name_or_path
+                ),
+                _TRANSFORMER_MODEL_TYPE_KEY: model_instance.__class__.__name__,
+            }
+    return {}
+
+
+def _get_transformers_model_name(model_name_or_path):
+    """
+    Extract the Transformers model name from name_or_path attribute of a Transformer model.
+
+    Normally the name_or_path attribute just points to the model name, but in Sentence
+    Transformers < 2.3.0, the library loads the Transformers model after local snapshot
+    download, so the name_or_path attribute points to the local filepath.
+    https://github.com/UKPLab/sentence-transformers/commit/9db0f205adcf315d16961fea7e9e6906cb950d43
+    """
+    if m := _LOCAL_SNAPSHOT_PATH_PATTERN.search(model_name_or_path):
+        return f"{m.group(1)}/{m.group(2)}"
+    return model_name_or_path
 
 
 @experimental

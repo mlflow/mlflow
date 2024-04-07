@@ -225,6 +225,20 @@ class BaseDeploymentClient(abc.ABC):
         """
         pass
 
+    def predict_stream(self, deployment_name=None, inputs=None, endpoint=None):
+        """
+        Submit a query to a configured provider endpoint, and get streaming response
+
+        Args:
+            deployment_name: Name of deployment to predict against.
+            inputs: The inputs to the query, as a dictionary.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            An iterator of dictionary containing the response from the endpoint.
+        """
+        raise NotImplementedError()
+
     def explain(self, deployment_name=None, df=None, endpoint=None):
         """
         Generate explanations of model predictions on the specified input pandas Dataframe

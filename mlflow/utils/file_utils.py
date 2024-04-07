@@ -843,7 +843,7 @@ def _handle_readonly_on_windows(func, path, exc_info):
     """
     exc_type, exc_value = exc_info[:2]
     should_reattempt = (
-        os.name == "nt"
+        is_windows()
         and func in (os.unlink, os.rmdir)
         and issubclass(exc_type, PermissionError)
         and exc_value.winerror == 5
@@ -984,6 +984,13 @@ def contains_path_separator(path):
     Returns True if a path contains a path separator, False otherwise.
     """
     return any((sep in path) for sep in (os.path.sep, os.path.altsep) if sep is not None)
+
+
+def contains_percent(path):
+    """
+    Returns True if a path contains a percent character, False otherwise.
+    """
+    return "%" in path
 
 
 def read_chunk(path: os.PathLike, size: int, start_byte: int = 0) -> bytes:

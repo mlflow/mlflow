@@ -4,12 +4,21 @@ import json
 import requests
 
 from mlflow.environment_variables import (
+    _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
+    _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
+    MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
-from mlflow.exceptions import InvalidUrlException, MlflowException, RestException, get_error_code
+from mlflow.exceptions import (
+    INVALID_PARAMETER_VALUE,
+    InvalidUrlException,
+    MlflowException,
+    RestException,
+    get_error_code,
+)
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
@@ -36,6 +45,7 @@ def http_request(
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     raise_on_status=True,
+    respect_retry_after_header=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -59,6 +69,8 @@ def http_request(
             read request.
         raise_on_status: Whether to raise an exception, or return a response, if status falls
             in retry_codes range and retries have been exhausted.
+        respect_retry_after_header: Whether to respect Retry-After header on status codes defined
+            as Retry.RETRY_AFTER_STATUS_CODES or not.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -68,9 +80,17 @@ def http_request(
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
     )
+    _validate_max_retries(max_retries)
+    _validate_backoff_factor(backoff_factor)
+    respect_retry_after_header = (
+        MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
+        if respect_retry_after_header is None
+        else respect_retry_after_header
+    )
     backoff_jitter = (
         MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
+
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
     hostname = host_creds.host
     auth_str = None
@@ -116,6 +136,7 @@ def http_request(
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
+            respect_retry_after_header=respect_retry_after_header,
             **kwargs,
         )
     except requests.exceptions.Timeout as to:
@@ -170,6 +191,55 @@ def verify_rest_response(response, endpoint):
         raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
 
     return response
+
+
+def _validate_max_retries(max_retries):
+    max_retry_limit = _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT.get()
+
+    if max_retry_limit < 0:
+        raise MlflowException(
+            message=f"The current maximum retry limit is invalid ({max_retry_limit}). "
+            "Cannot be negative.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if max_retries >= max_retry_limit:
+        raise MlflowException(
+            message=f"The configured max_retries value ({max_retries}) is "
+            f"in excess of the maximum allowable retries ({max_retry_limit})",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if max_retries < 0:
+        raise MlflowException(
+            message=f"The max_retries value must be either 0 a positive integer. Got {max_retries}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_backoff_factor(backoff_factor):
+    max_backoff_factor_limit = _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT.get()
+
+    if max_backoff_factor_limit < 0:
+        raise MlflowException(
+            message="The current maximum backoff factor limit is invalid "
+            f"({max_backoff_factor_limit}). Cannot be negative.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if backoff_factor >= max_backoff_factor_limit:
+        raise MlflowException(
+            message=f"The configured backoff_factor value ({backoff_factor}) is in excess "
+            "of the maximum allowable backoff_factor limit "
+            f"({max_backoff_factor_limit})",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if backoff_factor < 0:
+        raise MlflowException(
+            message="The backoff_factor value must be either 0 a positive integer. "
+            f"Got {backoff_factor}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _get_path(path_prefix, endpoint_path):
