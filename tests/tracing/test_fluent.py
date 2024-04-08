@@ -35,6 +35,7 @@ def test_trace(mock_client):
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
+    assert trace_info.experiment_id == "0"  # default experiment
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -155,6 +156,7 @@ def test_start_span_context_manager(mock_client):
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
+    assert trace_info.experiment_id == "0"  # default experiment
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
@@ -226,6 +228,7 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     trace = mlflow.get_traces()[0]
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
+    assert trace_info.experiment_id == "0"  # default experiment
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'

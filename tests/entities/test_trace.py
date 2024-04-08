@@ -46,7 +46,7 @@ def test_json_deserialization(mock_trace_client):
     assert trace_json_as_dict == {
         "trace_info": {
             "request_id": trace.trace_info.request_id,
-            "experiment_id": "EXPERIMENT",
+            "experiment_id": "0",
             "timestamp_ms": trace.trace_info.timestamp_ms,
             "execution_time_ms": trace.trace_info.execution_time_ms,
             "status": "OK",

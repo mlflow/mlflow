@@ -234,7 +234,10 @@ def test_client_delete_traces(mock_store):
     )
 
 
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_start_and_end_trace(clear_singleton, mock_trace_client):
+    exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
+
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
@@ -295,6 +298,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert len(traces) == 1
     trace_info = traces[0].trace_info
     assert trace_info.request_id is not None
+    assert trace_info.experiment_id == exp_id
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
@@ -327,8 +331,11 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
 
 
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_client):
     # This test is to verify that the trace is still exported even if some spans are not ended
+    exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
+
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
@@ -364,6 +371,7 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
 
     trace_info = traces[0].trace_info
     assert trace_info.request_id is not None
+    assert trace_info.experiment_id == exp_id
     assert trace_info.timestamp_ms is not None
     assert trace_info.execution_time_ms is not None
     assert trace_info.status == TraceStatus.OK
