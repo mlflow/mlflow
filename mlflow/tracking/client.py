@@ -620,6 +620,8 @@ class MlflowClient:
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
+        print("TRACE INFO", trace_info)
+        print("EXECUTION TIME", trace_info.execution_time_ms)
         # Log execution time for metric
         trace_info = trace_manager.get_trace_info(request_id)
         self.log_metric("mlflow.loggedTraceExecutionTime", trace_info.execution_time_ms)
