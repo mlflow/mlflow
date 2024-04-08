@@ -111,7 +111,6 @@ def is_uc_volumes_uri(uri):
     TEMPORARY
     """
     resolved_uri = re.sub("/+", "/", uri)
-    print(resolved_uri)
     return any(
         resolved_uri.startswith(x)
         for x in [
