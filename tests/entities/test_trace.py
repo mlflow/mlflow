@@ -44,11 +44,11 @@ def test_json_deserialization(mock_trace_client):
     trace_json_as_dict = json.loads(trace_json)
 
     assert trace_json_as_dict == {
-        "trace_info": {
-            "request_id": trace.trace_info.request_id,
+        "info": {
+            "request_id": trace.info.request_id,
             "experiment_id": "0",
-            "timestamp_ms": trace.trace_info.timestamp_ms,
-            "execution_time_ms": trace.trace_info.execution_time_ms,
+            "timestamp_ms": trace.info.timestamp_ms,
+            "execution_time_ms": trace.info.execution_time_ms,
             "status": "OK",
             "request_metadata": {
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
@@ -58,20 +58,20 @@ def test_json_deserialization(mock_trace_client):
                 "mlflow.traceName": "predict",
             },
         },
-        "trace_data": {
+        "data": {
             "request": {"x": 2, "y": 5},
             "response": 8,
             "spans": [
                 {
                     "name": "predict",
                     "context": {
-                        "request_id": trace.trace_data.spans[0].context.request_id,
-                        "span_id": trace.trace_data.spans[0].context.span_id,
+                        "request_id": trace.data.spans[0].context.request_id,
+                        "span_id": trace.data.spans[0].context.span_id,
                     },
                     "span_type": "UNKNOWN",
                     "parent_span_id": None,
-                    "start_time": trace.trace_data.spans[0].start_time,
-                    "end_time": trace.trace_data.spans[0].end_time,
+                    "start_time": trace.data.spans[0].start_time,
+                    "end_time": trace.data.spans[0].end_time,
                     "status": {"status_code": "OK", "description": ""},
                     "inputs": {"x": 2, "y": 5},
                     "outputs": 8,
@@ -81,13 +81,13 @@ def test_json_deserialization(mock_trace_client):
                 {
                     "name": "add_one_with_custom_name",
                     "context": {
-                        "request_id": trace.trace_data.spans[1].context.request_id,
-                        "span_id": trace.trace_data.spans[1].context.span_id,
+                        "request_id": trace.data.spans[1].context.request_id,
+                        "span_id": trace.data.spans[1].context.span_id,
                     },
                     "span_type": "LLM",
-                    "parent_span_id": trace.trace_data.spans[0].context.span_id,
-                    "start_time": trace.trace_data.spans[1].start_time,
-                    "end_time": trace.trace_data.spans[1].end_time,
+                    "parent_span_id": trace.data.spans[0].context.span_id,
+                    "start_time": trace.data.spans[1].start_time,
+                    "end_time": trace.data.spans[1].end_time,
                     "status": {"status_code": "OK", "description": ""},
                     "inputs": {"z": 7},
                     "outputs": 8,

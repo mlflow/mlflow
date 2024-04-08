@@ -15,12 +15,12 @@ class Trace(_MlflowObject):
     """A trace object. (TODO: Add conceptual guide for tracing.)
 
     Args:
-        trace_info: A lightweight object that contains the metadata of a trace.
-        trace_data: A container object that holds the spans data of a trace.
+        info: A lightweight object that contains the metadata of a trace.
+        data: A container object that holds the spans data of a trace.
     """
 
-    trace_info: TraceInfo
-    trace_data: TraceData
+    info: TraceInfo
+    data: TraceData
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), cls=_TraceJSONEncoder)

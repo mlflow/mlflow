@@ -262,10 +262,7 @@ class TrackingServiceClient:
                 )
                 return None
             else:
-                return Trace(
-                    trace_info=trace_info,
-                    trace_data=trace_data,
-                )
+                return Trace(trace_info, trace_data)
 
         traces = []
         next_max_results = max_results

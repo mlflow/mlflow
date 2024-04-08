@@ -54,16 +54,16 @@ def test_add_spans():
     # Pop the trace data
     trace = trace_manager.pop_trace(request_id_1)
     assert isinstance(trace, Trace)
-    assert trace.trace_info.request_id == request_id_1
-    assert trace.trace_info.experiment_id == exp_id_1
-    assert len(trace.trace_data.spans) == 3
+    assert trace.info.request_id == request_id_1
+    assert trace.info.experiment_id == exp_id_1
+    assert len(trace.data.spans) == 3
     assert request_id_1 not in trace_manager._traces
 
     trace = trace_manager.pop_trace(request_id_2)
     assert isinstance(trace, Trace)
-    assert trace.trace_info.request_id == request_id_2
-    assert trace.trace_info.experiment_id == exp_id_2
-    assert len(trace.trace_data.spans) == 2
+    assert trace.info.request_id == request_id_2
+    assert trace.info.experiment_id == exp_id_2
+    assert len(trace.data.spans) == 2
     assert request_id_2 not in trace_manager._traces
 
     # Pop a trace that does not exist
@@ -109,8 +109,8 @@ def test_add_and_pop_span_thread_safety():
     for request_id in request_ids:
         trace = trace_manager.pop_trace(request_id)
         assert trace is not None
-        assert trace.trace_info.request_id == request_id
-        assert len(trace.trace_data.spans) == num_threads
+        assert trace.info.request_id == request_id
+        assert len(trace.data.spans) == num_threads
 
 
 def test_traces_buffer_expires_after_ttl(monkeypatch):

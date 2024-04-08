@@ -29,7 +29,7 @@ def test_json_deserialization(mock_trace_client):
     with pytest.raises(Exception, match="Error!"):
         model.predict(2, 5)
 
-    trace_data = mlflow.get_traces()[0].trace_data
+    trace_data = mlflow.get_traces()[0].data
     trace_data_dict = trace_data.to_dict()
 
     # Compare events separately as it includes exception stacktrace which is hard to hardcode

@@ -33,7 +33,7 @@ def test_trace(mock_client):
     model.predict(2, 5)
 
     trace = mlflow.get_traces()[0]
-    trace_info = trace.trace_info
+    trace_info = trace.info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == "0"  # default experiment
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -41,14 +41,19 @@ def test_trace(mock_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
 
+<<<<<<< HEAD
     trace_data = trace.trace_data
     assert trace_data.request == {"x": 2, "y": 5}
     assert trace_data.response == 64
     assert len(trace_data.spans) == 3
+=======
+    spans = trace.data.spans
+    assert len(spans) == 3
+>>>>>>> 1f9c6fe62 (Rename trace_info and trace_data attirbutes to info and data)
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
+    assert root_span.start_time // 1e3 == trace.info.timestamp_ms
     assert root_span.parent_span_id is None
     assert root_span.inputs == {"x": 2, "y": 5}
     assert root_span.outputs == 64
@@ -87,6 +92,7 @@ def test_trace_handle_exception_during_prediction(mock_client):
 
     # Trace should be logged even if the function fails, with status code ERROR
     trace = mlflow.get_traces()[0]
+<<<<<<< HEAD
     trace_info = trace.trace_info
     assert trace_info.request_id is not None
     assert trace_info.status == TraceStatus.ERROR
@@ -97,6 +103,13 @@ def test_trace_handle_exception_during_prediction(mock_client):
     assert trace_data.request == {"x": 2, "y": 5}
     assert trace_data.response is None
     assert len(trace_data.spans) == 2
+=======
+    assert trace.info.request_id is not None
+    assert trace.info.status == TraceStatus.ERROR
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == ""
+    assert len(trace.data.spans) == 2
+>>>>>>> 1f9c6fe62 (Rename trace_info and trace_data attirbutes to info and data)
 
 
 def test_trace_ignore_exception_from_tracing_logic(mock_client):
@@ -122,9 +135,8 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
 
     assert output == 7
     trace = mlflow.get_traces()[0]
-    trace_info = trace.trace_info
-    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == ""
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == ""
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
 
 
 def test_start_span_context_manager(mock_client):
@@ -158,23 +170,27 @@ def test_start_span_context_manager(mock_client):
     model.predict(1, 2)
 
     trace = mlflow.get_traces()[0]
-    trace_info = trace.trace_info
-    assert trace_info.request_id is not None
-    assert trace_info.experiment_id == "0"  # default experiment
-    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "25"
+    assert trace.info.request_id is not None
+    assert trace.info.experiment_id == "0"  # default experiment
+    assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
+    assert trace.info.status == TraceStatus.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "25"
 
+<<<<<<< HEAD
     trace_data = trace.trace_data
     assert trace_data.request == {"x": 1, "y": 2}
     assert trace_data.response == 25
     assert len(trace_data.spans) == 3
+=======
+    spans = trace.data.spans
+    assert len(spans) == 3
+>>>>>>> 1f9c6fe62 (Rename trace_info and trace_data attirbutes to info and data)
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["root_span"]
-    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
+    assert root_span.start_time // 1e3 == trace.info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e3 == trace.info.execution_time_ms
     assert root_span.parent_span_id is None
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.inputs == {"x": 1, "y": 2}
@@ -232,23 +248,21 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     model.predict(1, 2)
 
     trace = mlflow.get_traces()[0]
-    trace_info = trace.trace_info
-    assert trace_info.request_id is not None
-    assert trace_info.experiment_id == "0"  # default experiment
-    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
+    assert trace.info.request_id is not None
+    assert trace.info.experiment_id == "0"  # default experiment
+    assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
+    assert trace.info.status == TraceStatus.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
 
-    trace_data = trace.trace_data
-    assert trace_data.request == {"x": 1, "y": 2}
-    assert trace_data.response == 5
-    assert len(trace_data.spans) == 2
+    assert trace.data.request == {"x": 1, "y": 2}
+    assert trace.data.response == 5
+    assert len(trace.data.spans) == 2
 
-    span_name_to_span = {span.name: span for span in trace_data.spans}
+    span_name_to_span = {span.name: span for span in trace.data.spans}
     root_span = span_name_to_span["root_span"]
-    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
+    assert root_span.start_time // 1e3 == trace.info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e3 == trace.info.execution_time_ms
     assert root_span.parent_span_id is None
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.inputs == {"x": 1, "y": 2}
