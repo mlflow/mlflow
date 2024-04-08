@@ -5,6 +5,7 @@ import importlib
 import json
 import logging
 import os
+import re
 import shutil
 import types
 import warnings
@@ -56,6 +57,12 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
 _UNSUPPORTED_LLM_WARNING_MESSAGE = (
     "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
 )
+
+# Minimum version of langchain required to support ChatOpenAI and AzureChatOpenAI in MLflow
+# Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
+# will not work.
+_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
+_CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 logger = logging.getLogger(__name__)
 
@@ -507,21 +514,31 @@ def patch_langchain_type_to_cls_dict():
 
         return _wrapped
 
-    # NB: get_type_to_cls_dict is defined in different modules with the same name
-    # but with slight different elements. This is most likely just a mistake in the
+    # NB: get_type_to_cls_dict() method is defined in the following two modules with the same
+    # name but with slight different elements. This is most likely just a mistake in the
     # LangChain codebase, but we patch them separately to avoid any potential issues.
     modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
     originals = {}
     for module_name in modules_to_patch:
         try:
             module = importlib.import_module(module_name)
-        except ImportError:
+            originals[module_name] = module.get_type_to_cls_dict  # Record original impl for cleanup
+        except (ImportError, AttributeError):
             continue
-        originals[module_name] = module.get_type_to_cls_dict  # Record original impl for cleanup
         module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(originals[module_name])
 
     try:
         yield
+    except ValueError as e:
+        if m := _CHAT_MODELS_ERROR_MSG.search(str(e)):
+            model_name = "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
+            raise mlflow.MlflowException(
+                f"Loading {model_name} chat model is not supported in MLflow with the "
+                "current version of LangChain. Please upgrade LangChain to 0.0.307 or above "
+                "by running `pip install langchain>=0.0.307`."
+            ) from e
+        else:
+            raise
     finally:
         # Clean up the patch
         for module_name, original_impl in originals.items():

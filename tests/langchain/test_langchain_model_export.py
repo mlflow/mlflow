@@ -51,6 +51,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.api_request_parallel_processor import APIRequest
+from mlflow.langchain.utils import _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
@@ -334,6 +335,10 @@ def test_pyfunc_spark_udf_with_langchain_model(spark):
     assert pdf["answer"].tolist() == [TEST_CONTENT, TEST_CONTENT]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
+)
 def test_save_and_load_chat_openai(model_path):
     from langchain.chat_models import ChatOpenAI
 
@@ -350,6 +355,26 @@ def test_save_and_load_chat_openai(model_path):
     assert prediction == [TEST_CONTENT]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) >= _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason="This test is for non-supported LC version of loading ChatOpenAI model",
+)
+def test_save_and_load_chat_openai_with_unsupported_version_raise_helpful_message(model_path):
+    from langchain.chat_models import ChatOpenAI
+
+    llm = ChatOpenAI(temperature=0.9)
+    prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
+    chain = LLMChain(llm=llm, prompt=prompt)
+    mlflow.langchain.save_model(chain, model_path)
+
+    with pytest.raises(MlflowException, match="Loading ChatOpenAI chat model is not supported"):
+        mlflow.langchain.load_model(model_path)
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
+)
 def test_save_and_load_azure_chat_openai(model_path):
     from langchain.chat_models import AzureChatOpenAI
 
@@ -1411,7 +1436,8 @@ def test_save_load_complex_runnable_sequence():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
 )
 def test_save_load_runnable_sequence_with_chat_openai():
     from langchain.schema.output_parser import StrOutputParser
