@@ -2,12 +2,14 @@
 set -e
 
 SKINNY=0
+PYTHON_PATH=python
 
 for arg in "$@"
 do
   if [ "$arg" == "--skinny" ]; then
     SKINNY=1
-    break
+  elif [[ "$arg" == --python-path=* ]]; then
+    PYTHON_PATH="${arg#*=}"
   fi
 done
 
@@ -16,8 +18,8 @@ if [ $SKINNY -eq 1 ]; then
   echo "" >> README_SKINNY.rst
   cat README.rst >> README_SKINNY.rst
   cat README_SKINNY.rst > README.rst
-  python -m build
+  $PYTHON_PATH -m build
   git restore .
 else
-  python -m build
+  $PYTHON_PATH -m build
 fi
