@@ -204,8 +204,11 @@ def dbfs_artifact_repo_factory(artifact_uri):
             + artifact_uri
         )
 
+    print("dbfs_artifact_repo_factory")
+    print(artifact_uri)
     cleaned_artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
+    print(db_profile_uri)
     if is_databricks_acled_artifacts_uri(artifact_uri):
         return DatabricksArtifactRepository(cleaned_artifact_uri)
     elif (

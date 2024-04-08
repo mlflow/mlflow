@@ -198,8 +198,11 @@ def volumes_artifact_repo_factory(artifact_uri):
             + artifact_uri
         )
 
+    print("volumes_artifact_repo_factory")
+    print(artifact_uri)
     cleaned_artifact_uri = artifact_uri.rstrip("dbfs:")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
+    print(db_profile_uri)
     if (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
         and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get()
