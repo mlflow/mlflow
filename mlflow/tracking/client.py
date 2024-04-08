@@ -620,6 +620,10 @@ class MlflowClient:
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
+        # Log execution time for metric
+        trace_info = trace_manager.get_trace_info(request_id)
+        self.log_metric("mlflow.loggedTraceExecutionTime", trace_info.execution_time_ms)
+
         self.end_span(request_id, root_span_id, outputs, attributes, status)
 
     def start_span(
