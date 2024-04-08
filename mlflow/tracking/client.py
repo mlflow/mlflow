@@ -499,6 +499,7 @@ class MlflowClient:
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
+        experiment_id: Optional[str] = None,
     ) -> MlflowSpanWrapper:
         """
         Create a new trace object and start a root span under it.
@@ -521,6 +522,11 @@ class MlflowClient:
             inputs: Inputs to set on the root span of the trace.
             attributes: A dictionary of attributes to set on the root span of the trace.
             tags: A dictionary of tags to set on the trace.
+            experiment_id: The ID of the experiment to create the trace in. If not provided,
+                MLflow will look for valid experiment in the following order: activated using
+                :py:func:`mlflow.set_experiment() <mlflow.set_experiment>`,
+                ``MLFLOW_EXPERIMENT_NAME`` environment variable, ``MLFLOW_EXPERIMENT_ID``
+                environment variable, or the default experiment as defined by the tracking server.
 
         Returns:
             An :py:class:`MlflowSpanWrapper <mlflow.tracing.MlflowSpanWrapper>` object
@@ -575,6 +581,9 @@ class MlflowClient:
         trace_info = trace_manager.get_trace_info(root_span.request_id)
         if tags:
             trace_info.tags.update({k: str(v) for k, v in tags.items()})
+
+        if experiment_id:
+            trace_info.experiment_id = experiment_id
 
         return root_span
 

@@ -234,17 +234,17 @@ def test_client_delete_traces(mock_store):
     )
 
 
-@pytest.mark.usefixtures("reset_active_experiment")
 def test_start_and_end_trace(clear_singleton, mock_trace_client):
-    exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
-
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
 
         def predict(self, x, y):
             root_span = self._client.start_trace(
-                name="predict", inputs={"x": x, "y": y}, tags={"tag": "tag_value"}
+                name="predict",
+                inputs={"x": x, "y": y},
+                tags={"tag": "tag_value"},
+                experiment_id="test_experiment",
             )
             request_id = root_span.request_id
 
@@ -298,7 +298,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert len(traces) == 1
     trace_info = traces[0].trace_info
     assert trace_info.request_id is not None
-    assert trace_info.experiment_id == exp_id
+    assert trace_info.experiment_id == "test_experiment"
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
