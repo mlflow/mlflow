@@ -2,7 +2,7 @@
 set -e
 
 SKINNY=0
-PYTHON_PATH=python  # Default Python path
+PYTHON_PATH=python
 
 for arg in "$@"
 do
