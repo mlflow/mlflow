@@ -20,8 +20,10 @@ _INVALID_DB_URI_MSG = (
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _UC_VOLUMES_URI_PREFIX = "/Volumes/"
+_DBFS_UC_VOLUMES_URI_PREFIX = "dbfs:/Volumes/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
+
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
@@ -104,6 +106,17 @@ def is_fuse_or_uc_volumes_uri(uri):
         ]
     )
 
+def is_uc_volumes_uri(uri):
+    """
+    TEMPORARY
+    """
+    resolved_uri = re.sub("/+", "/", uri)
+    return any(
+        resolved_uri.startswith(x)
+        for x in [
+            _DBFS_UC_VOLUMES_URI_PREFIX,
+        ]
+    )
 
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
