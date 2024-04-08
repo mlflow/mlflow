@@ -94,6 +94,7 @@ def databricks_artifact_repo_factory(artifact_uri: str) -> ArtifactRepository:
     Routing for special case URI `dbfs:/Volumes/`
     """
     if is_uc_volumes_uri(artifact_uri):
+        print("detected as volume path")
         return volumes_artifact_repo_factory(artifact_uri)
     return dbfs_artifact_repo_factory(artifact_uri)
 
