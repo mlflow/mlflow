@@ -334,6 +334,34 @@ def test_pyfunc_spark_udf_with_langchain_model(spark):
     assert pdf["answer"].tolist() == [TEST_CONTENT, TEST_CONTENT]
 
 
+def test_save_and_load_chat_openai(model_path):
+    from langchain.chat_models import ChatOpenAI
+
+    llm = ChatOpenAI(temperature=0.9)
+    prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
+    chain = LLMChain(llm=llm, prompt=prompt)
+    mlflow.langchain.save_model(chain, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model == chain
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
+    prediction = loaded_pyfunc_model.predict([{"product": "Mlflow?"}])
+    assert prediction == [TEST_CONTENT]
+
+
+def test_save_and_load_azure_chat_openai(model_path):
+    from langchain.chat_models import AzureChatOpenAI
+
+    llm = AzureChatOpenAI(temperature=0.9)
+    prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
+    chain = LLMChain(llm=llm, prompt=prompt)
+    mlflow.langchain.save_model(chain, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model == chain
+
+
 def test_langchain_log_huggingface_hub_model_metadata(model_path):
     model = create_huggingface_model(model_path)
     with mlflow.start_run():
@@ -422,10 +450,6 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
     assert model == loaded_model
 
 
-@pytest.mark.skipif(
-    version.parse(langchain.__version__) < version.parse("0.0.194"),
-    reason="Saving RetrievalQA chains requires langchain>=0.0.194",
-)
 def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -487,10 +511,6 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     )
 
 
-@pytest.mark.skipif(
-    version.parse(langchain.__version__) < version.parse("0.0.194"),
-    reason="Saving RetrievalQA chains requires langchain>=0.0.194",
-)
 def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -1388,6 +1408,28 @@ def test_save_load_complex_runnable_sequence():
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": [expected_result]
     }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_runnable_sequence_with_chat_openai():
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableSequence
+    from langchain_community.chat_models import ChatOpenAI
+
+    prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
+    llm = ChatOpenAI(temperature=0.9)
+    model = prompt1 | llm | StrOutputParser()
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model_path")
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert type(loaded_model) == RunnableSequence
+    assert type(loaded_model.steps[0]) == PromptTemplate
+    assert type(loaded_model.steps[1]) == ChatOpenAI
+    assert type(loaded_model.steps[2]) == StrOutputParser
 
 
 @pytest.mark.skipif(
