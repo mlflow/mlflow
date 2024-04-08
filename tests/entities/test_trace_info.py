@@ -1,9 +1,6 @@
-import pytest
-
-import mlflow
 from mlflow.entities import TraceInfo, TraceStatus
-from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
+from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 
 def test_to_proto():

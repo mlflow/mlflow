@@ -83,9 +83,11 @@ class MlflowSpanExporter(SpanExporter):
             }
         )
         # Mutable info like trace name should be recorded in tags
-        info.tags.update({
-            TraceTagKey.TRACE_NAME: root_span.name,
-        })
+        info.tags.update(
+            {
+                TraceTagKey.TRACE_NAME: root_span.name,
+            }
+        )
 
         # Rename spans to have unique names
         MlflowSpanExporter._deduplicate_span_names_in_place(trace.trace_data)
