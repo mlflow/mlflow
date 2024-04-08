@@ -96,6 +96,7 @@ def databricks_artifact_repo_factory(artifact_uri: str) -> ArtifactRepository:
     if is_uc_volumes_uri(artifact_uri):
         print("detected as volume path")
         return volumes_artifact_repo_factory(artifact_uri)
+    print("detected as dbfs path")
     return dbfs_artifact_repo_factory(artifact_uri)
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
