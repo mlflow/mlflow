@@ -43,11 +43,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.2",
-            "maximum": "3.0.5"
+            "maximum": "3.2.0"
         },
         "autologging": {
             "minimum": "3.0.2",
-            "maximum": "3.0.5"
+            "maximum": "3.2.0"
         }
     },
     "tensorflow": {
@@ -56,11 +56,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.6.5",
-            "maximum": "2.15.0.post1"
+            "maximum": "2.16.1"
         },
         "autologging": {
             "minimum": "2.6.5",
-            "maximum": "2.15.0.post1"
+            "maximum": "2.16.1"
         }
     },
     "xgboost": {
