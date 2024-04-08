@@ -607,6 +607,12 @@ class MlflowClient:
         trace_manager = InMemoryTraceManager.get_instance()
         root_span_id = trace_manager.get_root_span_id(request_id)
 
+        print("TRACE INFO", trace_info)
+        print("EXECUTION TIME", trace_info.execution_time_ms)
+        # Log execution time for metric
+        trace_info = trace_manager.get_trace_info(request_id)
+        self.log_metric("mlflow.loggedTraceExecutionTime", trace_info.execution_time_ms)
+
         if root_span_id is None:
             # TODO: Replace this with backend store check once we have backend support
             if get_trace_client().get_trace(request_id=request_id):
@@ -619,12 +625,6 @@ class MlflowClient:
                     f"Trace with ID {request_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-
-        print("TRACE INFO", trace_info)
-        print("EXECUTION TIME", trace_info.execution_time_ms)
-        # Log execution time for metric
-        trace_info = trace_manager.get_trace_info(request_id)
-        self.log_metric("mlflow.loggedTraceExecutionTime", trace_info.execution_time_ms)
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
 
