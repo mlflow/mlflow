@@ -5,6 +5,8 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
+from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.types.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
 
 @dataclass
@@ -46,15 +48,15 @@ class TraceInfo(_MlflowObject):
         for key, value in self.request_metadata.items():
             attr = ProtoTraceRequestMetadata()
             attr.key = key
-            attr.value = value
+            attr.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
             request_metadata.append(attr)
         proto.request_metadata.extend(request_metadata)
 
         tags = []
         for key, value in self.tags.items():
-            tag = ProtoTraceRequestMetadata()
+            tag = ProtoTraceTag()
             tag.key = key
-            tag.value = value
+            tag.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
             tags.append(tag)
 
         proto.tags.extend(tags)

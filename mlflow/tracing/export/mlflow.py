@@ -12,6 +12,7 @@ from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
+    TraceTagKey,
 )
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
@@ -77,11 +78,14 @@ class MlflowSpanExporter(SpanExporter):
         info.status = root_span.status.status_code
         info.request_metadata.update(
             {
-                TraceMetadataKey.NAME: root_span.name,
                 TraceMetadataKey.INPUTS: self._serialize_inputs_outputs(root_span.inputs),
                 TraceMetadataKey.OUTPUTS: self._serialize_inputs_outputs(root_span.outputs),
             }
         )
+        # Mutable info like trace name should be recorded in tags
+        info.tags.update({
+            TraceTagKey.TRACE_NAME: root_span.name,
+        })
 
         # Rename spans to have unique names
         MlflowSpanExporter._deduplicate_span_names_in_place(trace.trace_data)

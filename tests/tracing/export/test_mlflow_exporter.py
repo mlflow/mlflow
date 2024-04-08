@@ -11,6 +11,7 @@ from mlflow.tracing.types.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
+    TraceTagKey,
 )
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
@@ -78,7 +79,7 @@ def test_export():
     assert trace_info.request_id == trace_id
     assert trace_info.timestamp_ms == 0
     assert trace_info.execution_time_ms == 4
-    assert trace_info.request_metadata[TraceMetadataKey.NAME] == "test_span"
+    assert trace_info.tags[TraceTagKey.TRACE_NAME] == "test_span"
 
     # Inputs and outputs in TraceInfo attributes should be serialized and truncated
     inputs = trace_info.request_metadata[TraceMetadataKey.INPUTS]
