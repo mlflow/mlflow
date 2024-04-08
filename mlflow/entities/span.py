@@ -51,8 +51,8 @@ class Span(_MlflowObject):
     start_time: int
     end_time: int
     span_type: str = SpanType.UNKNOWN
-    inputs: Optional[Dict[str, Any]] = None
-    outputs: Optional[Dict[str, Any]] = None
+    inputs: Optional[Any] = None
+    outputs: Optional[Any] = None
     attributes: Dict[str, Any] = field(default_factory=dict)
     events: List[SpanEvent] = field(default_factory=list)
 

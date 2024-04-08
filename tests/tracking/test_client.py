@@ -300,10 +300,12 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
-    spans = traces[0].trace_data.spans
-    assert len(spans) == 3
+    trace_data = traces[0].trace_data
+    assert trace_data.request == {"x": 1, "y": 2}
+    assert trace_data.response == {"output": 25}
+    assert len(trace_data.spans) == 3
 
-    span_name_to_span = {span.name: span for span in spans}
+    span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
     assert root_span.start_time // 1e3 == trace_info.timestamp_ms
     assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
@@ -368,10 +370,12 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     assert trace_info.execution_time_ms is not None
     assert trace_info.status == TraceStatus.OK
 
-    spans = traces[0].trace_data.spans
-    assert len(spans) == 3  # The non-ended span should be also included in the trace
+    trace_data = traces[0].trace_data
+    assert trace_data.request is None
+    assert trace_data.response is None
+    assert len(trace_data.spans) == 3  # The non-ended span should be also included in the trace
 
-    span_name_to_span = {span.name: span for span in spans}
+    span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
     assert root_span.parent_span_id is None
     assert root_span.status.status_code == TraceStatus.OK
