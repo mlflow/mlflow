@@ -22,6 +22,7 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["minimum"])
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maximum"])
@@ -62,10 +63,6 @@ class AutoLoggingConfig:
             log_models=config_dict.get("log_models", False),
             log_input_examples=config_dict.get("log_input_examples", False),
             log_model_signatures=config_dict.get("log_model_signatures", False),
-            # TODO: This argument was originally defaulted to True in the production version
-            # of the LangChain autologging, as it is a common use case to log input/output
-            # table for evaluation. Once tracing is fully launched, this should be supported
-            # by the tracer and we should design it to be compatible with the existing UJ.
             log_inputs_outputs=config_dict.get("log_inputs_outputs", False),
             extra_tags=config_dict.get("extra_tags", None),
         )
@@ -124,7 +121,7 @@ def _setup_autolog_run(config, model):
     """Set up autologging run and return the run ID.
 
     This function only creates a run when there is no active run and the model does not have
-    a run ID attribute propagated from the previous call. If it creates a new run, MLflow will
+    a run ID attribute propagated from the previous call. Iff it creates a new run, MLflow should
     terminate the run at the end of the inference.
 
     Args:
@@ -133,10 +130,6 @@ def _setup_autolog_run(config, model):
 
     Returns: yields the run IDs
     """
-    # Include run context tags
-    resolved_tags = context_registry.resolve_tags(config.extra_tags)
-    tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, resolved_tags)
-
     if propagated_run_id := getattr(model, "run_id", None):
         # When model has "run_id" attribute, it means the model is already invoked once with autolog
         # enabled and the run_id is propagated from the previous call, so we don't create a new run.
@@ -145,23 +138,19 @@ def _setup_autolog_run(config, model):
         should_terminate_run = False
 
     elif active_run := mlflow.active_run():
-        # If there is an active run, log the autologging-related tags to the run
         run_id = active_run.info.run_id
-        mlflow.MlflowClient().log_batch(
-            run_id=run_id,
-            tags=[RunTag(key, str(value)) for key, value in tags.items()],
-        )
-        # If there is active run, it is created by the user, so we don't terminate it automatically
+        tags = _resolve_tags(config.extra_tags, active_run)
+        mlflow.MlflowClient().log_batch(run_id, tags=[RunTag(k, str(v)) for k, v in tags.items()])
         should_terminate_run = False
-
     else:
         from mlflow.tracking.fluent import _get_experiment_id
 
-        experiment_id = _get_experiment_id()
-        run_name = "langchain-" + name_utils._generate_random_name(max_length=7)
-        run = mlflow.MlflowClient().create_run(experiment_id, run_name=run_name, tags=tags)
+        run = mlflow.MlflowClient().create_run(
+            experiment_id=_get_experiment_id(),
+            run_name="langchain-" + name_utils._generate_random_name(max_length=7),
+            tags=_resolve_tags(config.extra_tags),
+        )
         run_id = run.info.run_id
-        # MLflow created a mew run for autologging, so we should terminate it after the inference
         should_terminate_run = True
 
     run_status = None
@@ -173,6 +162,17 @@ def _setup_autolog_run(config, model):
     finally:
         if should_terminate_run:
             mlflow.MlflowClient().set_terminated(run_id, status=run_status)
+
+
+def _resolve_tags(extra_tags, active_run=None):
+    resolved_tags = context_registry.resolve_tags(extra_tags)
+    tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, resolved_tags)
+    if active_run:
+        # Some context tags like mlflow.runName are immutable once logged, but they might be already
+        # set when the run is created, then we should avoid updating them.
+        excluded_tags = set(active_run.data.tags.keys()) & IMMUTABLE_TAGS
+        tags = {k: v for k, v in tags.items() if k not in excluded_tags}
+    return tags
 
 
 def _get_input_data_from_function(func_name, model, args, kwargs):

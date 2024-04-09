@@ -862,6 +862,10 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
+    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
+    # the LangChain autologging, as it is a common use case to log input/output table for
+    # evaluation. Once tracing is fully launched, this should be supported by the tracer
+    # but we should design it to be compatible with the existing UJ.
     log_inputs_outputs=False,
     disable=False,
     exclusive=False,

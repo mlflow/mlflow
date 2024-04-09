@@ -18,6 +18,7 @@ from mlflow.langchain._langchain_autolog import (
     INFERENCE_FILE_NAME,
     UNSUPPORT_LOG_MODEL_MESSAGE,
     _combine_input_and_output,
+    _resolve_tags,
 )
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
@@ -212,6 +213,30 @@ def test_autolog_manage_run_no_active_run():
     assert mlflow.active_run() is None
     assert run.data.tags["test_tag"] == "test"
     assert run.data.tags["mlflow.autologging"] == "langchain"
+
+
+def test_resolve_tags():
+    extra_tags = {"test_tag": "test"}
+    # System tags and extra tags should be logged
+    actual_tags = set(_resolve_tags(extra_tags).keys())
+    assert actual_tags == {
+        "mlflow.autologging",
+        "mlflow.source.name",
+        "mlflow.source.type",
+        "mlflow.user",
+        "test_tag",
+    }
+
+    with mlflow.start_run() as run:
+        actual_tags = set(_resolve_tags(extra_tags, run).keys())
+
+    # The immutable tags user/runName should not be overridden in the active run
+    assert actual_tags == {
+        "mlflow.autologging",
+        "mlflow.source.name",
+        "mlflow.source.type",
+        "test_tag",
+    }
 
 
 def test_llmchain_autolog(clear_trace_singleton):
