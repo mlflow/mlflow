@@ -78,13 +78,21 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             to use to authenticate to storage
     """
 
-    def __init__(self, artifact_uri, credential):
+    def __init__(
+        self,
+        artifact_uri,
+        credential,
+        credential_refresh_def=None,
+    ):
         super().__init__(artifact_uri)
         _DEFAULT_TIMEOUT = 600  # 10 minutes
-        self.credential = credential
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
+        self._parse_credentials(credential)
+        self._credential_refresh_def = credential_refresh_def
 
-        (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(artifact_uri)
+    def _parse_credentials(self, credential):
+        self.credential = credential
+        (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(self.artifact_uri)
         account_url = f"https://{account_name}.{domain_suffix}"
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
@@ -93,6 +101,13 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         self.account_name = account_name
         self.container = filesystem
 
+    def _refresh_credentials(self):
+        if not self._credential_refresh_def:
+            return self.fs_client
+        new_creds = self._credential_refresh_def()
+        self._parse_credentials(new_creds["credential"])
+        return self.fs_client
+
     def log_artifact(self, local_file, artifact_path=None):
         dest_path = self.base_data_lake_directory
         if artifact_path:
@@ -100,18 +115,18 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         local_file_path = os.path.abspath(local_file)
         file_name = os.path.basename(local_file_path)
 
-        def creds_func():
-            dir_client = self.fs_client.get_directory_client(dest_path)
-            return dir_client.get_file_client(file_name)
-
         def try_func(creds):
+            dir_client = creds.get_directory_client(dest_path)
+            file_client = dir_client.get_file_client(file_name)
             if os.path.getsize(local_file_path) == 0:
-                creds.create_file()
+                file_client.create_file()
             else:
                 with open(local_file_path, "rb") as file:
-                    creds.upload_data(data=file, overwrite=True)
+                    file_client.upload_data(data=file, overwrite=True)
 
-        _retry_with_new_creds(creds_func=creds_func, try_func=try_func)
+        _retry_with_new_creds(
+            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+        )
 
     def list_artifacts(self, path=None):
         directory_to_list = self.base_data_lake_directory
@@ -143,16 +158,16 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         remote_full_path = posixpath.join(self.base_data_lake_directory, remote_file_path)
         base_dir = posixpath.dirname(remote_full_path)
 
-        def creds_func():
-            dir_client = self.fs_client.get_directory_client(base_dir)
-            filename = posixpath.basename(remote_full_path)
-            return dir_client.get_file_client(filename)
-
         def try_func(creds):
+            dir_client = creds.get_directory_client(base_dir)
+            filename = posixpath.basename(remote_full_path)
+            file_client = dir_client.get_file_client(filename)
             with open(local_path, "wb") as file:
-                creds.download_file().readinto(file)
+                file_client.download_file().readinto(file)
 
-        _retry_with_new_creds(creds_func=creds_func, try_func=try_func)
+        _retry_with_new_creds(
+            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+        )
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")

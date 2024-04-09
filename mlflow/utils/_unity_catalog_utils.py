@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -82,7 +82,9 @@ def uc_model_version_tag_from_mlflow_tags(
 
 
 def get_artifact_repo_from_storage_info(
-    storage_location: str, scoped_token: TemporaryCredentials
+    storage_location: str,
+    scoped_token: TemporaryCredentials,
+    base_credential_refresh_def: Callable[[], TemporaryCredentials],
 ) -> ArtifactRepository:
     """
     Get an ArtifactRepository instance capable of reading/writing to a UC model version's
@@ -91,10 +93,15 @@ def get_artifact_repo_from_storage_info(
     Args:
         storage_location: Storage location of the model version
         scoped_token: Protobuf scoped token to use to authenticate to blob storage
+        base_credential_refresh_def: Function that returns temporary credentials for accessing blob
+        storage. It is first used to determine the type of blob storage and to access it. It is then
+        passed to the relevant ArtifactRepository implementation to refresh credentials as needed.
     """
     try:
         return _get_artifact_repo_from_storage_info(
-            storage_location=storage_location, scoped_token=scoped_token
+            storage_location=storage_location,
+            scoped_token=scoped_token,
+            base_credential_refresh_def=base_credential_refresh_def,
         )
     except ImportError as e:
         raise MlflowException(
@@ -106,7 +113,9 @@ def get_artifact_repo_from_storage_info(
 
 
 def _get_artifact_repo_from_storage_info(
-    storage_location: str, scoped_token: TemporaryCredentials
+    storage_location: str,
+    scoped_token: TemporaryCredentials,
+    base_credential_refresh_def: Callable[[], TemporaryCredentials],
 ) -> ArtifactRepository:
     credential_type = scoped_token.WhichOneof("credentials")
     if credential_type == "aws_temp_credentials":
@@ -116,11 +125,22 @@ def _get_artifact_repo_from_storage_info(
         from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 
         aws_creds = scoped_token.aws_temp_credentials
+
+        def aws_credential_refresh():
+            new_scoped_token = base_credential_refresh_def()
+            new_aws_creds = new_scoped_token.aws_temp_credentials
+            return {
+                "access_key_id": new_aws_creds.access_key_id,
+                "secret_access_key": new_aws_creds.secret_access_key,
+                "session_token": new_aws_creds.session_token,
+            }
+
         return OptimizedS3ArtifactRepository(
             artifact_uri=storage_location,
             access_key_id=aws_creds.access_key_id,
             secret_access_key=aws_creds.secret_access_key,
             session_token=aws_creds.session_token,
+            credential_refresh_def=aws_credential_refresh,
         )
     elif credential_type == "azure_user_delegation_sas":
         from azure.core.credentials import AzureSasCredential
@@ -130,8 +150,18 @@ def _get_artifact_repo_from_storage_info(
         )
 
         sas_token = scoped_token.azure_user_delegation_sas.sas_token
+
+        def azure_credential_refresh():
+            new_scoped_token = base_credential_refresh_def()
+            new_sas_token = new_scoped_token.azure_user_delegation_sas.sas_token
+            return {
+                "credential": AzureSasCredential(new_sas_token),
+            }
+
         return AzureDataLakeArtifactRepository(
-            artifact_uri=storage_location, credential=AzureSasCredential(sas_token)
+            artifact_uri=storage_location,
+            credential=AzureSasCredential(sas_token),
+            credential_refresh_def=azure_credential_refresh,
         )
 
     elif credential_type == "gcp_oauth_token":
@@ -147,11 +177,22 @@ def _get_artifact_repo_from_storage_info(
         from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository
 
         r2_creds = scoped_token.r2_temp_credentials
+
+        def r2_credential_refresh():
+            new_scoped_token = base_credential_refresh_def()
+            new_r2_creds = new_scoped_token.r2_temp_credentials
+            return {
+                "access_key_id": new_r2_creds.access_key_id,
+                "secret_access_key": new_r2_creds.secret_access_key,
+                "session_token": new_r2_creds.session_token,
+            }
+
         return R2ArtifactRepository(
             artifact_uri=storage_location,
             access_key_id=r2_creds.access_key_id,
             secret_access_key=r2_creds.secret_access_key,
             session_token=r2_creds.session_token,
+            credential_refresh_def=r2_credential_refresh,
         )
     else:
         raise MlflowException(

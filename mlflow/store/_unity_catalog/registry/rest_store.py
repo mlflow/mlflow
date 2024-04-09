@@ -743,11 +743,16 @@ class UcModelRegistryStore(BaseRestStore):
                 self.get_host_creds(), model_version.name, model_version.version
             )
 
-        scoped_token = self._get_temporary_model_version_write_credentials(
-            name=model_version.name, version=model_version.version
-        )
+        def base_credential_refresh_def():
+            return self._get_temporary_model_version_write_credentials(
+                name=model_version.name, version=model_version.version
+            )
+
+        scoped_token = base_credential_refresh_def()
         return get_artifact_repo_from_storage_info(
-            storage_location=model_version.storage_location, scoped_token=scoped_token
+            storage_location=model_version.storage_location,
+            scoped_token=scoped_token,
+            base_credential_refresh_def=base_credential_refresh_def,
         )
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
