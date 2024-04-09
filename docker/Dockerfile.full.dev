@@ -3,4 +3,4 @@ FROM python:3.10-slim-bullseye
 WORKDIR /app
 ADD . /app
 
-RUN pip install --upgrade pip && pip install --no-cache -e .[extras,databricks,gateway,genai,sqlserver,aliyun-oss]
+RUN pip install --upgrade pip && pip install --no-cache-dir -e .[extras,databricks,gateway,genai,sqlserver,aliyun-oss]
