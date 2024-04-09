@@ -120,13 +120,14 @@ class InMemoryTraceManager:
         self,
         request_id: str,
         start_time_ns: int,
-        experiment_id: Optional[str] = None,
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ):
+        from mlflow.tracking.fluent import _get_experiment_id
+
         trace_info = TraceInfo(
             request_id=request_id,
-            experiment_id=experiment_id or "EXPERIMENT",  # TODO: Fetch this from global state
+            experiment_id=_get_experiment_id(),
             timestamp_ms=start_time_ns // 1_000_000,
             execution_time_ms=None,
             status=TraceStatus.UNSPECIFIED,

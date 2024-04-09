@@ -1,6 +1,7 @@
 import pytest
 from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
+import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.tracing.clients.local import InMemoryTraceClient
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
@@ -56,3 +57,9 @@ def create_trace():
         ),
         trace_data=TraceData(),
     )
+
+
+@pytest.fixture(autouse=True)
+def reset_active_experiment():
+    yield
+    mlflow.tracking.fluent._active_experiment_id = None

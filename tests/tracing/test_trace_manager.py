@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from opentelemetry import trace as trace_api
 
+import mlflow
 from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -20,6 +21,7 @@ def test_aggregator_singleton():
 def test_add_spans():
     trace_manager = InMemoryTraceManager.get_instance()
 
+    exp_id_1 = mlflow.set_experiment("test_experiment_1").experiment_id
     request_id_1 = "trace_1"
     span_1_1 = _create_test_span(request_id_1, "span_1_1")
     span_1_1_1 = _create_test_span(request_id_1, "span_1_1_1", parent_span_id="span_1_1")
@@ -37,7 +39,8 @@ def test_add_spans():
 
     assert len(trace_manager._traces[request_id_1].span_dict) == 3
 
-    # Add a span for another trace
+    # Add a span for another trace under the different experiment
+    exp_id_2 = mlflow.set_experiment("test_experiment_2").experiment_id
     request_id_2 = "trace_2"
     span_2_1 = _create_test_span(request_id_2, "span_2_1")
     span_2_1_1 = _create_test_span(request_id_2, "span_2_1_1", parent_span_id="span_2_1")
@@ -51,11 +54,15 @@ def test_add_spans():
     # Pop the trace data
     trace = trace_manager.pop_trace(request_id_1)
     assert isinstance(trace, Trace)
+    assert trace.trace_info.request_id == request_id_1
+    assert trace.trace_info.experiment_id == exp_id_1
     assert len(trace.trace_data.spans) == 3
     assert request_id_1 not in trace_manager._traces
 
     trace = trace_manager.pop_trace(request_id_2)
     assert isinstance(trace, Trace)
+    assert trace.trace_info.request_id == request_id_2
+    assert trace.trace_info.experiment_id == exp_id_2
     assert len(trace.trace_data.spans) == 2
     assert request_id_2 not in trace_manager._traces
 
@@ -175,7 +182,7 @@ def test_get_span_from_id():
     assert trace_manager.get_span_from_id(request_id_2, "child_span") == span_2_2
 
 
-def test_ger_root_span_id():
+def test_get_root_span_id():
     trace_manager = InMemoryTraceManager.get_instance()
 
     request_id_1 = "trace_1"
