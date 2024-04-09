@@ -201,10 +201,16 @@ handling (i.e., model logging, loading models, logging artifacts, listing artifa
 See the following example of a client REST call in Python attempting to list experiments from a server that is configured in
 ``--artifacts-only`` mode:
 
+.. code-block:: bash
+
+    # Lauch the artifact-only server
+    mlflow server --artifacts-only ...
+
 .. code-block:: python
 
     import requests
 
+    # Attempt to list experiments from the server
     response = requests.get("http://0.0.0.0:8885/api/2.0/mlflow/experiments/list")
 
 Output
