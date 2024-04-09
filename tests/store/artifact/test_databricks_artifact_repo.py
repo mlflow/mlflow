@@ -220,7 +220,12 @@ def test_log_artifact_azure(databricks_artifact_repo, test_file, artifact_path, 
         get_credential_infos_mock.assert_called_with(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
-        azure_upload_mock.assert_called_with(mock_credential_info, test_file, expected_location)
+        azure_upload_mock.assert_called_with(
+            mock_credential_info,
+            test_file,
+            expected_location,
+            get_credentials=mock.ANY,
+        )
 
 
 @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
