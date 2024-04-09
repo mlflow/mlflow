@@ -13,9 +13,9 @@ module.exports = async ({ context, github, core }) => {
 
   const patchSection = body.split(marker)[1];
   const yesMatch = patchSection.match(/- \[( |x)\] yes/gi);
-  const yes = yesMatch ? yesMatch[0].toLowerCase() === "x" : false;
+  const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
   const noMatch = patchSection.match(/- \[( |x)\] no/gi);
-  const no = noMatch ? noMatch[0].toLowerCase() === "x" : false;
+  const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
   console.log({ yes, no, yesMatch, noMatch });
 
   if (yes && no) {
