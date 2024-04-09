@@ -572,8 +572,6 @@ def test_autologging_disable_restores_behavior():
     from sklearn.datasets import load_diabetes
     from sklearn.linear_model import LinearRegression
 
-    mlflow.sklearn.autolog()
-
     X, y = load_diabetes(return_X_y=True, as_frame=True)
     X = X.iloc[:50, :4]
     y = y.iloc[:50]
@@ -581,27 +579,32 @@ def test_autologging_disable_restores_behavior():
     # train a model
     model = LinearRegression()
 
-    run = mlflow.start_run()
-    model.fit(X, y)
-    mlflow.end_run()
-    run = MlflowClient().get_run(run.info.run_id)
-    assert run.data.metrics
-    assert run.data.params
-
-    run = mlflow.start_run()
-    with mlflow.utils.autologging_utils.disable_autologging():
+    def is_autolog_on():
+        run = mlflow.start_run()
         model.fit(X, y)
-    mlflow.end_run()
-    run = MlflowClient().get_run(run.info.run_id)
-    assert not run.data.metrics
-    assert not run.data.params
+        mlflow.end_run()
+        run = MlflowClient().get_run(run.info.run_id)
+        return run.data.metrics and run.data.params
 
-    run = mlflow.start_run()
-    model.fit(X, y)
-    mlflow.end_run()
-    run = MlflowClient().get_run(run.info.run_id)
-    assert run.data.metrics
-    assert run.data.params
+    # Turn on autologging
+    mlflow.sklearn.autolog()
+    assert is_autolog_on()
+
+    # Turn off autologging within a context manager
+    with mlflow.utils.autologging_utils.disable_autologging():
+        assert not is_autolog_on()
+
+    # Autologging should be turned back on
+    assert is_autolog_on()
+
+    # The context manager should exit correctly even if an exception is raised
+    with pytest.raises(Exception, match="test"):  # noqa: PT012
+        with mlflow.utils.autologging_utils.disable_autologging():
+            assert not is_autolog_on()
+            raise Exception("test")
+
+    # Autologging should be turned back on after the exception
+    assert is_autolog_on()
 
 
 def test_autologging_event_logger_default_implementation_does_not_throw_for_valid_inputs():
