@@ -18,11 +18,15 @@ module.exports = async ({ context, github, core }) => {
   const no = noMatch ? noMatch[0].toLowerCase() === "x" : false;
 
   if (yes && no) {
-    core.setFailed("Both yes and no are selected. Please select only one.");
+    core.setFailed(
+      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section"
+    );
   }
 
   if (!yes && !no) {
-    core.setFailed("Please select either yes or no.");
+    core.setFailed(
+      "Please fill in the `Should this PR be included in the next patch release?` section"
+    );
   }
 
   if (no) {
