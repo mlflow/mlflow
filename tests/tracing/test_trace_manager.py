@@ -22,7 +22,7 @@ def test_add_spans():
     trace_manager = InMemoryTraceManager.get_instance()
 
     exp_id_1 = mlflow.set_experiment("test_experiment_1").experiment_id
-    request_id_1 = "trace_1"
+    request_id_1 = "tr-1"
     span_1_1 = _create_test_span(request_id_1, "span_1_1")
     span_1_1_1 = _create_test_span(request_id_1, "span_1_1_1", parent_span_id="span_1_1")
     span_1_1_2 = _create_test_span(request_id_1, "span_1_1_2", parent_span_id="span_1_1")
@@ -41,7 +41,7 @@ def test_add_spans():
 
     # Add a span for another trace under the different experiment
     exp_id_2 = mlflow.set_experiment("test_experiment_2").experiment_id
-    request_id_2 = "trace_2"
+    request_id_2 = "tr-2"
     span_2_1 = _create_test_span(request_id_2, "span_2_1")
     span_2_1_1 = _create_test_span(request_id_2, "span_2_1_1", parent_span_id="span_2_1")
 
@@ -67,7 +67,7 @@ def test_add_spans():
     assert request_id_2 not in trace_manager._traces
 
     # Pop a trace that does not exist
-    assert trace_manager.pop_trace("trace_3") is None
+    assert trace_manager.pop_trace("tr-3") is None
 
 
 def test_start_detached_span():
@@ -92,7 +92,7 @@ def test_add_and_pop_span_thread_safety():
     trace_manager = InMemoryTraceManager.get_instance()
 
     # Add spans from 10 different threads to 5 different traces
-    request_ids = [f"trace_{i}" for i in range(5)]
+    request_ids = [f"tr-{i}" for i in range(5)]
     num_threads = 10
 
     def add_spans(thread_id):
@@ -120,16 +120,16 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
 
     trace_manager = InMemoryTraceManager.get_instance()
 
-    trace_id_1 = "trace_1"
-    span_1_1 = _create_test_span(trace_id_1, "span")
+    request_id_1 = "tr-1"
+    span_1_1 = _create_test_span(request_id_1, "span")
     trace_manager.add_or_update_span(span_1_1)
 
-    assert trace_id_1 in trace_manager._traces
-    assert len(trace_manager._traces[trace_id_1].span_dict) == 1
+    assert request_id_1 in trace_manager._traces
+    assert len(trace_manager._traces[request_id_1].span_dict) == 1
 
     time.sleep(1)
 
-    assert trace_id_1 not in trace_manager._traces
+    assert request_id_1 not in trace_manager._traces
 
     # Clear singleton instance again to avoid side effects to other tests
     InMemoryTraceManager._instance = None
@@ -142,19 +142,19 @@ def test_traces_buffer_max_size_limit(monkeypatch):
 
     trace_manager = InMemoryTraceManager.get_instance()
 
-    trace_id_1 = "trace_1"
-    span_1_1 = _create_test_span(trace_id_1, "span")
+    request_id_1 = "tr-1"
+    span_1_1 = _create_test_span(request_id_1, "span")
     trace_manager.add_or_update_span(span_1_1)
 
-    assert trace_id_1 in trace_manager._traces
+    assert request_id_1 in trace_manager._traces
     assert len(trace_manager._traces) == 1
 
-    trace_id_2 = "trace_2"
-    span_2_1 = _create_test_span(trace_id_2, "span")
+    request_id_2 = "tr-2"
+    span_2_1 = _create_test_span(request_id_2, "span")
     trace_manager.add_or_update_span(span_2_1)
 
-    assert trace_id_1 not in trace_manager._traces
-    assert trace_id_2 in trace_manager._traces
+    assert request_id_1 not in trace_manager._traces
+    assert request_id_2 in trace_manager._traces
     assert len(trace_manager._traces) == 1
 
     # Clear singleton instance again to avoid side effects to other tests
@@ -164,11 +164,11 @@ def test_traces_buffer_max_size_limit(monkeypatch):
 def test_get_span_from_id():
     trace_manager = InMemoryTraceManager.get_instance()
 
-    request_id_1 = "trace_1"
+    request_id_1 = "tr-1"
     span_1_1 = _create_test_span(request_id_1, "span")
     span_1_2 = _create_test_span(request_id_1, "child_span", parent_span_id=span_1_1.span_id)
 
-    request_id_2 = "trace_2"
+    request_id_2 = "tr-2"
     span_2_1 = _create_test_span(request_id_2, "span")
     span_2_2 = _create_test_span(request_id_2, "child_span", parent_span_id=span_2_1.span_id)
 
@@ -185,7 +185,7 @@ def test_get_span_from_id():
 def test_get_root_span_id():
     trace_manager = InMemoryTraceManager.get_instance()
 
-    request_id_1 = "trace_1"
+    request_id_1 = "tr-1"
     span_1_1 = _create_test_span(request_id_1, "span")
     span_1_2 = _create_test_span(request_id_1, "child_span", parent_span_id=span_1_1.span_id)
 
@@ -196,13 +196,13 @@ def test_get_root_span_id():
     assert trace_manager.get_root_span_id(request_id_1) == "span"
 
     # Non-existing trace
-    assert trace_manager.get_root_span_id("trace_2") is None
+    assert trace_manager.get_root_span_id("tr-2") is None
 
 
 def test_set_trace_tag():
     trace_manager = InMemoryTraceManager.get_instance()
 
-    request_id = "trace_1"
+    request_id = "tr-1"
     span = _create_test_span(request_id, "span")
     trace_manager.add_or_update_span(span)
 
@@ -218,13 +218,15 @@ def test_set_trace_tag_raises_when_trace_not_found():
 
 
 def _create_test_span(request_id, span_id, parent_span_id=None, start_time=None, end_time=None):
+    assert request_id.startswith("tr-"), "Request ID must start with 'tr-'"
+
     if start_time is None:
         start_time = time.time_ns()
     if end_time is None:
         end_time = time.time_ns()
 
     mock_span = mock.MagicMock()
-    mock_span.get_span_context().trace_id = request_id
+    mock_span.get_span_context().trace_id = request_id[3:]
     mock_span.get_span_context().span_id = span_id
     mock_span.parent.span_id = parent_span_id
     mock_span.start_time = start_time

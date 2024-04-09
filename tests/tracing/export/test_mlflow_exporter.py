@@ -75,7 +75,7 @@ def test_export():
 
     # Trace info should inherit fields from the root span
     trace_info = client_call_args.trace_info
-    assert trace_info.request_id == trace_id
+    assert trace_info.request_id == f"tr-{trace_id}"
     assert trace_info.timestamp_ms == 0
     assert trace_info.execution_time_ms == 4
     assert trace_info.request_metadata[TraceMetadataKey.NAME] == "test_span"

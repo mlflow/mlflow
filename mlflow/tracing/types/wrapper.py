@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Union
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, SpanType, TraceStatus
+from mlflow.tracing.types.constant import TRACE_REQUEST_ID_PREFIX
 
 _logger = logging.getLogger(__name__)
 
@@ -33,9 +34,10 @@ class MlflowSpanWrapper:
     def request_id(self) -> str:
         """
         The request ID of the span, a unique identifier for the trace it belongs to.
-        Request ID is equivalent to the trace ID in OpenTelemetry.
+        Request ID is equivalent to the trace ID in OpenTelemetry, but prefixed with
+        "tr-" for backend compatibility.
         """
-        return self._span.get_span_context().trace_id
+        return TRACE_REQUEST_ID_PREFIX + str(self._span.get_span_context().trace_id)
 
     @property
     def span_id(self) -> str:

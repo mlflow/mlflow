@@ -256,6 +256,6 @@ def get_current_active_span():
     if otel_span is None:
         return None
 
-    span_context = otel_span.get_span_context()
+    span = MlflowSpanWrapper(otel_span)
     trace_manager = InMemoryTraceManager.get_instance()
-    return trace_manager.get_span_from_id(span_context.trace_id, span_context.span_id)
+    return trace_manager.get_span_from_id(span.request_id, span.span_id)
