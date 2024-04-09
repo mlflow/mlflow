@@ -268,6 +268,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     credentials=cred,
                     local_file=temp_file,
                     artifact_file_path=None,
+                    get_credentials=lambda artifact_paths: [
+                        self._get_upload_trace_data_cred_info()
+                    ],
                 )
             elif cred.type == ArtifactCredentialType.AZURE_SAS_URI:
                 self._azure_upload_file(
