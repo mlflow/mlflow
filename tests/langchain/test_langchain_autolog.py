@@ -167,25 +167,49 @@ def test_autolog_manage_run():
     with _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         model.invoke("MLflow")
+        assert model.run_id == run.info.run_id
+
+        # The run_id should be propagated to the second call via model instance to
+        # avoid duplicate logging
+        model.invoke("MLflow")
+        assert model.run_id == run.info.run_id
+
+    # Active run created by an user should not be terminated
     assert mlflow.active_run() is not None
+    assert run.info.status != "FINISHED"
+
     assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
     assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
     mlflow.end_run()
-    trace = mlflow.get_traces()[0]
-    span = trace.trace_data.spans[0]
-    assert span.span_type == "CHAIN"
-    assert span.inputs == {"product": "MLflow"}
-    assert span.outputs == {"text": TEST_CONTENT}
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 2
+    for trace in traces:
+        span = trace.trace_data.spans[0]
+        assert span.span_type == "CHAIN"
+        assert span.inputs == {"product": "MLflow"}
+        assert span.outputs == {"text": TEST_CONTENT}
 
 
 def test_autolog_manage_run_no_active_run():
     mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
     assert mlflow.active_run() is None
+
     with _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         model.invoke("MLflow")
+
+        # A new run should be created, and terminated after the inference
+        run = MlflowClient().get_run(model.run_id)
+        assert run.info.run_name.startswith("langchain-")
+        assert run.info.status == "FINISHED"
+
+        # The run_id should be propagated to the second call via model instance to
+        # avoid duplicate logging
+        model.invoke("MLflow")
+        assert model.run_id == run.info.run_id
+
     assert mlflow.active_run() is None
-    run = MlflowClient().get_run(model.run_id)
     assert run.data.tags["test_tag"] == "test"
     assert run.data.tags["mlflow.autologging"] == "langchain"
 

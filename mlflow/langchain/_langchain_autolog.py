@@ -1,9 +1,6 @@
 import contextlib
 import inspect
 import logging
-import os
-import random
-import string
 import uuid
 import warnings
 from copy import deepcopy
@@ -14,10 +11,11 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import RunTag
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
+from mlflow.utils import name_utils
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     disable_autologging,
@@ -64,6 +62,10 @@ class AutoLoggingConfig:
             log_models=config_dict.get("log_models", False),
             log_input_examples=config_dict.get("log_input_examples", False),
             log_model_signatures=config_dict.get("log_model_signatures", False),
+            # TODO: This argument was originally defaulted to True in the production version
+            # of the LangChain autologging, as it is a common use case to log input/output
+            # table for evaluation. Once tracing is fully launched, this should be supported
+            # by the tracer and we should design it to be compatible with the existing UJ.
             log_inputs_outputs=config_dict.get("log_inputs_outputs", False),
             extra_tags=config_dict.get("extra_tags", None),
         )
@@ -77,6 +79,15 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     We patch either `invoke` or `__call__` function for different models
     based on their usage.
     """
+    import langchain
+
+    if not MIN_REQ_VERSION <= Version(langchain.__version__) <= MAX_REQ_VERSION:
+        warnings.warn(
+            "Autologging is known to be compatible with langchain versions between "
+            f"{MIN_REQ_VERSION} and {MAX_REQ_VERSION} and may not succeed with packages "
+            "outside this range."
+        )
+
     # Inject MLflow tracer into the model
     # TODO: the legacy LangChain callback is removed as its functionality largely
     #  overlaps with the tracer while increasing the latency due to synchronous
@@ -84,93 +95,84 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     #  We should recover this functionality either in the tracer or a separate
     #  callback before merging the LangChain autologging change into the main branch.
     #  https://github.com/langchain-ai/langchain/blob/38fb1429fe5a955a863fb91b626c2c9f85efb703/libs/community/langchain_community/callbacks/mlflow_callback.py#L62-L81
-    mlflow_tracer = _set_up_langchain_tracer()
+    from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
+    config = AutoLoggingConfig.init()
+    mlflow_tracer = MlflowLangchainTracer()
     args, kwargs = _inject_mlflow_callbacks(func_name, [mlflow_tracer], args, kwargs)
 
-    autolog_config = AutoLoggingConfig.init()
+    # NB: Running the original inference with disabling autologging, so we only patch the top-level
+    # component and avoid duplicate logging for child components.
+    def _invoke(self, *args, **kwargs):
+        with disable_autologging():
+            return original(self, *args, **kwargs)
 
-    if autolog_config.should_log_optional_artifacts():
-        # This warning is only valid for the legacy LangChain autologging, and the new tracer
-        # should work outside the version range.
-        import langchain
+    # Traces does not require an MLflow run, only the other optional artifacts require it.
+    if config.should_log_optional_artifacts():
+        with _setup_autolog_run(config, self) as run_id:
+            result = _invoke(self, *args, **kwargs)
+        _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+    else:
+        result = _invoke(self, *args, **kwargs)
 
-        if not MIN_REQ_VERSION <= Version(langchain.__version__) <= MAX_REQ_VERSION:
-            warnings.warn(
-                "Autologging is known to be compatible with langchain versions between "
-                f"{MIN_REQ_VERSION} and {MAX_REQ_VERSION} and may not succeed with packages "
-                "outside this range."
-            )
-
-        # Logging Traces does not require an active MLflow run, while the other optional artifacts
-        # needs to be logged into an active run, so we need to start a run if it's not already set.
-        run_id = getattr(self, "run_id", _setup_autolog_run(autolog_config))
-
-    with disable_autologging():
-        result = original(self, *args, **kwargs)
-
-    if autolog_config.should_log_optional_artifacts():
-        _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *args, **kwargs)
-
-        # Terminate the run if it is not managed by the user
-        if mlflow.active_run() is None or mlflow.active_run().info.run_id != run_id:
-            mlflow.MlflowClient().set_terminated(run_id)
-
+    mlflow_tracer.flush_tracker()
     return result
 
 
-def _set_up_langchain_tracer():
-    from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+@contextlib.contextmanager
+def _setup_autolog_run(config, model):
+    """Set up autologging run and return the run ID.
 
-    mlflow_tracer = MlflowLangchainTracer()
+    This function only creates a run when there is no active run and the model does not have
+    a run ID attribute propagated from the previous call. If it creates a new run, MLflow will
+    terminate the run at the end of the inference.
 
-    try:
-        mlflow_tracer.flush_tracker()
-    except Exception as e:
-        if _MLFLOW_TESTING.get():
-            raise
-        _logger.warning(f"Failed to flush mlflow tracer due to error {e}.")
+    Args:
+        config: AutoLoggingConfig: The autologging configuration.
+        model: Any: The LangChain model instance that runs the inference.
 
-    return mlflow_tracer
-
-
-def _setup_autolog_run(config):
-    active_run = mlflow.active_run()
-
-    # include run context tags
+    Returns: yields the run IDs
+    """
+    # Include run context tags
     resolved_tags = context_registry.resolve_tags(config.extra_tags)
     tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, resolved_tags)
 
-    if active_run:
+    if propagated_run_id := getattr(model, "run_id", None):
+        # When model has "run_id" attribute, it means the model is already invoked once with autolog
+        # enabled and the run_id is propagated from the previous call, so we don't create a new run.
+        run_id = propagated_run_id
+        # The run should be already terminated at the end of the previous call.
+        should_terminate_run = False
+
+    elif active_run := mlflow.active_run():
         # If there is an active run, log the autologging-related tags to the run
         run_id = active_run.info.run_id
         mlflow.MlflowClient().log_batch(
             run_id=run_id,
             tags=[RunTag(key, str(value)) for key, value in tags.items()],
         )
-        return run_id
+        # If there is active run, it is created by the user, so we don't terminate it automatically
+        should_terminate_run = False
+
     else:
+        from mlflow.tracking.fluent import _get_experiment_id
+
         experiment_id = _get_experiment_id()
-        run_name = "langchain-" + "".join(
-            random.choices(string.ascii_uppercase + string.digits, k=7)
-        )
+        run_name = "langchain-" + name_utils._generate_random_name(max_length=7)
         run = mlflow.MlflowClient().create_run(experiment_id, run_name=run_name, tags=tags)
         run_id = run.info.run_id
+        # MLflow created a mew run for autologging, so we should terminate it after the inference
+        should_terminate_run = True
 
-    return run_id
-
-
-# TODO: Experiment ID should be set for any Trace object not only for the LangChain autologging.
-#  We should move this to a shared utility and call it within the trace exporter.
-def _get_experiment_id():
-    if "DATABRICKS_RUNTIME_VERSION" in os.environ:
-        mlflow.set_tracking_uri("databricks")
-        experiment_id = mlflow.tracking.fluent._get_experiment_id()
-    else:
-        tracking_uri = mlflow.get_tracking_uri()
-        mlflow.set_tracking_uri(tracking_uri)
-        experiment_id = mlflow.tracking.fluent._get_experiment_id_from_env()
-
-    return experiment_id
+    run_status = None
+    try:
+        yield run_id
+    except Exception:
+        run_status = RunStatus.to_string(RunStatus.FAILED)
+        raise
+    finally:
+        if should_terminate_run:
+            mlflow.MlflowClient().set_terminated(run_id, status=run_status)
 
 
 def _get_input_data_from_function(func_name, model, args, kwargs):
