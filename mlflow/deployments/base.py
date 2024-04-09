@@ -189,7 +189,7 @@ class BaseDeploymentClient(abc.ABC):
     def get_deployment(self, name, endpoint=None):
         """
         Returns a dictionary describing the specified deployment, throwing either a
-        :py:class:`mlflow.exceptions.MlflowException` or an HTTPError for remote
+        :py:class:`mlflow.exceptions.MlflowException` or an `HTTPError` for remote
         deployments if no deployment exists with the provided ID.
         The dict is guaranteed to contain an 'name' key containing the deployment name.
         The other fields of the returned dictionary and their types may vary across
@@ -265,7 +265,7 @@ class BaseDeploymentClient(abc.ABC):
         creation completes (i.e. until it's possible to create a deployment within the endpoint).
         In the case of conflicts (e.g. if it's not possible to create the specified endpoint
         due to conflict with an existing endpoint), raises a
-        :py:class:`mlflow.exceptions.MlflowException` or an HTTPError for remote
+        :py:class:`mlflow.exceptions.MlflowException` or an `HTTPError` for remote
         deployments. See target-specific plugin documentation
         for additional detail on support for asynchronous creation and other configuration.
 
@@ -344,7 +344,7 @@ class BaseDeploymentClient(abc.ABC):
     def get_endpoint(self, endpoint):
         """
         Returns a dictionary describing the specified endpoint, throwing a
-        py:class:`mlflow.exception.MlflowException` or an HTTPError for remote
+        py:class:`mlflow.exception.MlflowException` or an `HTTPError` for remote
         deployments if no endpoint exists with the provided
         name.
         The dict is guaranteed to contain an 'name' key containing the endpoint name.
