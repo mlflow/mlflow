@@ -2,7 +2,7 @@ version: "2.4"
 
 services:
   minio:
-    container_name: mlflow-azure-test-storage
+    container_name: mlflow-aws-test-storage
     image: minio/minio
     entrypoint: sh
     command: -c 'mkdir -p /data/mlflow && minio server /data --console-address ":9001"'
@@ -15,12 +15,10 @@ services:
 
   mlflow:
     container_name: mlflow-aws-test
-    image: mlflow-docker-test
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile.full
-    #   args:
-    #     VERSION: 2.11
+    image: mlflow-integration-test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.full.dev
     command: "mlflow server --artifacts-destination=s3://mlflow/ --host=0.0.0.0 --port=5000"
     environment:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000

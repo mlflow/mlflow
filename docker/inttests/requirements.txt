@@ -1,2 +1,0 @@
-pytest
-testcontainers >= 4.0.0

@@ -12,10 +12,10 @@ services:
 
   mlflow:
     container_name: mlflow-pg-test
-    image: mlflow-docker-test
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    image: mlflow-integration-test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.full.dev
     command: "mlflow server --backend-store-uri=postgresql:// --host=0.0.0.0 --port=5000"
     environment:
       PGHOST: postgres
