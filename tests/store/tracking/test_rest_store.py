@@ -585,7 +585,7 @@ def test_delete_traces():
         max_traces=2,
         request_ids=["tr-1234"],
     )
-    response.text = "{}"
+    response.text = json.dumps({"traces_deleted": 1})
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.delete_traces(
             experiment_id=request.experiment_id,
@@ -594,7 +594,7 @@ def test_delete_traces():
             request_ids=request.request_ids,
         )
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
-        assert res is None
+        assert res == 1
 
 
 def test_set_trace_tag():
