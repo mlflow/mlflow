@@ -19,13 +19,13 @@ module.exports = async ({ context, github, core }) => {
 
   if (yes && no) {
     core.setFailed(
-      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section"
+      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section."
     );
   }
 
   if (!yes && !no) {
     core.setFailed(
-      "Please fill in the `Should this PR be included in the next patch release?` section"
+      "Please fill in the `Should this PR be included in the next patch release?` section."
     );
   }
 
