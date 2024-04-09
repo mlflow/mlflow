@@ -275,9 +275,17 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 )
             elif cred.credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
                 block_id = base64.b64encode(uuid.uuid4().hex.encode()).decode("utf-8")
-                chunk = temp_file.read_bytes()
-                put_block(signed_uri, block_id, chunk, headers=headers)
-                put_block_list(signed_uri, [block_id], headers=headers)
+                put_block(
+                    sas_url=signed_uri,
+                    block_id=block_id,
+                    data=temp_file.read_bytes(),
+                    headers=headers,
+                )
+                put_block_list(
+                    sas_url=signed_uri,
+                    block_list=[block_id],
+                    headers=headers,
+                )
             elif (
                 cred.credential_info.type == ArtifactCredentialType.AZURE_SAS_URI
                 or cred.credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL
