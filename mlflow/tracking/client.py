@@ -1719,6 +1719,13 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
+        if not artifact_file.endswith(".json"):
+            raise ValueError(
+                f"The provided artifact file '{artifact_file}' does not have "
+                "the required '.json' extension. Please ensure the file you are trying "
+                "to log as a table is a JSON file with the '.json' extension. "
+            )
+
         if not isinstance(data, (pd.DataFrame, dict)):
             raise MlflowException.invalid_parameter_value(
                 "data must be a pandas.DataFrame or a dictionary"
