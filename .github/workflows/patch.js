@@ -12,9 +12,11 @@ module.exports = async ({ context, github, core }) => {
   }
 
   const patchSection = body.split(marker)[1];
-  const yesMatch = patchSection.match(/- \[( |x)\] yes/gi);
+  const yesRegex = /- \[( |x)\] yes/gi;
+  const yesMatch = yesRegex.exec(patchSection);
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
-  const noMatch = patchSection.match(/- \[( |x)\] no/gi);
+  const noRegex = /- \[( |x)\] no/gi;
+  const noMatch = noRegex.exec(patchSection);
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
   console.log({ yes, no, yesMatch, noMatch });
 
