@@ -259,9 +259,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             with temp_file.open("w") as f:
                 json.dump(trace_data, f)
 
+            signed_uri = cred.credential_info.signed_uri
+            headers = self._extract_headers_from_credentials(cred.credential_info.headers)
             if cred.credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-                signed_uri = cred.credential_info.signed_uri
-                headers = self._extract_headers_from_credentials(cred.credential_info.headers)
                 size = temp_file.stat().st_size
                 put_adls_file_creation(sas_url=signed_uri, headers=headers)
                 patch_adls_file_upload(
@@ -273,6 +273,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     headers=headers,
                     is_single=True,
                 )
+            elif cred.credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
+                block_id = base64.b64encode(uuid.uuid4().hex.encode()).decode("utf-8")
+                chunk = temp_file.read_bytes()
+                put_block(signed_uri, block_id, chunk, headers=headers)
+                put_block_list(signed_uri, [block_id], headers=headers)
             elif (
                 cred.credential_info.type == ArtifactCredentialType.AZURE_SAS_URI
                 or cred.credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL
