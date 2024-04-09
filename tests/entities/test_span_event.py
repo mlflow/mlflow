@@ -1,4 +1,4 @@
-from mlflow.entities import SpanEvent, TraceStatus
+from mlflow.entities import SpanEvent
 from mlflow.exceptions import MlflowException
 
 

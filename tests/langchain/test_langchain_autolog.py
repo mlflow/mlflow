@@ -241,6 +241,7 @@ def test_resolve_tags():
 
 def test_autolog_record_exception(clear_trace_singleton):
     from langchain.schema.runnable import RunnableLambda
+
     def always_fail(input):
         raise Exception("Error!")
 
