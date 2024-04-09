@@ -258,7 +258,7 @@ class RestStore(AbstractStore):
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
         request_ids: Optional[List[str]] = None,
-    ) -> None:
+    ) -> int:
         req_body = message_to_json(
             DeleteTraces(
                 experiment_id=experiment_id,
@@ -267,7 +267,8 @@ class RestStore(AbstractStore):
                 request_ids=request_ids,
             )
         )
-        self._call_endpoint(DeleteTraces, req_body)
+        res = self._call_endpoint(DeleteTraces, req_body)
+        return res.traces_deleted
 
     def get_trace_info(self, request_id):
         """

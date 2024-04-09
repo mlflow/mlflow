@@ -270,7 +270,7 @@ class AbstractStore:
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
         request_ids: Optional[List[str]] = None,
-    ) -> None:
+    ) -> int:
         """
         Delete traces based on the specified criteria.
 
@@ -283,6 +283,9 @@ class AbstractStore:
                 deleting traces.
             max_traces: The maximum number of traces to delete.
             request_ids: A set of request IDs to delete.
+
+        Returns:
+            The number of traces deleted.
         """
         raise NotImplementedError
 
