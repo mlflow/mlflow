@@ -14,7 +14,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
-  labeling:
+  patch:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
