@@ -5,6 +5,7 @@ on:
     types:
       - opened
       - edited
+      - synchronize
 
 permissions:
   contents: read
