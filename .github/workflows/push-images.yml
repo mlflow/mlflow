@@ -44,10 +44,21 @@ jobs:
           tags: |
             type=ref,event=tag
 
-      - name: Build and Push Base Image
+      - name: Build and Push Base Slim Image
         uses: docker/build-push-action@v3
         with:
           context: docker
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}-slim
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Build and Push Base Full Image
+        uses: docker/build-push-action@v3
+        with:
+          context: docker
+          file: docker/Dockerfile.full
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64,linux/arm64
