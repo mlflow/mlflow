@@ -264,25 +264,19 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 json.dump(trace_data, f)
 
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-                signed_uri = cred.signed_uri
-                headers = self._extract_headers_from_credentials(cred.headers)
-                size = temp_file.stat().st_size
-                put_adls_file_creation(sas_url=signed_uri, headers=headers)
-                patch_adls_file_upload(
-                    sas_url=signed_uri,
+                self._azure_adls_gen2_upload_file(
+                    credentials=cred,
                     local_file=temp_file,
-                    start_byte=0,
-                    size=size,
-                    position=0,
-                    headers=headers,
-                    is_single=True,
+                    artifact_file_path=None,
                 )
             elif cred.type == ArtifactCredentialType.AZURE_SAS_URI:
                 self._azure_upload_file(
                     credentials=cred.credential_info,
                     local_file=temp_file,
                     artifact_file_path=None,
-                    get_credentials=lambda *_args: [self._get_upload_trace_data_cred_info()],
+                    get_credentials=lambda artifact_paths: [
+                        self._get_upload_trace_data_cred_info()
+                    ],
                 )
             elif (
                 cred.type == ArtifactCredentialType.AWS_PRESIGNED_URL
@@ -398,23 +392,25 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _retryable_adls_function(self, func, artifact_file_path, **kwargs):
+    def _retryable_adls_function(self, func, artifact_file_path, get_credentials=None, **kwargs):
         # Attempt to call the passed function.  Retry if the credentials have expired
         try:
             func(**kwargs)
         except requests.HTTPError as e:
-            if e.response.status_code in [403]:
+            if e.response.status_code in [403] and get_credentials:
                 _logger.info(
                     "Failed to authorize ADLS operation, possibly due "
                     "to credential expiration. Refreshing credentials and trying again..."
                 )
-                new_credentials = self._get_write_credential_infos([artifact_file_path])[0]
+                new_credentials = get_credentials([artifact_file_path])[0]
                 kwargs["sas_url"] = new_credentials.signed_uri
                 func(**kwargs)
             else:
                 raise e
 
-    def _azure_adls_gen2_upload_file(self, credentials, local_file, artifact_file_path):
+    def _azure_adls_gen2_upload_file(
+        self, credentials, local_file, artifact_file_path, get_credentials=None
+    ):
         """
         Uploads a file to a given Azure storage location using the ADLS gen2 API.
         """
@@ -425,6 +421,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             self._retryable_adls_function(
                 func=put_adls_file_creation,
                 artifact_file_path=artifact_file_path,
+                get_credentials=get_credentials,
                 sas_url=credentials.signed_uri,
                 headers=headers,
             )
@@ -461,6 +458,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._retryable_adls_function(
                     func=patch_adls_flush,
                     artifact_file_path=artifact_file_path,
+                    get_credentials=get_credentials,
                     sas_url=credentials.signed_uri,
                     position=file_size,
                     headers=headers,
