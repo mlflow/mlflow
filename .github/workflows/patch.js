@@ -16,6 +16,7 @@ module.exports = async ({ context, github, core }) => {
   const yes = yesMatch ? yesMatch[0].toLowerCase() === "x" : false;
   const noMatch = patchSection.match(/- \[( |x)\] no/gi);
   const no = noMatch ? noMatch[0].toLowerCase() === "x" : false;
+  console.log({ yes, no });
 
   if (yes && no) {
     core.setFailed(
