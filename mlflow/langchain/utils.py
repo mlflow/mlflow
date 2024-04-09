@@ -1,9 +1,11 @@
 """Utility functions for mlflow.langchain."""
 
 import contextlib
+import importlib
 import json
 import logging
 import os
+import re
 import shutil
 import types
 import warnings
@@ -55,9 +57,12 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
 _UNSUPPORTED_LLM_WARNING_MESSAGE = (
     "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
 )
-_UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
-    "Saving {instance_type} models is only supported in langchain 0.0.194 and above."
-)
+
+# Minimum version of langchain required to support ChatOpenAI and AzureChatOpenAI in MLflow
+# Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
+# will not work.
+_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
+_CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +243,12 @@ def _get_supported_llms():
     if hasattr(langchain.chat_models, "ChatMlflow"):
         llms.add(langchain.chat_models.ChatMlflow)
 
+    if hasattr(langchain.chat_models, "ChatOpenAI"):
+        llms.add(langchain.chat_models.ChatOpenAI)
+
+    if hasattr(langchain.chat_models, "AzureChatOpenAI"):
+        llms.add(langchain.chat_models.AzureChatOpenAI)
+
     return llms
 
 
@@ -280,14 +291,6 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
         )
 
     if special_chain_info := _get_special_chain_info_or_none(lc_model):
-        if isinstance(lc_model, langchain.chains.RetrievalQA) and version.parse(
-            langchain.__version__
-        ) < version.parse("0.0.194"):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE.format(
-                    instance_type=type(lc_model).__name__
-                )
-            )
         if loader_fn is None:
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"For {type(lc_model).__name__} models, a `loader_fn` must be provided."
@@ -317,9 +320,10 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
 
 
 def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
-    import langchain.agents.agent
-    import langchain.chains.base
-    import langchain.chains.llm
+    from langchain.agents.agent import AgentExecutor
+    from langchain.chains.base import Chain
+    from langchain.chains.llm import LLMChain
+    from langchain.chat_models.base import BaseChatModel
 
     model_data_path = os.path.join(path, _MODEL_DATA_YAML_FILE_NAME)
     model_data_kwargs = {
@@ -327,9 +331,9 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
         _MODEL_LOAD_KEY: _BASE_LOAD_KEY,
     }
 
-    if isinstance(model, langchain.chains.llm.LLMChain):
+    if isinstance(model, (LLMChain, BaseChatModel)):
         model.save(model_data_path)
-    elif isinstance(model, langchain.agents.agent.AgentExecutor):
+    elif isinstance(model, AgentExecutor):
         if model.agent and model.agent.llm_chain:
             model.agent.llm_chain.save(model_data_path)
 
@@ -384,7 +388,7 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
 
         # Save model
         model.save(model_data_path)
-    elif isinstance(model, langchain.chains.base.Chain):
+    elif isinstance(model, Chain):
         logger.warning(
             _UNSUPPORTED_MODEL_WARNING_MESSAGE,
             type(model).__name__,
@@ -471,6 +475,75 @@ def _load_base_lcs(
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
+
+
+@contextlib.contextmanager
+def patch_langchain_type_to_cls_dict():
+    """Patch LangChain's type_to_cls_dict config to handle unsupported types like ChatOpenAI.
+
+    The type_to_cls_dict is a hard-coded dictionary in LangChain code base that defines the mapping
+    between the LLM type e.g. "openai" to the loader function for the corresponding LLM class.
+    However, this dictionary doesn't contain some chat models like ChatOpenAI, AzureChatOpenAI,
+    which makes it unable to save and load chains with these models. Ideally, the config should
+    be updated in the LangChain code base, but similar requests have been rejected multiple times
+    in the past, because they consider this serde method to be deprecated, and instead prompt
+    users to use their new serde method https://github.com/langchain-ai/langchain/pull/8164#issuecomment-1659723157.
+    However, we can't simply migrate to the new method because it doesn't support common chains
+    like RetrievalQA, AgentExecutor, etc.
+    Therefore, we apply a hacky solution to patch the type_to_cls_dict from our side to support
+    these models, until a better solution is provided by LangChain.
+    """
+
+    def _load_chat_openai():
+        from langchain.chat_models import ChatOpenAI
+
+        return ChatOpenAI
+
+    def _load_azure_chat_openai():
+        from langchain.chat_models import AzureChatOpenAI
+
+        return AzureChatOpenAI
+
+    def _patched_get_type_to_cls_dict(original):
+        def _wrapped():
+            return {
+                **original(),
+                "openai-chat": _load_chat_openai,
+                "azure-openai-chat": _load_azure_chat_openai,
+            }
+
+        return _wrapped
+
+    # NB: get_type_to_cls_dict() method is defined in the following two modules with the same
+    # name but with slight different elements. This is most likely just a mistake in the
+    # LangChain codebase, but we patch them separately to avoid any potential issues.
+    modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
+    originals = {}
+    for module_name in modules_to_patch:
+        try:
+            module = importlib.import_module(module_name)
+            originals[module_name] = module.get_type_to_cls_dict  # Record original impl for cleanup
+        except (ImportError, AttributeError):
+            continue
+        module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(originals[module_name])
+
+    try:
+        yield
+    except ValueError as e:
+        if m := _CHAT_MODELS_ERROR_MSG.search(str(e)):
+            model_name = "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
+            raise mlflow.MlflowException(
+                f"Loading {model_name} chat model is not supported in MLflow with the "
+                "current version of LangChain. Please upgrade LangChain to 0.0.307 or above "
+                "by running `pip install langchain>=0.0.307`."
+            ) from e
+        else:
+            raise
+    finally:
+        # Clean up the patch
+        for module_name, original_impl in originals.items():
+            module = importlib.import_module(module_name)
+            module.get_type_to_cls_dict = original_impl
 
 
 def register_pydantic_serializer():

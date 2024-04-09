@@ -53,6 +53,7 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
+    patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
@@ -849,7 +850,8 @@ def _load_model_from_local_fs(local_model_path):
         return _load_model_code_path(code_path, config_path)
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-        return _load_model(local_model_path, flavor_conf)
+        with patch_langchain_type_to_cls_dict():
+            return _load_model(local_model_path, flavor_conf)
 
 
 @experimental
