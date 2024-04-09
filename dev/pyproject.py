@@ -89,6 +89,12 @@ def build(skinny: bool) -> None:
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on
                     "prometheus-flask-exporter",
+                    # Required to use MySQL as the backend store
+                    "PyMySQL",
+                    # Required to use PostgreSQL as the backend store
+                    "psycopg2-binary",
+                    # Required to use SQL Server as the backend store
+                    "pymssql",
                 ],
                 "databricks": [
                     # Required to write model artifacts to unity catalog locations
