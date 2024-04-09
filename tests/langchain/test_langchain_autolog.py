@@ -239,6 +239,26 @@ def test_resolve_tags():
     }
 
 
+def test_autolog_record_exception(clear_trace_singleton):
+    from langchain.schema.runnable import RunnableLambda
+    def always_fail(input):
+        raise Exception("Error!")
+
+    model = RunnableLambda(always_fail)
+
+    mlflow.langchain.autolog()
+
+    with pytest.raises(Exception, match="Error!"):
+        model.invoke("test")
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.trace_info.status == "ERROR"
+    assert len(trace.trace_data.spans) == 1
+    assert trace.trace_data.spans[0].name == "always_fail"
+
+
 def test_llmchain_autolog(clear_trace_singleton):
     mlflow.langchain.autolog(log_models=True)
     question = "MLflow"
