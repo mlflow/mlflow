@@ -75,6 +75,8 @@ class InMemoryTraceClientWithTracking(InMemoryTraceClient):
     """
 
     def log_trace(self, trace: Trace):
+        from mlflow.tracking.client import MlflowClient  # avoid circular import
+
         super().log_trace(trace)
         client = MlflowClient()
         client._create_trace_info(trace.trace_info)
