@@ -1659,23 +1659,6 @@ class MlflowClient:
             print(f"Time taken to save compressed image: {end - start:.2f}s")
 
             start = time.time()
-            # Save metadata file
-            metadata_filepath = f"{filename}.json"
-            with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
-                with open(tmp_path, "w+") as f:
-                    json.dump(
-                        {
-                            "filepath": image_filepath,
-                            "key": key,
-                            "step": step,
-                            "timestamp": timestamp,
-                        },
-                        f,
-                    )
-            end = time.time()
-            print(f"Time taken to save metadata file: {end - start:.2f}s")
-
-            start = time.time()
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
             end = time.time()
