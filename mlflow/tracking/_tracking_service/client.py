@@ -527,6 +527,7 @@ class TrackingServiceClient:
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo(self, run_id):
+        print("ARTIFACT REPOS CACHE", _artifact_repos_cache)
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = _artifact_repos_cache.get(run_id)
         if cached_repo is not None:
@@ -542,6 +543,7 @@ class TrackingServiceClient:
             if len(_artifact_repos_cache) > 1024:
                 _artifact_repos_cache.popitem(last=False)
             _artifact_repos_cache[run_id] = artifact_repo
+            print("ADDED", _artifact_repos_cache)
             return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
