@@ -45,10 +45,7 @@ def create_experiment_and_register_model(base_url: str):
 @pytest.mark.parametrize("compose_file_name", _COMPOSE_FILE_LIST)
 def test_backend_and_artifact_store_integration(compose_file_name):
     with DockerCompose(
-        filepath=os.path.dirname(os.path.abspath(__file__)),
-        compose_file_name=[compose_file_name],
-        pull=True,
-        build=True,
+        filepath=os.path.dirname(os.path.abspath(__file__)), compose_file_name=[compose_file_name]
     ) as compose:
         mlflow_host = compose.get_service_host("mlflow", 5000)
         mlflow_port = compose.get_service_port("mlflow", 5000)
