@@ -1642,9 +1642,10 @@ class MlflowClient:
 
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-
+            
+            compressed_image = compress_image_size(image)
             def callback(local_filepath):
-                compress_image_size(image).save(local_filepath)
+                compressed_image.save(local_filepath)
 
             if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
