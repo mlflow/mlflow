@@ -81,3 +81,12 @@ repos:
         language: system
         stages: [commit]
         require_serial: true
+
+      - id: mlver
+        name: check
+        entry: dev/update_ml_package_versions.py --skip-yml
+        files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
