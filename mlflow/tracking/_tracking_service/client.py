@@ -32,11 +32,6 @@ from mlflow.utils.validation import (
     _validate_run_id,
 )
 
-"""
-A MlflowClient is created every call of the fluent API. We need to persist the cache 
-of artifact repos across calls to ensure that we don't re-fetch the same artifact repo.
-"""
-
 
 class TrackingServiceClient:
     """
@@ -572,8 +567,9 @@ class TrackingServiceClient:
             filename: Filename of the artifact to be logged.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
             callback: A function that asynchronously logs artifacts. It takes a single
-                argument, `local_filepath`, which specifies the local path where the artifact should be
-                saved. The function is responsible for saving the artifact at this location.
+                argument, `local_filepath`, which specifies the local path where the artifact
+                should be saved. The function is responsible for saving the artifact at this
+                location.
         """
         artifact_repo = self._get_artifact_repo(run_id)
         artifact_repo.log_artifact_async(filename, artifact_path, callback)

@@ -51,8 +51,6 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-        print("Creating Artifact Repository")
-
         def log_artifact_handler(filename, artifact_path=None, callback=None):
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = os.path.join(tmp_dir, filename)
@@ -92,8 +90,9 @@ class ArtifactRepository:
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
             callback: A function that asynchronously logs artifacts. It takes a single
-                argument, `local_filepath`, which specifies the local path where the artifact should be
-                saved. The function is responsible for saving the artifact at this location.
+                argument, `local_filepath`, which specifies the local path where the artifact
+                should be saved. The function is responsible for saving the artifact at this
+                location.
 
         Returns:
             An :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance

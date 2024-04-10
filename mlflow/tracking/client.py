@@ -1269,12 +1269,15 @@ class MlflowClient:
         """Log artifact asynchronously through a callback.
 
         Args:
-            run_id: The unique identifier for the run. This ID is used to associate the artifact with a specific run.
+            run_id: The unique identifier for the run. This ID is used to associate the
+                artifact with a specific run.
             artifact_file: The file path of the artifact relative to the run's directory.
-                The path should be in POSIX format, using forward slashes (/) as directory separators.
+                The path should be in POSIX format, using forward slashes (/) as directory
+                separators.
             callback: A function that asynchronously logs artifacts. It takes a single
-                argument, `local_filepath`, which specifies the local path where the artifact should be
-                saved. The function is responsible for saving the artifact at this location.
+                argument, `local_filepath`, which specifies the local path where the
+                artifact should be saved. The function is responsible for saving the
+                artifact at this location.
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
