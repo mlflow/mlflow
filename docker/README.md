@@ -35,7 +35,7 @@ Artifact store:
 
 ## Executing the tests
 
-Make sure that you install all required dependencies first. Install the following packages.
+Make sure that you install all required dependencies first.
 
 ```bash
 # mlflow, from a release
@@ -44,7 +44,6 @@ $ pip install -U mlflow
 $ pip install -e .
 # testcontaienrs & pytest
 $ pip install -U testcontainers<4 pytest
-
 ```
 
 Ensure [Docker](https://www.docker.com/) is installed. You will also need `docker-compose`, make sure to install
