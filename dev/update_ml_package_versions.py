@@ -159,11 +159,10 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
+def update(skip_yml):
     yml_path = "mlflow/ml-package-versions.yml"
 
-    if not args.skip_yml:
+    if not skip_yml:
         old_src = read_file(yml_path)
         new_src = old_src
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
@@ -188,6 +187,11 @@ def main():
         save_file(new_src, yml_path)
 
     update_ml_package_versions_py(yml_path)
+
+
+def main():
+    args = parse_args()
+    update(args.skip_yml)
 
 
 if __name__ == "__main__":
