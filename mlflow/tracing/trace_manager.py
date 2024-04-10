@@ -156,6 +156,23 @@ class InMemoryTraceManager:
             f"Trace with ID {request_id} not found.", error_code=RESOURCE_DOES_NOT_EXIST
         )
 
+    def delete_trace_tag(self, request_id: str, key: str):
+        """Delete a tag on the trace with the given request_id."""
+        with self._lock:
+            if trace := self._traces.get(request_id):
+                if key in trace.trace_info.tags:
+                    trace.trace_info.tags.pop(key)
+                    return
+                else:
+                    raise MlflowException(
+                        f"Tag with key {key} not found in trace with ID {request_id}.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+
+        raise MlflowException(
+            f"Trace with ID {request_id} not found.", error_code=RESOURCE_DOES_NOT_EXIST
+        )
+
     def get_trace_info(self, request_id: str) -> Optional[TraceInfo]:
         """
         Get the trace info for the given request_id.

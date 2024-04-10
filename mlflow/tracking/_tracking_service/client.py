@@ -296,6 +296,16 @@ class TrackingServiceClient:
         """
         self.store.set_trace_tag(request_id, key, str(value))
 
+    def delete_trace_tag(self, request_id, key):
+        """
+        Delete a tag from the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        self.store.delete_trace_tag(request_id, key)
+
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,

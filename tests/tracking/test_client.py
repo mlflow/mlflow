@@ -436,7 +436,7 @@ def test_start_span_raise_error_when_parent_span_id_is_not_provided():
         )
 
 
-def test_set_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
+def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
     client = mlflow.tracking.MlflowClient()
 
     root_span = client.start_trace(name="test")
@@ -451,6 +451,22 @@ def test_set_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
 def test_set_trace_tag_on_logged_trace(mock_store, mock_trace_client):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
     mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
+
+
+def test_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test", tags={"foo": "bar", "baz": "qux"})
+    request_id = root_span.request_id
+    client.delete_trace_tag(request_id, "foo")
+    client.end_trace(request_id)
+
+    trace = mlflow.get_traces()[-1]
+    assert trace.trace_info.tags == {"baz": "qux"}
+
+
+def test_delete_trace_tag_on_logged_trace(mock_store, mock_trace_client):
+    mlflow.tracking.MlflowClient().delete_trace_tag("test", "foo")
+    mock_store.delete_trace_tag.assert_called_once_with("test", "foo")
 
 
 def test_client_create_experiment(mock_store):
