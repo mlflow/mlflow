@@ -1,8 +1,9 @@
 # NB: These keys are placeholders and subject to change
 class TraceMetadataKey:
-    INPUTS = "inputs"
-    OUTPUTS = "outputs"
-    SOURCE = "source"
+    INPUTS = "mlflow.traceInputs"
+    OUTPUTS = "mlflow.traceOutputs"
+    SOURCE_NAME = "mlflow.source.name"
+    SOURCE_TYPE = "mlflow.source.type"
 
 
 class TraceTagKey:

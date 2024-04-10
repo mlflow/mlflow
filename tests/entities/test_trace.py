@@ -51,8 +51,8 @@ def test_json_deserialization(mock_trace_client):
             "execution_time_ms": trace.trace_info.execution_time_ms,
             "status": "OK",
             "request_metadata": {
-                "inputs": '{"x": 2, "y": 5}',
-                "outputs": "8",
+                "mlflow.traceInputs": '{"x": 2, "y": 5}',
+                "mlflow.traceOutputs": "8",
             },
             "tags": {
                 "mlflow.traceName": "predict",
