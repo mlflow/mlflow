@@ -542,7 +542,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
             self._azure_adls_gen2_upload_file(
-                cloud_credential_info, src_file_path, artifact_file_path
+                cloud_credential_info,
+                src_file_path,
+                artifact_file_path,
+                self._get_write_credential_infos,
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
             if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get():
