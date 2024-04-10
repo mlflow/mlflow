@@ -4,9 +4,9 @@ import threading
 class RunArtifacts:
     def __init__(
         self,
-        local_file: str,
+        filename: str,
         artifact_path: str,
-        cleanup: bool,
+        callback: callable,
         completion_event: threading.Event,
     ) -> None:
         """Initializes an instance of `RunArtifacts`.
@@ -18,9 +18,9 @@ class RunArtifacts:
             cleanup: Indicator of whether to cleanup local file after upload.
             completion_event: A threading.Event object.
         """
-        self.local_file = local_file
+        self.filename = filename
         self.artifact_path = artifact_path
-        self.cleanup = cleanup
+        self.callback = callback
         self.completion_event = completion_event
         self._exception = None
 

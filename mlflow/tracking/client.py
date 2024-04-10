@@ -1245,7 +1245,7 @@ class MlflowClient:
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
     @contextlib.contextmanager
-    def _log_artifact_helper(self, run_id, artifact_file, synchronous=True):
+    def _log_artifact_helper(self, run_id, artifact_file):
         """Yields a temporary path to store a file, and then calls `log_artifact` against that path.
 
         Args:
@@ -1260,19 +1260,24 @@ class MlflowClient:
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-
-        if synchronous:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_path = os.path.join(tmp_dir, filename)
-                yield tmp_path
-                self.log_artifact(run_id, tmp_path, artifact_dir)
-        else:
-            # call self.log_artifact asynchronously
-            # Manually create and manage a temporary directory
-            tmp_dir = tempfile.mkdtemp()
+        with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, filename)
             yield tmp_path
-            self._tracking_client.log_artifact_async(run_id, tmp_path, artifact_dir, cleanup=True)
+            self.log_artifact(run_id, tmp_path, artifact_dir)
+    
+    def _log_artifact_async_helper(self, run_id, artifact_file, async_callback):
+        """Provided a callback to log artifact asynchronously.
+
+        Args:
+            run_id: String ID of the run.
+            artifact_file: The run-relative artifact file path in posixpath format.
+            async_callback: Callback to log artifact asynchronously.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+        self._tracking_client.log_artifact_async(run_id, filename, artifact_dir, async_callback)
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -1628,28 +1633,38 @@ class MlflowClient:
             start = time.time()
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
-            with self._log_artifact_helper(run_id, image_filepath, synchronous) as tmp_path:
-                start_image = time.time()
-                image.save(tmp_path)
-                end_image = time.time()
-                print("Time taken to save image (inner):", end_image - start_image)
+            if synchronous:
+                with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
+                    start_image = time.time()
+                    image.save(tmp_path)
+                    end_image = time.time()
+                    print("Time taken to save image (inner):", end_image - start_image)
+            else:
+                def callback(local_filepath):
+                    image.save(local_filepath)
+                self._log_artifact_async_helper(run_id, image_filepath, async_callback=callback)
             end = time.time()
             print(f"Time taken to save full-resolution image: {end - start:.2f}s")
 
             start = time.time()
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-            with self._log_artifact_helper(
-                run_id, compressed_image_filepath, synchronous
-            ) as tmp_path:
-                compress_image_size(image).save(tmp_path)
+            if synchronous:
+                with self._log_artifact_helper(
+                    run_id, compressed_image_filepath
+                ) as tmp_path:
+                    compress_image_size(image).save(tmp_path)
+            else:
+                def callback(local_filepath):
+                    compress_image_size(image).save(local_filepath)
+                self._log_artifact_async_helper(run_id, compressed_image_filepath, async_callback=callback)
             end = time.time()
             print(f"Time taken to save compressed image: {end - start:.2f}s")
 
             start = time.time()
             # Save metadata file
             metadata_filepath = f"{filename}.json"
-            with self._log_artifact_helper(run_id, metadata_filepath, synchronous) as tmp_path:
+            with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
                 with open(tmp_path, "w+") as f:
                     json.dump(
                         {

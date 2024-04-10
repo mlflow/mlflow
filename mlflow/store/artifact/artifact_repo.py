@@ -4,6 +4,7 @@ import posixpath
 import shutil
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import tempfile
 from typing import List, Optional
 
 from mlflow.entities.file_info import FileInfo
@@ -51,10 +52,12 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-        def log_artifact_handler(local_file, artifact_path=None, cleanup=False):
-            self.log_artifact(local_file, artifact_path)
-            if cleanup:
-                shutil.rmtree(local_file)
+        def log_artifact_handler(filename, artifact_path=None, callback=None):
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = os.path.join(tmp_dir, filename)
+                if callback is not None:
+                    callback(tmp_path)
+                self.log_artifact(tmp_path, artifact_path)
 
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
@@ -75,7 +78,7 @@ class ArtifactRepository:
         """
         pass
 
-    def log_artifact_async(self, local_file, artifact_path=None, cleanup=False):
+    def log_artifact_async(self, filename, artifact_path=None, callback=None):
         """
         Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
         place it within the run's artifacts. Run artifacts can be organized into directory, so you
@@ -98,7 +101,7 @@ class ArtifactRepository:
             self._async_logging_queue.activate()
 
         return self._async_logging_queue.log_artifacts_async(
-            local_file=local_file, artifact_path=artifact_path, cleanup=cleanup
+            filename=filename, artifact_path=artifact_path, callback=callback
         )
 
     @abstractmethod

@@ -106,9 +106,9 @@ class AsyncArtifactsLoggingQueue:
         def logging_func(run_artifacts):
             try:
                 self._logging_func(
-                    local_file=run_artifacts.local_file,
+                    filename=run_artifacts.filename,
                     artifact_path=run_artifacts.artifact_path,
-                    cleanup=run_artifacts.cleanup,
+                    callback=run_artifacts.callback,
                 )
 
                 # Signal the batch processing is done.
@@ -183,14 +183,14 @@ class AsyncArtifactsLoggingQueue:
         self._batch_status_check_threadpool = None
         self._stop_data_logging_thread_event = threading.Event()
 
-    def log_artifacts_async(self, local_file, artifact_path, cleanup) -> RunOperations:
+    def log_artifacts_async(self, filename, artifact_path, callback) -> RunOperations:
         """Asynchronously logs runs artifacts.
 
         Args:
             local_file: Path to artifact to log.
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
-            cleanup: Indicator of whether to cleanup local file after upload.
+            callback: Indicator of whether to cleanup local file after upload.
 
         Returns:
             mlflow.utils.async_utils.RunOperations: An object that encapsulates the
@@ -204,9 +204,9 @@ class AsyncArtifactsLoggingQueue:
         if not self._is_activated:
             raise MlflowException("AsyncArtifactsLoggingQueue is not activated.")
         artifacts = RunArtifacts(
-            local_file=local_file,
+            filename=filename,
             artifact_path=artifact_path,
-            cleanup=cleanup,
+            callback=callback,
             completion_event=threading.Event(),
         )
         self._queue.put(artifacts)
