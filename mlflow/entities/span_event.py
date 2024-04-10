@@ -47,7 +47,8 @@ class SpanEvent(_MlflowObject):
             },
         )
 
-    def _get_stacktrace(self, error: BaseException) -> str:
+    @staticmethod
+    def _get_stacktrace(error: BaseException) -> str:
         """Get the stacktrace of the parent error."""
         msg = repr(error)
         try:

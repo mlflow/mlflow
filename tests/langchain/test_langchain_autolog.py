@@ -1,5 +1,4 @@
 import os
-import re
 from operator import itemgetter
 from typing import Any, List, Optional
 from unittest import mock
@@ -19,6 +18,7 @@ from mlflow.langchain._langchain_autolog import (
     INFERENCE_FILE_NAME,
     UNSUPPORT_LOG_MODEL_MESSAGE,
     _combine_input_and_output,
+    _resolve_tags,
 )
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
@@ -29,6 +29,9 @@ from mlflow.utils.openai_utils import (
     _mock_request,
     _MockResponse,
 )
+
+# TODO: This test helper is used outside the tracing module, we should move it to a common utils
+from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -42,69 +45,9 @@ MLFLOW_CALLBACK_METRICS = mlflow_callback_metrics()
 TEXT_COMPLEXITY_METRICS = get_text_complexity_metrics()
 
 
-def get_mlflow_callback_artifacts(
-    contains_llm=True,
-    contains_on_text_action=True,
-    llm_new_token=False,
-    contains_chain=False,
-    contains_tool=False,
-    contains_agent=False,
-    contains_agent_action=False,
-    contains_retriever=False,
-):
-    artifacts = [
-        "table_action_records.html",
-    ]
-    if contains_llm:
-        artifacts += [
-            "chat_html.html",
-            "table_session_analysis.html",
-            re.compile(r"llm_start_\d+_prompt_\d+\.json"),
-            re.compile(r"llm_end_\d+_generation_\d+\.json"),
-        ]
-    if llm_new_token:
-        artifacts += [re.compile(r"llm_new_tokens_\d+\.json")]
-    if contains_chain:
-        artifacts += [
-            re.compile(r"chain_start_\d+\.json"),
-            re.compile(r"chain_end_\d+\.json"),
-        ]
-    if contains_tool:
-        artifacts += [
-            re.compile(r"tool_start_\d+\.json"),
-            re.compile(r"tool_end_\d+\.json"),
-        ]
-    if contains_agent:
-        artifacts += [
-            re.compile(r"agent_finish_\d+\.json"),
-        ]
-    if contains_agent_action:
-        artifacts += [
-            re.compile(r"agent_action_\d+\.json"),
-        ]
-    if contains_on_text_action:
-        artifacts += [
-            re.compile(r"on_text_\d+\.json"),
-        ]
-    if contains_retriever:
-        artifacts += [
-            re.compile(r"retriever_start_\d+\.json"),
-            re.compile(r"retriever_end_\d+\.json"),
-        ]
-    return artifacts
-
-
 def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
     model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
     return Model.load(model_conf_path)
-
-
-def get_artifacts(run_id):
-    client = MlflowClient()
-    artifacts = client.list_artifacts(run_id)
-    artifacts_folder = [x for x in artifacts if x.path.split("/")[-1].startswith("artifacts-")][0]
-    artifacts = client.list_artifacts(run_id, artifacts_folder.path)
-    return [x.path.split("/")[-1] for x in artifacts]
 
 
 def create_openai_llmchain():
@@ -225,32 +168,97 @@ def test_autolog_manage_run():
     with _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         model.invoke("MLflow")
+        assert model.run_id == run.info.run_id
+
+        # The run_id should be propagated to the second call via model instance to
+        # avoid duplicate logging
+        model.invoke("MLflow")
+        assert model.run_id == run.info.run_id
+
+    # Active run created by an user should not be terminated
     assert mlflow.active_run() is not None
-    assert MlflowClient().get_run(run.info.run_id).data.metrics != {}
+    assert run.info.status != "FINISHED"
+
     assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
     assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
     mlflow.end_run()
-    trace = mlflow.get_traces()[0]
-    span = trace.trace_data.spans[0]
-    assert span.span_type == "CHAIN"
-    assert span.inputs == {"product": "MLflow"}
-    assert span.outputs == {"text": TEST_CONTENT}
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 2
+    for trace in traces:
+        span = trace.trace_data.spans[0]
+        assert span.span_type == "CHAIN"
+        assert span.inputs == {"product": "MLflow"}
+        assert span.outputs == {"text": TEST_CONTENT}
 
 
 def test_autolog_manage_run_no_active_run():
     mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
     assert mlflow.active_run() is None
+
     with _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         model.invoke("MLflow")
+
+        # A new run should be created, and terminated after the inference
+        run = MlflowClient().get_run(model.run_id)
+        assert run.info.run_name.startswith("langchain-")
+        assert run.info.status == "FINISHED"
+
+        # The run_id should be propagated to the second call via model instance to
+        # avoid duplicate logging
+        model.invoke("MLflow")
+        assert model.run_id == run.info.run_id
+
     assert mlflow.active_run() is None
-    run = MlflowClient().get_run(model.run_id)
-    assert run.data.metrics != {}
     assert run.data.tags["test_tag"] == "test"
     assert run.data.tags["mlflow.autologging"] == "langchain"
 
 
-def test_llmchain_autolog():
+def test_resolve_tags():
+    extra_tags = {"test_tag": "test"}
+    # System tags and extra tags should be logged
+    actual_tags = set(_resolve_tags(extra_tags).keys())
+    assert actual_tags == {
+        "mlflow.autologging",
+        "mlflow.source.name",
+        "mlflow.source.type",
+        "mlflow.user",
+        "test_tag",
+    }
+
+    with mlflow.start_run() as run:
+        actual_tags = set(_resolve_tags(extra_tags, run).keys())
+
+    # The immutable tags starts with 'mlflow.' in the run should not be overridden
+    assert actual_tags == {
+        "mlflow.autologging",
+        "test_tag",
+    }
+
+
+def test_autolog_record_exception(clear_trace_singleton):
+    from langchain.schema.runnable import RunnableLambda
+
+    def always_fail(input):
+        raise Exception("Error!")
+
+    model = RunnableLambda(always_fail)
+
+    mlflow.langchain.autolog()
+
+    with pytest.raises(Exception, match="Error!"):
+        model.invoke("test")
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.trace_info.status == "ERROR"
+    assert len(trace.trace_data.spans) == 1
+    assert trace.trace_data.spans[0].name == "always_fail"
+
+
+def test_llmchain_autolog(clear_trace_singleton):
     mlflow.langchain.autolog(log_models=True)
     question = "MLflow"
     answer = {"product": "MLflow", "text": TEST_CONTENT}
@@ -261,6 +269,39 @@ def test_llmchain_autolog():
             # Call twice to test that the model is only logged once
             assert model.invoke(question) == answer
             log_model_mock.assert_called_once()
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 2
+    for trace in traces:
+        spans = trace.trace_data.spans
+        assert len(spans) == 2  # chain + llm
+        assert spans[0].span_type == "CHAIN"
+        assert spans[0].name == "LLMChain"
+        assert spans[0].inputs == {"product": "MLflow"}
+        assert spans[0].outputs == {"text": TEST_CONTENT}
+        assert spans[1].span_type == "LLM"
+        assert spans[1].name == "OpenAI"
+        assert spans[1].parent_span_id == spans[0].context.span_id
+        assert spans[1].inputs == ["What is a good name for a company that makes MLflow?"]
+        assert spans[1].outputs["generations"][0][0]["text"] == "test"
+        assert spans[1].attributes["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
+        assert spans[1].attributes["invocation_params"]["temperature"] == 0.9
+
+
+def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton):
+    mlflow.langchain.autolog()
+    question = "MLflow"
+    answer = {"product": "MLflow", "text": TEST_CONTENT}
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        with mock.patch("mlflow.MlflowClient.create_run") as create_run_mock:
+            assert model.invoke(question) == answer
+            create_run_mock.assert_not_called()
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 1
+    spans = traces[0].trace_data.spans
+    assert len(spans) == 2
 
 
 def test_llmchain_autolog_with_registered_model_name():
@@ -273,6 +314,8 @@ def test_llmchain_autolog_with_registered_model_name():
         assert registered_model.name == registered_model_name
 
 
+# TODO: remove skip mark before merging the tracing feature branch to master
+@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
 def test_llmchain_autolog_metrics():
     mlflow.langchain.autolog()
     with _mock_request(return_value=_mock_chat_completion_response()):
@@ -284,20 +327,6 @@ def test_llmchain_autolog_metrics():
         for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
     assert mlflow.active_run() is None
-
-
-def test_llmchain_autolog_artifacts():
-    mlflow.langchain.autolog()
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        with mlflow.start_run() as run:
-            model.invoke("MLflow")
-        artifacts = get_artifacts(run.info.run_id)
-        for artifact_name in get_mlflow_callback_artifacts():
-            if isinstance(artifact_name, str):
-                assert artifact_name in artifacts
-            else:
-                assert any(artifact_name.match(artifact) for artifact in artifacts)
 
 
 def test_loaded_llmchain_autolog():
@@ -373,7 +402,7 @@ def test_llmchain_autolog_log_inputs_outputs():
         assert new_session_id != session_id
 
 
-def test_agent_autolog():
+def test_agent_autolog(clear_trace_singleton):
     mlflow.langchain.autolog(log_models=True)
     model, input, mock_response = create_openai_llmagent()
     with _mock_request(return_value=_MockResponse(200, mock_response)), mock.patch(
@@ -393,14 +422,22 @@ def test_agent_autolog():
         assert model.invoke(input, return_only_outputs=True) == {"output": TEST_CONTENT}
         log_model_mock.assert_called_once()
 
-    trace = mlflow.get_traces()[0]
-    span = trace.trace_data.spans[0]
-    assert span.span_type == "CHAIN"
-    assert span.inputs == input
-    assert span.outputs == {"output": TEST_CONTENT}
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 4
+    for trace in traces:
+        spans = [(s.name, s.span_type) for s in trace.trace_data.spans]
+        assert spans == [
+            ("AgentExecutor", "CHAIN"),
+            ("LLMChain", "CHAIN"),
+            ("OpenAI", "LLM"),
+        ]
+        assert trace.trace_data.spans[0].inputs == input
+        assert trace.trace_data.spans[0].outputs == {"output": TEST_CONTENT}
 
 
-def test_agent_autolog_metrics_and_artifacts():
+# TODO: remove skip mark before merging the tracing feature branch to master
+@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
+def test_agent_autolog_metrics():
     mlflow.langchain.autolog()
     model, input, mock_response = create_openai_llmagent()
     with _mock_request(return_value=_MockResponse(200, mock_response)):
@@ -411,14 +448,6 @@ def test_agent_autolog_metrics_and_artifacts():
         for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
 
-        artifacts = get_artifacts(run.info.run_id)
-        for artifact_name in get_mlflow_callback_artifacts(
-            contains_agent=True, contains_chain=True
-        ):
-            if isinstance(artifact_name, str):
-                assert artifact_name in artifacts
-            else:
-                assert any(artifact_name.match(artifact) for artifact in artifacts)
     assert mlflow.active_run() is None
 
 
@@ -477,21 +506,38 @@ def test_agent_autolog_log_inputs_outputs():
         )
 
 
-def test_runnable_sequence_autolog():
+def test_runnable_sequence_autolog(clear_trace_singleton):
     mlflow.langchain.autolog(log_models=True)
     chain, input_example = create_runnable_sequence()
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         assert chain.invoke(input_example) == TEST_CONTENT
         assert chain.invoke(input_example) == TEST_CONTENT
         log_model_mock.assert_called_once()
-    trace = mlflow.get_traces()[0]
-    span = trace.trace_data.spans[0]
-    assert span.span_type == "CHAIN"
-    assert span.inputs == input_example
-    assert span.outputs == TEST_CONTENT
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 2
+    for trace in traces:
+        spans = {(s.name, s.span_type) for s in trace.trace_data.spans}
+        # Since the chain includes parallel execution, the order of some
+        # spans is not deterministic.
+        assert spans == {
+            ("RunnableSequence_1", "CHAIN"),
+            ("RunnableParallel<question,chat_history>", "CHAIN"),
+            ("RunnableSequence_2", "CHAIN"),
+            ("RunnableLambda_1", "CHAIN"),
+            ("extract_question", "CHAIN"),
+            ("RunnableSequence_3", "CHAIN"),
+            ("RunnableLambda_2", "CHAIN"),
+            ("extract_history", "CHAIN"),
+            ("PromptTemplate", "CHAIN"),
+            ("FakeChatModel", "LLM"),
+            ("StrOutputParser", "CHAIN"),
+        }
 
 
-def test_runnable_sequence_autolog_metrics_and_artifacts():
+# TODO: remove skip mark before merging the tracing feature branch to master
+@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
+def test_runnable_sequence_autolog_metrics():
     mlflow.langchain.autolog()
     chain, input_example = create_runnable_sequence()
     with mlflow.start_run() as run:
@@ -500,13 +546,6 @@ def test_runnable_sequence_autolog_metrics_and_artifacts():
     metrics = client.get_run(run.info.run_id).data.metrics
     for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
         assert metric_key in metrics
-
-    artifacts = get_artifacts(run.info.run_id)
-    for artifact_name in get_mlflow_callback_artifacts(contains_on_text_action=False):
-        if isinstance(artifact_name, str):
-            assert artifact_name in artifacts
-        else:
-            assert any(artifact_name.match(artifact) for artifact in artifacts)
     assert mlflow.active_run() is None
 
 
@@ -563,7 +602,7 @@ def test_runnable_sequence_autolog_log_inputs_outputs():
     )
 
 
-def test_retriever_autolog(tmp_path):
+def test_retriever_autolog(tmp_path, clear_trace_singleton):
     mlflow.langchain.autolog(log_models=True)
     model, query = create_retriever(tmp_path)
     with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch(
@@ -572,13 +611,19 @@ def test_retriever_autolog(tmp_path):
         model.get_relevant_documents(query)
         log_model_mock.assert_not_called()
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
-    trace = mlflow.get_traces()[0]
-    span = trace.trace_data.spans[0]
-    assert span.span_type == "RETRIEVER"
-    assert span.inputs == query
-    assert span.outputs[0].metadata == {"source": "tests/langchain/state_of_the_union.txt"}
+
+    traces = mlflow.get_traces(None)
+    assert len(traces) == 1
+    spans = traces[0].trace_data.spans
+    assert len(spans) == 1
+    assert spans[0].span_type == "RETRIEVER"
+    assert spans[0].name == "VectorStoreRetriever"
+    assert spans[0].inputs == query
+    assert spans[0].outputs[0].metadata == {"source": "tests/langchain/state_of_the_union.txt"}
 
 
+# TODO: remove skip mark before merging the tracing feature branch to master
+@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
 def test_retriever_metrics_and_artifacts(tmp_path):
     mlflow.langchain.autolog()
     model, query = create_retriever(tmp_path)
@@ -589,16 +634,6 @@ def test_retriever_metrics_and_artifacts(tmp_path):
     for metric_key in MLFLOW_CALLBACK_METRICS:
         assert metric_key in metrics
 
-    artifacts = get_artifacts(run.info.run_id)
-    for artifact_name in get_mlflow_callback_artifacts(
-        contains_llm=False,
-        contains_on_text_action=False,
-        contains_retriever=True,
-    ):
-        if isinstance(artifact_name, str):
-            assert artifact_name in artifacts
-        else:
-            assert any(artifact_name.match(artifact) for artifact in artifacts)
     assert mlflow.active_run() is None
 
 
