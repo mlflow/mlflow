@@ -32,13 +32,16 @@ from mlflow.utils.validation import (
     _validate_run_id,
 )
 
+"""
+A MlflowClient is created every call of the fluent API. We need to persist the cache 
+of artifact repos across calls to ensure that we don't re-fetch the same artifact repo.
+"""
+_artifact_repos_cache = OrderedDict()
 
 class TrackingServiceClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
-
-    _artifact_repos_cache = OrderedDict()
 
     def __init__(self, tracking_uri):
         """
@@ -525,7 +528,7 @@ class TrackingServiceClient:
 
     def _get_artifact_repo(self, run_id):
         # Attempt to fetch the artifact repo from a local cache
-        cached_repo = TrackingServiceClient._artifact_repos_cache.get(run_id)
+        cached_repo = _artifact_repos_cache.get(run_id)
         if cached_repo is not None:
             return cached_repo
         else:
@@ -536,9 +539,9 @@ class TrackingServiceClient:
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
-            if len(TrackingServiceClient._artifact_repos_cache) > 1024:
-                TrackingServiceClient._artifact_repos_cache.popitem(last=False)
-            TrackingServiceClient._artifact_repos_cache[run_id] = artifact_repo
+            if len(_artifact_repos_cache) > 1024:
+                _artifact_repos_cache.popitem(last=False)
+            _artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
