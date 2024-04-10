@@ -51,9 +51,7 @@ class IPythonTraceDisplayHandler:
             if len(traces) == 0 or get_ipython() is None:
                 return
 
-            if len(traces) > MAX_TRACES_TO_DISPLAY:
-                traces = traces[:MAX_TRACES_TO_DISPLAY]
-
+            traces = traces[:MAX_TRACES_TO_DISPLAY]
             traces_dict = {trace.trace_info.request_id: trace for trace in traces}
 
             # if the current ipython exec count has changed, then
