@@ -115,6 +115,7 @@ class AsyncArtifactsLoggingQueue:
                 run_artifacts.completion_event.set()
 
             except Exception as e:
+                print("Exception in logging_func", e)
                 _logger.error(
                     f"Run Id {run_artifacts.run_id}: Failed to log run data: Exception: {e}"
                 )
