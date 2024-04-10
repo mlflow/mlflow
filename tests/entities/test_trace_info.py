@@ -12,11 +12,11 @@ def test_to_proto():
         status=TraceStatus.OK,
         request_metadata={
             "foo": "bar",
-            "very_long": "a" * 1000,
+            "k" * 1000: "v" * 1000,
         },
         tags={
             "baz": "qux",
-            "very_long": "a" * 2000,
+            "k" * 2000: "v" * 2000,
         },
     )
     proto = trace_info.to_proto()
@@ -31,13 +31,13 @@ def test_to_proto():
     assert request_metadata_1.value == "bar"
     request_metadata_2 = proto.request_metadata[1]
     assert isinstance(request_metadata_2, ProtoTraceRequestMetadata)
-    assert request_metadata_2.key == "very_long"
-    assert request_metadata_2.value == "a" * 250
+    assert request_metadata_2.key == "k" * 250
+    assert request_metadata_2.value == "v" * 250
     tag_1 = proto.tags[0]
     assert isinstance(tag_1, ProtoTraceTag)
     assert tag_1.key == "baz"
     assert tag_1.value == "qux"
     tag_2 = proto.tags[1]
     assert isinstance(tag_2, ProtoTraceTag)
-    assert tag_2.key == "very_long"
-    assert tag_2.value == "a" * 250
+    assert tag_2.key == "k" * 250
+    assert tag_2.value == "v" * 250

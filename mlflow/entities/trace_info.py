@@ -47,7 +47,7 @@ class TraceInfo(_MlflowObject):
         request_metadata = []
         for key, value in self.request_metadata.items():
             attr = ProtoTraceRequestMetadata()
-            attr.key = key
+            attr.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
             attr.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
             request_metadata.append(attr)
         proto.request_metadata.extend(request_metadata)
@@ -55,7 +55,7 @@ class TraceInfo(_MlflowObject):
         tags = []
         for key, value in self.tags.items():
             tag = ProtoTraceTag()
-            tag.key = key
+            tag.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
             tag.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
             tags.append(tag)
 
