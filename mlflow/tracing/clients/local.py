@@ -5,7 +5,7 @@ from typing import List, Optional
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
-from mlflow.tracing.display import get_display_client
+from mlflow.tracing.display import get_display_handler
 
 
 class InMemoryTraceClient(TraceClient):
@@ -33,7 +33,7 @@ class InMemoryTraceClient(TraceClient):
     def log_trace(self, trace: Trace):
         with self._lock:
             self.queue.append(trace)
-        get_display_client().display_traces([trace])
+        get_display_handler().display_traces([trace])
 
     def get_traces(self, n: Optional[int] = 10) -> List[Trace]:
         """
@@ -49,7 +49,7 @@ class InMemoryTraceClient(TraceClient):
             trace_list = list(self.queue)
 
         traces = trace_list if n is None else trace_list[-n:]
-        get_display_client().display_traces(traces)
+        get_display_handler().display_traces(traces)
         return traces
 
     def get_trace(self, request_id: str) -> Optional[Trace]:
@@ -65,7 +65,7 @@ class InMemoryTraceClient(TraceClient):
         with self._lock:
             for trace in self.queue:
                 if trace.trace_info.request_id == request_id:
-                    get_display_client().display_traces([trace])
+                    get_display_handler().display_traces([trace])
                     return trace
 
     def _flush(self):

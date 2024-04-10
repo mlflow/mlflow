@@ -10,7 +10,7 @@ from opentelemetry import trace as trace_api
 from mlflow import MlflowClient
 from mlflow.entities import SpanType, Trace
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.display import get_display_client
+from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
@@ -239,7 +239,7 @@ def search_traces(
         max_results=max_results,
     )
 
-    get_display_client().display_traces(results)
+    get_display_handler().display_traces(results)
 
     return results
 
