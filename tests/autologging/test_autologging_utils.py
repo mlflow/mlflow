@@ -800,8 +800,8 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
         ("pyspark.ml", "3.3.0.dev0", True),
         ("pyspark.ml", "3.2.1.dev0", True),
         ("pyspark.ml", "3.1.2.dev0", True),
-        ("pyspark.ml", "3.0.1.dev0", True),
-        ("pyspark.ml", "3.0.0.dev0", True),
+        ("pyspark.ml", "3.0.1.dev0", False),
+        ("pyspark.ml", "3.0.0.dev0", False),
         ("pyspark.ml", "2.4.8.dev0", False),
     ],
 )
