@@ -327,7 +327,9 @@ class RestStore(AbstractStore):
             key: The string key of the tag.
         """
         req_body = message_to_json(DeleteTraceTag(key=key))
-        self._call_endpoint(DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id))
+        self._call_endpoint(
+            DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
+        )
 
     def log_metric(self, run_id, metric):
         """

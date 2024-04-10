@@ -874,7 +874,7 @@ class MlflowClient:
             client.end_trace(root_span.request_id)
 
         Args:
-            request_id: The ID of the trace to set the tag on.
+            request_id: The ID of the trace to delete the tag from.
             key: The string key of the tag. Must be shorter than 250 characters, otherwise
                 it will be truncated when stored.
         """
