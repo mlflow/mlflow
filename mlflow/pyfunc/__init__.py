@@ -901,24 +901,20 @@ def load_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
     """
-
     entity_list = []
 
-    # Get notebook id
+    # Get notebook id and job id, pack them into lineage_header_info
     notebook_id = databricks_utils.get_notebook_id()
-    notebook_entity = Notebook(id=str(notebook_id))
+    if notebook_id:
+        notebook_entity = Notebook(id=str(notebook_id))
+        entity_list.append(Entity(notebook=notebook_entity))
 
-    # Get job id
     job_id = databricks_utils.get_job_id()
-    job_entity = Job(id=str(job_id))
+    if job_id:
+        job_entity = Job(id=str(job_id))
+        entity_list.append(Entity(job=job_entity))
 
-    entity_list.extend([Entity(notebook=notebook_entity), Entity(job=job_entity)])
-
-    # We can only get the entity list here, the lineage list basically contains the model
-    # which we don't have the UUIDs for in mlflow lib
-    # In MC, we'll make a call to get the UUIDs and then use those for generating the lineage message
-    lineage_header_info = LineageHeaderInfo(entities=entity_list)
-
+    lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info)
 
     if not suppress_warnings:

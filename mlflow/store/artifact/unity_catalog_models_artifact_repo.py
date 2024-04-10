@@ -6,10 +6,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
-    Notebook,
-    Job,
-    Entity,
-    LineageHeaderInfo,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -35,11 +31,9 @@ from mlflow.utils.uri import (
     get_db_info_from_uri,
     is_databricks_unity_catalog_uri,
 )
+from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
-
-# extract this to a common lib
-_DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     """
@@ -97,7 +91,6 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         extra_headers = {}
         if lineage_header_info:
             header_json = message_to_json(lineage_header_info)
-            print("We are propagating the following info to UCMR and MC", header_json)
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
 
@@ -111,7 +104,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             )
         )
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
-        return call_endpoint(
+        return self._call_endpoint(
             host_creds=db_creds,
             endpoint=endpoint,
             method=method,
@@ -119,6 +112,16 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             response_proto=response_proto,
             extra_headers=extra_headers,
         ).credentials
+
+    def _call_endpoint(self, host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
+        return call_endpoint(
+            host_creds=host_creds,
+            endpoint=endpoint,
+            method=method,
+            json_body=json_body,
+            response_proto=response_proto,
+            extra_headers=extra_headers,
+        )
 
     def _get_artifact_repo(self, lineage_header_info):
         """

@@ -102,12 +102,12 @@ def _download_artifact_from_uri(artifact_uri, output_path=None,lineage_header_in
         artifact_uri: The *absolute* URI of the artifact to download.
         output_path: The local filesystem path to which to download the artifact. If unspecified,
             a local output path will be created.
-        lineage_header_info: The model lineage header info to be
+        lineage_header_info: The model lineage header info to be consumed by lineage services.
     """
     root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
     repo = get_artifact_repository(artifact_uri=root_uri)
 
-    if isinstance(repo, UnityCatalogModelsArtifactRepository):
+    if isinstance(repo, ModelsArtifactRepository):
         return repo.download_artifacts(
             artifact_path=artifact_path, dst_path=output_path, lineage_header_info=lineage_header_info
         )
