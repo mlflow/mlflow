@@ -47,7 +47,6 @@ class InMemoryTraceClient(TraceClient):
         """
         with self._lock:
             trace_list = list(self.queue)
-
         return trace_list if n is None else trace_list[-n:]
 
     def get_trace(self, request_id: str) -> Optional[Trace]:
