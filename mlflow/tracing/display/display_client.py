@@ -1,7 +1,13 @@
 import json
+import logging
 from typing import List
 
 from mlflow.entities import Trace
+
+MAX_TRACES_TO_DISPLAY = 100
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _serialize_trace_list(traces: List[Trace]):
@@ -13,13 +19,13 @@ def _serialize_trace_list(traces: List[Trace]):
     )
 
 
-class IPythonTraceDisplayClient:
+class IPythonTraceDisplayHandler:
     _instance = None
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            cls._instance = IPythonTraceDisplayClient()
+            cls._instance = IPythonTraceDisplayHandler()
         return cls._instance
 
     def __init__(self):
@@ -33,7 +39,7 @@ class IPythonTraceDisplayClient:
         else:
             return {
                 "application/databricks.mlflow.trace": _serialize_trace_list(traces),
-                "text/plain": traces.__repr__(),
+                "text/plain": repr(traces),
             }
 
     def display_traces(self, traces: List[Trace]):
@@ -44,6 +50,9 @@ class IPythonTraceDisplayClient:
 
             if len(traces) == 0 or get_ipython() is None:
                 return
+
+            if len(traces) > MAX_TRACES_TO_DISPLAY:
+                traces = traces[:MAX_TRACES_TO_DISPLAY]
 
             traces_dict = {trace.trace_info.request_id: trace for trace in traces}
 
@@ -75,4 +84,5 @@ class IPythonTraceDisplayClient:
             # a side-effect in a few other functions (e.g. log_trace,
             # get_traces, search_traces), and we don't want to block
             # the core functionality if the display fails.
+            _logger.debug("Failed to display traces", exc_info=True)
             pass
