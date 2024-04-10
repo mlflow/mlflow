@@ -22,7 +22,6 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
-from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["minimum"])
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maximum"])
@@ -56,10 +55,10 @@ class AutoLoggingConfig:
             or self.log_inputs_outputs
         )
 
-    @staticmethod
-    def init():
+    @classmethod
+    def init(cls):
         config_dict = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME, {})
-        return AutoLoggingConfig(
+        return cls(
             log_models=config_dict.get("log_models", False),
             log_input_examples=config_dict.get("log_input_examples", False),
             log_model_signatures=config_dict.get("log_model_signatures", False),
@@ -147,7 +146,7 @@ def _setup_autolog_run(config, model):
 
         run = mlflow.MlflowClient().create_run(
             experiment_id=_get_experiment_id(),
-            run_name="langchain-" + name_utils._generate_random_name(max_length=7),
+            run_name="langchain-" + name_utils._generate_random_name(),
             tags=_resolve_tags(config.extra_tags),
         )
         run_id = run.info.run_id
@@ -170,7 +169,7 @@ def _resolve_tags(extra_tags, active_run=None):
     if active_run:
         # Some context tags like mlflow.runName are immutable once logged, but they might be already
         # set when the run is created, then we should avoid updating them.
-        excluded_tags = set(active_run.data.tags.keys()) & IMMUTABLE_TAGS
+        excluded_tags = {tag for tag in active_run.data.tags.keys() if tag.startswith("mlflow.")}
         tags = {k: v for k, v in tags.items() if k not in excluded_tags}
     return tags
 

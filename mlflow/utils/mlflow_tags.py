@@ -77,12 +77,6 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
-# These tags are immutable once logged for a run
-IMMUTABLE_TAGS = {
-    MLFLOW_USER,
-    MLFLOW_LOGGED_MODELS,
-}
-
 
 def _get_run_name_from_tags(tags):
     for tag in tags:

@@ -230,11 +230,9 @@ def test_resolve_tags():
     with mlflow.start_run() as run:
         actual_tags = set(_resolve_tags(extra_tags, run).keys())
 
-    # The immutable tags user/runName should not be overridden in the active run
+    # The immutable tags starts with 'mlflow.' in the run should not be overridden
     assert actual_tags == {
         "mlflow.autologging",
-        "mlflow.source.name",
-        "mlflow.source.type",
         "test_tag",
     }
 
