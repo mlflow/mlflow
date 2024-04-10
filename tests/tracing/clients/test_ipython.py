@@ -99,7 +99,7 @@ def test_display_deduplicates_traces(monkeypatch, create_trace):
     client.log_trace(trace_b)
     client.log_trace(trace_c)
 
-    client.get_traces(n=3)
+    mlflow.get_traces(n=3)
 
     expected = [trace_a, trace_b, trace_c]
 
