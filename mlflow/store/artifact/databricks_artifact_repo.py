@@ -321,8 +321,20 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         artifact_file_path,
         start_byte,
         size,
-        get_credentials=None,
+        get_credentials,
     ):
+        """
+        Uploads a chunk of a file to a given Azure storage location.
+
+        Args:
+            credentials: The credentials for the upload.
+            headers: The headers for the upload.
+            local_file: The local file to upload.
+            artifact_file_path: The path to the artifact file.
+            start_byte: The starting byte of the chunk.
+            size: The size of the chunk.
+            get_credentials: The function to call to get new credentials.
+        """
         # Base64-encode a UUID, producing a UTF8-encoded bytestring. Then, decode
         # the bytestring for compliance with Azure Blob Storage API requests
         block_id = base64.b64encode(uuid.uuid4().hex.encode()).decode("utf-8")
@@ -330,7 +342,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         try:
             put_block(credentials.signed_uri, block_id, chunk, headers=headers)
         except requests.HTTPError as e:
-            if e.response.status_code in [401, 403] and get_credentials:
+            if e.response.status_code in [401, 403]:
                 _logger.info(
                     "Failed to authorize request, possibly due to credential expiration."
                     " Refreshing credentials and trying again..."
@@ -341,7 +353,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise e
         return block_id
 
-    def _azure_upload_file(self, credentials, local_file, artifact_file_path, get_credentials=None):
+    def _azure_upload_file(self, credentials, local_file, artifact_file_path, get_credentials):
         """
         Uploads a file to a given Azure storage location.
         The function uses a file chunking generator with 100 MB being the size limit for each chunk.
@@ -351,6 +363,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         is the reason for the first nested try-except block
         Finally, since the prevailing credentials could expire in the time between the last
         stage_block and the commit, a second try-except block refreshes credentials if needed.
+
+        Args:
+            credentials: The credentials for the upload.
+            local_file: The local file to upload.
+            artifact_file_path: The path to the artifact file.
+            get_credentials: The function to call to get new credentials.
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
@@ -381,7 +399,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             try:
                 put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
             except requests.HTTPError as e:
-                if e.response.status_code in [401, 403] and get_credentials:
+                if e.response.status_code in [401, 403]:
                     _logger.info(
                         "Failed to authorize request, possibly due to credential expiration."
                         " Refreshing credentials and trying again..."
@@ -395,12 +413,21 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _retryable_adls_function(self, func, artifact_file_path, get_credentials=None, **kwargs):
+    def _retryable_adls_function(self, func, artifact_file_path, get_credentials, **kwargs):
+        """
+        Calls the passed function, retrying if the credentials have expired.
+
+        Args:
+            func: The function to call.
+            artifact_file_path: The artifact file path.
+            get_credentials: The function to call to get new credentials.
+            **kwargs: The keyword arguments to pass to the function.
+        """
         # Attempt to call the passed function.  Retry if the credentials have expired
         try:
             func(**kwargs)
         except requests.HTTPError as e:
-            if e.response.status_code in [403] and get_credentials:
+            if e.response.status_code in [403]:
                 _logger.info(
                     "Failed to authorize ADLS operation, possibly due "
                     "to credential expiration. Refreshing credentials and trying again..."
@@ -412,10 +439,16 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise e
 
     def _azure_adls_gen2_upload_file(
-        self, credentials, local_file, artifact_file_path, get_credentials=None
+        self, credentials, local_file, artifact_file_path, get_credentials
     ):
         """
         Uploads a file to a given Azure storage location using the ADLS gen2 API.
+
+        Args:
+            credentials: The credentials for the upload.
+            local_file: The local file to upload.
+            artifact_file_path: The path to the artifact file.
+            get_credentials: The function to call to get new credentials.
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
