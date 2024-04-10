@@ -83,7 +83,7 @@ repos:
         require_serial: true
 
       - id: mlver
-        name: check
+        name: ml-package-versions-consistency
         entry: "python dev/update_ml_package_versions.py --skip-yml"
         files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
         language: system
