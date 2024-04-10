@@ -28,6 +28,7 @@ MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
 MLFLOW_AUTOLOGGING = "mlflow.autologging"
 # Indicates the artifacts type and path that are logged
 MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
+MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"

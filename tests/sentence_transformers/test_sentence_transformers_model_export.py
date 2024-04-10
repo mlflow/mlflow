@@ -5,7 +5,9 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
+import sentence_transformers
 import yaml
+from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import ArrayType, DoubleType
 from sentence_transformers import SentenceTransformer
@@ -39,6 +41,11 @@ def basic_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 
+@pytest.fixture
+def model_with_remote_code():
+    return SentenceTransformer("nomic-ai/nomic-embed-text-v1.5", trust_remote_code=True)
+
+
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.master("local[1]").getOrCreate() as s:
@@ -58,6 +65,19 @@ def test_model_save_and_load(model_path, basic_model):
     assert isinstance(encoded_multi, np.ndarray)
     assert len(encoded_multi) == 3
     assert all(len(x) == 384 for x in encoded_multi)
+
+
+@pytest.mark.skipif(
+    Version(sentence_transformers.__version__) < Version("2.3.0"),
+    reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0",
+)
+def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
+    mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
+    loaded_model = mlflow.sentence_transformers.load_model(model_path)
+
+    encoded_single = loaded_model.encode("I'm just a simple string; nothing to see here.")
+    assert isinstance(encoded_single, np.ndarray)
+    assert len(encoded_single) == 768
 
 
 def test_dependency_mapping():
