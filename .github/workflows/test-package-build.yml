@@ -39,14 +39,6 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - name: Set environment variable for skinny client build
-        if: ${{ matrix.type == 'skinny' }}
-        run: |
-          cat pyproject.skinny.toml > pyproject.toml
-          echo "" >> README_SKINNY.rst
-          cat README.rst >> README_SKINNY.rst
-          cat README_SKINNY.rst > README.rst
-
       - name: Create dummy MLflow UI
         run: |
           mkdir -p mlflow/server/js/build
@@ -75,8 +67,11 @@ jobs:
       - name: Build distribution files
         id: build-dist
         run: |
-          # Build distribution files
-          python -m build .
+          if [ "${{ matrix.type }}" == "skinny" ]; then
+            ./dev/build.sh --skinny
+          else
+            ./dev/build.sh
+          fi
 
           # List distribution files and check their file sizes
           ls -lh dist

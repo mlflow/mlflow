@@ -83,3 +83,10 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 - [ ] `rn/feature` - A new user-facing feature worth mentioning in the release notes
 - [ ] `rn/bug-fix` - A user-facing bug fix worth mentioning in the release notes
 - [ ] `rn/documentation` - A user-facing documentation change worth mentioning in the release notes
+
+#### Should this PR be included in the next patch release?
+
+<!-- patch -->
+
+- [ ] Yes
+- [ ] No
