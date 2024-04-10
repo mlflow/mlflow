@@ -1627,12 +1627,16 @@ class MlflowClient:
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
             compressed_filename = f"{uncompressed_filename}%compressed"
+            import time
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
 
+            start = time.time()
             # Image resize is not thread safe, so we have to run it here.
             compressed_image = compress_image_size(image)
+            end = time.time()
+            print("Compress image size", end-start)
 
             def callback(local_filepath):
                 image.save(local_filepath)
@@ -1641,7 +1645,10 @@ class MlflowClient:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
                     callback(tmp_path)
             else:
+                start = time.time()
                 self._log_artifact_async_helper(run_id, image_filepath, callback)
+                end = time.time()
+                print("Async log artifact", end-start)
 
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
@@ -1653,7 +1660,10 @@ class MlflowClient:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
                     callback(tmp_path)
             else:
+                start = time.time()
                 self._log_artifact_async_helper(run_id, compressed_image_filepath, callback)
+                end = time.time()
+                print("compressed async log artifact", end-start)
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
