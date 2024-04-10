@@ -266,6 +266,19 @@ service MlflowService {
     };
   }
 
+  // Delete a tag from a trace.
+  rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{request_id}/tags"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Trace Tag",
+    };
+  }
+
   // Delete a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
@@ -1399,6 +1412,20 @@ message SetTraceTag {
   // String value of the tag being logged. Maximum size depends on storage backend.
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string value = 3;
+
+  message Response {
+  }
+}
+
+message DeleteTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace from which to delete the tag.
+  optional string request_id = 1;
+
+  // Name of the tag to delete.
+  optional string key = 2;
 
   message Response {
   }
