@@ -82,7 +82,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.0.5"
+    maximum: "3.2.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -91,7 +91,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.0.5"
+    maximum: "3.2.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -106,7 +106,7 @@ tensorflow:
 
   models:
     minimum: "2.6.5"
-    maximum: "2.15.0.post1"
+    maximum: "2.16.1"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
@@ -131,7 +131,7 @@ tensorflow:
 
   autologging:
     minimum: "2.6.5"
-    maximum: "2.15.0.post1"
+    maximum: "2.16.1"
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.7.0": ["pandas==1.3.5"]
