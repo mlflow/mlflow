@@ -1629,7 +1629,10 @@ class MlflowClient:
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
             with self._log_artifact_helper(run_id, image_filepath, synchronous) as tmp_path:
+                start_image = time.time()
                 image.save(tmp_path)
+                end_image = time.time()
+                print("Time taken to save image (inner):", end_image - start_image)
             end = time.time()
             print(f"Time taken to save full-resolution image: {end - start:.2f}s")
 
