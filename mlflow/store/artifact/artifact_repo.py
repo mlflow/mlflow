@@ -52,7 +52,6 @@ class ArtifactRepository:
         self.thread_pool = self._create_thread_pool()
 
         def log_artifact_handler(filename, artifact_path=None, callback=None):
-            print(f"Saving file {filename} to artifact path: {artifact_path}")
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = os.path.join(tmp_dir, filename)
                 if callback is not None:

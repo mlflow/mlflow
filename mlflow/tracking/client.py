@@ -1631,6 +1631,7 @@ class MlflowClient:
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
 
+            # Image resize is not thread safe, so we have to run it here.
             compressed_image = compress_image_size(image)
 
             def callback(local_filepath):
@@ -1644,7 +1645,7 @@ class MlflowClient:
 
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-            
+
             def callback(local_filepath):
                 compressed_image.save(local_filepath)
 
