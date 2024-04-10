@@ -1264,20 +1264,23 @@ class MlflowClient:
             tmp_path = os.path.join(tmp_dir, filename)
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
-    
-    def _log_artifact_async_helper(self, run_id, artifact_file, async_callback):
-        """Provided a callback to log artifact asynchronously.
+
+    def _log_artifact_async_helper(self, run_id, artifact_file, callback):
+        """Log artifact asynchronously through a callback.
 
         Args:
-            run_id: String ID of the run.
-            artifact_file: The run-relative artifact file path in posixpath format.
-            async_callback: Callback to log artifact asynchronously.
+            run_id: The unique identifier for the run. This ID is used to associate the artifact with a specific run.
+            artifact_file: The file path of the artifact relative to the run's directory.
+                The path should be in POSIX format, using forward slashes (/) as directory separators.
+            callback: A function that asynchronously logs artifacts. It takes a single
+                argument, `local_filepath`, which specifies the local path where the artifact should be
+                saved. The function is responsible for saving the artifact at this location.
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-        self._tracking_client.log_artifact_async(run_id, filename, artifact_dir, async_callback)
+        self._tracking_client.log_artifact_async(run_id, filename, artifact_dir, callback)
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -1581,9 +1584,7 @@ class MlflowClient:
             )
 
         import numpy as np
-        import time
 
-        start = time.time()
         # Convert image type to PIL if its a numpy array
         if isinstance(image, np.ndarray):
             image = convert_to_pil_image(image)
@@ -1599,15 +1600,12 @@ class MlflowClient:
                     "`image` must be one of numpy.ndarray, "
                     "PIL.Image.Image, and mlflow.Image."
                 )
-        end = time.time()
-        print(f"Time taken to convert image to PIL: {end - start:.2f}s")
 
         if artifact_file is not None:
             with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
                 image.save(tmp_path)
 
         elif key is not None:
-            start = time.time()
             # Check image key for invalid characters
             if not re.match(r"^[a-zA-Z0-9_\-./ ]+$", key):
                 raise ValueError(
@@ -1622,47 +1620,37 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = uuid.uuid4()
-            filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
             compressed_filename = f"{uncompressed_filename}%compressed"
-            end = time.time()
-            print(f"Time taken to prepare filenames: {end - start:.2f}s")
 
-            start = time.time()
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
+
+            def callback(local_filepath):
+                image.save(local_filepath)
+
             if synchronous:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-                    image.save(tmp_path)
+                    callback(tmp_path)
             else:
-                def callback(local_filepath):
-                    image.save(local_filepath)
-                self._log_artifact_async_helper(run_id, image_filepath, async_callback=callback)
-            end = time.time()
-            print(f"Time taken to save full-resolution image: {end - start:.2f}s")
+                self._log_artifact_async_helper(run_id, image_filepath, callback)
 
-            start = time.time()
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-            if synchronous:
-                with self._log_artifact_helper(
-                    run_id, compressed_image_filepath
-                ) as tmp_path:
-                    compress_image_size(image).save(tmp_path)
-            else:
-                def callback(local_filepath):
-                    compress_image_size(image).save(local_filepath)
-                self._log_artifact_async_helper(run_id, compressed_image_filepath, async_callback=callback)
-            end = time.time()
-            print(f"Time taken to save compressed image: {end - start:.2f}s")
 
-            start = time.time()
+            def callback(local_filepath):
+                compress_image_size(image).save(local_filepath)
+
+            if synchronous:
+                with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+                    callback(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, compressed_image_filepath, callback)
+
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
-            end = time.time()
-            print(f"Time taken to log tag: {end - start:.2f}s")
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.

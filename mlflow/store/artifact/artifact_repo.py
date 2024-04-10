@@ -1,10 +1,9 @@
 import logging
 import os
 import posixpath
-import shutil
+import tempfile
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import tempfile
 from typing import List, Optional
 
 from mlflow.entities.file_info import FileInfo
@@ -52,6 +51,8 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
+        print("Creating Artifact Repository")
+
         def log_artifact_handler(filename, artifact_path=None, callback=None):
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = os.path.join(tmp_dir, filename)
@@ -87,10 +88,12 @@ class ArtifactRepository:
         Directory.
 
         Args:
-            local_file: Path to artifact to log.
+            filename: Filename of the artifact to be logged.
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
-            cleanup: Indicator of whether to cleanup local file after upload.
+            callback: A function that asynchronously logs artifacts. It takes a single
+                argument, `local_filepath`, which specifies the local path where the artifact should be
+                saved. The function is responsible for saving the artifact at this location.
 
         Returns:
             An :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance

@@ -187,10 +187,12 @@ class AsyncArtifactsLoggingQueue:
         """Asynchronously logs runs artifacts.
 
         Args:
-            local_file: Path to artifact to log.
+            filename: Filename of the artifact to be logged.
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
-            callback: Indicator of whether to cleanup local file after upload.
+            callback: A function that asynchronously logs artifacts. It takes a single
+                argument, `local_filepath`, which specifies the local path where the artifact should be
+                saved. The function is responsible for saving the artifact at this location.
 
         Returns:
             mlflow.utils.async_utils.RunOperations: An object that encapsulates the
