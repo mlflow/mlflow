@@ -253,9 +253,9 @@ def test_autolog_record_exception(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 1
     trace = traces[0]
-    assert trace.trace_info.status == "ERROR"
-    assert len(trace.trace_data.spans) == 1
-    assert trace.trace_data.spans[0].name == "always_fail"
+    assert trace.info.status == "ERROR"
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "always_fail"
 
 
 def test_llmchain_autolog(clear_trace_singleton):
@@ -273,7 +273,7 @@ def test_llmchain_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        spans = trace.trace_data.spans
+        spans = trace.data.spans
         assert len(spans) == 2  # chain + llm
         assert spans[0].span_type == "CHAIN"
         assert spans[0].name == "LLMChain"
@@ -300,7 +300,7 @@ def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton
 
     traces = mlflow.get_traces(None)
     assert len(traces) == 1
-    spans = traces[0].trace_data.spans
+    spans = traces[0].data.spans
     assert len(spans) == 2
 
 
