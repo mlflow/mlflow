@@ -86,7 +86,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.0.5"
+    maximum: "3.2.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -97,7 +97,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.0.5"
+    maximum: "3.2.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -114,7 +114,7 @@ tensorflow:
 
   models:
     minimum: "2.6.5"
-    maximum: "2.15.0.post1"
+    maximum: "2.16.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -142,7 +142,7 @@ tensorflow:
 
   autologging:
     minimum: "2.6.5"
-    maximum: "2.15.0.post1"
+    maximum: "2.16.1"
     python:
       "== dev": "3.9"
     requirements:
