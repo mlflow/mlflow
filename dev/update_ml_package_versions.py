@@ -159,7 +159,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def update(skip_yml):
+def update(skip_yml=False):
     yml_path = "mlflow/ml-package-versions.yml"
 
     if not skip_yml:
