@@ -414,7 +414,7 @@ class MlflowClient:
         )
 
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
-        return self._tracking_client.upload_trace_data(trace_info, trace_data)
+        return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
     def delete_traces(
         self,

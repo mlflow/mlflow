@@ -23,7 +23,7 @@ class InMemoryTraceClient(TraceClient):
         # NB: Only implement the minimal singleton functionality but not thread-safety.
         #     as this is intended to be used in a demonstration and testing purpose.
         if cls._instance is None:
-            cls._instance = InMemoryTraceClient()
+            cls._instance = cls()
         return cls._instance
 
     def __init__(self):
@@ -79,5 +79,12 @@ class InMemoryTraceClientWithTracking(InMemoryTraceClient):
 
         super().log_trace(trace)
         client = MlflowClient()
-        client._create_trace_info(trace.trace_info)
+        client._create_trace_info(
+            experiment_id=trace.trace_info.experiment_id,
+            timestamp_ms=trace.trace_info.timestamp_ms,
+            execution_time_ms=trace.trace_info.execution_time_ms,
+            status=trace.trace_info.status,
+            request_metadata=trace.trace_info.request_metadata,
+            tags=trace.trace_info.tags,
+        )
         client._upload_trace_data(trace.trace_info, trace.trace_data)
