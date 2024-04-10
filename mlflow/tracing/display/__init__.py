@@ -1,4 +1,4 @@
-from mlflow.tracing.display.display_client import IPythonTraceDisplayHandler
+from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 
 __all__ = ["IPythonTraceDisplayHandler", "get_display_handler"]
 
