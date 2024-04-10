@@ -41,7 +41,7 @@ class FlavorKey:
 
 
 def build_flavor_config(
-    pipeline: transformers.Pipeline, processor=None, save_pretrained=True
+    pipeline: transformers.Pipeline, processor=None, torch_dtype=None, save_pretrained=True
 ) -> Dict[str, Any]:
     """
     Generates the base flavor metadata needed for reconstructing a pipeline from saved
@@ -60,7 +60,7 @@ def build_flavor_config(
         A dictionary containing the flavor configuration for the pipeline and its components,
         i.e. the configurations stored in "transformers" key in the MLModel YAML file.
     """
-    flavor_conf = _generate_base_config(pipeline)
+    flavor_conf = _generate_base_config(pipeline, torch_dtype=torch_dtype)
 
     if is_peft_model(pipeline.model):
         flavor_conf[FlavorKey.PEFT] = _PEFT_ADAPTOR_DIR_NAME
@@ -84,7 +84,7 @@ def build_flavor_config(
     return flavor_conf
 
 
-def _generate_base_config(pipeline):
+def _generate_base_config(pipeline, torch_dtype=None):
     flavor_conf = {
         FlavorKey.TASK: pipeline.task,
         FlavorKey.INSTANCE_TYPE: _get_instance_type(pipeline),
@@ -93,9 +93,8 @@ def _generate_base_config(pipeline):
     if framework := getattr(pipeline, "framework", None):
         flavor_conf[FlavorKey.FRAMEWORK] = framework
 
-    # Extract a serialized representation of torch_dtype if provided
-    if torch_dtype := _extract_torch_dtype_if_set(pipeline):
-        # Convert the torch dtype and back to standardize the string representation
+    # User-provided torch_dtype takes precedence
+    if torch_dtype := (torch_dtype or _extract_torch_dtype_if_set(pipeline)):
         flavor_conf[FlavorKey.TORCH_DTYPE] = str(torch_dtype)
 
     return flavor_conf
