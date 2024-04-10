@@ -1576,7 +1576,9 @@ class MlflowClient:
             )
 
         import numpy as np
+        import time
 
+        start = time.time()
         # Convert image type to PIL if its a numpy array
         if isinstance(image, np.ndarray):
             image = convert_to_pil_image(image)
@@ -1592,12 +1594,15 @@ class MlflowClient:
                     "`image` must be one of numpy.ndarray, "
                     "PIL.Image.Image, and mlflow.Image."
                 )
+        end = time.time()
+        print(f"Time taken to convert image to PIL: {end - start:.2f}s")
 
         if artifact_file is not None:
             with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
                 image.save(tmp_path)
 
         elif key is not None:
+            start = time.time()
             # Check image key for invalid characters
             if not re.match(r"^[a-zA-Z0-9_\-./ ]+$", key):
                 raise ValueError(
@@ -1617,19 +1622,28 @@ class MlflowClient:
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
             compressed_filename = f"{uncompressed_filename}%compressed"
+            end = time.time()
+            print(f"Time taken to prepare filenames: {end - start:.2f}s")
 
+            start = time.time()
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
             with self._log_artifact_helper(run_id, image_filepath, synchronous) as tmp_path:
                 image.save(tmp_path)
+            end = time.time()
+            print(f"Time taken to save full-resolution image: {end - start:.2f}s")
 
+            start = time.time()
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
             with self._log_artifact_helper(
                 run_id, compressed_image_filepath, synchronous
             ) as tmp_path:
                 compress_image_size(image).save(tmp_path)
+            end = time.time()
+            print(f"Time taken to save compressed image: {end - start:.2f}s")
 
+            start = time.time()
             # Save metadata file
             metadata_filepath = f"{filename}.json"
             with self._log_artifact_helper(run_id, metadata_filepath, synchronous) as tmp_path:
@@ -1643,9 +1657,14 @@ class MlflowClient:
                         },
                         f,
                     )
+            end = time.time()
+            print(f"Time taken to save metadata file: {end - start:.2f}s")
 
+            start = time.time()
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
+            end = time.time()
+            print(f"Time taken to log tag: {end - start:.2f}s")
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
