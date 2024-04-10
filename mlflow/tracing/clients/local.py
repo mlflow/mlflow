@@ -48,9 +48,7 @@ class InMemoryTraceClient(TraceClient):
         with self._lock:
             trace_list = list(self.queue)
 
-        traces = trace_list if n is None else trace_list[-n:]
-        get_display_handler().display_traces(traces)
-        return traces
+        return trace_list if n is None else trace_list[-n:]
 
     def get_trace(self, request_id: str) -> Optional[Trace]:
         """
@@ -65,7 +63,6 @@ class InMemoryTraceClient(TraceClient):
         with self._lock:
             for trace in self.queue:
                 if trace.trace_info.request_id == request_id:
-                    get_display_handler().display_traces([trace])
                     return trace
 
     def _flush(self):

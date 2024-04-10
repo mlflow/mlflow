@@ -200,7 +200,10 @@ def get_traces(n: int = 1) -> List[Trace]:
     """
     from mlflow.tracing.clients import get_trace_client
 
-    return get_trace_client().get_traces(n)
+    traces = get_trace_client().get_traces(n)
+    get_display_handler().display_traces(traces)
+
+    return traces
 
 
 def search_traces(
