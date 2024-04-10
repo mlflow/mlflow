@@ -529,7 +529,9 @@ class TrackingServiceClient:
     def _get_artifact_repo(self, run_id):
         print("ARTIFACT REPOS CACHE", _artifact_repos_cache)
         # Attempt to fetch the artifact repo from a local cache
+        print("RUN ID", run_id)
         cached_repo = _artifact_repos_cache.get(run_id)
+        print("CACHED REPO", cached_repo)
         if cached_repo is not None:
             return cached_repo
         else:
