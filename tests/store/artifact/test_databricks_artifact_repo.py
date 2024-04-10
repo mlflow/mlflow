@@ -309,7 +309,7 @@ def test_log_artifact_adls_gen2(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         azure_adls_gen2_upload_mock.assert_called_with(
-            mock_credential_info, test_file, expected_location
+            mock_credential_info, test_file, expected_location, mock.ANY
         )
 
 
