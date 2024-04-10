@@ -124,6 +124,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 # The following import is only used for type hinting
 if TYPE_CHECKING:
+    import torch
     from transformers import Pipeline
 
 # Transformers pipeline complains that PeftModel is not supported for any task type, even
@@ -265,6 +266,7 @@ def save_model(
     path: str,
     processor=None,
     task: Optional[str] = None,
+    torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -580,7 +582,7 @@ def save_model(
         save_pretrained = True
 
     # Create the flavor configuration
-    flavor_conf = build_flavor_config(built_pipeline, processor, save_pretrained)
+    flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -718,6 +720,7 @@ def log_model(
     artifact_path: str,
     processor=None,
     task: Optional[str] = None,
+    torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -797,6 +800,10 @@ def log_model(
             pipeline utilities within the transformers library will be used to infer the
             correct task type. If the value specified is not a supported type within the
             version of transformers that is currently installed, an Exception will be thrown.
+        torch_dtype: The Pytorch dtype applied to the model when loading back. This is useful
+            when you want to save the model with a specific dtype that is different from the
+            dtype of the model when it was trained. If not specified, the current dtype of the
+            model instance will be used.
         model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
             contents of the model card will be saved along with the provided
             `transformers_model`. If not provided, an attempt will be made to fetch
@@ -932,6 +939,7 @@ def log_model(
         transformers_model=transformers_model,
         processor=processor,
         task=task,
+        torch_dtype=torch_dtype,
         model_card=model_card,
         inference_config=inference_config,
         conda_env=conda_env,
