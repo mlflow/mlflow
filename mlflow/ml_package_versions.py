@@ -33,7 +33,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "pytorch-lightning"
         },
         "autologging": {
-            "minimum": "1.4.9",
+            "minimum": "1.9.0",
             "maximum": "2.2.0.post0"
         }
     },
@@ -129,7 +129,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "onnx"
         },
         "models": {
-            "minimum": "1.7.0",
+            "minimum": "1.13.1",
             "maximum": "1.15.0"
         }
     },
@@ -160,11 +160,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "pyspark"
         },
         "models": {
-            "minimum": "3.0.0",
+            "minimum": "3.1.2",
             "maximum": "3.5.1"
         },
         "autologging": {
-            "minimum": "3.0.0",
+            "minimum": "3.1.2",
             "maximum": "3.5.1"
         }
     },
@@ -282,6 +282,15 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "4.4.6",
             "maximum": "5.2.8"
+        }
+    },
+    "promptflow": {
+        "package_info": {
+            "pip_release": "promptflow"
+        },
+        "models": {
+            "minimum": "1.3.0",
+            "maximum": "1.6.0"
         }
     }
 }

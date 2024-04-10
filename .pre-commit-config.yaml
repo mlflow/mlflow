@@ -84,7 +84,7 @@ repos:
 
       - id: mlver
         name: check
-        entry: dev/update_ml_package_versions.py --skip-yml
+        entry: "python dev/update_ml_package_versions.py --skip-yml"
         files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
         language: system
         stages: [commit]
