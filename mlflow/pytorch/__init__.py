@@ -1133,7 +1133,7 @@ if autolog.__doc__ is not None:
     )
 
 
-def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None, **kwargs):
+def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None, kwargs=None):
     """
     If you enable "checkpoint" in autologging, during pytorch-lightning model
     training execution, checkpointed models are logged as MLflow artifacts.
@@ -1187,7 +1187,7 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None, **kw
         downloaded_checkpoint_filepath = download_checkpoint_artifact(
             run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
         )
-        return model_class.load_from_checkpoint(downloaded_checkpoint_filepath, **kwargs)
+        return model_class.load_from_checkpoint(downloaded_checkpoint_filepath, **(kwargs or {}))
 
 
 __all__ = [
