@@ -4,6 +4,7 @@ from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.tracing.clients.local import InMemoryTraceClient
+from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
@@ -15,6 +16,7 @@ def clear_singleton():
     """
     InMemoryTraceManager._instance = None
     InMemoryTraceClient._instance = None
+    IPythonTraceDisplayHandler._instance = None
 
     # Tracer provider also needs to be reset as it may hold reference to the singleton
     with _TRACER_PROVIDER_SET_ONCE._lock:

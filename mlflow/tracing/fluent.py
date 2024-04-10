@@ -10,6 +10,7 @@ from opentelemetry import trace as trace_api
 from mlflow import MlflowClient
 from mlflow.entities import SpanType, Trace
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
@@ -199,7 +200,10 @@ def get_traces(n: int = 1) -> List[Trace]:
     """
     from mlflow.tracing.clients import get_trace_client
 
-    return get_trace_client().get_traces(n)
+    traces = get_trace_client().get_traces(n)
+    get_display_handler().display_traces(traces)
+
+    return traces
 
 
 def search_traces(
@@ -232,11 +236,15 @@ def search_traces(
             page_token=next_page_token,
         )
 
-    return get_results_from_paginated_fn(
+    results = get_results_from_paginated_fn(
         pagination_wrapper_func,
         max_results_per_page=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         max_results=max_results,
     )
+
+    get_display_handler().display_traces(results)
+
+    return results
 
 
 def get_current_active_span():

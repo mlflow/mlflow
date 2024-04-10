@@ -5,6 +5,7 @@ from typing import List, Optional
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
+from mlflow.tracing.display import get_display_handler
 
 
 class InMemoryTraceClient(TraceClient):
@@ -29,42 +30,10 @@ class InMemoryTraceClient(TraceClient):
         self.queue = deque(maxlen=queue_size)
         self._lock = threading.Lock()  # Lock for accessing the queue
 
-        # used for displaying traces in IPython notebooks
-        self._prev_execution_count = -1
-
-    def _display_trace(self, trace: Trace):
-        """
-        Display the trace in an IPython notebook. If multiple
-        traces are generated in the same cell, only the last
-        one will be displayed.
-
-        This function is a no-op if not running in an IPython
-        environment.
-        """
-        try:
-            from IPython import get_ipython
-            from IPython.display import display
-
-            if get_ipython() is None:
-                return
-
-            # check the current exec count to know if the user is
-            # running the command in a new cell or not. this is
-            # useful because the user might generate multiple traces
-            # in a single cell, and we only want to display the last one.
-            current_exec_count = get_ipython().execution_count
-            if self._prev_execution_count != current_exec_count:
-                self._prev_execution_count = current_exec_count
-                self.display_handle = display(trace, display_id=True)
-            else:
-                self.display_handle.update(trace)
-        except Exception:
-            pass
-
     def log_trace(self, trace: Trace):
         with self._lock:
             self.queue.append(trace)
-        self._display_trace(trace)
+        get_display_handler().display_traces([trace])
 
     def get_traces(self, n: Optional[int] = 10) -> List[Trace]:
         """

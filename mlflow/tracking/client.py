@@ -52,6 +52,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.clients import get_trace_client
+from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -459,7 +460,9 @@ class MlflowClient:
             request_id = "12345678"
             trace = client.get_trace(request_id)
         """
-        return self._tracking_client.get_trace(request_id)
+        trace = self._tracking_client.get_trace(request_id)
+        get_display_handler().display_traces([trace])
+        return trace
 
     def search_traces(
         self,
@@ -488,13 +491,16 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
-        return self._tracking_client.search_traces(
+        traces = self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
         )
+
+        get_display_handler().display_traces(traces)
+        return traces
 
     def start_trace(
         self,
