@@ -567,8 +567,16 @@ class TrackingServiceClient:
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
             callback: Function to save the artifact. The function should take a single argument filepath.
         """
+        import time
+
+        start = time.time()
         artifact_repo = self._get_artifact_repo(run_id)
+        end = time.time()
+        print(f"Time taken to get artifact repo: {end - start}")
+        start = time.time()
         artifact_repo.log_artifact_async(filename, artifact_path, callback)
+        end = time.time()
+        print(f"Time taken to log artifact async: {end - start}")
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
