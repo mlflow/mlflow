@@ -839,9 +839,9 @@ class MlflowClient:
 
         Args:
             request_id: The ID of the trace to set the tag on.
-            key: The string key of the tag. If than 250 characters, otherwise
+            key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
-            value: The string value of the tag. Must be shorter than 250 characters, otherwise
+            value: The string value of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
         # Trying to set the tag on the active trace first
@@ -875,7 +875,7 @@ class MlflowClient:
 
         Args:
             request_id: The ID of the trace to delete the tag from.
-            key: The string key of the tag. Must be shorter than 250 characters, otherwise
+            key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
         # Trying to delete the tag on the active trace first
