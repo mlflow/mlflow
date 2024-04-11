@@ -186,9 +186,7 @@ def save_model(
         path: Local path where the model is to be saved.
         mlflow_model: MLflow model config this flavor is being added to.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
@@ -335,9 +333,7 @@ def log_model(
         gluon_model: Gluon model to be saved. Must be already hybridized.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
