@@ -183,7 +183,9 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         # Pass lineage header info if model is registered in UC
         if isinstance(self.repo, UnityCatalogModelsArtifactRepository):
-            model_path = self.repo.download_artifacts(artifact_path, dst_path, lineage_header_info=lineage_header_info)
+            model_path = self.repo.download_artifacts(
+                artifact_path, dst_path, lineage_header_info=lineage_header_info
+            )
         else:
             model_path = self.repo.download_artifacts(artifact_path, dst_path)
         # NB: only add the registered model metadata iff the artifact path is at the root model

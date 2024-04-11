@@ -1,4 +1,5 @@
 import base64
+
 from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -8,6 +9,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
+from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.artifact.utils.models import (
@@ -31,9 +33,9 @@ from mlflow.utils.uri import (
     get_db_info_from_uri,
     is_databricks_unity_catalog_uri,
 )
-from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     """
@@ -87,7 +89,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     def _get_blob_storage_path(self):
         return self.client.get_model_version_download_uri(self.model_name, self.model_version)
 
-    def _get_scoped_token(self, lineage_header_info):
+    def _get_scoped_token(self, lineage_header_info=None):
         extra_headers = {}
         if lineage_header_info:
             header_json = message_to_json(lineage_header_info)
@@ -104,7 +106,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             )
         )
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
-        return self._call_endpoint(
+        return call_endpoint(
             host_creds=db_creds,
             endpoint=endpoint,
             method=method,
@@ -113,17 +115,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             extra_headers=extra_headers,
         ).credentials
 
-    def _call_endpoint(self, host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
-        return call_endpoint(
-            host_creds=host_creds,
-            endpoint=endpoint,
-            method=method,
-            json_body=json_body,
-            response_proto=response_proto,
-            extra_headers=extra_headers,
-        )
-
-    def _get_artifact_repo(self, lineage_header_info):
+    def _get_artifact_repo(self, lineage_header_info=None):
         """
         Get underlying ArtifactRepository instance for model version blob
         storage
@@ -133,7 +125,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                 get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
             )
 
-        scoped_token = self._get_scoped_token(lineage_header_info)
+        scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path, scoped_token=scoped_token
@@ -143,7 +135,9 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         return self._get_artifact_repo().list_artifacts(path=path)
 
     def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
-        return self._get_artifact_repo(lineage_header_info=lineage_header_info).download_artifacts(artifact_path, dst_path)
+        return self._get_artifact_repo(lineage_header_info=lineage_header_info).download_artifacts(
+            artifact_path, dst_path
+        )
 
     def log_artifact(self, local_file, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")

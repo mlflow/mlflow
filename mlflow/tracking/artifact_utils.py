@@ -1,6 +1,7 @@
 """
 Utilities for dealing with artifacts in the context of a Run.
 """
+
 import os
 import pathlib
 import posixpath
@@ -13,7 +14,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.store.artifact.unity_catalog_models_artifact_repo import UnityCatalogModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
@@ -96,7 +96,7 @@ def _get_root_uri_and_artifact_path(artifact_uri):
     return root_uri, artifact_path
 
 
-def _download_artifact_from_uri(artifact_uri, output_path=None,lineage_header_info=None):
+def _download_artifact_from_uri(artifact_uri, output_path=None, lineage_header_info=None):
     """
     Args:
         artifact_uri: The *absolute* URI of the artifact to download.
@@ -109,7 +109,9 @@ def _download_artifact_from_uri(artifact_uri, output_path=None,lineage_header_in
 
     if isinstance(repo, ModelsArtifactRepository):
         return repo.download_artifacts(
-            artifact_path=artifact_path, dst_path=output_path, lineage_header_info=lineage_header_info
+            artifact_path=artifact_path,
+            dst_path=output_path,
+            lineage_header_info=lineage_header_info,
         )
     return repo.download_artifacts(artifact_path=artifact_path, dst_path=output_path)
 

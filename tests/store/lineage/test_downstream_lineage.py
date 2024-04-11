@@ -1,23 +1,34 @@
-import pytest
-import mlflow
 import base64
 from unittest import mock
+
+import pytest
+
+import mlflow
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    Entity,
+    Job,
+    LineageHeaderInfo,
+    Notebook,
+)
+from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    Notebook,
-    Job,
-    Entity,
-    LineageHeaderInfo,
-)
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
+
 
 class SimpleModel(mlflow.pyfunc.PythonModel):
     def predict(self, _, model_input):
         return model_input.applymap(lambda x: x * 2)
+
+
+@pytest.fixture
+def store(mock_databricks_uc_host_creds):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+        yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
+
 
 def lineage_header_info_to_extra_headers(lineage_header_info):
     extra_headers = {}
@@ -27,16 +38,18 @@ def lineage_header_info_to_extra_headers(lineage_header_info):
         extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
     return extra_headers
 
+
 @pytest.mark.parametrize(
-    ("notebook_id", "job_id"),
+    ("is_in_notebook", "is_in_job", "notebook_id", "job_id"),
     [
-        (None, None),
-        (1234, None),
-        (None, 5678),
-        (1234, 5678),
-    ]
+        (True, True, None, None),
+        (True, True, 1234, None),
+        (True, True, None, 5678),
+        (True, True, 1234, 5678),
+        (False, False, 1234, 5678),
+    ],
 )
-def test_downstream_notebook_job_lineage(tmp_path, notebook_id, job_id):
+def test_downstream_notebook_job_lineage(tmp_path, is_in_notebook, is_in_job, notebook_id, job_id):
     model_dir = str(tmp_path.joinpath("mymodel"))
     model_name = "mycatalog.myschema.mymodel"
     model_uri = f"models:/{model_name}/1"
@@ -45,26 +58,35 @@ def test_downstream_notebook_job_lineage(tmp_path, notebook_id, job_id):
     mock_artifact_repo.download_artifacts.return_value = model_dir
 
     entity_list = []
-    if notebook_id:
+    if is_in_notebook and notebook_id:
         notebook_entity = Notebook(id=str(notebook_id))
         entity_list.append(Entity(notebook=notebook_entity))
 
-    if job_id:
-        job_entity = Job(id=str(5678))
+    if is_in_job and job_id:
+        job_entity = Job(id=str(job_id))
         entity_list.append(Entity(job=job_entity))
 
     expected_lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
-    with mock.patch(
-        "mlflow.utils.databricks_utils.get_notebook_id", return_value=notebook_id,
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook",
+        return_value=is_in_notebook,
     ), mock.patch(
-        "mlflow.utils.databricks_utils.get_job_id", return_value=job_id,
+        "mlflow.utils.databricks_utils.is_in_databricks_job",
+        return_value=is_in_job,
     ), mock.patch(
-        "mlflow.get_registry_uri", return_value="databricks-uc"
-    ), mock.patch.object(
-        UnityCatalogModelsArtifactRepository, "_get_blob_storage_path", return_value="fake_blob_storage_path"
+        "mlflow.utils.databricks_utils.get_notebook_id",
+        return_value=notebook_id,
     ), mock.patch(
-        "mlflow.utils._unity_catalog_utils._get_artifact_repo_from_storage_info", return_value=mock_artifact_repo,
+        "mlflow.utils.databricks_utils.get_job_id",
+        return_value=job_id,
+    ), mock.patch("mlflow.get_registry_uri", return_value="databricks-uc"), mock.patch.object(
+        UnityCatalogModelsArtifactRepository,
+        "_get_blob_storage_path",
+        return_value="fake_blob_storage_path",
+    ), mock.patch(
+        "mlflow.utils._unity_catalog_utils._get_artifact_repo_from_storage_info",
+        return_value=mock_artifact_repo,
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         return_value=mock.MagicMock(status_code=200, text="{}"),
@@ -72,10 +94,11 @@ def test_downstream_notebook_job_lineage(tmp_path, notebook_id, job_id):
         mlflow.pyfunc.save_model(path=model_dir, python_model=SimpleModel())
         mlflow.pyfunc.load_model(model_uri)
         extra_headers = lineage_header_info_to_extra_headers(expected_lineage_header_info)
-        mock_http.assert_called_once_with(
-            host_creds=mock.ANY,
-            endpoint=mock.ANY,
-            method=mock.ANY,
-            json=mock.ANY,
-            extra_headers=extra_headers
-        )
+        if is_in_notebook or is_in_job:
+            mock_http.assert_called_once_with(
+                host_creds=mock.ANY,
+                endpoint=mock.ANY,
+                method=mock.ANY,
+                json=mock.ANY,
+                extra_headers=extra_headers,
+            )
