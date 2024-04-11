@@ -1642,6 +1642,10 @@ class MlflowClient:
                 tmp_image = image.copy()
                 tmp_image.save(local_filepath)
 
+            def compressed_callback(local_filepath):
+                tmp_image = image.copy()
+                compress_image_size(tmp_image).save(local_filepath)
+
             if synchronous:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
                     callback(tmp_path)
@@ -1654,16 +1658,12 @@ class MlflowClient:
             # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
 
-            def callback(local_filepath):
-                tmp_image = image.copy()
-                compress_image_size(tmp_image).save(local_filepath)
-
             if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
                     callback(tmp_path)
             else:
                 start = time.time()
-                self._log_artifact_async_helper(run_id, compressed_image_filepath, callback)
+                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_callback)
                 end = time.time()
                 print("compressed async log artifact", end-start)
 
