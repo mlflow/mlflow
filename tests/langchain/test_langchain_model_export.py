@@ -51,8 +51,10 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.api_request_parallel_processor import APIRequest
-from mlflow.langchain.utils import _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI
-from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
+from mlflow.langchain.utils import (
+    _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    IS_PICKLE_SERIALIZATION_RESTRICTED,
+)
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (

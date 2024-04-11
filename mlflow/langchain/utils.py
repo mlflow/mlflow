@@ -14,7 +14,6 @@ from importlib.util import find_spec
 from typing import Callable, NamedTuple
 
 import cloudpickle
-import importlib_metadata
 import yaml
 from packaging import version
 from packaging.version import Version
@@ -68,11 +67,16 @@ _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
 _CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 
-# Since langchain-community 0.0.27, saving or loading a module that relies on the pickle
-# deserialization requires passing `allow_dangerous_deserialization=True`.
-IS_PICKLE_SERIALIZATION_RESTRICTED = Version(
-    importlib_metadata.version("langchain-community")
-) >= Version("0.0.27")
+try:
+    import langchain_community
+
+    # Since langchain-community 0.0.27, saving or loading a module that relies on the pickle
+    # deserialization requires passing `allow_dangerous_deserialization=True`.
+    IS_PICKLE_SERIALIZATION_RESTRICTED = Version(langchain_community.__version__) >= Version(
+        "0.0.27"
+    )
+except ImportError:
+    IS_PICKLE_SERIALIZATION_RESTRICTED = False
 
 logger = logging.getLogger(__name__)
 
@@ -446,6 +450,7 @@ def _patch_loader(loader_func: Callable) -> Callable:
 
     Args:
         loader_func: The LangChain loader function to be patched e.g. load_chain().
+
     Returns:
         The patched loader function.
     """
