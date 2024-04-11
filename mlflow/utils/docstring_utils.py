@@ -282,9 +282,10 @@ is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
 between them to avoid import errors when loading the model.
 
-For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and limitations, see the
+For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
+limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
-"""    
+"""
         ),
         "save_pretrained": (
             """If set to ``False``, MLflow will not save the Transformer model weight files,
