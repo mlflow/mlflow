@@ -151,9 +151,7 @@ def save_model(
             Model or for use in Spark.
             These values are not applied to a returned model from a call to
             ``mlflow.sentence_transformers.load_model()``
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
             added to.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -362,9 +360,7 @@ def log_model(
             Model or for use in Spark.
             These values are not applied to a returned model from a call to
             ``mlflow.sentence_transformers.load_model()``
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a

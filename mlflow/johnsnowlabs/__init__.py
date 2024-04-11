@@ -241,6 +241,7 @@ def log_model(
                         'johnsnowlabs'
                     ]
                 }
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
             filesystem if running in local mode. The model is written in this
             destination and then copied into the model's artifact directory. This is
@@ -536,6 +537,7 @@ def save_model(
                         'johnsnowlabs'
                     ]
                 }
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
             filesystem if running in local mode. The model is be written in this
             destination and then copied to the requested local path. This is necessary

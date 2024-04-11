@@ -181,9 +181,7 @@ def save_model(
         sk_model: scikit-learn model to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
@@ -364,9 +362,7 @@ def log_model(
         sk_model: scikit-learn model to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
             ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle

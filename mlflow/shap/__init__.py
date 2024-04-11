@@ -317,9 +317,7 @@ def log_explainer(
             Defaults to True. Currently MLflow serialization is only supported for models of
             'sklearn' or 'pytorch' flavors.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under ``registered_model_name``,
             also creating a registered model if one with the given name does not exist.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>` describes model input
@@ -393,9 +391,7 @@ def save_explainer(
             Defaults to True. Currently MLflow serialization is only supported for models of
             'sklearn' or 'pytorch' flavors.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>` describes model input
             and output :py:class:`Schema <mlflow.types.Schema>`. The model signature can be
