@@ -154,7 +154,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
             artifact_path=artifact_path,
             signature=signature,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
             data_path=data_path,
             conda_env=conda_env,
         )

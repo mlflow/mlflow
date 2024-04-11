@@ -159,7 +159,7 @@ def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
         loader_module=__name__,
-        code_path=[os.path.dirname(tests.__file__)],
+        code_paths=[os.path.dirname(tests.__file__)],
     )
 
     with mock.patch("mlflow.pyfunc.warn_dependency_requirement_mismatches") as mock_check_fn:
@@ -759,7 +759,7 @@ def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
         loader_module=__name__,
-        code_path=[os.path.dirname(tests.__file__)],
+        code_paths=[os.path.dirname(tests.__file__)],
     )
 
     archive_path = SparkModelCache.add_local_model(spark, model_path)
