@@ -18,7 +18,6 @@ module.exports = async ({ context, github, core }) => {
   const noRegex = /- \[( |x)\] no/gi;
   const noMatch = noRegex.exec(patchSection);
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
-  console.log({ yes, no, yesMatch, noMatch });
 
   if (yes && no) {
     core.setFailed(
