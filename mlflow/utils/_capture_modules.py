@@ -142,8 +142,6 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file):
         def _load_pyfunc_patch(*args, **kwargs):
             with cap_cm:
                 model = original(*args, **kwargs)
-                # TODO: fix
-                # even if this fails we should include already captured
                 if input_example is not None:
                     try:
                         model.predict(input_example, params=params)
