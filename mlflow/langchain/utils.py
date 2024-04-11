@@ -477,7 +477,7 @@ def _patch_loader(loader_func: Callable) -> Callable:
                         "the pickle deserialization requires the `allow_dangerous_deserialization` "
                         "flag to be set to True when loading. However, this flag is not supported "
                         "by the installed version of LangChain. Please upgrade LangChain to 0.1.14 "
-                        "or above by running `pip install langchain>=0.1.14 -U`.",
+                        "or above by running `pip install langchain>=0.1.14`.",
                         error_code=INTERNAL_ERROR,
                     ) from e
                 else:
