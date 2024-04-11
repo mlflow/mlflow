@@ -2275,8 +2275,7 @@ def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_
         with pytest.raises(MlflowException, match=r"Since langchain-community 0.0.27, loading a"):
             mlflow.langchain.load_model(model_path)
         return
-    else:
-        loaded_model = mlflow.langchain.load_model(model_path)
+    loaded_model = mlflow.langchain.load_model(model_path)
 
     # Check if the deserialized model has the same endpoint and temperature
     loaded_databricks_llm = loaded_model.middle[0]
