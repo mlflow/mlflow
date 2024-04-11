@@ -323,6 +323,7 @@ def _capture_imported_modules(model_uri, flavor):
         # Lazily import `_capture_module` here to avoid circular imports.
         from mlflow.utils import _capture_modules
 
+        error_file = os.path.join(tmpdir, "error.txt")
         _run_command(
             [
                 sys.executable,
@@ -333,12 +334,19 @@ def _capture_imported_modules(model_uri, flavor):
                 flavor,
                 "--output-file",
                 output_file,
+                "--error-file",
+                error_file,
                 "--sys-path",
                 json.dumps(sys.path),
             ],
             timeout_seconds=process_timeout,
             env=main_env,
         )
+
+        with open(error_file) as f:
+            errors = f.read().splitlines()
+        if errors:
+            _logger.warning(errors)
 
         with open(output_file) as f:
             return f.read().splitlines()

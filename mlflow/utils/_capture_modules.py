@@ -8,6 +8,7 @@ import importlib
 import json
 import os
 import sys
+import traceback
 
 import mlflow
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
@@ -110,10 +111,23 @@ def parse_args():
     parser.add_argument("--output-file", required=True)
     parser.add_argument("--sys-path", required=True)
     parser.add_argument("--module-to-throw", required=False)
+    parser.add_argument("--error-file", required=True)
     return parser.parse_args()
 
 
-def store_imported_modules(cap_cm, model_path, flavor, output_file):
+def _get_stacktrace(error):
+    msg = repr(error)
+    try:
+        if sys.version_info < (3, 10):
+            tb = traceback.format_exception(error.__class__, error, error.__traceback__)
+        else:
+            tb = traceback.format_exception(error)
+        return (msg + "\n\n".join(tb)).strip()
+    except Exception:
+        return msg
+
+
+def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
@@ -128,8 +142,18 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file):
         def _load_pyfunc_patch(*args, **kwargs):
             with cap_cm:
                 model = original(*args, **kwargs)
+                # TODO: fix
+                # even if this fails we should include already captured
                 if input_example is not None:
-                    model.predict(input_example, params=params)
+                    try:
+                        model.predict(input_example, params=params)
+                    except Exception as e:
+                        stack_trace = _get_stacktrace(e)
+                        write_to(
+                            error_file,
+                            "Failed to run predict on input_example, dependencies "
+                            "introduced in predict is not captured.\n" + stack_trace,
+                        )
                 return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch
@@ -154,6 +178,7 @@ def main():
     model_path = args.model_path
     flavor = args.flavor
     output_file = args.output_file
+    error_file = args.error_file
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
@@ -165,7 +190,7 @@ def main():
         _create_local_spark_session_for_loading_spark_model()
 
     cap_cm = _CaptureImportedModules()
-    store_imported_modules(cap_cm, model_path, flavor, output_file)
+    store_imported_modules(cap_cm, model_path, flavor, output_file, error_file)
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:
