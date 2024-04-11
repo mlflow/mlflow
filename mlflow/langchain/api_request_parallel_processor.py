@@ -215,6 +215,8 @@ class APIRequest:
                 return self.lc_model.invoke(single_input, config={"callbacks": callback_handlers})
 
             if isinstance(self.request_json, dict):
+                # TODO: check if this try catch is still needed now that
+                # we've updated pandas dataframe input parsing in predict
                 # This is a temporary fix for the case when spark_udf converts
                 # input into pandas dataframe with column name, while the model
                 # does not accept dictionaries as input, it leads to errors like

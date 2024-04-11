@@ -669,8 +669,14 @@ class _LangChainModelWrapper:
         and `return_first_element` means if True, we should return the first element
         of inference result, otherwise we should return the whole inference result.
         """
+        # This handels spark_udf inputs and input_example inputs
         if isinstance(data, pd.DataFrame):
-            data = data.to_dict(orient="records")
+            # if the data only contains a single key as 0, we assume the input
+            # is either a string or list of strings
+            if list(data.columns) == [0]:
+                data = data.to_dict("list")[0]
+            else:
+                data = data.to_dict(orient="records")
 
         data = _convert_ndarray_to_list(data)
         if not isinstance(data, list):
