@@ -1649,7 +1649,7 @@ class MlflowClient:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
                     compressed_callback(tmp_path)
 
-            asyncio.run_coroutine_threadsafe(main(), asyncio.get_event_loop())
+            asyncio.run(main())
                 
                 
             # if synchronous:
