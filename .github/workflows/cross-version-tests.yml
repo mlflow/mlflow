@@ -143,7 +143,6 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
-          distribution: "adopt"
       - name: Install mlflow & test dependencies
         run: |
           pip install wheel
@@ -192,7 +191,6 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
-          distribution: "adopt"
       - name: Install mlflow & test dependencies
         run: |
           pip install wheel
