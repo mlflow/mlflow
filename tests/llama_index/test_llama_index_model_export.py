@@ -3,9 +3,11 @@
 # - Single index
 # - Mutli index
 
+import copy
 import os
 import pathlib
 import shutil
+from unittest import mock
 
 import pytest
 from llama_index.core import Document, KnowledgeGraphIndex, Settings, VectorStoreIndex
@@ -20,6 +22,15 @@ from mlflow.utils.environment import _mlflow_conda_env
 
 Settings.llm = MockLLM()
 Settings.embed_model = MockEmbedding(embed_dim=1)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def patch_settings():
+    settings = copy.deepcopy(Settings)
+    settings.llm = MockLLM()
+    settings.embed_model = MockEmbedding(embed_dim=1)
+    with mock.patch("llama_index.core.Settings", settings):
+        yield
 
 
 @pytest.fixture
