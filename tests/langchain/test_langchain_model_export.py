@@ -2244,6 +2244,9 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
         ]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
     from langchain_community.llms.databricks import Databricks
     from langchain_core.output_parsers import StrOutputParser
