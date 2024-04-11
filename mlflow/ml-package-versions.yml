@@ -553,8 +553,8 @@ transformers:
     requirements:
       ">= 0.0.0": [
           "datasets",
-          # TODO: Unpin once https://github.com/huggingface/setfit/issues/504 is resolved
-          "huggingface_hub<0.22.0",
+          # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
+          "huggingface_hub!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
@@ -590,8 +590,8 @@ transformers:
     requirements:
       ">= 0.0.0": [
           "datasets",
-          # TODO: Unpin once https://github.com/huggingface/setfit/issues/504 is resolved
-          "huggingface_hub<0.22.0",
+          # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
+          "huggingface_hub!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
