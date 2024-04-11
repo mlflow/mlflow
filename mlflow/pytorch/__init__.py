@@ -180,9 +180,7 @@ def log_model(
 
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
             ``pytorch_model``. This is passed as the ``pickle_module`` parameter to
             ``torch.save()``.  By default, this module is also used to deserialize ("unpickle") the
@@ -353,9 +351,7 @@ def save_model(
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
             ``pytorch_model``. This is passed as the ``pickle_module`` parameter to
             ``torch.save()``. By default, this module is also used to deserialize ("unpickle") the

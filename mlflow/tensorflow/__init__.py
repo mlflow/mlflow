@@ -194,9 +194,7 @@ def log_model(
             when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
             :py:func:`mlflow.pyfunc.load_model`.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -317,9 +315,7 @@ def save_model(
         model: The Keras model or Tensorflow module to be saved.
         path: Local path where the MLflow model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
         custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
             custom classes or functions associated with the Keras model. MLflow saves

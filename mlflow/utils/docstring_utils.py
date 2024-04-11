@@ -275,6 +275,18 @@ Currently, only the following pipeline types are supported:
 - `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
 """
         ),
+        "code_paths": (
+            """A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are *prepended* to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.
+
+For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
+limitations, see the
+`code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
         "save_pretrained": (
             """If set to ``False``, MLflow will not save the Transformer model weight files,
 instead only saving the reference to the HuggingFace Hub model repository and its commit hash.

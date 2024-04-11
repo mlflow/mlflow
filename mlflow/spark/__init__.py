@@ -170,6 +170,7 @@ def log_model(
             MLReadable and MLWritable.
         artifact_path: Run relative artifact path.
         conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                         filesystem if running in local mode. The model is written in this
                         destination and then copied into the model's artifact directory. This is
@@ -657,6 +658,7 @@ def save_model(
         path: Local path where the model is to be saved.
         mlflow_model: MLflow model config this flavor is being added to.
         conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
             filesystem if running in local mode. The model is be written in this
             destination and then copied to the requested local path. This is necessary
