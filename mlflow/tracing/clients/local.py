@@ -79,7 +79,7 @@ class InMemoryTraceClientWithTracking(InMemoryTraceClient):
 
         super().log_trace(trace)
         client = MlflowClient()
-        client._create_trace_info(
+        created_info = client._create_trace_info(
             experiment_id=trace.trace_info.experiment_id,
             timestamp_ms=trace.trace_info.timestamp_ms,
             execution_time_ms=trace.trace_info.execution_time_ms,
@@ -87,4 +87,4 @@ class InMemoryTraceClientWithTracking(InMemoryTraceClient):
             request_metadata=trace.trace_info.request_metadata,
             tags=trace.trace_info.tags,
         )
-        client._upload_trace_data(trace.trace_info, trace.trace_data)
+        client._upload_trace_data(created_info, trace.trace_data)
