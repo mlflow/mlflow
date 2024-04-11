@@ -1,17 +1,15 @@
 """Utility functions for mlflow.langchain."""
 
 import contextlib
-import importlib
 import json
 import logging
 import os
-import re
 import shutil
 import types
 import warnings
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import Callable, NamedTuple
+from typing import NamedTuple
 
 import cloudpickle
 import yaml
@@ -19,8 +17,6 @@ from packaging import version
 from packaging.version import Version
 
 import mlflow
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.class_utils import _get_class_from_string
 
 _AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
@@ -64,7 +60,6 @@ _UNSUPPORTED_LLM_WARNING_MESSAGE = (
 # Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
 # will not work.
 _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
-_CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 
 try:
@@ -436,56 +431,6 @@ def _get_path_by_key(root_path, key, conf):
     return os.path.join(root_path, key_path) if key_path else None
 
 
-def _patch_loader(loader_func: Callable) -> Callable:
-    """
-    Patch LangChain loader function like load_chain() to handle the breaking change introduced in
-    LangChain 0.1.12.
-
-    Since langchain-community 0.0.27, loading a module that relies on the pickle deserialization
-    requires the `allow_dangerous_deserialization` flag to be set to True, for security reasons.
-    However, this flag could not be specified via the LangChain's loading API like load_chain(),
-    load_llm(), until LangChain 0.1.14. As a result, such module cannot be loaded with MLflow
-    with earlier version of LangChain and we have to tell the user to upgrade LangChain to 0.0.14
-    or above.
-
-    Args:
-        loader_func: The LangChain loader function to be patched e.g. load_chain().
-
-    Returns:
-        The patched loader function.
-    """
-    if not IS_PICKLE_SERIALIZATION_RESTRICTED:
-        return loader_func
-
-    import langchain
-
-    if Version(langchain.__version__) >= Version("0.1.14"):
-        # For LangChain 0.1.14 and above, we can pass `allow_dangerous_deserialization` flag
-        # via the loader APIs. Since the model is serialized by the user (or someone who has
-        # access to the tracking server), it is safe to set this flag to True.
-        def patched_loader(*args, **kwargs):
-            return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
-    else:
-
-        def patched_loader(*args, **kwargs):
-            try:
-                return loader_func(*args, **kwargs)
-            except ValueError as e:
-                if "This code relies on the pickle module" in str(e):
-                    raise MlflowException(
-                        "Since langchain-community 0.0.27, loading a module that relies on "
-                        "the pickle deserialization requires the `allow_dangerous_deserialization` "
-                        "flag to be set to True when loading. However, this flag is not supported "
-                        "by the installed version of LangChain. Please upgrade LangChain to 0.1.14 "
-                        "or above by running `pip install langchain>=0.1.14 -U`.",
-                        error_code=INTERNAL_ERROR,
-                    ) from e
-                else:
-                    raise
-
-    return patched_loader
-
-
 def _load_base_lcs(
     local_model_path,
     conf,
@@ -517,13 +462,13 @@ def _load_base_lcs(
         if model_type == _RetrieverChain.__name__:
             model = _RetrieverChain.load(lc_model_path, **kwargs).retriever
         else:
-            model = _patch_loader(load_chain)(lc_model_path, **kwargs)
+            model = load_chain(lc_model_path, **kwargs)
     elif agent_path is None and tools_path is None:
-        model = _patch_loader(load_chain)(lc_model_path)
+        model = load_chain(lc_model_path)
     else:
         from langchain.agents import initialize_agent
 
-        llm = _patch_loader(load_chain)(lc_model_path)
+        llm = load_chain(lc_model_path)
         tools = []
         kwargs = {}
 
@@ -539,75 +484,6 @@ def _load_base_lcs(
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
-
-
-@contextlib.contextmanager
-def patch_langchain_type_to_cls_dict():
-    """Patch LangChain's type_to_cls_dict config to handle unsupported types like ChatOpenAI.
-
-    The type_to_cls_dict is a hard-coded dictionary in LangChain code base that defines the mapping
-    between the LLM type e.g. "openai" to the loader function for the corresponding LLM class.
-    However, this dictionary doesn't contain some chat models like ChatOpenAI, AzureChatOpenAI,
-    which makes it unable to save and load chains with these models. Ideally, the config should
-    be updated in the LangChain code base, but similar requests have been rejected multiple times
-    in the past, because they consider this serde method to be deprecated, and instead prompt
-    users to use their new serde method https://github.com/langchain-ai/langchain/pull/8164#issuecomment-1659723157.
-    However, we can't simply migrate to the new method because it doesn't support common chains
-    like RetrievalQA, AgentExecutor, etc.
-    Therefore, we apply a hacky solution to patch the type_to_cls_dict from our side to support
-    these models, until a better solution is provided by LangChain.
-    """
-
-    def _load_chat_openai():
-        from langchain.chat_models import ChatOpenAI
-
-        return ChatOpenAI
-
-    def _load_azure_chat_openai():
-        from langchain.chat_models import AzureChatOpenAI
-
-        return AzureChatOpenAI
-
-    def _patched_get_type_to_cls_dict(original):
-        def _wrapped():
-            return {
-                **original(),
-                "openai-chat": _load_chat_openai,
-                "azure-openai-chat": _load_azure_chat_openai,
-            }
-
-        return _wrapped
-
-    # NB: get_type_to_cls_dict() method is defined in the following two modules with the same
-    # name but with slight different elements. This is most likely just a mistake in the
-    # LangChain codebase, but we patch them separately to avoid any potential issues.
-    modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
-    originals = {}
-    for module_name in modules_to_patch:
-        try:
-            module = importlib.import_module(module_name)
-            originals[module_name] = module.get_type_to_cls_dict  # Record original impl for cleanup
-        except (ImportError, AttributeError):
-            continue
-        module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(originals[module_name])
-
-    try:
-        yield
-    except ValueError as e:
-        if m := _CHAT_MODELS_ERROR_MSG.search(str(e)):
-            model_name = "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
-            raise mlflow.MlflowException(
-                f"Loading {model_name} chat model is not supported in MLflow with the "
-                "current version of LangChain. Please upgrade LangChain to 0.0.307 or above "
-                "by running `pip install langchain>=0.0.307`."
-            ) from e
-        else:
-            raise
-    finally:
-        # Clean up the patch
-        for module_name, original_impl in originals.items():
-            module = importlib.import_module(module_name)
-            module.get_type_to_cls_dict = original_impl
 
 
 def register_pydantic_serializer():

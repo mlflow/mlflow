@@ -41,6 +41,7 @@ from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
 )
+from mlflow.langchain.patch import langchain_loader_patches
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
@@ -53,7 +54,6 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
-    patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
@@ -850,7 +850,7 @@ def _load_model_from_local_fs(local_model_path):
         return _load_model_code_path(code_path, config_path)
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-        with patch_langchain_type_to_cls_dict():
+        with langchain_loader_patches():
             return _load_model(local_model_path, flavor_conf)
 
 
