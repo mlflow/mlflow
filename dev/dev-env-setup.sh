@@ -160,7 +160,7 @@ if [ -z "$pyenv_exist" ]; then
       echo "Installing pyenv..."
       echo "Note: this will probably take a considerable amount of time."
       brew install pyenv
-      brew install openssl readline sqlite3 xz zlib
+      brew install openssl readline sqlite3 xz zlib libomp
     elif [[ "$machine" == linux ]]; then
       sudo apt-get update -y
       sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
@@ -211,13 +211,13 @@ fi
 echo "The top-level dependencies that will be installed are: "
 
 if [[ -n "$full" ]]; then
-  files=("$rd/extra-ml-requirements.txt" "$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
+  files=("$rd/extra-ml-requirements.txt" "$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-min-requirements.txt")
   echo "Files:"
   echo "MLflow test plugin: $MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   echo "The local development branch of MLflow installed in editable mode with 'extras' requirements"
   echo "The following packages: "
 else
-  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
+  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-min-requirements.txt")
 fi
 tail -n +1 "${files[@]}" | grep "^[^#= ]" | sort | cat
 
@@ -267,7 +267,7 @@ if [[ -n "$full" ]]; then
   pip install $(quiet_command) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   echo "Finished installing pip dependencies."
 else
-  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
+  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-min-requirements.txt")
   for r in "${files[@]}";
   do
     pip install $(quiet_command) -r "$r"
