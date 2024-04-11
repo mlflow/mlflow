@@ -26,7 +26,10 @@ from mlflow.environment_variables import MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    get_databricks_env_vars,
+    is_in_databricks_runtime,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -275,6 +278,9 @@ def _capture_imported_modules(model_uri, flavor):
         # See: ``https://github.com/mlflow/mlflow/issues/6905`` for context on minio configuration
         # resolution in a subprocess based on PATH entries.
         main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
+        # Add databricks env, for langchain models loading we might need CLI configurations
+        if is_in_databricks_runtime():
+            main_env.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
 
         if flavor == mlflow.transformers.FLAVOR_NAME:
             # Lazily import `_capture_transformers_module` here to avoid circular imports.
@@ -566,7 +572,9 @@ def _check_requirement_satisfied(requirement_str):
             from mlflow import gateway  # noqa: F401
         except ModuleNotFoundError:
             return _MismatchedPackageInfo(
-                package_name="mlflow[gateway]", installed_version=None, requirement=requirement_str
+                package_name="mlflow[gateway]",
+                installed_version=None,
+                requirement=requirement_str,
             )
 
     if (
