@@ -1634,7 +1634,7 @@ class MlflowClient:
 
             start = time.time()
             # Image resize is not thread safe, so we have to run it here.
-            compressed_image = compress_image_size(image)
+            compressed_image = image.copy()
             end = time.time()
             print("Compress image size", end-start)
 
@@ -1654,7 +1654,7 @@ class MlflowClient:
             compressed_image_filepath = f"{compressed_filename}.webp"
 
             def callback(local_filepath):
-                compressed_image.save(local_filepath)
+                compress_image_size(compressed_image).save(local_filepath)
 
             if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
