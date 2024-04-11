@@ -827,6 +827,10 @@ def load_db(persist_dir):
     version.parse(langchain.__version__) < version.parse("0.0.297"),
     reason="Saving SQLDatabaseChain chains requires langchain>=0.0.297",
 )
+@pytest.mark.skipif(
+    version.parse(langchain.__version__) in (version.parse("0.1.14"), version.parse("0.1.15")),
+    reason="LangChain 0.1.14 and 0.1.15 has a bug in loading SQLDatabaseChain",
+)
 def test_log_and_load_sql_database_chain(tmp_path):
     # Create the SQLDatabaseChain
     db_file_path = tmp_path / "my_database.db"
