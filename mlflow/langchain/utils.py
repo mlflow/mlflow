@@ -11,7 +11,7 @@ import types
 import warnings
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 import cloudpickle
 import yaml
@@ -19,6 +19,8 @@ from packaging import version
 from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.class_utils import _get_class_from_string
 
 _AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
@@ -63,6 +65,18 @@ _UNSUPPORTED_LLM_WARNING_MESSAGE = (
 # will not work.
 _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
 _CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
+
+
+try:
+    import langchain_community
+
+    # Since langchain-community 0.0.27, saving or loading a module that relies on the pickle
+    # deserialization requires passing `allow_dangerous_deserialization=True`.
+    IS_PICKLE_SERIALIZATION_RESTRICTED = Version(langchain_community.__version__) >= Version(
+        "0.0.27"
+    )
+except ImportError:
+    IS_PICKLE_SERIALIZATION_RESTRICTED = False
 
 logger = logging.getLogger(__name__)
 
@@ -422,6 +436,56 @@ def _get_path_by_key(root_path, key, conf):
     return os.path.join(root_path, key_path) if key_path else None
 
 
+def _patch_loader(loader_func: Callable) -> Callable:
+    """
+    Patch LangChain loader function like load_chain() to handle the breaking change introduced in
+    LangChain 0.1.12.
+
+    Since langchain-community 0.0.27, loading a module that relies on the pickle deserialization
+    requires the `allow_dangerous_deserialization` flag to be set to True, for security reasons.
+    However, this flag could not be specified via the LangChain's loading API like load_chain(),
+    load_llm(), until LangChain 0.1.14. As a result, such module cannot be loaded with MLflow
+    with earlier version of LangChain and we have to tell the user to upgrade LangChain to 0.0.14
+    or above.
+
+    Args:
+        loader_func: The LangChain loader function to be patched e.g. load_chain().
+
+    Returns:
+        The patched loader function.
+    """
+    if not IS_PICKLE_SERIALIZATION_RESTRICTED:
+        return loader_func
+
+    import langchain
+
+    if Version(langchain.__version__) >= Version("0.1.14"):
+        # For LangChain 0.1.14 and above, we can pass `allow_dangerous_deserialization` flag
+        # via the loader APIs. Since the model is serialized by the user (or someone who has
+        # access to the tracking server), it is safe to set this flag to True.
+        def patched_loader(*args, **kwargs):
+            return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
+    else:
+
+        def patched_loader(*args, **kwargs):
+            try:
+                return loader_func(*args, **kwargs)
+            except ValueError as e:
+                if "This code relies on the pickle module" in str(e):
+                    raise MlflowException(
+                        "Since langchain-community 0.0.27, loading a module that relies on "
+                        "the pickle deserialization requires the `allow_dangerous_deserialization` "
+                        "flag to be set to True when loading. However, this flag is not supported "
+                        "by the installed version of LangChain. Please upgrade LangChain to 0.1.14 "
+                        "or above by running `pip install langchain>=0.1.14`.",
+                        error_code=INTERNAL_ERROR,
+                    ) from e
+                else:
+                    raise
+
+    return patched_loader
+
+
 def _load_base_lcs(
     local_model_path,
     conf,
@@ -453,13 +517,13 @@ def _load_base_lcs(
         if model_type == _RetrieverChain.__name__:
             model = _RetrieverChain.load(lc_model_path, **kwargs).retriever
         else:
-            model = load_chain(lc_model_path, **kwargs)
+            model = _patch_loader(load_chain)(lc_model_path, **kwargs)
     elif agent_path is None and tools_path is None:
-        model = load_chain(lc_model_path)
+        model = _patch_loader(load_chain)(lc_model_path)
     else:
         from langchain.agents import initialize_agent
 
-        llm = load_chain(lc_model_path)
+        llm = _patch_loader(load_chain)(lc_model_path)
         tools = []
         kwargs = {}
 
