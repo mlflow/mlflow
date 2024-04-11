@@ -343,10 +343,11 @@ def _capture_imported_modules(model_uri, flavor):
             env=main_env,
         )
 
-        with open(error_file) as f:
-            errors = f.read().splitlines()
-        if errors:
-            _logger.warning(errors)
+        if os.path.exists(error_file):
+            with open(error_file) as f:
+                errors = f.read().splitlines()
+            if errors:
+                _logger.warning(errors)
 
         with open(output_file) as f:
             return f.read().splitlines()
