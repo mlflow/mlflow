@@ -8,7 +8,9 @@ import pathlib
 import shutil
 
 import pytest
-from llama_index.core import Document, KnowledgeGraphIndex, VectorStoreIndex
+from llama_index.core import Document, KnowledgeGraphIndex, Settings, VectorStoreIndex
+from llama_index.core.embeddings.mock_embed_model import MockEmbedding
+from llama_index.core.llms.mock import MockLLM
 
 import mlflow
 import mlflow.llama_index
@@ -16,8 +18,8 @@ from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 
-# TODO: figure out how to mock llama index llm
-os.environ["OPENAI_API_KEY"] = "sk-"
+Settings.llm = MockLLM()
+Settings.embed_model = MockEmbedding(embed_dim=1)
 
 
 @pytest.fixture
