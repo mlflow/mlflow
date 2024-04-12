@@ -21,6 +21,7 @@ def mock_tracking_serving_client():
         ),
     ), mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
+        return_value=None,
     ):
         yield
 
