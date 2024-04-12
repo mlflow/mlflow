@@ -91,7 +91,7 @@ def _create_env_manager_option(help_string, default=None):
 
 
 ENV_MANAGER = _create_env_manager_option(
-    default=_EnvManager.VIRTUALENV,
+    default=None,
     # '\b' prevents rewrapping text:
     # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
     help_string="""
