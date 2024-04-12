@@ -11,6 +11,7 @@ from langchain.document_loaders import TextLoader
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_core.callbacks import StdOutCallbackHandler
 from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
@@ -221,15 +222,13 @@ def create_runnable_sequence():
 
 def test_autolog_manage_run():
     mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
-    run = mlflow.start_run()
-    with _mock_request(return_value=_mock_chat_completion_response()):
+    with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         model.invoke("MLflow")
-    assert mlflow.active_run() is not None
+        assert mlflow.active_run() is not None
     assert MlflowClient().get_run(run.info.run_id).data.metrics != {}
     assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
     assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
-    mlflow.end_run()
 
 
 def test_autolog_manage_run_no_active_run():
@@ -685,3 +684,21 @@ def test_combine_input_and_output(input, output, expected):
     loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
     pdf = pd.DataFrame(expected)
     pd.testing.assert_frame_equal(loaded_table, pdf)
+
+
+@pytest.mark.parametrize("callbacks", [StdOutCallbackHandler(), [StdOutCallbackHandler()]])
+def test_langchain_autolog_callback_injection(callbacks):
+    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
+    with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        model.invoke("MLflow", callbacks=callbacks)
+        assert mlflow.active_run() is not None
+    assert MlflowClient().get_run(run.info.run_id).data.metrics != {}
+    assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
+    assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
+    artifacts = get_artifacts(run.info.run_id)
+    for artifact_name in get_mlflow_callback_artifacts():
+        if isinstance(artifact_name, str):
+            assert artifact_name in artifacts
+        else:
+            assert any(artifact_name.match(artifact) for artifact in artifacts)
