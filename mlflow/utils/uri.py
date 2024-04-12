@@ -260,6 +260,9 @@ def get_uri_scheme(uri_or_path):
     print(f"uri_or_path: {uri_or_path}")
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     print(f"scheme: {scheme}")
+    # special case for volumes "dbfs:/Volumes"
+    if is_uc_volumes_uri(uri_or_path):
+        return "volumes"
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
     return scheme
