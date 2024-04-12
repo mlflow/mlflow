@@ -160,8 +160,8 @@ class InMemoryTraceManager:
         """Delete a tag on the trace with the given request_id."""
         with self._lock:
             if trace := self._traces.get(request_id):
-                if key in trace.trace_info.tags:
-                    trace.trace_info.tags.pop(key)
+                if key in trace.info.tags:
+                    trace.info.tags.pop(key)
                     return
                 else:
                     raise MlflowException(

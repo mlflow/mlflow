@@ -461,7 +461,7 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
     client.end_trace(request_id)
 
     trace = mlflow.get_traces()[-1]
-    assert trace.trace_info.tags == {"baz": "qux"}
+    assert trace.info.tags == {"baz": "qux"}
 
 
 def test_delete_trace_tag_on_logged_trace(mock_store, mock_trace_client):
