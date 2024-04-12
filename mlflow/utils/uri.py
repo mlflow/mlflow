@@ -21,6 +21,7 @@ _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _UC_VOLUMES_URI_PREFIX = "/Volumes/"
 _DBFS_UC_VOLUMES_URI_PREFIX = "dbfs:/Volumes/"
+_DBFS_DB_UC_VOLUMES_URI_PREFIX = "dbfs:/databricks/Volumes/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
@@ -115,6 +116,7 @@ def is_uc_volumes_uri(uri):
         resolved_uri.startswith(x)
         for x in [
             _DBFS_UC_VOLUMES_URI_PREFIX,
+            _DBFS_DB_UC_VOLUMES_URI_PREFIX
         ]
     )
 
