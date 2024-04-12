@@ -3374,6 +3374,7 @@ def test_evaluate_with_latency():
 
 def test_evaluate_with_latency_and_pd_series():
     with mlflow.start_run() as run:
+
         def pd_series_model(inputs: list[str]) -> pd.Series:
             return pd.Series(inputs)
 
