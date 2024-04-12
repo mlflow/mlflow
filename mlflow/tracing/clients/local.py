@@ -73,12 +73,15 @@ class InMemoryTraceClientWithTracking(InMemoryTraceClient):
     `InMemoryTraceClient` with tracking capabilities.
     """
 
-    def log_trace(self, trace: Trace):
+    def __init__(self):
         from mlflow.tracking.client import MlflowClient  # avoid circular import
 
+        super().__init__()
+        self._client = MlflowClient()
+
+    def log_trace(self, trace: Trace):
         super().log_trace(trace)
-        client = MlflowClient()
-        created_info = client._create_trace_info(
+        created_info = self._client._create_trace_info(
             experiment_id=trace.info.experiment_id,
             timestamp_ms=trace.info.timestamp_ms,
             execution_time_ms=trace.info.execution_time_ms,
@@ -86,4 +89,4 @@ class InMemoryTraceClientWithTracking(InMemoryTraceClient):
             request_metadata=trace.info.request_metadata,
             tags=trace.info.tags,
         )
-        client._upload_trace_data(created_info, trace.data)
+        self._client._upload_trace_data(created_info, trace.data)
