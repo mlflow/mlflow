@@ -208,6 +208,7 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
     """
     Throws an exception if ``databricks_profile_uri`` is not valid.
     """
+    print("add_databricks_profile_info_to_artifact_uri")
     if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
@@ -224,8 +225,10 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
             prefix = ":" + key_prefix if key_prefix else ""
             netloc = profile + prefix + "@databricks"
         new_parsed = artifact_uri_parsed._replace(netloc=netloc)
+        print(urllib.parse.urlunparse(new_parsed))
         return urllib.parse.urlunparse(new_parsed)
     else:
+        print(artifact_uri)
         return artifact_uri
 
 
