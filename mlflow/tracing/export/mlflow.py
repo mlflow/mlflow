@@ -72,25 +72,24 @@ class MlflowSpanExporter(SpanExporter):
             return
 
         # Update a TraceInfo object with the root span information
-        info = trace.trace_info
-        info.timestamp_ms = root_span.start_time // 1_000  # microsecond to millisecond
-        info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000
-        info.status = root_span.status.status_code
-        info.request_metadata.update(
+        trace.info.timestamp_ms = root_span.start_time // 1_000  # microsecond to millisecond
+        trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000
+        trace.info.status = root_span.status.status_code
+        trace.info.request_metadata.update(
             {
                 TraceMetadataKey.INPUTS: self._serialize_inputs_outputs(root_span.inputs),
                 TraceMetadataKey.OUTPUTS: self._serialize_inputs_outputs(root_span.outputs),
             }
         )
         # Mutable info like trace name should be recorded in tags
-        info.tags.update(
+        trace.info.tags.update(
             {
                 TraceTagKey.TRACE_NAME: root_span.name,
             }
         )
 
         # Rename spans to have unique names
-        MlflowSpanExporter._deduplicate_span_names_in_place(trace.trace_data)
+        MlflowSpanExporter._deduplicate_span_names_in_place(trace.data)
 
         # TODO: Make this async
         self._client.log_trace(trace)

@@ -61,7 +61,7 @@ class InMemoryTraceClient(TraceClient):
         """
         with self._lock:
             for trace in self.queue:
-                if trace.trace_info.request_id == request_id:
+                if trace.info.request_id == request_id:
                     return trace
 
     def _flush(self):

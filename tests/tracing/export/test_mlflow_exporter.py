@@ -75,7 +75,7 @@ def test_export():
     client_call_args = mock_client.log_trace.call_args[0][0]
 
     # Trace info should inherit fields from the root span
-    trace_info = client_call_args.trace_info
+    trace_info = client_call_args.info
     assert trace_info.request_id == f"tr-{trace_id}"
     assert trace_info.timestamp_ms == 0
     assert trace_info.execution_time_ms == 4
@@ -93,7 +93,7 @@ def test_export():
     assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
     # All 3 spans should be in the logged trace data
-    assert len(client_call_args.trace_data.spans) == 3
+    assert len(client_call_args.data.spans) == 3
 
     # Spans should be cleared from the aggregator
     assert len(exporter._trace_manager._traces) == 0

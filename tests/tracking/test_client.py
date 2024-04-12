@@ -296,7 +296,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
 
     traces = mlflow.get_traces()
     assert len(traces) == 1
-    trace_info = traces[0].trace_info
+    trace_info = traces[0].info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == "test_experiment"
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -304,7 +304,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
-    trace_data = traces[0].trace_data
+    trace_data = traces[0].data
     assert trace_data.request == {"x": 1, "y": 2}
     assert trace_data.response == {"output": 25}
     assert len(trace_data.spans) == 3
@@ -371,14 +371,14 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     traces = mlflow.get_traces()
     assert len(traces) == 1
 
-    trace_info = traces[0].trace_info
+    trace_info = traces[0].info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == exp_id
     assert trace_info.timestamp_ms is not None
     assert trace_info.execution_time_ms is not None
     assert trace_info.status == TraceStatus.OK
 
-    trace_data = traces[0].trace_data
+    trace_data = traces[0].data
     assert trace_data.request is None
     assert trace_data.response is None
     assert len(trace_data.spans) == 3  # The non-ended span should be also included in the trace
@@ -421,7 +421,7 @@ def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
     client.end_trace(root_span.request_id)
 
     trace = mlflow.get_traces()[-1]
-    assert trace.trace_info.request_id == root_span.request_id
+    assert trace.info.request_id == root_span.request_id
 
     with pytest.raises(
         MlflowException, match=f"Trace with ID {root_span.request_id} already finished"
@@ -445,7 +445,7 @@ def test_set_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
     client.end_trace(request_id)
 
     trace = mlflow.get_traces()[-1]
-    assert trace.trace_info.tags == {"mlflow.traceName": "test", "foo": "bar"}
+    assert trace.info.tags == {"mlflow.traceName": "test", "foo": "bar"}
 
 
 def test_set_trace_tag_on_logged_trace(mock_store, mock_trace_client):

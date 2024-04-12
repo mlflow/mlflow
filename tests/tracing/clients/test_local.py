@@ -7,7 +7,7 @@ def test_log_and_get_trace(monkeypatch, create_trace):
 
     def _create_trace(request_id: str):
         return Trace(
-            trace_info=TraceInfo(
+            info=TraceInfo(
                 request_id=request_id,
                 experiment_id="test",
                 timestamp_ms=0,
@@ -16,7 +16,7 @@ def test_log_and_get_trace(monkeypatch, create_trace):
                 request_metadata={},
                 tags={},
             ),
-            trace_data=TraceData(),
+            data=TraceData(),
         )
 
     client = InMemoryTraceClient.get_instance()
@@ -29,13 +29,13 @@ def test_log_and_get_trace(monkeypatch, create_trace):
 
     traces = client.get_traces()
     assert len(traces) == 3
-    assert traces[0].trace_info.request_id == "a"
+    assert traces[0].info.request_id == "a"
 
     traces = client.get_traces(1)
     assert len(traces) == 1
-    assert traces[0].trace_info.request_id == "c"
+    assert traces[0].info.request_id == "c"
 
     client.log_trace(create_trace("d"))
     traces = client.get_traces()
     assert len(traces) == 3
-    assert traces[0].trace_info.request_id == "b"
+    assert traces[0].info.request_id == "b"

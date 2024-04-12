@@ -22,7 +22,7 @@ _logger = logging.getLogger(__name__)
 # Dict[str, Span] is used instead of TraceData to allow access by span_id.
 @dataclass
 class _Trace:
-    trace_info: TraceInfo
+    info: TraceInfo
     span_dict: Dict[str, MlflowSpanWrapper] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
@@ -32,7 +32,7 @@ class _Trace:
             if span.parent_span_id is None:
                 trace_data.request = span.inputs
                 trace_data.response = span.outputs
-        return Trace(self.trace_info, trace_data)
+        return Trace(self.info, trace_data)
 
 
 class InMemoryTraceManager:
@@ -149,7 +149,7 @@ class InMemoryTraceManager:
         """Set a tag on the trace with the given request_id."""
         with self._lock:
             if trace := self._traces.get(request_id):
-                trace.trace_info.tags[key] = str(value)
+                trace.info.tags[key] = str(value)
                 return
 
         raise MlflowException(
@@ -161,7 +161,7 @@ class InMemoryTraceManager:
         Get the trace info for the given request_id.
         """
         trace = self._traces.get(request_id)
-        return trace.trace_info if trace else None
+        return trace.info if trace else None
 
     def get_span_from_id(self, request_id: str, span_id: str) -> Optional[MlflowSpanWrapper]:
         """

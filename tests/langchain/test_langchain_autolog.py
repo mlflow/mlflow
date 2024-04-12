@@ -186,7 +186,7 @@ def test_autolog_manage_run():
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        span = trace.trace_data.spans[0]
+        span = trace.data.spans[0]
         assert span.span_type == "CHAIN"
         assert span.inputs == {"product": "MLflow"}
         assert span.outputs == {"text": TEST_CONTENT}
@@ -253,9 +253,9 @@ def test_autolog_record_exception(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 1
     trace = traces[0]
-    assert trace.trace_info.status == "ERROR"
-    assert len(trace.trace_data.spans) == 1
-    assert trace.trace_data.spans[0].name == "always_fail"
+    assert trace.info.status == "ERROR"
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "always_fail"
 
 
 def test_llmchain_autolog(clear_trace_singleton):
@@ -273,7 +273,7 @@ def test_llmchain_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        spans = trace.trace_data.spans
+        spans = trace.data.spans
         assert len(spans) == 2  # chain + llm
         assert spans[0].span_type == "CHAIN"
         assert spans[0].name == "LLMChain"
@@ -300,7 +300,7 @@ def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton
 
     traces = mlflow.get_traces(None)
     assert len(traces) == 1
-    spans = traces[0].trace_data.spans
+    spans = traces[0].data.spans
     assert len(spans) == 2
 
 
@@ -425,14 +425,14 @@ def test_agent_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 4
     for trace in traces:
-        spans = [(s.name, s.span_type) for s in trace.trace_data.spans]
+        spans = [(s.name, s.span_type) for s in trace.data.spans]
         assert spans == [
             ("AgentExecutor", "CHAIN"),
             ("LLMChain", "CHAIN"),
             ("OpenAI", "LLM"),
         ]
-        assert trace.trace_data.spans[0].inputs == input
-        assert trace.trace_data.spans[0].outputs == {"output": TEST_CONTENT}
+        assert trace.data.spans[0].inputs == input
+        assert trace.data.spans[0].outputs == {"output": TEST_CONTENT}
 
 
 # TODO: remove skip mark before merging the tracing feature branch to master
@@ -517,7 +517,7 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        spans = {(s.name, s.span_type) for s in trace.trace_data.spans}
+        spans = {(s.name, s.span_type) for s in trace.data.spans}
         # Since the chain includes parallel execution, the order of some
         # spans is not deterministic.
         assert spans == {
@@ -614,7 +614,7 @@ def test_retriever_autolog(tmp_path, clear_trace_singleton):
 
     traces = mlflow.get_traces(None)
     assert len(traces) == 1
-    spans = traces[0].trace_data.spans
+    spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].span_type == "RETRIEVER"
     assert spans[0].name == "VectorStoreRetriever"

@@ -48,7 +48,7 @@ def mock_client():
 @pytest.fixture
 def create_trace():
     return lambda id: Trace(
-        trace_info=TraceInfo(
+        info=TraceInfo(
             request_id=id,
             experiment_id="test",
             timestamp_ms=0,
@@ -57,7 +57,7 @@ def create_trace():
             request_metadata={},
             tags={},
         ),
-        trace_data=TraceData(),
+        data=TraceData(),
     )
 
 
