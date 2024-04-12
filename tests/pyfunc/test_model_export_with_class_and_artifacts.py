@@ -468,7 +468,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
         python_model=ModuleScopedSklearnModel(test_predict),
-        code_path=[os.path.dirname(tests.__file__)],
+        code_paths=[os.path.dirname(tests.__file__)],
         conda_env=_conda_env(),
     )
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
@@ -1097,12 +1097,44 @@ def test_model_with_code_path_containing_main(tmp_path):
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model",
             python_model=mlflow.pyfunc.model.PythonModel(),
-            code_path=[str(directory)],
+            code_paths=[str(directory)],
         )
 
     assert "__main__" in sys.modules
     mlflow.pyfunc.load_model(model_info.model_uri)
     assert "__main__" in sys.modules
+
+
+def test_deprecation_warning_for_code_path(tmp_path):
+    pyfunc_model_path = tmp_path.joinpath("pyfunc_model")
+    directory = tmp_path.joinpath("model_with_main")
+    directory.mkdir()
+    main = directory.joinpath("__main__.py")
+    main.write_text("# empty main")
+
+    with pytest.warns(UserWarning, match="The `code_path` argument is replaced by `code_paths`"):
+        mlflow.pyfunc.save_model(
+            path=pyfunc_model_path,
+            code_path=[str(directory)],
+            python_model=mlflow.pyfunc.model.PythonModel(),
+        )
+
+
+def test_error_when_both_code_path_and_code_paths_specified():
+    error_msg = "Both `code_path` and `code_paths` have been specified"
+    with pytest.raises(MlflowException, match=error_msg):
+        mlflow.pyfunc.save_model(
+            path="some_path",
+            code_path="some_code_path",
+            code_paths=["some_code_path"],
+        )
+    with pytest.raises(MlflowException, match=error_msg):
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                artifact_path="some_path",
+                code_path="some_code_path",
+                code_paths=["some_code_path"],
+            )
 
 
 def test_model_save_load_with_metadata(tmp_path):
@@ -1458,7 +1490,7 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
             artifact_path="model",
             data_path=feature_store,
             loader_module=_DATABRICKS_FS_LOADER_MODULE,
-            code_path=[__file__],
+            code_paths=[__file__],
         )
     with pytest.raises(
         MlflowException,

@@ -292,7 +292,7 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
 
 .. warning::
 
-    By the same reason, the ``code_paths`` option doesn't handle the relative import of ``code_path=["../src"]``.
+    By the same reason, the ``code_paths`` option doesn't handle the relative import of ``code_paths=["../src"]``.
 
 Recommended Project Structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

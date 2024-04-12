@@ -38,7 +38,7 @@ with mlflow.start_run(run_name="test_pyfunc") as run:
         # log a custom model
         mlflow.pyfunc.log_model(
             artifact_path="artifacts",
-            code_path=[os.getcwd()],
+            code_paths=[os.getcwd()],
             artifacts={"custom_model": model_info.model_uri},
             python_model=CustomPredict(),
             signature=signature,
