@@ -8,12 +8,12 @@ import importlib
 import json
 import os
 import sys
-import traceback
 
 import mlflow
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.pyfunc import MAIN
 from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
+from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.requirements_utils import (
     DATABRICKS_MODULES_TO_PACKAGES,
@@ -115,18 +115,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def _get_stacktrace(error):
-    msg = repr(error)
-    try:
-        if sys.version_info < (3, 10):
-            tb = traceback.format_exception(error.__class__, error, error.__traceback__)
-        else:
-            tb = traceback.format_exception(error)
-        return (msg + "\n\n".join(tb)).strip()
-    except Exception:
-        return msg
-
-
 def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
@@ -146,7 +134,7 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file):
                     try:
                         model.predict(input_example, params=params)
                     except Exception as e:
-                        stack_trace = _get_stacktrace(e)
+                        stack_trace = get_stacktrace(e)
                         write_to(
                             error_file,
                             "Failed to run predict on input_example, dependencies "
