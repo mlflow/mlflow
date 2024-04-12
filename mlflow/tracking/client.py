@@ -825,7 +825,7 @@ class MlflowClient:
 
         The trace can be an active one or the one that has already ended and recorded in the
         backend. Below is an example of setting a tag on an active trace. You can replace the
-        ``request_id`` parameter to setting a tag on an already ended trace.
+        ``request_id`` parameter to set a tag on an already ended trace.
 
         .. code-block:: python
 
@@ -839,13 +839,14 @@ class MlflowClient:
 
         Args:
             request_id: The ID of the trace to set the tag on.
-            key: The string key of the tag. Must be shorter than 250 characters.
-            value: The string value of the tag. Must be shorter than 250 characters.
+            key: The string key of the tag. Must be at most 250 characters long, otherwise
+                it will be truncated when stored.
+            value: The string value of the tag. Must be at most 250 characters long, otherwise
+                it will be truncated when stored.
         """
         # Trying to set the tag on the active trace first
-        trace_manager = InMemoryTraceManager.get_instance()
         try:
-            trace_manager.set_trace_tag(request_id, key, str(value))
+            InMemoryTraceManager.get_instance().set_trace_tag(request_id, key, str(value))
             return
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
@@ -853,6 +854,40 @@ class MlflowClient:
 
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
+
+    def delete_trace_tag(self, request_id: str, key: str) -> None:
+        """
+        Delete a tag on the trace with the given trace ID.
+
+        The trace can be an active one or the one that has already ended and recorded in the
+        backend. Below is an example of deleting a tag on an active trace. You can replace the
+        ``request_id`` parameter to delete a tag on an already ended trace.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            root_span = client.start_trace("my_trace", tags={"key": "value"})
+            client.delete_trace_tag(root_span.request_id, "key")
+            client.end_trace(root_span.request_id)
+
+        Args:
+            request_id: The ID of the trace to delete the tag from.
+            key: The string key of the tag. Must be at most 250 characters long, otherwise
+                it will be truncated when stored.
+        """
+        # Trying to delete the tag on the active trace first
+        try:
+            InMemoryTraceManager.get_instance().delete_trace_tag(request_id, key)
+            return
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise
+
+        # If the trace is not active, try to delete the tag on the trace in the backend
+        self._tracking_client.delete_trace_tag(request_id, key)
 
     def search_experiments(
         self,

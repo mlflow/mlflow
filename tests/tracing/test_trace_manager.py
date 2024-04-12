@@ -211,10 +211,29 @@ def test_set_trace_tag():
 
 
 def test_set_trace_tag_raises_when_trace_not_found():
+    with pytest.raises(MlflowException, match="Trace with ID test not found."):
+        InMemoryTraceManager.get_instance().set_trace_tag("test", "foo", "bar")
+
+
+def test_delete_trace_tag():
     trace_manager = InMemoryTraceManager.get_instance()
 
+    request_id = "tr-1"
+    span = _create_test_span(request_id, "span")
+    trace_manager.add_or_update_span(span)
+
+    trace_manager.set_trace_tag(request_id, "foo", "bar")
+    trace_manager.delete_trace_tag(request_id, "foo")
+    assert trace_manager.get_trace_info(request_id).tags == {}
+
+    # Raise when tag not found
+    with pytest.raises(MlflowException, match="Tag with key baz not found in trace with ID tr-1."):
+        trace_manager.delete_trace_tag(request_id, "baz")
+
+
+def test_delete_tag_raises_when_trace_not_found():
     with pytest.raises(MlflowException, match="Trace with ID test not found."):
-        trace_manager.set_trace_tag("test", "foo", "bar")
+        InMemoryTraceManager.get_instance().delete_trace_tag("test", "foo")
 
 
 def _create_test_span(request_id, span_id, parent_span_id=None, start_time=None, end_time=None):
