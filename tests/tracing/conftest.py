@@ -71,7 +71,7 @@ def reset_active_experiment():
 
 
 @pytest.fixture
-def mock_tracking_serving_client():
+def mock_tracking_service_client():
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_trace_info",
         return_value=TraceInfo(

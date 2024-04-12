@@ -2,7 +2,7 @@ from mlflow.entities import SpanStatus, Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.tracing.clients import InMemoryTraceClientWithTracking
 
 
-def test_log_and_get_trace(monkeypatch, create_trace, mock_tracking_serving_client):
+def test_log_and_get_trace(monkeypatch, create_trace, mock_tracking_service_client):
     monkeypatch.setenv("MLFLOW_TRACING_CLIENT_BUFFER_SIZE", "3")
 
     def _create_trace(request_id: str):

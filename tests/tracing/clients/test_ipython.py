@@ -14,7 +14,7 @@ class MockIPython:
 
 
 def test_display_is_not_called_without_ipython(
-    monkeypatch, create_trace, mock_tracking_serving_client
+    monkeypatch, create_trace, mock_tracking_service_client
 ):
     # in an IPython environment, the interactive shell will
     # be returned. however, for test purposes, just mock that
@@ -32,7 +32,7 @@ def test_display_is_not_called_without_ipython(
 
 
 def test_ipython_client_only_logs_once_per_execution(
-    monkeypatch, create_trace, mock_tracking_serving_client
+    monkeypatch, create_trace, mock_tracking_service_client
 ):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -57,7 +57,7 @@ def test_ipython_client_only_logs_once_per_execution(
 
 
 def test_display_is_called_in_correct_functions(
-    monkeypatch, create_trace, mock_tracking_serving_client
+    monkeypatch, create_trace, mock_tracking_service_client
 ):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -84,7 +84,7 @@ def test_display_is_called_in_correct_functions(
     assert mock_display.call_count == 3
 
 
-def test_display_deduplicates_traces(monkeypatch, create_trace, mock_tracking_serving_client):
+def test_display_deduplicates_traces(monkeypatch, create_trace, mock_tracking_service_client):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
     client = get_trace_client()
