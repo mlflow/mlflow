@@ -91,7 +91,7 @@ def _create_env_manager_option(help_string, default=None):
 
 
 ENV_MANAGER = _create_env_manager_option(
-    default=None,
+    default=_EnvManager.VIRTUALENV,
     # '\b' prevents rewrapping text:
     # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
     help_string="""
@@ -120,6 +120,23 @@ environment manager. The following values are supported:
 If unspecified, the appropriate environment manager is automatically selected based on
 the project configuration. For example, if `MLproject.yaml` contains a `python_env` key,
 virtualenv is used.
+""",
+)
+
+ENV_MANAGER_DOCKERFILE = _create_env_manager_option(
+    default=None,
+    # '\b' prevents rewrapping text:
+    # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
+    help_string="""
+If specified, create an environment for MLmodel using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
+
+If unspecified, default to None.
 """,
 )
 
