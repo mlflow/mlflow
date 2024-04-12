@@ -111,6 +111,7 @@ def is_uc_volumes_uri(uri):
     """
     TEMPORARY
     """
+    print(f"is_uc_volumes_uri: {uri}")
     resolved_uri = re.sub("/+", "/", uri)
     return any(
         resolved_uri.startswith(x)
@@ -264,6 +265,7 @@ def get_uri_scheme(uri_or_path):
     print(f"scheme: {scheme}")
     # special case for volumes "dbfs:/Volumes"
     if is_uc_volumes_uri(uri_or_path):
+        print("detected as volume")
         return "volumes"
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
