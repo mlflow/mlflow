@@ -41,10 +41,12 @@ def test_trace(mock_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
 
-    spans = trace.trace_data.spans
-    assert len(spans) == 3
+    trace_data = trace.trace_data
+    assert trace_data.request == {"x": 2, "y": 5}
+    assert trace_data.response == 64
+    assert len(trace_data.spans) == 3
 
-    span_name_to_span = {span.name: span for span in spans}
+    span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
     assert root_span.start_time // 1e3 == trace_info.timestamp_ms
     assert root_span.parent_span_id is None
@@ -91,8 +93,10 @@ def test_trace_handle_exception_during_prediction(mock_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == ""
 
-    spans = trace.trace_data.spans
-    assert len(spans) == 2
+    trace_data = trace.trace_data
+    assert trace_data.request == {"x": 2, "y": 5}
+    assert trace_data.response is None
+    assert len(trace_data.spans) == 2
 
 
 def test_trace_ignore_exception_from_tracing_logic(mock_client):
@@ -162,10 +166,12 @@ def test_start_span_context_manager(mock_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "25"
 
-    spans = trace.trace_data.spans
-    assert len(spans) == 3
+    trace_data = trace.trace_data
+    assert trace_data.request == {"x": 1, "y": 2}
+    assert trace_data.response == 25
+    assert len(trace_data.spans) == 3
 
-    span_name_to_span = {span.name: span for span in spans}
+    span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["root_span"]
     assert root_span.start_time // 1e3 == trace_info.timestamp_ms
     assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
@@ -234,10 +240,12 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
 
-    spans = trace.trace_data.spans
-    assert len(spans) == 2
+    trace_data = trace.trace_data
+    assert trace_data.request == {"x": 1, "y": 2}
+    assert trace_data.response == 5
+    assert len(trace_data.spans) == 2
 
-    span_name_to_span = {span.name: span for span in spans}
+    span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["root_span"]
     assert root_span.start_time // 1e3 == trace_info.timestamp_ms
     assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms

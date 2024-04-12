@@ -36,6 +36,8 @@ def test_json_deserialization(mock_trace_client):
     span_to_events = {span["name"]: span.pop("events") for span in trace_data_dict["spans"]}
 
     assert trace_data_dict == {
+        "request": {"x": 2, "y": 5},
+        "response": None,
         "spans": [
             {
                 "name": "predict",

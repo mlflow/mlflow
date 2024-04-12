@@ -26,8 +26,13 @@ class _Trace:
     span_dict: Dict[str, MlflowSpanWrapper] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
-        span_list = [span.to_mlflow_span() for span in self.span_dict.values()]
-        return Trace(self.trace_info, TraceData(spans=span_list))
+        trace_data = TraceData()
+        for span in self.span_dict.values():
+            trace_data.spans.append(span.to_mlflow_span())
+            if span.parent_span_id is None:
+                trace_data.request = span.inputs
+                trace_data.response = span.outputs
+        return Trace(self.trace_info, trace_data)
 
 
 class InMemoryTraceManager:

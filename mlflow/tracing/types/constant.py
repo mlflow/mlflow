@@ -1,9 +1,13 @@
 # NB: These keys are placeholders and subject to change
 class TraceMetadataKey:
-    NAME = "name"
-    INPUTS = "inputs"
-    OUTPUTS = "outputs"
-    SOURCE = "source"
+    INPUTS = "mlflow.traceInputs"
+    OUTPUTS = "mlflow.traceOutputs"
+    SOURCE_NAME = "mlflow.source.name"
+    SOURCE_TYPE = "mlflow.source.type"
+
+
+class TraceTagKey:
+    TRACE_NAME = "mlflow.traceName"
 
 
 # All storage backends are guaranteed to support key values up to 250 characters

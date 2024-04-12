@@ -10,9 +10,9 @@ class TraceStatus(str, Enum):
     OK = "OK"
     ERROR = "ERROR"
 
-    @staticmethod
-    def to_proto(status):
-        return ProtoTraceStatus.Value(status)
+    def to_proto(self):
+        return ProtoTraceStatus.Value(self)
 
+    @staticmethod
     def from_proto(proto_status):
         return ProtoTraceStatus.Name(proto_status)

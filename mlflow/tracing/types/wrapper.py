@@ -78,12 +78,12 @@ class MlflowSpanWrapper:
         return SpanStatus.from_otel_status(self._span.status)
 
     @property
-    def inputs(self) -> Dict[str, Any]:
+    def inputs(self) -> Any:
         """The input values of the span."""
         return self._inputs
 
     @property
-    def outputs(self) -> Dict[str, Any]:
+    def outputs(self) -> Any:
         """The output values of the span."""
         return self._outputs
 
