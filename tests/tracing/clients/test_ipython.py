@@ -1,13 +1,7 @@
 import json
-from unittest import mock
 from unittest.mock import Mock
 
-import pytest
-
 import mlflow
-from mlflow.entities.span_status import SpanStatus
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.clients import get_trace_client
 
 
@@ -17,29 +11,6 @@ class MockIPython:
 
     def mock_run_cell(self):
         self.execution_count += 1
-
-
-@pytest.fixture
-def mock_tracking_serving_client():
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_trace_info",
-        return_value=TraceInfo(
-            request_id="tr-1234",
-            experiment_id="0",
-            timestamp_ms=0,
-            execution_time_ms=0,
-            status=SpanStatus(TraceStatus.OK),
-            request_metadata={},
-            tags={"mlflow.artifactLocation": "test"},
-        ),
-    ) as mock_create_trace_info, mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
-        return_value=None,
-    ) as mock_upload_trace_data:
-        yield
-
-        mock_create_trace_info.assert_called()
-        mock_upload_trace_data.assert_called()
 
 
 def test_display_is_not_called_without_ipython(
