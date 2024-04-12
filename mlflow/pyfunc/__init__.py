@@ -2224,7 +2224,7 @@ def save_model(
 
     if code_path is not None and code_paths is not None:
         raise MlflowException(
-            "Both `code_path` and `code_paths` have been specified, which is " "not permitted."
+            "Both `code_path` and `code_paths` have been specified, which is not permitted."
         )
     if code_path is not None:
         # Alias for `code_path` deprecation
