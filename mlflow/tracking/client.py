@@ -1265,8 +1265,8 @@ class MlflowClient:
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
 
-    def _log_artifact_async_helper(self, run_id, artifact_file, callback):
-        """Log artifact asynchronously through a callback.
+    def _log_artifact_async_helper(self, run_id, artifact_file, artifact):
+        """Log artifact asynchronously.
 
         Args:
             run_id: The unique identifier for the run. This ID is used to associate the
@@ -1274,16 +1274,13 @@ class MlflowClient:
             artifact_file: The file path of the artifact relative to the run's directory.
                 The path should be in POSIX format, using forward slashes (/) as directory
                 separators.
-            callback: A function that asynchronously logs artifacts. It takes a single
-                argument, `local_filepath`, which specifies the local path where the
-                artifact should be saved. The function is responsible for saving the
-                artifact at this location.
+            artifact: The artifact to be logged.
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-        self._tracking_client.log_artifact_async(run_id, filename, artifact_dir, callback)
+        self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -1632,29 +1629,20 @@ class MlflowClient:
             image_filepath = f"{uncompressed_filename}.png"
             compressed_image_filepath = f"{compressed_filename}.webp"
 
-            # Need to make a resize copy of image for thread safety
+            # Need to make a resize copy before running thread for thread safety
             compressed_image = compress_image_size(image)
-
-            def callback(local_filepath):
-                image.save(local_filepath)
 
             if synchronous:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-                    callback(tmp_path)
+                    image.save(tmp_path)
             else:
-                self._log_artifact_async_helper(run_id, image_filepath, callback)
-
-            # Save compressed image
-
-            def callback(local_filepath):
-                # Create compressed image copy here for thread safety.
-                compressed_image.save(local_filepath)
+                self._log_artifact_async_helper(run_id, image_filepath, image)
 
             if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
-                    callback(tmp_path)
+                    compressed_image.save(tmp_path)
             else:
-                self._log_artifact_async_helper(run_id, compressed_image_filepath, callback)
+                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)

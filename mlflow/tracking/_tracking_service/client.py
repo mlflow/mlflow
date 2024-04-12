@@ -559,20 +559,17 @@ class TrackingServiceClient:
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
-    def log_artifact_async(self, run_id, filename, artifact_path=None, callback=None):
+    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
         """
         Write an artifact to the remote ``artifact_uri`` asynchronously.
 
         Args:
             filename: Filename of the artifact to be logged.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            callback: A function that asynchronously logs artifacts. It takes a single
-                argument, `local_filepath`, which specifies the local path where the artifact
-                should be saved. The function is responsible for saving the artifact at this
-                location.
+            artifact: The artifact to be logged.
         """
         artifact_repo = self._get_artifact_repo(run_id)
-        artifact_repo.log_artifact_async(filename, artifact_path, callback)
+        artifact_repo._log_artifact_async(filename, artifact_path, artifact)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.

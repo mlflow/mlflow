@@ -19,19 +19,19 @@ class AsyncArtifactsLoggingQueue:
     """
     This is a queue based run data processor that queue incoming data and process it using a single
     worker thread. This class is used to process artifacts saving in async fashion.
+
+    Args:
+        logging_func: A callable function that takes in two arguments: a string
+            representing the run_id and a list of artifact paths to log.
     """
 
     def __init__(self, artifact_logging_func: callable([str, str, bool])) -> None:
         """
         Initializes an AsyncArtifactsLoggingQueue instance.
-
-        Args:
-            logging_func: A callable function that takes in two arguments: a string
-                representing the run_id and a list of artifact paths to log.
         """
         self._queue = Queue()
         self._lock = threading.RLock()
-        self._logging_func = artifact_logging_func
+        self._artifact_logging_func = artifact_logging_func
 
         self._stop_data_logging_thread_event = threading.Event()
         self._is_activated = False
@@ -40,15 +40,15 @@ class AsyncArtifactsLoggingQueue:
         """Callback function to be executed when the program is exiting.
 
         Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
-        the thread pools used for data logging and batch processing status check.
+        the thread pools used for data logging and artifact processing status check.
         """
         try:
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
             # Waits till logging queue is drained.
-            self._batch_logging_thread.join()
-            self._batch_logging_worker_threadpool.shutdown(wait=True)
-            self._batch_status_check_threadpool.shutdown(wait=True)
+            self._artifact_logging_thread.join()
+            self._artifact_logging_worker_threadpool.shutdown(wait=True)
+            self._artifact_status_check_threadpool.shutdown(wait=True)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
@@ -60,9 +60,9 @@ class AsyncArtifactsLoggingQueue:
         # Stop the data processing thread.
         self._stop_data_logging_thread_event.set()
         # Waits till logging queue is drained.
-        self._batch_logging_thread.join()
-        self._batch_logging_worker_threadpool.shutdown(wait=True)
-        self._batch_status_check_threadpool.shutdown(wait=True)
+        self._artifact_logging_thread.join()
+        self._artifact_logging_worker_threadpool.shutdown(wait=True)
+        self._artifact_status_check_threadpool.shutdown(wait=True)
 
         # Restart the thread to listen to incoming data after flushing.
         self._stop_data_logging_thread_event.clear()
@@ -75,24 +75,24 @@ class AsyncArtifactsLoggingQueue:
         """
         try:
             while not self._stop_data_logging_thread_event.is_set():
-                self._log_run_data()
+                self._log_artifact()
             # Drain the queue after the stop event is set.
             while not self._queue.empty():
-                self._log_run_data()
+                self._log_artifact()
         except Exception as e:
             from mlflow.exceptions import MlflowException
 
             raise MlflowException(f"Exception inside the run data logging thread: {e}")
 
-    def _log_run_data(self) -> None:
-        """Process the run data in the running runs queues.
+    def _log_artifact(self) -> None:
+        """Process the run's artifacts in the running runs queues.
 
-        For each run in the running runs queues, this method retrieves the next batch of run data
-        from the queue and processes it by calling the `_processing_func` method with the run ID,
-        metrics, parameters, and tags in the batch. If the batch is empty, it is skipped. After
-        processing the batch, the processed watermark is updated and the batch event is set.
-        If an exception occurs during processing, the exception is logged and the batch event is set
-        with the exception. If the queue is empty, it is ignored.
+        For each run in the running runs queues, this method retrieves the next artifact of run
+        from the queue and processes it by calling the `_artifact_logging_func` method with the run
+        ID and artifact. If the artifact is empty, it is skipped. After processing the artifact,
+        the processed watermark is updated and the artifact event is set.
+        If an exception occurs during processing, the exception is logged and the artifact event
+        is set with the exception. If the queue is empty, it is ignored.
 
         Returns: None
         """
@@ -105,13 +105,13 @@ class AsyncArtifactsLoggingQueue:
 
         def logging_func(run_artifacts):
             try:
-                self._logging_func(
+                self._artifact_logging_func(
                     filename=run_artifacts.filename,
                     artifact_path=run_artifacts.artifact_path,
-                    callback=run_artifacts.callback,
+                    artifact=run_artifacts.artifact,
                 )
 
-                # Signal the batch processing is done.
+                # Signal the artifact processing is done.
                 run_artifacts.completion_event.set()
 
             except Exception as e:
@@ -121,16 +121,16 @@ class AsyncArtifactsLoggingQueue:
                 run_artifacts.exception = e
                 run_artifacts.completion_event.set()
 
-        self._batch_logging_worker_threadpool.submit(logging_func, run_artifacts)
+        self._artifact_logging_worker_threadpool.submit(logging_func, run_artifacts)
 
-    def _wait_for_batch(self, artifacts: RunArtifacts) -> None:
+    def _wait_for_artifact(self, artifacts: RunArtifacts) -> None:
         """Wait for given artifacts to be processed by the logging thread.
 
         Args:
             artifacts: The artifacts to wait for.
 
         Raises:
-            Exception: If an exception occurred while processing the batch.
+            Exception: If an exception occurred while processing the artifact.
         """
         artifacts.completion_event.wait()
         if artifacts.exception:
@@ -154,12 +154,12 @@ class AsyncArtifactsLoggingQueue:
             del state["_run_data_logging_thread"]
         if "_stop_data_logging_thread_event" in state:
             del state["_stop_data_logging_thread_event"]
-        if "_batch_logging_thread" in state:
-            del state["_batch_logging_thread"]
-        if "_batch_logging_worker_threadpool" in state:
-            del state["_batch_logging_worker_threadpool"]
-        if "_batch_status_check_threadpool" in state:
-            del state["_batch_status_check_threadpool"]
+        if "_artifact_logging_thread" in state:
+            del state["_artifact_logging_thread"]
+        if "_artifact_logging_worker_threadpool" in state:
+            del state["_artifact_logging_worker_threadpool"]
+        if "_artifact_status_check_threadpool" in state:
+            del state["_artifact_status_check_threadpool"]
 
         return state
 
@@ -178,26 +178,23 @@ class AsyncArtifactsLoggingQueue:
         self._queue = Queue()
         self._lock = threading.RLock()
         self._is_activated = False
-        self._batch_logging_thread = None
-        self._batch_logging_worker_threadpool = None
-        self._batch_status_check_threadpool = None
+        self._artifact_logging_thread = None
+        self._artifact_logging_worker_threadpool = None
+        self._artifact_status_check_threadpool = None
         self._stop_data_logging_thread_event = threading.Event()
 
-    def log_artifacts_async(self, filename, artifact_path, callback) -> RunOperations:
+    def log_artifacts_async(self, filename, artifact_path, artifact) -> RunOperations:
         """Asynchronously logs runs artifacts.
 
         Args:
             filename: Filename of the artifact to be logged.
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
-            callback: A function that asynchronously logs artifacts. It takes a single
-                argument, `local_filepath`, which specifies the local path where the
-                artifact should be saved. The function is responsible for saving the
-                artifact at this location.
+            artifact: The artifact to be logged.
 
         Returns:
             mlflow.utils.async_utils.RunOperations: An object that encapsulates the
-                asynchronous operation of logging the batch of run data.
+                asynchronous operation of logging the artifact of run data.
                 The object contains a list of `concurrent.futures.Future` objects that can be used
                 to check the status of the operation and retrieve any exceptions
                 that occurred during the operation.
@@ -209,12 +206,12 @@ class AsyncArtifactsLoggingQueue:
         artifacts = RunArtifacts(
             filename=filename,
             artifact_path=artifact_path,
-            callback=callback,
+            artifact=artifact,
             completion_event=threading.Event(),
         )
         self._queue.put(artifacts)
-        operation_future = self._batch_status_check_threadpool.submit(
-            self._wait_for_batch, artifacts
+        operation_future = self._artifact_status_check_threadpool.submit(
+            self._wait_for_artifact, artifacts
         )
         return RunOperations(operation_futures=[operation_future])
 
@@ -227,27 +224,27 @@ class AsyncArtifactsLoggingQueue:
         If the logging thread is already set up, this method does nothing.
         """
         with self._lock:
-            self._batch_logging_thread = threading.Thread(
+            self._artifact_logging_thread = threading.Thread(
                 target=self._logging_loop,
                 name="MLflowAsyncArtifactsLoggingLoop",
                 daemon=True,
             )
-            self._batch_logging_worker_threadpool = ThreadPoolExecutor(
-                max_workers=10,
+            self._artifact_logging_worker_threadpool = ThreadPoolExecutor(
+                max_workers=5,
                 thread_name_prefix="MLflowArtifactsLoggingWorkerPool",
             )
 
-            self._batch_status_check_threadpool = ThreadPoolExecutor(
-                max_workers=10,
+            self._artifact_status_check_threadpool = ThreadPoolExecutor(
+                max_workers=5,
                 thread_name_prefix="MLflowAsyncArtifactsLoggingStatusCheck",
             )
-            self._batch_logging_thread.start()
+            self._artifact_logging_thread.start()
 
     def activate(self) -> None:
         """Activates the async logging queue
 
         1. Initializes queue draining thread.
-        2. Initializes threads for checking the status of logged batch.
+        2. Initializes threads for checking the status of logged artifact.
         3. Registering an atexit callback to ensure that any remaining log data
             is flushed before the program exits.
 

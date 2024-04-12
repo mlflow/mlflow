@@ -51,11 +51,15 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-        def log_artifact_handler(filename, artifact_path=None, callback=None):
+        def log_artifact_handler(filename, artifact_path=None, artifact=None):
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = os.path.join(tmp_dir, filename)
-                if callback is not None:
-                    callback(tmp_path)
+                if artifact is not None:
+                    # User should already have installed PIL to log a PIL image
+                    from PIL import Image
+
+                    if isinstance(artifact, Image.Image):
+                        artifact.save(tmp_path)
                 self.log_artifact(tmp_path, artifact_path)
 
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
@@ -77,7 +81,7 @@ class ArtifactRepository:
         """
         pass
 
-    def log_artifact_async(self, filename, artifact_path=None, callback=None):
+    def _log_artifact_async(self, filename, artifact_path=None, artifact=None):
         """
         Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
         place it within the run's artifacts. Run artifacts can be organized into directory, so you
@@ -89,10 +93,7 @@ class ArtifactRepository:
             filename: Filename of the artifact to be logged.
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
-            callback: A function that asynchronously logs artifacts. It takes a single
-                argument, `local_filepath`, which specifies the local path where the artifact
-                should be saved. The function is responsible for saving the artifact at this
-                location.
+            artifact: The artifact to be logged.
 
         Returns:
             An :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance
@@ -103,7 +104,7 @@ class ArtifactRepository:
             self._async_logging_queue.activate()
 
         return self._async_logging_queue.log_artifacts_async(
-            filename=filename, artifact_path=artifact_path, callback=callback
+            filename=filename, artifact_path=artifact_path, artifact=artifact
         )
 
     @abstractmethod
