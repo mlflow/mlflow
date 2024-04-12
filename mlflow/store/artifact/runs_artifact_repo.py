@@ -35,11 +35,15 @@ class RunsArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def get_underlying_uri(runs_uri):
+        print("get_underlying_uri: RunsArtifactRepository")
         from mlflow.tracking.artifact_utils import get_artifact_uri
 
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(runs_uri)
+        print(f"get_underlying_uri artifact_path 1: {artifact_path}")
         tracking_uri = get_databricks_profile_uri_from_artifact_uri(runs_uri)
+        print(f"get_underlying_uri tracking_uri 1: {tracking_uri}")
         uri = get_artifact_uri(run_id, artifact_path, tracking_uri)
+        print(f"get_underlying_uri uri 1: {uri}")
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
         return add_databricks_profile_info_to_artifact_uri(uri, tracking_uri)
 

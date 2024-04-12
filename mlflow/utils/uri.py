@@ -210,10 +210,12 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
     """
     print("add_databricks_profile_info_to_artifact_uri")
     if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
+        print("add_databricks_profile_info_to_artifact_uri - 1")
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
     # Do not overwrite the authority section if there is already one
     if artifact_uri_parsed.netloc:
+        print("add_databricks_profile_info_to_artifact_uri - 2")
         return artifact_uri
 
     scheme = artifact_uri_parsed.scheme
