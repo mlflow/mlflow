@@ -979,3 +979,4 @@ def test_model_log_with_signature_inference(spark_model_iris, input_example):
     else:
         assert column_names == ["0", "1", "2", "3"]
     assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.double)])
+

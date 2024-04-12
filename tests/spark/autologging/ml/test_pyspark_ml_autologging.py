@@ -1246,3 +1246,4 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
         IllegalArgumentException, match="requirement failed: Column features must be of type"
     ):
         pipeline_model.transform(df_with_array_features)
+
