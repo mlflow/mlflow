@@ -150,7 +150,7 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file):
                         write_to(
                             error_file,
                             "Failed to run predict on input_example, dependencies "
-                            "introduced in predict is not captured.\n" + stack_trace,
+                            "introduced in predict are not captured.\n" + stack_trace,
                         )
                 return model
 

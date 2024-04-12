@@ -345,7 +345,7 @@ def _capture_imported_modules(model_uri, flavor):
 
         if os.path.exists(error_file):
             with open(error_file) as f:
-                errors = f.read().splitlines()
+                errors = f.read()
             if errors:
                 _logger.warning(errors)
 
