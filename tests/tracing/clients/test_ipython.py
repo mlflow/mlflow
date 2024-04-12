@@ -19,7 +19,7 @@ class MockIPython:
         self.execution_count += 1
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def mock_tracking_serving_client():
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_trace_info",
@@ -32,14 +32,19 @@ def mock_tracking_serving_client():
             request_metadata={},
             tags={"mlflow.artifactLocation": "test"},
         ),
-    ), mock.patch(
+    ) as mock_create_trace_info, mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
         return_value=None,
-    ):
+    ) as mock_upload_trace_data:
         yield
 
+        mock_create_trace_info.assert_called()
+        mock_upload_trace_data.assert_called()
 
-def test_display_is_not_called_without_ipython(monkeypatch, create_trace):
+
+def test_display_is_not_called_without_ipython(
+    monkeypatch, create_trace, mock_tracking_serving_client
+):
     # in an IPython environment, the interactive shell will
     # be returned. however, for test purposes, just mock that
     # the value is not None.
@@ -55,7 +60,9 @@ def test_display_is_not_called_without_ipython(monkeypatch, create_trace):
     assert mock_display.call_count == 1
 
 
-def test_ipython_client_only_logs_once_per_execution(monkeypatch, create_trace):
+def test_ipython_client_only_logs_once_per_execution(
+    monkeypatch, create_trace, mock_tracking_serving_client
+):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
     client = get_trace_client()
@@ -78,7 +85,9 @@ def test_ipython_client_only_logs_once_per_execution(monkeypatch, create_trace):
     assert mock_display.call_count == 2
 
 
-def test_display_is_called_in_correct_functions(monkeypatch, create_trace):
+def test_display_is_called_in_correct_functions(
+    monkeypatch, create_trace, mock_tracking_serving_client
+):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
     client = get_trace_client()
@@ -104,7 +113,7 @@ def test_display_is_called_in_correct_functions(monkeypatch, create_trace):
     assert mock_display.call_count == 3
 
 
-def test_display_deduplicates_traces(monkeypatch, create_trace):
+def test_display_deduplicates_traces(monkeypatch, create_trace, mock_tracking_serving_client):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
     client = get_trace_client()

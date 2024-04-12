@@ -6,7 +6,7 @@ from mlflow.entities import SpanStatus, Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.tracing.clients import InMemoryTraceClientWithTracking
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def mock_tracking_serving_client():
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_trace_info",
@@ -19,14 +19,17 @@ def mock_tracking_serving_client():
             request_metadata={},
             tags={"mlflow.artifactLocation": "test"},
         ),
-    ), mock.patch(
+    ) as mock_create_trace_info, mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
         return_value=None,
-    ):
+    ) as mock_upload_trace_data:
         yield
 
+        mock_create_trace_info.assert_called()
+        mock_upload_trace_data.assert_called()
 
-def test_log_and_get_trace(monkeypatch, create_trace):
+
+def test_log_and_get_trace(monkeypatch, create_trace, mock_tracking_serving_client):
     monkeypatch.setenv("MLFLOW_TRACING_CLIENT_BUFFER_SIZE", "3")
 
     def _create_trace(request_id: str):
