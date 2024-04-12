@@ -52,7 +52,7 @@ class IPythonTraceDisplayHandler:
                 return
 
             traces = traces[:MAX_TRACES_TO_DISPLAY]
-            traces_dict = {trace.trace_info.request_id: trace for trace in traces}
+            traces_dict = {trace.info.request_id: trace for trace in traces}
 
             # if the current ipython exec count has changed, then
             # we're in a different cell (or rerendering the current

@@ -304,15 +304,10 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
-<<<<<<< HEAD
-    trace_data = traces[0].trace_data
+    trace_data = traces[0].data
     assert trace_data.request == {"x": 1, "y": 2}
     assert trace_data.response == {"output": 25}
     assert len(trace_data.spans) == 3
-=======
-    spans = traces[0].data.spans
-    assert len(spans) == 3
->>>>>>> 1f9c6fe62 (Rename trace_info and trace_data attirbutes to info and data)
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
@@ -383,15 +378,10 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     assert trace_info.execution_time_ms is not None
     assert trace_info.status == TraceStatus.OK
 
-<<<<<<< HEAD
-    trace_data = traces[0].trace_data
+    trace_data = traces[0].data
     assert trace_data.request is None
     assert trace_data.response is None
     assert len(trace_data.spans) == 3  # The non-ended span should be also included in the trace
-=======
-    spans = traces[0].data.spans
-    assert len(spans) == 3  # The non-ended span should be also included in the trace
->>>>>>> 1f9c6fe62 (Rename trace_info and trace_data attirbutes to info and data)
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
