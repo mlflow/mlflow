@@ -1630,6 +1630,7 @@ class MlflowClient:
             compressed_image_filepath = f"{compressed_filename}.webp"
 
             # Need to make a resize copy before running thread for thread safety
+            # If further optimization is needed, we can move this resize to async queue.
             compressed_image = compress_image_size(image)
 
             if synchronous:
