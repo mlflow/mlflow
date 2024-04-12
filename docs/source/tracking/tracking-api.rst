@@ -77,7 +77,7 @@ specify an experiment in :py:func:`mlflow.start_run`, new runs are launched unde
 
 :py:func:`mlflow.start_run` starts a new run and returns a :py:class:`mlflow.ActiveRun` object 
 usable as a context manager for the current run. If an active run is already in progress, you 
-should either end the current run or nest the new run within the current run using ``nested=True``.
+should either end the current run before starting the new run or nest the new run within the current run using ``nested=True``.
 You do not need to call ``start_run`` explicitly: calling one of the logging functions
 with no active run automatically starts a new one.
 
