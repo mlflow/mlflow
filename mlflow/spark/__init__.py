@@ -1140,4 +1140,3 @@ def autolog(disable=False, silent=False):
             _stop_listen_for_spark_activity(sc)
         else:
             _listen_for_spark_activity(sc)
-
