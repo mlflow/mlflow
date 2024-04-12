@@ -24,9 +24,9 @@ class RunsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri)
         print("init: RunsArtifactRepository")
-        print(artifact_uri)
+        print(f"RunsArtifactRepository uri 1: {artifact_uri}")
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
-        print(uri)
+        print(f"RunsArtifactRepository uri 2: {uri}")
         self.repo = get_artifact_repository(uri)
 
     @staticmethod
