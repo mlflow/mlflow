@@ -160,7 +160,7 @@ if [ -z "$pyenv_exist" ]; then
       echo "Installing pyenv..."
       echo "Note: this will probably take a considerable amount of time."
       brew install pyenv
-      brew install openssl readline sqlite3 xz zlib
+      brew install openssl readline sqlite3 xz zlib libomp
     elif [[ "$machine" == linux ]]; then
       sudo apt-get update -y
       sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
