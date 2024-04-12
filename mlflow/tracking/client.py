@@ -825,7 +825,7 @@ class MlflowClient:
 
         The trace can be an active one or the one that has already ended and recorded in the
         backend. Below is an example of setting a tag on an active trace. You can replace the
-        ``request_id`` parameter to setting a tag on an already ended trace.
+        ``request_id`` parameter to set a tag on an already ended trace.
 
         .. code-block:: python
 
@@ -861,7 +861,7 @@ class MlflowClient:
 
         The trace can be an active one or the one that has already ended and recorded in the
         backend. Below is an example of deleting a tag on an active trace. You can replace the
-        ``request_id`` parameter to setting a tag on an already ended trace.
+        ``request_id`` parameter to delete a tag on an already ended trace.
 
         .. code-block:: python
 
