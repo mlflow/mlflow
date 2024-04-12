@@ -1,4 +1,5 @@
 """MLflow module for HuggingFace/transformer support."""
+
 from __future__ import annotations
 
 import ast
@@ -60,6 +61,7 @@ from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_PREFIX,
     _METADATA_LLM_INFERENCE_TASK_KEY,
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
+    _get_default_task_for_llm_inference_task,
     convert_data_messages_with_chat_template,
     infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
@@ -122,6 +124,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 # The following import is only used for type hinting
 if TYPE_CHECKING:
+    import torch
     from transformers import Pipeline
 
 # Transformers pipeline complains that PeftModel is not supported for any task type, even
@@ -263,6 +266,7 @@ def save_model(
     path: str,
     processor=None,
     task: Optional[str] = None,
+    torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -280,7 +284,9 @@ def save_model(
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
-    Save a trained transformers model to a path on the local file system.
+    Save a trained transformers model to a path on the local file system. Note that
+    saving transformers models with custom code (i.e. models that require
+    ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
 
     Args:
         transformers_model:
@@ -406,14 +412,13 @@ def save_model(
                     model_config=model_config,
                 )
 
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
             added to.
         signature: A Model Signature object that describes the input and output Schema of the
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
+
             Example:
 
             .. code-block:: python
@@ -511,14 +516,37 @@ def save_model(
         mlflow_model.signature = infer_signature_from_llm_inference_task(
             llm_inference_task, signature
         )
+        # The model with LLM inference task should accept a standard dictionary format
+        # alone so the example should not be converted to pandas DataFrame
+        example_no_conversion = True
     elif signature is not None:
         mlflow_model.signature = signature
 
     if input_example is not None:
         input_example = format_input_example_for_special_cases(input_example, built_pipeline)
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
+
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    # Check task consistency between model metadata and task argument
+    #  NB: Using mlflow_model.metadata instead of passed metadata argument directly, because
+    #  metadata argument is not directly propagated from log_model() to save_model(), instead
+    #  via the mlflow_model object attribute.
+    if (
+        mlflow_model.metadata is not None
+        and (metadata_task := mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY])
+        and metadata_task != task
+    ):
+        raise MlflowException(
+            f"LLM v1 task type '{metadata_task}' is specified in "
+            "metadata, but it doesn't match the task type provided in the `task` argument: "
+            f"'{task}'. The mismatched task type may cause incorrect model inference behavior. "
+            "Please provide the correct LLM v1 task type in the `task` argument. E.g. "
+            f'`mlflow.transformers.save_model(task="{metadata_task}", ...)`',
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if prompt_template is not None:
         # prevent saving prompt templates for unsupported pipeline types
         if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
@@ -552,7 +580,7 @@ def save_model(
         save_pretrained = True
 
     # Create the flavor configuration
-    flavor_conf = build_flavor_config(built_pipeline, processor, save_pretrained)
+    flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -690,6 +718,7 @@ def log_model(
     artifact_path: str,
     processor=None,
     task: Optional[str] = None,
+    torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -708,7 +737,9 @@ def log_model(
     **kwargs,
 ):
     """
-    Log a ``transformers`` object as an MLflow artifact for the current run.
+    Log a ``transformers`` object as an MLflow artifact for the current run. Note that
+    logging transformers models with custom code (i.e. models that require
+    ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
 
     Args:
         transformers_model:
@@ -767,6 +798,10 @@ def log_model(
             pipeline utilities within the transformers library will be used to infer the
             correct task type. If the value specified is not a supported type within the
             version of transformers that is currently installed, an Exception will be thrown.
+        torch_dtype: The Pytorch dtype applied to the model when loading back. This is useful
+            when you want to save the model with a specific dtype that is different from the
+            dtype of the model when it was trained. If not specified, the current dtype of the
+            model instance will be used.
         model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
             contents of the model card will be saved along with the provided
             `transformers_model`. If not provided, an attempt will be made to fetch
@@ -831,9 +866,7 @@ def log_model(
                         model_config=model_config,
                     )
 
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
@@ -841,6 +874,7 @@ def log_model(
         signature: A Model Signature object that describes the input and output Schema of the
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
+
             Example:
 
             .. code-block:: python
@@ -901,6 +935,7 @@ def log_model(
         transformers_model=transformers_model,
         processor=processor,
         task=task,
+        torch_dtype=torch_dtype,
         model_card=model_card,
         inference_config=inference_config,
         conda_env=conda_env,
@@ -1319,9 +1354,8 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
         )
 
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
-        from transformers.pipelines import get_task
-
-        task = get_task(model_dict[FlavorKey.MODEL].name_or_path)
+        default_task = _get_default_task_for_llm_inference_task(task)
+        task = _get_task_for_model(model.name_or_path, default_task=default_task)
 
     try:
         with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
@@ -1331,6 +1365,28 @@ def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[
             "The provided model configuration cannot be created as a Pipeline. "
             "Please verify that all required and compatible components are "
             "specified with the correct keys.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+
+def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
+    """
+    Get the Transformers pipeline task type fro the model instance.
+
+    NB: The get_task() function only works for remote models available in the Hugging
+    Face hub, so the default task should be supplied when using a custom local model.
+    """
+    from transformers.pipelines import get_task
+
+    try:
+        return get_task(model_name_or_path)
+    except RuntimeError as e:
+        if default_task:
+            return default_task
+        raise MlflowException(
+            "The task could not be inferred from the model. If you are saving a custom "
+            "local model that is not available in the Hugging Face hub, please provide "
+            "the `task` argument to the `log_model` or `save_model` function.",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 

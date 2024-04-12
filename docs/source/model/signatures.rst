@@ -166,27 +166,25 @@ Column-based signature also support composite data types of these primitives.
 
 Additional examples for composite data types can be seen by viewing the `signature examples notebook <notebooks/signature_examples.html>`_.
 
- +-----------------------------------------------+----------------------------------------------------------------------------------------+
- | Input (Python)                                | Inferred Signature                                                                     |
- +-----------------------------------------------+----------------------------------------------------------------------------------------+
- | .. code-block:: python                        | .. code-block:: yaml                                                                   |
- |                                               |                                                                                        |
- |   from mlflow.models import infer_signature   |   signature:                                                                           |
- |                                               |       input: '[                                                                        |
- |   infer_signature(model_input={               |           {"name": "list_col", "type": "Array(string)", "required": "true"},           |
- |       # Python list                           |           {"name": "numpy_col", "type": "Array(Array(long))", "required": "true"},     |
- |       "list_col": ["a", "b", "c"],            |           {                                                                            |
- |       # Numpy array                           |               "name": "obj_col",                                                       |
- |       "numpy_col": np.array([[1, 2], [3, 4]]),|               "type": {                                                                |
- |       # Dictionary                            |                   "long_prop":  long (required)                                        |
- |       "obj_col": {                            |                   "array_prop": Array(str) (required)                                  |
- |           "long_prop": 1,                     |               }                                                                        |
- |           "array_prop": ["a", "b", "c"],      |               "required": "true"                                                       |
- |       },                                      |           }                                                                            |
- |   })                                          |       ]'                                                                               |
- |                                               |       output: null                                                                     |
- |                                               |       params: null                                                                     |
- +-----------------------------------------------+----------------------------------------------------------------------------------------+
+ +-----------------------------------------------+-------------------------------------------------------------------------------------------------------+
+ | Input (Python)                                | Inferred Signature                                                                                    |
+ +-----------------------------------------------+-------------------------------------------------------------------------------------------------------+
+ | .. code-block:: python                        | .. code-block:: yaml                                                                                  |
+ |                                               |                                                                                                       |
+ |   from mlflow.models import infer_signature   |   signature:                                                                                          |
+ |                                               |       input: '[                                                                                       |
+ |   infer_signature(model_input={               |            {"list_col": Array(string) (required)},                                                    |
+ |       # Python list                           |            {"numpy_col": Array(Array(long)) (required)},                                              |
+ |       "list_col": ["a", "b", "c"],            |            {"obj_col": {array_prop: Array(string) (required), long_prop: long (required)} (required)} |
+ |       # Numpy array                           |       ]'                                                                                              |                                               
+ |       "numpy_col": np.array([[1, 2], [3, 4]]),|       output: null                                                                                    |
+ |       # Dictionary                            |       params: null                                                                                    |
+ |       "obj_col": {                            |                                                                                                       |
+ |           "long_prop": 1,                     |                                                                                                       |
+ |            "array_prop": ["a", "b", "c"],     |                                                                                                       |
+ |       },                                      |                                                                                                       |
+ |    })                                         |                                                                                                       |
+ +-----------------------------------------------+-------------------------------------------------------------------------------------------------------+
 
 .. _optional-column:
 
@@ -206,7 +204,7 @@ Columns that contain `None` or `np.nan` values within the input data will be inf
  |       pd.DataFrame({                          |       ]'                                                                  |
  |           "col": [1.0, 2.0, None]             |       output: null                                                        |
  |       })                                      |       params: null                                                        |
- |   })                                          |                                                                           |
+ |   )                                           |                                                                           |
  +-----------------------------------------------+---------------------------------------------------------------------------+
 
 .. note::
@@ -250,8 +248,8 @@ to handle batches of varying sizes.
 .. code-block:: yaml
 
   signature:
-      inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
-      outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+      inputs: '[{"name": "images", "type": "tensor", "tensor-spec": {"dtype": "uint8", "shape": [-1, 28, 28, 1]}}]'
+      outputs: '[{"type": "tensor", "tensor-spec": {"shape": [-1, 10], "dtype": "float32"}}]'
       params: null
 
 .. _supported-data-types-tensor:
@@ -261,18 +259,18 @@ Supported Data Types
 
 Tensor-based schemas support `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
 
- +-----------------------------------------------+---------------------------------------------------------------------------+
- | Input (Python)                                | Inferred Signature                                                        |
- +-----------------------------------------------+---------------------------------------------------------------------------+
- | .. code-block:: python                        | .. code-block:: yaml                                                      |
- |                                               |                                                                           |
- |   from mlflow.models import infer_signature   |   signature:                                                              |
- |                                               |       input: '["dtype": "int64", "shape": [-1, 2, 3]}]'                   |
- |   infer_signature(model_input=np.array([      |       output: None                                                        |
- |       [[1, 2, 3], [4, 5, 6]],                 |       params: None                                                        |
- |       [[7, 8, 9], [1, 2, 3]],                 |                                                                           |
- |   ])                                          |                                                                           |
- +-----------------------------------------------+---------------------------------------------------------------------------+
+ +-----------------------------------------------+---------------------------------------------------------------------------------------------+
+ | Input (Python)                                | Inferred Signature                                                                          |
+ +-----------------------------------------------+---------------------------------------------------------------------------------------------+
+ | .. code-block:: python                        | .. code-block:: yaml                                                                        |
+ |                                               |                                                                                             |
+ |   from mlflow.models import infer_signature   |   signature:                                                                                |
+ |                                               |       input: '[{"type": "tensor", "tensor-spec": {"dtype": "int64", "shape": [-1, 2, 3]}}]' |
+ |   infer_signature(model_input=np.array([      |       output: None                                                                          |
+ |       [[1, 2, 3], [4, 5, 6]],                 |       params: None                                                                          |
+ |       [[7, 8, 9], [1, 2, 3]],                 |                                                                                             |
+ |   ]))                                         |                                                                                             |
+ +-----------------------------------------------+---------------------------------------------------------------------------------------------+
 
 .. note::
     Tensor-based schemas do not support optional inputs. You can pass an array with `None` or `np.nan` values,

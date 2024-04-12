@@ -8,6 +8,7 @@ from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CON
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import insecure_hash, process
 from mlflow.utils.environment import Environment
+from mlflow.utils.os import is_windows
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ CONDA_EXE = "CONDA_EXE"
 
 def get_conda_command(conda_env_name):
     #  Checking for newer conda versions
-    if os.name != "nt" and (CONDA_EXE in os.environ or MLFLOW_CONDA_HOME.defined):
+    if not is_windows() and (CONDA_EXE in os.environ or MLFLOW_CONDA_HOME.defined):
         conda_path = get_conda_bin_executable("conda")
         activate_conda_env = [f"source {os.path.dirname(conda_path)}/../etc/profile.d/conda.sh"]
         activate_conda_env += [f"conda activate {conda_env_name} 1>&2"]
@@ -24,7 +25,7 @@ def get_conda_command(conda_env_name):
         activate_path = get_conda_bin_executable("activate")
         # in case os name is not 'nt', we are not running on windows. It introduces
         # bash command otherwise.
-        if os.name != "nt":
+        if not is_windows():
             return [f"source {activate_path} {conda_env_name} 1>&2"]
         else:
             return [f"conda activate {conda_env_name}"]

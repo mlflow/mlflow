@@ -139,11 +139,11 @@ loaded as a ``pyfunc`` and used to generate a response from a passed-in list of 
 
 
 Saving Transformer Pipelines with an OpenAI-Compatible Inference Interface
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------------------------------------------
 
 .. note::
 
-    This feature is only available in MLflow 2.11.0 and above.
+    This feature is only available in MLflow 2.11.0 and above. Also, the ``llm/v1/chat`` task type is only available for models saved with ``transformers >= 4.34.0``.
 
 
 MLflow's native transformers integration allows you to pass in the ``task`` param when saving a model 
@@ -152,11 +152,11 @@ accepts any of the `Transformers pipeline task types <https://huggingface.co/tas
 and above, we've added a few more MLflow-specific keys for ``text-generation`` pipelines.
 
 For ``text-generation`` pipelines, instead of specifying ``text-generation`` as the task type, you can provide 
-one of two string literals conforming to the `MLflow Deployments Server's endpoint_type specification <https://mlflow.org/docs/latest/llms/deployments/index.html#general-configuration-parameters>`_ 
-(``"llm/v1/embeddings"`` can be specified as a task on models saved with :py:func:`mlflow.sentence_transformers.save_model()`):
+one of two string literals conforming to the `MLflow Deployments Server's endpoint_type specification <https://mlflow.org/docs/latest/llms/deployments/index.html#general-configuration-parameters>`_:
 
 - ``"llm/v1/chat"`` for chat-style applications
 - ``"llm/v1/completions"`` for generic completions
+- (The last ``"llm/v1/embeddings"`` can be specified as a task on models saved with :py:func:`mlflow.sentence_transformers.save_model()`)
 
 For example:
 
@@ -403,6 +403,9 @@ Pipelines vs. Component Logging
 
 The transformers flavor has two different primary mechanisms for saving and loading models: pipelines and components.
 
+.. note::
+    Saving transformers models with custom code (i.e. models that require ``trust_remote_code=True``) requires ``transformers >= 4.26.0``.
+
 **Pipelines**
 
 Pipelines, in the context of the Transformers library, are high-level objects that combine pre-trained models and tokenizers 
@@ -599,13 +602,13 @@ Example:
             "t5-small", model_max_length=100
         ),
         framework="pt",
-        torch_dtype=torch.bfloat16,
     )
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=my_pipeline,
             artifact_path="my_pipeline",
+            torch_dtype=torch.bfloat16,
         )
 
     # Illustrate that the torch data type is recorded in the flavor configuration
@@ -648,13 +651,13 @@ Example:
             "t5-small", model_max_length=100
         ),
         framework="pt",
-        torch_dtype=torch.bfloat16,
     )
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=my_pipeline,
             artifact_path="my_pipeline",
+            torch_dtype=torch.bfloat16,
         )
 
     loaded_pipeline = mlflow.transformers.load_model(

@@ -148,6 +148,7 @@ from mlflow.tracking.fluent import (
     set_tags,
     start_run,
 )
+from mlflow.tracking.multimedia import Image
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
 from mlflow.utils.credentials import login
 from mlflow.utils.doctor import doctor
@@ -208,6 +209,7 @@ __all__ = [
     "set_tags",
     "set_tracking_uri",
     "start_run",
+    "Image",
 ]
 
 

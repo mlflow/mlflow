@@ -34,6 +34,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import _get_all_flavor_configurations
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.os import is_windows
 from mlflow.utils.process import ShellCommandException, cache_return_value_per_process
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
@@ -43,7 +44,6 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
-_IS_UNIX = os.name != "nt"
 _STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 # Flavors that require Java to be installed in the environment
@@ -260,7 +260,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             setup_sigterm_on_parent_death = None
 
-        if _IS_UNIX:
+        if not is_windows():
             # Add "exec" before the starting scoring server command, so that the scoring server
             # process replaces the bash process, otherwise the scoring server process is created
             # as a child process of the bash process.
@@ -284,7 +284,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             _logger.info("=== Running command '%s'", command)
 
-            if os.name != "nt":
+            if not is_windows():
                 command = ["bash", "-c", command]
 
             child_proc = subprocess.Popen(

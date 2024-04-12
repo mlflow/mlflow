@@ -121,8 +121,9 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
             config = RunnableConfig(callbacks=callbacks)
         else:
             callbacks = config.get("callbacks") or []
-            callbacks.append(mlflow_callback)
-            config["callbacks"] = callbacks
+            if not isinstance(callbacks, list):
+                callbacks = [callbacks]
+            config["callbacks"] = [*callbacks, mlflow_callback]
         if in_args:
             args = (args[0], config) + args[2:]
         else:
@@ -134,19 +135,22 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
         # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
         if len(args) >= 3:
             callbacks = args[2] or []
-            callbacks.append(mlflow_callback)
-            args = args[:2] + (callbacks,) + args[3:]
+            if not isinstance(callbacks, list):
+                callbacks = [callbacks]
+            args = args[:2] + ([*callbacks, mlflow_callback],) + args[3:]
         else:
             callbacks = kwargs.get("callbacks") or []
-            callbacks.append(mlflow_callback)
-            kwargs["callbacks"] = callbacks
+            if not isinstance(callbacks, list):
+                callbacks = [callbacks]
+            kwargs["callbacks"] = [*callbacks, mlflow_callback]
         return args, kwargs
 
     # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
     if func_name == "get_relevant_documents":
         callbacks = kwargs.get("callbacks") or []
-        callbacks.append(mlflow_callback)
-        kwargs["callbacks"] = callbacks
+        if not isinstance(callbacks, list):
+            callbacks = [callbacks]
+        kwargs["callbacks"] = [*callbacks, mlflow_callback]
         return args, kwargs
 
 
@@ -196,7 +200,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     import langchain
     from langchain_community.callbacks import MlflowCallbackHandler
 
-    class _MLflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
+    class _MlflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
         """
         Callback for auto-logging metrics and parameters.
         We need to inherit ExceptionSafeAbstractClass to avoid invalid new
@@ -230,12 +234,11 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             )
     else:
         tags = None
-    # TODO: test adding callbacks works
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
     session_id = getattr(self, "session_id", uuid.uuid4().hex)
     inference_id = getattr(self, "inference_id", 0)
-    mlflow_callback = _MLflowLangchainCallback(
+    mlflow_callback = _MlflowLangchainCallback(
         tracking_uri=mlflow.get_tracking_uri(),
         run_id=run_id,
         artifacts_dir=f"artifacts-{session_id}-{inference_id}",

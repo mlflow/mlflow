@@ -9,12 +9,16 @@ sklearn:
     maximum: "1.4.1.post1"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
+    python:
+      "== dev": "3.9"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
     minimum: "0.24.1"
     maximum: "1.4.1.post1"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.0": ["scipy==1.7.3"]
@@ -57,7 +61,7 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "1.4.9"
+    minimum: "1.9.0"
     maximum: "2.2.0.post0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
@@ -82,7 +86,9 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.0.5"
+    maximum: "3.2.0"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -91,7 +97,9 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.0.5"
+    maximum: "3.2.0"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -106,7 +114,9 @@ tensorflow:
 
   models:
     minimum: "2.6.5"
-    maximum: "2.15.0.post1"
+    maximum: "2.16.1"
+    python:
+      "== dev": "3.9"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
@@ -121,6 +131,7 @@ tensorflow:
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
       ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
+      "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
@@ -131,7 +142,9 @@ tensorflow:
 
   autologging:
     minimum: "2.6.5"
-    maximum: "2.15.0.post1"
+    maximum: "2.16.1"
+    python:
+      "== dev": "3.9"
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.7.0": ["pandas==1.3.5"]
@@ -288,7 +301,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.7.0"
+    minimum: "1.13.1"
     maximum: "1.15.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -321,6 +334,8 @@ statsmodels:
   models:
     minimum: "0.11.1"
     maximum: "0.14.1"
+    python:
+      "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -329,6 +344,8 @@ statsmodels:
   autologging:
     minimum: "0.11.1"
     maximum: "0.14.1"
+    python:
+      "== dev": "3.9"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -343,13 +360,15 @@ spark:
       cd $temp_dir
       # -Pconnect -Phive is required by spark connect
       ./build/sbt -Pconnect -Phive clean package connect/assembly
-      cd python
+      cd python/packaging/classic
       pip install '.[connect]'
       pyspark --version
 
   models:
-    minimum: "3.0.0"
+    minimum: "3.1.2"
     maximum: "3.5.1"
+    java:
+      "> 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -375,8 +394,10 @@ spark:
       fi
 
   autologging:
-    minimum: "3.0.0"
+    minimum: "3.1.2"
     maximum: "3.5.1"
+    java:
+      ">= 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -527,11 +548,13 @@ transformers:
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
         "4.38.1",
+        "4.38.2",
       ]
     requirements:
       ">= 0.0.0": [
           "datasets",
-          "huggingface_hub",
+          # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
+          "huggingface_hub!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
@@ -548,6 +571,8 @@ transformers:
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
+    pre_test: |
+      python tests/transformers/helper.py
     run: |
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
@@ -560,12 +585,13 @@ transformers:
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
         "4.38.1",
+        "4.38.2",
       ]
     requirements:
-      ">= 0.0.0":
-        [
+      ">= 0.0.0": [
           "datasets",
-          "huggingface_hub",
+          # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
+          "huggingface_hub!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
@@ -587,9 +613,8 @@ transformers:
 openai:
   package_info:
     pip_release: "openai"
-    # TODO: Re-enable dev version test once we support OpenAI 1.0.0
-    # install_dev: |
-    #   pip install git+https://github.com/openai/openai-python
+    install_dev: |
+      pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
     maximum: "1.13.3"
@@ -607,11 +632,10 @@ langchain:
     minimum: "0.0.244"
     maximum: "0.1.9"
     requirements:
-      ">= 0.0.0":
-        [
+      ">= 0.0.0": [
           "pyspark",
           "transformers",
-          "tensorflow",
+          "tensorflow<2.16",
           "openai",
           "google-search-results",
           "psutil",
@@ -619,6 +643,7 @@ langchain:
           "langchain-experimental",
           "numexpr",
           "hf_transfer",
+          "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
@@ -634,8 +659,7 @@ langchain:
     minimum: "0.1.4"
     maximum: "0.1.9"
     requirements:
-      ">= 0.0.0":
-        [
+      ">= 0.0.0": [
           "pyspark",
           "transformers",
           "tensorflow",
@@ -646,6 +670,7 @@ langchain:
           "langchain-experimental",
           "numexpr",
           "spacy",
+          "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
     run: |
       # For MlflowCallback text analysis
@@ -669,7 +694,14 @@ sentence_transformers:
     minimum: "2.2.2"
     maximum: "2.4.0"
     requirements:
-      ">= 0.0.0": ["pyspark", "torch>1.6", "transformers>4.25", "hf_transfer"]
+      ">= 0.0.0": [
+          "pyspark",
+          "torch>1.6",
+          "transformers>4.25",
+          "hf_transfer",
+          # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
+          "einops",
+        ]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
 
@@ -692,8 +724,12 @@ johnsnowlabs:
 promptflow:
   package_info:
     pip_release: "promptflow"
+    # Install dev subpackages to ensure test running on the latest code
     install_dev: |
-      pip install git+https://github.com/promptflow/src/promptflow
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow-tracing
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow-core
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow-devkit
+      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
     maximum: "1.6.0"

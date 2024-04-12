@@ -181,9 +181,7 @@ def save_model(
         sk_model: scikit-learn model to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
@@ -197,7 +195,9 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         pyfunc_predict_fn: The name of the prediction function to use for inference with the
-            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
+            pyfunc representation of the resulting MLflow Model. Current supported functions
+            are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
+            ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
@@ -362,9 +362,7 @@ def log_model(
         sk_model: scikit-learn model to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
             ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
@@ -382,7 +380,9 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         pyfunc_predict_fn: The name of the prediction function to use for inference with the
-            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
+            pyfunc representation of the resulting MLflow Model. Current supported functions
+            are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
+            ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
@@ -509,8 +509,21 @@ def _load_pyfunc(path):
 
 
 class _SklearnModelWrapper:
+    _SUPPORTED_CUSTOM_PREDICT_FN = [
+        "predict_proba",
+        "predict_log_proba",
+        "predict_joint_log_proba",
+        "score",
+    ]
+
     def __init__(self, sklearn_model):
         self.sklearn_model = sklearn_model
+
+        # Patch the model with custom predict functions that can be specified
+        # via `pyfunc_predict_fn` argument when saving or logging.
+        for predict_fn in self._SUPPORTED_CUSTOM_PREDICT_FN:
+            if fn := getattr(self.sklearn_model, predict_fn, None):
+                setattr(self, predict_fn, fn)
 
     def predict(
         self,
@@ -529,14 +542,6 @@ class _SklearnModelWrapper:
             Model predictions.
         """
         return self.sklearn_model.predict(data)
-
-    def predict_proba(self, *args, **kwargs):
-        if hasattr(self.sklearn_model, "predict_proba"):
-            return self.sklearn_model.predict_proba(*args, **kwargs)
-
-    def score(self, *args, **kwargs):
-        if hasattr(self.sklearn_model, "score"):
-            return self.sklearn_model.score(*args, **kwargs)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):

@@ -23,7 +23,7 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow.autologging import _TensorBoard
-from mlflow.tensorflow.callback import MLflowCallback
+from mlflow.tensorflow.callback import MlflowCallback
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -79,7 +79,7 @@ def _create_model_for_dict_mapping():
         "c": tf.keras.Input(shape=(1,), name="c"),
         "d": tf.keras.Input(shape=(1,), name="d"),
     }
-    concatenated = layers.Concatenate()(inputs.values())
+    concatenated = layers.Concatenate()(list(inputs.values()))
     x = layers.Dense(16, activation="relu", input_shape=(4,))(concatenated)
     outputs = layers.Dense(3, activation="softmax")(x)
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
@@ -157,7 +157,8 @@ def clear_autologging_config():
 
 def create_tf_keras_model():
     model = tf.keras.Sequential()
-    model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
+    model.add(tf.keras.Input(shape=(4,), dtype="float64"))
+    model.add(layers.Dense(16, activation="relu"))
     model.add(layers.Dense(3, activation="softmax"))
 
     model.compile(
@@ -470,7 +471,14 @@ class __GeneratorClass:
         __ExampleSequence,
         functools.partial(__ExampleSequence, with_sample_weights=True),
         functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
-        functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
+        pytest.param(
+            functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
+            marks=pytest.mark.skipif(
+                Version(tf.__version__).release >= (2, 15)
+                and "TF_USE_LEGACY_KERAS" not in os.environ,
+                reason="does not support",
+            ),
+        ),
     ],
 )
 @pytest.mark.parametrize("batch_size", [5, 10])
@@ -1058,7 +1066,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
 
 
 def test_callback_is_picklable():
-    cb = MLflowCallback()
+    cb = MlflowCallback()
     pickle.dumps(cb)
 
     tb = _TensorBoard()
@@ -1310,7 +1318,7 @@ def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
-            model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])
+            model.fit(keras_data_gen_sequence, callbacks=[MlflowCallback(run)])
 
 
 def test_autolog_correct_logging_frequency(random_train_data, random_one_hot_labels):

@@ -164,15 +164,15 @@ def test_log_image_with_steps():
     with mlflow.start_run():
         mlflow.log_image(image, key="dog", step=0)
 
-        logged_path = "images/dog"
+        logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
 
         # .png file for the image, and .json file for metadata
-        assert len(files) == 2
+        assert len(files) == 3
         for file in files:
-            assert file.startswith("dog_step_0")
+            assert file.startswith("dog%step%0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -180,7 +180,7 @@ def test_log_image_with_steps():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog/dog_step_0")
+                    assert metadata["filepath"].startswith("images/dog%step%0")
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] <= get_current_time_millis()
@@ -195,15 +195,15 @@ def test_log_image_with_timestamp():
     with mlflow.start_run():
         mlflow.log_image(image, key="dog", timestamp=100)
 
-        logged_path = "images/dog"
+        logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
 
         # .png file for the image, and .json file for metadata
-        assert len(files) == 2
+        assert len(files) == 3
         for file in files:
-            assert file.startswith("dog_step_0")
+            assert file.startswith("dog%step%0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -211,7 +211,7 @@ def test_log_image_with_timestamp():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog/dog_step_0")
+                    assert metadata["filepath"].startswith("images/dog%step%0")
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] == 100
@@ -231,11 +231,11 @@ def test_duplicated_log_image_with_step():
         mlflow.log_image(image1, key="dog", step=100)
         mlflow.log_image(image2, key="dog", step=100)
 
-        logged_path = "images/dog"
+        logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
-        assert len(files) == 4
+        assert len(files) == 2 * 3  # 2 images and 3 files per image
 
 
 def test_duplicated_log_image_with_timestamp():
@@ -252,11 +252,11 @@ def test_duplicated_log_image_with_timestamp():
         mlflow.log_image(image1, key="dog", step=100, timestamp=100)
         mlflow.log_image(image2, key="dog", step=100, timestamp=100)
 
-        logged_path = "images/dog"
+        logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
-        assert len(files) == 4
+        assert len(files) == 2 * 3
 
 
 @pytest.mark.parametrize(

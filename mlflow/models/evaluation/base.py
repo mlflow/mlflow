@@ -886,6 +886,7 @@ class ModelEvaluator(metaclass=ABCMeta):
                 the evaluator.
             kwargs: For forwards compatibility, a placeholder for additional arguments
                 that may be added to the evaluation interface in the future.
+
         Returns:
             True if the evaluator can evaluate the specified model on the
             specified dataset. False otherwise.

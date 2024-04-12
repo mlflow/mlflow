@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.11.2.dev0"
+version = "2.11.4.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -172,6 +172,7 @@ select = [
   "B006",    # multiple-argument-default
   "B015",    # useless-comparison
   "D209",    # new-line-after-last-paragraph
+  "D411",    # no-blank-line-before-section
   "E",       # error
   "F",       # Pyflakes
   "C4",      # flake8-comprehensions
@@ -248,10 +249,12 @@ forced-separate = ["tests"]
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.clint]
 exclude = [
   "docs",
-  "examples",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
   "mlflow/server/js",

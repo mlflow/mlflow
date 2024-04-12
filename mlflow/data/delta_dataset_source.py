@@ -11,7 +11,7 @@ from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogSer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils._unity_catalog_utils import get_full_name_from_sc
-from mlflow.utils.databricks_utils import get_databricks_host_creds, is_in_databricks_runtime
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -106,7 +106,7 @@ class DeltaDatasetSource(DatasetSource):
 
     # check if table is in the Databricks Unity Catalog
     def _is_databricks_uc_table(self):
-        if is_in_databricks_runtime() and self._delta_table_name is not None:
+        if self._delta_table_name is not None:
             catalog_name = self._delta_table_name.split(".", 1)[0]
             return (
                 catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
@@ -137,7 +137,7 @@ class DeltaDatasetSource(DatasetSource):
         except Exception:
             return None
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         info = {}
         if self._path:
             info["path"] = self._path
@@ -154,7 +154,7 @@ class DeltaDatasetSource(DatasetSource):
         return info
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "DeltaDatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "DeltaDatasetSource":
         return cls(
             path=source_dict.get("path"),
             delta_table_name=source_dict.get("delta_table_name"),

@@ -13,13 +13,13 @@ metrics are logged with MLflow and you can use the MLflow UI to inspect how they
 hyperparameter values.
 
 examples/hyperparam/MLproject has 4 targets:
-  * train
-    train simple deep learning model on the wine-quality dataset from our tutorial.
+  * train:
+    train a simple deep learning model on the wine-quality dataset from our tutorial.
     It has 2 tunable hyperparameters: ``learning-rate`` and ``momentum``.
     Contains examples of how Keras callbacks can be used for MLflow integration.
-  * random
+  * random:
     perform simple random search over the parameter space.
-  * hyperopt
+  * hyperopt:
     use `Hyperopt <https://github.com/hyperopt/hyperopt>`_ to optimize hyperparameters.
 
 

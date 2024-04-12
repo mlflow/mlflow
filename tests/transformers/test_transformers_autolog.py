@@ -5,6 +5,7 @@ import optuna
 import pytest
 import sklearn
 import sklearn.cluster
+import sklearn.datasets
 import torch
 from datasets import load_dataset
 from sentence_transformers.losses import CosineSimilarityLoss
@@ -20,12 +21,6 @@ from transformers import (
 )
 
 import mlflow
-
-
-# TODO: Remove this fixture once https://github.com/huggingface/transformers/pull/29096 is merged
-@pytest.fixture(autouse=True)
-def set_mlflow_tracking_uri_env_var(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("MLFLOW_TRACKING_URI", mlflow.get_tracking_uri())
 
 
 @pytest.fixture
@@ -459,6 +454,7 @@ def test_disable_sklearn_autologging_does_not_revert_with_trainer(iris_data, tra
     exp = mlflow.set_experiment(experiment_name="trainer_with_sklearn")
 
     transformers_trainer.train()
+    mlflow.flush_async_logging()
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0

@@ -5,7 +5,7 @@ import mlflow
 from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
 
 
-class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionSafeClass):
+class __MlflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionSafeClass):
     def __init__(self, log_models, metrics_logger):
         self.log_models = log_models
         self._logger = metrics_logger

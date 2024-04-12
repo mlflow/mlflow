@@ -180,9 +180,7 @@ def log_model(
 
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
             ``pytorch_model``. This is passed as the ``pickle_module`` parameter to
             ``torch.save()``.  By default, this module is also used to deserialize ("unpickle") the
@@ -353,9 +351,7 @@ def save_model(
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
             ``pytorch_model``. This is passed as the ``pickle_module`` parameter to
             ``torch.save()``. By default, this module is also used to deserialize ("unpickle") the
@@ -1133,7 +1129,7 @@ if autolog.__doc__ is not None:
     )
 
 
-def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
+def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None, kwargs=None):
     """
     If you enable "checkpoint" in autologging, during pytorch-lightning model
     training execution, checkpointed models are logged as MLflow artifacts.
@@ -1156,6 +1152,7 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
             "checkpoint_save_freq" to "epoch".
         global_step: The global step of the checkpoint to be loaded, if
             you set "checkpoint_save_freq" to an integer.
+        kwargs: Any extra kwargs needed to init the model.
 
     Returns:
         The instance of a pytorch-lightning model restored from the specified checkpoint.
@@ -1186,7 +1183,7 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
         downloaded_checkpoint_filepath = download_checkpoint_artifact(
             run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
         )
-        return model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
+        return model_class.load_from_checkpoint(downloaded_checkpoint_filepath, **(kwargs or {}))
 
 
 __all__ = [
