@@ -1,4 +1,8 @@
 import threading
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    import PIL
 
 
 class RunArtifacts:
@@ -6,7 +10,7 @@ class RunArtifacts:
         self,
         filename: str,
         artifact_path: str,
-        artifact,
+        artifact: Union["PIL.Image.Image"],
         completion_event: threading.Event,
     ) -> None:
         """Initializes an instance of `RunArtifacts`.

@@ -8,9 +8,13 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
+from typing import TYPE_CHECKING, Union
 
 from mlflow.utils.async_logging.run_artifacts import RunArtifacts
 from mlflow.utils.async_logging.run_operations import RunOperations
+
+if TYPE_CHECKING:
+    import PIL
 
 _logger = logging.getLogger(__name__)
 
@@ -25,7 +29,9 @@ class AsyncArtifactsLoggingQueue:
             representing the run_id and a list of artifact paths to log.
     """
 
-    def __init__(self, artifact_logging_func: callable([str, str, bool])) -> None:
+    def __init__(
+        self, artifact_logging_func: callable([str, str, Union["PIL.Image.Image"]])
+    ) -> None:
         """
         Initializes an AsyncArtifactsLoggingQueue instance.
         """
