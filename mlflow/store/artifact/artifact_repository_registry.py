@@ -69,6 +69,7 @@ class ArtifactRepositoryRegistry:
             requirements.
         """
         scheme = get_uri_scheme(artifact_uri)
+        print(f"get_artifact_repository scheme: {artifact_uri}")
         repository = self._registry.get(scheme)
         if repository is None:
             raise MlflowException(
