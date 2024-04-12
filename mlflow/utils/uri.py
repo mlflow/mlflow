@@ -108,10 +108,6 @@ def is_fuse_or_uc_volumes_uri(uri):
     )
 
 def is_uc_volumes_uri(uri):
-    """
-    TEMPORARY
-    """
-    print(f"is_uc_volumes_uri: {uri}")
     resolved_uri = re.sub("/+", "/", uri)
     return any(
         resolved_uri.startswith(x)
@@ -211,14 +207,11 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
     """
     Throws an exception if ``databricks_profile_uri`` is not valid.
     """
-    print("add_databricks_profile_info_to_artifact_uri")
     if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
-        print("add_databricks_profile_info_to_artifact_uri - 1")
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
     # Do not overwrite the authority section if there is already one
     if artifact_uri_parsed.netloc:
-        print("add_databricks_profile_info_to_artifact_uri - 2")
         return artifact_uri
 
     scheme = artifact_uri_parsed.scheme
@@ -230,10 +223,8 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
             prefix = ":" + key_prefix if key_prefix else ""
             netloc = profile + prefix + "@databricks"
         new_parsed = artifact_uri_parsed._replace(netloc=netloc)
-        print(urllib.parse.urlunparse(new_parsed))
         return urllib.parse.urlunparse(new_parsed)
     else:
-        print(artifact_uri)
         return artifact_uri
 
 
@@ -259,13 +250,9 @@ def extract_db_type_from_uri(db_uri):
 
 
 def get_uri_scheme(uri_or_path):
-    print(f"get_uri_scheme")
-    print(f"uri_or_path: {uri_or_path}")
     scheme = urllib.parse.urlparse(uri_or_path).scheme
-    print(f"scheme: {scheme}")
     # special case for volumes "dbfs:/Volumes"
     if is_uc_volumes_uri(uri_or_path):
-        print("detected as volume")
         return "volumes"
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
