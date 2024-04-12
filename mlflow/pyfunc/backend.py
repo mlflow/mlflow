@@ -68,7 +68,7 @@ class PyFuncBackend(FlavorBackend):
         self,
         config,
         workers=1,
-        env_manager=_EnvManager.VIRTUALENV,
+        env_manager=None,
         install_mlflow=False,
         create_env_root_dir=False,
         env_root_dir=None,
@@ -86,8 +86,12 @@ class PyFuncBackend(FlavorBackend):
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         if env_manager == _EnvManager.CONDA and ENV not in config:
+            warnings.warn(
+                "Conda environment is not specified in config `env`. Using local environment."
+            )
             env_manager = _EnvManager.LOCAL
-        self._env_manager = env_manager
+        self._user_env_manager = env_manager
+        self._env_manager = self._user_env_manager or _EnvManager.VIRTUALENV
         self._install_mlflow = install_mlflow
         self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
         self._create_env_root_dir = create_env_root_dir
@@ -374,12 +378,15 @@ class PyFuncBackend(FlavorBackend):
             model_cwd = os.path.join(output_dir, _MODEL_DIR_NAME)
             pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
-            base_image = self._get_base_image(model_path, install_java)
+            if self._user_env_manager is None:
+                base_image = self._get_base_image(model_path, install_java)
 
-            # We don't need virtualenv or conda if base image is python
-            env_manager = (
-                _EnvManager.LOCAL if base_image.startswith("python") else self._env_manager
-            )
+                # We don't need virtualenv or conda if base image is python
+                env_manager = (
+                    _EnvManager.LOCAL if base_image.startswith("python") else self._env_manager
+                )
+            else:
+                env_manager = self._env_manager
 
             model_install_steps = self._model_installation_steps(
                 model_path, env_manager, install_mlflow, enable_mlserver
