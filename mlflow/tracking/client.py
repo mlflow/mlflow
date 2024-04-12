@@ -1631,42 +1631,32 @@ class MlflowClient:
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
             compressed_image_filepath = f"{compressed_filename}.webp"
-            import asyncio
 
-            async def main():
-                # Create compressed image copy here for thread safety.
-                compressed_image = compress_image_size(image)
+            # Need to make a resize copy of image for thread safety
+            compressed_image = compress_image_size(image)
 
-                def callback(local_filepath):
+            def callback(local_filepath):
                     image.save(local_filepath)
 
-                def compressed_callback(local_filepath):
-                    compressed_image.save(local_filepath)
-
+            if synchronous:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
                     callback(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, image_filepath, callback)
 
+            # Save compressed image
+
+            def callback(local_filepath):
+                # Create compressed image copy here for thread safety.
+                compressed_image.save(local_filepath)
+
+            if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
-                    compressed_callback(tmp_path)
-
-            asyncio.run(main())
-                
-                
-            # if synchronous:
-            #     with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-            #         callback(tmp_path)
-            # else:
-            #     self._log_artifact_async_helper(run_id, image_filepath, callback)
-
-            # # Save compressed image
-
-            # if synchronous:
-            #     with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
-            #         callback(tmp_path)
-            # else:
-            #     self._log_artifact_async_helper(
-            #         run_id, compressed_image_filepath, compressed_callback
-            #     )
+                    callback(tmp_path)
+            else:
+                self._log_artifact_async_helper(
+                    run_id, compressed_image_filepath, callback
+                )
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
