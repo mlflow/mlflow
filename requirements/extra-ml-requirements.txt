@@ -10,6 +10,7 @@ fastai>=2.4.1
 spacy>=3.3.0
 # Required by mlflow.tensorflow
 tensorflow>=2.10.0
+# tensorflow-macos<=2.12.0  # comment out the line above and uncomment this line if setting up dev environment on local ARM macOS
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0

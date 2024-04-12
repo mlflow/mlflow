@@ -1,5 +1,6 @@
 -r doc-min-requirements.txt
 tensorflow-cpu<=2.12.0
+# tensorflow-macos<=2.12.0  # comment out the line above and uncomment this line if setting up dev environment on local ARM macOS
 pyspark
 datasets
 # nbsphinx and ipython are required for jupyter notebook rendering
