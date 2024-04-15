@@ -467,10 +467,10 @@ def apply_changed_files(changed_files, matrix):
 def generate_matrix(args):
     args = parse_args(args)
     config = read_yaml(args.versions_yaml)
-    if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
+    if args.ref_versions_yaml is None and args.changed_files is None:
         matrix = expand_config(config)
         if args.flavors:
-            matrix = {x for x in matrix if x.flavor in args.flavors}
+            matrix = {x for x in matrix if x.flavor in args.flavors or "ALL" in args.flavors}
     else:
         matrix = set()
         mat = expand_config(config)
@@ -481,7 +481,7 @@ def generate_matrix(args):
             matrix.update(mat.difference(ref_matrix))
 
         if args.flavors:
-            matrix.update({x for x in mat if x.flavor in args.flavors})
+            matrix.update({x for x in mat if x.flavor in args.flavors or "ALL" in args.flavors})
 
         if args.changed_files:
             matrix.update(apply_changed_files(args.changed_files, mat))
