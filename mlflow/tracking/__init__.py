@@ -10,6 +10,7 @@ from mlflow.tracking._model_registry.utils import (
     set_registry_uri,
 )
 from mlflow.tracking._tracking_service.utils import (
+    _artifact_repos_cache,
     _get_store,
     get_tracking_uri,
     is_tracking_uri_set,
@@ -25,4 +26,5 @@ __all__ = [
     "_get_store",
     "get_registry_uri",
     "set_registry_uri",
+    "_artifact_repos_cache",
 ]

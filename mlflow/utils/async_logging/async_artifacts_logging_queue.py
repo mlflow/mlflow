@@ -1,5 +1,5 @@
 """
-Defines an AsyncArtifactQueue that provides async fashion artifact writes using
+Defines an AsyncArtifactsLoggingQueue that provides async fashion artifact writes using
 queue based approach.
 """
 
@@ -32,9 +32,6 @@ class AsyncArtifactsLoggingQueue:
     def __init__(
         self, artifact_logging_func: callable([str, str, Union["PIL.Image.Image"]])
     ) -> None:
-        """
-        Initializes an AsyncArtifactsLoggingQueue instance.
-        """
         self._queue = Queue()
         self._lock = threading.RLock()
         self._artifact_logging_func = artifact_logging_func
@@ -99,8 +96,6 @@ class AsyncArtifactsLoggingQueue:
         the processed watermark is updated and the artifact event is set.
         If an exception occurs during processing, the exception is logged and the artifact event
         is set with the exception. If the queue is empty, it is ignored.
-
-        Returns: None
         """
         run_artifacts = None  # type: RunArtifacts
         try:
@@ -121,9 +116,7 @@ class AsyncArtifactsLoggingQueue:
                 run_artifacts.completion_event.set()
 
             except Exception as e:
-                _logger.error(
-                    f"Run Id {run_artifacts.run_id}: Failed to log run data: Exception: {e}"
-                )
+                _logger.error(f"Failed to log artifact {run_artifacts.filename}." "Exception: {e}")
                 run_artifacts.exception = e
                 run_artifacts.completion_event.set()
 
@@ -156,8 +149,6 @@ class AsyncArtifactsLoggingQueue:
         del state["_lock"]
         del state["_is_activated"]
 
-        if "_run_data_logging_thread" in state:
-            del state["_run_data_logging_thread"]
         if "_stop_data_logging_thread_event" in state:
             del state["_stop_data_logging_thread_event"]
         if "_artifact_logging_thread" in state:

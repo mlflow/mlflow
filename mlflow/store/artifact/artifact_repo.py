@@ -67,6 +67,13 @@ class ArtifactRepository:
     def _create_thread_pool(self):
         return ThreadPoolExecutor(max_workers=self.max_workers)
 
+    def flush_async_logging(self):
+        """
+        Flushes the async logging queue, ensuring that all pending logging operations have
+        completed.
+        """
+        self._async_logging_queue.flush()
+
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
         """
