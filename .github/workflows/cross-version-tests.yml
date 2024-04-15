@@ -73,7 +73,7 @@ jobs:
         run: |
           pip install -r dev/requirements.txt
           pip install pytest pytest-cov
-      - name: Check labels
+      - name: Get options
         uses: actions/github-script@v7
         id: get-options
         with:
