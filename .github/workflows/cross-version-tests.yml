@@ -75,13 +75,14 @@ jobs:
           pip install pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@v7
-        id: check-labels
+        id: get-options
         with:
           script: |
             if (context.eventName !== "pull_request") {
               return {
                 enable_dev_tests: true,
                 only_latest: false,
+                flavors: "",
               };
             }
             const labels = await github.rest.issues.listLabelsOnIssue({
@@ -90,9 +91,12 @@ jobs:
               issue_number: context.issue.number,
             });
             const labelNames = labels.data.map(({ name }) => name);
+            const { body } = context.payload.pull_request;
+            const flavorsMatch = body.match(/\/flavors\s+([^\n]+)/);
             return {
               enable_dev_tests: labelNames.includes("enable-dev-tests"),
               only_latest: labelNames.includes("only-latest"),
+              flavors: flavorsMatch ? flavorsMatch[1] : "",
             };
       - name: Test set_matrix.py
         run: |
@@ -109,10 +113,11 @@ jobs:
             BASE_REF="${{ github.base_ref }}"
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
             CHANGED_FILES="$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER)"
-            ENABLE_DEV_TESTS="${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}"
+            ENABLE_DEV_TESTS="${{ fromJson(steps.get-options.outputs.result).enable_dev_tests }}"
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
-            ONLY_LATEST="${{ fromJson(steps.check-labels.outputs.result).only_latest }}"
+            ONLY_LATEST="${{ fromJson(steps.get-options.outputs.result).only_latest }}"
             ONLY_LATEST_FLAG=$([ "$ONLY_LATEST" == "true" ] && echo "--only-latest" || echo "")
+            FLAVORS="${{ fromJson(steps.get-options.outputs.result).flavors }}"
             FLAVORS="sklearn,xgboost"
             python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML \
               --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG \
