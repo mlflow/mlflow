@@ -23,6 +23,10 @@ predictions_col_specifier = (
 def _validate_text_data(data, metric_name, col_specifier):
     """Validates that the data is a list of strs and is non-empty"""
     if data is None or len(data) == 0:
+        _logger.warning(
+            f"Cannot calculate {metric_name} for empty inputs: "
+            f"{col_specifier} is empty or the parameter is not specified. Skipping metric logging."
+        )
         return False
 
     for row, line in enumerate(data):
@@ -117,7 +121,10 @@ def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
     try:
         import textstat
     except ImportError:
-        _logger.warning("Failed to load flesch kincaid metric, skipping metric logging.")
+        _logger.warning(
+            "Failed to import textstat for flesch kincaid metric, skipping metric logging. "
+            "Please install textstat using 'pip install textstat'."
+        )
         return
 
     scores = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
@@ -135,7 +142,9 @@ def _ari_eval_fn(predictions, targets=None, metrics=None):
         import textstat
     except ImportError:
         _logger.warning(
-            "Failed to load automated readability index metric, skipping metric logging."
+            "Failed to import textstat for automated readability index metric, "
+            "skipping metric logging. "
+            "Please install textstat using 'pip install textstat'."
         )
         return
 
