@@ -1,32 +1,47 @@
 import time
-from unittest import mock
 
 import pytest
 
 import mlflow
-from mlflow.entities import SpanStatus, TraceStatus
+from mlflow.entities import SpanStatus, SpanType, TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
+
+from tests.tracing.helper import create_mock_otel_span
 
 
 def test_wrapper_property():
     start_time = time.time_ns()
     end_time = start_time + 1_000_000
+    request_id = "tr-12345"
+    trace_id = "12345"
+    span_id = "test_span_id"
+    parent_id = "parent_id"
 
-    mock_otel_span = mock.MagicMock()
-    mock_otel_span.get_span_context().trace_id = "12345"
-    mock_otel_span.get_span_context().span_id = "span_id"
-    mock_otel_span._start_time = start_time
-    mock_otel_span._end_time = end_time
-    mock_otel_span.parent.span_id = "parent_span_id"
+    mock_otel_span = create_mock_otel_span(
+        trace_id, span_id, parent_id=parent_id, start_time=start_time, end_time=end_time
+    )
+    span = MlflowSpanWrapper(mock_otel_span, request_id=request_id, span_type=SpanType.LLM)
 
-    span = MlflowSpanWrapper(mock_otel_span)
+    assert span.request_id == request_id
+    assert span.span_id == span_id
+    assert span.start_time == start_time
+    assert span.end_time == end_time
+    assert span.parent_id == parent_id
 
-    assert span.request_id == "tr-12345"
-    assert span.span_id == "span_id"
-    assert span.start_time == start_time // 1_000
-    assert span.end_time == end_time // 1_000
-    assert span.parent_span_id == "parent_span_id"
+    span.set_inputs({"input": 1})
+    span.set_outputs(2)
+    span.set_attribute("key", 3)
+
+    assert span.inputs == {"input": 1}
+    assert span.outputs == 2
+    assert mock_otel_span._attributes == {
+        "mlflow.traceRequestId": request_id,
+        "mlflow.spanInputs": '{"input": 1}',
+        "mlflow.spanOutputs": "2",
+        "mlflow.spanType": "LLM",
+        "key": "3",
+    }
 
 
 @pytest.mark.parametrize(

@@ -281,7 +281,7 @@ def test_llmchain_autolog(clear_trace_singleton):
         assert spans[0].outputs == {"text": TEST_CONTENT}
         assert spans[1].span_type == "LLM"
         assert spans[1].name == "OpenAI"
-        assert spans[1].parent_span_id == spans[0].context.span_id
+        assert spans[1].parent_id == spans[0].context.span_id
         assert spans[1].inputs == ["What is a good name for a company that makes MLflow?"]
         assert spans[1].outputs["generations"][0][0]["text"] == "test"
         assert spans[1].attributes["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"

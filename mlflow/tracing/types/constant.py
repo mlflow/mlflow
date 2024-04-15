@@ -10,6 +10,15 @@ class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
 
 
+# A set of reserved attribute keys
+class SpanAttributeKey:
+    REQUEST_ID = "mlflow.traceRequestId"
+    INPUTS = "mlflow.spanInputs"
+    OUTPUTS = "mlflow.spanOutputs"
+    SPAN_TYPE = "mlflow.spanType"
+    FUNCTION_NAME = "mlflow.spanFunctionName"
+
+
 # All storage backends are guaranteed to support key values up to 250 characters
 MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS = 250
 TRUNCATION_SUFFIX = "..."

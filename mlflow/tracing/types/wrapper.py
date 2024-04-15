@@ -1,11 +1,13 @@
+import json
 import logging
-from time import time_ns
 from typing import Any, Dict, Optional, Union
 
 from opentelemetry import trace as trace_api
+from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, SpanType, TraceStatus
-from mlflow.tracing.types.constant import TRACE_REQUEST_ID_PREFIX
+from mlflow.tracing.types.constant import SpanAttributeKey
+from mlflow.tracing.utils import TraceJSONEncoder
 
 _logger = logging.getLogger(__name__)
 
@@ -21,23 +23,19 @@ class MlflowSpanWrapper:
     the span is ended, before being sent to the logging client.
     """
 
-    def __init__(self, span: trace_api.Span, span_type: str = SpanType.UNKNOWN):
+    def __init__(self, span: trace_api.Span, request_id: str, span_type: str = SpanType.UNKNOWN):
         self._span = span
-        self._span_type = span_type
-        self._inputs = None
-        self._outputs = None
-        # NB: We don't use the OpenTelemetry's attributes because it only accepts
-        #  a limited set of types as primitive values, but we want to allow any type.
-        self._attributes = {}
+        self._set_attribute(SpanAttributeKey.REQUEST_ID, request_id, serialize=False)
+        self._set_attribute(SpanAttributeKey.SPAN_TYPE, span_type, serialize=False)
 
     @property
     def request_id(self) -> str:
         """
         The request ID of the span, a unique identifier for the trace it belongs to.
-        Request ID is equivalent to the trace ID in OpenTelemetry, but prefixed with
-        "tr-" for backend compatibility.
+        Request ID is equivalent to the trace ID in OpenTelemetry, but generated
+        differently by the tracing backend.
         """
-        return TRACE_REQUEST_ID_PREFIX + str(self._span.get_span_context().trace_id)
+        return self._span._attributes.get(SpanAttributeKey.REQUEST_ID, None)
 
     @property
     def span_id(self) -> str:
@@ -51,22 +49,16 @@ class MlflowSpanWrapper:
 
     @property
     def start_time(self) -> int:
-        """The start time of the span in microseconds."""
-        # NB: The original open-telemetry timestamp is in nanoseconds
-        return self._span._start_time // 1_000
+        """The start time of the span in nanosecond."""
+        return self._span._start_time
 
     @property
     def end_time(self) -> Optional[int]:
-        """The end time of the span in microseconds."""
-        return self._span._end_time // 1_000 if self._span._end_time else None
+        """The end time of the span in nanosecond."""
+        return self._span._end_time
 
     @property
-    def context(self) -> SpanContext:
-        """The :py:class:`SpanContext <mlflow.entities.SpanContext>` object attached to the span."""
-        return self._span.get_span_context()
-
-    @property
-    def parent_span_id(self) -> str:
+    def parent_id(self) -> str:
         """The span ID of the parent span."""
         if self._span.parent is None:
             return None
@@ -80,20 +72,22 @@ class MlflowSpanWrapper:
     @property
     def inputs(self) -> Any:
         """The input values of the span."""
-        return self._inputs
+        input_serialized = self._span._attributes.get(SpanAttributeKey.INPUTS)
+        return json.loads(input_serialized) if input_serialized else None
 
     @property
     def outputs(self) -> Any:
         """The output values of the span."""
-        return self._outputs
+        output_serialized = self._span._attributes.get(SpanAttributeKey.OUTPUTS)
+        return json.loads(output_serialized) if output_serialized else None
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
-        self._inputs = inputs
+        self._set_attribute(SpanAttributeKey.INPUTS, inputs, serialize=True)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
-        self._outputs = outputs
+        self._set_attribute(SpanAttributeKey.OUTPUTS, outputs, serialize=True)
 
     def set_attributes(self, attributes: Dict[str, Any]):
         """
@@ -106,14 +100,37 @@ class MlflowSpanWrapper:
                 f"Attributes must be a dictionary, but got {type(attributes)}. Skipping."
             )
             return
-        self._attributes.update(attributes)
+
+        for key, value in attributes.items():
+            self.set_attribute(key, value)
 
     def set_attribute(self, key: str, value: Any):
         """Set a single attribute to the span."""
+        self._set_attribute(key, value)
+
+    def _set_attribute(self, key: str, value: Any, serialize=True):
         if not isinstance(key, str):
             _logger.warning(f"Attribute key must be a string, but got {type(key)}. Skipping.")
             return
-        self._attributes[key] = value
+
+        # NB: OpenTelemetry attribute can store not only string but also a few primitives like
+        #   int, float, bool, and list of them. However, we serialize all into JSON string here
+        #   for the simplicity in deserialization process.
+        if serialize:
+            value = json.dumps(value, cls=TraceJSONEncoder)
+        self._span.set_attribute(key, value)
+
+    def get_attribute(self, key: str) -> Optional[AttributeValue]:
+        """
+        Get a single attribute value from the span.
+
+        Args:
+            key: The key of the attribute to get.
+
+        Returns:
+            The value of the attribute if it exists, otherwise None.
+        """
+        return self._span.attributes.get(key, None)
 
     def set_status(self, status: Union[SpanStatus, str]):
         """
@@ -150,9 +167,8 @@ class MlflowSpanWrapper:
 
     def end(self):
         """
-        End the span. This method mimics the OTel's span end hook to pass this wrapper to
-        processor/exporter.
-        https://github.com/open-telemetry/opentelemetry-python/blob/216411f03a3a067177a0b927b668a87a60cf8797/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L909
+        End the span. This is a thin wrapper around the OpenTelemetry's end method but just
+        to handle the status update.
 
         This method should not be called directly by the user, only by called via fluent APIs
         context exit or by MlflowClient APIs.
@@ -166,19 +182,9 @@ class MlflowSpanWrapper:
         if self.status.status_code != TraceStatus.ERROR:
             self.set_status(SpanStatus(TraceStatus.OK))
 
-        with self._span._lock:
-            if self._span._start_time is None:
-                _logger.warning("Calling end() on a not started span. Ignoring.")
-                return
-            if self._span._end_time is not None:
-                _logger.warning("Calling end() on an ended span. Ignoring.")
-                return
+        self._span.end()
 
-            self._span._end_time = time_ns()
-
-        self._span._span_processor.on_end(self)
-
-    def to_mlflow_span(self):
+    def to_mlflow_span(self) -> Span:
         """
         Create an MLflow Span object from this wrapper and the original Span object.
 
@@ -187,18 +193,16 @@ class MlflowSpanWrapper:
         return Span(
             name=self._span.name,
             context=SpanContext(
-                request_id=self.request_id,
+                trace_id=self._span.get_span_context().trace_id,
                 span_id=self.span_id,
             ),
-            parent_span_id=self.parent_span_id,
-            span_type=self._span_type,
-            status=self.status,
+            parent_id=self.parent_id,
+            status_code=self.status.status_code.value,
+            status_message=self.status.description,
             start_time=self.start_time,
             end_time=self.end_time,
-            inputs=self.inputs,
-            outputs=self.outputs,
-            # NB: There may be some attributes set by OpenTelemetry automatically
-            attributes={**self._span.attributes, **self._attributes},
+            # Convert from MappingProxyType class to a simple dict
+            attributes=dict(self._span.attributes),
             events=[
                 SpanEvent(
                     name=event.name,
@@ -255,7 +259,7 @@ class NoOpMlflowSpanWrapper:
         return None
 
     @property
-    def parent_span_id(self):
+    def parent_id(self):
         return None
 
     @property
@@ -280,6 +284,9 @@ class NoOpMlflowSpanWrapper:
         pass
 
     def set_attribute(self, key: str, value: Any):
+        pass
+
+    def _set_attribute(self, key: str, value: Any, serialize=True):
         pass
 
     def set_status(self, status: SpanStatus):

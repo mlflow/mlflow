@@ -4,16 +4,16 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Dict, Sequence, Union
 
-from mlflow.entities._mlflow_object import _MlflowObject
+from opentelemetry.util.types import AttributeValue
 
-_AttrValueType = Union[str, int, float, bool, bytes]
+from mlflow.entities._mlflow_object import _MlflowObject
 
 
 @dataclass
 class SpanEvent(_MlflowObject):
     """
     An event that records a specific occurrences or moments in time
-    during a span, such as an exception being thrown.
+    during a span, such as an exception being thrown. Compatible with OpenTelemetry.
 
     Args:
         name: Name of the event.
@@ -29,7 +29,7 @@ class SpanEvent(_MlflowObject):
     # Use current time if not provided. We need to use default factory otherwise
     # the default value will be fixed to the build time of the class.
     timestamp: int = field(default_factory=lambda: int(time.time() * 1e6))
-    attributes: Dict[str, Union[_AttrValueType, Sequence[_AttrValueType]]] = field(
+    attributes: Dict[str, Union[AttributeValue, Sequence[AttributeValue]]] = field(
         default_factory=dict
     )
 

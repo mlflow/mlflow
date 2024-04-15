@@ -1,15 +1,15 @@
 import time
 from threading import Thread
-from unittest import mock
 
 import pytest
-from opentelemetry import trace as trace_api
 
 import mlflow
 from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
+
+from tests.tracing.helper import create_mock_otel_span
 
 
 def test_aggregator_singleton():
@@ -24,8 +24,8 @@ def test_add_spans():
     exp_id_1 = mlflow.set_experiment("test_experiment_1").experiment_id
     request_id_1 = "tr-1"
     span_1_1 = _create_test_span(request_id_1, "span_1_1")
-    span_1_1_1 = _create_test_span(request_id_1, "span_1_1_1", parent_span_id="span_1_1")
-    span_1_1_2 = _create_test_span(request_id_1, "span_1_1_2", parent_span_id="span_1_1")
+    span_1_1_1 = _create_test_span(request_id_1, "span_1_1_1", parent_id="span_1_1")
+    span_1_1_2 = _create_test_span(request_id_1, "span_1_1_2", parent_id="span_1_1")
 
     # Add a span for a new trace
     trace_manager.add_or_update_span(span_1_1)
@@ -43,7 +43,7 @@ def test_add_spans():
     exp_id_2 = mlflow.set_experiment("test_experiment_2").experiment_id
     request_id_2 = "tr-2"
     span_2_1 = _create_test_span(request_id_2, "span_2_1")
-    span_2_1_1 = _create_test_span(request_id_2, "span_2_1_1", parent_span_id="span_2_1")
+    span_2_1_1 = _create_test_span(request_id_2, "span_2_1_1", parent_id="span_2_1")
 
     trace_manager.add_or_update_span(span_2_1)
     trace_manager.add_or_update_span(span_2_1_1)
@@ -81,7 +81,7 @@ def test_start_detached_span():
 
     # Child span will be added to the existing trace
     child_span = trace_manager.start_detached_span(
-        name="child_span", request_id=request_id, parent_span_id=root_span.span_id
+        name="child_span", request_id=request_id, parent_id=root_span.span_id
     )
 
     assert len(trace_manager._traces) == 1
@@ -166,11 +166,11 @@ def test_get_span_from_id():
 
     request_id_1 = "tr-1"
     span_1_1 = _create_test_span(request_id_1, "span")
-    span_1_2 = _create_test_span(request_id_1, "child_span", parent_span_id=span_1_1.span_id)
+    span_1_2 = _create_test_span(request_id_1, "child_span", parent_id=span_1_1.span_id)
 
     request_id_2 = "tr-2"
     span_2_1 = _create_test_span(request_id_2, "span")
-    span_2_2 = _create_test_span(request_id_2, "child_span", parent_span_id=span_2_1.span_id)
+    span_2_2 = _create_test_span(request_id_2, "child_span", parent_id=span_2_1.span_id)
 
     # Add a span for a new trace
     trace_manager.add_or_update_span(span_1_1)
@@ -187,7 +187,7 @@ def test_get_root_span_id():
 
     request_id_1 = "tr-1"
     span_1_1 = _create_test_span(request_id_1, "span")
-    span_1_2 = _create_test_span(request_id_1, "child_span", parent_span_id=span_1_1.span_id)
+    span_1_2 = _create_test_span(request_id_1, "child_span", parent_id=span_1_1.span_id)
 
     # Add a span for a new trace
     trace_manager.add_or_update_span(span_1_1)
@@ -236,22 +236,12 @@ def test_delete_tag_raises_when_trace_not_found():
         InMemoryTraceManager.get_instance().delete_trace_tag("test", "foo")
 
 
-def _create_test_span(request_id, span_id, parent_span_id=None, start_time=None, end_time=None):
+def _create_test_span(request_id, span_id, parent_id=None, start_time=None, end_time=None):
     assert request_id.startswith("tr-"), "Request ID must start with 'tr-'"
+    trace_id = request_id[3:]
 
-    if start_time is None:
-        start_time = time.time_ns()
-    if end_time is None:
-        end_time = time.time_ns()
+    mock_otel_span = create_mock_otel_span(trace_id, span_id, parent_id, start_time, end_time)
 
-    mock_span = mock.MagicMock()
-    mock_span.get_span_context().trace_id = request_id[3:]
-    mock_span.get_span_context().span_id = span_id
-    mock_span.parent.span_id = parent_span_id
-    mock_span.start_time = start_time
-    mock_span.end_time = end_time
-    mock_span.name = "test_span"
-    mock_span.status.status_code = trace_api.StatusCode.OK
-    mock_span.status.description = ""
-
-    return MlflowSpanWrapper(mock_span)
+    span = MlflowSpanWrapper(mock_otel_span, request_id=request_id)
+    span.set_status("OK")
+    return span

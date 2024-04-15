@@ -7,7 +7,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
-from mlflow.entities.trace import _TraceJSONEncoder
+from mlflow.tracing.utils import TraceJSONEncoder
 
 from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
 
@@ -59,43 +59,49 @@ def test_json_deserialization(mock_trace_client):
             },
         },
         "data": {
-            "request": {"x": 2, "y": 5},
-            "response": 8,
+            "request": '{"x": 2, "y": 5}',
+            "response": "8",
             "spans": [
                 {
                     "name": "predict",
                     "context": {
-                        "request_id": trace.data.spans[0].context.request_id,
+                        "trace_id": trace.data.spans[0].context.trace_id,
                         "span_id": trace.data.spans[0].context.span_id,
                     },
-                    "span_type": "UNKNOWN",
-                    "parent_span_id": None,
+                    "parent_id": None,
                     "start_time": trace.data.spans[0].start_time,
                     "end_time": trace.data.spans[0].end_time,
-                    "status": {"status_code": "OK", "description": ""},
-                    "inputs": {"x": 2, "y": 5},
-                    "outputs": 8,
-                    "attributes": {"function_name": "predict"},
+                    "status_code": "OK",
+                    "status_message": "",
+                    "attributes": {
+                        "mlflow.traceRequestId": trace.info.request_id,
+                        "mlflow.spanType": "UNKNOWN",
+                        "mlflow.spanFunctionName": "predict",
+                        "mlflow.spanInputs": '{"x": 2, "y": 5}',
+                        "mlflow.spanOutputs": "8",
+                    },
                     "events": [],
                 },
                 {
                     "name": "add_one_with_custom_name",
                     "context": {
-                        "request_id": trace.data.spans[1].context.request_id,
+                        "trace_id": trace.data.spans[1].context.trace_id,
                         "span_id": trace.data.spans[1].context.span_id,
                     },
-                    "span_type": "LLM",
-                    "parent_span_id": trace.data.spans[0].context.span_id,
+                    "parent_id": trace.data.spans[0].context.span_id,
                     "start_time": trace.data.spans[1].start_time,
                     "end_time": trace.data.spans[1].end_time,
-                    "status": {"status_code": "OK", "description": ""},
-                    "inputs": {"z": 7},
-                    "outputs": 8,
+                    "status_code": "OK",
+                    "status_message": "",
                     "attributes": {
-                        "delta": 1,
-                        "datetime": str(datetime_now),
-                        "metadata": {"foo": "bar"},
-                        "function_name": "add_one",
+                        "mlflow.traceRequestId": trace.info.request_id,
+                        "mlflow.spanType": "LLM",
+                        "mlflow.spanFunctionName": "add_one",
+                        "mlflow.spanInputs": '{"z": 7}',
+                        "mlflow.spanOutputs": "8",
+                        "delta": "1",
+                        "datetime": json.dumps(str(datetime_now)),
+                        "metadata": '{"foo": "bar"}',
                     },
                     "events": [],
                 },
@@ -115,7 +121,7 @@ def test_trace_serialize_pydantic_model():
         y: str
 
     data = MyModel(x=1, y="foo")
-    data_json = json.dumps(data, cls=_TraceJSONEncoder)
+    data_json = json.dumps(data, cls=TraceJSONEncoder)
     assert data_json == '{"x": 1, "y": "foo"}'
     assert json.loads(data_json) == {"x": 1, "y": "foo"}
 
@@ -147,7 +153,7 @@ def test_trace_serialize_langchain_base_message():
         type="chat",
     )
 
-    message_json = json.dumps(message, cls=_TraceJSONEncoder)
+    message_json = json.dumps(message, cls=TraceJSONEncoder)
     # LangChain message model contains a few more default fields actually. But we
     # only check if the following subset of the expected dictionary is present in
     # the loaded JSON rather than exact equality, because the LangChain BaseModel
