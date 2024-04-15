@@ -118,7 +118,6 @@ jobs:
             ONLY_LATEST="${{ fromJson(steps.get-options.outputs.result).only_latest }}"
             ONLY_LATEST_FLAG=$([ "$ONLY_LATEST" == "true" ] && echo "--only-latest" || echo "")
             FLAVORS="${{ fromJson(steps.get-options.outputs.result).flavors }}"
-            FLAVORS="sklearn,xgboost"
             python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML \
               --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG \
               --flavors "$FLAVORS"
