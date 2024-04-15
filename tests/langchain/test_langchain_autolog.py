@@ -3,7 +3,6 @@ import os
 from operator import itemgetter
 from typing import Any, List, Optional
 from unittest import mock
-import warnings
 
 import pandas as pd
 import pytest
@@ -34,8 +33,8 @@ from mlflow.utils.openai_utils import (
 )
 
 # TODO: This test helper is used outside the tracing module, we should move it to a common utils
-from tests.tracing.conftest import clear_singleton as clear_trace_singleton
-from tests.tracing.helper import deser_attributes  # noqa: F401
+from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
+from tests.tracing.helper import deser_attributes
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -99,7 +98,7 @@ def create_retriever(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
     embeddings = DeterministicDummyEmbeddings(size=5)
     db = FAISS.from_documents(docs, embeddings)
@@ -433,7 +432,9 @@ def test_agent_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 4
     for trace in traces:
-        spans = [(s.name, json.loads(s.attributes[SpanAttributeKey.SPAN_TYPE])) for s in trace.data.spans]
+        spans = [
+            (s.name, json.loads(s.attributes[SpanAttributeKey.SPAN_TYPE])) for s in trace.data.spans
+        ]
         assert spans == [
             ("AgentExecutor", "CHAIN"),
             ("LLMChain", "CHAIN"),
@@ -526,7 +527,9 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        spans = {(s.name, json.loads(s.attributes[SpanAttributeKey.SPAN_TYPE])) for s in trace.data.spans}
+        spans = {
+            (s.name, json.loads(s.attributes[SpanAttributeKey.SPAN_TYPE])) for s in trace.data.spans
+        }
         # Since the chain includes parallel execution, the order of some
         # spans is not deterministic.
         assert spans == {

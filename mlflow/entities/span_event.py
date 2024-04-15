@@ -2,7 +2,7 @@ import sys
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Dict, Sequence, Union
+from typing import Dict
 
 from opentelemetry.util.types import AttributeValue
 

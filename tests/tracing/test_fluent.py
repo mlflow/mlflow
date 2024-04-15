@@ -1,4 +1,3 @@
-import json
 import time
 from datetime import datetime
 from unittest import mock
@@ -8,6 +7,7 @@ import pytest
 import mlflow
 from mlflow.entities import SpanType, TraceStatus
 from mlflow.tracing.types.constant import TraceMetadataKey
+
 from tests.tracing.helper import deser_attributes
 
 

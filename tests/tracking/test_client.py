@@ -47,8 +47,8 @@ from mlflow.utils.mlflow_tags import (
 )
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.conftest import mock_client as mock_trace_client
-from tests.tracing.helper import deser_attributes  # noqa: F401
+from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
+from tests.tracing.helper import deser_attributes
 
 
 @pytest.fixture(autouse=True)
