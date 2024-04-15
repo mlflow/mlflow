@@ -25,7 +25,7 @@ def _validate_text_data(data, metric_name, col_specifier):
     if data is None or len(data) == 0:
         _logger.warning(
             f"Cannot calculate {metric_name} for empty inputs: "
-            "{col_specifier} is empty or the parameter is not specified. Skipping metric logging."
+            f"{col_specifier} is empty or the parameter is not specified. Skipping metric logging."
         )
         return False
 
