@@ -367,6 +367,8 @@ spark:
   models:
     minimum: "3.1.2"
     maximum: "3.5.1"
+    python:
+      "== dev": "3.9"
     java:
       "> 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -396,6 +398,8 @@ spark:
   autologging:
     minimum: "3.1.2"
     maximum: "3.5.1"
+    python:
+      "== dev": "3.9"
     java:
       ">= 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
