@@ -48,12 +48,12 @@ class MlflowSpanWrapper:
         return self._span.name
 
     @property
-    def start_time(self) -> int:
+    def start_time_ns(self) -> int:
         """The start time of the span in nanosecond."""
         return self._span._start_time
 
     @property
-    def end_time(self) -> Optional[int]:
+    def end_time_ns(self) -> Optional[int]:
         """The end time of the span in nanosecond."""
         return self._span._end_time
 
@@ -199,8 +199,8 @@ class MlflowSpanWrapper:
             parent_id=self.parent_id,
             status_code=self.status.status_code.value,
             status_message=self.status.description,
-            start_time=self.start_time,
-            end_time=self.end_time,
+            start_time=self.start_time_ns,
+            end_time=self.end_time_ns,
             # Convert from MappingProxyType class to a simple dict
             attributes=dict(self._span.attributes),
             events=[

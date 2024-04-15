@@ -122,7 +122,7 @@ class InMemoryTraceManager:
             # NB: the first span might not be a root span, so we can only
             # set trace_id here. Other information will be propagated from
             # the root span when it ends.
-            self._create_empty_trace(request_id, span.start_time)
+            self._create_empty_trace(request_id, span.start_time_ns)
 
         trace_data_dict = self._traces[request_id].span_dict
         trace_data_dict[span.span_id] = span

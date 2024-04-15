@@ -25,8 +25,8 @@ def test_wrapper_property():
 
     assert span.request_id == request_id
     assert span.span_id == span_id
-    assert span.start_time == start_time
-    assert span.end_time == end_time
+    assert span.start_time_ns == start_time
+    assert span.end_time_ns == end_time
     assert span.parent_id == parent_id
 
     span.set_inputs({"input": 1})
