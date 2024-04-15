@@ -10,7 +10,7 @@ fastai>=2.4.1
 spacy>=3.3.0
 # Required by mlflow.tensorflow
 tensorflow>=2.10.0
-# tensorflow-macos<=2.12.0  # Comment out the line above and uncomment this line if setting up dev
+# tensorflow-macos>=2.10.0  # Comment out the line above and uncomment this line if setting up dev
                             # environment on local ARM macOS.
                             # Only do this for the purpose of setting up the dev environment, do not
                             # commit this change to the repo.
