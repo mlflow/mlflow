@@ -136,7 +136,11 @@ environment manager. The following values are supported:
 - virtualenv: use virtualenv (and pyenv for Python version management)
 - conda: use conda
 
-If unspecified, default to None.
+If unspecified, default to None, then MLflow will automatically pick the env manager
+based on the model's flavor configuration.
+If model-uri is specified: if python version is specified in the flavor configuration
+and no java installation is required, then we use local environment. Otherwise we use virtualenv.
+If no model-uri is provided, we use virtualenv.
 """,
 )
 

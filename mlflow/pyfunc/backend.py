@@ -57,6 +57,9 @@ FLAVOR_SPECIFIC_APT_PACKAGES = {
 
 # Directory to store loaded model inside the Docker context directory
 _MODEL_DIR_NAME = "model_dir"
+LOCAL_ENV_MANAGER_ERROR_MESSAGE = "We cannot use 'LOCAL' environment manager "
+"for your model configuration. Please specify a virtualenv or conda environment "
+"manager instead with `--env-manager` argument."
 
 
 class PyFuncBackend(FlavorBackend):
@@ -67,8 +70,8 @@ class PyFuncBackend(FlavorBackend):
     def __init__(
         self,
         config,
+        env_manager,
         workers=1,
-        env_manager=None,
         install_mlflow=False,
         create_env_root_dir=False,
         env_root_dir=None,
@@ -392,7 +395,7 @@ class PyFuncBackend(FlavorBackend):
                 # installing python on ubuntu image is problematic and not recommended officially
                 # so we recommend using conda or virtualenv instead on ubuntu image
                 if env_manager == _EnvManager.LOCAL:
-                    raise MlflowException("Please specify a virtualenv or conda environment!")
+                    raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
             # shouldn't reach here but add this so we can validate base_image value above
             else:
                 raise MlflowException(f"Unexpected base image value '{base_image}'")
@@ -407,7 +410,7 @@ class PyFuncBackend(FlavorBackend):
             base_image = UBUNTU_BASE_IMAGE
             env_manager = self._env_manager or _EnvManager.VIRTUALENV
             if env_manager == _EnvManager.LOCAL:
-                raise MlflowException("Please specify a virtualenv or conda environment!")
+                raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
 
             model_install_steps = ""
             # If model_uri is not specified, dependencies are installed at runtime
