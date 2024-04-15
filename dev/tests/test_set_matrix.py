@@ -44,13 +44,16 @@ def mock_pypi_api(mock_responses):
 
 
 @contextmanager
-def mock_ml_package_versions_yml(src_base, src_ref):
+def mock_ml_package_versions_yml(src_base, src_ref=None):
     with tempfile.TemporaryDirectory() as tmp_dir:
         yml_base = Path(tmp_dir).joinpath("base.yml")
-        yml_ref = Path(tmp_dir).joinpath("ref.yml")
         yml_base.write_text(src_base)
-        yml_ref.write_text(src_ref)
-        yield ["--versions-yaml", str(yml_base), "--ref-versions-yaml", str(yml_ref)]
+        args = ["--versions-yaml", str(yml_base)]
+        if src_ref is not None:
+            yml_ref = Path(tmp_dir).joinpath("ref.yml")
+            yml_ref.write_text(src_ref)
+            args.extend(["--ref-versions-yaml", str(yml_ref)])
+        yield args
 
 
 MOCK_YAML_SOURCE = """
@@ -93,7 +96,7 @@ MOCK_PYPI_API_RESPONSES = {
 )
 @mock_pypi_api(MOCK_PYPI_API_RESPONSES)
 def test_flavors(flavors, expected):
-    with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
+    with mock_ml_package_versions_yml(MOCK_YAML_SOURCE) as path_args:
         flavors_args = [] if flavors is None else ["--flavors", flavors]
         matrix = generate_matrix([*path_args, *flavors_args])
         flavors = {x.flavor for x in matrix}

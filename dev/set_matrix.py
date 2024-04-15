@@ -468,6 +468,8 @@ def generate_matrix(args):
     config = read_yaml(args.versions_yaml)
     if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
         matrix = expand_config(config)
+        if args.flavors:
+            matrix = {x for x in matrix if x.flavor in args.flavors}
     else:
         matrix = set()
         mat = expand_config(config)
