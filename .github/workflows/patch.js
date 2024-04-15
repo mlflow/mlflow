@@ -6,8 +6,14 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
+  // Skip running this check on CD automation PRs
+  if (!body) {
+    core.info("Skipping processing because the PR has no body.");
+    return;
+  }
+
   const marker = "<!-- patch -->";
-  if (!body.includes(marker)) {
+  if (body && !body.includes(marker)) {
     return;
   }
 
