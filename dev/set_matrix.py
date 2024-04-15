@@ -477,15 +477,15 @@ def generate_matrix(args):
             ref_matrix = expand_config(ref_config)
             matrix.update(mat.difference(ref_matrix))
 
+        if args.flavors:
+            matrix.update({x for x in mat if x.flavor in args.flavors})
+
         if args.changed_files:
             matrix.update(apply_changed_files(args.changed_files, mat))
 
     # Apply the filtering arguments
     if args.no_dev:
         matrix = filter(lambda x: x.version != Version.create_dev(), matrix)
-
-    if args.flavors:
-        matrix = filter(lambda x: x.flavor in args.flavors, matrix)
 
     if args.versions:
         matrix = filter(lambda x: x.version in map(Version, args.versions), matrix)
