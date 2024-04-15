@@ -1,3 +1,4 @@
+import json
 import pytest
 
 import mlflow
@@ -51,9 +52,9 @@ def test_json_deserialization(mock_trace_client):
                 "status_code": "ERROR",
                 "status_message": "Exception: Error!",
                 "attributes": {
-                    "mlflow.traceRequestId": trace.info.request_id,
-                    "mlflow.spanType": "UNKNOWN",
-                    "mlflow.spanFunctionName": "predict",
+                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.spanType": '"UNKNOWN"',
+                    "mlflow.spanFunctionName": '"predict"',
                     "mlflow.spanInputs": '{"x": 2, "y": 5}',
                 },
                 # "events": ...,
@@ -70,8 +71,8 @@ def test_json_deserialization(mock_trace_client):
                 "status_code": "OK",
                 "status_message": "",
                 "attributes": {
-                    "mlflow.traceRequestId": trace.info.request_id,
-                    "mlflow.spanType": "UNKNOWN",
+                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.spanType": '"UNKNOWN"',
                 },
                 # "events": ...,
             },
@@ -88,9 +89,9 @@ def test_json_deserialization(mock_trace_client):
                 "status_message": "Exception: Error!",
                 "attributes": {
                     "delta": "1",
-                    "mlflow.traceRequestId": trace.info.request_id,
-                    "mlflow.spanType": "LLM",
-                    "mlflow.spanFunctionName": "always_fail",
+                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.spanType": '"LLM"',
+                    "mlflow.spanFunctionName": '"always_fail"',
                     "mlflow.spanInputs": "{}",
                 },
                 # "events": ...,

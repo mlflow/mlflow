@@ -1,5 +1,7 @@
+import json
 import time
 from dataclasses import dataclass
+from typing import Dict
 
 from opentelemetry.sdk.trace import ReadableSpan
 
@@ -42,3 +44,10 @@ def create_mock_otel_span(
         start_time=start_time,
         end_time=end_time,
     )
+
+
+def deser_attributes(attributes: Dict[str, str]):
+    """
+    Deserialize the attribute values from JSON strings.
+    """
+    return {key: json.loads(value) for key, value in attributes.items()}

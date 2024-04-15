@@ -53,6 +53,7 @@ class InMemoryTraceManager:
         return cls._instance
 
     def __init__(self):
+        # Storing request_id -> trace mapping
         self._traces: Dict[str, _Trace] = TTLCache(
             maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
             ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),

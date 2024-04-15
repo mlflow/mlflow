@@ -1,3 +1,4 @@
+import json
 import logging
 from collections import Counter
 from typing import Optional, Sequence
@@ -53,7 +54,7 @@ class MlflowSpanExporter(SpanExporter):
                 self._export_trace(span)
 
     def _export_trace(self, root_span: ReadableSpan):
-        request_id = root_span.attributes.get(SpanAttributeKey.REQUEST_ID)
+        request_id = json.loads(root_span.attributes.get(SpanAttributeKey.REQUEST_ID))
         trace = self._trace_manager.pop_trace(request_id)
         if trace is None:
             _logger.debug(f"Trace data with request ID {request_id} not found.")

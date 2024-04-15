@@ -8,6 +8,7 @@ import pytest
 import mlflow
 from mlflow.entities import SpanType, TraceStatus
 from mlflow.tracing.types.constant import TraceMetadataKey
+from tests.tracing.helper import deser_attributes
 
 
 def test_trace(mock_client):
@@ -50,34 +51,34 @@ def test_trace(mock_client):
     root_span = span_name_to_span["predict"]
     assert root_span.start_time // 1e6 == trace.info.timestamp_ms
     assert root_span.parent_id is None
-    assert root_span.attributes == {
+    assert deser_attributes(root_span.attributes) == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanType": "UNKNOWN",
-        "mlflow.spanInputs": '{"x": 2, "y": 5}',
-        "mlflow.spanOutputs": "64",
+        "mlflow.spanInputs": {"x": 2, "y": 5},
+        "mlflow.spanOutputs": 64,
     }
 
     child_span_1 = span_name_to_span["add_one_with_custom_name"]
     assert child_span_1.parent_id == root_span.context.span_id
-    assert child_span_1.attributes == {
-        "delta": "1",
+    assert deser_attributes(child_span_1.attributes) == {
+        "delta": 1,
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanType": "LLM",
-        "mlflow.spanInputs": '{"z": 7}',
-        "mlflow.spanOutputs": "8",
+        "mlflow.spanInputs": {"z": 7},
+        "mlflow.spanOutputs": 8,
     }
 
     child_span_2 = span_name_to_span["square"]
     assert child_span_2.parent_id == root_span.context.span_id
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
-    assert child_span_2.attributes == {
+    assert deser_attributes(child_span_2.attributes) == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanFunctionName": "square",
         "mlflow.spanType": "UNKNOWN",
-        "mlflow.spanInputs": '{"t": 8}',
-        "mlflow.spanOutputs": "64",
+        "mlflow.spanInputs": {"t": 8},
+        "mlflow.spanOutputs": 64,
     }
 
 
@@ -184,32 +185,32 @@ def test_start_span_context_manager(mock_client):
     assert root_span.start_time // 1e6 == trace.info.timestamp_ms
     assert (root_span.end_time - root_span.start_time) // 1e6 == trace.info.execution_time_ms
     assert root_span.parent_id is None
-    assert root_span.attributes == {
+    assert deser_attributes(root_span.attributes) == {
         "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "UNKNOWN",
-        "mlflow.spanInputs": '{"x": 1, "y": 2}',
-        "mlflow.spanOutputs": "25",
+        "mlflow.spanInputs": {"x": 1, "y": 2},
+        "mlflow.spanOutputs": 25,
     }
 
     # Span with duplicate name should be renamed to have an index number like "_1", "_2", ...
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_id == root_span.context.span_id
-    assert child_span_1.attributes == {
-        "delta": "2",
-        "time": json.dumps(str(datetime_now)),
+    assert deser_attributes(child_span_1.attributes) == {
+        "delta": 2,
+        "time": str(datetime_now),
         "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "LLM",
-        "mlflow.spanInputs": "3",
-        "mlflow.spanOutputs": "5",
+        "mlflow.spanInputs": 3,
+        "mlflow.spanOutputs": 5,
     }
 
     child_span_2 = span_name_to_span["child_span_2"]
     assert child_span_2.parent_id == root_span.context.span_id
-    assert child_span_2.attributes == {
+    assert deser_attributes(child_span_2.attributes) == {
         "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "UNKNOWN",
-        "mlflow.spanInputs": '{"t": 5}',
-        "mlflow.spanOutputs": "25",
+        "mlflow.spanInputs": {"t": 5},
+        "mlflow.spanOutputs": 25,
     }
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
 
@@ -266,19 +267,19 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     assert root_span.start_time // 1e6 == trace.info.timestamp_ms
     assert (root_span.end_time - root_span.start_time) // 1e6 == trace.info.execution_time_ms
     assert root_span.parent_id is None
-    assert root_span.attributes == {
+    assert deser_attributes(root_span.attributes) == {
         "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "UNKNOWN",
-        "mlflow.spanInputs": '{"x": 1, "y": 2}',
-        "mlflow.spanOutputs": "5",
+        "mlflow.spanInputs": {"x": 1, "y": 2},
+        "mlflow.spanOutputs": 5,
     }
 
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_id == root_span.context.span_id
-    assert child_span_1.attributes == {
-        "delta": "2",
+    assert deser_attributes(child_span_1.attributes) == {
+        "delta": 2,
         "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "LLM",
-        "mlflow.spanInputs": "3",
-        "mlflow.spanOutputs": "5",
+        "mlflow.spanInputs": 3,
+        "mlflow.spanOutputs": 5,
     }

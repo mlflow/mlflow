@@ -47,7 +47,8 @@ from mlflow.utils.mlflow_tags import (
 )
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
+from tests.tracing.conftest import mock_client as mock_trace_client
+from tests.tracing.helper import deser_attributes  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -314,30 +315,30 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert root_span.start_time // 1e6 == trace_info.timestamp_ms
     assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
     assert root_span.parent_id is None
-    assert root_span.attributes == {
+    assert deser_attributes(root_span.attributes) == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
-        "mlflow.spanInputs": '{"x": 1, "y": 2}',
-        "mlflow.spanOutputs": '{"output": 25}',
+        "mlflow.spanInputs": {"x": 1, "y": 2},
+        "mlflow.spanOutputs": {"output": 25},
     }
 
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_id == root_span.context.span_id
-    assert child_span_1.attributes == {
+    assert deser_attributes(child_span_1.attributes) == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "LLM",
-        "mlflow.spanInputs": '{"z": 3}',
-        "mlflow.spanOutputs": '{"output": 5}',
-        "delta": "2",
+        "mlflow.spanInputs": {"z": 3},
+        "mlflow.spanOutputs": {"output": 5},
+        "delta": 2,
     }
 
     child_span_2 = span_name_to_span["child_span_2"]
     assert child_span_2.parent_id == root_span.context.span_id
-    assert child_span_2.attributes == {
+    assert deser_attributes(child_span_2.attributes) == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
-        "mlflow.spanInputs": '{"t": 5}',
-        "mlflow.spanOutputs": '{"output": 25}',
+        "mlflow.spanInputs": {"t": 5},
+        "mlflow.spanOutputs": {"output": 25},
     }
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
 

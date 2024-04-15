@@ -1,3 +1,4 @@
+import json
 import time
 
 import pytest
@@ -36,10 +37,10 @@ def test_wrapper_property():
     assert span.inputs == {"input": 1}
     assert span.outputs == 2
     assert mock_otel_span._attributes == {
-        "mlflow.traceRequestId": request_id,
+        "mlflow.traceRequestId": json.dumps(request_id),
         "mlflow.spanInputs": '{"input": 1}',
         "mlflow.spanOutputs": "2",
-        "mlflow.spanType": "LLM",
+        "mlflow.spanType": '"LLM"',
         "key": "3",
     }
 

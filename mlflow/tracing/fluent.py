@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import json
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
@@ -89,7 +90,7 @@ def trace(
             span_name = name or fn.__name__
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
-                span._set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__, serialize=False)
+                span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 span.set_inputs(capture_function_input_args(fn, args, kwargs))
                 result = fn(*args, **kwargs)
                 span.set_outputs(result)
@@ -263,9 +264,10 @@ def get_current_active_span():
         The current active span if exists, otherwise None.
     """
     otel_span = trace_api.get_current_span()
+    # NonRecordingSpan is returned if a tracer is not instantiated.
     if otel_span is None or isinstance(otel_span, trace_api.NonRecordingSpan):
         return None
 
     trace_manager = InMemoryTraceManager.get_instance()
-    request_id = otel_span.attributes.get(SpanAttributeKey.REQUEST_ID)
+    request_id = json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
     return trace_manager.get_span_from_id(request_id, otel_span.context.span_id)

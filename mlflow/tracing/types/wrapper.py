@@ -25,8 +25,11 @@ class MlflowSpanWrapper:
 
     def __init__(self, span: trace_api.Span, request_id: str, span_type: str = SpanType.UNKNOWN):
         self._span = span
-        self._set_attribute(SpanAttributeKey.REQUEST_ID, request_id, serialize=False)
-        self._set_attribute(SpanAttributeKey.SPAN_TYPE, span_type, serialize=False)
+        # The request ID is saved as a serialized attribute in the final Span object, however,
+        # we also keep it as a separate field to avoid deserializing it frequently.
+        self._request_id = request_id
+        self.set_attribute(SpanAttributeKey.REQUEST_ID, request_id)
+        self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
 
     @property
     def request_id(self) -> str:
@@ -35,7 +38,7 @@ class MlflowSpanWrapper:
         Request ID is equivalent to the trace ID in OpenTelemetry, but generated
         differently by the tracing backend.
         """
-        return self._span._attributes.get(SpanAttributeKey.REQUEST_ID, None)
+        return self._request_id
 
     @property
     def span_id(self) -> str:
@@ -83,11 +86,11 @@ class MlflowSpanWrapper:
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
-        self._set_attribute(SpanAttributeKey.INPUTS, inputs, serialize=True)
+        self.set_attribute(SpanAttributeKey.INPUTS, inputs)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
-        self._set_attribute(SpanAttributeKey.OUTPUTS, outputs, serialize=True)
+        self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
     def set_attributes(self, attributes: Dict[str, Any]):
         """
@@ -106,9 +109,6 @@ class MlflowSpanWrapper:
 
     def set_attribute(self, key: str, value: Any):
         """Set a single attribute to the span."""
-        self._set_attribute(key, value)
-
-    def _set_attribute(self, key: str, value: Any, serialize=True):
         if not isinstance(key, str):
             _logger.warning(f"Attribute key must be a string, but got {type(key)}. Skipping.")
             return
@@ -116,9 +116,7 @@ class MlflowSpanWrapper:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        if serialize:
-            value = json.dumps(value, cls=TraceJSONEncoder)
-        self._span.set_attribute(key, value)
+        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder))
 
     def get_attribute(self, key: str) -> Optional[AttributeValue]:
         """
@@ -130,7 +128,7 @@ class MlflowSpanWrapper:
         Returns:
             The value of the attribute if it exists, otherwise None.
         """
-        return self._span.attributes.get(key, None)
+        return self._span.attributes.get(key)
 
     def set_status(self, status: Union[SpanStatus, str]):
         """
@@ -247,11 +245,11 @@ class NoOpMlflowSpanWrapper:
         return None
 
     @property
-    def start_time(self):
+    def start_time_ns(self):
         return None
 
     @property
-    def end_time(self):
+    def end_time_ns(self):
         return None
 
     @property
@@ -284,9 +282,6 @@ class NoOpMlflowSpanWrapper:
         pass
 
     def set_attribute(self, key: str, value: Any):
-        pass
-
-    def _set_attribute(self, key: str, value: Any, serialize=True):
         pass
 
     def set_status(self, status: SpanStatus):
