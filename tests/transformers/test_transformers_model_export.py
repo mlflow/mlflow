@@ -59,6 +59,7 @@ from tests.helper_functions import (
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
+
 # NB: Some pipelines under test in this suite come very close or outright exceed the
 # default runner containers specs of 7GB RAM. Due to this inability to run the suite without
 # generating a SIGTERM Error (143), some tests are marked as local only.
