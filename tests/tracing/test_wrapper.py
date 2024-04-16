@@ -15,9 +15,9 @@ def test_wrapper_property():
     start_time = time.time_ns()
     end_time = start_time + 1_000_000
     request_id = "tr-12345"
-    trace_id = "12345"
-    span_id = "test_span_id"
-    parent_id = "parent_id"
+    trace_id = 12345
+    span_id = 111
+    parent_id = 222
 
     mock_otel_span = create_mock_otel_span(
         trace_id, span_id, parent_id=parent_id, start_time=start_time, end_time=end_time
@@ -25,10 +25,11 @@ def test_wrapper_property():
     span = MlflowSpanWrapper(mock_otel_span, request_id=request_id, span_type=SpanType.LLM)
 
     assert span.request_id == request_id
-    assert span.span_id == span_id
+    assert span._trace_id == "0x0000000000003039"  # 12345
+    assert span.span_id == "0x000000000000006f"  # 111
     assert span.start_time_ns == start_time
     assert span.end_time_ns == end_time
-    assert span.parent_id == parent_id
+    assert span.parent_id == "0x00000000000000de"  # 222
 
     span.set_inputs({"input": 1})
     span.set_outputs(2)

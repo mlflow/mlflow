@@ -1,13 +1,13 @@
+from functools import lru_cache
 import json
 import logging
 from typing import Any, Dict, Optional, Union
 
 from opentelemetry import trace as trace_api
-from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, SpanType, TraceStatus
 from mlflow.tracing.types.constant import SpanAttributeKey
-from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils import TraceJSONEncoder, format_span_id, format_trace_id
 
 _logger = logging.getLogger(__name__)
 
@@ -25,25 +25,31 @@ class MlflowSpanWrapper:
 
     def __init__(self, span: trace_api.Span, request_id: str, span_type: str = SpanType.UNKNOWN):
         self._span = span
-        # The request ID is saved as a serialized attribute in the final Span object, however,
-        # we also keep it as a separate field to avoid deserializing it frequently.
-        self._request_id = request_id
         self.set_attribute(SpanAttributeKey.REQUEST_ID, request_id)
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
 
     @property
+    @lru_cache(maxsize=1)
     def request_id(self) -> str:
         """
         The request ID of the span, a unique identifier for the trace it belongs to.
         Request ID is equivalent to the trace ID in OpenTelemetry, but generated
         differently by the tracing backend.
         """
-        return self._request_id
+        return self.get_attribute(SpanAttributeKey.REQUEST_ID)
 
     @property
     def span_id(self) -> str:
         """The ID of the span. This is only unique within a trace."""
-        return self._span.get_span_context().span_id
+        return format_span_id(self._span.context.span_id)
+
+    @property
+    def _trace_id(self) -> str:
+        """
+        The OpenTelemetry trace ID of the span.
+        Note that this should not be exposed to the user, instead, use request_id as an unique identifier for a trace.
+        """
+        return format_trace_id(self._span.context.trace_id)
 
     @property
     def name(self) -> str:
@@ -65,7 +71,7 @@ class MlflowSpanWrapper:
         """The span ID of the parent span."""
         if self._span.parent is None:
             return None
-        return self._span.parent.span_id
+        return format_span_id(self._span.parent.span_id)
 
     @property
     def status(self) -> SpanStatus:
@@ -118,7 +124,7 @@ class MlflowSpanWrapper:
         #   for the simplicity in deserialization process.
         self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder))
 
-    def get_attribute(self, key: str) -> Optional[AttributeValue]:
+    def get_attribute(self, key: str) -> Optional[Any]:
         """
         Get a single attribute value from the span.
 
@@ -128,7 +134,8 @@ class MlflowSpanWrapper:
         Returns:
             The value of the attribute if it exists, otherwise None.
         """
-        return self._span.attributes.get(key)
+        serialized_value = self._span.attributes.get(key)
+        return json.loads(serialized_value) if serialized_value else None
 
     def set_status(self, status: Union[SpanStatus, str]):
         """
@@ -191,7 +198,7 @@ class MlflowSpanWrapper:
         return Span(
             name=self._span.name,
             context=SpanContext(
-                trace_id=self._span.get_span_context().trace_id,
+                trace_id=self._trace_id,
                 span_id=self.span_id,
             ),
             parent_id=self.parent_id,
@@ -211,6 +218,8 @@ class MlflowSpanWrapper:
                 for event in self._span.events
             ],
         )
+
+
 
 
 class NoOpMlflowSpanWrapper:

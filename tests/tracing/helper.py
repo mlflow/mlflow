@@ -1,13 +1,18 @@
 import json
 import time
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 from opentelemetry.sdk.trace import ReadableSpan
 
 
 def create_mock_otel_span(
-    trace_id, span_id, name="test_span", parent_id=None, start_time=None, end_time=None
+    trace_id: int,
+    span_id: int,
+    name: str = "test_span",
+    parent_id: Optional[int] = None,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None
 ):
     """
     Create a mock OpenTelemetry span for testing purposes.

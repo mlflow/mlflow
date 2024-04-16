@@ -1,7 +1,10 @@
+from functools import lru_cache
 import inspect
 import json
 import logging
 from typing import Any, Dict
+
+from opentelemetry import trace as trace_api
 
 from packaging.version import Version
 
@@ -61,3 +64,20 @@ class TraceJSONEncoder(json.JSONEncoder):
             return super().default(obj)
         except TypeError:
             return str(obj)
+
+
+@lru_cache(maxsize=1)
+def format_span_id(span_id: int) -> str:
+    """
+    Format the given integer span ID to a hex string following the OpenTelemetry's convention.
+    # https://github.com/open-telemetry/opentelemetry-python/blob/9398f26ecad09e02ad044859334cd4c75299c3cd/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L507-L508
+    """
+    return f"0x{trace_api.format_span_id(span_id)}"
+
+
+@lru_cache(maxsize=1)
+def format_trace_id(trace_id: int) -> str:
+    """
+    Format the given integer trace ID to a hex string.
+    """
+    return f"0x{trace_api.format_span_id(trace_id)}"

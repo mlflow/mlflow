@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 from dataclasses import dataclass, field
@@ -31,8 +32,9 @@ class _Trace:
         for span in self.span_dict.values():
             trace_data.spans.append(span.to_mlflow_span())
             if span.parent_id is None:
-                trace_data.request = span.get_attribute(SpanAttributeKey.INPUTS)
-                trace_data.response = span.get_attribute(SpanAttributeKey.OUTPUTS)
+                # Not using span.get_attribute to get serialized value directly.
+                trace_data.request = span._span.attributes.get(SpanAttributeKey.INPUTS)
+                trace_data.response = span._span.attributes.get(SpanAttributeKey.OUTPUTS)
         return Trace(self.info, trace_data)
 
 

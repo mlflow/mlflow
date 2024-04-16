@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from unittest.mock import MagicMock
 
+from mlflow.entities.span_context import SpanContext
 from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.entities import Span, TraceStatus
@@ -14,34 +15,17 @@ from mlflow.tracing.types.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
-
-
-@dataclass
-class _MockSpanContext:
-    trace_id: str
-    span_id: str
-
-
-class _MockOTelSpan(ReadableSpan):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._parent = kwargs.get("parent", None)
-        self._attributes = {}
-
-    def set_attribute(self, key, value):
-        self._attributes[key] = value
+from tests.tracing.helper import create_mock_otel_span
 
 
 def test_export():
-    trace_id = "trace_id"
-    request_id = "tr-123"
-    otel_span_root = _MockOTelSpan(
+    trace_id = 12345
+    request_id = f"tr-{trace_id}"
+    otel_span_root = create_mock_otel_span(
         name="test_span",
-        context=_MockSpanContext(trace_id, "span_id_1"),
-        parent=None,
-        attributes={
-            "key1": "value1",
-        },
+        trace_id=trace_id,
+        span_id=1,
+        parent_id=None,
         start_time=0,
         end_time=4_000_000,  # nano seconds
     )
@@ -49,22 +33,21 @@ def test_export():
     root_span.set_inputs({"input1": "very long input" * 100})
     root_span.set_outputs({"output": "very long output" * 100})
 
-    otel_span_child_1 = _MockOTelSpan(
+    otel_span_child_1 = create_mock_otel_span(
         name="test_span_child_1",
-        context=_MockSpanContext(trace_id, "span_id_2"),
-        parent=otel_span_root.context,
-        attributes={
-            "key2": "value2",
-        },
+        trace_id=trace_id,
+        span_id=2,
+        parent_id=1,
         start_time=1_000_000,
         end_time=2_000_000,
     )
     span_child_1 = MlflowSpanWrapper(otel_span_child_1, request_id=request_id)
 
-    otel_span_child_2 = _MockOTelSpan(
+    otel_span_child_2 = create_mock_otel_span(
         name="test_span_child_2",
-        context=_MockSpanContext(trace_id, "span_id_3"),
-        parent=otel_span_root.context,
+        trace_id=trace_id,
+        span_id=3,
+        parent_id=1,
         start_time=2_000_000,
         end_time=3_000_000,
     )
@@ -121,7 +104,7 @@ def test_deduplicate_span_names():
     spans = [
         Span(
             name=span_name,
-            context=_MockSpanContext("trace_id", span_id=i),
+            context=SpanContext("trace_id", span_id=i),
             parent_id=None,
             status_code=TraceStatus.OK.value,
             status_message="",
