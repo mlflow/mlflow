@@ -88,8 +88,13 @@ class InMemoryTraceManager:
         try:
             tracer = get_tracer(__name__)
             if parent_id:
-                parent_span = self.get_span_from_id(request_id, parent_id)._span
-                context = trace_api.set_span_in_context(parent_span)
+                parent_span = self.get_span_from_id(request_id, parent_id)
+                if parent_span is None:
+                    raise MlflowException(
+                        f"Parent span with ID '{parent_id}' not found.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+                context = trace_api.set_span_in_context(parent_span._span)
             else:
                 context = None
 
