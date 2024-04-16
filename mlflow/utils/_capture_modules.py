@@ -111,7 +111,7 @@ def parse_args():
     parser.add_argument("--output-file", required=True)
     parser.add_argument("--sys-path", required=True)
     parser.add_argument("--module-to-throw", required=False)
-    parser.add_argument("--error-file", required=True)
+    parser.add_argument("--error-file", required=False)
     return parser.parse_args()
 
 
