@@ -153,7 +153,7 @@ def create_retriever(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
     embeddings = DeterministicDummyEmbeddings(size=5)
     db = FAISS.from_documents(docs, embeddings)
