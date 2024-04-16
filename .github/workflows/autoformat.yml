@@ -75,15 +75,11 @@ jobs:
         run: |
           changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
           protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
-          python=$([[ -z $(echo "$changed_files" | grep '\.py$\|^pyproject\.toml$') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
-          requirements=$([[ -z $(echo "$changed_files" | grep '^requirements/.*\.txt$') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
-          echo "python=$python" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
-          echo "requirements=$requirements" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
@@ -93,16 +89,15 @@ jobs:
           git fetch base ${{ needs.check-comment.outputs.base_ref }}
           git merge base/${{ needs.check-comment.outputs.base_ref }}
       - uses: ./.github/actions/setup-python
+      # ************************************************************************
+      # pre-commit
+      # ************************************************************************
       - run: |
           pip install -r requirements/lint-requirements.txt
           # TODO: Use a precompiled binary once it's available: https://github.com/tamasfe/taplo/issues/542
           cargo install taplo-cli@0.9.0 --locked
           pre-commit install
-      # ************************************************************************
-      # Prettier
-      # ************************************************************************
-      - run: |
-          pre-commit run prettier --all-files --color=always || true
+          pre-commit run --all-files --color=always || true
       # ************************************************************************
       # protos
       # ************************************************************************
@@ -119,15 +114,6 @@ jobs:
       - if: steps.diff.outputs.protos == 'true'
         run: |
           ./dev/generate-protos.sh
-      # ************************************************************************
-      # python
-      # ************************************************************************
-      - if: steps.diff.outputs.python == 'true'
-        run: |
-          ruff check --fix .
-          ruff format .
-          taplo format $(git ls-files '*.toml')
-          blacken-docs $(git ls-files '*.rst' '*.md') || true
       # ************************************************************************
       # js
       # ************************************************************************
@@ -155,12 +141,6 @@ jobs:
         working-directory: docs
         run: |
           ./build-rdoc.sh
-      # ************************************************************************
-      # pyproject
-      # ************************************************************************
-      - if: steps.diff.outputs.requirements == 'true'
-        run: |
-          python ./dev/pyproject.py
       # ************************************************************************
       # Upload patch
       # ************************************************************************
