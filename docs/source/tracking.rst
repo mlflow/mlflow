@@ -194,7 +194,7 @@ MLflow supports two types of storage for the backend: **file-system-based** like
 
     tracking/artifacts-stores
 
-Artifact store persists (typicaly large) arifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
+Artifact store persists (typicaly large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
 images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). MLflow stores artifacts ina a
 local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage.
 
