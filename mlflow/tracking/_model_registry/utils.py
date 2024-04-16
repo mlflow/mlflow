@@ -15,6 +15,7 @@ from mlflow.tracking._tracking_service.utils import (
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import (
+    get_databricks_runtime_version,
     get_databricks_host_creds,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
@@ -81,6 +82,12 @@ def _get_registry_uri_from_spark_session():
     session = _get_active_spark_session()
     if session is None:
         return None
+
+    dbr_version = get_databricks_runtime_version()
+    if dbr_version and dbr_version.startswith("client."):
+        # Connected to Serverless
+        return "databricks-uc"
+
     return session.conf.get("spark.mlflow.modelRegistryUri", None)
 
 
