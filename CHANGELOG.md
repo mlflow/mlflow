@@ -22,7 +22,7 @@ With this release, we're pleased to introduce several major new features that ar
 
 - **Streaming Support for LangChain**: The newly introduced `predict_stream` API for LangChain models supports streaming outputs, enabling real-time output for chain invocation via pyfunc. This feature is pivotal for applications requiring continuous data processing and instant feedback. (#11490, #11580 @WeichenXu123)
 
-### Security Enhancements and Bug Fixes:
+### Security Fixes:
 
 - **Security Patch**: Addressed a critical Local File Read/Path Traversal vulnerability within the Model Registry, ensuring robust protection against unauthorized access and securing user data integrity. (#11376, @WeichenXu123)
 
