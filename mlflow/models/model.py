@@ -635,14 +635,16 @@ class Model:
                     _ORIGINAL_REQ_FILE_NAME,
                 ]:
                     src_file_path = os.path.join(local_path, file_name)
-                    dest_file_path = os.path.join(metadata_path, file_name)
-                    shutil.copyfile(src_file_path, dest_file_path)
+                    if os.path.exists(src_file_path):
+                        dest_file_path = os.path.join(metadata_path, file_name)
+                        shutil.copyfile(src_file_path, dest_file_path)
             else:
                 os.makedirs(metadata_path, exist_ok=True)
                 for file_name in METADATA_FILES:
                     src_file_path = os.path.join(local_path, file_name)
-                    dest_file_path = os.path.join(metadata_path, file_name)
-                    shutil.copyfile(src_file_path, dest_file_path)
+                    if os.path.exists(src_file_path):
+                        dest_file_path = os.path.join(metadata_path, file_name)
+                        shutil.copyfile(src_file_path, dest_file_path)
 
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a
