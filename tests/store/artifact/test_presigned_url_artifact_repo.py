@@ -311,3 +311,32 @@ def test_upload_to_cloud_fail():
 
     assert exc_info.value.error_code == exc_code
     assert str(exc_info.value) == f"{exc_code}: {exc_message}"
+
+
+def test_upload():
+    import os
+
+    from sklearn import datasets
+    from sklearn.ensemble import RandomForestClassifier
+
+    import mlflow
+
+    os.environ["MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED"] = "True"
+
+    mlflow.set_registry_uri("databricks-uc://arclight-dmk")
+
+    with mlflow.start_run():
+        # Train a sklearn model on the iris dataset
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+        clf = RandomForestClassifier(max_depth=7)
+        clf.fit(X, y)
+        # Take the first row of the training dataset as the model input example.
+        input_example = X.iloc[[0]]
+        # Log the model and register it as a new version in UC.
+        mlflow.sklearn.log_model(
+            sk_model=clf,
+            artifact_path="model",
+            # The signature is automatically inferred from the input example and its predicted output.
+            input_example=input_example,
+            registered_model_name="arclight-catalog.default.arclight-model",
+        )
