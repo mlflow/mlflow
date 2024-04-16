@@ -63,8 +63,6 @@ _LLM_V1_EMBEDDING_INPUT_KEY = "input"
 # only contain number, letters, and dashes.
 _LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/([0-9a-zA-Z-]+)_([^\/]+)/$")
 
-model_data_artifact_paths = [SENTENCE_TRANSFORMERS_DATA_PATH]
-
 _logger = logging.getLogger(__name__)
 
 

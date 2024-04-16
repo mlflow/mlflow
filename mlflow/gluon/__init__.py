@@ -46,8 +46,6 @@ _MODEL_SAVE_PATH = "net"
 
 _MODEL_DATA_PATH = "data"
 
-model_data_artifact_paths = [_MODEL_DATA_PATH]
-
 
 @deprecated(since="2.5.0")
 def load_model(model_uri, ctx, dst_path=None):

@@ -95,8 +95,6 @@ _MODEL_TYPE_TF2_MODULE = "tf2-module"
 _KERAS_MODEL_DATA_PATH = "data"
 _TF2MODEL_SUBPATH = "tf2model"
 
-model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
-
 
 MLflowCallback = MlflowCallback  # for backwards compatibility
 

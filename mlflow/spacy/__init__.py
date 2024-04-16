@@ -47,7 +47,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 FLAVOR_NAME = "spacy"
 
 _MODEL_DATA_SUBPATH = "model.spacy"
-model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
 
 _logger = logging.getLogger(__name__)
 

@@ -89,7 +89,6 @@ _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
 _MODEL_DATA_SUBPATH = "model.pkl"
-model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
 
 
 def _gen_estimators_to_patch():
