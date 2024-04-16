@@ -759,7 +759,10 @@ def test_host_invalid_value():
             python_model=MyModel(), artifact_path="test_model", registered_model_name="model"
         )
 
-    with mock.patch("mlflow.models.cli.get_flavor_backend", return_value=PyFuncBackend({})):
+    with mock.patch(
+        "mlflow.models.cli.get_flavor_backend",
+        return_value=PyFuncBackend({}, env_manager=_EnvManager.VIRTUALENV),
+    ):
         with pytest.raises(ShellCommandException, match=r"Non-zero exit code: 1"):
             CliRunner().invoke(
                 models_cli.serve,

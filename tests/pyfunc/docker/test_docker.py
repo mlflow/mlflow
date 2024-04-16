@@ -15,7 +15,7 @@ from mlflow.models import Model
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.env_manager import VIRTUALENV
+from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
 from mlflow.version import VERSION
 
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
@@ -62,7 +62,7 @@ def add_spark_flavor_to_model(model_path):
 @dataclass
 class Param:
     expected_dockerfile: str
-    env_manager: str = VIRTUALENV
+    env_manager: Optional[str] = None
     mlflow_home: Optional[str] = None
     install_mlflow: bool = False
     enable_mlserver: bool = False
@@ -74,6 +74,9 @@ class Param:
     "params",
     [
         Param(expected_dockerfile="Dockerfile_default"),
+        Param(expected_dockerfile="Dockerfile_default", env_manager=LOCAL),
+        Param(expected_dockerfile="Dockerfile_java_flavor", env_manager=VIRTUALENV),
+        Param(expected_dockerfile="Dockerfile_conda", env_manager=CONDA),
         Param(install_mlflow=True, expected_dockerfile="Dockerfile_install_mlflow"),
         Param(enable_mlserver=True, expected_dockerfile="Dockerfile_enable_mlserver"),
         Param(mlflow_home=".", expected_dockerfile="Dockerfile_with_mlflow_home"),
@@ -118,7 +121,7 @@ def test_generate_dockerfile_for_java_flavor(tmp_path):
     model_path = save_model(tmp_path)
     add_spark_flavor_to_model(model_path)
 
-    backend = get_flavor_backend(model_path, docker_build=True)
+    backend = get_flavor_backend(model_path, docker_build=True, env_manager=None)
 
     backend.generate_dockerfile(
         model_uri=model_path,
