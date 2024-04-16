@@ -50,7 +50,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 FLAVOR_NAME = "paddle"
 
 _MODEL_DATA_SUBPATH = "model"
-model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
 
 _logger = logging.getLogger(__name__)
 

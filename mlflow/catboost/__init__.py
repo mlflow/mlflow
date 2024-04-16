@@ -61,8 +61,6 @@ _SAVE_FORMAT_KEY = "save_format"
 _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.cb"
 
-model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
-
 _logger = logging.getLogger(__name__)
 
 

@@ -57,6 +57,12 @@ _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
+METADATA_FILES = [
+    MLMODEL_FILE_NAME,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+]
 
 
 class ModelInfo:
@@ -625,31 +631,20 @@ class Model:
                 # wheeled model updates several metadata files in original model directory
                 # copy these updated metadata files to the 'metadata' subdirectory
                 os.makedirs(metadata_path, exist_ok=True)
-                for file_name in [
-                    MLMODEL_FILE_NAME,
-                    _CONDA_ENV_FILE_NAME,
-                    _REQUIREMENTS_FILE_NAME,
-                    _PYTHON_ENV_FILE_NAME,
+                for file_name in METADATA_FILES + [
                     _ORIGINAL_REQ_FILE_NAME,
                 ]:
                     src_file_path = os.path.join(local_path, file_name)
-                    dest_file_path = os.path.join(metadata_path, file_name)
-                    shutil.copyfile(src_file_path, dest_file_path)
-            elif hasattr(flavor, "model_data_artifact_paths"):
-                # Copy metadata files to the 'metadata' subdirectory
-                model_data_subpaths = flavor.model_data_artifact_paths
-                non_metadata_subpaths = ["code", *model_data_subpaths]
-                subpaths_list = os.listdir(local_path)
+                    if os.path.exists(src_file_path):
+                        dest_file_path = os.path.join(metadata_path, file_name)
+                        shutil.copyfile(src_file_path, dest_file_path)
+            else:
                 os.makedirs(metadata_path, exist_ok=True)
-                for subpath_name in subpaths_list:
-                    if subpath_name not in non_metadata_subpaths:
-                        src_file_path = os.path.join(local_path, subpath_name)
-                        dest_file_path = os.path.join(metadata_path, subpath_name)
-
-                        if os.path.isfile(src_file_path):
-                            shutil.copyfile(src_file_path, dest_file_path)
-                        else:
-                            shutil.copytree(src_file_path, dest_file_path)
+                for file_name in METADATA_FILES:
+                    src_file_path = os.path.join(local_path, file_name)
+                    if os.path.exists(src_file_path):
+                        dest_file_path = os.path.join(metadata_path, file_name)
+                        shutil.copyfile(src_file_path, dest_file_path)
 
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a

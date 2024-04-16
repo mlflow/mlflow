@@ -47,8 +47,6 @@ _logger = logging.getLogger(__name__)
 
 _MODEL_DATA_PATH = "data"
 
-model_data_artifact_paths = [_MODEL_DATA_PATH]
-
 
 def get_default_pip_requirements():
     """

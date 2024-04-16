@@ -49,8 +49,6 @@ _SHAP_VALUES_FILE_NAME = "shap_values.npy"
 _UNKNOWN_MODEL_FLAVOR = "unknown"
 _UNDERLYING_MODEL_SUBPATH = "underlying_model"
 
-model_data_artifact_paths = []
-
 
 def get_underlying_model_flavor(model):
     """
