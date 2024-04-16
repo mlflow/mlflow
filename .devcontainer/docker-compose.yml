@@ -7,8 +7,10 @@ services:
       MLFLOW_HOME: /workspaces/mlflow
       MLFLOW_TRACKING_URI: sqlite:////workspaces/mlflow/mlruns.db
     volumes:
-      - $PWD:/workspaces/mlflow
+      - ..:/workspaces/mlflow:cached
       - build:/workspaces/mlflow/mlflow/server/js/build
+      - gomodcache:/go/pkg/mod
 
 volumes:
   build:
+  gomodcache:

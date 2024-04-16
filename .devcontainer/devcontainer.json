@@ -6,6 +6,12 @@
   "service": "mlflow",
   "postCreateCommand": ".devcontainer/postCreate.sh",
   "overrideCommand": true,
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.22",
+      "golangciLintVersion": "1.57.2"
+    }
+  },
   "customizations": {
     "vscode": {
       "settings": {
@@ -32,6 +38,7 @@
         "GitHub.copilot",
         "GitHub.copilot-chat",
         "GitHub.vscode-pull-request-github",
+        "golang.Go",
         "ms-azuretools.vscode-docker",
         "ms-python.black-formatter",
         "ms-python.python",
