@@ -81,14 +81,12 @@ class MlflowSpanWrapper:
     @property
     def inputs(self) -> Any:
         """The input values of the span."""
-        input_serialized = self._span._attributes.get(SpanAttributeKey.INPUTS)
-        return json.loads(input_serialized) if input_serialized else None
+        return self.get_attribute(SpanAttributeKey.INPUTS)
 
     @property
     def outputs(self) -> Any:
         """The output values of the span."""
-        output_serialized = self._span._attributes.get(SpanAttributeKey.OUTPUTS)
-        return json.loads(output_serialized) if output_serialized else None
+        return self.get_attribute(SpanAttributeKey.OUTPUTS)
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
