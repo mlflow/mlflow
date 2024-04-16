@@ -79,7 +79,7 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
 These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see 
 :ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
 
-When logging a model, all model metadata files (``MLmodel``, ``conda.yaml``, ``python_env.yaml``, ``requirements.txt`` and other model metadata files provided by specific MLflow flavor) are copied to a subdirectory named ``metadata``.
+When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``python_env.yaml``, ``requirements.txt``) are copied to a subdirectory named ``metadata``. For wheeled models, ``original_requirements.txt`` file is also copied.
 
 .. note::
     When a model registered in the MLflow Model Registry is downloaded, a YAML file named
