@@ -508,7 +508,5 @@ class LegacyTestFlavor:
 def test_legacy_flavor():
     with mlflow.start_run():
         model_info = Model.log("some/path", LegacyTestFlavor)
-
-    with TempDir(chdr=True) as tmp:
-        artifact_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp.path())
-        assert set(os.listdir(artifact_path)) == {"MLmodel"}
+    artifact_path = _download_artifact_from_uri(model_info.model_uri)
+    assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {"MLmodel"}
