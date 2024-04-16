@@ -1,10 +1,7 @@
-from dataclasses import dataclass
 from unittest.mock import MagicMock
 
-from mlflow.entities.span_context import SpanContext
-from opentelemetry.sdk.trace import ReadableSpan
-
 from mlflow.entities import Span, TraceStatus
+from mlflow.entities.span_context import SpanContext
 from mlflow.entities.trace_data import TraceData
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -15,6 +12,7 @@ from mlflow.tracing.types.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
+
 from tests.tracing.helper import create_mock_otel_span
 
 

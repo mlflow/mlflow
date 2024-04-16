@@ -1,6 +1,6 @@
-from functools import lru_cache
 import json
 import logging
+from functools import lru_cache
 from typing import Any, Dict, Optional, Union
 
 from opentelemetry import trace as trace_api
@@ -46,8 +46,8 @@ class MlflowSpanWrapper:
     @property
     def _trace_id(self) -> str:
         """
-        The OpenTelemetry trace ID of the span.
-        Note that this should not be exposed to the user, instead, use request_id as an unique identifier for a trace.
+        The OpenTelemetry trace ID of the span. Note that this should not be exposed to
+        the user, instead, use request_id as an unique identifier for a trace.
         """
         return format_trace_id(self._span.context.trace_id)
 
@@ -218,8 +218,6 @@ class MlflowSpanWrapper:
                 for event in self._span.events
             ],
         )
-
-
 
 
 class NoOpMlflowSpanWrapper:

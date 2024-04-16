@@ -1,11 +1,10 @@
-from functools import lru_cache
 import inspect
 import json
 import logging
+from functools import lru_cache
 from typing import Any, Dict
 
 from opentelemetry import trace as trace_api
-
 from packaging.version import Version
 
 _logger = logging.getLogger(__name__)

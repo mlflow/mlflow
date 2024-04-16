@@ -1,5 +1,6 @@
 import time
 from threading import Thread
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -106,12 +107,14 @@ def test_add_and_pop_span_thread_safety():
     trace_manager = InMemoryTraceManager.get_instance()
 
     # Add spans from 10 different threads to 5 different traces
-    trace_ids = [i for i in range(5)]
+    trace_ids = list(range(5))
     num_threads = 10
 
     def add_spans(thread_id):
         for trace_id in trace_ids:
-            trace_manager.add_or_update_span(_create_test_span(f"tr-{trace_id}", trace_id=trace_id, span_id=thread_id))
+            trace_manager.add_or_update_span(
+                _create_test_span(f"tr-{trace_id}", trace_id=trace_id, span_id=thread_id)
+            )
 
     threads = [Thread(target=add_spans, args=[i]) for i in range(num_threads)]
 
@@ -250,17 +253,21 @@ def test_delete_tag_raises_when_trace_not_found():
         InMemoryTraceManager.get_instance().delete_trace_tag("test", "foo")
 
 
-def _create_test_span(request_id="tr-12345",
-                      trace_id: int=12345,
-                      span_id: int=123,
-                      parent_id: int=None,
-                      start_time=None,
-                      end_time=None):
-    mock_otel_span = create_mock_otel_span(trace_id=trace_id,
-                                           span_id=span_id,
-                                           parent_id=parent_id,
-                                           start_time=start_time,
-                                           end_time=end_time)
+def _create_test_span(
+    request_id="tr-12345",
+    trace_id: int = 12345,
+    span_id: int = 123,
+    parent_id: Optional[int] = None,
+    start_time=None,
+    end_time=None,
+):
+    mock_otel_span = create_mock_otel_span(
+        trace_id=trace_id,
+        span_id=span_id,
+        parent_id=parent_id,
+        start_time=start_time,
+        end_time=end_time,
+    )
 
     span = MlflowSpanWrapper(mock_otel_span, request_id=request_id)
     span.set_status("OK")

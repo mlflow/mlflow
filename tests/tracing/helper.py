@@ -12,7 +12,7 @@ def create_mock_otel_span(
     name: str = "test_span",
     parent_id: Optional[int] = None,
     start_time: Optional[int] = None,
-    end_time: Optional[int] = None
+    end_time: Optional[int] = None,
 ):
     """
     Create a mock OpenTelemetry span for testing purposes.
