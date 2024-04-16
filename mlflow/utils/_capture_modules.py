@@ -111,11 +111,11 @@ def parse_args():
     parser.add_argument("--output-file", required=True)
     parser.add_argument("--sys-path", required=True)
     parser.add_argument("--module-to-throw", required=False)
-    parser.add_argument("--error-file", required=True)
+    parser.add_argument("--error-file", required=False)
     return parser.parse_args()
 
 
-def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file):
+def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file=None):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
@@ -134,12 +134,15 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file):
                     try:
                         model.predict(input_example, params=params)
                     except Exception as e:
-                        stack_trace = get_stacktrace(e)
-                        write_to(
-                            error_file,
-                            "Failed to run predict on input_example, dependencies "
-                            "introduced in predict are not captured.\n" + stack_trace,
-                        )
+                        if error_file:
+                            stack_trace = get_stacktrace(e)
+                            write_to(
+                                error_file,
+                                "Failed to run predict on input_example, dependencies "
+                                "introduced in predict are not captured.\n" + stack_trace,
+                            )
+                        else:
+                            raise e
                 return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch
