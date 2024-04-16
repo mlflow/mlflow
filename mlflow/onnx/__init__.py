@@ -55,8 +55,6 @@ _logger = logging.getLogger(__name__)
 
 _MODEL_DATA_SUBPATH = "model.onnx"
 
-model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
-
 
 def get_default_pip_requirements():
     """

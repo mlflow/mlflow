@@ -28,6 +28,7 @@ from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models.model import METADATA_FILES
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
@@ -3775,15 +3776,7 @@ def test_small_qa_pipeline_copy_metadata(small_qa_pipeline, tmp_path):
         artifact_path = mlflow.artifacts.download_artifacts(
             artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            "LICENSE.txt",
-            "MLmodel",
-            "conda.yaml",
-            "model_card.md",
-            "model_card_data.yaml",
-            "python_env.yaml",
-            "requirements.txt",
-        }
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)
 
 
 def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
@@ -3797,12 +3790,4 @@ def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
         artifact_path = mlflow.artifacts.download_artifacts(
             artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            "LICENSE.txt",
-            "MLmodel",
-            "conda.yaml",
-            "model_card.md",
-            "model_card_data.yaml",
-            "python_env.yaml",
-            "requirements.txt",
-        }
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)

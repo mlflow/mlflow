@@ -91,8 +91,6 @@ FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
 _PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings", "completions")
 
-model_data_artifact_paths = []
-
 _logger = logging.getLogger(__name__)
 
 

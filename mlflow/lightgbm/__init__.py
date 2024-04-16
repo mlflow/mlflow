@@ -83,8 +83,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "lightgbm"
 
-model_data_artifact_paths = ["model.lgb", "model.pkl"]
-
 
 _logger = logging.getLogger(__name__)
 

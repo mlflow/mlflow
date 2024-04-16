@@ -115,8 +115,6 @@ _JOHNSNOWLABS_ENV_VISUAL_SECRET = "VISUAL_SECRET"
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 _logger = logging.getLogger(__name__)
 
-model_data_artifact_paths = [_JOHNSNOWLABS_MODEL_PATH_SUB]
-
 
 def _validate_env_vars():
     if _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY not in os.environ:
