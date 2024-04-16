@@ -121,7 +121,7 @@ def test_generate_dockerfile_for_java_flavor(tmp_path):
     model_path = save_model(tmp_path)
     add_spark_flavor_to_model(model_path)
 
-    backend = get_flavor_backend(model_path, docker_build=True)
+    backend = get_flavor_backend(model_path, docker_build=True, env_manager=None)
 
     backend.generate_dockerfile(
         model_uri=model_path,

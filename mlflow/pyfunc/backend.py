@@ -79,6 +79,9 @@ class PyFuncBackend(FlavorBackend):
     ):
         """
         Args:
+            env_manager: Environment manager to use for preparing the environment. If None,
+                MLflow will automatically pick the env manager based on the model's flavor
+                configuration for generate_dockerfile. It can't be None for other methods.
             env_root_dir: Root path for conda env. If None, use Conda's default environments
                 directory. Note if this is set, conda package cache path becomes
                 "{env_root_dir}/conda_cache_pkgs" instead of the global package cache
