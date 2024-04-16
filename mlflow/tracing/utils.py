@@ -80,3 +80,31 @@ def format_trace_id(trace_id: int) -> str:
     Format the given integer trace ID to a hex string.
     """
     return f"0x{trace_api.format_span_id(trace_id)}"
+
+
+def decode_span_id(span_id: str) -> int:
+    """
+    Decode the given hex string span ID to an integer.
+    """
+    return int(span_id, 16)
+
+
+def decode_trace_id(trace_id: str) -> int:
+    """
+    Decode the given hex string trace ID to an integer.
+    """
+    return int(trace_id, 16)
+
+
+def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
+    """
+    Build an OpenTelemetry SpanContext object from the given trace and span IDs.
+    """
+    return trace_api.SpanContext(
+        trace_id=trace_id,
+        span_id=span_id,
+        # NB: This flag is OpenTelemetry's concept to indicate whether the context is
+        # propagated from remote parent or not. We don't support distributed tracing
+        # yet so always set it to False.
+        is_remote=False,
+    )

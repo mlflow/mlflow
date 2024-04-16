@@ -48,7 +48,6 @@ from mlflow.utils.mlflow_tags import (
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
-from tests.tracing.helper import deser_attributes
 
 
 @pytest.fixture(autouse=True)
@@ -313,10 +312,10 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
+    assert root_span.start_time_ns // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
     assert root_span.parent_id is None
-    assert deser_attributes(root_span.attributes) == {
+    assert root_span.attributes == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"x": 1, "y": 2},
@@ -324,8 +323,8 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     }
 
     child_span_1 = span_name_to_span["child_span_1"]
-    assert child_span_1.parent_id == root_span.context.span_id
-    assert deser_attributes(child_span_1.attributes) == {
+    assert child_span_1.parent_id == root_span.span_id
+    assert child_span_1.attributes == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "LLM",
         "mlflow.spanInputs": {"z": 3},
@@ -334,14 +333,14 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     }
 
     child_span_2 = span_name_to_span["child_span_2"]
-    assert child_span_2.parent_id == root_span.context.span_id
-    assert deser_attributes(child_span_2.attributes) == {
+    assert child_span_2.parent_id == root_span.span_id
+    assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": {"output": 25},
     }
-    assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
+    assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
@@ -395,21 +394,21 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
     assert root_span.parent_id is None
-    assert root_span.status_code == SpanStatusCode.OK
-    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
+    assert root_span.status.status_code == SpanStatusCode.OK
+    assert root_span.start_time_ns // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
 
     ended_span = span_name_to_span["ended-span"]
-    assert ended_span.parent_id == root_span.context.span_id
-    assert ended_span.start_time < ended_span.end_time
-    assert ended_span.status_code == SpanStatusCode.OK
+    assert ended_span.parent_id == root_span.span_id
+    assert ended_span.start_time_ns < ended_span.end_time_ns
+    assert ended_span.status.status_code == SpanStatusCode.OK
 
     # The non-ended span should have null end_time and UNSPECIFIED status
     non_ended_span = span_name_to_span["non-ended-span"]
-    assert non_ended_span.parent_id == root_span.context.span_id
-    assert non_ended_span.start_time is not None
-    assert non_ended_span.end_time is None
-    assert non_ended_span.status_code == SpanStatusCode.UNSET
+    assert non_ended_span.parent_id == root_span.span_id
+    assert non_ended_span.start_time_ns is not None
+    assert non_ended_span.end_time_ns is None
+    assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
 def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):

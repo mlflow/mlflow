@@ -1,4 +1,3 @@
-import json
 import os
 from operator import itemgetter
 from typing import Any, List, Optional
@@ -34,7 +33,6 @@ from mlflow.utils.openai_utils import (
 
 # TODO: This test helper is used outside the tracing module, we should move it to a common utils
 from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
-from tests.tracing.helper import deser_attributes
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -189,7 +187,7 @@ def test_autolog_manage_run():
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        attrs = deser_attributes(trace.data.spans[0].attributes)
+        attrs = trace.data.spans[0].attributes
         assert attrs[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
         assert attrs[SpanAttributeKey.INPUTS] == {"product": "MLflow"}
         assert attrs[SpanAttributeKey.OUTPUTS] == {"text": TEST_CONTENT}
@@ -279,13 +277,13 @@ def test_llmchain_autolog(clear_trace_singleton):
         spans = trace.data.spans
         assert len(spans) == 2  # chain + llm
         assert spans[0].name == "LLMChain"
-        attrs = deser_attributes(spans[0].attributes)
+        attrs = spans[0].attributes
         assert attrs[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
         assert attrs[SpanAttributeKey.INPUTS] == {"product": "MLflow"}
         assert attrs[SpanAttributeKey.OUTPUTS] == {"text": TEST_CONTENT}
         assert spans[1].name == "OpenAI"
-        assert spans[1].parent_id == spans[0].context.span_id
-        attrs = deser_attributes(spans[1].attributes)
+        assert spans[1].parent_id == spans[0].span_id
+        attrs = spans[1].attributes
         assert attrs[SpanAttributeKey.SPAN_TYPE] == "LLM"
         assert attrs[SpanAttributeKey.INPUTS] == [
             "What is a good name for a company that makes MLflow?"
@@ -432,15 +430,13 @@ def test_agent_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 4
     for trace in traces:
-        spans = [
-            (s.name, json.loads(s.attributes[SpanAttributeKey.SPAN_TYPE])) for s in trace.data.spans
-        ]
+        spans = [(s.name, s.attributes[SpanAttributeKey.SPAN_TYPE]) for s in trace.data.spans]
         assert spans == [
             ("AgentExecutor", "CHAIN"),
             ("LLMChain", "CHAIN"),
             ("OpenAI", "LLM"),
         ]
-        attrs = deser_attributes(trace.data.spans[0].attributes)
+        attrs = trace.data.spans[0].attributes
         assert attrs[SpanAttributeKey.INPUTS] == input
         assert attrs[SpanAttributeKey.OUTPUTS] == {"output": TEST_CONTENT}
 
@@ -527,9 +523,7 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
     traces = mlflow.get_traces(None)
     assert len(traces) == 2
     for trace in traces:
-        spans = {
-            (s.name, json.loads(s.attributes[SpanAttributeKey.SPAN_TYPE])) for s in trace.data.spans
-        }
+        spans = {(s.name, s.attributes[SpanAttributeKey.SPAN_TYPE]) for s in trace.data.spans}
         # Since the chain includes parallel execution, the order of some
         # spans is not deterministic.
         assert spans == {
@@ -629,7 +623,7 @@ def test_retriever_autolog(tmp_path, clear_trace_singleton):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "VectorStoreRetriever"
-    attrs = deser_attributes(spans[0].attributes)
+    attrs = spans[0].attributes
     assert attrs[SpanAttributeKey.SPAN_TYPE] == "RETRIEVER"
     assert attrs[SpanAttributeKey.INPUTS] == query
     assert attrs[SpanAttributeKey.OUTPUTS][0]["metadata"] == {

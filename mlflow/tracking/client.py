@@ -27,6 +27,7 @@ from mlflow.entities import (
     Param,
     Run,
     RunTag,
+    Span,
     SpanStatus,
     SpanStatusCode,
     SpanType,
@@ -57,7 +58,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFA
 from mlflow.tracing.clients import get_trace_client
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -485,7 +485,7 @@ class MlflowClient:
         attributes: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
         experiment_id: Optional[str] = None,
-    ) -> MlflowSpanWrapper:
+    ) -> Span:
         """
         Create a new trace object and start a root span under it.
 
@@ -514,7 +514,7 @@ class MlflowClient:
                 environment variable, or the default experiment as defined by the tracking server.
 
         Returns:
-            An :py:class:`MlflowSpanWrapper <mlflow.tracing.MlflowSpanWrapper>` object
+            An :py:class:`Span <mlflow.entities.Span>` object
             representing the root span of the trace.
 
         Example:
@@ -625,7 +625,7 @@ class MlflowClient:
         span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-    ) -> MlflowSpanWrapper:
+    ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
 
@@ -699,7 +699,7 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span.
 
         Returns:
-            An :py:class:`mlflow.tracing.MlflowSpanWrapper` object representing the span.
+            An :py:class:`mlflow.entities.Span` object representing the span.
 
         Example:
 
