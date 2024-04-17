@@ -455,8 +455,8 @@ service MlflowService {
     };
   }
 
-  // Create a new trace within an experiment.
-  rpc createTrace(CreateTrace) returns (CreateTrace.Response) {
+  // Start a new trace within an experiment.
+  rpc startTrace(StartTrace) returns (StartTrace.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -464,7 +464,20 @@ service MlflowService {
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create Trace",
+      rpc_doc_title: "Start Trace",
+    };
+  }
+
+  // End a trace within an experiment.
+  rpc endTrace(EndTrace) returns (EndTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{request_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "End Trace",
     };
   }
 
@@ -1306,7 +1319,7 @@ enum TraceStatus {
   ERROR = 2;
 }
 
-message CreateTrace {
+message StartTrace {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
@@ -1316,20 +1329,39 @@ message CreateTrace {
   // Unix timestamp of when the trace started in milliseconds.
   optional int64 timestamp_ms = 2;
 
-  // Unix timestamp of the duration of the trace in milliseconds.
-  optional int64 execution_time_ms = 3;
-
-  // Overall status of the operation being traced (OK, error, etc).
-  optional TraceStatus status = 4;
-
-  // Other trace attributes.
-  repeated TraceRequestMetadata request_metadata = 5;
+  // Metadata about the request that initiated the trace.
+  repeated TraceRequestMetadata request_metadata = 3;
 
   // Tags for the trace.
-  repeated TraceTag tags = 6;
+  repeated TraceTag tags = 4;
 
   message Response {
     // The newly created trace.
+    optional TraceInfo trace_info = 1;
+  }
+}
+
+message EndTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace to end.
+  optional string request_id = 1;
+
+  // Unix timestamp of when the trace ended in milliseconds.
+  optional int64 timestamp_ms = 2;
+
+  // Overall status of the operation being traced (OK, error, etc).
+  optional TraceStatus status = 3;
+
+  // Additional metadata about the operation being traced.
+  repeated TraceRequestMetadata request_metadata = 4;
+
+  // Additional tags to add to the trace.
+  repeated TraceTag tags = 5;
+
+  message Response {
+    // The updated trace.
     optional TraceInfo trace_info = 1;
   }
 }
