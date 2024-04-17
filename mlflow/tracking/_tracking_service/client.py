@@ -230,7 +230,7 @@ class TrackingServiceClient:
                 ),
                 error_code=BAD_REQUEST,
             )
-        except MlflowTraceDataNotFound as e:
+        except MlflowTraceDataCorrupted as e:
             raise MlflowException(
                 message=(
                     f"Trace with ID {request_id} cannot be loaded because its span data"
