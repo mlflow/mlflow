@@ -18,7 +18,9 @@ from click.testing import CliRunner
 import mlflow
 from mlflow import pyfunc
 from mlflow.cli import doctor, gc, server
+from mlflow.data import numpy_dataset
 from mlflow.entities import ViewType
+from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.tracking.file_store import FileStore
@@ -27,7 +29,11 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    PROTOBUF_REQUIREMENT,
+    get_safe_port,
+    pyfunc_serve_and_score_model,
+)
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -265,7 +271,14 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_uuid)
     subprocess.check_output(
-        ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
+        [
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            file_store[1],
+            "--run-ids",
+            run.info.run_uuid,
+        ]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -278,7 +291,14 @@ def test_mlflow_gc_not_deleted_run(file_store):
     run = _create_run_in_store(store)
     with pytest.raises(subprocess.CalledProcessError, match=r".+"):
         subprocess.check_output(
-            ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
+            [
+                "mlflow",
+                "gc",
+                "--backend-store-uri",
+                file_store[1],
+                "--run-ids",
+                run.info.run_uuid,
+            ]
         )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1
@@ -376,9 +396,24 @@ def test_mlflow_gc_experiments(get_store_details, request):
     store.delete_experiment(exp_id_5)
     with pytest.raises(MlflowException, match=r"Experiments .+ can be deleted."):
         invoke_gc(
-            "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
+            "--backend-store-uri",
+            uri,
+            "--experiment-ids",
+            exp_id_5,
+            "--older-than",
+            "10d10h10m10s",
         )
     experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert sorted([e.experiment_id for e in experiments]) == sorted(
+        [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
+    )
+
+    exp_id_6 = store.create_experiment("6")
+    run_id_2 = store.create_run(exp_id_6, user_id="user", start_time=1, tags=[], run_name="2")
+    run_id_2_datasets = [DatasetInput(dataset=numpy_dataset.from_numpy(np.array([1, 2, 3])))]
+    store.log_inputs(run_id_2, datasets=run_id_2_datasets)
+    store.delete_experiment(exp_id_6)
+    invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_6)
     assert sorted([e.experiment_id for e in experiments]) == sorted(
         [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
     )
