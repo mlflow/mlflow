@@ -4,6 +4,7 @@
   "dockerComposeFile": "docker-compose.yml",
   "workspaceFolder": "/workspaces/mlflow",
   "service": "mlflow",
+  "onCreateCommand": ".devcontainer/onCreate.sh",
   "postCreateCommand": ".devcontainer/postCreate.sh",
   "overrideCommand": true,
   "features": {
