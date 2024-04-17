@@ -92,7 +92,20 @@ def test_start_detached_span():
     assert trace_manager.get_span_from_id(request_id, span_id=child_span.span_id) == child_span
 
 
-def test_start_detached_span_show_warning_when_parent_not_found(caplog):
+def test_start_detached_span_show_warning_when_parent_not_found():
+    trace_manager = InMemoryTraceManager.get_instance()
+
+    with mock.patch("mlflow.tracing.trace_manager._logger") as mock_logger:
+        span = trace_manager.start_detached_span(
+            name="root_span", parent_id="not_found", request_id="test"
+        )
+
+    assert isinstance(span, NoOpMlflowSpanWrapper)
+    warning_message = mock_logger.warning.call_args[0][0]
+    assert "Parent span with ID 'not_found' not found." in warning_message
+
+
+def test_start_detached_span_show_warning_when_parent_id_is_passed_without_request_id():
     trace_manager = InMemoryTraceManager.get_instance()
 
     with mock.patch("mlflow.tracing.trace_manager._logger") as mock_logger:
@@ -100,7 +113,7 @@ def test_start_detached_span_show_warning_when_parent_not_found(caplog):
 
     assert isinstance(span, NoOpMlflowSpanWrapper)
     warning_message = mock_logger.warning.call_args[0][0]
-    assert "Parent span with ID 'not_found' not found." in warning_message
+    assert "Parent span ID is provided without its request ID." in warning_message
 
 
 def test_add_and_pop_span_thread_safety():

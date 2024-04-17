@@ -12,7 +12,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.types.constant import SpanAttributeKey
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 
@@ -89,6 +89,12 @@ class InMemoryTraceManager:
         try:
             tracer = get_tracer(__name__)
             if parent_id:
+                if not request_id:
+                    raise MlflowException(
+                        "Parent span ID is provided without its request ID. Please specify the "
+                        "request ID of the parent span to start a detached span.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 parent_span = self.get_span_from_id(request_id, parent_id)
                 if parent_span is None:
                     raise MlflowException(
@@ -100,7 +106,6 @@ class InMemoryTraceManager:
                 context = None
 
             otel_span = tracer.start_span(name, context=context)
-
             if not request_id:
                 request_id = self.get_or_create_request_id(otel_span.get_span_context().trace_id)
 
