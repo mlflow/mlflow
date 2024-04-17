@@ -132,10 +132,10 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
-  "recipes/resources/*",
-  "recipes/cards/templates/*",
-  "models/container/*",
-  "server/js/build/*",
+  "recipes/resources/**/*",
+  "recipes/cards/templates/**/*",
+  "models/container/**/*",
+  "server/js/build/**/*",
 ]
 
 [tool.setuptools.packages.find]

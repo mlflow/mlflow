@@ -144,10 +144,10 @@ def build(skinny: bool) -> None:
                         "pyspark/ml/log_model_allowlist.txt",
                         "server/auth/basic_auth.ini",
                         "server/auth/db/migrations/alembic.ini",
-                        "recipes/resources/*",
-                        "recipes/cards/templates/*",
+                        "recipes/resources/**/*",
+                        "recipes/cards/templates/**/*",
                     ]
-                    + ([] if skinny else ["models/container/*", "server/js/build/*"])
+                    + ([] if skinny else ["models/container/**/*", "server/js/build/**/*"])
                 },
             }
         },
