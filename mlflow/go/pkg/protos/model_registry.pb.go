@@ -7,6 +7,7 @@
 package protos
 
 import (
+	_ "github.com/mlflow/mlflow/mlflow/go/pkg/protos/scalapb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -3572,7 +3573,6 @@ func file_model_registry_proto_init() {
 	if File_model_registry_proto != nil {
 		return
 	}
-	file_scalapb_scalapb_proto_init()
 	file_databricks_proto_init()
 	if !protoimpl.UnsafeEnabled {
 		file_model_registry_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {

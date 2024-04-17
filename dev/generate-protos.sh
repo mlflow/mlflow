@@ -11,6 +11,8 @@ PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
     --java_out="mlflow/java/client/src/main/java" \
+    --go_out="." \
+    --go_opt=module=github.com/mlflow/mlflow \
     "$PROTOS"/databricks.proto \
     "$PROTOS"/service.proto \
     "$PROTOS"/model_registry.proto \
@@ -28,22 +30,6 @@ protoc -I="$PROTOS" \
     "$PROTOS"/databricks_uc_registry_messages.proto \
     "$PROTOS"/databricks_uc_registry_service.proto \
     "$PROTOS"/databricks_filesystem_service.proto
-
-# Separate out building the Go files because the input differs slightly with the other languages
-protoc -I="$PROTOS" \
-    --go_out=./mlflow/go/pkg/protos \
-    --go_opt=paths=source_relative \
-    "$PROTOS"/databricks.proto \
-    "$PROTOS"/service.proto \
-    "$PROTOS"/model_registry.proto \
-    "$PROTOS"/internal.proto \
-    "$PROTOS"/scalapb/scalapb.proto \
-
-# Artifacts is placed in a subfolder to avoid collisions with the other protos.
-protoc -I="$PROTOS" \
-    --go_out=./mlflow/go/pkg/protos/artifacts \
-    --go_opt=paths=source_relative \
-    $PROTOS/mlflow_artifacts.proto
 
 PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \

@@ -14733,8 +14733,9 @@ public final class DatabricksArtifacts {
       "edUploadPartUrl\032*.mlflow.GetPresignedUpl" +
       "oadPartUrl.Response\"D\362\206\031@\n<\n\003GET\022//mlflo" +
       "w/artifacts/get-presigned-upload-part-ur" +
-      "l\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.proto.ml" +
-      "flow\220\001\001\240\001\001\342?\002\020\001"
+      "l\032\004\010\002\020\000\020\003B[\n\037com.databricks.api.proto.ml" +
+      "flowZ-github.com/mlflow/mlflow/mlflow/go" +
+      "/pkg/protos\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

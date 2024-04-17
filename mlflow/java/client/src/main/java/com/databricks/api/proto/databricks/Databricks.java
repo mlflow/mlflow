@@ -7992,8 +7992,10 @@ public final class Databricks {
       "ogle.protobuf.EnumValueOptions\030\356\220\003 \001(\0162\022" +
       ".mlflow.Visibility:Z\n\016enum_value_doc\022!.g" +
       "oogle.protobuf.EnumValueOptions\030\362\220\003 \003(\0132" +
-      "\035.mlflow.DocumentationMetadataB*\n#com.da" +
-      "tabricks.api.proto.databricks\342?\002\020\001"
+      "\035.mlflow.DocumentationMetadataBY\n#com.da" +
+      "tabricks.api.proto.databricksZ-github.co" +
+      "m/mlflow/mlflow/mlflow/go/pkg/protos\342?\002\020" +
+      "\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

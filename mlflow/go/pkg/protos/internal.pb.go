@@ -10,6 +10,7 @@
 package protos
 
 import (
+	_ "github.com/mlflow/mlflow/mlflow/go/pkg/protos/scalapb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -127,7 +128,6 @@ func file_internal_proto_init() {
 	if File_internal_proto != nil {
 		return
 	}
-	file_scalapb_scalapb_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

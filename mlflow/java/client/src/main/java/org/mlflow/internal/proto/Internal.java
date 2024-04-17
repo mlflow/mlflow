@@ -126,8 +126,9 @@ public final class Internal {
     java.lang.String[] descriptorData = {
       "\n\016internal.proto\022\017mlflow.internal\032\025scala" +
       "pb/scalapb.proto*\'\n\017InputVertexType\022\007\n\003R" +
-      "UN\020\001\022\013\n\007DATASET\020\002B#\n\031org.mlflow.internal" +
-      ".proto\220\001\001\342?\002\020\001"
+      "UN\020\001\022\013\n\007DATASET\020\002BR\n\031org.mlflow.internal" +
+      ".protoZ-github.com/mlflow/mlflow/mlflow/" +
+      "go/pkg/protos\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

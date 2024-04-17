@@ -45550,8 +45550,9 @@ public final class ModelRegistry {
       "lias\032\'.mlflow.GetModelVersionByAlias.Res" +
       "ponse\"P\362\206\031L\n,\n\003GET\022\037/mlflow/registered-m" +
       "odels/alias\032\004\010\002\020\000\020\001*\032Get Model Version b" +
-      "y AliasB!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002" +
-      "\020\001"
+      "y AliasBP\n\024org.mlflow.api.protoZ-github." +
+      "com/mlflow/mlflow/mlflow/go/pkg/protos\220\001" +
+      "\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
