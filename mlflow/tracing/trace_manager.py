@@ -12,7 +12,8 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.tracing.types.constant import SpanAttributeKey
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 
 _logger = logging.getLogger(__name__)
@@ -29,9 +30,10 @@ class _Trace:
         trace_data = TraceData()
         for span in self.span_dict.values():
             trace_data.spans.append(span.to_mlflow_span())
-            if span.parent_span_id is None:
-                trace_data.request = span.inputs
-                trace_data.response = span.outputs
+            if span.parent_id is None:
+                # Not using span.get_attribute to get serialized value directly.
+                trace_data.request = span._span.attributes.get(SpanAttributeKey.INPUTS)
+                trace_data.response = span._span.attributes.get(SpanAttributeKey.OUTPUTS)
         return Trace(self.info, trace_data)
 
 
@@ -52,17 +54,20 @@ class InMemoryTraceManager:
         return cls._instance
 
     def __init__(self):
+        # Storing request_id -> trace mapping
         self._traces: Dict[str, _Trace] = TTLCache(
             maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
             ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
         )
+        # Store mapping between OpenTelemetry trace ID and MLflow request ID
+        self._trace_id_to_request_id = {}
         self._lock = threading.Lock()  # Lock for _traces
 
     def start_detached_span(
         self,
         name: str,
         request_id: Optional[str] = None,
-        parent_span_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
         span_type: str = SpanType.UNKNOWN,
     ) -> MlflowSpanWrapper:
         """
@@ -71,9 +76,8 @@ class InMemoryTraceManager:
 
         Args:
             name: The name of the span.
-            request_id: The request (trace) ID for the span. Only used for getting the parent span
-                for the given parent_span_id. If not provided, a new trace will be created.
-            parent_span_id: The parent span ID of the span. If None, the span will be a root span.
+            request_id: The request (trace) ID for the span.
+            parent_id: The parent span ID of the span. If None, the span will be a root span.
             span_type: The type of the span.
 
         Returns:
@@ -84,14 +88,28 @@ class InMemoryTraceManager:
 
         try:
             tracer = get_tracer(__name__)
-            if parent_span_id:
-                parent_span = self.get_span_from_id(request_id, parent_span_id)._span
-                context = trace_api.set_span_in_context(parent_span)
+            if parent_id:
+                if not request_id:
+                    raise MlflowException(
+                        "Parent span ID is provided without its request ID. Please specify the "
+                        "request ID of the parent span to start a detached span.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                parent_span = self.get_span_from_id(request_id, parent_id)
+                if parent_span is None:
+                    raise MlflowException(
+                        f"Parent span with ID '{parent_id}' not found.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+                context = trace_api.set_span_in_context(parent_span._span)
             else:
                 context = None
 
-            span = MlflowSpanWrapper(tracer.start_span(name, context=context), span_type=span_type)
+            otel_span = tracer.start_span(name, context=context)
+            if not request_id:
+                request_id = self.get_or_create_request_id(otel_span.get_span_context().trace_id)
 
+            span = MlflowSpanWrapper(otel_span, request_id=request_id, span_type=span_type)
             self.add_or_update_span(span)
             return span
         except Exception as e:
@@ -116,10 +134,14 @@ class InMemoryTraceManager:
             # NB: the first span might not be a root span, so we can only
             # set trace_id here. Other information will be propagated from
             # the root span when it ends.
-            self._create_empty_trace(request_id, span.start_time)
+            self._create_empty_trace(request_id, span.start_time_ns)
 
         trace_data_dict = self._traces[request_id].span_dict
         trace_data_dict[span.span_id] = span
+
+        trace_id = span._span.get_span_context().trace_id
+        if trace_id not in self._trace_id_to_request_id:
+            self._trace_id_to_request_id[trace_id] = request_id
 
     def _create_empty_trace(
         self,
@@ -198,10 +220,21 @@ class InMemoryTraceManager:
 
         if trace:
             for span in trace.span_dict.values():
-                if span.parent_span_id is None:
+                if span.parent_id is None:
                     return span.span_id
 
         return None
+
+    def get_or_create_request_id(self, trace_id: str) -> Optional[str]:
+        """
+        Get the request ID for the given trace ID. If the request ID does not exist, create a new
+        request ID and return it.
+        """
+        if request_id := self._trace_id_to_request_id.get(trace_id):
+            return request_id
+
+        # TODO: Request ID should be generated by the backend and fetched via StartTrace API.
+        return f"tr-{trace_id}"
 
     def pop_trace(self, request_id) -> Optional[Trace]:
         """

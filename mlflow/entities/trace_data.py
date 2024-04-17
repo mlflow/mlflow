@@ -11,13 +11,14 @@ class TraceData:
     Args:
         spans: List of spans that are part of the trace.
         request: Input data for the entire trace. Equivalent to the input of the root span
-            but added for ease of access.
+            but added for ease of access. Stored as a JSON string.
         response: Output data for the entire trace. Equivalent to the output of the root span.
+            Stored as a JSON string.
     """
 
     spans: List[Span] = field(default_factory=list)
-    request: Optional[Any] = None
-    response: Optional[Any] = None
+    request: Optional[str] = None
+    response: Optional[str] = None
 
     @classmethod
     def from_dict(cls, d):

@@ -3,11 +3,10 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 
-from packaging.version import Version
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.tracing.utils import TraceJSONEncoder
 
 
 @dataclass
@@ -23,7 +22,7 @@ class Trace(_MlflowObject):
     data: TraceData
 
     def to_json(self) -> str:
-        return json.dumps(asdict(self), cls=_TraceJSONEncoder)
+        return json.dumps(asdict(self), cls=TraceJSONEncoder)
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
@@ -39,30 +38,3 @@ class Trace(_MlflowObject):
             "application/databricks.mlflow.trace": self.to_json(),
             "text/plain": self.__repr__(),
         }
-
-
-class _TraceJSONEncoder(json.JSONEncoder):
-    """
-    Custom JSON encoder for serializing Trace objects.
-
-    Trace may contain types that require custom serialization logic, such as Pydantic models,
-    non-JSON-serializable types, etc.
-    """
-
-    def default(self, obj):
-        try:
-            import pydantic
-
-            if isinstance(obj, pydantic.BaseModel):
-                # NB: Pydantic 2.0+ has a different API for model serialization
-                if Version(pydantic.VERSION) >= Version("2.0"):
-                    return obj.model_dump()
-                else:
-                    return obj.dict()
-        except ImportError:
-            pass
-
-        try:
-            return super().default(obj)
-        except TypeError:
-            return str(obj)

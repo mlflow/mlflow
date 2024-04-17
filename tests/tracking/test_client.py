@@ -48,6 +48,7 @@ from mlflow.utils.mlflow_tags import (
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
+from tests.tracing.helper import deser_attributes
 
 
 @pytest.fixture(autouse=True)
@@ -254,7 +255,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
                 "child_span_1",
                 span_type=SpanType.LLM,
                 request_id=request_id,
-                parent_span_id=root_span.span_id,
+                parent_id=root_span.span_id,
                 inputs={"z": z},
             )
 
@@ -273,11 +274,11 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
             )
             return res
 
-        def square(self, t, request_id, parent_span_id):
+        def square(self, t, request_id, parent_id):
             span = self._client.start_span(
                 "child_span_2",
                 request_id=request_id,
-                parent_span_id=parent_span_id,
+                parent_id=parent_id,
                 inputs={"t": t},
             )
 
@@ -305,31 +306,40 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
 
     trace_data = traces[0].data
-    assert trace_data.request == {"x": 1, "y": 2}
-    assert trace_data.response == {"output": 25}
+    assert trace_data.request == '{"x": 1, "y": 2}'
+    assert trace_data.response == '{"output": 25}'
     assert len(trace_data.spans) == 3
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
-    assert root_span.parent_span_id is None
-    assert root_span.span_type == SpanType.UNKNOWN
-    assert root_span.inputs == {"x": 1, "y": 2}
-    assert root_span.outputs == {"output": 25}
+    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
+    assert root_span.parent_id is None
+    assert deser_attributes(root_span.attributes) == {
+        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanInputs": {"x": 1, "y": 2},
+        "mlflow.spanOutputs": {"output": 25},
+    }
 
     child_span_1 = span_name_to_span["child_span_1"]
-    assert child_span_1.parent_span_id == root_span.context.span_id
-    assert child_span_1.span_type == SpanType.LLM
-    assert child_span_1.inputs == {"z": 3}
-    assert child_span_1.outputs == {"output": 5}
-    assert child_span_1.attributes == {"delta": 2}
+    assert child_span_1.parent_id == root_span.context.span_id
+    assert deser_attributes(child_span_1.attributes) == {
+        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.spanType": "LLM",
+        "mlflow.spanInputs": {"z": 3},
+        "mlflow.spanOutputs": {"output": 5},
+        "delta": 2,
+    }
 
     child_span_2 = span_name_to_span["child_span_2"]
-    assert child_span_2.parent_span_id == root_span.context.span_id
-    assert child_span_2.span_type == SpanType.UNKNOWN
-    assert child_span_2.inputs == {"t": 5}
-    assert child_span_2.outputs == {"output": 25}
+    assert child_span_2.parent_id == root_span.context.span_id
+    assert deser_attributes(child_span_2.attributes) == {
+        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanInputs": {"t": 5},
+        "mlflow.spanOutputs": {"output": 25},
+    }
     assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
 
 
@@ -348,7 +358,7 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
             child_span = self._client.start_span(
                 "ended-span",
                 request_id=request_id,
-                parent_span_id=root_span.span_id,
+                parent_id=root_span.span_id,
             )
             time.sleep(0.1)
             self._client.end_span(request_id, child_span.span_id)
@@ -357,10 +367,8 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
             self._client.end_trace(request_id)
             return res
 
-        def square(self, t, request_id, parent_span_id):
-            self._client.start_span(
-                "non-ended-span", request_id=request_id, parent_span_id=parent_span_id
-            )
+        def square(self, t, request_id, parent_id):
+            self._client.start_span("non-ended-span", request_id=request_id, parent_id=parent_id)
             time.sleep(0.1)
             # The span created above is not ended
             return t**2
@@ -385,22 +393,22 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.parent_span_id is None
-    assert root_span.status.status_code == TraceStatus.OK
-    assert root_span.start_time // 1e3 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e3 == trace_info.execution_time_ms
+    assert root_span.parent_id is None
+    assert root_span.status_code == TraceStatus.OK
+    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
 
     ended_span = span_name_to_span["ended-span"]
-    assert ended_span.parent_span_id == root_span.context.span_id
+    assert ended_span.parent_id == root_span.context.span_id
     assert ended_span.start_time < ended_span.end_time
-    assert ended_span.status.status_code == TraceStatus.OK
+    assert ended_span.status_code == TraceStatus.OK
 
     # The non-ended span should have null end_time and UNSPECIFIED status
     non_ended_span = span_name_to_span["non-ended-span"]
-    assert non_ended_span.parent_span_id == root_span.context.span_id
+    assert non_ended_span.parent_id == root_span.context.span_id
     assert non_ended_span.start_time is not None
     assert non_ended_span.end_time is None
-    assert non_ended_span.status.status_code == TraceStatus.UNSPECIFIED
+    assert non_ended_span.status_code == TraceStatus.UNSPECIFIED
 
 
 def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
@@ -429,11 +437,9 @@ def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
         client.end_trace(root_span.request_id)
 
 
-def test_start_span_raise_error_when_parent_span_id_is_not_provided():
+def test_start_span_raise_error_when_parent_id_is_not_provided():
     with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
-        mlflow.tracking.MlflowClient().start_span(
-            "span_name", request_id="test", parent_span_id=None
-        )
+        mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
 
 
 def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
