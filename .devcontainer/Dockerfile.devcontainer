@@ -4,7 +4,7 @@ WORKDIR /mlflow
 COPY mlflow/server/js .
 RUN yarn install --silent && yarn build
 
-FROM python:3.8.15
+FROM python:3.8.19
 
 ARG TARGETPLATFORM
 
@@ -18,7 +18,7 @@ RUN apt update -y \
     && apt install -y sudo \
     && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC \
     sudo -E apt-get install --no-install-recommends -y \
-    git curl wget less jq vim tree zsh openjdk-11-jdk \
+    git curl wget less jq vim tree zsh openjdk-17-jdk \
     # pyenv dependencies
     make build-essential libssl-dev zlib1g-dev \
     libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
