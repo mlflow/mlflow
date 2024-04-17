@@ -31,6 +31,7 @@ protoc -I="$PROTOS" \
     "$PROTOS"/databricks_uc_registry_service.proto \
     "$PROTOS"/databricks_filesystem_service.proto
 
+
 PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
