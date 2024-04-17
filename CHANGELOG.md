@@ -1,8 +1,8 @@
 # CHANGELOG
 
-## 2.12.0 (2024-04-16)
+## 2.12.1 (2024-04-17)
 
-MLflow 2.12.0 includes several major features and improvements
+MLflow 2.12.1 includes several major features and improvements
 
 With this release, we're pleased to introduce several major new features that are focused on enhanced GenAI support, Deep Learning workflows involving images, expanded table logging functionality, and general usability enhancements within the UI and external integrations.
 
@@ -76,6 +76,10 @@ Documentation updates:
 Small bug fixes and documentation updates:
 
 #11723, @freemin7; #11722, #11721, #11690, #11717, #11685, #11689, #11607, #11581, #11516, #11511, #11358, @serena-ruan; #11718, #11673, #11676, #11680, #11671, #11662, #11659, #11654, #11633, #11628, #11620, #11610, #11605, #11604, #11600, #11603, #11598, #11572, #11576, #11555, #11563, #11539, #11532, #11528, #11525, #11514, #11513, #11509, #11457, #11501, #11500, #11459, #11446, #11443, #11442, #11433, #11430, #11420, #11419, #11416, #11418, #11417, #11415, #11408, #11325, #11327, #11313, @harupy; #11707, #11527, #11663, #11529, #11517, #11510, #11489, #11455, #11427, #11389, #11378, #11326, @B-Step62; #11715, #11714, #11665, #11626, #11619, #11437, #11429, @BenWilson2; #11699, #11692, @annzhang-db; #11693, #11533, #11396, #11392, #11386, #11380, #11381, #11343, @WeichenXu123; #11696, #11687, #11683, @chilir; #11387, #11625, #11574, #11441, #11432, #11428, #11355, #11354, #11351, #11349, #11339, #11338, #11307, @daniellok-db; #11653, #11369, #11270, @chenmoneygithub; #11666, #11588, @jessechancy; #11661, @jmjeon94; #11640, @tunjan; #11639, @minkj1992; #11589, @tlm365; #11566, #11410, @brynn-code; #11570, @lababidi; #11542, #11375, #11345, @edwardfeng-db; #11463, @taranarmo; #11506, @ernestwong-db; #11502, @fzyzcjy; #11470, @clemenskol; #11452, @jkfran; #11413, @GuyAglionby; #11438, @victorsun123; #11350, @liangz1; #11370, @sunishsheth2009; #11379, #11304, @zhouyou9505; #11321, #11323, #11322, @michael-berk; #11333, @cdancette; #11228, @TomeHirata
+
+## 2.12.0 (2024-04-16)
+
+MLflow 2.12.0 has been yanked from PyPI due to an issue with packaging required JS components. MLflow 2.12.1 is its replacement.
 
 ## 2.11.3 (2024-03-21)
 
