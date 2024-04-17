@@ -667,7 +667,8 @@ def flush_async_logging() -> None:
     _get_store().flush_async_logging()
     for key in _artifact_repos_cache:
         artifact_repo = _artifact_repos_cache[key]
-        artifact_repo.flush_async_logging()
+        if artifact_repo:
+            artifact_repo.flush_async_logging()
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
