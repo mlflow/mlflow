@@ -270,12 +270,16 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
+def get_single_trace_endpoint(request_id):
+    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
+
+
 def get_trace_info_endpoint(request_id):
-    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}/info"
+    return f"{get_single_trace_endpoint(request_id)}/info"
 
 
 def get_set_trace_tag_endpoint(request_id):
-    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}/tags"
+    return f"{get_single_trace_endpoint(request_id)}/tags"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):

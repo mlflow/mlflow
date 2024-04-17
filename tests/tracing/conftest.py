@@ -74,7 +74,7 @@ def reset_active_experiment():
 @pytest.fixture
 def mock_tracking_service_client():
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_trace_info",
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.end_trace",
         return_value=TraceInfo(
             request_id="tr-1234",
             experiment_id="0",
@@ -84,11 +84,11 @@ def mock_tracking_service_client():
             request_metadata={},
             tags={"mlflow.artifactLocation": "test"},
         ),
-    ) as mock_create_trace_info, mock.patch(
+    ) as mock_end_trace, mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
         return_value=None,
     ) as mock_upload_trace_data:
         yield
 
-        mock_create_trace_info.assert_called()
+        mock_end_trace.assert_called()
         mock_upload_trace_data.assert_called()

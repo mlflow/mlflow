@@ -18,16 +18,17 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CreateRun,
-    CreateTrace,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
+    EndTrace,
     GetExperimentByName,
     LogBatch,
     LogInputs,
@@ -42,6 +43,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetTag,
     SetTraceTag,
+    StartTrace,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -207,39 +209,6 @@ def test_requestor():
                 actual_tags, key=lambda t: t["key"]
             )
             assert expected_kwargs == actual_kwargs
-
-    with mock_http_request() as mock_http:
-        store.create_trace_info(
-            experiment_id="447585625682310",
-            timestamp_ms=123,
-            execution_time_ms=456,
-            status="OK",
-            request_metadata={
-                "key1": "val1",
-                "key2": "val2",
-            },
-            tags={
-                "tag1": "va1",
-                "tag2": "va2",
-            },
-        )
-        body = message_to_json(
-            CreateTrace(
-                experiment_id="447585625682310",
-                timestamp_ms=123,
-                execution_time_ms=456,
-                status="OK",
-                request_metadata=[
-                    ProtoTraceRequestMetadata(key="key1", value="val1"),
-                    ProtoTraceRequestMetadata(key="key2", value="val2"),
-                ],
-                tags=[
-                    ProtoTraceTag(key="tag1", value="va1"),
-                    ProtoTraceTag(key="tag2", value="va2"),
-                ],
-            )
-        )
-        _verify_requests(mock_http, creds, "traces", "POST", body)
 
     with mock_http_request() as mock_http:
         store.log_param("some_uuid", Param("k1", "v1"))
@@ -520,6 +489,107 @@ def test_get_metric_history_on_non_existent_metric_key():
         metrics = rest_store.get_metric_history(run_id="1", metric_key="test_metric")
         mock_request.assert_called_once()
         assert metrics == []
+
+
+def test_start_trace():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    request_id = "tr-123"
+    experiment_id = "447585625682310"
+    timestamp_ms = 123
+    metadata = {"key1": "val1", "key2": "val2"}
+    tags = {"tag1": "tv1", "tag2": "tv2"}
+    expected_request = StartTrace(
+        experiment_id=experiment_id,
+        timestamp_ms=123,
+        request_metadata=[ProtoTraceRequestMetadata(key=k, value=v) for k, v in metadata.items()],
+        tags=[ProtoTraceTag(key=k, value=v) for k, v in tags.items()],
+    )
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(
+        {
+            "trace_info": {
+                "request_id": request_id,
+                "experiment_id": experiment_id,
+                "timestamp_ms": timestamp_ms,
+                "execution_time_ms": None,
+                "status": 0,  # Running
+                "request_metadata": [{"key": k, "value": v} for k, v in metadata.items()],
+                "tags": [{"key": k, "value": v} for k, v in tags.items()],
+            }
+        }
+    )
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.start_trace(
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            request_metadata=metadata,
+            tags=tags,
+        )
+        _verify_requests(mock_http, creds, "traces", "POST", message_to_json(expected_request))
+        assert isinstance(res, TraceInfo)
+        assert res.request_id == request_id
+        assert res.experiment_id == experiment_id
+        assert res.timestamp_ms == timestamp_ms
+        assert res.execution_time_ms == 0
+        assert res.status == TraceStatus.UNSPECIFIED
+        assert res.request_metadata == metadata
+        assert res.tags == tags
+
+
+def test_end_trace():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    experiment_id = "447585625682310"
+    request_id = "tr-123"
+    timestamp_ms = 123
+    status = TraceStatus.OK
+    metadata = {"key1": "val1", "key2": "val2"}
+    tags = {"tag1": "tv1", "tag2": "tv2"}
+    expected_request = EndTrace(
+        request_id=request_id,
+        timestamp_ms=123,
+        status=status,
+        request_metadata=[ProtoTraceRequestMetadata(key=k, value=v) for k, v in metadata.items()],
+        tags=[ProtoTraceTag(key=k, value=v) for k, v in tags.items()],
+    )
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(
+        {
+            "trace_info": {
+                "request_id": request_id,
+                "experiment_id": experiment_id,
+                "timestamp_ms": timestamp_ms,
+                "execution_time_ms": 12345,
+                "status": 1,  # OK
+                "request_metadata": [{"key": k, "value": v} for k, v in metadata.items()],
+                "tags": [{"key": k, "value": v} for k, v in tags.items()],
+            }
+        }
+    )
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.end_trace(
+            request_id=request_id,
+            timestamp_ms=timestamp_ms,
+            status=status,
+            request_metadata=metadata,
+            tags=tags,
+        )
+        _verify_requests(
+            mock_http, creds, f"traces/{request_id}", "PATCH", message_to_json(expected_request)
+        )
+        assert isinstance(res, TraceInfo)
+        assert res.request_id == request_id
+        assert res.experiment_id == experiment_id
+        assert res.timestamp_ms == timestamp_ms
+        assert res.execution_time_ms == 12345
+        assert res.status == TraceStatus.OK
+        assert res.request_metadata == metadata
+        assert res.tags == tags
 
 
 def test_search_traces():

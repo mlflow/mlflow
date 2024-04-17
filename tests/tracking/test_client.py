@@ -148,28 +148,6 @@ def test_client_create_run_with_name(mock_store, mock_time):
     )
 
 
-def test_client_create_trace_info(mock_store, mock_time):
-    experiment_id = mock.Mock()
-
-    MlflowClient()._create_trace_info(
-        experiment_id,
-        123,
-        456,
-        "OK",
-        request_metadata={"key": "val"},
-        tags={},
-    )
-
-    mock_store.create_trace_info.assert_called_once_with(
-        experiment_id=experiment_id,
-        timestamp_ms=123,
-        execution_time_ms=456,
-        status=TraceStatus.OK,
-        request_metadata={"key": "val"},
-        tags={},
-    )
-
-
 def test_client_get_trace(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         request_id="1234567",
