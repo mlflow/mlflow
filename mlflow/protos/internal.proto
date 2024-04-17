@@ -7,6 +7,7 @@ package mlflow.internal;
 
 import "scalapb/scalapb.proto";
 
+option go_package = "github.com/mlflow/mlflow/mlflow/go/pkg/protos";
 option java_package = "org.mlflow.internal.proto";
 option py_generic_services = true;
 option (scalapb.options) = {

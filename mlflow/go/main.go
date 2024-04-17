@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/protos/artifacts"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -22,8 +23,7 @@ func main() {
 	}{
 		{"MlflowService", protos.File_service_proto},
 		{"ModelRegistryService", protos.File_model_registry_proto},
-		// TODO: We don't have the ArtifactService yet
-		// {"MlflowArtifactsService", protos.File_...
+		{"MlflowArtifactsService", artifacts.File_mlflow_artifacts_proto},
 	}
 
 	for _, service := range services {
