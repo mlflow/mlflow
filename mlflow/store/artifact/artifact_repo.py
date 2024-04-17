@@ -72,7 +72,8 @@ class ArtifactRepository:
         Flushes the async logging queue, ensuring that all pending logging operations have
         completed.
         """
-        self._async_logging_queue.flush()
+        if self._async_logging_queue._is_activated:
+            self._async_logging_queue.flush()
 
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):

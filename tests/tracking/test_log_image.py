@@ -289,3 +289,20 @@ def test_log_image_raises_exception_for_missing_arguments():
     exception = "Invalid arguments: Please specify exactly one of `artifact_file` or `key`"
     with mlflow.start_run(), pytest.raises(TypeError, match=exception):
         mlflow.log_image(np.zeros((1,), dtype=np.uint8))
+
+
+def test_async_log_image_flush():
+    import numpy as np
+
+    image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+    with mlflow.start_run():
+        for i in range(100):
+            mlflow.log_image(image1, key="dog", step=i, timestamp=i, synchronous=False)
+
+        mlflow.flush_async_logging()
+
+        logged_path = "images/"
+        artifact_uri = mlflow.get_artifact_uri(logged_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+        assert len(files) == 100 * 2

@@ -666,7 +666,8 @@ def flush_async_logging() -> None:
     """Flush all pending async logging."""
     _get_store().flush_async_logging()
     for key in _artifact_repos_cache:
-        _artifact_repos_cache[key].flush_async_logging()
+        artifact_repo = _artifact_repos_cache[key]
+        artifact_repo.flush_async_logging()
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
