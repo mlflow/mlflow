@@ -79,7 +79,7 @@ def format_trace_id(trace_id: int) -> str:
     """
     Format the given integer trace ID to a hex string.
     """
-    return f"0x{trace_api.format_span_id(trace_id)}"
+    return f"0x{trace_api.format_trace_id(trace_id)}"
 
 
 def decode_span_id(span_id: str) -> int:
