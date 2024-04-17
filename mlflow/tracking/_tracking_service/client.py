@@ -25,7 +25,7 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -220,7 +220,24 @@ class TrackingServiceClient:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
         trace_info = self.store.get_trace_info(request_id)
-        trace_data = self._download_trace_data(trace_info)
+        try:
+            trace_data = self._download_trace_data(trace_info)
+        except MlflowTraceDataNotFound as e:
+            raise MlflowException(
+                message=(
+                    f"Trace with ID {request_id} cannot be loaded because it is missing span data."
+                    " Please try creating or loading another trace."
+                ),
+                error_code=BAD_REQUEST,
+            )
+        except MlflowTraceDataNotFound as e:
+            raise MlflowException(
+                message=(
+                    f"Trace with ID {request_id} cannot be loaded because its span data"
+                    " is corrupted. Please try creating or loading another trace."
+                ),
+                error_code=BAD_REQUEST,
+            )
         return Trace(trace_info, trace_data)
 
     def _search_traces(
