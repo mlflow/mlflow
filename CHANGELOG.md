@@ -4,60 +4,6 @@
 
 MLflow 2.12.1 includes several major features and improvements
 
-Features:
-
-- [Models] Deprecate and add alias for `code_path` in `pyfunc` (#11688, @BenWilson2)
-- [Models] Handle custom model in sentence-transformers flavor (#11635, @B-Step62)
-- [Models] Streaming Langchain model prediction output (#11490, @WeichenXu123)
-- [Deployments] Make DatabricksDeploymentClient support prediction with streaming response (#11580, @WeichenXu123)
-- [Server-infra] Introduce private environment variables for overriding http retries (#11590, @BenWilson2)
-- [Artifacts] Introduce ability to use Filesystem service presigned URLs to upload/download model artifacts (#11534, @artjen)
-- [] Log image optimization (#11404, @jessechancy)
-- [Tracking] Lift the DBR check when logging Delta table to MLflow (#11521, @chenmoneygithub)
-- [Models] Reapply "Implement promptflow model flavor (#10104)" (#10903) (#11311, @brynn-code)
-- [Models] Copy Model Metadata into subdirectory within artifact store for UC sharing (#11357, @WeichenXu123)
-- [Deployments] Implement chat & chat streaming for Anthropic in Deployments (#11195, @gabrielfu)
-- [Models] Support Map type (#11265, @WeichenXu123)
-- [] Add UCVolumeDatasetSource (#11301, @chenmoneygithub)
-- [] Log image with time dimension (#11243, @jessechancy)
-
-Bug fixes:
-
-- [Model Registry] Make `_get_registry_uri_from_spark_session` return "databricks-uc" in case of Databricks Serverless client (#11719, @WeichenXu123)
-- [] Fix langchain dependency detection during model logging (#11679, @serena-ruan)
-- [Models] Patch LangChain loading functions to handle pickle serialization issue (#11582, @B-Step62)
-- [Models] Support ChatOpenAI and AzureChatOpenAI in LangChain flavor (#11644, @B-Step62)
-- [Model Registry] Delete registered model permission upon model deletion (#11601, @B-Step62)
-- [Tracking] [MLflow] fix for importing module multiple times to log model path as chain (#11553, @sunishsheth2009)
-- [Models] Support custom prediction functions in `SklearnModelWrapper` (#11577, @B-Step62)
-- [Deployments] Add middle-of-name truncation to excessively long deployment names for Sagemaker image deployment (#11523, @BenWilson2)
-- [Models] Fix langchain inference (#11485, @WeichenXu123)
-- [Tracking] Fix sampling logic in GetSampledHistoryBulkInterval (#11475, @daniellok-db)
-- [Models] Avoid input example conversion for llm/v1/xxx task in Transformer flavor (#11508, @B-Step62)
-- [Model Registry] Disallow % in model names (#11474, @daniellok-db)
-- [Tracking] Ability to check for both imports of langchain and lanchain_community dependency (#11450, @sunishsheth2009)
-- [Models] Support transformers models with custom code (models requiring `trust_remote_code=True`) (#11412, @daniellok-db)
-- [Model Registry] Fix Local File Read/Path Traversal bypass (#11376, @WeichenXu123)
-- [] Update Keras autologging iteration input handling (#11394, @WeichenXu123)
-- [Build] Fix keras autologging train iteration dataset (#11383, @WeichenXu123)
-- [] Make async logging faster (#11346, @chenmoneygithub)
-
-Documentation updates:
-
-- [Docs] Add doc for model metadata sub-directory (#11720, @WeichenXu123)
-- [Docs] Update code_paths docstrings (#11675, @BenWilson2)
-- [] log table images (#11535, @jessechancy)
-- [Docs] [Doc] Add promptflow model flavor documentation (#11385, @brynn-code)
-- [Docs] Add doc for sentence-transformers OpenAI-compatible API (#11373, @es94129)
-
-Small bug fixes and documentation updates:
-
-#11731, #11718, #11673, #11676, #11680, #11671, #11662, #11659, #11654, #11633, #11628, #11620, #11610, #11605, #11604, #11600, #11603, #11598, #11572, #11576, #11555, #11563, #11539, #11532, #11528, #11525, #11514, #11513, #11509, #11457, #11501, #11500, #11459, #11446, #11443, #11442, #11433, #11430, #11420, #11419, #11416, #11418, #11417, #11415, #11408, #11325, #11327, #11313, @harupy; #11723, @freemin7; #11722, #11721, #11690, #11717, #11685, #11689, #11607, #11581, #11516, #11511, #11358, @serena-ruan; #11707, #11527, #11663, #11529, #11517, #11510, #11489, #11455, #11427, #11389, #11378, #11326, @B-Step62; #11715, #11714, #11665, #11626, #11619, #11437, #11429, @BenWilson2; #11699, #11692, @annzhang-db; #11693, #11533, #11396, #11392, #11386, #11380, #11381, #11343, @WeichenXu123; #11696, #11687, #11683, @chilir; #11387, #11625, #11574, #11441, #11432, #11428, #11355, #11354, #11351, #11349, #11339, #11338, #11307, @daniellok-db; #11653, #11369, #11270, @chenmoneygithub; #11666, #11588, @jessechancy; #11661, @jmjeon94; #11640, @tunjan; #11639, @minkj1992; #11589, @tlm365; #11566, #11410, @brynn-code; #11570, @lababidi; #11542, #11375, #11345, @edwardfeng-db; #11463, @taranarmo; #11506, @ernestwong-db; #11502, @fzyzcjy; #11470, @clemenskol; #11452, @jkfran; #11413, @GuyAglionby; #11438, @victorsun123; #11350, @liangz1; #11370, @sunishsheth2009; #11379, #11304, @zhouyou9505; #11321, #11323, #11322, @michael-berk; #11333, @cdancette; #11228, @TomeHirata
-
-## 2.12.0 (2024-04-16)
-
-MLflow 2.12.0 includes several major features and improvements
-
 With this release, we're pleased to introduce several major new features that are focused on enhanced GenAI support, Deep Learning workflows involving images, expanded table logging functionality, and general usability enhancements within the UI and external integrations.
 
 ### Major Features and Improvements:
