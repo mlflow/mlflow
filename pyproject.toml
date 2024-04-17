@@ -32,7 +32,7 @@ dependencies = [
   "entrypoints<1",
   "gitpython<4,>=3.1.9",
   "graphene<4",
-  "gunicorn<22; platform_system != 'Windows'",
+  "gunicorn<23; platform_system != 'Windows'",
   "importlib_metadata<8,>=3.7.0,!=4.7.0",
   "markdown<4,>=3.3",
   "matplotlib<4",
