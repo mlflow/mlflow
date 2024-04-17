@@ -11539,7 +11539,9 @@ public final class MlflowArtifacts {
       "partUpload.Response\"j\362\206\031f\n>\n\004POST\0220/mlfl" +
       "ow-artifacts/mpu/abort/<path:artifact_pa" +
       "th>\032\004\010\002\020\000\020\001*\"Abort an Artifact Multipart" +
-      " UploadB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      " UploadBW\n\024org.mlflow.api.protoZ7github." +
+      "com/mlflow/mlflow/mlflow/go/pkg/protos/a" +
+      "rtifacts\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

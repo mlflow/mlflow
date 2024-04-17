@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package scalapb;
 
+option go_package = "github.com/mlflow/mlflow/mlflow/go/pkg/protos/scalapb";
 option java_package = "org.mlflow.scalapb_interface";
 
 import "google/protobuf/descriptor.proto";

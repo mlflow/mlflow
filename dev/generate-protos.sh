@@ -11,6 +11,8 @@ PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
     --java_out="mlflow/java/client/src/main/java" \
+    --go_out="." \
+    --go_opt=module=github.com/mlflow/mlflow \
     "$PROTOS"/databricks.proto \
     "$PROTOS"/service.proto \
     "$PROTOS"/model_registry.proto \

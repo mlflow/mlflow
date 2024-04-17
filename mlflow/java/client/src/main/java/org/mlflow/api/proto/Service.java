@@ -63281,8 +63281,9 @@ public final class Service {
       "runs/log-model\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tlog" +
       "Inputs\022\021.mlflow.LogInputs\032\032.mlflow.LogIn" +
       "puts.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/run" +
-      "s/log-inputs\032\004\010\002\020\000\020\001*\nLog InputsB\036\n\024org." +
-      "mlflow.api.proto\220\001\001\342?\002\020\001"
+      "s/log-inputs\032\004\010\002\020\000\020\001*\nLog InputsBM\n\024org." +
+      "mlflow.api.protoZ-github.com/mlflow/mlfl" +
+      "ow/mlflow/go/pkg/protos\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

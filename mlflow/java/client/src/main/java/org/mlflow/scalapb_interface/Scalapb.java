@@ -2521,8 +2521,9 @@ public final class Scalapb {
       "ns:J\n\007message\022\037.google.protobuf.MessageO" +
       "ptions\030\374\007 \001(\0132\027.scalapb.MessageOptions:D" +
       "\n\005field\022\035.google.protobuf.FieldOptions\030\374" +
-      "\007 \001(\0132\025.scalapb.FieldOptionsB\036\n\034org.mlfl" +
-      "ow.scalapb_interface"
+      "\007 \001(\0132\025.scalapb.FieldOptionsBU\n\034org.mlfl" +
+      "ow.scalapb_interfaceZ5github.com/mlflow/" +
+      "mlflow/mlflow/go/pkg/protos/scalapb"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
