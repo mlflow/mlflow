@@ -229,7 +229,7 @@ class TrackingServiceClient:
                     " Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
-            )
+            ) from None # Ensure that the original spammy exception is not included in the traceback
         except MlflowTraceDataCorrupted as e:
             raise MlflowException(
                 message=(
@@ -237,7 +237,7 @@ class TrackingServiceClient:
                     " is corrupted. Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
-            )
+            ) from None # Ensure that the original spammy exception is not included in the traceback
         return Trace(trace_info, trace_data)
 
     def _search_traces(
