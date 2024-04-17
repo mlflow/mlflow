@@ -8,26 +8,44 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+type Endpoint struct {
+	Method string
+	Path   string
+}
+
 func main() {
-	s := protos.File_service_proto.Services().ByName("MlflowService")
-	m := s.Methods()
-	serviceMethod := m.Get(0)
-	options := serviceMethod.Options()
-	fmt.Printf("%#v\n%s\n", options, options)
-	// rpc := protos.File_databricks_proto.Extensions().ByName("rpc")
-	// var rpc protoreflect.FieldDescriptor
-	options.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		// rpc = fd
-		fmt.Printf("field: %#v\n", fd)
-		fmt.Printf("value: %#v\n", v)
-		return true
-	})
-	// fmt.Printf("%#v\n", options.ProtoReflect().ProtoMethods().)
-	// d := options.ProtoReflect().Descriptor()
-	// fmt.Printf("%#v", d.Fields().ByNumber(35).)
-	extension := proto.GetExtension(options, protos.E_Rpc)
-	for _, endpoint := range extension.(*protos.DatabricksRpcOptions).Endpoints {
-		fmt.Printf("endpoint: %#v\n", endpoint)
-		fmt.Printf("%s %s\n", *endpoint.Method, *endpoint.Path)
+	servicEndpoints := make([]Endpoint, 0)
+
+	services := []struct {
+		Name       string
+		Descriptor protoreflect.FileDescriptor
+	}{
+		{"MlflowService", protos.File_service_proto},
+		{"ModelRegistryService", protos.File_model_registry_proto},
+		// TODO: We don't have the ArtifactService yet
+		// {"MlflowArtifactsService", protos.File_...
+	}
+
+	for _, service := range services {
+		serviceInfo := service.Descriptor.Services().ByName(protoreflect.Name(service.Name))
+
+		if serviceInfo == nil {
+			panic(fmt.Sprintf("Service %s not found", service.Name))
+		}
+
+		methods := serviceInfo.Methods()
+		for mIdx := range methods.Len() {
+			method := methods.Get(mIdx)
+			options := method.Options()
+
+			extension := proto.GetExtension(options, protos.E_Rpc)
+			for _, endpoint := range extension.(*protos.DatabricksRpcOptions).Endpoints {
+				servicEndpoints = append(servicEndpoints, Endpoint{Method: *endpoint.Method, Path: *endpoint.Path})
+			}
+		}
+	}
+
+	for e := range servicEndpoints {
+		println(servicEndpoints[e].Method, servicEndpoints[e].Path)
 	}
 }
