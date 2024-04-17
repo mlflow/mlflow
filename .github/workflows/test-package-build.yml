@@ -39,21 +39,15 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - name: Create dummy MLflow UI
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+
+      - name: Build UI
+        working-directory: mlflow/server/js
         run: |
-          mkdir -p mlflow/server/js/build
-          echo '
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8">
-              <title>MLflow</title>
-            </head>
-          <body>
-            MLflow
-          </body>
-          </html>
-          ' > mlflow/server/js/build/index.html
+          yarn
+          yarn build
 
       - name: Check dependencies consistency
         run: |
@@ -86,14 +80,19 @@ jobs:
           echo "wheel-name=${wheel_name}" >> $GITHUB_OUTPUT
           echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
 
-      - name: List files
+      - name: List files in source distribution
         run: |
-          echo "::group::sdist"
           tar -tf ${{ steps.build-dist.outputs.sdist-path }}
-          echo "::endgroup::"
-          echo "::group::wheel"
+
+      - name: List files in binary distribution
+        run: |
           unzip -l ${{ steps.build-dist.outputs.wheel-path }}
-          echo "::endgroup::"
+
+      - name: Compare files in source and binary distributions
+        run: |
+          tar -tzf ${{ steps.build-dist.outputs.sdist-path }} | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
+          zipinfo -1 ${{ steps.build-dist.outputs.wheel-path }} | sort > /tmp/wheel.txt
+          diff /tmp/source.txt /tmp/wheel.txt || true
 
       - name: Run twine check
         run: |
