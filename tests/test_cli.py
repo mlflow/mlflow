@@ -410,7 +410,9 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
     exp_id_6 = store.create_experiment("6")
     run_id_2 = store.create_run(exp_id_6, user_id="user", start_time=1, tags=[], run_name="2")
-    run_id_2_datasets = [DatasetInput(dataset=numpy_dataset.from_numpy(np.array([1, 2, 3])))]
+    run_id_2_datasets = [
+        DatasetInput(dataset=numpy_dataset.from_numpy(np.array([1, 2, 3]))._to_mlflow_entity())
+    ]
     store.log_inputs(run_id_2.info.run_id, datasets=run_id_2_datasets)
     store.delete_experiment(exp_id_6)
     invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_6)
