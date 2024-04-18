@@ -1,12 +1,19 @@
+import json
+import uuid
 from unittest import mock
 
+import pydantic
 import pytest
 
+from mlflow import MlflowClient
 from mlflow.entities import Run, RunInfo
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.tracing.types.constant import SpanAttributeKey
+from mlflow.tracing.types.wrapper import LiveSpan
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 
@@ -110,12 +117,25 @@ def test_upload_trace_data(tmp_path, mock_store):
         request_metadata={},
         tags={"mlflow.artifactLocation": "test"},
     )
+
+    class CustomObject(pydantic.BaseModel):
+        data: str
+
+    obj = CustomObject(data="test")
+    span = MlflowClient().start_trace(
+        "span",
+        # test non-json serializable objects
+        inputs={"data": uuid.uuid4()},
+        attributes={SpanAttributeKey.FUNCTION_NAME: "function_name", SpanAttributeKey.OUTPUTS: obj},
+    )
+    trace_data = TraceData([span])
+    trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder)
     with mock.patch(
         "mlflow.store.artifact.artifact_repo.ArtifactRepository.upload_trace_data",
     ) as mock_upload_trace_data:
         client = TrackingServiceClient(tmp_path.as_uri())
-        client._upload_trace_data(trace_info=trace_info, trace_data=TraceData())
-        mock_upload_trace_data.assert_called_once()
+        client._upload_trace_data(trace_info=trace_info, trace_data=trace_data)
+        mock_upload_trace_data.assert_called_once_with(trace_data_json)
         # The TraceInfo is already fetched prior to the upload_trace_data call,
         # so we should not call _get_trace_info again
         mock_store.get_trace_info.assert_not_called()
