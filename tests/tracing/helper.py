@@ -88,7 +88,15 @@ def create_trace(request_id) -> Trace:
     return Trace(info=create_test_trace_info(request_id), data=TraceData())
 
 
-def create_test_trace_info(request_id, experiment_id="test", timestamp_ms=0, execution_time_ms=1, status=TraceStatus.OK, request_metadata=None, tags=None):
+def create_test_trace_info(
+    request_id,
+    experiment_id="test",
+    timestamp_ms=0,
+    execution_time_ms=1,
+    status=TraceStatus.OK,
+    request_metadata=None,
+    tags=None,
+):
     return TraceInfo(
         request_id=request_id,
         experiment_id=experiment_id,

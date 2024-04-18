@@ -495,10 +495,11 @@ def test_log_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatc
             self._client.end_trace(request_id, outputs=z, status="OK")
             return z
 
-
     model = TestModel()
 
-    with mock.patch("mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data") as mock_upload_trace_data:
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+    ) as mock_upload_trace_data:
         model.predict(1, 2)
 
     traces = mlflow.get_traces()
@@ -508,17 +509,17 @@ def test_log_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatc
     assert trace_info.experiment_id == "test_experiment_id"
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '5'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
     assert trace_info.tags == {
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
         "mlflow.user": "bob",
-        "tag": "tag_value"
+        "tag": "tag_value",
     }
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 1, "y": 2}'
-    assert trace_data.response == '5'
+    assert trace_data.response == "5"
     assert len(trace_data.spans) == 2
 
     mock_store.start_trace.assert_called_once()

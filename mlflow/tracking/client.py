@@ -45,7 +45,6 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
-    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -930,7 +929,6 @@ class MlflowClient:
         # Trying to delete the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace_info(request_id) as trace_info:
             if trace_info:
-                print(trace_info)
                 if key in trace_info.tags:
                     trace_info.tags.pop(key)
                     return

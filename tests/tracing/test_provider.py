@@ -1,12 +1,12 @@
 from unittest import mock
 
-from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import RestException
-from mlflow.tracing.utils import encode_trace_id
 from opentelemetry import trace
 
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import RestException
 from mlflow.tracing.clients import get_trace_client
-from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, get_tracer, create_trace_info
+from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, create_trace_info, get_tracer
+from mlflow.tracing.utils import encode_trace_id
 
 from tests.tracing.helper import create_mock_otel_span
 
@@ -52,7 +52,11 @@ def test_create_trace_info_databricks(monkeypatch, mock_store):
     assert trace_info.status == TraceStatus.IN_PROGRESS
     assert trace_info.request_metadata == {"key": "value"}
     # mlflow.user tag should be overridden by the one passed by the user
-    assert trace_info.tags == {"foo": "bar", "mlflow.user": "bob", "mlflow.artifactLocation": "test"}
+    assert trace_info.tags == {
+        "foo": "bar",
+        "mlflow.user": "bob",
+        "mlflow.artifactLocation": "test",
+    }
 
 
 def test_create_trace_info_databricks_get_experiemnt_id_from_env(monkeypatch, mock_store):

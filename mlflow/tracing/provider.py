@@ -1,19 +1,21 @@
 import logging
 from typing import Optional
 
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.util._once import Once
+
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import RestException
 from mlflow.tracing.clients import TraceClient, get_trace_client
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.utils import encode_trace_id
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment, is_in_databricks_runtime
-
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.util._once import Once
-
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 
 # Once() object ensures a function is executed only once in a process.
 # Note that it doesn't work as expected in a distributed environment.
@@ -21,6 +23,7 @@ _TRACER_PROVIDER_INITIALIZED = Once()
 
 
 _logger = logging.getLogger(__name__)
+
 
 def get_tracer(module_name: str):
     """
@@ -80,15 +83,17 @@ def create_trace_info(
                 experiment_id=experiment_id,
                 timestamp_ms=otel_span.start_time // 1_000_000,  # nanosecond to millisecond
                 request_metadata=request_metadata,
-                # Some tags like mlflow.runName are immutable once logged in Databricks tracking server.
+                # Some tags like mlflow.runName are immutable once logged in tracking server.
                 tags={k: v for k, v in tags.items() if not k.startswith("mlflow.")},
             )
         # TODO: This catches all exceptions from the tracking server so the in-memory tracing still
-        # works if the backend APIs are not ready. Once backend is ready, we should catch more specific
-        # exceptions and handle them accordingly.
+        # works if the backend APIs are not ready. Once backend is ready, we should catch more
+        # specific exceptions and handle them accordingly.
         except RestException:
-            _logger.warning("Failed to start a trace in the tracking server. This may be because the "
-                            "backend APIs are not available. Fallback to client-side generation")
+            _logger.warning(
+                "Failed to start a trace in the tracking server. This may be because the "
+                "backend APIs are not available. Fallback to client-side generation"
+            )
             pass
 
     # In Databricks model serving, TraceInfo is created at the client side and request_id

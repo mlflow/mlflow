@@ -60,7 +60,6 @@ class InMemoryTraceManager:
         self._trace_id_to_request_id = {}
         self._lock = threading.Lock()  # Lock for _traces
 
-
     def register_trace(self, trace_id: str, trace_info: TraceInfo):
         """
         Register a new trace info object to the in-memory trace registry.
@@ -81,7 +80,6 @@ class InMemoryTraceManager:
             self._trace_id_to_request_id.pop(request_id, None)
             trace: _Trace = self._traces.pop(request_id, None)
         return trace.to_mlflow_trace() if trace else None
-
 
     def register_span(self, span: LiveSpan):
         """

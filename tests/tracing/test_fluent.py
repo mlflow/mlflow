@@ -105,10 +105,11 @@ def test_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatch):
             time.sleep(0.1)
             return res
 
-
     model = TestModel()
 
-    with mock.patch("mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data") as mock_upload_trace_data:
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+    ) as mock_upload_trace_data:
         model.predict(2, 5)
 
     traces = mlflow.get_traces()
@@ -127,13 +128,12 @@ def test_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatch):
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 2, "y": 5}'
-    assert trace_data.response == '64'
+    assert trace_data.response == "64"
     assert len(trace_data.spans) == 3
 
     mock_store.start_trace.assert_called_once()
     mock_store.end_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
-
 
 
 def test_trace_handle_exception_during_prediction(clear_singleton):

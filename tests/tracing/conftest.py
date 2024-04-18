@@ -1,6 +1,5 @@
 from unittest import mock
 
-from mlflow.tracking.fluent import _get_experiment_id
 import pytest
 from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
@@ -11,6 +10,8 @@ from mlflow.tracing.clients import InMemoryTraceClient, InMemoryTraceClientWithT
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracking.fluent import _get_experiment_id
+
 from tests.tracing.helper import create_test_trace_info
 
 
@@ -50,7 +51,7 @@ def mock_upload_trace_data():
             request_metadata={},
             tags={"mlflow.artifactLocation": "test"},
         ),
-    ) as mock_end_trace, mock.patch(
+    ), mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
         return_value=None,
     ) as mock_upload_trace_data:
@@ -77,11 +78,7 @@ def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
         execution_time_ms=None,
         status=TraceStatus.IN_PROGRESS,
         request_metadata=request_metadata,
-        tags={
-            "mlflow.user": "bob",
-            "mlflow.artifactLocation": "test",
-            **tags
-        },
+        tags={"mlflow.user": "bob", "mlflow.artifactLocation": "test", **tags},
     )
 
 
@@ -93,13 +90,13 @@ def _mock_end_trace(request_id, timestamp_ms, status, request_metadata, tags):
         request_id=request_id,
         experiment_id=_get_experiment_id(),
         timestamp_ms=123,
-        execution_time_ms=timestamp_ms+123,
+        execution_time_ms=timestamp_ms + 123,
         status=status,
         request_metadata=request_metadata or {},
         tags={
             "mlflow.user": "bob",
             "mlflow.artifactLocation": "test",
             "some_existing_tag": "value",
-            **tags
+            **tags,
         },
     )

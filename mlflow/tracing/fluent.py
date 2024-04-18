@@ -11,9 +11,9 @@ from opentelemetry import trace as trace_api
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing import provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import capture_function_input_args, encode_span_id
 from mlflow.utils import get_results_from_paginated_fn

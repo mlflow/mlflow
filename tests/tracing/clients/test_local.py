@@ -1,4 +1,5 @@
 from mlflow.tracing.clients import InMemoryTraceClient
+
 from tests.tracing.helper import create_trace
 
 

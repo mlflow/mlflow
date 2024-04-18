@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import mlflow
 from mlflow.tracing.clients import get_trace_client
+
 from tests.tracing.helper import create_trace
 
 
