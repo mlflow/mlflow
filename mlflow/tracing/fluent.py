@@ -17,6 +17,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.constant import SpanAttributeKey
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
 from mlflow.tracing.utils import capture_function_input_args, format_span_id
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 
 _logger = logging.getLogger(__name__)
@@ -210,7 +211,7 @@ def get_traces(n: int = 1) -> List[Trace]:
 
 
 def search_traces(
-    experiment_ids: List[str],
+    experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
@@ -229,6 +230,8 @@ def search_traces(
         A list of :py:class:`Trace <mlflow.entities.Trace>` objects that satisfy the search
         expressions.
     """
+
+    experiment_ids = experiment_ids or [_get_experiment_id()]
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_traces(
