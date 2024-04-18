@@ -548,17 +548,17 @@ type DatabricksRpcOptions struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Endpoints []*HttpEndpoint `protobuf:"bytes,1,rep,name=endpoints" json:"endpoints,omitempty"`
+	Endpoints []*HttpEndpoint `protobuf:"bytes,1,rep,name=endpoints" json:"endpoints,omitempty" query:"endpoints"`
 	// Indicates which users are allowed to initiate this RPC.
-	Visibility *Visibility `protobuf:"varint,2,opt,name=visibility,enum=mlflow.Visibility" json:"visibility,omitempty"`
+	Visibility *Visibility `protobuf:"varint,2,opt,name=visibility,enum=mlflow.Visibility" json:"visibility,omitempty" query:"visibility"`
 	// Complete definition of all error codes (from a statically defined set) which this method
 	// may return.
-	ErrorCodes []ErrorCode `protobuf:"varint,3,rep,name=error_codes,json=errorCodes,enum=mlflow.ErrorCode" json:"error_codes,omitempty"`
+	ErrorCodes []ErrorCode `protobuf:"varint,3,rep,name=error_codes,json=errorCodes,enum=mlflow.ErrorCode" json:"error_codes,omitempty" query:"error_codes"`
 	// If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
-	RateLimit *RateLimit `protobuf:"bytes,4,opt,name=rate_limit,json=rateLimit" json:"rate_limit,omitempty"`
+	RateLimit *RateLimit `protobuf:"bytes,4,opt,name=rate_limit,json=rateLimit" json:"rate_limit,omitempty" query:"rate_limit"`
 	// If defined, overrides the default title used for in the API docs. See ProtobufDocGenerator
 	// for more info.
-	RpcDocTitle *string `protobuf:"bytes,5,opt,name=rpc_doc_title,json=rpcDocTitle" json:"rpc_doc_title,omitempty"`
+	RpcDocTitle *string `protobuf:"bytes,5,opt,name=rpc_doc_title,json=rpcDocTitle" json:"rpc_doc_title,omitempty" query:"rpc_doc_title"`
 }
 
 func (x *DatabricksRpcOptions) Reset() {
@@ -675,12 +675,12 @@ type HttpEndpoint struct {
 	unknownFields protoimpl.UnknownFields
 
 	// HTTP method like POST or GET.
-	Method *string `protobuf:"bytes,1,opt,name=method,def=POST" json:"method,omitempty"`
+	Method *string `protobuf:"bytes,1,opt,name=method,def=POST" json:"method,omitempty" query:"method"`
 	// Conceptual path of the API, like "/clusters" or "/clusters/create". Should start with a slash.
-	Path *string `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
+	Path *string `protobuf:"bytes,2,opt,name=path" json:"path,omitempty" query:"path"`
 	// A version like 1.1 which is prepended to the URL (e.g., GET /1.1/clusters).
 	// Breaking changes to an RPC must use a different version number.
-	Since *ApiVersion `protobuf:"bytes,3,opt,name=since" json:"since,omitempty"`
+	Since *ApiVersion `protobuf:"bytes,3,opt,name=since" json:"since,omitempty" query:"since"`
 }
 
 // Default values for HttpEndpoint fields.
@@ -746,8 +746,8 @@ type ApiVersion struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Major *int32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty"`
-	Minor *int32 `protobuf:"varint,2,opt,name=minor" json:"minor,omitempty"`
+	Major *int32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty" query:"major"`
+	Minor *int32 `protobuf:"varint,2,opt,name=minor" json:"minor,omitempty" query:"minor"`
 }
 
 func (x *ApiVersion) Reset() {
@@ -805,10 +805,10 @@ type RateLimit struct {
 
 	// The maximum burst of API requests allowed for a single endpoint. In the context of the
 	// token bucket algorithm, this constant represents the total capacity of the token bucket.
-	MaxBurst *int64 `protobuf:"varint,1,opt,name=max_burst,json=maxBurst" json:"max_burst,omitempty"`
+	MaxBurst *int64 `protobuf:"varint,1,opt,name=max_burst,json=maxBurst" json:"max_burst,omitempty" query:"max_burst"`
 	// The maximum sustained request per second limit for a single endpoint. In the context of the,
 	// token bucket algorithm, this constant represents the rate at which the token bucket fills.
-	MaxSustainedPerSecond *int64 `protobuf:"varint,2,opt,name=max_sustained_per_second,json=maxSustainedPerSecond" json:"max_sustained_per_second,omitempty"`
+	MaxSustainedPerSecond *int64 `protobuf:"varint,2,opt,name=max_sustained_per_second,json=maxSustainedPerSecond" json:"max_sustained_per_second,omitempty" query:"max_sustained_per_second"`
 }
 
 func (x *RateLimit) Reset() {
@@ -864,23 +864,23 @@ type DocumentationMetadata struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The string of documentation attached to this particular item.
-	Docstring *string `protobuf:"bytes,1,opt,name=docstring" json:"docstring,omitempty"`
+	Docstring *string `protobuf:"bytes,1,opt,name=docstring" json:"docstring,omitempty" query:"docstring"`
 	// The string of documentation that is *before* this item. This only makes sense for top-level
 	// items such as (top-level) messages, (top-level) enumerations, or services. In all other
 	// cases, this string is empty.
-	LeadDoc *string `protobuf:"bytes,2,opt,name=lead_doc,json=leadDoc" json:"lead_doc,omitempty"`
+	LeadDoc *string `protobuf:"bytes,2,opt,name=lead_doc,json=leadDoc" json:"lead_doc,omitempty" query:"lead_doc"`
 	// The visibility level when the docstring was generated.
 	// The documentation extractor builds multiple versions of the documentation, one for each
 	// visibility level. The documentation is then generated for each visibility level.
-	Visibility *Visibility `protobuf:"varint,3,opt,name=visibility,enum=mlflow.Visibility" json:"visibility,omitempty"`
+	Visibility *Visibility `protobuf:"varint,3,opt,name=visibility,enum=mlflow.Visibility" json:"visibility,omitempty" query:"visibility"`
 	// The original proto path in the internal representation. This is useful when performing field
 	// flattening to figure out what the original field was.
 	// One example is ["jobs","Run","original_attempt_run_id"] for jobs.
 	// This path is unique.
-	OriginalProtoPath []string `protobuf:"bytes,4,rep,name=original_proto_path,json=originalProtoPath" json:"original_proto_path,omitempty"`
+	OriginalProtoPath []string `protobuf:"bytes,4,rep,name=original_proto_path,json=originalProtoPath" json:"original_proto_path,omitempty" query:"original_proto_path"`
 	// The location (line number) of the start of the documentation. This is required to keep the
 	// pieces of documentation sorted.
-	Position *int32 `protobuf:"varint,5,opt,name=position" json:"position,omitempty"`
+	Position *int32 `protobuf:"varint,5,opt,name=position" json:"position,omitempty" query:"position"`
 }
 
 func (x *DocumentationMetadata) Reset() {

@@ -110,7 +110,7 @@ type ListArtifacts struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Filter artifacts matching this path (a relative path from the root artifact directory).
-	Path *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Path *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty" query:"path"`
 }
 
 func (x *ListArtifacts) Reset() {
@@ -196,11 +196,11 @@ type FileInfo struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Path relative to the root artifact directory run.
-	Path *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Path *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty" query:"path"`
 	// Whether the path is a directory.
-	IsDir *bool `protobuf:"varint,2,opt,name=is_dir,json=isDir" json:"is_dir,omitempty"`
+	IsDir *bool `protobuf:"varint,2,opt,name=is_dir,json=isDir" json:"is_dir,omitempty" query:"is_dir"`
 	// Size in bytes. Unset for directories.
-	FileSize *int64 `protobuf:"varint,3,opt,name=file_size,json=fileSize" json:"file_size,omitempty"`
+	FileSize *int64 `protobuf:"varint,3,opt,name=file_size,json=fileSize" json:"file_size,omitempty" query:"file_size"`
 }
 
 func (x *FileInfo) Reset() {
@@ -261,8 +261,8 @@ type CreateMultipartUpload struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Path     *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	NumParts *int64  `protobuf:"varint,2,opt,name=num_parts,json=numParts" json:"num_parts,omitempty"`
+	Path     *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty" query:"path"`
+	NumParts *int64  `protobuf:"varint,2,opt,name=num_parts,json=numParts" json:"num_parts,omitempty" query:"num_parts"`
 }
 
 func (x *CreateMultipartUpload) Reset() {
@@ -316,9 +316,9 @@ type CompleteMultipartUpload struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Path     *string                `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	UploadId *string                `protobuf:"bytes,2,opt,name=upload_id,json=uploadId" json:"upload_id,omitempty"`
-	Parts    []*MultipartUploadPart `protobuf:"bytes,3,rep,name=parts" json:"parts,omitempty"`
+	Path     *string                `protobuf:"bytes,1,opt,name=path" json:"path,omitempty" query:"path"`
+	UploadId *string                `protobuf:"bytes,2,opt,name=upload_id,json=uploadId" json:"upload_id,omitempty" query:"upload_id"`
+	Parts    []*MultipartUploadPart `protobuf:"bytes,3,rep,name=parts" json:"parts,omitempty" query:"parts"`
 }
 
 func (x *CompleteMultipartUpload) Reset() {
@@ -379,8 +379,8 @@ type AbortMultipartUpload struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Path     *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	UploadId *string `protobuf:"bytes,2,opt,name=upload_id,json=uploadId" json:"upload_id,omitempty"`
+	Path     *string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty" query:"path"`
+	UploadId *string `protobuf:"bytes,2,opt,name=upload_id,json=uploadId" json:"upload_id,omitempty" query:"upload_id"`
 }
 
 func (x *AbortMultipartUpload) Reset() {
@@ -434,9 +434,9 @@ type MultipartUploadCredential struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Url        *string           `protobuf:"bytes,1,opt,name=url" json:"url,omitempty"`
-	PartNumber *int64            `protobuf:"varint,2,opt,name=part_number,json=partNumber" json:"part_number,omitempty"`
-	Headers    map[string]string `protobuf:"bytes,3,rep,name=headers" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Url        *string           `protobuf:"bytes,1,opt,name=url" json:"url,omitempty" query:"url"`
+	PartNumber *int64            `protobuf:"varint,2,opt,name=part_number,json=partNumber" json:"part_number,omitempty" query:"part_number"`
+	Headers    map[string]string `protobuf:"bytes,3,rep,name=headers" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value" query:"headers"`
 }
 
 func (x *MultipartUploadCredential) Reset() {
@@ -497,9 +497,9 @@ type MultipartUploadPart struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	PartNumber *int64  `protobuf:"varint,1,opt,name=part_number,json=partNumber" json:"part_number,omitempty"`
-	Etag       *string `protobuf:"bytes,2,opt,name=etag" json:"etag,omitempty"`
-	Url        *string `protobuf:"bytes,3,opt,name=url" json:"url,omitempty"`
+	PartNumber *int64  `protobuf:"varint,1,opt,name=part_number,json=partNumber" json:"part_number,omitempty" query:"part_number"`
+	Etag       *string `protobuf:"bytes,2,opt,name=etag" json:"etag,omitempty" query:"etag"`
+	Url        *string `protobuf:"bytes,3,opt,name=url" json:"url,omitempty" query:"url"`
 }
 
 func (x *MultipartUploadPart) Reset() {
@@ -637,7 +637,7 @@ type ListArtifacts_Response struct {
 	unknownFields protoimpl.UnknownFields
 
 	// File location and metadata for artifacts.
-	Files []*FileInfo `protobuf:"bytes,1,rep,name=files" json:"files,omitempty"`
+	Files []*FileInfo `protobuf:"bytes,1,rep,name=files" json:"files,omitempty" query:"files"`
 }
 
 func (x *ListArtifacts_Response) Reset() {
@@ -722,8 +722,8 @@ type CreateMultipartUpload_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	UploadId    *string                      `protobuf:"bytes,1,opt,name=upload_id,json=uploadId" json:"upload_id,omitempty"`
-	Credentials []*MultipartUploadCredential `protobuf:"bytes,2,rep,name=credentials" json:"credentials,omitempty"`
+	UploadId    *string                      `protobuf:"bytes,1,opt,name=upload_id,json=uploadId" json:"upload_id,omitempty" query:"upload_id"`
+	Credentials []*MultipartUploadCredential `protobuf:"bytes,2,rep,name=credentials" json:"credentials,omitempty" query:"credentials"`
 }
 
 func (x *CreateMultipartUpload_Response) Reset() {

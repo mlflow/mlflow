@@ -89,23 +89,23 @@ type RegisteredModel struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Unique name for the model.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Timestamp recorded when this “registered_model“ was created.
-	CreationTimestamp *int64 `protobuf:"varint,2,opt,name=creation_timestamp,json=creationTimestamp" json:"creation_timestamp,omitempty"`
+	CreationTimestamp *int64 `protobuf:"varint,2,opt,name=creation_timestamp,json=creationTimestamp" json:"creation_timestamp,omitempty" query:"creation_timestamp"`
 	// Timestamp recorded when metadata for this “registered_model“ was last updated.
-	LastUpdatedTimestamp *int64 `protobuf:"varint,3,opt,name=last_updated_timestamp,json=lastUpdatedTimestamp" json:"last_updated_timestamp,omitempty"`
+	LastUpdatedTimestamp *int64 `protobuf:"varint,3,opt,name=last_updated_timestamp,json=lastUpdatedTimestamp" json:"last_updated_timestamp,omitempty" query:"last_updated_timestamp"`
 	// User that created this “registered_model“
 	// NOTE: this field is not currently returned.
-	UserId *string `protobuf:"bytes,4,opt,name=user_id,json=userId" json:"user_id,omitempty"`
+	UserId *string `protobuf:"bytes,4,opt,name=user_id,json=userId" json:"user_id,omitempty" query:"user_id"`
 	// Description of this “registered_model“.
-	Description *string `protobuf:"bytes,5,opt,name=description" json:"description,omitempty"`
+	Description *string `protobuf:"bytes,5,opt,name=description" json:"description,omitempty" query:"description"`
 	// Collection of latest model versions for each stage.
 	// Only contains models with current “READY“ status.
-	LatestVersions []*ModelVersion `protobuf:"bytes,6,rep,name=latest_versions,json=latestVersions" json:"latest_versions,omitempty"`
+	LatestVersions []*ModelVersion `protobuf:"bytes,6,rep,name=latest_versions,json=latestVersions" json:"latest_versions,omitempty" query:"latest_versions"`
 	// Tags: Additional metadata key-value pairs for this “registered_model“.
-	Tags []*RegisteredModelTag `protobuf:"bytes,7,rep,name=tags" json:"tags,omitempty"`
+	Tags []*RegisteredModelTag `protobuf:"bytes,7,rep,name=tags" json:"tags,omitempty" query:"tags"`
 	// Aliases pointing to model versions associated with this “registered_model“.
-	Aliases []*RegisteredModelAlias `protobuf:"bytes,8,rep,name=aliases" json:"aliases,omitempty"`
+	Aliases []*RegisteredModelAlias `protobuf:"bytes,8,rep,name=aliases" json:"aliases,omitempty" query:"aliases"`
 }
 
 func (x *RegisteredModel) Reset() {
@@ -202,35 +202,35 @@ type ModelVersion struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Unique name of the model
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model's version number.
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 	// Timestamp recorded when this “model_version“ was created.
-	CreationTimestamp *int64 `protobuf:"varint,3,opt,name=creation_timestamp,json=creationTimestamp" json:"creation_timestamp,omitempty"`
+	CreationTimestamp *int64 `protobuf:"varint,3,opt,name=creation_timestamp,json=creationTimestamp" json:"creation_timestamp,omitempty" query:"creation_timestamp"`
 	// Timestamp recorded when metadata for this “model_version“ was last updated.
-	LastUpdatedTimestamp *int64 `protobuf:"varint,4,opt,name=last_updated_timestamp,json=lastUpdatedTimestamp" json:"last_updated_timestamp,omitempty"`
+	LastUpdatedTimestamp *int64 `protobuf:"varint,4,opt,name=last_updated_timestamp,json=lastUpdatedTimestamp" json:"last_updated_timestamp,omitempty" query:"last_updated_timestamp"`
 	// User that created this “model_version“.
-	UserId *string `protobuf:"bytes,5,opt,name=user_id,json=userId" json:"user_id,omitempty"`
+	UserId *string `protobuf:"bytes,5,opt,name=user_id,json=userId" json:"user_id,omitempty" query:"user_id"`
 	// Current stage for this “model_version“.
-	CurrentStage *string `protobuf:"bytes,6,opt,name=current_stage,json=currentStage" json:"current_stage,omitempty"`
+	CurrentStage *string `protobuf:"bytes,6,opt,name=current_stage,json=currentStage" json:"current_stage,omitempty" query:"current_stage"`
 	// Description of this “model_version“.
-	Description *string `protobuf:"bytes,7,opt,name=description" json:"description,omitempty"`
+	Description *string `protobuf:"bytes,7,opt,name=description" json:"description,omitempty" query:"description"`
 	// URI indicating the location of the source model artifacts, used when creating “model_version“
-	Source *string `protobuf:"bytes,8,opt,name=source" json:"source,omitempty"`
+	Source *string `protobuf:"bytes,8,opt,name=source" json:"source,omitempty" query:"source"`
 	// MLflow run ID used when creating “model_version“, if “source“ was generated by an
 	// experiment run stored in MLflow tracking server.
-	RunId *string `protobuf:"bytes,9,opt,name=run_id,json=runId" json:"run_id,omitempty"`
+	RunId *string `protobuf:"bytes,9,opt,name=run_id,json=runId" json:"run_id,omitempty" query:"run_id"`
 	// Current status of “model_version“
-	Status *ModelVersionStatus `protobuf:"varint,10,opt,name=status,enum=mlflow.ModelVersionStatus" json:"status,omitempty"`
+	Status *ModelVersionStatus `protobuf:"varint,10,opt,name=status,enum=mlflow.ModelVersionStatus" json:"status,omitempty" query:"status"`
 	// Details on current “status“, if it is pending or failed.
-	StatusMessage *string `protobuf:"bytes,11,opt,name=status_message,json=statusMessage" json:"status_message,omitempty"`
+	StatusMessage *string `protobuf:"bytes,11,opt,name=status_message,json=statusMessage" json:"status_message,omitempty" query:"status_message"`
 	// Tags: Additional metadata key-value pairs for this “model_version“.
-	Tags []*ModelVersionTag `protobuf:"bytes,12,rep,name=tags" json:"tags,omitempty"`
+	Tags []*ModelVersionTag `protobuf:"bytes,12,rep,name=tags" json:"tags,omitempty" query:"tags"`
 	// Run Link: Direct link to the run that generated this version. This field is set at model version creation time
 	// only for model versions whose source run is from a tracking server that is different from the registry server.
-	RunLink *string `protobuf:"bytes,13,opt,name=run_link,json=runLink" json:"run_link,omitempty"`
+	RunLink *string `protobuf:"bytes,13,opt,name=run_link,json=runLink" json:"run_link,omitempty" query:"run_link"`
 	// Aliases pointing to this “model_version“.
-	Aliases []string `protobuf:"bytes,14,rep,name=aliases" json:"aliases,omitempty"`
+	Aliases []string `protobuf:"bytes,14,rep,name=aliases" json:"aliases,omitempty" query:"aliases"`
 }
 
 func (x *ModelVersion) Reset() {
@@ -369,11 +369,11 @@ type CreateRegisteredModel struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Register models under this name
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Additional metadata for registered model.
-	Tags []*RegisteredModelTag `protobuf:"bytes,2,rep,name=tags" json:"tags,omitempty"`
+	Tags []*RegisteredModelTag `protobuf:"bytes,2,rep,name=tags" json:"tags,omitempty" query:"tags"`
 	// Optional description for registered model.
-	Description *string `protobuf:"bytes,3,opt,name=description" json:"description,omitempty"`
+	Description *string `protobuf:"bytes,3,opt,name=description" json:"description,omitempty" query:"description"`
 }
 
 func (x *CreateRegisteredModel) Reset() {
@@ -435,9 +435,9 @@ type RenameRegisteredModel struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Registered model unique name identifier.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// If provided, updates the name for this “registered_model“.
-	NewName *string `protobuf:"bytes,2,opt,name=new_name,json=newName" json:"new_name,omitempty"`
+	NewName *string `protobuf:"bytes,2,opt,name=new_name,json=newName" json:"new_name,omitempty" query:"new_name"`
 }
 
 func (x *RenameRegisteredModel) Reset() {
@@ -492,9 +492,9 @@ type UpdateRegisteredModel struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Registered model unique name identifier.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// If provided, updates the description for this “registered_model“.
-	Description *string `protobuf:"bytes,2,opt,name=description" json:"description,omitempty"`
+	Description *string `protobuf:"bytes,2,opt,name=description" json:"description,omitempty" query:"description"`
 }
 
 func (x *UpdateRegisteredModel) Reset() {
@@ -549,7 +549,7 @@ type DeleteRegisteredModel struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Registered model unique name identifier.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 }
 
 func (x *DeleteRegisteredModel) Reset() {
@@ -597,7 +597,7 @@ type GetRegisteredModel struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Registered model unique name identifier.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 }
 
 func (x *GetRegisteredModel) Reset() {
@@ -647,15 +647,15 @@ type SearchRegisteredModels struct {
 	// String filter condition, like "name LIKE 'my-model-name'".
 	// Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
 	// Single boolean condition, with string values wrapped in single quotes.
-	Filter *string `protobuf:"bytes,1,opt,name=filter" json:"filter,omitempty"`
+	Filter *string `protobuf:"bytes,1,opt,name=filter" json:"filter,omitempty" query:"filter"`
 	// Maximum number of models desired. Default is 100. Max threshold is 1000.
-	MaxResults *int64 `protobuf:"varint,2,opt,name=max_results,json=maxResults,def=100" json:"max_results,omitempty"`
+	MaxResults *int64 `protobuf:"varint,2,opt,name=max_results,json=maxResults,def=100" json:"max_results,omitempty" query:"max_results"`
 	// List of columns for ordering search results, which can include model name and last updated
 	// timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
 	// Tiebreaks are done by model name ASC.
-	OrderBy []string `protobuf:"bytes,3,rep,name=order_by,json=orderBy" json:"order_by,omitempty"`
+	OrderBy []string `protobuf:"bytes,3,rep,name=order_by,json=orderBy" json:"order_by,omitempty" query:"order_by"`
 	// Pagination token to go to the next page based on a previous search query.
-	PageToken *string `protobuf:"bytes,4,opt,name=page_token,json=pageToken" json:"page_token,omitempty"`
+	PageToken *string `protobuf:"bytes,4,opt,name=page_token,json=pageToken" json:"page_token,omitempty" query:"page_token"`
 }
 
 // Default values for SearchRegisteredModels fields.
@@ -729,9 +729,9 @@ type GetLatestVersions struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Registered model unique name identifier.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// List of stages.
-	Stages []string `protobuf:"bytes,2,rep,name=stages" json:"stages,omitempty"`
+	Stages []string `protobuf:"bytes,2,rep,name=stages" json:"stages,omitempty" query:"stages"`
 }
 
 func (x *GetLatestVersions) Reset() {
@@ -786,19 +786,19 @@ type CreateModelVersion struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Register model under this name
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// URI indicating the location of the model artifacts.
-	Source *string `protobuf:"bytes,2,opt,name=source" json:"source,omitempty"`
+	Source *string `protobuf:"bytes,2,opt,name=source" json:"source,omitempty" query:"source"`
 	// MLflow run ID for correlation, if “source“ was generated by an experiment run in
 	// MLflow tracking server
-	RunId *string `protobuf:"bytes,3,opt,name=run_id,json=runId" json:"run_id,omitempty"`
+	RunId *string `protobuf:"bytes,3,opt,name=run_id,json=runId" json:"run_id,omitempty" query:"run_id"`
 	// Additional metadata for model version.
-	Tags []*ModelVersionTag `protobuf:"bytes,4,rep,name=tags" json:"tags,omitempty"`
+	Tags []*ModelVersionTag `protobuf:"bytes,4,rep,name=tags" json:"tags,omitempty" query:"tags"`
 	// MLflow run link - this is the exact link of the run that generated this model version,
 	// potentially hosted at another instance of MLflow.
-	RunLink *string `protobuf:"bytes,5,opt,name=run_link,json=runLink" json:"run_link,omitempty"`
+	RunLink *string `protobuf:"bytes,5,opt,name=run_link,json=runLink" json:"run_link,omitempty" query:"run_link"`
 	// Optional description for model version.
-	Description *string `protobuf:"bytes,6,opt,name=description" json:"description,omitempty"`
+	Description *string `protobuf:"bytes,6,opt,name=description" json:"description,omitempty" query:"description"`
 }
 
 func (x *CreateModelVersion) Reset() {
@@ -881,11 +881,11 @@ type UpdateModelVersion struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model version number
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 	// If provided, updates the description for this “registered_model“.
-	Description *string `protobuf:"bytes,3,opt,name=description" json:"description,omitempty"`
+	Description *string `protobuf:"bytes,3,opt,name=description" json:"description,omitempty" query:"description"`
 }
 
 func (x *UpdateModelVersion) Reset() {
@@ -947,16 +947,16 @@ type TransitionModelVersionStage struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model version number
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 	// Transition `model_version` to new stage.
-	Stage *string `protobuf:"bytes,3,opt,name=stage" json:"stage,omitempty"`
+	Stage *string `protobuf:"bytes,3,opt,name=stage" json:"stage,omitempty" query:"stage"`
 	// When transitioning a model version to a particular stage, this flag dictates whether all
 	// existing model versions in that stage should be atomically moved to the "archived" stage.
 	// This ensures that at-most-one model version exists in the target stage.
 	// This field is *required* when transitioning a model versions's stage
-	ArchiveExistingVersions *bool `protobuf:"varint,4,opt,name=archive_existing_versions,json=archiveExistingVersions" json:"archive_existing_versions,omitempty"`
+	ArchiveExistingVersions *bool `protobuf:"varint,4,opt,name=archive_existing_versions,json=archiveExistingVersions" json:"archive_existing_versions,omitempty" query:"archive_existing_versions"`
 }
 
 func (x *TransitionModelVersionStage) Reset() {
@@ -1025,9 +1025,9 @@ type DeleteModelVersion struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model version number
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 }
 
 func (x *DeleteModelVersion) Reset() {
@@ -1082,9 +1082,9 @@ type GetModelVersion struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model version number
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 }
 
 func (x *GetModelVersion) Reset() {
@@ -1140,17 +1140,17 @@ type SearchModelVersions struct {
 
 	// String filter condition, like "name='my-model-name'". Must be a single boolean condition,
 	// with string values wrapped in single quotes.
-	Filter *string `protobuf:"bytes,1,opt,name=filter" json:"filter,omitempty"`
+	Filter *string `protobuf:"bytes,1,opt,name=filter" json:"filter,omitempty" query:"filter"`
 	// Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
 	// value and maximum threshold.
-	MaxResults *int64 `protobuf:"varint,2,opt,name=max_results,json=maxResults,def=200000" json:"max_results,omitempty"`
+	MaxResults *int64 `protobuf:"varint,2,opt,name=max_results,json=maxResults,def=200000" json:"max_results,omitempty" query:"max_results"`
 	// List of columns to be ordered by including model name, version, stage with an
 	// optional "DESC" or "ASC" annotation, where "ASC" is the default.
 	// Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
 	// version DESC.
-	OrderBy []string `protobuf:"bytes,3,rep,name=order_by,json=orderBy" json:"order_by,omitempty"`
+	OrderBy []string `protobuf:"bytes,3,rep,name=order_by,json=orderBy" json:"order_by,omitempty" query:"order_by"`
 	// Pagination token to go to next page based on previous search query.
-	PageToken *string `protobuf:"bytes,4,opt,name=page_token,json=pageToken" json:"page_token,omitempty"`
+	PageToken *string `protobuf:"bytes,4,opt,name=page_token,json=pageToken" json:"page_token,omitempty" query:"page_token"`
 }
 
 // Default values for SearchModelVersions fields.
@@ -1224,9 +1224,9 @@ type GetModelVersionDownloadUri struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model version number
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 }
 
 func (x *GetModelVersionDownloadUri) Reset() {
@@ -1282,9 +1282,9 @@ type ModelVersionTag struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The tag key.
-	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key"`
 	// The tag value.
-	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty" query:"value"`
 }
 
 func (x *ModelVersionTag) Reset() {
@@ -1340,9 +1340,9 @@ type RegisteredModelTag struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The tag key.
-	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key"`
 	// The tag value.
-	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty" query:"value"`
 }
 
 func (x *RegisteredModelTag) Reset() {
@@ -1397,13 +1397,13 @@ type SetRegisteredModelTag struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Unique name of the model.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Name of the tag. Maximum size depends on storage backend.
 	// If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
 	// All storage backends are guaranteed to support key values up to 250 bytes in size.
-	Key *string `protobuf:"bytes,2,opt,name=key" json:"key,omitempty"`
+	Key *string `protobuf:"bytes,2,opt,name=key" json:"key,omitempty" query:"key"`
 	// String value of the tag being logged. Maximum size depends on storage backend.
-	Value *string `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
+	Value *string `protobuf:"bytes,3,opt,name=value" json:"value,omitempty" query:"value"`
 }
 
 func (x *SetRegisteredModelTag) Reset() {
@@ -1465,15 +1465,15 @@ type SetModelVersionTag struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Unique name of the model.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model version number.
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 	// Name of the tag. Maximum size depends on storage backend.
 	// If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
 	// All storage backends are guaranteed to support key values up to 250 bytes in size.
-	Key *string `protobuf:"bytes,3,opt,name=key" json:"key,omitempty"`
+	Key *string `protobuf:"bytes,3,opt,name=key" json:"key,omitempty" query:"key"`
 	// String value of the tag being logged. Maximum size depends on storage backend.
-	Value *string `protobuf:"bytes,4,opt,name=value" json:"value,omitempty"`
+	Value *string `protobuf:"bytes,4,opt,name=value" json:"value,omitempty" query:"value"`
 }
 
 func (x *SetModelVersionTag) Reset() {
@@ -1542,9 +1542,9 @@ type DeleteRegisteredModelTag struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model that the tag was logged under.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
-	Key *string `protobuf:"bytes,2,opt,name=key" json:"key,omitempty"`
+	Key *string `protobuf:"bytes,2,opt,name=key" json:"key,omitempty" query:"key"`
 }
 
 func (x *DeleteRegisteredModelTag) Reset() {
@@ -1599,11 +1599,11 @@ type DeleteModelVersionTag struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model that the tag was logged under.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Model version number that the tag was logged under.
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 	// Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
-	Key *string `protobuf:"bytes,3,opt,name=key" json:"key,omitempty"`
+	Key *string `protobuf:"bytes,3,opt,name=key" json:"key,omitempty" query:"key"`
 }
 
 func (x *DeleteModelVersionTag) Reset() {
@@ -1666,9 +1666,9 @@ type RegisteredModelAlias struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The name of the alias.
-	Alias *string `protobuf:"bytes,1,opt,name=alias" json:"alias,omitempty"`
+	Alias *string `protobuf:"bytes,1,opt,name=alias" json:"alias,omitempty" query:"alias"`
 	// The model version number that the alias points to.
-	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty" query:"version"`
 }
 
 func (x *RegisteredModelAlias) Reset() {
@@ -1723,13 +1723,13 @@ type SetRegisteredModelAlias struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Name of the alias. Maximum size depends on storage backend.
 	// If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
 	// All storage backends are guaranteed to support alias name values up to 256 bytes in size.
-	Alias *string `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty"`
+	Alias *string `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty" query:"alias"`
 	// Model version number.
-	Version *string `protobuf:"bytes,3,opt,name=version" json:"version,omitempty"`
+	Version *string `protobuf:"bytes,3,opt,name=version" json:"version,omitempty" query:"version"`
 }
 
 func (x *SetRegisteredModelAlias) Reset() {
@@ -1791,9 +1791,9 @@ type DeleteRegisteredModelAlias struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
-	Alias *string `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty"`
+	Alias *string `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty" query:"alias"`
 }
 
 func (x *DeleteRegisteredModelAlias) Reset() {
@@ -1848,9 +1848,9 @@ type GetModelVersionByAlias struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the registered model.
-	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name"`
 	// Name of the alias. Maximum size is 256 bytes.
-	Alias *string `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty"`
+	Alias *string `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty" query:"alias"`
 }
 
 func (x *GetModelVersionByAlias) Reset() {
@@ -1904,7 +1904,7 @@ type CreateRegisteredModel_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty"`
+	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty" query:"registered_model"`
 }
 
 func (x *CreateRegisteredModel_Response) Reset() {
@@ -1951,7 +1951,7 @@ type RenameRegisteredModel_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty"`
+	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty" query:"registered_model"`
 }
 
 func (x *RenameRegisteredModel_Response) Reset() {
@@ -1998,7 +1998,7 @@ type UpdateRegisteredModel_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty"`
+	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty" query:"registered_model"`
 }
 
 func (x *UpdateRegisteredModel_Response) Reset() {
@@ -2083,7 +2083,7 @@ type GetRegisteredModel_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty"`
+	RegisteredModel *RegisteredModel `protobuf:"bytes,1,opt,name=registered_model,json=registeredModel" json:"registered_model,omitempty" query:"registered_model"`
 }
 
 func (x *GetRegisteredModel_Response) Reset() {
@@ -2131,9 +2131,9 @@ type SearchRegisteredModels_Response struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Registered Models that match the search criteria.
-	RegisteredModels []*RegisteredModel `protobuf:"bytes,1,rep,name=registered_models,json=registeredModels" json:"registered_models,omitempty"`
+	RegisteredModels []*RegisteredModel `protobuf:"bytes,1,rep,name=registered_models,json=registeredModels" json:"registered_models,omitempty" query:"registered_models"`
 	// Pagination token to request the next page of models.
-	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty"`
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty" query:"next_page_token"`
 }
 
 func (x *SearchRegisteredModels_Response) Reset() {
@@ -2189,7 +2189,7 @@ type GetLatestVersions_Response struct {
 
 	// Latest version models for each requests stage. Only return models with current “READY“ status.
 	// If no “stages“ provided, returns the latest version for each stage, including “"None"“.
-	ModelVersions []*ModelVersion `protobuf:"bytes,1,rep,name=model_versions,json=modelVersions" json:"model_versions,omitempty"`
+	ModelVersions []*ModelVersion `protobuf:"bytes,1,rep,name=model_versions,json=modelVersions" json:"model_versions,omitempty" query:"model_versions"`
 }
 
 func (x *GetLatestVersions_Response) Reset() {
@@ -2237,7 +2237,7 @@ type CreateModelVersion_Response struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Return new version number generated for this model in registry.
-	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty"`
+	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty" query:"model_version"`
 }
 
 func (x *CreateModelVersion_Response) Reset() {
@@ -2285,7 +2285,7 @@ type UpdateModelVersion_Response struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Return new version number generated for this model in registry.
-	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty"`
+	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty" query:"model_version"`
 }
 
 func (x *UpdateModelVersion_Response) Reset() {
@@ -2333,7 +2333,7 @@ type TransitionModelVersionStage_Response struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Updated model version
-	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty"`
+	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty" query:"model_version"`
 }
 
 func (x *TransitionModelVersionStage_Response) Reset() {
@@ -2418,7 +2418,7 @@ type GetModelVersion_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty"`
+	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty" query:"model_version"`
 }
 
 func (x *GetModelVersion_Response) Reset() {
@@ -2466,9 +2466,9 @@ type SearchModelVersions_Response struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Models that match the search criteria
-	ModelVersions []*ModelVersion `protobuf:"bytes,1,rep,name=model_versions,json=modelVersions" json:"model_versions,omitempty"`
+	ModelVersions []*ModelVersion `protobuf:"bytes,1,rep,name=model_versions,json=modelVersions" json:"model_versions,omitempty" query:"model_versions"`
 	// Pagination token to request next page of models for the same search query.
-	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty"`
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty" query:"next_page_token"`
 }
 
 func (x *SearchModelVersions_Response) Reset() {
@@ -2523,7 +2523,7 @@ type GetModelVersionDownloadUri_Response struct {
 	unknownFields protoimpl.UnknownFields
 
 	// URI corresponding to where artifacts for this model version are stored.
-	ArtifactUri *string `protobuf:"bytes,1,opt,name=artifact_uri,json=artifactUri" json:"artifact_uri,omitempty"`
+	ArtifactUri *string `protobuf:"bytes,1,opt,name=artifact_uri,json=artifactUri" json:"artifact_uri,omitempty" query:"artifact_uri"`
 }
 
 func (x *GetModelVersionDownloadUri_Response) Reset() {
@@ -2798,7 +2798,7 @@ type GetModelVersionByAlias_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty"`
+	ModelVersion *ModelVersion `protobuf:"bytes,1,opt,name=model_version,json=modelVersion" json:"model_version,omitempty" query:"model_version"`
 }
 
 func (x *GetModelVersionByAlias_Response) Reset() {
