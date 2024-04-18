@@ -9,10 +9,10 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.tracing.utils import TraceJSONEncoder
 
-from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
+from tests.tracing.conftest import clear_singleton  # noqa: F401
 
 
-def test_json_deserialization(mock_trace_client):
+def test_json_deserialization(clear_singleton):
     datetime_now = datetime.now()
 
     class TestModel:

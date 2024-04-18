@@ -12,7 +12,7 @@ from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_span_id
 
-from tests.tracing.helper import create_mock_otel_span
+from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 
 def test_export():
@@ -50,8 +50,10 @@ def test_export():
     )
     span_child_2 = LiveSpan(otel_span_child_2, request_id=request_id)
 
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace(trace_id, create_test_trace_info(request_id, 0))
     for span in [root_span, span_child_1, span_child_2]:
-        InMemoryTraceManager.get_instance().add_or_update_span(span)
+        trace_manager.register_span(span)
 
     mock_client = MagicMock()
     exporter = MlflowSpanExporter(mock_client)

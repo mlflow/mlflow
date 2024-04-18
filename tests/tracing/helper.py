@@ -5,6 +5,9 @@ from typing import Optional
 import opentelemetry.trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan
 
+from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities.trace_status import TraceStatus
+
 
 def create_mock_otel_span(
     trace_id: int,
@@ -78,4 +81,20 @@ def create_mock_otel_span(
         parent=_MockSpanContext(trace_id, parent_id) if parent_id else None,
         start_time=start_time,
         end_time=end_time,
+    )
+
+
+def create_trace(request_id) -> Trace:
+    return Trace(info=create_test_trace_info(request_id), data=TraceData())
+
+
+def create_test_trace_info(request_id, experiment_id="test", timestamp_ms=0, execution_time_ms=1, status=TraceStatus.OK, request_metadata=None, tags=None):
+    return TraceInfo(
+        request_id=request_id,
+        experiment_id=experiment_id,
+        timestamp_ms=timestamp_ms,
+        execution_time_ms=execution_time_ms,
+        status=status,
+        request_metadata=request_metadata or {},
+        tags=tags or {},
     )

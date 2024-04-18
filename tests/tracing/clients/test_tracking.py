@@ -1,7 +1,8 @@
 from mlflow.tracing.clients import InMemoryTraceClientWithTracking
+from tests.tracing.helper import create_trace
 
 
-def test_log_and_get_trace(monkeypatch, create_trace, mock_tracking_service_client):
+def test_log_and_get_trace_in_memory(monkeypatch, mock_store, mock_upload_trace_data):
     monkeypatch.setenv("MLFLOW_TRACING_CLIENT_BUFFER_SIZE", "3")
 
     client = InMemoryTraceClientWithTracking.get_instance()

@@ -46,8 +46,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
+from tests.tracing.conftest import _mock_end_trace, _mock_start_trace, clear_singleton  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -280,7 +279,7 @@ def test_client_delete_traces(mock_store):
     )
 
 
-def test_start_and_end_trace(clear_singleton, mock_trace_client):
+def test_start_and_end_trace(clear_singleton):
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
@@ -387,7 +386,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
-def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_client):
+def test_start_and_end_trace_before_all_span_end(clear_singleton):
     # This test is to verify that the trace is still exported even if some spans are not ended
     exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
 
@@ -454,6 +453,79 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
+def test_log_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "1")
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
+    mock_store.get_experiment_by_name().experiment_id = "test_experiment_id"
+
+    mock_store.start_trace.side_effect = _mock_start_trace
+    mock_store.end_trace.side_effect = _mock_end_trace
+
+    class TestModel:
+        def __init__(self):
+            self._client = MlflowClient()
+
+        def predict(self, x, y):
+            root_span = self._client.start_trace(
+                name="predict",
+                inputs={"x": x, "y": y},
+                # Trying to override mlflow.user tag, which will be ignored
+                tags={"tag": "tag_value", "mlflow.user": "unknown"},
+            )
+            request_id = root_span.request_id
+
+            z = x + y
+
+            child_span = self._client.start_span(
+                "child_span_1",
+                span_type=SpanType.LLM,
+                request_id=request_id,
+                parent_id=root_span.span_id,
+                inputs={"z": z},
+            )
+
+            z = z + 2
+
+            self._client.end_span(
+                request_id=request_id,
+                span_id=child_span.span_id,
+                outputs={"output": z},
+                attributes={"delta": 2},
+            )
+            self._client.end_trace(request_id, outputs=z, status="OK")
+            return z
+
+
+    model = TestModel()
+
+    with mock.patch("mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data") as mock_upload_trace_data:
+        model.predict(1, 2)
+
+    traces = mlflow.get_traces()
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.request_id == "tr-12345"
+    assert trace_info.experiment_id == "test_experiment_id"
+    assert trace_info.status == TraceStatus.OK
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '5'
+    assert trace_info.tags == {
+        "mlflow.traceName": "predict",
+        "mlflow.artifactLocation": "test",
+        "mlflow.user": "bob",
+        "tag": "tag_value"
+    }
+
+    trace_data = traces[0].data
+    assert trace_data.request == '{"x": 1, "y": 2}'
+    assert trace_data.response == '5'
+    assert len(trace_data.spans) == 2
+
+    mock_store.start_trace.assert_called_once()
+    mock_store.end_trace.assert_called_once()
+    mock_upload_trace_data.assert_called_once()
+
+
 def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
     with mlflow.start_span("fluent_span"):
         with pytest.raises(MlflowException, match=r"Another trace is already set in the global"):
@@ -485,7 +557,7 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
         mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
 
 
-def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
+def test_set_and_delete_trace_tag_on_active_trace(clear_singleton):
     client = mlflow.tracking.MlflowClient()
 
     root_span = client.start_trace(name="test")
@@ -497,12 +569,12 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_cl
     assert trace.info.tags == {"mlflow.traceName": "test", "foo": "bar"}
 
 
-def test_set_trace_tag_on_logged_trace(mock_store, mock_trace_client):
+def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
     mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
 
 
-def test_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
+def test_delete_trace_tag_on_active_trace(clear_singleton):
     client = mlflow.tracking.MlflowClient()
     root_span = client.start_trace(name="test", tags={"foo": "bar", "baz": "qux"})
     request_id = root_span.request_id
@@ -516,7 +588,7 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
     }
 
 
-def test_delete_trace_tag_on_logged_trace(mock_store, mock_trace_client):
+def test_delete_trace_tag_on_logged_trace(mock_store, clear_singleton):
     mlflow.tracking.MlflowClient().delete_trace_tag("test", "foo")
     mock_store.delete_trace_tag.assert_called_once_with("test", "foo")
 
