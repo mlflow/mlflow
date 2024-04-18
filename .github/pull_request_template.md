@@ -90,5 +90,5 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 
 <!-- patch -->
 
-- [ ] Yes (this PR will be cherry-picked in the next patch release)
+- [ ] Yes (this PR will be cherry-picked and included in the next patch release)
 - [ ] No (this PR will be included in the next minor release)
