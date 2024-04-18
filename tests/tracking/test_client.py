@@ -23,7 +23,7 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
@@ -182,6 +182,31 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     MlflowClient().get_trace("1234567")
     mock_store.get_trace_info.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_called_once()
+
+
+def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        request_id="1234567",
+        experiment_id="0",
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.OK,
+        tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+    )
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound("1234567")
+
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because it is missing span data",
+    ):
+        MlflowClient().get_trace("1234567")
+
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataCorrupted("1234567")
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because its span data is corrupted",
+    ):
+        MlflowClient().get_trace("1234567")
 
 
 def test_client_search_traces(mock_store, mock_artifact_repo):
