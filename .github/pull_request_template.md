@@ -88,6 +88,14 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 
 `Yes` should be selected for bug fixes, documentation updates, and other small changes. `No` should be selected for new features and larger changes or if there is no recent minor/patch release. If you're unsure about the release classification of this PR, leave this unchecked to let the maintainers decide.
 
+<details>
+<summary>What is a minor/patch release?</summary>
+
+- Patch release: a release that changes the third part of the version number (e.g. 1.2.0 -> 1.2.1)
+- Minor release: a release that changes the second part of the version number (e.g., 1.2.0 -> 1.3.0)
+
+</details>
+
 <!-- patch -->
 
 - [ ] Yes (this PR will be cherry-picked and included in the next patch release)
