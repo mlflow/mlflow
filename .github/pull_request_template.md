@@ -91,8 +91,8 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 <details>
 <summary>What is a minor/patch release?</summary>
 
-- Patch release: a release that changes the third part of the version number (e.g., 1.2.0 -> 1.2.1)
 - Minor release: a release that changes the second part of the version number (e.g., 1.2.0 -> 1.3.0)
+- Patch release: a release that changes the third part of the version number (e.g., 1.2.0 -> 1.2.1)
 
 </details>
 
