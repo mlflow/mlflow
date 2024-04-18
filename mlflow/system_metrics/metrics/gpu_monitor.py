@@ -47,11 +47,11 @@ class GPUMonitor(BaseMetricsMonitor):
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization.gpu)
 
-            power_watts = pynvml.nvmlDeviceGetPowerUsage(handle)
-            power_capacity_watts = pynvml.nvmlDeviceGetEnforcedPowerLimit(handle)
-            self._metrics[f"gpu_{i}_power_usage_watts"].append(power_watts / 1000)
+            power_milliwatts = pynvml.nvmlDeviceGetPowerUsage(handle)
+            power_capacity_milliwatts = pynvml.nvmlDeviceGetEnforcedPowerLimit(handle)
+            self._metrics[f"gpu_{i}_power_usage_watts"].append(power_milliwatts / 1000)
             self._metrics[f"gpu_{i}_power_usage_percentage"].append(
-                (power_watts / power_capacity_watts) * 100
+                (power_milliwatts / power_capacity_milliwatts) * 100
             )
 
     def aggregate_metrics(self):
