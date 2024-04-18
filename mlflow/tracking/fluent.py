@@ -38,7 +38,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import _artifact_repos_cache, _get_store, artifact_utils
+from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
@@ -669,8 +669,10 @@ def flush_async_logging() -> None:
 
 def flush_artifact_async_logging() -> None:
     """Flush all pending artifact async logging."""
-    for key in _artifact_repos_cache:
-        _artifact_repos_cache[key].flush_async_logging()
+    run_id = _get_or_start_run().info.run_id
+    _artifact_repo = _get_artifact_repo(run_id)
+    if _artifact_repo:
+        _artifact_repo.flush_async_logging()
 
 
 def set_experiment_tag(key: str, value: Any) -> None:

@@ -200,6 +200,10 @@ def _get_store(store_uri=None, artifact_uri=None):
 _artifact_repos_cache = OrderedDict()
 
 
+def _get_artifact_repo(run_id):
+    return _artifact_repos_cache.get(run_id)
+
+
 # TODO(sueann): move to a projects utils module
 def _get_git_url_if_present(uri):
     """Return the path git_uri#sub_directory if the URI passed is a local path that's part of
