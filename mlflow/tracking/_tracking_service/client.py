@@ -222,7 +222,7 @@ class TrackingServiceClient:
         trace_info = self.store.get_trace_info(request_id)
         try:
             trace_data = self._download_trace_data(trace_info)
-        except MlflowTraceDataNotFound:
+        except MlflowTraceDataNotFound as e:
             raise MlflowException(
                 message=(
                     f"Trace with ID {request_id} cannot be loaded because it is missing span data."
@@ -230,7 +230,7 @@ class TrackingServiceClient:
                 ),
                 error_code=BAD_REQUEST,
             ) from None # Ensure that the original spammy exception is not included in the traceback
-        except MlflowTraceDataCorrupted:
+        except MlflowTraceDataCorrupted as e:
             raise MlflowException(
                 message=(
                     f"Trace with ID {request_id} cannot be loaded because its span data"
