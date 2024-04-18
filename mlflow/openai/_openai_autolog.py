@@ -1,6 +1,8 @@
 import logging
+from copy import deepcopy
 
 import mlflow
+from mlflow import MlflowException
 from mlflow.entities import RunTag
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
@@ -9,8 +11,61 @@ from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 _logger = logging.getLogger(__name__)
 
+INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 
-def _patched_call(original, self, *args, **kwargs):
+
+def _get_input_from_model(model, kwargs):
+    from openai.resources.chat.completions import Completions as ChatCompletions
+    from openai.resources.completions import Completions
+    from openai.resources.embeddings import Embeddings
+
+    model_class_param_name_mapping = {
+        ChatCompletions: "messages",
+        Completions: "prompt",
+        Embeddings: "input",
+    }
+    if param_name := model_class_param_name_mapping.get(model.__class__):
+        # openai tasks accept only keyword arguments
+        if param := kwargs.get(param_name):
+            return param
+        input_example_exc = MlflowException(
+            "Inference function signature changes, please contact MLflow team to "
+            "fix OpenAI autologging.",
+        )
+    else:
+        input_example_exc = MlflowException(
+            f"Unsupported OpenAI task. Only support {list(model_class_param_name_mapping.keys())}."
+        )
+    _logger.warning(
+        f"Failed to gather input example of model {model.__class__.__name__} "
+        f"due to error: {input_example_exc}."
+    )
+
+
+def _convert_data_to_dict(data, key):
+    if isinstance(data, dict):
+        return {f"{key}-{k}": v for k, v in data.items()}
+    if isinstance(data, list):
+        return {key: data}
+    if isinstance(data, str):
+        return {key: [data]}
+    raise MlflowException("Unsupported data type.")
+
+
+def _combine_input_and_output(input, output):
+    """
+    Combine input and output into a single dictionary
+    """
+    result = {}
+    if input:
+        result.update(_convert_data_to_dict(input, "input"))
+    if output:
+        output = [output.model_dump(mode="json")]
+        result.update(_convert_data_to_dict(output, "output"))
+    return result
+
+
+def patched_call(original, self, *args, **kwargs):
     run_id = getattr(self, "run_id", None)
     active_run = mlflow.active_run()
     if run_id is None:
@@ -47,7 +102,7 @@ def _patched_call(original, self, *args, **kwargs):
     input_example = None
     if log_models and not hasattr(self, "model_logged"):
         if log_input_examples:
-            # input_example = deepcopy(_get_input_data_from_function(func_name, self, args, kwargs))
+            input_example = deepcopy(_get_input_from_model(self, kwargs))
             if not log_model_signatures:
                 _logger.info(
                     "Signature is automatically generated for logged model if "
@@ -70,11 +125,32 @@ def _patched_call(original, self, *args, **kwargs):
                     run_id=run_id,
                 )
         except Exception as e:
-            _logger.warning(f"Failed to log model due to error {e}.")
+            _logger.warning(f"Failed to log model due to error: {e}.")
         self.model_logged = True
 
     if not hasattr(self, "run_id"):
         self.run_id = run_id
+
+    log_inputs_outputs = get_autologging_config(
+        mlflow.openai.FLAVOR_NAME, "log_inputs_outputs", False
+    )
+    if log_inputs_outputs:
+        if input_example is None:
+            input_data = deepcopy(_get_input_from_model(self, kwargs))
+            if input_data is None:
+                _logger.info(
+                    "Input data gathering failed, only log prediction results."
+                )
+        else:
+            input_data = input_example
+        try:
+            data_dict = _combine_input_and_output(input_data, result)
+            mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=run_id)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
+                f"file due to error: {e}."
+            )
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != run_id:
