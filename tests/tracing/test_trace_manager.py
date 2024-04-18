@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import Span, Trace
+from mlflow.entities import LiveSpan, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.types.wrapper import NoOpSpan
@@ -282,6 +282,6 @@ def _create_test_span(
         end_time=end_time,
     )
 
-    span = Span(mock_otel_span, request_id=request_id)
+    span = LiveSpan(mock_otel_span, request_id=request_id)
     span.set_status("OK")
     return span

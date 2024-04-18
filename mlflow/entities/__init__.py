@@ -27,7 +27,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.view_type import ViewType
-from mlflow.tracing.types.wrapper import Span
+from mlflow.tracing.types.wrapper import LiveSpan, Span
 
 __all__ = [
     "Experiment",
@@ -47,6 +47,7 @@ __all__ = [
     "InputTag",
     "DatasetInput",
     "RunInputs",
+    "LiveSpan",
     "Span",
     "SpanEvent",
     "SpanStatus",

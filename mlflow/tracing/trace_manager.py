@@ -6,7 +6,7 @@ from typing import Dict, Optional
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import Span, SpanType, Trace, TraceData, TraceInfo
+from mlflow.entities import LiveSpan, SpanType, Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class _Trace:
     info: TraceInfo
-    span_dict: Dict[str, Span] = field(default_factory=dict)
+    span_dict: Dict[str, LiveSpan] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -70,7 +70,7 @@ class InMemoryTraceManager:
         request_id: Optional[str] = None,
         parent_id: Optional[str] = None,
         span_type: str = SpanType.UNKNOWN,
-    ) -> Span:
+    ) -> LiveSpan:
         """
         Start a new OpenTelemetry span that is not part of the current trace context, but with the
         explicit parent span ID if provided.
@@ -110,14 +110,14 @@ class InMemoryTraceManager:
             if not request_id:
                 request_id = self.get_or_create_request_id(otel_span.get_span_context().trace_id)
 
-            span = Span(otel_span, request_id=request_id, span_type=span_type)
+            span = LiveSpan(otel_span, request_id=request_id, span_type=span_type)
             self.add_or_update_span(span)
             return span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
             return NoOpSpan()
 
-    def add_or_update_span(self, span: Span):
+    def add_or_update_span(self, span: LiveSpan):
         """
         Store the given span in the in-memory trace data. If the trace does not exist, create a new
         trace with the request_id of the span. If the span ID already exists in the trace, update
@@ -126,7 +126,7 @@ class InMemoryTraceManager:
         Args:
             span: The span to be stored.
         """
-        if not isinstance(span, Span):
+        if not isinstance(span, LiveSpan):
             _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
             return
 
@@ -203,7 +203,7 @@ class InMemoryTraceManager:
         trace = self._traces.get(request_id)
         return trace.info if trace else None
 
-    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[Span]:
+    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[LiveSpan]:
         """
         Get a span object for the given request_id and span_id.
         """

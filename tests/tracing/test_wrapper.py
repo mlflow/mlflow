@@ -9,20 +9,20 @@ import mlflow
 from mlflow.entities import Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import get_tracer
-from mlflow.tracing.utils import format_span_id
+from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 
 
-def test_wrap_active_span(clear_singleton):
+def test_wrap_live_span(clear_singleton):
     request_id = "tr-12345"
 
     tracer = get_tracer("test")
     with tracer.start_as_current_span("parent") as parent_span:
-        span = Span(parent_span, request_id=request_id, span_type=SpanType.LLM)
+        span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
         assert span.request_id == request_id
-        assert span._trace_id == format_span_id(parent_span.context.trace_id)
-        assert span.span_id == format_span_id(parent_span.context.span_id)
+        assert span._trace_id == encode_trace_id(parent_span.context.trace_id)
+        assert span.span_id == encode_span_id(parent_span.context.span_id)
         assert span.name == "parent"
         assert span.start_time_ns == parent_span.start_time
         assert span.end_time_ns is None
@@ -60,12 +60,12 @@ def test_wrap_active_span(clear_singleton):
 
         # Test child span
         with tracer.start_as_current_span("child") as child_span:
-            span = Span(child_span, request_id=request_id)
+            span = LiveSpan(child_span, request_id=request_id)
             assert span.name == "child"
-            assert span.parent_id == format_span_id(parent_span.context.span_id)
+            assert span.parent_id == encode_span_id(parent_span.context.span_id)
 
 
-def test_wrap_non_active_span():
+def test_wrap_non_live_span():
     request_id = "tr-12345"
     parent_span_context = trace_api.SpanContext(
         trace_id=12345, span_id=111, is_remote=False, trace_flags=trace_api.TraceFlags(1)
@@ -85,43 +85,28 @@ def test_wrap_non_active_span():
         start_time=99999,
         end_time=100000,
     )
-    span = Span(readable_span, request_id=request_id)
+    span = Span(readable_span)
 
     assert span.request_id == request_id
-    assert span._trace_id == format_span_id(12345)
-    assert span.span_id == format_span_id(222)
+    assert span._trace_id == encode_trace_id(12345)
+    assert span.span_id == encode_span_id(222)
     assert span.name == "test"
     assert span.start_time_ns == 99999
     assert span.end_time_ns == 100000
-    assert span.parent_id == format_span_id(111)
+    assert span.parent_id == encode_span_id(111)
     assert span.inputs == {"input": 1, "nested": {"foo": "bar"}}
     assert span.outputs == 2
     assert span.status == SpanStatus(SpanStatusCode.UNSPECIFIED, description="")
     assert span.get_attribute("key") == 3
 
-    # Validate APIs that are not allowed to be called on non-active spans
-    with pytest.raises(MlflowException, match=r"Calling set_inputs\(\) is not allowed"):
+    # Non-live span should not implement setter methods
+    with pytest.raises(AttributeError, match="set_inputs"):
         span.set_inputs({"input": 1})
-
-    with pytest.raises(MlflowException, match=r"Calling set_outputs\(\) is not allowed"):
-        span.set_outputs(2)
-
-    with pytest.raises(MlflowException, match=r"Calling set_attribute\(\) is not allowed"):
-        span.set_attribute("key", 3)
-
-    with pytest.raises(MlflowException, match=r"Calling set_status\(\) is not allowed"):
-        span.set_status("OK")
-
-    with pytest.raises(MlflowException, match=r"Calling add_event\(\) is not allowed"):
-        span.add_event(SpanEvent("test_event"))
-
-    with pytest.raises(MlflowException, match=r"Calling end\(\) is not allowed"):
-        span.end()
 
 
 def test_wrap_raise_for_invalid_otel_span():
-    with pytest.raises(MlflowException, match=r"Invalid span instance is passed."):
-        Span(None, request_id="tr-12345")
+    with pytest.raises(MlflowException, match=r"The `otel_span` argument for the LiveSpan class"):
+        LiveSpan(None, request_id="tr-12345")
 
 
 @pytest.mark.parametrize(
@@ -146,7 +131,7 @@ def test_dict_conversion(clear_singleton):
 
     tracer = get_tracer("test")
     with tracer.start_as_current_span("parent") as parent_span:
-        span = Span(parent_span, request_id=request_id, span_type=SpanType.LLM)
+        span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
 
     span_dict = span.to_dict()
     recovered_span = Span.from_dict(span_dict)
@@ -164,6 +149,28 @@ def test_dict_conversion(clear_singleton):
     assert span.attributes == recovered_span.attributes
     assert span.events == recovered_span.events
 
-    # Loaded span should be immutable
-    with pytest.raises(MlflowException, match=r"Calling set_status\(\) is not allowed"):
+    # Loaded span should not implement setter methods
+    with pytest.raises(AttributeError, match="set_status"):
         recovered_span.set_status("OK")
+
+
+def test_from_dict_raises_when_request_id_is_empty():
+    with pytest.raises(MlflowException, match=r"Failed to create a Span object from "):
+        Span.from_dict(
+            {
+                "name": "predict",
+                "context": {
+                    "trace_id": "0x12345",
+                    "span_id": "0x12345",
+                },
+                "parent_id": None,
+                "start_time": 0,
+                "end_time": 1,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": None,
+                },
+                "events": [],
+            }
+        )

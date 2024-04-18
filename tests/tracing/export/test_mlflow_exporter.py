@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from mlflow.entities import Span, SpanStatusCode
+from mlflow.entities import LiveSpan
 from mlflow.entities.trace_data import TraceData
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -10,7 +10,7 @@ from mlflow.tracing.types.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.tracing.utils import format_span_id
+from mlflow.tracing.utils import encode_span_id
 
 from tests.tracing.helper import create_mock_otel_span
 
@@ -26,7 +26,7 @@ def test_export():
         start_time=0,
         end_time=4_000_000,  # nano seconds
     )
-    root_span = Span(otel_span_root, request_id=request_id)
+    root_span = LiveSpan(otel_span_root, request_id=request_id)
     root_span.set_inputs({"input1": "very long input" * 100})
     root_span.set_outputs({"output": "very long output" * 100})
 
@@ -38,7 +38,7 @@ def test_export():
         start_time=1_000_000,
         end_time=2_000_000,
     )
-    span_child_1 = Span(otel_span_child_1, request_id=request_id)
+    span_child_1 = LiveSpan(otel_span_child_1, request_id=request_id)
 
     otel_span_child_2 = create_mock_otel_span(
         name="test_span_child_2",
@@ -48,7 +48,7 @@ def test_export():
         start_time=2_000_000,
         end_time=3_000_000,
     )
-    span_child_2 = Span(otel_span_child_2, request_id=request_id)
+    span_child_2 = LiveSpan(otel_span_child_2, request_id=request_id)
 
     for span in [root_span, span_child_1, span_child_2]:
         InMemoryTraceManager.get_instance().add_or_update_span(span)
@@ -99,7 +99,7 @@ def test_deduplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
     spans = [
-        Span(create_mock_otel_span("trace_id", span_id=i, name=span_name), request_id="tr-123")
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), request_id="tr-123")
         for i, span_name in enumerate(span_names)
     ]
     trace_data = TraceData(spans=spans)
@@ -115,7 +115,7 @@ def test_deduplicate_span_names():
     ]
     # Check if the span order is preserved
     assert [span.span_id for span in trace_data.spans] == [
-        format_span_id(i) for i in [0, 1, 2, 3, 4, 5]
+        encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]
     ]
 
 
