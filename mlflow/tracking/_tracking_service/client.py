@@ -9,7 +9,7 @@ import os
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from mlflow.entities import (
     ExperimentTag,
@@ -24,6 +24,7 @@ from mlflow.entities import (
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -164,35 +165,62 @@ class TrackingServiceClient:
             run_name=run_name,
         )
 
-    def create_trace_info(
+    def start_trace(
         self,
-        experiment_id,
-        timestamp_ms,
-        execution_time_ms,
-        status,
-        request_metadata=None,
-        tags=None,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
     ):
-        """Create a TraceInfo object and log in the backend store.
+        """
+        Start an initial TraceInfo object in the backend store.
 
         Args:
             experiment_id: String id of the experiment for this run.
-            timestamp_ms: int, start time of the trace, in milliseconds.
-            execution_time_ms: int, duration of the trace, in milliseconds.
-            status: string, status of the trace.
-            request_metadata: dict, metadata of the trace.
-            tags: dict, tags of the trace.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
 
         Returns:
             The created TraceInfo object.
         """
-        return self.store.create_trace_info(
+        return self.store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
-            execution_time_ms=execution_time_ms,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
+
+    def end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        return self.store.end_trace(
+            request_id=request_id,
+            timestamp_ms=timestamp_ms,
             status=status,
-            request_metadata=request_metadata or {},
-            tags=tags or {},
+            request_metadata=request_metadata,
+            tags=tags,
         )
 
     def delete_traces(
