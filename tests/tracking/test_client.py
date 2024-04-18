@@ -195,11 +195,17 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
     )
     mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound("1234567")
 
-    with pytest.raises(MlflowException, match="Trace with ID 1234567 cannot be loaded because it is missing span data"):
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because it is missing span data"
+    ):
         MlflowClient().get_trace("1234567")
 
     mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataCorrupted("1234567")
-    with pytest.raises(MlflowException, match="Trace with ID 1234567 cannot be loaded because its span data is corrupted"):
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because its span data is corrupted"
+    ):
         MlflowClient().get_trace("1234567")
 
 
