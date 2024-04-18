@@ -246,13 +246,13 @@ def _get_supported_llms():
     supported_llms = set()
 
     def try_adding_llm(module, class_name):
-        if hasattr(module, class_name):
-            supported_llms.add(getattr(module, class_name))
+        if cls := getattr(module, class_name, None):
+            supported_llms.add(cls)
 
     def safe_import_and_add(module_name, class_name):
         """Add conditional support for `partner` and `community` APIs in langchain"""
         try:
-            module = __import__(module_name, fromlist=[class_name])
+            module = importlib.import_module(module_name, class_name)
             try_adding_llm(module, class_name)
         except ImportError:
             pass
