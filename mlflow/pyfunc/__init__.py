@@ -1621,9 +1621,12 @@ def spark_udf(
 
     _EnvManager.validate(env_manager)
 
-    # Check whether spark is in local or local-cluster mode
-    # this case all executors and driver share the same filesystem
-    is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
+    if is_spark_connect:
+        is_spark_in_local_mode = False
+    else:
+        # Check whether spark is in local or local-cluster mode
+        # this case all executors and driver share the same filesystem
+        is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
