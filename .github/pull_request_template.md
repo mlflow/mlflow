@@ -86,7 +86,9 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 
 #### Should this PR be included in the next patch release?
 
+`Yes` should be selected for bug fixes, documentation updates, and other small changes. `No` should be selected for new features and larger changes or if there is no recent minor/patch release. If you're unsure about the release classification of this PR, leave this unchecked to let the maintainers decide.
+
 <!-- patch -->
 
-- [ ] Yes
-- [ ] No
+- [ ] Yes (this PR will be cherry-picked in the next patch release)
+- [ ] No (this PR will be included in the next minor release)
