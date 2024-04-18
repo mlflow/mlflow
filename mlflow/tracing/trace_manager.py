@@ -72,15 +72,6 @@ class InMemoryTraceManager:
             self._traces[trace_info.request_id] = _Trace(trace_info)
             self._trace_id_to_request_id[trace_id] = trace_info.request_id
 
-    def pop_trace(self, request_id) -> Optional[Trace]:
-        """
-        Pop the trace data for the given id and return it as a ready-to-publish Trace object.
-        """
-        with self._lock:
-            self._trace_id_to_request_id.pop(request_id, None)
-            trace: _Trace = self._traces.pop(request_id, None)
-        return trace.to_mlflow_trace() if trace else None
-
     def register_span(self, span: LiveSpan):
         """
         Store the given span in the in-memory trace data.
@@ -135,6 +126,15 @@ class InMemoryTraceManager:
         Get the request ID for the given trace ID.
         """
         return self._trace_id_to_request_id.get(trace_id)
+
+    def pop_trace(self, request_id) -> Optional[Trace]:
+        """
+        Pop the trace data for the given id and return it as a ready-to-publish Trace object.
+        """
+        with self._lock:
+            self._trace_id_to_request_id.pop(request_id, None)
+            trace = self._traces.pop(request_id, None)
+        return trace.to_mlflow_trace() if trace else None
 
     def flush(self):
         """Clear all the aggregated trace data. This should only be used for testing."""

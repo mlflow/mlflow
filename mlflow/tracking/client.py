@@ -830,11 +830,12 @@ class MlflowClient:
         Returns:
             The created TraceInfo object.
         """
+        # Some tags like mlflow.runName are immutable once logged in tracking server.
         return self._tracking_client.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=tags or {},
+            tags=self._exclude_immutable_tags(tags or {}),
         )
 
     def _upload_ended_trace_info(
@@ -866,8 +867,12 @@ class MlflowClient:
             timestamp_ms=timestamp_ms,
             status=status,
             request_metadata=request_metadata,
-            tags=tags,
+            tags=self._exclude_immutable_tags(tags or {}),
         )
+
+    def _exclude_immutable_tags(self, tags: Dict[str, str]) -> Dict[str, str]:
+        """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
+        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """

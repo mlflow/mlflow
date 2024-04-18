@@ -12,6 +12,7 @@ __all__ = [
 
 
 def get_trace_client() -> TraceClient:
+    """Get the trace client instance based on the environment."""
     if is_in_databricks_runtime():
         return InMemoryTraceClientWithTracking.get_instance()
     else:

@@ -70,9 +70,6 @@ def create_trace_info(
     """
     from mlflow.tracking.fluent import _get_experiment_id
 
-    experiment_id = experiment_id or _get_experiment_id()
-    request_metadata = request_metadata or {}
-    tags = tags or {}
     # If the environment is Databricks, the trace should be logged in the tracking server.
     # The initial TraceInfo entry is created by calling StartTrace backend API.
     if is_in_databricks_runtime():
@@ -80,11 +77,10 @@ def create_trace_info(
 
         try:
             return MlflowClient()._start_tracked_trace(
-                experiment_id=experiment_id,
+                experiment_id=experiment_id or _get_experiment_id(),
                 timestamp_ms=otel_span.start_time // 1_000_000,  # nanosecond to millisecond
                 request_metadata=request_metadata,
-                # Some tags like mlflow.runName are immutable once logged in tracking server.
-                tags={k: v for k, v in tags.items() if not k.startswith("mlflow.")},
+                tags=tags,
             )
         # TODO: This catches all exceptions from the tracking server so the in-memory tracing still
         # works if the backend APIs are not ready. Once backend is ready, we should catch more
@@ -104,7 +100,7 @@ def create_trace_info(
     # Fallback to create a trace at the client side and set the trace ID as the request ID.
     return TraceInfo(
         request_id=encode_trace_id(otel_span.context.trace_id),
-        experiment_id=experiment_id,
+        experiment_id=experiment_id or _get_experiment_id(),
         timestamp_ms=otel_span.start_time // 1_000_000,  # nanosecond to millisecond
         execution_time_ms=None,
         status=TraceStatus.IN_PROGRESS,
