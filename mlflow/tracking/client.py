@@ -34,6 +34,8 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -410,6 +412,9 @@ class MlflowClient:
             request_metadata=request_metadata,
             tags=tags,
         )
+
+    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+        return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
     def delete_traces(
         self,
