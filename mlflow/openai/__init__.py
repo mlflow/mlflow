@@ -31,6 +31,7 @@ When the logged model is served on Databricks, each secret will be resolved and 
 corresponding environment variable. See https://docs.databricks.com/security/secrets/index.html
 for how to set up secrets on Databricks.
 """
+import contextlib
 import itertools
 import logging
 import os
@@ -48,11 +49,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
+from mlflow.openai._openai_autolog import _patched_call
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -150,13 +153,19 @@ def _get_obj_to_task_mapping():
         }
 
 
+def _get_class_to_task_mapping():
+    return {k.__class__: v for k, v in _get_obj_to_task_mapping().items()}
+
+
 def _get_model_name(model):
     import openai
 
     if isinstance(model, str):
         return model
 
-    if Version(_get_openai_package_version()).major < 1 and isinstance(model, openai.Model):
+    if Version(_get_openai_package_version()).major < 1 and isinstance(
+        model, openai.Model
+    ):
         return model.id
 
     raise mlflow.MlflowException(
@@ -179,6 +188,16 @@ def _get_task_name(task):
                 f"Unsupported task object: {task}", error_code=INVALID_PARAMETER_VALUE
             )
         return task_name
+
+
+def _get_task_name_from_class(cls):
+    mapping = _get_class_to_task_mapping()
+    task_name = mapping.get(cls)
+    if task_name is None:
+        raise mlflow.MlflowException(
+            f"Unsupported task class: {cls}", error_code=INVALID_PARAMETER_VALUE
+        )
+    return task_name
 
 
 def _get_api_config() -> _OpenAIApiConfig:
@@ -347,7 +366,8 @@ def save_model(
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
         if messages and not (
-            all(isinstance(m, dict) for m in messages) and all(map(_is_valid_message, messages))
+            all(isinstance(m, dict) for m in messages)
+            and all(map(_is_valid_message, messages))
         ):
             raise mlflow.MlflowException.invalid_parameter_value(
                 "If `messages` is provided, it must be a list of dictionaries with keys "
@@ -718,7 +738,9 @@ class _OpenAIWrapper:
 
         _validate_model_params(self.task, self.model, params)
         messages_list = self.format_completions(self.get_params_list(data))
-        requests = [{**self.model, **params, "messages": messages} for messages in messages_list]
+        requests = [
+            {**self.model, **params, "messages": messages} for messages in messages_list
+        ]
         request_url = self._construct_request_url("chat/completions", REQUEST_URL_CHAT)
 
         results = process_api_requests(
@@ -746,7 +768,9 @@ class _OpenAIWrapper:
             }
             for i in range(0, len(prompts_list), batch_size)
         ]
-        request_url = self._construct_request_url("completions", REQUEST_URL_COMPLETIONS)
+        request_url = self._construct_request_url(
+            "completions", REQUEST_URL_COMPLETIONS
+        )
 
         results = process_api_requests(
             requests,
@@ -839,8 +863,41 @@ def load_model(model_uri, dst_path=None):
     Returns:
         A dictionary representing the OpenAI model.
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path
+    )
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    model_data_path = os.path.join(local_model_path, flavor_conf.get("data", MODEL_FILENAME))
+    model_data_path = os.path.join(
+        local_model_path, flavor_conf.get("data", MODEL_FILENAME)
+    )
     return _load_model(model_data_path)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    log_inputs_outputs=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=True,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+):
+    with contextlib.suppress(ImportError):
+        from openai.resources.chat.completions import Completions as ChatCompletions
+        from openai.resources.completions import Completions
+        from openai.resources.embeddings import Embeddings
+
+        for task in (ChatCompletions, Completions, Embeddings):
+            safe_patch(
+                FLAVOR_NAME,
+                task,
+                "create",
+                _patched_call,
+            )
