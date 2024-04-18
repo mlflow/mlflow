@@ -14,7 +14,7 @@ TOTAL_ARTIFACTS = 5
 
 
 class RunArtifacts:
-    def __init__(self, throw_exception_on_artifact_number=None) -> None:
+    def __init__(self, throw_exception_on_artifact_number=None):
         if throw_exception_on_artifact_number is None:
             throw_exception_on_artifact_number = []
         self.received_run_id = ""

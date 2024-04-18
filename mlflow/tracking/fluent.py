@@ -665,10 +665,12 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = None) -> Any:
 def flush_async_logging() -> None:
     """Flush all pending async logging."""
     _get_store().flush_async_logging()
+
+
+def flush_artifact_async_logging() -> None:
+    """Flush all pending artifact async logging."""
     for key in _artifact_repos_cache:
-        artifact_repo = _artifact_repos_cache[key]
-        if artifact_repo:
-            artifact_repo.flush_async_logging()
+        _artifact_repos_cache[key].flush_async_logging()
 
 
 def set_experiment_tag(key: str, value: Any) -> None:

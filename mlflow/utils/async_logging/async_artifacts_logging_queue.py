@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Union
 
-from mlflow.utils.async_logging.run_artifacts import RunArtifacts
+from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations
 
 if TYPE_CHECKING:
@@ -97,7 +97,7 @@ class AsyncArtifactsLoggingQueue:
         If an exception occurs during processing, the exception is logged and the artifact event
         is set with the exception. If the queue is empty, it is ignored.
         """
-        run_artifacts = None  # type: RunArtifacts
+        run_artifacts = None  # type: RunArtifact
         try:
             run_artifacts = self._queue.get(timeout=1)
         except Empty:
@@ -122,7 +122,7 @@ class AsyncArtifactsLoggingQueue:
 
         self._artifact_logging_worker_threadpool.submit(logging_func, run_artifacts)
 
-    def _wait_for_artifact(self, artifacts: RunArtifacts) -> None:
+    def _wait_for_artifact(self, artifacts: RunArtifact) -> None:
         """Wait for given artifacts to be processed by the logging thread.
 
         Args:
@@ -200,7 +200,7 @@ class AsyncArtifactsLoggingQueue:
 
         if not self._is_activated:
             raise MlflowException("AsyncArtifactsLoggingQueue is not activated.")
-        artifacts = RunArtifacts(
+        artifacts = RunArtifact(
             filename=filename,
             artifact_path=artifact_path,
             artifact=artifact,

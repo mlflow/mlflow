@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     import PIL
 
 
-class RunArtifacts:
+class RunArtifact:
     def __init__(
         self,
         filename: str,
