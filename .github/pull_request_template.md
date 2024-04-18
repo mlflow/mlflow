@@ -86,15 +86,15 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 
 #### Should this PR be included in the next patch release?
 
-`Yes` should be selected for bug fixes, documentation updates, and other small changes. `No` should be selected for new features and larger changes or if there is no recent minor/patch release. If you're unsure about the release classification of this PR, leave this unchecked to let the maintainers decide.
+`Yes` should be selected for bug fixes, documentation updates, and other small changes. `No` should be selected for new features and larger changes. If you're unsure about the release classification of this PR, leave this unchecked to let the maintainers decide.
 
 <details>
 <summary>What is a minor/patch release?</summary>
 
-- Minor release: a release that increments the second part of the version number (e.g., 1.2.0 -> 1.3.0)
+- Minor release: a release that increments the second part of the version number (e.g., 1.2.0 -> 1.3.0).
+  Minor releases usually include bug fixes, doc updates, and new features.
 - Patch release: a release that increments the third part of the version number (e.g., 1.2.0 -> 1.2.1)
-
-See [Semantic Versioning](https://semver.org/) for more information.
+  Patch releases usually include bug fixes and doc updates.
 
 </details>
 
