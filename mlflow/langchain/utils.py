@@ -252,7 +252,7 @@ def _get_supported_llms():
     def safe_import_and_add(module_name, class_name):
         """Add conditional support for `partner` and `community` APIs in langchain"""
         try:
-            module = importlib.import_module(module_name, class_name)
+            module = importlib.import_module(module_name)
             try_adding_llm(module, class_name)
         except ImportError:
             pass
