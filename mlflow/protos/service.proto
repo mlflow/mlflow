@@ -1317,6 +1317,9 @@ enum TraceStatus {
 
   // The operation being traced failed.
   ERROR = 2;
+
+  // The operation being traced is still in progress.
+  IN_PROGRESS = 3;
 }
 
 message StartTrace {

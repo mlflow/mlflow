@@ -32,6 +32,7 @@ from mlflow.utils.string_utils import strip_suffix
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
+_TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/trace"
 
 
 def http_request(
@@ -271,7 +272,7 @@ def extract_all_api_info_for_service(service, path_prefix):
 
 
 def get_single_trace_endpoint(request_id):
-    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
 
 def get_trace_info_endpoint(request_id):

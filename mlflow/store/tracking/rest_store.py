@@ -208,19 +208,19 @@ class RestStore(AbstractStore):
 
     def start_trace(
         self,
-        experiment_id,
-        timestamp_ms,
-        request_metadata,
-        tags,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
 
         Args:
             experiment_id: String id of the experiment for this run.
-            timestamp_ms: int, start time of the trace, in milliseconds.
-            request_metadata: dict, metadata of the trace.
-            tags: dict, tags of the trace.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
 
         Returns:
             The created TraceInfo object.
@@ -255,20 +255,20 @@ class RestStore(AbstractStore):
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
         Args:
             request_id: Unique string identifier of the trace.
-            timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
                 in the TraceInfo will be calculated by subtracting the start time from this.
-            status: TraceStatus, status of the trace.
-            request_metadata: dict, metadata of the trace. This will be merged with the existing
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
                 metadata logged during the start_trace call.
-            tags: dict, tags of the trace. This will be merged with the existing tags logged
+            tags: Tags of the trace. This will be merged with the existing tags logged
                 during the start_trace or set_trace_tag calls.
 
         Returns:
@@ -297,7 +297,7 @@ class RestStore(AbstractStore):
                 tags=tags_proto,
             )
         )
-        # EndTrace endpoint is dynamic path contains the request_id
+        # EndTrace endpoint is a dynamic path built with the request_id
         endpoint = get_single_trace_endpoint(request_id)
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)

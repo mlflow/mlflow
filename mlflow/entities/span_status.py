@@ -23,6 +23,8 @@ class SpanStatus:
             is ERROR, otherwise it will be ignored.
     """
 
+    # TODO: TraceStatus includes IN_PROGRESS, which is not supported as a span status.
+    #  We should split two enums.
     status_code: TraceStatus
     description: str = ""
 

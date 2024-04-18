@@ -177,9 +177,9 @@ class TrackingServiceClient:
 
         Args:
             experiment_id: String id of the experiment for this run.
-            timestamp_ms: int, start time of the trace, in milliseconds.
-            request_metadata: dict, metadata of the trace.
-            tags: dict, tags of the trace.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
 
         Returns:
             The created TraceInfo object.
@@ -204,12 +204,12 @@ class TrackingServiceClient:
 
         Args:
             request_id: Unique string identifier of the trace.
-            timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
                 in the TraceInfo will be calculated by subtracting the start time from this.
-            status: TraceStatus, status of the trace.
-            request_metadata: dict, metadata of the trace. This will be merged with the existing
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
                 metadata logged during the start_trace call.
-            tags: dict, tags of the trace. This will be merged with the existing tags logged
+            tags: Tags of the trace. This will be merged with the existing tags logged
                 during the start_trace or set_trace_tag calls.
 
         Returns:

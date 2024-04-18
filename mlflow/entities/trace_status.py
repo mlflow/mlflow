@@ -9,6 +9,7 @@ class TraceStatus(str, Enum):
     UNSPECIFIED = "TRACE_STATUS_UNSPECIFIED"
     OK = "OK"
     ERROR = "ERROR"
+    IN_PROGRESS = "IN_PROGRESS"
 
     def to_proto(self):
         return ProtoTraceStatus.Value(self)
