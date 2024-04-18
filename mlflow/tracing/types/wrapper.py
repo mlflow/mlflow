@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Union
 
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, SpanType, TraceStatus
+from mlflow.entities import Span, SpanContext, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.tracing.types.constant import SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder, format_span_id, format_trace_id
 
@@ -135,14 +135,15 @@ class MlflowSpanWrapper:
         serialized_value = self._span.attributes.get(key)
         return json.loads(serialized_value) if serialized_value else None
 
-    def set_status(self, status: Union[SpanStatus, str]):
+    def set_status(self, status: Union[SpanStatusCode, str]):
         """
         Set the status of the span.
 
         Args:
             status: The status of the span. This can be a
                 :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
-                of the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                of the status code defined in
+                :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``.
         """
         if isinstance(status, str):
@@ -182,8 +183,8 @@ class MlflowSpanWrapper:
         # by the user. However, there is not way to set the status when using
         # @mlflow.trace decorator. Therefore, we just automatically set the status
         # to OK if it is not ERROR.
-        if self.status.status_code != TraceStatus.ERROR:
-            self.set_status(SpanStatus(TraceStatus.OK))
+        if self.status.status_code != SpanStatusCode.ERROR:
+            self.set_status(SpanStatus(SpanStatusCode.OK))
 
         self._span.end()
 

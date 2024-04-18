@@ -4,8 +4,8 @@ import pytest
 from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
 import mlflow
-from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
-from mlflow.entities.span_status import SpanStatus
+from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.clients import InMemoryTraceClient, InMemoryTraceClientWithTracking
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
@@ -80,7 +80,7 @@ def mock_tracking_service_client():
             experiment_id="0",
             timestamp_ms=0,
             execution_time_ms=0,
-            status=SpanStatus(TraceStatus.OK),
+            status=TraceStatus.OK,
             request_metadata={},
             tags={"mlflow.artifactLocation": "test"},
         ),

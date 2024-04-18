@@ -4,10 +4,10 @@ from typing import Dict, List, Optional
 from mlflow.entities import (
     DatasetInput,
     TraceInfo,
-    TraceStatus,
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils.annotations import developer_stable

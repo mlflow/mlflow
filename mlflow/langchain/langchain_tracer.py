@@ -17,7 +17,7 @@ from typing_extensions import override
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import SpanEvent, SpanStatus, SpanType, TraceStatus
+from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
@@ -109,7 +109,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         span: MlflowSpanWrapper,
         outputs=None,
         attributes=None,
-        status=SpanStatus(TraceStatus.OK),
+        status=SpanStatus(SpanStatusCode.OK),
     ):
         """Close MLflow Span (or Trace if it is root component)"""
         self._mlflow_client.end_span(
@@ -247,7 +247,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Handle an error for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
         llm_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(llm_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(llm_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_chain_start(
@@ -305,7 +305,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if inputs:
             chain_span.set_inputs(inputs)
         chain_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(chain_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(chain_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_tool_start(
@@ -350,7 +350,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when tool errors."""
         tool_span = self._get_span_by_run_id(run_id)
         tool_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(tool_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(tool_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_retriever_start(
@@ -394,7 +394,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when Retriever errors."""
         retriever_span = self._get_span_by_run_id(run_id)
         retriever_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(retriever_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(retriever_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_agent_action(

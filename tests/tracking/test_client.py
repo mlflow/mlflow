@@ -13,16 +13,16 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    SpanStatus,
+    SpanStatusCode,
     SpanType,
     TraceInfo,
-    TraceStatus,
     ViewType,
 )
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -272,9 +272,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
             )
 
             res = self.square(z, request_id, root_span.span_id)
-            self._client.end_trace(
-                request_id, outputs={"output": res}, status=SpanStatus(TraceStatus.OK)
-            )
+            self._client.end_trace(request_id, outputs={"output": res}, status="OK")
             return res
 
         def square(self, t, request_id, parent_id):
@@ -397,21 +395,21 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
     assert root_span.parent_id is None
-    assert root_span.status_code == TraceStatus.OK
+    assert root_span.status_code == SpanStatusCode.OK
     assert root_span.start_time // 1e6 == trace_info.timestamp_ms
     assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
 
     ended_span = span_name_to_span["ended-span"]
     assert ended_span.parent_id == root_span.context.span_id
     assert ended_span.start_time < ended_span.end_time
-    assert ended_span.status_code == TraceStatus.OK
+    assert ended_span.status_code == SpanStatusCode.OK
 
     # The non-ended span should have null end_time and UNSPECIFIED status
     non_ended_span = span_name_to_span["non-ended-span"]
     assert non_ended_span.parent_id == root_span.context.span_id
     assert non_ended_span.start_time is not None
     assert non_ended_span.end_time is None
-    assert non_ended_span.status_code == TraceStatus.UNSPECIFIED
+    assert non_ended_span.status_code == SpanStatusCode.UNSET
 
 
 def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):

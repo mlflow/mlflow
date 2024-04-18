@@ -4,7 +4,7 @@ import time
 import pytest
 
 import mlflow
-from mlflow.entities import SpanStatus, SpanType, TraceStatus
+from mlflow.entities import SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 
@@ -48,7 +48,7 @@ def test_wrapper_property():
 
 @pytest.mark.parametrize(
     "status",
-    [SpanStatus("OK"), SpanStatus(TraceStatus.ERROR, "Error!"), "OK", "ERROR"],
+    [SpanStatus("OK"), SpanStatus(SpanStatusCode.ERROR, "Error!"), "OK", "ERROR"],
 )
 def test_set_status(status):
     with mlflow.start_span("test_span") as span:
@@ -59,5 +59,5 @@ def test_set_status(status):
 
 def test_set_status_raise_for_invalid_value():
     with mlflow.start_span("test_span") as span:
-        with pytest.raises(MlflowException, match=r"INVALID is not a valid TraceStatus value."):
+        with pytest.raises(MlflowException, match=r"INVALID is not a valid SpanStatusCode value."):
             span.set_status("INVALID")
