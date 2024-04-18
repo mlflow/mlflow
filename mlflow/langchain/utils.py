@@ -243,27 +243,31 @@ def _get_supported_llms():
     import langchain.chat_models
     import langchain.llms
 
-    llms = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
+    supported_llms = set()
 
-    if hasattr(langchain.llms, "Databricks"):
-        llms.add(langchain.llms.Databricks)
+    def try_adding_llm(module, class_name):
+        if cls := getattr(module, class_name, None):
+            supported_llms.add(cls)
 
-    if hasattr(langchain.llms, "Mlflow"):
-        llms.add(langchain.llms.Mlflow)
+    def safe_import_and_add(module_name, class_name):
+        """Add conditional support for `partner` and `community` APIs in langchain"""
+        try:
+            module = importlib.import_module(module_name)
+            try_adding_llm(module, class_name)
+        except ImportError:
+            pass
 
-    if hasattr(langchain.chat_models, "ChatDatabricks"):
-        llms.add(langchain.chat_models.ChatDatabricks)
+    safe_import_and_add("langchain.llms.openai", "OpenAI")
+    safe_import_and_add("langchain.llms.huggingface_hub", "HuggingFaceHub")
+    safe_import_and_add("langchain_openai", "OpenAI")
 
-    if hasattr(langchain.chat_models, "ChatMlflow"):
-        llms.add(langchain.chat_models.ChatMlflow)
+    for llm_name in ["Databricks", "Mlflow"]:
+        try_adding_llm(langchain.llms, llm_name)
 
-    if hasattr(langchain.chat_models, "ChatOpenAI"):
-        llms.add(langchain.chat_models.ChatOpenAI)
+    for chat_model_name in ["ChatDatabricks", "ChatMlflow", "ChatOpenAI", "AzureChatOpenAI"]:
+        try_adding_llm(langchain.chat_models, chat_model_name)
 
-    if hasattr(langchain.chat_models, "AzureChatOpenAI"):
-        llms.add(langchain.chat_models.AzureChatOpenAI)
-
-    return llms
+    return supported_llms
 
 
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
