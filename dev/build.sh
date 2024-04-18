@@ -4,6 +4,8 @@ set -e
 SKINNY=0
 PYTHON_PATH=python
 
+rm -rf build dist mlflow.egg-info mlflow_skinny.egg-info
+
 for arg in "$@"
 do
   if [ "$arg" == "--skinny" ]; then
