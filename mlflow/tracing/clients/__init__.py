@@ -1,5 +1,6 @@
 from mlflow.tracing.clients.base import TraceClient
-from mlflow.tracing.clients.local import InMemoryTraceClient, InMemoryTraceClientWithTracking
+from mlflow.tracing.clients.local import InMemoryTraceClient
+from mlflow.tracing.clients.tracking import InMemoryTraceClientWithTracking
 
 __all__ = [
     "InMemoryTraceClient",

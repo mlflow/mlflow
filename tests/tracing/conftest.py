@@ -6,7 +6,7 @@ from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo, TraceStatus
 from mlflow.entities.span_status import SpanStatus
-from mlflow.tracing.clients.local import InMemoryTraceClientWithTracking
+from mlflow.tracing.clients import InMemoryTraceClient, InMemoryTraceClientWithTracking
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _setup_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -18,6 +18,7 @@ def clear_singleton():
     Clear the singleton instances after each tests to avoid side effects.
     """
     InMemoryTraceManager._instance = None
+    InMemoryTraceClient._instance = None
     InMemoryTraceClientWithTracking._instance = None
     IPythonTraceDisplayHandler._instance = None
 
