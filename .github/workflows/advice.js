@@ -40,13 +40,16 @@ ${codespacesBadge}
 
 #### Install mlflow from this PR
 
-\`\`\`
+\`\`\`sh
+# mlflow
 pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
+# mlflow-skinny
+pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge#subdirectory=skinny
 \`\`\`
 
 #### Checkout with GitHub CLI
 
-\`\`\`
+\`\`\`sh
 gh pr checkout ${issue_number}
 \`\`\`
 
