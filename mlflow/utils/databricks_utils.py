@@ -214,6 +214,11 @@ def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
 
 
+def is_in_databricks_serverless():
+    dbr_version = get_databricks_runtime_version()
+    return dbr_version and dbr_version.startswith("client.")
+
+
 def is_dbfs_fuse_available():
     with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
         try:
