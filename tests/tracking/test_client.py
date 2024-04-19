@@ -1,20 +1,35 @@
 import pickle
+import time
 from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import ExperimentTag, Run, RunInfo, RunStatus, RunTag, SourceType, ViewType
+from mlflow.entities import (
+    ExperimentTag,
+    Run,
+    RunInfo,
+    RunStatus,
+    RunTag,
+    SourceType,
+    SpanStatusCode,
+    SpanType,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
-from mlflow.exceptions import MlflowException
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
+from mlflow.tracing.types.constant import TraceMetadataKey
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
@@ -31,6 +46,10 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 
+from tests.tracing.conftest import clear_singleton  # noqa: F401
+from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
+from tests.tracing.helper import deser_attributes
+
 
 @pytest.fixture(autouse=True)
 def reset_registry_uri():
@@ -42,6 +61,14 @@ def reset_registry_uri():
 def mock_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
+
+
+@pytest.fixture
+def mock_artifact_repo():
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.get_artifact_repository"
+    ) as mock_get_repo:
+        yield mock_get_repo.return_value
 
 
 @pytest.fixture
@@ -119,6 +146,337 @@ def test_client_create_run_with_name(mock_store, mock_time):
         tags=[],
         run_name="my name",
     )
+
+
+def test_client_get_trace(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        request_id="1234567",
+        experiment_id="0",
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.OK,
+        tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+    )
+    MlflowClient().get_trace("1234567")
+    mock_store.get_trace_info.assert_called_once_with("1234567")
+    mock_artifact_repo.download_trace_data.assert_called_once()
+
+
+def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        request_id="1234567",
+        experiment_id="0",
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.OK,
+        tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+    )
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound("1234567")
+
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because it is missing span data",
+    ):
+        MlflowClient().get_trace("1234567")
+
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataCorrupted("1234567")
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because its span data is corrupted",
+    ):
+        MlflowClient().get_trace("1234567")
+
+
+def test_client_search_traces(mock_store, mock_artifact_repo):
+    mock_traces = [
+        TraceInfo(
+            request_id="1234567",
+            experiment_id="1",
+            timestamp_ms=123,
+            execution_time_ms=456,
+            status=TraceStatus.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
+        ),
+        TraceInfo(
+            request_id="8910",
+            experiment_id="2",
+            timestamp_ms=456,
+            execution_time_ms=789,
+            status=TraceStatus.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
+        ),
+    ]
+    mock_store.search_traces.return_value = (mock_traces, None)
+
+    MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
+
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["1", "2", "3"],
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+    )
+    mock_artifact_repo.download_trace_data.assert_called()
+    # The TraceInfo is already fetched prior to the upload_trace_data call,
+    # so we should not call _get_trace_info again
+    mock_store.get_trace_info.assert_not_called()
+
+
+def test_client_delete_traces(mock_store):
+    MlflowClient().delete_traces(
+        experiment_id="0",
+        max_timestamp_millis=1,
+        max_traces=2,
+        request_ids=["tr-1234"],
+    )
+    mock_store.delete_traces.assert_called_once_with(
+        experiment_id="0",
+        max_timestamp_millis=1,
+        max_traces=2,
+        request_ids=["tr-1234"],
+    )
+
+
+def test_start_and_end_trace(clear_singleton, mock_trace_client):
+    class TestModel:
+        def __init__(self):
+            self._client = MlflowClient()
+
+        def predict(self, x, y):
+            root_span = self._client.start_trace(
+                name="predict",
+                inputs={"x": x, "y": y},
+                tags={"tag": "tag_value"},
+                experiment_id="test_experiment",
+            )
+            request_id = root_span.request_id
+
+            z = x + y
+
+            child_span = self._client.start_span(
+                "child_span_1",
+                span_type=SpanType.LLM,
+                request_id=request_id,
+                parent_id=root_span.span_id,
+                inputs={"z": z},
+            )
+
+            z = z + 2
+
+            self._client.end_span(
+                request_id=request_id,
+                span_id=child_span.span_id,
+                outputs={"output": z},
+                attributes={"delta": 2},
+            )
+
+            res = self.square(z, request_id, root_span.span_id)
+            self._client.end_trace(request_id, outputs={"output": res}, status="OK")
+            return res
+
+        def square(self, t, request_id, parent_id):
+            span = self._client.start_span(
+                "child_span_2",
+                request_id=request_id,
+                parent_id=parent_id,
+                inputs={"t": t},
+            )
+
+            res = t**2
+            time.sleep(0.1)
+
+            self._client.end_span(
+                request_id=request_id,
+                span_id=span.span_id,
+                outputs={"output": res},
+            )
+            return res
+
+    model = TestModel()
+    model.predict(1, 2)
+
+    traces = mlflow.get_traces()
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.request_id is not None
+    assert trace_info.experiment_id == "test_experiment"
+    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
+    assert trace_info.status == TraceStatus.OK
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
+
+    trace_data = traces[0].data
+    assert trace_data.request == '{"x": 1, "y": 2}'
+    assert trace_data.response == '{"output": 25}'
+    assert len(trace_data.spans) == 3
+
+    span_name_to_span = {span.name: span for span in trace_data.spans}
+    root_span = span_name_to_span["predict"]
+    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
+    assert root_span.parent_id is None
+    assert deser_attributes(root_span.attributes) == {
+        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanInputs": {"x": 1, "y": 2},
+        "mlflow.spanOutputs": {"output": 25},
+    }
+
+    child_span_1 = span_name_to_span["child_span_1"]
+    assert child_span_1.parent_id == root_span.context.span_id
+    assert deser_attributes(child_span_1.attributes) == {
+        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.spanType": "LLM",
+        "mlflow.spanInputs": {"z": 3},
+        "mlflow.spanOutputs": {"output": 5},
+        "delta": 2,
+    }
+
+    child_span_2 = span_name_to_span["child_span_2"]
+    assert child_span_2.parent_id == root_span.context.span_id
+    assert deser_attributes(child_span_2.attributes) == {
+        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanInputs": {"t": 5},
+        "mlflow.spanOutputs": {"output": 25},
+    }
+    assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
+
+
+@pytest.mark.usefixtures("reset_active_experiment")
+def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_client):
+    # This test is to verify that the trace is still exported even if some spans are not ended
+    exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
+
+    class TestModel:
+        def __init__(self):
+            self._client = MlflowClient()
+
+        def predict(self, x):
+            root_span = self._client.start_trace(name="predict")
+            request_id = root_span.request_id
+            child_span = self._client.start_span(
+                "ended-span",
+                request_id=request_id,
+                parent_id=root_span.span_id,
+            )
+            time.sleep(0.1)
+            self._client.end_span(request_id, child_span.span_id)
+
+            res = self.square(x, request_id, root_span.span_id)
+            self._client.end_trace(request_id)
+            return res
+
+        def square(self, t, request_id, parent_id):
+            self._client.start_span("non-ended-span", request_id=request_id, parent_id=parent_id)
+            time.sleep(0.1)
+            # The span created above is not ended
+            return t**2
+
+    model = TestModel()
+    model.predict(1)
+
+    traces = mlflow.get_traces()
+    assert len(traces) == 1
+
+    trace_info = traces[0].info
+    assert trace_info.request_id is not None
+    assert trace_info.experiment_id == exp_id
+    assert trace_info.timestamp_ms is not None
+    assert trace_info.execution_time_ms is not None
+    assert trace_info.status == TraceStatus.OK
+
+    trace_data = traces[0].data
+    assert trace_data.request is None
+    assert trace_data.response is None
+    assert len(trace_data.spans) == 3  # The non-ended span should be also included in the trace
+
+    span_name_to_span = {span.name: span for span in trace_data.spans}
+    root_span = span_name_to_span["predict"]
+    assert root_span.parent_id is None
+    assert root_span.status_code == SpanStatusCode.OK
+    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
+
+    ended_span = span_name_to_span["ended-span"]
+    assert ended_span.parent_id == root_span.context.span_id
+    assert ended_span.start_time < ended_span.end_time
+    assert ended_span.status_code == SpanStatusCode.OK
+
+    # The non-ended span should have null end_time and UNSPECIFIED status
+    non_ended_span = span_name_to_span["non-ended-span"]
+    assert non_ended_span.parent_id == root_span.context.span_id
+    assert non_ended_span.start_time is not None
+    assert non_ended_span.end_time is None
+    assert non_ended_span.status_code == SpanStatusCode.UNSET
+
+
+def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
+    with mlflow.start_span("fluent_span"):
+        with pytest.raises(MlflowException, match=r"Another trace is already set in the global"):
+            mlflow.tracking.MlflowClient().start_trace("test")
+
+
+def test_end_trace_raise_error_when_trace_not_exist(clear_singleton):
+    with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
+        mlflow.tracking.MlflowClient().end_trace("test")
+
+
+def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
+    client = mlflow.tracking.MlflowClient()
+
+    root_span = client.start_trace("test")
+    client.end_trace(root_span.request_id)
+
+    trace = mlflow.get_traces()[-1]
+    assert trace.info.request_id == root_span.request_id
+
+    with pytest.raises(
+        MlflowException, match=f"Trace with ID {root_span.request_id} already finished"
+    ):
+        client.end_trace(root_span.request_id)
+
+
+def test_start_span_raise_error_when_parent_id_is_not_provided():
+    with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
+        mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
+
+
+def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
+    client = mlflow.tracking.MlflowClient()
+
+    root_span = client.start_trace(name="test")
+    request_id = root_span.request_id
+    client.set_trace_tag(request_id, "foo", "bar")
+    client.end_trace(request_id)
+
+    trace = mlflow.get_traces()[-1]
+    assert trace.info.tags == {"mlflow.traceName": "test", "foo": "bar"}
+
+
+def test_set_trace_tag_on_logged_trace(mock_store, mock_trace_client):
+    mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
+    mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
+
+
+def test_delete_trace_tag_on_active_trace(clear_singleton, mock_trace_client):
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test", tags={"foo": "bar", "baz": "qux"})
+    request_id = root_span.request_id
+    client.delete_trace_tag(request_id, "foo")
+    client.end_trace(request_id)
+
+    trace = mlflow.get_traces()[-1]
+    assert trace.info.tags == {
+        "baz": "qux",
+        "mlflow.traceName": "test",  # Added by MLflow
+    }
+
+
+def test_delete_trace_tag_on_logged_trace(mock_store, mock_trace_client):
+    mlflow.tracking.MlflowClient().delete_trace_tag("test", "foo")
+    mock_store.delete_trace_tag.assert_called_once_with("test", "foo")
 
 
 def test_client_create_experiment(mock_store):

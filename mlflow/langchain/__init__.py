@@ -924,7 +924,11 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inputs_outputs=True,
+    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
+    # the LangChain autologging, as it is a common use case to log input/output table for
+    # evaluation. Once tracing is fully launched, this should be supported by the tracer
+    # but we should design it to be compatible with the existing UJ.
+    log_inputs_outputs=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -957,7 +961,7 @@ def autolog(
         log_inputs_outputs: If ``True``, inference data and results are combined into a single
             pandas DataFrame and logged to MLflow Tracking as an artifact.
             If ``False``, inference data and results are not logged.
-            Default to ``True``.
+            Default to ``False``.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

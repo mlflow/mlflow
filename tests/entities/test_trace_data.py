@@ -1,0 +1,122 @@
+import json
+
+import pytest
+
+import mlflow
+from mlflow.entities import SpanType
+from mlflow.entities.span_event import SpanEvent
+
+from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
+
+
+def test_json_deserialization(mock_trace_client):
+    class TestModel:
+        @mlflow.trace()
+        def predict(self, x, y):
+            z = x + y
+
+            with mlflow.start_span(name="with_ok_event") as span:
+                span.add_event(SpanEvent(name="ok_event", attributes={"foo": "bar"}))
+
+            self.always_fail()
+            return z
+
+        @mlflow.trace(span_type=SpanType.LLM, name="always_fail_name", attributes={"delta": 1})
+        def always_fail(self):
+            raise Exception("Error!")
+
+    model = TestModel()
+
+    # Verify the exception is not absorbed by the context manager
+    with pytest.raises(Exception, match="Error!"):
+        model.predict(2, 5)
+
+    trace = mlflow.get_traces()[0]
+    trace_data_dict = trace.data.to_dict()
+
+    # Compare events separately as it includes exception stacktrace which is hard to hardcode
+    span_to_events = {span["name"]: span.pop("events") for span in trace_data_dict["spans"]}
+
+    assert trace_data_dict == {
+        "request": '{"x": 2, "y": 5}',
+        "response": None,
+        "spans": [
+            {
+                "name": "predict",
+                "context": {
+                    "trace_id": trace.data.spans[0].context.trace_id,
+                    "span_id": trace.data.spans[0].context.span_id,
+                },
+                "parent_id": None,
+                "start_time": trace.data.spans[0].start_time,
+                "end_time": trace.data.spans[0].end_time,
+                "status_code": "ERROR",
+                "status_message": "Exception: Error!",
+                "attributes": {
+                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.spanType": '"UNKNOWN"',
+                    "mlflow.spanFunctionName": '"predict"',
+                    "mlflow.spanInputs": '{"x": 2, "y": 5}',
+                },
+                # "events": ...,
+            },
+            {
+                "name": "with_ok_event",
+                "context": {
+                    "trace_id": trace.data.spans[1].context.trace_id,
+                    "span_id": trace.data.spans[1].context.span_id,
+                },
+                "parent_id": trace.data.spans[0].context.span_id,
+                "start_time": trace.data.spans[1].start_time,
+                "end_time": trace.data.spans[1].end_time,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.spanType": '"UNKNOWN"',
+                },
+                # "events": ...,
+            },
+            {
+                "name": "always_fail_name",
+                "context": {
+                    "trace_id": trace.data.spans[2].context.trace_id,
+                    "span_id": trace.data.spans[2].context.span_id,
+                },
+                "parent_id": trace.data.spans[0].context.span_id,
+                "start_time": trace.data.spans[2].start_time,
+                "end_time": trace.data.spans[2].end_time,
+                "status_code": "ERROR",
+                "status_message": "Exception: Error!",
+                "attributes": {
+                    "delta": "1",
+                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.spanType": '"LLM"',
+                    "mlflow.spanFunctionName": '"always_fail"',
+                    "mlflow.spanInputs": "{}",
+                },
+                # "events": ...,
+            },
+        ],
+    }
+
+    ok_events = span_to_events["with_ok_event"]
+    assert len(ok_events) == 1
+    assert ok_events[0]["name"] == "ok_event"
+    assert ok_events[0]["attributes"] == {"foo": "bar"}
+
+    error_events = span_to_events["always_fail_name"]
+    assert len(error_events) == 1
+    assert error_events[0]["name"] == "exception"
+    assert error_events[0]["attributes"]["exception.message"] == "Error!"
+    assert error_events[0]["attributes"]["exception.type"] == "Exception"
+    assert error_events[0]["attributes"]["exception.stacktrace"] is not None
+
+    parent_events = span_to_events["predict"]
+    assert len(parent_events) == 1
+    assert parent_events[0]["name"] == "exception"
+    assert parent_events[0]["attributes"]["exception.message"] == "Error!"
+    assert parent_events[0]["attributes"]["exception.type"] == "Exception"
+    # Parent span includes exception event bubbled up from the child span, hence the
+    # stack trace includes the function call
+    assert "self.always_fail()" in parent_events[0]["attributes"]["exception.stacktrace"]
