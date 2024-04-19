@@ -239,9 +239,9 @@ def test_load_model_without_mlflow_version():
 
 
 def test_model_log_with_databricks_runtime():
-    dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
+    dbr_version = "8.3.x"
     with TempDir(chdr=True) as tmp, mock.patch(
-        "mlflow.models.model.get_databricks_runtime", return_value=dbr
+        "mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version
     ):
         sig = ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
@@ -261,7 +261,7 @@ def test_model_log_with_databricks_runtime():
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         x = dataframe_from_raw_json(path)
         assert x.to_dict(orient="records")[0] == input_example
-        assert loaded_model.databricks_runtime == dbr
+        assert loaded_model.databricks_runtime == dbr_version
 
 
 def test_model_log_with_input_example_succeeds():
