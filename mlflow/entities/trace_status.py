@@ -20,9 +20,6 @@ class TraceStatus(str, Enum):
     def from_proto(proto_status):
         return ProtoTraceStatus.Name(proto_status)
 
-    def to_otel_status(self) -> trace_api.Status:
-        return trace_api.Status(_MLFLOW_STATUS_CODE_TO_OTEL[self])
-
     @staticmethod
     def from_otel_status(otel_status: trace_api.Status):
         return _OTEL_STATUS_CODE_TO_MLFLOW[otel_status.status_code]
@@ -33,5 +30,3 @@ _OTEL_STATUS_CODE_TO_MLFLOW = {
     trace_api.StatusCode.ERROR: TraceStatus.ERROR,
     trace_api.StatusCode.UNSET: TraceStatus.UNSPECIFIED,
 }
-
-_MLFLOW_STATUS_CODE_TO_OTEL = {value: key for key, value in _OTEL_STATUS_CODE_TO_MLFLOW.items()}
