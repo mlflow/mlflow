@@ -363,6 +363,7 @@ nitpick_ignore = [
     ("py:class", "opentelemetry.trace.span.Span"),
     ("py:class", "opentelemetry.trace.status.Status"),
     ("py:class", "opentelemetry.trace.status.StatusCode"),
+    ("py:class", "opentelemetry.sdk.trace.ReadableSpan"),
     ("py:class", "mlflow.entities.trace_status.TraceStatus"),
     ("py:class", "ModelSignature"),
     ("py:class", "ModelInputExample"),
@@ -416,7 +417,6 @@ def _get_reference_map():
     """
     ref_map = {
         # < Invalid reference >: < valid reference >
-        "mlflow.tracing.MlflowSpanWrapper": "mlflow.tracing.types.wrapper.MlflowSpanWrapper",
         "mlflow.tracking.fluent.ActiveRun": "mlflow.ActiveRun",
         "mlflow.store.entities.paged_list.PagedList": "mlflow.store.entities.PagedList",
     }

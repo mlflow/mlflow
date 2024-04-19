@@ -66,17 +66,38 @@ class TraceJSONEncoder(json.JSONEncoder):
 
 
 @lru_cache(maxsize=1)
-def format_span_id(span_id: int) -> str:
+def encode_span_id(span_id: int) -> str:
     """
-    Format the given integer span ID to a hex string following the OpenTelemetry's convention.
+    Encode the given integer span ID to a 16-byte hex string.
     # https://github.com/open-telemetry/opentelemetry-python/blob/9398f26ecad09e02ad044859334cd4c75299c3cd/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L507-L508
     """
     return f"0x{trace_api.format_span_id(span_id)}"
 
 
 @lru_cache(maxsize=1)
-def format_trace_id(trace_id: int) -> str:
+def encode_trace_id(trace_id: int) -> str:
     """
-    Format the given integer trace ID to a hex string.
+    Encode the given integer trace ID to a 32-byte hex string.
     """
-    return f"0x{trace_api.format_span_id(trace_id)}"
+    return f"0x{trace_api.format_trace_id(trace_id)}"
+
+
+def decode_id(span_or_trace_id: str) -> int:
+    """
+    Decode the given hex string span or trace ID to an integer.
+    """
+    return int(span_or_trace_id, 16)
+
+
+def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
+    """
+    Build an OpenTelemetry SpanContext object from the given trace and span IDs.
+    """
+    return trace_api.SpanContext(
+        trace_id=trace_id,
+        span_id=span_id,
+        # NB: This flag is OpenTelemetry's concept to indicate whether the context is
+        # propagated from remote parent or not. We don't support distributed tracing
+        # yet so always set it to False.
+        is_remote=False,
+    )

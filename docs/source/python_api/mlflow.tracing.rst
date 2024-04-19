@@ -57,10 +57,3 @@ MLflow Client APIs
 
 .. autofunction:: mlflow.client.MlflowClient.end_span
     :noindex:
-
-
-MlflowSpanWrapper
-~~~~~~~~~~~~~~~~~
-
-.. autoclass:: mlflow.tracing.types.wrapper.MlflowSpanWrapper
-    :members:

@@ -121,4 +121,4 @@ class MlflowSpanExporter(SpanExporter):
         for span in trace_data.spans:
             if count := span_name_counter.get(span.name):
                 span_name_counter[span.name] += 1
-                span.name = f"{span.name}_{count}"
+                span._span._name = f"{span.name}_{count}"

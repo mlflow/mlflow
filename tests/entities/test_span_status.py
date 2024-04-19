@@ -37,4 +37,4 @@ def test_otel_status_conversion(status_code, otel_status_code):
 
     span_status = SpanStatus.from_otel_status(otel_status)
     assert span_status.status_code == status_code
-    assert span_status.description == expected_description
+    assert span_status.description == (expected_description or "")
