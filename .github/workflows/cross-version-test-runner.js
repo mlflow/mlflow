@@ -35,9 +35,9 @@ async function main({ context, github }) {
       repository: `${owner}/${repo}`,
       ref: pr.merge_commit_sha,
       flavors,
-      // The response of this request doesn't contain the ID of the triggered workflow run.
-      // As a workaround, generate a UUID and include it in the workflow input.
-      // See https://github.com/orgs/community/discussions/9752 for more details.
+      // The response of create-workflow-dispatch request doesn't contain the ID of the triggered
+      // workflow run. We need to pass a unique identifier to the workflow run and find the run by
+      // the identifier. See https://github.com/orgs/community/discussions/9752 for more details.
       uuid,
     },
   });
