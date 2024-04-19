@@ -261,7 +261,7 @@ def test_model_log_with_databricks_runtime():
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         x = dataframe_from_raw_json(path)
         assert x.to_dict(orient="records")[0] == input_example
-        assert loaded_model.databricks_runtime == dbr
+        assert loaded_model.databricks_runtime == dbr_version
 
 
 def test_model_log_with_input_example_succeeds():
