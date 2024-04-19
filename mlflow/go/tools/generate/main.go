@@ -189,8 +189,22 @@ func mkAssignStmt(lhs []ast.Expr, rhs []ast.Expr) *ast.AssignStmt {
 	}
 }
 
+func mkBinaryExpr(x ast.Expr, op token.Token, y ast.Expr) *ast.BinaryExpr {
+	return &ast.BinaryExpr{
+		X:  x,
+		Op: op,
+		Y:  y,
+	}
+}
+
+func mkReturnStmt(results ...ast.Expr) *ast.ReturnStmt {
+	return &ast.ReturnStmt{
+		Results: results,
+	}
+}
+
 func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
-	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"/api/v2.0/mlflow/%s/%s"`, method.Name, endpoint.GetFiberPath())}
+	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"/api/2.0%s"`, endpoint.GetFiberPath())}
 
 	// var input *protos.SearchExperiments
 	inputExpr := &ast.DeclStmt{
@@ -223,15 +237,26 @@ func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 		mkCallExpr(mkSelectorExpr("service", strcase.ToCamel(method.Name)), ast.NewIdent("input")),
 	})
 
+	// if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+	//     return ctx.Next()
+	// }
+	notImplentedCheck := mkIfStmt(
+		nil,
+		mkBinaryExpr(
+			errNotEqualNil,
+			token.LAND,
+			mkBinaryExpr(
+				mkSelectorExpr("err", "ErrorCode"),
+				token.EQL,
+				mkSelectorExpr("protos", "ErrorCode_NOT_IMPLEMENTED"),
+			)),
+		mkBlockStmt(mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "Next")))))
+
 	// if err != nil {
 	outputErrorCheck := mkIfStmt(nil, errNotEqualNil, mkBlockStmt(returnErr))
 
 	// return ctx.JSON(&output)
-	returnExpr := &ast.ReturnStmt{
-		Results: []ast.Expr{
-			mkCallExpr(mkSelectorExpr("ctx", "JSON"), mkAmpExpr(ast.NewIdent("output"))),
-		},
-	}
+	returnExpr := mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "JSON"), mkAmpExpr(ast.NewIdent("output"))))
 
 	// func(ctx *fiber.Ctx) error { .. }
 	funcExpr := &ast.FuncLit{
@@ -252,6 +277,7 @@ func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 				inputExpr,
 				inputErrorCheck,
 				outputExpr,
+				notImplentedCheck,
 				outputErrorCheck,
 				returnExpr,
 			},
