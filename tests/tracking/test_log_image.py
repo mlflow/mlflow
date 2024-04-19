@@ -292,8 +292,6 @@ def test_log_image_raises_exception_for_missing_arguments():
 
 
 def test_async_log_image_flush():
-    import time
-
     import numpy as np
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
@@ -301,7 +299,6 @@ def test_async_log_image_flush():
         for i in range(100):
             mlflow.log_image(image1, key="dog", step=i, timestamp=i, synchronous=False)
 
-        time.sleep(1)
         mlflow.flush_artifact_async_logging()
 
         logged_path = "images/"
