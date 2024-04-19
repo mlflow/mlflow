@@ -1158,6 +1158,9 @@ class MlflowClient:
         Args:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            synchronous: *Experimental* If True, blocks until the artifact is logged
+                successfully. If False, logs the artifacts asynchronously
+                and returns a future representing the logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -1257,11 +1260,27 @@ class MlflowClient:
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, filename)
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
+
+    def _log_artifact_async_helper(self, run_id, artifact_file, artifact):
+        """Log artifact asynchronously.
+
+        Args:
+            run_id: The unique identifier for the run. This ID is used to associate the
+                artifact with a specific run.
+            artifact_file: The file path of the artifact relative to the run's directory.
+                The path should be in POSIX format, using forward slashes (/) as directory
+                separators.
+            artifact: The artifact to be logged.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+        self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -1430,6 +1449,7 @@ class MlflowClient:
         key: Optional[str] = None,
         step: Optional[int] = None,
         timestamp: Optional[int] = None,
+        synchronous: Optional[bool] = False,
     ) -> None:
         """
         Logs an image in MLflow, supporting two use cases:
@@ -1600,7 +1620,6 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = uuid.uuid4()
-            filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
@@ -1608,30 +1627,26 @@ class MlflowClient:
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
-            with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-                image.save(tmp_path)
-
-            # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-            with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
-                compress_image_size(image).save(tmp_path)
 
-            # Save metadata file
-            metadata_filepath = f"{filename}.json"
-            with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
-                with open(tmp_path, "w+") as f:
-                    json.dump(
-                        {
-                            "filepath": image_filepath,
-                            "key": key,
-                            "step": step,
-                            "timestamp": timestamp,
-                        },
-                        f,
-                    )
+            # Need to make a resize copy before running thread for thread safety
+            # If further optimization is needed, we can move this resize to async queue.
+            compressed_image = compress_image_size(image)
+
+            if synchronous:
+                with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
+                    image.save(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, image_filepath, image)
+
+            if synchronous:
+                with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+                    compressed_image.save(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)
 
             # Log tag indicating that the run includes logged image
-            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous=False)
+            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.

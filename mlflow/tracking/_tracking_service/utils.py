@@ -1,5 +1,6 @@
 import logging
 import os
+from collections import OrderedDict
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
@@ -194,6 +195,13 @@ _register_tracking_stores()
 
 def _get_store(store_uri=None, artifact_uri=None):
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
+
+
+_artifact_repos_cache = OrderedDict()
+
+
+def _get_artifact_repo(run_id):
+    return _artifact_repos_cache.get(run_id)
 
 
 # TODO(sueann): move to a projects utils module
