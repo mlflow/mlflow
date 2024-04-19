@@ -30,7 +30,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 4
+  max_major_version: 5
 
 pytz:
   pip_release: pytz
@@ -43,7 +43,7 @@ requests:
 
 packaging:
   pip_release: packaging
-  max_major_version: 23
+  max_major_version: 24
 
 importlib_metadata:
   pip_release: importlib_metadata

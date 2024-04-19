@@ -761,7 +761,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     server_proc = None
     try:
         server_proc = get_flavor_backend(
-            model_path, eng_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
+            model_path, env_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
             port=port,

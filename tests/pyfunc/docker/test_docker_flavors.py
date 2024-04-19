@@ -114,7 +114,7 @@ def test_build_image_and_serve(flavor, request):
     flavor = flavor.split("_")[0]  # Remove _pt or _tf from the flavor name
 
     # Build an image
-    backend = get_flavor_backend(model_uri=model_path, docker_build=True)
+    backend = get_flavor_backend(model_uri=model_path, docker_build=True, env_manager=None)
     backend.build_image(
         model_uri=model_path,
         image_name=TEST_IMAGE_NAME,

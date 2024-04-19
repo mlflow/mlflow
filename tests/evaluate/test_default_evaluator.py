@@ -3372,6 +3372,39 @@ def test_evaluate_with_latency():
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
 
 
+def test_evaluate_with_latency_and_pd_series():
+    with mlflow.start_run() as run:
+
+        def pd_series_model(inputs: list[str]) -> pd.Series:
+            return pd.Series(inputs)
+
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=pd_series_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["input text", "random text"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            model_type="text",
+            evaluators="default",
+            extra_metrics=[mlflow.metrics.latency()],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    assert set(logged_data.columns.tolist()) == {
+        "text",
+        "outputs",
+        "toxicity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+        "latency",
+        "token_count",
+    }
+
+
 def test_evaluate_with_latency_static_dataset():
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(

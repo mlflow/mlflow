@@ -21,6 +21,7 @@ from mlflow.langchain.utils import (
     _load_from_json,
     _load_from_pickle,
     _load_from_yaml,
+    _patch_loader,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     base_lc_types,
@@ -63,7 +64,7 @@ def _load_model_from_config(path, model_config):
     if _type in chains_type_to_loader_dict:
         from langchain.chains.loading import load_chain
 
-        return load_chain(config_path)
+        return _patch_loader(load_chain)(config_path)
     elif _type in prompts_types:
         from langchain.prompts.loading import load_prompt
 
@@ -71,7 +72,7 @@ def _load_model_from_config(path, model_config):
     elif _type in llms_get_type_to_cls_dict():
         from langchain.llms.loading import load_llm
 
-        return load_llm(config_path)
+        return _patch_loader(load_llm)(config_path)
     elif _type in custom_type_to_loader_dict():
         return custom_type_to_loader_dict()[_type](config)
     raise MlflowException(f"Unsupported type {_type} for loading.")

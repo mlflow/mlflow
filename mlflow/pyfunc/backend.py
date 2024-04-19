@@ -57,6 +57,9 @@ FLAVOR_SPECIFIC_APT_PACKAGES = {
 
 # Directory to store loaded model inside the Docker context directory
 _MODEL_DIR_NAME = "model_dir"
+LOCAL_ENV_MANAGER_ERROR_MESSAGE = "We cannot use 'LOCAL' environment manager "
+"for your model configuration. Please specify a virtualenv or conda environment "
+"manager instead with `--env-manager` argument."
 
 
 class PyFuncBackend(FlavorBackend):
@@ -67,8 +70,8 @@ class PyFuncBackend(FlavorBackend):
     def __init__(
         self,
         config,
+        env_manager,
         workers=1,
-        env_manager=_EnvManager.VIRTUALENV,
         install_mlflow=False,
         create_env_root_dir=False,
         env_root_dir=None,
@@ -76,6 +79,9 @@ class PyFuncBackend(FlavorBackend):
     ):
         """
         Args:
+            env_manager: Environment manager to use for preparing the environment. If None,
+                MLflow will automatically pick the env manager based on the model's flavor
+                configuration for generate_dockerfile. It can't be None for other methods.
             env_root_dir: Root path for conda env. If None, use Conda's default environments
                 directory. Note if this is set, conda package cache path becomes
                 "{env_root_dir}/conda_cache_pkgs" instead of the global package cache
@@ -86,6 +92,9 @@ class PyFuncBackend(FlavorBackend):
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         if env_manager == _EnvManager.CONDA and ENV not in config:
+            warnings.warn(
+                "Conda environment is not specified in config `env`. Using local environment."
+            )
             env_manager = _EnvManager.LOCAL
         self._env_manager = env_manager
         self._install_mlflow = install_mlflow
@@ -376,25 +385,41 @@ class PyFuncBackend(FlavorBackend):
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
             base_image = self._get_base_image(model_path, install_java)
 
-            # We don't need virtualenv or conda if base image is python
-            env_manager = (
-                _EnvManager.LOCAL if base_image.startswith("python") else self._env_manager
-            )
+            if base_image.startswith("python"):
+                # we can directly use local env for python image
+                env_manager = _EnvManager.LOCAL if self._env_manager is None else self._env_manager
+                if env_manager in [_EnvManager.CONDA, _EnvManager.VIRTUALENV]:
+                    # we can directly use ubuntu image for conda and virtualenv
+                    base_image = UBUNTU_BASE_IMAGE
+            elif base_image == UBUNTU_BASE_IMAGE:
+                env_manager = (
+                    _EnvManager.VIRTUALENV if self._env_manager is None else self._env_manager
+                )
+                # installing python on ubuntu image is problematic and not recommended officially
+                # so we recommend using conda or virtualenv instead on ubuntu image
+                if env_manager == _EnvManager.LOCAL:
+                    raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
+            # shouldn't reach here but add this so we can validate base_image value above
+            else:
+                raise MlflowException(f"Unexpected base image value '{base_image}'")
 
             model_install_steps = self._model_installation_steps(
                 model_path, env_manager, install_mlflow, enable_mlserver
             )
             entrypoint = f"from mlflow.models import container as C; C._serve('{env_manager}')"
 
+        # if no model_uri specified, user must use virtualenv or conda env based on ubuntu image
         else:
             base_image = UBUNTU_BASE_IMAGE
+            env_manager = self._env_manager or _EnvManager.VIRTUALENV
+            if env_manager == _EnvManager.LOCAL:
+                raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
+
             model_install_steps = ""
             # If model_uri is not specified, dependencies are installed at runtime
             entrypoint = (
-                self._get_install_pyfunc_deps_cmd(
-                    self._env_manager, install_mlflow, enable_mlserver
-                )
-                + f" C._serve('{self._env_manager}')"
+                self._get_install_pyfunc_deps_cmd(env_manager, install_mlflow, enable_mlserver)
+                + f" C._serve('{env_manager}')"
             )
 
         dockerfile_text = docker_utils.generate_dockerfile(
@@ -402,7 +427,7 @@ class PyFuncBackend(FlavorBackend):
             base_image=base_image,
             model_install_steps=model_install_steps,
             entrypoint=entrypoint,
-            env_manager=self._env_manager,
+            env_manager=env_manager,
             mlflow_home=mlflow_home,
             enable_mlserver=enable_mlserver,
             # always disable env creation at runtime for pyfunc

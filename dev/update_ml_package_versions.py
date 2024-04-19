@@ -7,6 +7,7 @@ $ pip install packaging pyyaml
 # How to run (make sure you're in the repository root):
 $ python dev/update_ml_package_versions.py
 """
+import argparse
 import json
 import re
 import urllib.request
@@ -150,32 +151,47 @@ _ML_PACKAGE_VERSIONS = {config}
         )
 
 
-def main():
+def parse_args():
+    parser = argparse.ArgumentParser(description="Update MLflow package versions")
+    parser.add_argument(
+        "--skip-yml", action="store_true", help="Skip updating ml-package-versions.yml"
+    )
+    return parser.parse_args()
+
+
+def update(skip_yml=False):
     yml_path = "mlflow/ml-package-versions.yml"
-    old_src = read_file(yml_path)
-    new_src = old_src
-    config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
 
-    for flavor_key, config in config_dict.items():
-        for category in ["autologging", "models"]:
-            if (category not in config) or config[category].get("pin_maximum", False):
-                continue
-            print("Processing", flavor_key, category)
+    if not skip_yml:
+        old_src = read_file(yml_path)
+        new_src = old_src
+        config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
+        for flavor_key, config in config_dict.items():
+            for category in ["autologging", "models"]:
+                if (category not in config) or config[category].get("pin_maximum", False):
+                    continue
+                print("Processing", flavor_key, category)
 
-            package_name = config["package_info"]["pip_release"]
-            max_ver = config[category]["maximum"]
-            versions = get_package_versions(package_name)
-            unsupported = config[category].get("unsupported", [])
-            versions = set(versions).difference(unsupported)  # exclude unsupported versions
-            latest_version = get_latest_version(versions)
+                package_name = config["package_info"]["pip_release"]
+                max_ver = config[category]["maximum"]
+                versions = get_package_versions(package_name)
+                unsupported = config[category].get("unsupported", [])
+                versions = set(versions).difference(unsupported)  # exclude unsupported versions
+                latest_version = get_latest_version(versions)
 
-            if Version(latest_version) <= Version(max_ver):
-                continue
+                if Version(latest_version) <= Version(max_ver):
+                    continue
 
-            new_src = update_max_version(new_src, flavor_key, latest_version, category)
+                new_src = update_max_version(new_src, flavor_key, latest_version, category)
 
-    save_file(new_src, yml_path)
+        save_file(new_src, yml_path)
+
     update_ml_package_versions_py(yml_path)
+
+
+def main():
+    args = parse_args()
+    update(args.skip_yml)
 
 
 if __name__ == "__main__":

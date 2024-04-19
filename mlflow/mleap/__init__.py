@@ -30,8 +30,6 @@ from mlflow.utils.os import is_windows
 
 FLAVOR_NAME = "mleap"
 
-model_data_artifact_paths = ["mleap"]
-
 _logger = logging.getLogger(__name__)
 
 

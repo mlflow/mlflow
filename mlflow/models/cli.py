@@ -170,7 +170,7 @@ def prepare_env(
     default="mlflow-dockerfile",
     help="Output directory where the generated Dockerfile is stored.",
 )
-@cli_args.ENV_MANAGER
+@cli_args.ENV_MANAGER_DOCKERFILE
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW

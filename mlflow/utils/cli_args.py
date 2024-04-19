@@ -123,6 +123,27 @@ virtualenv is used.
 """,
 )
 
+ENV_MANAGER_DOCKERFILE = _create_env_manager_option(
+    default=None,
+    # '\b' prevents rewrapping text:
+    # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
+    help_string="""
+If specified, create an environment for MLmodel using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
+
+If unspecified, default to None, then MLflow will automatically pick the env manager
+based on the model's flavor configuration.
+If model-uri is specified: if python version is specified in the flavor configuration
+and no java installation is required, then we use local environment. Otherwise we use virtualenv.
+If no model-uri is provided, we use virtualenv.
+""",
+)
+
 
 INSTALL_MLFLOW = click.option(
     "--install-mlflow",

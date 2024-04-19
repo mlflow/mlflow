@@ -51,7 +51,10 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.api_request_parallel_processor import APIRequest
-from mlflow.langchain.utils import _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI
+from mlflow.langchain.utils import (
+    _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    IS_PICKLE_SERIALIZATION_RESTRICTED,
+)
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
@@ -65,18 +68,11 @@ from mlflow.utils.openai_utils import (
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
-try:
-    import langchain_community
-
-    # this kwarg was added in langchain_community 0.0.27, and
-    # prevents the use of pickled objects if not provided.
-    VECTORSTORE_KWARGS = (
-        {"allow_dangerous_deserialization": True}
-        if Version(langchain_community.__version__) >= Version("0.0.27")
-        else {}
-    )
-except ImportError:
-    VECTORSTORE_KWARGS = {}
+# this kwarg was added in langchain_community 0.0.27, and
+# prevents the use of pickled objects if not provided.
+VECTORSTORE_KWARGS = (
+    {"allow_dangerous_deserialization": True} if IS_PICKLE_SERIALIZATION_RESTRICTED else {}
+)
 
 
 @contextmanager
@@ -832,6 +828,10 @@ def load_db(persist_dir):
 @pytest.mark.skipif(
     version.parse(langchain.__version__) < version.parse("0.0.297"),
     reason="Saving SQLDatabaseChain chains requires langchain>=0.0.297",
+)
+@pytest.mark.skipif(
+    version.parse(langchain.__version__) in (version.parse("0.1.14"), version.parse("0.1.15")),
+    reason="LangChain 0.1.14 and 0.1.15 has a bug in loading SQLDatabaseChain",
 )
 def test_log_and_load_sql_database_chain(tmp_path):
     # Create the SQLDatabaseChain
@@ -2242,6 +2242,45 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
                 "text": TEST_CONTENT,
             }
         ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
+    from langchain_community.llms.databricks import Databricks
+    from langchain_core.output_parsers import StrOutputParser
+
+    monkeypatch.setattr(
+        "langchain_community.llms.databricks._DatabricksServingEndpointClient",
+        mock.MagicMock(),
+    )
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    llm_kwargs = {"endpoint_name": "test-endpoint", "temperature": 0.9}
+    if IS_PICKLE_SERIALIZATION_RESTRICTED:
+        llm_kwargs["allow_dangerous_deserialization"] = True
+
+    llm = Databricks(**llm_kwargs)
+    prompt = PromptTemplate(input_variables=["question"], template="I have a question: {question}")
+    chain = prompt | llm | StrOutputParser()
+
+    # Not passing an input_example to avoid triggering prediction
+    mlflow.langchain.save_model(chain, model_path)
+
+    if IS_PICKLE_SERIALIZATION_RESTRICTED and Version(langchain.__version__) < Version("0.1.14"):
+        # For LangChain between 0.1.12 and 0.1.14, MLflow cannot load a model that relies on pickle
+        # serialization, instead, raises an MlflowException with a message that explains the issue.
+        with pytest.raises(MlflowException, match=r"Since langchain-community 0.0.27, loading a"):
+            mlflow.langchain.load_model(model_path)
+        return
+    loaded_model = mlflow.langchain.load_model(model_path)
+
+    # Check if the deserialized model has the same endpoint and temperature
+    loaded_databricks_llm = loaded_model.middle[0]
+    assert loaded_databricks_llm.endpoint_name == "test-endpoint"
+    assert loaded_databricks_llm.temperature == 0.9
 
 
 @pytest.mark.skipif(

@@ -28,7 +28,7 @@ def transform(stdout: str, is_maintainer: bool) -> str:
 
 
 def main():
-    if "GITHUB_ACTIONS" in os.environ:
+    if "NO_FIX" in os.environ:
         with subprocess.Popen(
             [
                 *RUFF,
