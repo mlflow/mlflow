@@ -363,6 +363,7 @@ nitpick_ignore = [
     ("py:class", "opentelemetry.trace.span.Span"),
     ("py:class", "opentelemetry.trace.status.Status"),
     ("py:class", "opentelemetry.trace.status.StatusCode"),
+    ("py:class", "mlflow.entities.trace_status.TraceStatus"),
     ("py:class", "ModelSignature"),
     ("py:class", "ModelInputExample"),
     ("py:class", "Model"),

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from mlflow.entities import Span, TraceStatus
+from mlflow.entities import Span, SpanStatusCode
 from mlflow.entities.span_context import SpanContext
 from mlflow.entities.trace_data import TraceData
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
@@ -104,7 +104,7 @@ def test_deduplicate_span_names():
             name=span_name,
             context=SpanContext("trace_id", span_id=i),
             parent_id=None,
-            status_code=TraceStatus.OK.value,
+            status_code=SpanStatusCode.OK.value,
             status_message="",
             start_time=0,
             end_time=1,

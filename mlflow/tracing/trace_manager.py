@@ -6,7 +6,8 @@ from typing import Dict, Optional
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import SpanType, Trace, TraceData, TraceInfo, TraceStatus
+from mlflow.entities import SpanType, Trace, TraceData, TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,

@@ -3,7 +3,6 @@ from unittest import mock
 import pytest
 
 from mlflow.entities import Run, RunInfo
-from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -83,7 +82,7 @@ def test_download_trace_data(tmp_path, mock_store):
         experiment_id="test",
         timestamp_ms=0,
         execution_time_ms=1,
-        status=SpanStatus(TraceStatus.OK),
+        status=TraceStatus.OK,
         request_metadata={},
         tags={"mlflow.artifactLocation": "test"},
     )
@@ -107,7 +106,7 @@ def test_upload_trace_data(tmp_path, mock_store):
         experiment_id="test",
         timestamp_ms=0,
         execution_time_ms=1,
-        status=SpanStatus(TraceStatus.OK),
+        status=TraceStatus.OK,
         request_metadata={},
         tags={"mlflow.artifactLocation": "test"},
     )
@@ -136,7 +135,7 @@ def test_search_traces(tmp_path):
                         experiment_id="test",
                         timestamp_ms=0,
                         execution_time_ms=0,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -145,7 +144,7 @@ def test_search_traces(tmp_path):
                         experiment_id="test",
                         timestamp_ms=0,
                         execution_time_ms=0,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -160,7 +159,7 @@ def test_search_traces(tmp_path):
                         experiment_id="test",
                         timestamp_ms=1,
                         execution_time_ms=1,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -169,7 +168,7 @@ def test_search_traces(tmp_path):
                         experiment_id="test",
                         timestamp_ms=1,
                         execution_time_ms=1,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -215,7 +214,7 @@ def test_search_traces_download_failures(tmp_path):
                         experiment_id="test",
                         timestamp_ms=0,
                         execution_time_ms=0,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -224,7 +223,7 @@ def test_search_traces_download_failures(tmp_path):
                         experiment_id="test",
                         timestamp_ms=0,
                         execution_time_ms=0,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -239,7 +238,7 @@ def test_search_traces_download_failures(tmp_path):
                         experiment_id="test",
                         timestamp_ms=1,
                         execution_time_ms=1,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     )
@@ -254,7 +253,7 @@ def test_search_traces_download_failures(tmp_path):
                         experiment_id="test",
                         timestamp_ms=1,
                         execution_time_ms=1,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     )
@@ -295,7 +294,7 @@ def test_search_traces_download_failures(tmp_path):
                         experiment_id="test",
                         timestamp_ms=0,
                         execution_time_ms=0,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -304,7 +303,7 @@ def test_search_traces_download_failures(tmp_path):
                         experiment_id="test",
                         timestamp_ms=0,
                         execution_time_ms=0,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     ),
@@ -319,7 +318,7 @@ def test_search_traces_download_failures(tmp_path):
                         experiment_id="test",
                         timestamp_ms=1,
                         execution_time_ms=1,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     )
@@ -358,7 +357,7 @@ def test_search_traces_does_not_swallow_unexpected_exceptions(tmp_path):
                         experiment_id="test",
                         timestamp_ms=0,
                         execution_time_ms=0,
-                        status=SpanStatus(TraceStatus.OK),
+                        status=TraceStatus.OK,
                         request_metadata={},
                         tags={"mlflow.artifactLocation": "test"},
                     )

@@ -28,15 +28,15 @@ from mlflow.entities import (
     Run,
     RunTag,
     SpanStatus,
+    SpanStatusCode,
     SpanType,
     Trace,
+    TraceData,
+    TraceInfo,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -594,8 +594,9 @@ class MlflowClient:
                 has attributes, the new attributes will be merged with the existing ones.
                 If the same key already exists, the new value will overwrite the old one.
             status: The status of the trace. This can be a
-                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
-                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string
+                representing the status code defined in
+                :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
@@ -773,8 +774,9 @@ class MlflowClient:
                 attributes, the new attributes will be merged with the existing ones. If the same
                 key already exists, the new value will overwrite the old one.
             status: The status of the span. This can be a
-                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
-                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string
+                representing the status code defined in
+                :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
@@ -798,7 +800,7 @@ class MlflowClient:
         self,
         request_id: str,
         timestamp_ms: int,
-        status: TraceStatus,
+        status: SpanStatusCode,
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ) -> TraceInfo:
@@ -809,7 +811,7 @@ class MlflowClient:
             request_id: Unique string identifier of the trace.
             timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
                 in the TraceInfo will be calculated by subtracting the start time from this.
-            status: TraceStatus, status of the trace.
+            status: SpanStatusCode, status of the trace.
             request_metadata: dict, metadata of the trace. This will be merged with the existing
                 metadata logged during the start_trace call.
             tags: dict, tags of the trace. This will be merged with the existing tags logged
