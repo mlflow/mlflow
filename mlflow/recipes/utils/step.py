@@ -10,7 +10,7 @@ import pandas as pd
 from mlflow.exceptions import BAD_REQUEST, INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.recipes.cards import pandas_renderer
 from mlflow.utils.databricks_utils import (
-    get_databricks_runtime,
+    get_databricks_runtime_version,
     is_in_databricks_runtime,
     is_running_in_ipython_environment,
 )
@@ -80,8 +80,7 @@ def display_html(html_data: Optional[str] = None, html_file_path: Optional[str] 
         html_file_path = html_file_path if html_data is None else None
 
         if is_in_databricks_runtime():
-            dbr_version_image_key = get_databricks_runtime()
-            dbr_version = dbr_version_image_key.split("-")[0]
+            dbr_version = get_databricks_runtime_version()
             if int(dbr_version.split(".")[0]) < 11:
                 raise MlflowException(
                     f"Use Databricks Runtime 11 or newer with MLflow Recipes. "
