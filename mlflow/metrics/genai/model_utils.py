@@ -142,6 +142,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         if wrap_payload:
             payload = {"prompt": payload}
         chat_inputs = {**payload, **eval_parameters}
+        print(f"MLflow chat inputs: {chat_inputs}")
         response = client.predict(endpoint=deployment_uri, inputs=chat_inputs)
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":
