@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Union
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import Span as OTelSpan
-from typing_extensions import override
 
 from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
@@ -323,7 +322,6 @@ class LiveSpan(Span):
 
         self._span.end()
 
-    @override
     def from_dict(cls, data: Dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
@@ -449,7 +447,6 @@ class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):
     def get(self, key: str):
         return super().get(key)
 
-    @override
     def set(self, key: str, value: Any):
         raise MlflowException(
             "The attributes of the immutable span must not be updated.", INVALID_PARAMETER_VALUE
