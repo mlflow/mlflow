@@ -9,7 +9,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,11 +113,11 @@ func mkServiceInterfaceNode(serviceInfo server.ServiceInfo) *ast.GenDecl {
 	}
 }
 
-func saveASTToFile(fset *token.FileSet, file *ast.File, outputPath string) {
+func saveASTToFile(fset *token.FileSet, file *ast.File, outputPath string) error {
 	// Create or truncate the output file
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// Use a bufio.Writer for buffered writing (optional)
@@ -126,7 +125,7 @@ func saveASTToFile(fset *token.FileSet, file *ast.File, outputPath string) {
 
 	// Write the generated code to the file
 	if err := format.Node(writer, fset, file); err != nil {
-		panic(err)
+		return err
 	}
 
 	// Flush the writer and close the file
@@ -137,11 +136,10 @@ func saveASTToFile(fset *token.FileSet, file *ast.File, outputPath string) {
 	cmd := exec.Command("go", "fmt", outputPath)
 
 	// Execute the command
-	if output, err := cmd.CombinedOutput(); err != nil {
-		log.Fatalf("Failed to format the file: %s, error: %s", output, err)
-	}
+	return cmd.Run()
 }
 
+// fun(arg1, arg2, ...)
 func mkCallExpr(fun ast.Expr, args ...ast.Expr) *ast.CallExpr {
 	return &ast.CallExpr{
 		Fun:  fun,
@@ -293,7 +291,8 @@ func mkRouteRegistrationFunction(serviceInfo server.ServiceInfo) *ast.FuncDecl {
 	}
 }
 
-func generateServices() {
+// Generate the service interface and route registration functions
+func generateServices(pkgFolder string) error {
 	decls := []ast.Decl{importStatements}
 
 	services := server.GetServiceInfos()
@@ -313,21 +312,16 @@ func generateServices() {
 		Decls: decls,
 	}
 
-	// Get the current working directory
-	workingDir, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
+	outputPath := filepath.Join(pkgFolder, "server", "interface.g.go")
 
-	outputPath := filepath.Join(workingDir, "..", "..", "pkg", "server", "interface.g.go")
-
-	saveASTToFile(fset, file, outputPath)
+	return saveASTToFile(fset, file, outputPath)
 	// dumpAST(fset, file)
 }
 
 var jsonFieldTagRegexp = regexp.MustCompile(`json:"([^"]+)"`)
 
-func addQueryAnnotation(generatedGoFile string) {
+// Inspect the AST of the incoming file and add a query annotation to the struct tags which have a json tag.
+func addQueryAnnotation(generatedGoFile string) error {
 	// Parse the file into an AST
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, generatedGoFile, nil, parser.ParseComments)
@@ -375,33 +369,51 @@ func addQueryAnnotation(generatedGoFile string) {
 		return false
 	})
 
-	saveASTToFile(fset, node, generatedGoFile)
+	return saveASTToFile(fset, node, generatedGoFile)
 }
 
-func addQueryAnnotations() {
-	// Get the current working directory
-	workingDir, err := os.Getwd()
-	if err != nil {
-		panic(err)
+func addQueryAnnotations(pkgFolder string) error {
+	protoFolder := filepath.Join(pkgFolder, "protos")
+
+	if _, pathError := os.Stat(protoFolder); os.IsNotExist(pathError) {
+		return fmt.Errorf("the mlflow/go/pkg/protos folder does not exist. Are the Go protobuf files generated?")
 	}
 
-	protoFolder := filepath.Join(workingDir, "..", "..", "pkg", "protos")
-	err = filepath.WalkDir(protoFolder, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(protoFolder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if filepath.Ext(path) == ".go" {
-			addQueryAnnotation(path)
+			err = addQueryAnnotation(path)
 		}
-		return nil
+
+		return err
 	})
 
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
 
 func main() {
-	addQueryAnnotations()
-	generateServices()
+	if len(os.Args) != 2 {
+		fmt.Println("Usage: program <path to mlflow/go/pkg folder>")
+		os.Exit(1)
+	}
+
+	pkgFolder := os.Args[1]
+	if _, err := os.Stat(pkgFolder); os.IsNotExist(err) {
+		fmt.Printf("The provided path does not exist: %s\n", pkgFolder)
+		os.Exit(1)
+	}
+
+	if err := addQueryAnnotations(pkgFolder); err != nil {
+		fmt.Printf("Error adding query annotations: %s\n", err)
+		os.Exit(1)
+	}
+
+	if err := generateServices(pkgFolder); err != nil {
+		fmt.Printf("Error generating services: %s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Successfully added query annotations and generated services!")
 }
