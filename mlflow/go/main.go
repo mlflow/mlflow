@@ -5,5 +5,10 @@ import (
 )
 
 func main() {
-	server.Launch(5001, 4001)
+	configuration := server.LaunchConfiguration{
+		Port:         5001,
+		PythonPort:   4001,
+		StaticFolder: "/workspaces/mlflow/mlflow/server/js/build",
+	}
+	server.Launch(configuration)
 }

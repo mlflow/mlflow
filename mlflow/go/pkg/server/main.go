@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
@@ -135,14 +136,25 @@ var mlflowService MlflowService = GlowMlflowService{}
 var modelRegistryService ModelRegistryService
 var mlflowArtifactsService MlflowArtifactsService
 
-func Launch(port int, pythonPort int) {
+type LaunchConfiguration struct {
+	Port         int
+	PythonPort   int
+	StaticFolder string
+}
+
+func Launch(configuration LaunchConfiguration) {
 	app := fiber.New()
 
 	registerMlflowServiceRoutes(mlflowService, app)
 	registerModelRegistryServiceRoutes(modelRegistryService, app)
 	registerMlflowArtifactsServiceRoutes(mlflowArtifactsService, app)
 
-	app.Use(proxy.BalancerForward([]string{fmt.Sprintf("http://127.0.0.1:%d", pythonPort)}))
+	app.Static("/static-files", configuration.StaticFolder)
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendFile(filepath.Join(configuration.StaticFolder, "index.html"))
+	})
 
-	app.Listen(fmt.Sprintf(":%d", port))
+	app.Use(proxy.BalancerForward([]string{fmt.Sprintf("http://127.0.0.1:%d", configuration.PythonPort)}))
+
+	app.Listen(fmt.Sprintf(":%d", configuration.Port))
 }
