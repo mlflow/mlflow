@@ -150,7 +150,7 @@ def build(skinny: bool) -> None:
             "setuptools": {
                 "packages": {
                     "find": {
-                        "where": ["."],
+                        "where": [".." if skinny else "."],
                         "include": ["mlflow", "mlflow.*"],
                         "exclude": ["tests", "tests.*"],
                     }
