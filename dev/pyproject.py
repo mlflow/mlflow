@@ -14,6 +14,25 @@ SEPARATOR = """
 
 """
 
+SKINNY_README = """
+=======================================================================
+MLflow Skinny: A Lightweight Machine Learning Lifecycle Platform Client
+=======================================================================
+
+MLflow Skinny is a lightweight MLflow package without SQL storage, server, UI, or data science dependencies.
+MLflow Skinny supports:
+
+* Tracking operations (logging / loading / searching params, metrics, tags + logging / loading artifacts)
+* Model registration, search, artifact loading, and deployment
+* Execution of GitHub projects within notebook & against a remote target.
+
+Additional dependencies can be installed to leverage the full feature set of MLflow. For example:
+
+* To use the `mlflow.sklearn` component of MLflow Models, install `scikit-learn`, `numpy` and `pandas`.
+* To use SQL-based metadata storage, install `sqlalchemy`, `alembic`, and `sqlparse`.
+* To use serving-based features, install `flask` and `pandas`.
+"""  # noqa: E501
+
 
 def read_requirements(path: Path) -> list[str]:
     lines = (l.strip() for l in path.read_text().splitlines())
@@ -154,12 +173,20 @@ def build(skinny: bool) -> None:
     }
 
     if skinny:
-        out_path = "pyproject.skinny.toml"
-        with Path(out_path).open("w") as f:
+        out_path = Path("skinny", "pyproject.toml")
+        with out_path.open("w") as f:
             f.write(toml.dumps(data))
+
+        with Path("skinny", "README.rst").open("w") as f:
+            f.write(SKINNY_README)
+            f.write("\n")
+            f.write(Path("README.rst").read_text())
+
+        with Path("skinny", "LICENSE.txt").open("w") as f:
+            f.write(Path("LICENSE.txt").read_text())
     else:
-        out_path = "pyproject.toml"
-        original = Path(out_path).read_text().split(SEPARATOR)[1]
+        out_path = Path("pyproject.toml")
+        original = out_path.read_text().split(SEPARATOR)[1]
         with Path(out_path).open("w") as f:
             f.write(toml.dumps(data))
             f.write(SEPARATOR)

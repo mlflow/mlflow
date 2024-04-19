@@ -4,7 +4,7 @@ set -e
 SKINNY=0
 PYTHON_PATH=python
 
-rm -rf build dist mlflow.egg-info mlflow_skinny.egg-info
+rm -rf build dist mlflow.egg-info mlflow_skinny.egg-info skinny/mlflow skinny/mlflow_skinny.egg-info
 
 for arg in "$@"
 do
@@ -16,12 +16,7 @@ do
 done
 
 if [ $SKINNY -eq 1 ]; then
-  cat pyproject.skinny.toml > pyproject.toml
-  echo "" >> README_SKINNY.rst
-  cat README.rst >> README_SKINNY.rst
-  cat README_SKINNY.rst > README.rst
-  $PYTHON_PATH -m build
-  git restore .
+  $PYTHON_PATH -m build skinny --outdir dist
 else
   $PYTHON_PATH -m build
 fi
