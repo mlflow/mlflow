@@ -1825,7 +1825,6 @@ def test_safe_patch_preserves_original_function_attributes():
             """
             Test doc for Test1.predict
             """
-            pass
 
     def patched_predict(original, self, *args, **kwargs):
         return original(self, *args, **kwargs)

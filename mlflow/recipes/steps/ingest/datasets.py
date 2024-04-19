@@ -57,7 +57,6 @@ class _Dataset:
             dst_path: The local filesystem path at which to store the resolved parquet dataset
                 (e.g. `<execution_directory_path>/steps/ingest/outputs/dataset.parquet`).
         """
-        pass
 
     @classmethod
     def from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
@@ -97,7 +96,6 @@ class _Dataset:
         Returns:
             A `_Dataset` instance representing the configured dataset.
         """
-        pass
 
     @staticmethod
     @abstractmethod
@@ -113,7 +111,6 @@ class _Dataset:
             `True` if the dataset class is a compatible representation of the specified
             dataset format, `False` otherwise.
         """
-        pass
 
     @classmethod
     def _get_required_config(cls, dataset_config: Dict[str, Any], key: str) -> Any:
@@ -371,7 +368,6 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
                 (e.g. `<execution_directory_path>/steps/ingest/outputs/dataset.parquet`).
 
         """
-        pass
 
 
 class _PandasConvertibleDataset(_DownloadThenConvertDataset):
@@ -409,7 +405,6 @@ class _PandasConvertibleDataset(_DownloadThenConvertDataset):
             A Pandas DataFrame representation of the specified file.
 
         """
-        pass
 
     @staticmethod
     @abstractmethod
