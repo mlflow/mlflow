@@ -17,7 +17,7 @@ from typing_extensions import override
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
@@ -48,13 +48,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     )
     """
 
-    def __init__(self, parent_span: Optional[Span] = None):
+    def __init__(self, parent_span: Optional[LiveSpan] = None):
         super().__init__()
         self._mlflow_client = MlflowClient()
         self._parent_span = parent_span
-        self._run_span_mapping: Dict[str, Span] = {}
+        self._run_span_mapping: Dict[str, LiveSpan] = {}
 
-    def _get_span_by_run_id(self, run_id: UUID) -> Optional[Span]:
+    def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span := self._run_span_mapping.get(str(run_id)):
             return span
         raise MlflowException(f"Span for run_id {run_id!s} not found.")
@@ -67,7 +67,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         run_id: UUID,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-    ) -> Span:
+    ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
         parent = self._get_parent_span(parent_run_id)
         if parent:
@@ -87,7 +87,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._run_span_mapping[str(run_id)] = span
         return span
 
-    def _get_parent_span(self, parent_run_id) -> Optional[Span]:
+    def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
         """
         Get parent span from multiple sources:
         1. If parent_run_id is provided, get the corresponding span from the run -> span mapping
@@ -105,7 +105,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def _end_span(
         self,
-        span: Span,
+        span: LiveSpan,
         outputs=None,
         attributes=None,
         status=SpanStatus(SpanStatusCode.OK),

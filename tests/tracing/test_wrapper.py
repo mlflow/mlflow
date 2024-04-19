@@ -6,7 +6,7 @@ import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
-from mlflow.entities import Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
@@ -96,7 +96,7 @@ def test_wrap_non_live_span():
     assert span.parent_id == encode_span_id(111)
     assert span.inputs == {"input": 1, "nested": {"foo": "bar"}}
     assert span.outputs == 2
-    assert span.status == SpanStatus(SpanStatusCode.UNSPECIFIED, description="")
+    assert span.status == SpanStatus(SpanStatusCode.UNSET, description="")
     assert span.get_attribute("key") == 3
 
     # Non-live span should not implement setter methods

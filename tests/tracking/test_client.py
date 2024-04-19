@@ -403,7 +403,7 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     assert ended_span.start_time_ns < ended_span.end_time_ns
     assert ended_span.status.status_code == SpanStatusCode.OK
 
-    # The non-ended span should have null end_time and UNSPECIFIED status
+    # The non-ended span should have null end_time and UNSET status
     non_ended_span = span_name_to_span["non-ended-span"]
     assert non_ended_span.parent_id == root_span.span_id
     assert non_ended_span.start_time_ns is not None

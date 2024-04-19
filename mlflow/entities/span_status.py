@@ -77,4 +77,4 @@ class SpanStatus:
                 f"Got invalid status code from OpenTelemetry: {otel_status.status_code}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return cls(status_code, otel_status.description)
+        return cls(status_code, otel_status.description or "")

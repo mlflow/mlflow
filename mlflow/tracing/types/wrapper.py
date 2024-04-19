@@ -9,7 +9,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import Span as OTelSpan
 from typing_extensions import override
 
-from mlflow.entities import Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.types.constant import SpanAttributeKey
