@@ -166,7 +166,7 @@ def _get_requires(pkg_name):
     norm_pkg_name = _normalize_package_name(pkg_name)
     if package := importlib_metadata.distribution(norm_pkg_name):
         for req in package.requires:
-            yield _normalize_package_name(req.name)
+            yield _normalize_package_name(req)
 
 
 def _get_requires_recursive(pkg_name, seen_before=None):
