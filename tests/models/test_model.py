@@ -239,9 +239,9 @@ def test_load_model_without_mlflow_version():
 
 
 def test_model_log_with_databricks_runtime():
-    dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
+    dbr_version = "8.3.x"
     with TempDir(chdr=True) as tmp, mock.patch(
-        "mlflow.models.model.get_databricks_runtime", return_value=dbr
+        "mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version
     ):
         sig = ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),

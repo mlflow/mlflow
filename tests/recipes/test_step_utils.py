@@ -48,8 +48,8 @@ def test_display_html_throws_error_on_old_dbr():
     ), mock.patch(
         "mlflow.recipes.utils.step.is_in_databricks_runtime", return_value=True
     ), mock.patch(
-        "mlflow.recipes.utils.step.get_databricks_runtime",
-        return_value="10.4.x-snapshot-cpu-ml-scala2.12",
+        "mlflow.recipes.utils.step.get_databricks_runtime_version",
+        return_value="10.4.x",
     ), pytest.raises(
         MlflowException, match="Use Databricks Runtime 11 or newer with MLflow Recipes"
     ):
