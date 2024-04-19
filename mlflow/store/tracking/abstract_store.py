@@ -91,7 +91,6 @@ class AbstractStore:
             for the next page can be obtained via the ``token`` attribute of the object.
 
         """
-        pass
 
     @abstractmethod
     def create_experiment(self, name, artifact_location, tags):
@@ -108,7 +107,6 @@ class AbstractStore:
             experiment_id (string) for the newly created experiment if successful, else None.
 
         """
-        pass
 
     @abstractmethod
     def get_experiment(self, experiment_id):
@@ -122,7 +120,6 @@ class AbstractStore:
             A single :py:class:`mlflow.entities.Experiment` object if it exists,
             otherwise raises an exception.
         """
-        pass
 
     def get_experiment_by_name(self, experiment_name):
         """
@@ -134,7 +131,6 @@ class AbstractStore:
         Returns:
             A single :py:class:`mlflow.entities.Experiment` object if it exists.
         """
-        pass
 
     @abstractmethod
     def delete_experiment(self, experiment_id):
@@ -145,7 +141,6 @@ class AbstractStore:
         Args:
             experiment_id: String id for the experiment.
         """
-        pass
 
     @abstractmethod
     def restore_experiment(self, experiment_id):
@@ -155,7 +150,6 @@ class AbstractStore:
         Args:
             experiment_id: String id for the experiment
         """
-        pass
 
     @abstractmethod
     def rename_experiment(self, experiment_id, new_name):
@@ -165,7 +159,6 @@ class AbstractStore:
         Args:
             experiment_id: String id for the experiment
         """
-        pass
 
     @abstractmethod
     def get_run(self, run_id):
@@ -185,7 +178,6 @@ class AbstractStore:
             A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
             raises an exception.
         """
-        pass
 
     @abstractmethod
     def update_run_info(self, run_id, run_status, end_time, run_name):
@@ -195,7 +187,6 @@ class AbstractStore:
         Returns:
             mlflow.entities.RunInfo: Describing the updated run.
         """
-        pass
 
     @abstractmethod
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
@@ -210,7 +201,6 @@ class AbstractStore:
         Returns:
             The created Run object
         """
-        pass
 
     @abstractmethod
     def delete_run(self, run_id):
@@ -221,7 +211,6 @@ class AbstractStore:
             run_id: Description of run_id.
 
         """
-        pass
 
     @abstractmethod
     def restore_run(self, run_id):
@@ -232,7 +221,6 @@ class AbstractStore:
             run_id:
 
         """
-        pass
 
     def log_metric(self, run_id, metric):
         """
@@ -282,7 +270,6 @@ class AbstractStore:
             experiment_id: String id for the experiment
             tag: :py:class:`mlflow.entities.ExperimentTag` instance to set
         """
-        pass
 
     def set_tag(self, run_id, tag):
         """
@@ -326,7 +313,6 @@ class AbstractStore:
         # argument `max_results` is used as a pagination activation flag. If the `max_results`
         # argument is not provided, this API will return a full metric history event collection
         # without the paged queries to the backend store.
-        pass
 
     def get_metric_history_bulk_interval_from_steps(self, run_id, metric_key, steps, max_results):
         """
@@ -421,7 +407,6 @@ class AbstractStore:
             :py:class:`mlflow.entities.Run` objects that satisfy the search expressions,
             and ``token`` is the pagination token for the next page of results.
         """
-        pass
 
     @abstractmethod
     def log_batch(self, run_id, metrics, params, tags):
@@ -437,7 +422,6 @@ class AbstractStore:
         Returns:
             None.
         """
-        pass
 
     def log_batch_async(self, run_id, metrics, params, tags) -> RunOperations:
         """
@@ -487,7 +471,6 @@ class AbstractStore:
         Returns:
             None.
         """
-        pass
 
     @abstractmethod
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
@@ -502,4 +485,3 @@ class AbstractStore:
         Returns:
             None.
         """
-        pass

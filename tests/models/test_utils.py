@@ -107,7 +107,6 @@ def test_adding_libraries_to_model_run_id_passed(sklearn_knn_model):
 
     with mlflow.start_run():
         wheeled_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        pass
 
     wheeled_model_info = add_libraries_to_model(model_uri, run_id=wheeled_run_id)
     assert original_run_id != wheeled_run_id
