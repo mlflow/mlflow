@@ -48,7 +48,7 @@ pip install --upgrade pip wheel
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then
-  pip install skinny --upgrade
+  pip install ./skinny --upgrade
 else
   pip install .[extras] --upgrade
 fi
