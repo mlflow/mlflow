@@ -26,7 +26,6 @@ class RequestHeaderProvider:
             bool indicating if in this context.
 
         """
-        pass
 
     @abstractmethod
     def request_headers(self):
@@ -35,4 +34,3 @@ class RequestHeaderProvider:
         Returns:
             dict of request headers.
         """
-        pass

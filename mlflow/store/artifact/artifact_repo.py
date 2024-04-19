@@ -64,7 +64,6 @@ class ArtifactRepository:
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
         """
-        pass
 
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -77,7 +76,6 @@ class ArtifactRepository:
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifacts.
         """
-        pass
 
     @abstractmethod
     def list_artifacts(self, path):
@@ -91,7 +89,6 @@ class ArtifactRepository:
         Returns:
             List of artifacts as FileInfo listed directly under path.
         """
-        pass
 
     def _is_directory(self, artifact_path):
         listing = self.list_artifacts(artifact_path)
@@ -247,7 +244,6 @@ class ArtifactRepository:
                 directory of the artifact repository.
             local_path: The path to which to save the downloaded file.
         """
-        pass
 
     def delete_artifacts(self, artifact_path=None):
         """
@@ -258,7 +254,6 @@ class ArtifactRepository:
         Args:
             artifact_path: Path of the artifact to delete.
         """
-        pass
 
     @property
     def max_workers(self) -> int:
@@ -282,7 +277,6 @@ class MultipartUploadMixin(ABC):
                 artifact.
 
         """
-        pass
 
     @abstractmethod
     def complete_multipart_upload(
@@ -303,7 +297,6 @@ class MultipartUploadMixin(ABC):
                 artifact.
 
         """
-        pass
 
     @abstractmethod
     def abort_multipart_upload(
@@ -322,7 +315,6 @@ class MultipartUploadMixin(ABC):
                 artifact.
 
         """
-        pass
 
 
 def verify_artifact_path(artifact_path):
