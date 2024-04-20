@@ -13,17 +13,17 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    SpanStatus,
+    SpanStatusCode,
     SpanType,
     TraceInfo,
-    TraceStatus,
     ViewType,
 )
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
-from mlflow.exceptions import MlflowException
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
@@ -48,7 +48,6 @@ from mlflow.utils.mlflow_tags import (
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_client as mock_trace_client  # noqa: F401
-from tests.tracing.helper import deser_attributes
 
 
 @pytest.fixture(autouse=True)
@@ -148,28 +147,6 @@ def test_client_create_run_with_name(mock_store, mock_time):
     )
 
 
-def test_client_create_trace_info(mock_store, mock_time):
-    experiment_id = mock.Mock()
-
-    MlflowClient()._create_trace_info(
-        experiment_id,
-        123,
-        456,
-        "OK",
-        request_metadata={"key": "val"},
-        tags={},
-    )
-
-    mock_store.create_trace_info.assert_called_once_with(
-        experiment_id=experiment_id,
-        timestamp_ms=123,
-        execution_time_ms=456,
-        status=TraceStatus.OK,
-        request_metadata={"key": "val"},
-        tags={},
-    )
-
-
 def test_client_get_trace(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         request_id="1234567",
@@ -182,6 +159,31 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     MlflowClient().get_trace("1234567")
     mock_store.get_trace_info.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_called_once()
+
+
+def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        request_id="1234567",
+        experiment_id="0",
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.OK,
+        tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+    )
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound("1234567")
+
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because it is missing span data",
+    ):
+        MlflowClient().get_trace("1234567")
+
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataCorrupted("1234567")
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because its span data is corrupted",
+    ):
+        MlflowClient().get_trace("1234567")
 
 
 def test_client_search_traces(mock_store, mock_artifact_repo):
@@ -269,9 +271,7 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
             )
 
             res = self.square(z, request_id, root_span.span_id)
-            self._client.end_trace(
-                request_id, outputs={"output": res}, status=SpanStatus(TraceStatus.OK)
-            )
+            self._client.end_trace(request_id, outputs={"output": res}, status="OK")
             return res
 
         def square(self, t, request_id, parent_id):
@@ -312,10 +312,10 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
+    assert root_span.start_time_ns // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
     assert root_span.parent_id is None
-    assert deser_attributes(root_span.attributes) == {
+    assert root_span.attributes == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"x": 1, "y": 2},
@@ -323,8 +323,8 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     }
 
     child_span_1 = span_name_to_span["child_span_1"]
-    assert child_span_1.parent_id == root_span.context.span_id
-    assert deser_attributes(child_span_1.attributes) == {
+    assert child_span_1.parent_id == root_span.span_id
+    assert child_span_1.attributes == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "LLM",
         "mlflow.spanInputs": {"z": 3},
@@ -333,14 +333,14 @@ def test_start_and_end_trace(clear_singleton, mock_trace_client):
     }
 
     child_span_2 = span_name_to_span["child_span_2"]
-    assert child_span_2.parent_id == root_span.context.span_id
-    assert deser_attributes(child_span_2.attributes) == {
+    assert child_span_2.parent_id == root_span.span_id
+    assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": {"output": 25},
     }
-    assert child_span_2.start_time <= child_span_2.end_time - 0.1 * 1e6
+    assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
@@ -394,21 +394,21 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton, mock_trace_cli
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
     assert root_span.parent_id is None
-    assert root_span.status_code == TraceStatus.OK
-    assert root_span.start_time // 1e6 == trace_info.timestamp_ms
-    assert (root_span.end_time - root_span.start_time) // 1e6 == trace_info.execution_time_ms
+    assert root_span.status.status_code == SpanStatusCode.OK
+    assert root_span.start_time_ns // 1e6 == trace_info.timestamp_ms
+    assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
 
     ended_span = span_name_to_span["ended-span"]
-    assert ended_span.parent_id == root_span.context.span_id
-    assert ended_span.start_time < ended_span.end_time
-    assert ended_span.status_code == TraceStatus.OK
+    assert ended_span.parent_id == root_span.span_id
+    assert ended_span.start_time_ns < ended_span.end_time_ns
+    assert ended_span.status.status_code == SpanStatusCode.OK
 
-    # The non-ended span should have null end_time and UNSPECIFIED status
+    # The non-ended span should have null end_time and UNSET status
     non_ended_span = span_name_to_span["non-ended-span"]
-    assert non_ended_span.parent_id == root_span.context.span_id
-    assert non_ended_span.start_time is not None
-    assert non_ended_span.end_time is None
-    assert non_ended_span.status_code == TraceStatus.UNSPECIFIED
+    assert non_ended_span.parent_id == root_span.span_id
+    assert non_ended_span.start_time_ns is not None
+    assert non_ended_span.end_time_ns is None
+    assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
 def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):

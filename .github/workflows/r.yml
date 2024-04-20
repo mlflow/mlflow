@@ -24,7 +24,6 @@ concurrency:
 
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
-  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
 jobs:
   r:

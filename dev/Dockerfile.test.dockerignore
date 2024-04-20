@@ -6,6 +6,7 @@ mlflow.Rcheck
 outputs
 
 dev
+!dev/clint
 
 */node_modules
 coverage

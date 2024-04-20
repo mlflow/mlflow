@@ -27,9 +27,13 @@ from mlflow.entities import (
     Param,
     Run,
     RunTag,
+    Span,
     SpanStatus,
+    SpanStatusCode,
     SpanType,
     Trace,
+    TraceData,
+    TraceInfo,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
@@ -54,7 +58,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFA
 from mlflow.tracing.clients import get_trace_client
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -380,36 +383,8 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
-    def _create_trace_info(
-        self,
-        experiment_id,
-        timestamp_ms,
-        execution_time_ms,
-        status,
-        request_metadata=None,
-        tags=None,
-    ):
-        """Create a TraceInfo object and log in the backend store.
-
-        Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: int, start time of the trace, in milliseconds.
-            execution_time_ms: int, duration of the trace, in milliseconds.
-            status: string, status of the trace.
-            request_metadata: dict, metadata of the trace.
-            tags: dict, tags of the trace.
-
-        Returns:
-            :py:class:`mlflow.entities.TraceInfo` that was created.
-        """
-        return self._tracking_client.create_trace_info(
-            experiment_id,
-            timestamp_ms,
-            execution_time_ms,
-            status,
-            request_metadata=request_metadata,
-            tags=tags,
-        )
+    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+        return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
     def delete_traces(
         self,
@@ -510,7 +485,7 @@ class MlflowClient:
         attributes: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
         experiment_id: Optional[str] = None,
-    ) -> MlflowSpanWrapper:
+    ) -> Span:
         """
         Create a new trace object and start a root span under it.
 
@@ -539,7 +514,7 @@ class MlflowClient:
                 environment variable, or the default experiment as defined by the tracking server.
 
         Returns:
-            An :py:class:`MlflowSpanWrapper <mlflow.tracing.MlflowSpanWrapper>` object
+            An :py:class:`Span <mlflow.entities.Span>` object
             representing the root span of the trace.
 
         Example:
@@ -619,8 +594,9 @@ class MlflowClient:
                 has attributes, the new attributes will be merged with the existing ones.
                 If the same key already exists, the new value will overwrite the old one.
             status: The status of the trace. This can be a
-                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
-                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string
+                representing the status code defined in
+                :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
@@ -649,7 +625,7 @@ class MlflowClient:
         span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-    ) -> MlflowSpanWrapper:
+    ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
 
@@ -723,7 +699,7 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span.
 
         Returns:
-            An :py:class:`mlflow.tracing.MlflowSpanWrapper` object representing the span.
+            An :py:class:`mlflow.entities.Span` object representing the span.
 
         Example:
 
@@ -798,8 +774,9 @@ class MlflowClient:
                 attributes, the new attributes will be merged with the existing ones. If the same
                 key already exists, the new value will overwrite the old one.
             status: The status of the span. This can be a
-                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string representing
-                the status code defined in :py:class:`TraceStatus <mlflow.entities.TraceStatus>`
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string
+                representing the status code defined in
+                :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
         """
         trace_manager = InMemoryTraceManager.get_instance()
@@ -818,6 +795,38 @@ class MlflowClient:
         span.set_status(status)
 
         span.end()
+
+    def _upload_ended_trace_info(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: SpanStatusCode,
+        request_metadata: Optional[Dict[str, str]] = None,
+        tags: Optional[Dict[str, str]] = None,
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: SpanStatusCode, status of the trace.
+            request_metadata: dict, metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: dict, tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        self._tracking_client.end_trace(
+            request_id=request_id,
+            timestamp_ms=timestamp_ms,
+            status=status,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
@@ -2252,6 +2261,13 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
+        if not artifact_file.endswith(".json"):
+            raise ValueError(
+                f"The provided artifact file '{artifact_file}' does not have "
+                "the required '.json' extension. Please ensure the file you are trying "
+                "to log as a table is a JSON file with the '.json' extension. "
+            )
+
         if not isinstance(data, (pd.DataFrame, dict)):
             raise MlflowException.invalid_parameter_value(
                 "data must be a pandas.DataFrame or a dictionary"

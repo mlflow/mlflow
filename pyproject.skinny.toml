@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "2.11.3"
+version = "2.12.1"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -30,8 +30,8 @@ dependencies = [
   "importlib_metadata<8,>=3.7.0,!=4.7.0",
   "opentelemetry-api<3,>=1.0.0",
   "opentelemetry-sdk<3,>=1.0.0",
-  "packaging<24",
-  "protobuf<5,>=3.12.0",
+  "packaging<25",
+  "protobuf<6,>=3.12.0",
   "pytz<2025",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
@@ -118,8 +118,8 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
-  "recipes/resources/*",
-  "recipes/cards/templates/*",
+  "recipes/resources/**/*",
+  "recipes/cards/templates/**/*",
 ]
 
 [tool.setuptools.packages.find]

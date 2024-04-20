@@ -386,6 +386,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import warnings
 from copy import deepcopy
 from functools import lru_cache
 from typing import Any, Dict, Iterator, Optional, Tuple, Union
@@ -422,7 +423,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
-    _SAVED_PYTHON_MODEL_SUBPATH,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -500,11 +500,6 @@ ENV = "env"
 MODEL_CONFIG = "config"
 
 _MODEL_DATA_SUBPATH = "data"
-
-model_data_artifact_paths = [
-    _MODEL_DATA_SUBPATH,
-    _SAVED_PYTHON_MODEL_SUBPATH,
-]
 
 
 class EnvType:
@@ -1626,9 +1621,12 @@ def spark_udf(
 
     _EnvManager.validate(env_manager)
 
-    # Check whether spark is in local or local-cluster mode
-    # this case all executors and driver share the same filesystem
-    is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
+    if is_spark_connect:
+        is_spark_in_local_mode = False
+    else:
+        # Check whether spark is in local or local-cluster mode
+        # this case all executors and driver share the same filesystem
+        is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
@@ -2047,7 +2045,8 @@ def save_model(
     path,
     loader_module=None,
     data_path=None,
-    code_path=None,
+    code_path=None,  # deprecated
+    code_paths=None,
     conda_env=None,
     mlflow_model=None,
     python_model=None,
@@ -2088,9 +2087,9 @@ def save_model(
             - One or more of the files specified by the ``code_path`` parameter.
 
         data_path: Path to a file or directory containing model data.
-        code_path: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path before the model is loaded.
+        code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
+            replaced by ``code_paths`` and will be removed in a future version of MLflow.
+        code_paths: {{ code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
@@ -2219,9 +2218,23 @@ def save_model(
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
+
+    if code_path is not None and code_paths is not None:
+        raise MlflowException(
+            "Both `code_path` and `code_paths` have been specified, which is not permitted."
+        )
     if code_path is not None:
-        if not isinstance(code_path, list):
-            raise TypeError(f"Argument code_path should be a list, not {type(code_path)}")
+        # Alias for `code_path` deprecation
+        code_paths = code_path
+        warnings.warn(
+            "The `code_path` argument is replaced by `code_paths` and is deprecated "
+            "as of MLflow version 2.12.0. This argument will be removed in a future "
+            "release of MLflow."
+        )
+
+    if code_paths is not None:
+        if not isinstance(code_paths, list):
+            raise TypeError(f"Argument code_path should be a list, not {type(code_paths)}")
 
     first_argument_set = {
         "loader_module": loader_module,
@@ -2327,7 +2340,7 @@ def save_model(
             path=path,
             loader_module=loader_module,
             data_path=data_path,
-            code_paths=code_path,
+            code_paths=code_paths,
             conda_env=conda_env,
             mlflow_model=mlflow_model,
             pip_requirements=pip_requirements,
@@ -2342,7 +2355,7 @@ def save_model(
             python_model=python_model,
             artifacts=artifacts,
             conda_env=conda_env,
-            code_paths=code_path,
+            code_paths=code_paths,
             mlflow_model=mlflow_model,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
@@ -2355,7 +2368,8 @@ def log_model(
     artifact_path,
     loader_module=None,
     data_path=None,
-    code_path=None,
+    code_path=None,  # deprecated
+    code_paths=None,
     conda_env=None,
     python_model=None,
     artifacts=None,
@@ -2392,9 +2406,9 @@ def log_model(
             - One or more of the files specified by the ``code_path`` parameter.
 
         data_path: Path to a file or directory containing model data.
-        code_path: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path before the model is loaded.
+        code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
+            replaced by ``code_paths`` and will be removed in a future version of MLflow.
+        code_paths: {{ code_paths }}
         conda_env: {{ conda_env }}
         python_model:
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
@@ -2531,7 +2545,8 @@ def log_model(
         flavor=mlflow.pyfunc,
         loader_module=loader_module,
         data_path=data_path,
-        code_path=code_path,
+        code_path=code_path,  # deprecated
+        code_paths=code_paths,
         python_model=python_model,
         artifacts=artifacts,
         conda_env=conda_env,

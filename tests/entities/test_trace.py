@@ -65,12 +65,12 @@ def test_json_deserialization(mock_trace_client):
                 {
                     "name": "predict",
                     "context": {
-                        "trace_id": trace.data.spans[0].context.trace_id,
-                        "span_id": trace.data.spans[0].context.span_id,
+                        "trace_id": trace.data.spans[0]._trace_id,
+                        "span_id": trace.data.spans[0].span_id,
                     },
                     "parent_id": None,
-                    "start_time": trace.data.spans[0].start_time,
-                    "end_time": trace.data.spans[0].end_time,
+                    "start_time": trace.data.spans[0].start_time_ns,
+                    "end_time": trace.data.spans[0].end_time_ns,
                     "status_code": "OK",
                     "status_message": "",
                     "attributes": {
@@ -85,12 +85,12 @@ def test_json_deserialization(mock_trace_client):
                 {
                     "name": "add_one_with_custom_name",
                     "context": {
-                        "trace_id": trace.data.spans[1].context.trace_id,
-                        "span_id": trace.data.spans[1].context.span_id,
+                        "trace_id": trace.data.spans[1]._trace_id,
+                        "span_id": trace.data.spans[1].span_id,
                     },
-                    "parent_id": trace.data.spans[0].context.span_id,
-                    "start_time": trace.data.spans[1].start_time,
-                    "end_time": trace.data.spans[1].end_time,
+                    "parent_id": trace.data.spans[0].span_id,
+                    "start_time": trace.data.spans[1].start_time_ns,
+                    "end_time": trace.data.spans[1].end_time_ns,
                     "status_code": "OK",
                     "status_message": "",
                     "attributes": {

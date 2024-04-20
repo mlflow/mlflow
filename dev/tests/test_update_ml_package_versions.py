@@ -45,7 +45,7 @@ def run_test(src, src_expected, mock_responses):
     versions_yaml.write_text(src)
 
     with mock.patch("urllib.request.urlopen", new=patch_urlopen):
-        update_ml_package_versions.main()
+        update_ml_package_versions.update()
 
     assert versions_yaml.read_text() == src_expected
 

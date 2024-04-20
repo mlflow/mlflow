@@ -263,8 +263,9 @@ def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
             config = RunnableConfig(callbacks=callbacks)
         else:
             callbacks = config.get("callbacks") or []
-            callbacks.extend(mlflow_callbacks)
-            config["callbacks"] = callbacks
+            if not isinstance(callbacks, list):
+                callbacks = [callbacks]
+            config["callbacks"] = [*callbacks, *mlflow_callbacks]
         if in_args:
             args = (args[0], config) + args[2:]
         else:
@@ -276,19 +277,22 @@ def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
         # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
         if len(args) >= 3:
             callbacks = args[2] or []
-            callbacks.extend(mlflow_callbacks)
-            args = args[:2] + (callbacks,) + args[3:]
+            if not isinstance(callbacks, list):
+                callbacks = [callbacks]
+            args = args[:2] + ([*callbacks, *mlflow_callbacks],) + args[3:]
         else:
             callbacks = kwargs.get("callbacks") or []
-            callbacks.extend(mlflow_callbacks)
-            kwargs["callbacks"] = callbacks
+            if not isinstance(callbacks, list):
+                callbacks = [callbacks]
+            kwargs["callbacks"] = [*callbacks, *mlflow_callbacks]
         return args, kwargs
 
     # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
     if func_name == "get_relevant_documents":
         callbacks = kwargs.get("callbacks") or []
-        callbacks.extend(mlflow_callbacks)
-        kwargs["callbacks"] = callbacks
+        if not isinstance(callbacks, list):
+            callbacks = [callbacks]
+        kwargs["callbacks"] = [*callbacks, *mlflow_callbacks]
         return args, kwargs
 
 

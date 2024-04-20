@@ -6,7 +6,8 @@ from typing import Dict, Optional
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import SpanType, Trace, TraceData, TraceInfo, TraceStatus
+from mlflow.entities import LiveSpan, SpanType, Trace, TraceData, TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
@@ -14,7 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.types.constant import SpanAttributeKey
-from mlflow.tracing.types.wrapper import MlflowSpanWrapper, NoOpMlflowSpanWrapper
+from mlflow.tracing.types.wrapper import NoOpSpan
 
 _logger = logging.getLogger(__name__)
 
@@ -24,14 +25,14 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class _Trace:
     info: TraceInfo
-    span_dict: Dict[str, MlflowSpanWrapper] = field(default_factory=dict)
+    span_dict: Dict[str, LiveSpan] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
         for span in self.span_dict.values():
-            trace_data.spans.append(span.to_mlflow_span())
+            trace_data.spans.append(span)
             if span.parent_id is None:
-                # Not using span.get_attribute to get serialized value directly.
+                # Accessing the OTel span directly get serialized value directly.
                 trace_data.request = span._span.attributes.get(SpanAttributeKey.INPUTS)
                 trace_data.response = span._span.attributes.get(SpanAttributeKey.OUTPUTS)
         return Trace(self.info, trace_data)
@@ -69,7 +70,7 @@ class InMemoryTraceManager:
         request_id: Optional[str] = None,
         parent_id: Optional[str] = None,
         span_type: str = SpanType.UNKNOWN,
-    ) -> MlflowSpanWrapper:
+    ) -> LiveSpan:
         """
         Start a new OpenTelemetry span that is not part of the current trace context, but with the
         explicit parent span ID if provided.
@@ -81,8 +82,8 @@ class InMemoryTraceManager:
             span_type: The type of the span.
 
         Returns:
-            The newly created span (wrapped in MlflowSpanWrapper). If any error occurs, returns a
-            NoOpMlflowSpanWrapper that has exact same interface but no-op implementations.
+            The newly created span. If any error occurs, returns a NoOpSpan that has exac
+            same interface as Span class but no-op implementations.
         """
         from mlflow.tracing.provider import get_tracer
 
@@ -109,14 +110,14 @@ class InMemoryTraceManager:
             if not request_id:
                 request_id = self.get_or_create_request_id(otel_span.get_span_context().trace_id)
 
-            span = MlflowSpanWrapper(otel_span, request_id=request_id, span_type=span_type)
+            span = LiveSpan(otel_span, request_id=request_id, span_type=span_type)
             self.add_or_update_span(span)
             return span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
-            return NoOpMlflowSpanWrapper()
+            return NoOpSpan()
 
-    def add_or_update_span(self, span: MlflowSpanWrapper):
+    def add_or_update_span(self, span: LiveSpan):
         """
         Store the given span in the in-memory trace data. If the trace does not exist, create a new
         trace with the request_id of the span. If the span ID already exists in the trace, update
@@ -125,7 +126,7 @@ class InMemoryTraceManager:
         Args:
             span: The span to be stored.
         """
-        if not isinstance(span, MlflowSpanWrapper):
+        if not isinstance(span, LiveSpan):
             _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
             return
 
@@ -139,7 +140,7 @@ class InMemoryTraceManager:
         trace_data_dict = self._traces[request_id].span_dict
         trace_data_dict[span.span_id] = span
 
-        trace_id = span._span.get_span_context().trace_id
+        trace_id = span._trace_id
         if trace_id not in self._trace_id_to_request_id:
             self._trace_id_to_request_id[trace_id] = request_id
 
@@ -202,7 +203,7 @@ class InMemoryTraceManager:
         trace = self._traces.get(request_id)
         return trace.info if trace else None
 
-    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[MlflowSpanWrapper]:
+    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[LiveSpan]:
         """
         Get a span object for the given request_id and span_id.
         """

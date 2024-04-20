@@ -58,6 +58,7 @@ jobs:
         id: pre-commit
         env:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
+          NO_FIX: "true"
         run: |
           source .venv/bin/activate
           pre-commit run --all-files

@@ -6,8 +6,14 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
+  // Skip running this check on CD automation PRs
+  if (!body) {
+    core.info("Skipping processing because the PR has no body.");
+    return;
+  }
+
   const marker = "<!-- patch -->";
-  if (!body.includes(marker)) {
+  if (body && !body.includes(marker)) {
     return;
   }
 
@@ -18,7 +24,6 @@ module.exports = async ({ context, github, core }) => {
   const noRegex = /- \[( |x)\] no/gi;
   const noMatch = noRegex.exec(patchSection);
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
-  console.log({ yes, no, yesMatch, noMatch });
 
   if (yes && no) {
     core.setFailed(

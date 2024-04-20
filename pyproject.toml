@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.11.3"
+version = "2.12.1"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -33,16 +33,16 @@ dependencies = [
   "entrypoints<1",
   "gitpython<4,>=3.1.9",
   "graphene<4",
-  "gunicorn<22; platform_system != 'Windows'",
+  "gunicorn<23; platform_system != 'Windows'",
   "importlib_metadata<8,>=3.7.0,!=4.7.0",
   "markdown<4,>=3.3",
   "matplotlib<4",
   "numpy<2",
   "opentelemetry-api<3,>=1.0.0",
   "opentelemetry-sdk<3,>=1.0.0",
-  "packaging<24",
+  "packaging<25",
   "pandas<3",
-  "protobuf<5,>=3.12.0",
+  "protobuf<6,>=3.12.0",
   "pyarrow<16,>=4.0.0",
   "pytz<2025",
   "pyyaml<7,>=5.1",
@@ -135,10 +135,10 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
-  "recipes/resources/*",
-  "recipes/cards/templates/*",
-  "models/container/*",
-  "server/js/build/*",
+  "recipes/resources/**/*",
+  "recipes/cards/templates/**/*",
+  "models/container/**/*",
+  "server/js/build/**/*",
 ]
 
 [tool.setuptools.packages.find]

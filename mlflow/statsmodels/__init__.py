@@ -59,7 +59,6 @@ from mlflow.utils.validation import _is_numeric
 
 FLAVOR_NAME = "statsmodels"
 STATSMODELS_DATA_SUBPATH = "model.statsmodels"
-model_data_artifact_paths = [STATSMODELS_DATA_SUBPATH]
 
 
 _logger = logging.getLogger(__name__)
@@ -112,9 +111,7 @@ def save_model(
             be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         remove_data: bool. If False (default), then the instance is pickled without changes. If
             True, then all arrays with length nobs are set to None before pickling. See the
@@ -243,9 +240,7 @@ def log_model(
             be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system path when the
-            model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under ``registered_model_name``,
             also creating a registered model if one with the given name does not exist.
         remove_data: bool. If False (default), then the instance is pickled without changes. If

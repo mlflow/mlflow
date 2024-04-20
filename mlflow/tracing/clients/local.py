@@ -22,7 +22,7 @@ class InMemoryTraceClient(TraceClient):
         # NB: Only implement the minimal singleton functionality but not thread-safety.
         #     as this is intended to be used in a demonstration and testing purpose.
         if cls._instance is None:
-            cls._instance = InMemoryTraceClient()
+            cls._instance = cls()
         return cls._instance
 
     def __init__(self):

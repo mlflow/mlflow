@@ -14,6 +14,7 @@ from scipy.sparse import csc_matrix
 
 import mlflow
 from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
+from mlflow.models.model import METADATA_FILES
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -105,8 +106,6 @@ def test_model_load_remote(tmp_path, mock_s3_bucket):
 
 
 class TestFlavor:
-    model_data_artifact_paths = []
-
     @classmethod
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
@@ -490,16 +489,11 @@ def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
     assert info.artifact_path is None
 
 
-def test_copy_metadata(tmp_path, sklearn_knn_model):
+def test_copy_metadata(sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_knn_model, "model")
         artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            "MLmodel",
-            "conda.yaml",
-            "python_env.yaml",
-            "requirements.txt",
-        }
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)
 
 
 class LegacyTestFlavor:
@@ -514,7 +508,5 @@ class LegacyTestFlavor:
 def test_legacy_flavor():
     with mlflow.start_run():
         model_info = Model.log("some/path", LegacyTestFlavor)
-
-    with TempDir(chdr=True) as tmp:
-        artifact_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp.path())
-        assert set(os.listdir(artifact_path)) == {"MLmodel"}
+    artifact_path = _download_artifact_from_uri(model_info.model_uri)
+    assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {"MLmodel"}

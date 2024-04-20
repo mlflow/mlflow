@@ -17,9 +17,8 @@ from typing_extensions import override
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import SpanEvent, SpanStatus, SpanType, TraceStatus
+from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.types.wrapper import MlflowSpanWrapper
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -49,13 +48,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     )
     """
 
-    def __init__(self, parent_span: Optional[MlflowSpanWrapper] = None):
+    def __init__(self, parent_span: Optional[LiveSpan] = None):
         super().__init__()
         self._mlflow_client = MlflowClient()
         self._parent_span = parent_span
-        self._run_span_mapping: Dict[str, MlflowSpanWrapper] = {}
+        self._run_span_mapping: Dict[str, LiveSpan] = {}
 
-    def _get_span_by_run_id(self, run_id: UUID) -> Optional[MlflowSpanWrapper]:
+    def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span := self._run_span_mapping.get(str(run_id)):
             return span
         raise MlflowException(f"Span for run_id {run_id!s} not found.")
@@ -68,7 +67,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         run_id: UUID,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
-    ) -> MlflowSpanWrapper:
+    ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
         parent = self._get_parent_span(parent_run_id)
         if parent:
@@ -88,7 +87,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._run_span_mapping[str(run_id)] = span
         return span
 
-    def _get_parent_span(self, parent_run_id) -> Optional[MlflowSpanWrapper]:
+    def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
         """
         Get parent span from multiple sources:
         1. If parent_run_id is provided, get the corresponding span from the run -> span mapping
@@ -106,10 +105,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def _end_span(
         self,
-        span: MlflowSpanWrapper,
+        span: LiveSpan,
         outputs=None,
         attributes=None,
-        status=SpanStatus(TraceStatus.OK),
+        status=SpanStatus(SpanStatusCode.OK),
     ):
         """Close MLflow Span (or Trace if it is root component)"""
         self._mlflow_client.end_span(
@@ -247,7 +246,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Handle an error for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
         llm_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(llm_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(llm_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_chain_start(
@@ -305,7 +304,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if inputs:
             chain_span.set_inputs(inputs)
         chain_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(chain_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(chain_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_tool_start(
@@ -350,7 +349,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when tool errors."""
         tool_span = self._get_span_by_run_id(run_id)
         tool_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(tool_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(tool_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_retriever_start(
@@ -394,7 +393,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when Retriever errors."""
         retriever_span = self._get_span_by_run_id(run_id)
         retriever_span.add_event(SpanEvent.from_exception(error))
-        self._end_span(retriever_span, status=SpanStatus(TraceStatus.ERROR, str(error)))
+        self._end_span(retriever_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
     @override
     def on_agent_action(

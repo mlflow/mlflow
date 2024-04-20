@@ -1,7 +1,7 @@
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from mlflow.entities.span import Span
+from mlflow.tracing.types.wrapper import Span
 
 
 @dataclass
@@ -25,4 +25,8 @@ class TraceData:
         return cls(spans=[Span(**span) for span in d["spans"]])
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return {
+            "spans": [span.to_dict() for span in self.spans],
+            "request": self.request,
+            "response": self.response,
+        }

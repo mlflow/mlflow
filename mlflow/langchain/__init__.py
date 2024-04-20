@@ -44,10 +44,7 @@ from mlflow.langchain.databricks_dependencies import (
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
-    _MODEL_DATA_FOLDER_NAME,
-    _MODEL_DATA_PKL_FILE_NAME,
     _MODEL_LOAD_KEY,
-    _PERSIST_DIR_NAME,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
     _save_base_lcs,
@@ -95,13 +92,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-
-
-model_data_artifact_paths = [
-    _MODEL_DATA_FOLDER_NAME,
-    _MODEL_DATA_PKL_FILE_NAME,
-    _PERSIST_DIR_NAME,
-]
 
 
 def get_default_pip_requirements():
@@ -153,9 +143,7 @@ def save_model(
             or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
         path: Local path where the serialized model (as YAML) is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -426,9 +414,7 @@ def log_model(
             `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
@@ -669,8 +655,14 @@ class _LangChainModelWrapper:
         and `return_first_element` means if True, we should return the first element
         of inference result, otherwise we should return the whole inference result.
         """
+        # This handels spark_udf inputs and input_example inputs
         if isinstance(data, pd.DataFrame):
-            data = data.to_dict(orient="records")
+            # if the data only contains a single key as 0, we assume the input
+            # is either a string or list of strings
+            if list(data.columns) == [0]:
+                data = data.to_dict("list")[0]
+            else:
+                data = data.to_dict(orient="records")
 
         data = _convert_ndarray_to_list(data)
         if not isinstance(data, list):
