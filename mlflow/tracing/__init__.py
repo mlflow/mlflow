@@ -1,15 +1,16 @@
-import json
 from collections import defaultdict
 from dataclasses import dataclass
-
-from typing import List, Optional, Dict, Union, Any, NamedTuple, Literal
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from typing import Any, Dict, List, Literal, NamedTuple, Optional, Union
 
 import pandas as pd
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-def select_from_traces_df(df: Union[pd.DataFrame, 'pyspark.sql.DataFrame'], col_name: str, fields: List[str]) -> Union[pd.DataFrame, 'pyspark.sql.DataFrame']:
+
+def select_from_traces_df(
+    df: Union[pd.DataFrame, "pyspark.sql.DataFrame"], col_name: str, fields: List[str]
+) -> Union[pd.DataFrame, "pyspark.sql.DataFrame"]:
     parsed_fields = _parse_fields(fields)
 
     try:
@@ -24,14 +25,12 @@ def select_from_traces_df(df: Union[pd.DataFrame, 'pyspark.sql.DataFrame'], col_
         return _select_from_traces_pandas_df(df=df, col_name=col_name, fields=parsed_fields)
 
     raise MlflowException(
-        message=(
-            "`df` must be a pandas DataFrame or a Spark DataFrame. Got: {type(df)}"
-        ),
+        message=("`df` must be a pandas DataFrame or a Spark DataFrame. Got: {type(df)}"),
         error_code=INVALID_PARAMETER_VALUE,
     )
 
 
-def select_from_traces(traces: List['mlflow.entities.Trace'], fields: List[str]) -> pd.DataFrame:
+def select_from_traces(traces: List["mlflow.entities.Trace"], fields: List[str]) -> pd.DataFrame:
     df = _traces_to_df(traces)
     return select_from_traces_df(df=df, col_name="spans", fields=fields)
 
@@ -39,41 +38,43 @@ def select_from_traces(traces: List['mlflow.entities.Trace'], fields: List[str])
 class _ParsedField(NamedTuple):
     span_name: str
     field_type: Literal["inputs", "outputs"]
-    field_name: str
+    field_name: Optional[str]
 
     @classmethod
-    def from_string(cls, s: str) -> '_ParsedField':
+    def from_string(cls, s: str) -> "_ParsedField":
         components = s.split(".")
-        if len(components) != 3:
+        if len(components) not in [2,3] or components[1] not in ["inputs", "outputs"]:
             raise MlflowException(
-                message=f"Field must be of the form 'span_name.field_type.field_name'. Got: {s}",
+                message=(
+                    f"Field must be of the form 'span_name.[inputs|outputs]' or"
+                    f" 'span_name.[inputs|outputs].field_name. Got: {s}"
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        span_name, field_type, field_name = components 
-
-        if field_type not in ["inputs", "outputs"]:
-            raise MlflowException(
-                message=f"Field type must be 'inputs' or 'outputs'. Got: {field_type}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        
-        return cls(span_name=span_name, field_type=field_type, field_name=field_name)
+        return cls(
+            span_name=components[0],
+            field_type=components[1],
+            field_name=components[2] if len(components) == 3 else None,
+        )
 
     def __str__(self) -> str:
-        return f"{self.span_name}.{self.field_type}.{self.field_name}"
+        return (
+            f"{self.span_name}.{self.field_type}.{self.field_name}"
+            if self.field_name is not None
+            else f"{self.span_name}.{self.field_type}"
+        )
 
 
-def _parse_fields(fields: List[str]) -> List['_ParsedField']:
+def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
     return [_ParsedField.from_string(field) for field in fields]
 
 
-def _traces_to_df(traces: List['mlflow.entities.Trace']) -> pd.DataFrame:
+def _traces_to_df(traces: List["mlflow.entities.Trace"]) -> pd.DataFrame:
     """
     Convert a list of MLflow Traces to a pandas DataFrame with one column called "traces"
     containing string representations of each Trace.
     """
-    from mlflow.tracing.types.wrapper import Span
 
     rows = [
         TraceRow(
@@ -91,7 +92,9 @@ def _traces_to_df(traces: List['mlflow.entities.Trace']) -> pd.DataFrame:
     return pd.DataFrame.from_records([row.to_dict() for row in rows])
 
 
-def _select_from_traces_pandas_df(df: pd.DataFrame, col_name: str, fields: List[_ParsedField]) -> pd.DataFrame:
+def _select_from_traces_pandas_df(
+    df: pd.DataFrame, col_name: str, fields: List[_ParsedField]
+) -> pd.DataFrame:
     from mlflow.tracing.types.wrapper import Span
 
     new_columns: Dict[str, List[Any]] = defaultdict(list)
@@ -103,10 +106,24 @@ def _select_from_traces_pandas_df(df: pd.DataFrame, col_name: str, fields: List[
         for field in fields:
             matching_spans = spans_dict.get(field.span_name, [])
             matching_values = []
-            if field.field_type == "inputs" and isinstance(span.inputs, dict):
-                matching_values = [span.inputs.get(field.field_name) for span in matching_spans]
-            elif field.field_type == "outputs" and isinstance(span.outputs, dict):
-                matching_values = [span.outputs.get(field.field_name) for span in matching_spans]
+            if field.field_type == "inputs":
+                matching_values = [
+                    span.inputs.get(field.field_name)
+                    if field.field_name is not None
+                    else span.inputs
+                    for span in matching_spans
+                ]
+            elif field.field_type == "outputs":
+                matching_values = [
+                    span.outputs.get(field.field_name)
+                    if field.field_name is not None
+                    else span.outputs
+                    for span in matching_spans
+                ]
+            else:
+                print("TYPE", matching_spans[0].name, type(matching_spans[0].outputs))
+                print("FTYPE", field.field_type)
+                print("CAC2")
             new_columns[str(field)].append(matching_values[0] if matching_values else None)
 
     df_with_new_fields = df.copy()
@@ -116,19 +133,21 @@ def _select_from_traces_pandas_df(df: pd.DataFrame, col_name: str, fields: List[
     return df_with_new_fields
 
 
-def _select_from_traces_spark_df(df: 'pyspark.sql.DataFrame', col_name: str, fields: List[_ParsedField]) -> 'pyspark.sql.DataFrame':
+def _select_from_traces_spark_df(
+    df: "pyspark.sql.DataFrame", col_name: str, fields: List[_ParsedField]
+) -> "pyspark.sql.DataFrame":
     pass
 
 
-def _extract_spans(df: pd.DataFrame, col_name: str) -> List[List['mlflow.tracing.types.wrapper.Span']]:
-
-    return [
-        [Span.from_dict(span_dict) for span_dict in row]
-        for row in df["spans"].tolist()
-    ]
+def _extract_spans(
+    df: pd.DataFrame, col_name: str
+) -> List[List["mlflow.tracing.types.wrapper.Span"]]:
+    return [[Span.from_dict(span_dict) for span_dict in row] for row in df["spans"].tolist()]
 
 
-def _databricks_inference_table_to_traces_df(df: 'pyspark.sql.DataFrame') -> 'pyspark.sql.DataFrame':
+def _databricks_inference_table_to_traces_df(
+    df: "pyspark.sql.DataFrame",
+) -> "pyspark.sql.DataFrame":
     # df.withColumn(...)
     pass
 
