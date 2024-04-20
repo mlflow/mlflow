@@ -120,10 +120,6 @@ def _select_from_traces_pandas_df(
                     else span.outputs
                     for span in matching_spans
                 ]
-            else:
-                print("TYPE", matching_spans[0].name, type(matching_spans[0].outputs))
-                print("FTYPE", field.field_type)
-                print("CAC2")
             new_columns[str(field)].append(matching_values[0] if matching_values else None)
 
     df_with_new_fields = df.copy()
