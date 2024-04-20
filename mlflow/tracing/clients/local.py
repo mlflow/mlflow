@@ -6,7 +6,6 @@ from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracking.client import MlflowClient
 
 
 class InMemoryTraceClient(TraceClient):
@@ -27,6 +26,8 @@ class InMemoryTraceClient(TraceClient):
         return cls._instance
 
     def __init__(self):
+        from mlflow.tracking.client import MlflowClient
+
         queue_size = MLFLOW_TRACING_CLIENT_BUFFER_SIZE.get()
         self.queue = deque(maxlen=queue_size)
         self._lock = threading.Lock()  # Lock for accessing the queue

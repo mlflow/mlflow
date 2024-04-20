@@ -11,4 +11,4 @@ __all__ = [
 
 
 def get_trace_client() -> TraceClient:
-    return InMemoryTraceClientWithTracking.get_instance()
+    return InMemoryTraceClient.get_instance()
