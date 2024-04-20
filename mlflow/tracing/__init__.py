@@ -43,7 +43,7 @@ class _ParsedField(NamedTuple):
     @classmethod
     def from_string(cls, s: str) -> "_ParsedField":
         components = s.split(".")
-        if len(components) not in [2,3] or components[1] not in ["inputs", "outputs"]:
+        if len(components) not in [2, 3] or components[1] not in ["inputs", "outputs"]:
             raise MlflowException(
                 message=(
                     f"Field must be of the form 'span_name.[inputs|outputs]' or"
@@ -132,13 +132,35 @@ def _select_from_traces_pandas_df(
 def _select_from_traces_spark_df(
     df: "pyspark.sql.DataFrame", col_name: str, fields: List[_ParsedField]
 ) -> "pyspark.sql.DataFrame":
-    pass
+    from pyspark.sql.functions import pandas_udf
+    from pyspark.sql.types import StructType, StructField, StringType
+
+    output_schema = [
+        StructField(name=str(field), dataType=StringType(), nullable=True)
+        if field.field_name is not None
+        else StructField(
+            name=str(field),
+            dataType=MapType(
+                keyType=StringType(),
+                valueType=StringType(),
+                valueContainsNull=True,
+            ),
+            nullable=True,
+        )
+        for field in fields
+    ]
+
+    @pandas_udf(output_schema, functionType=pandas_udf.PandasUDFType.GROUPED_MAP)
+    def select_from_traces_udf(df_iter: pd.DataFrame) -> pd.DataFrame:
+        return _select_from_traces_pandas_df(df=df_iter, col_name=col_name, fields=fields)
+
+    return df.apply(select_from_traces_udf)
 
 
-def _extract_spans(
+def _extract_spans_as_column(
     df: pd.DataFrame, col_name: str
 ) -> List[List["mlflow.tracing.types.wrapper.Span"]]:
-    return [[Span.from_dict(span_dict) for span_dict in row] for row in df["spans"].tolist()]
+    return df
 
 
 def _databricks_inference_table_to_traces_df(
