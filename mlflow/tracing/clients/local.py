@@ -6,6 +6,7 @@ from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.tracing.clients.base import TraceClient
 from mlflow.tracing.display import get_display_handler
+from mlflow.tracking.client import MlflowClient
 
 
 class InMemoryTraceClient(TraceClient):
@@ -29,11 +30,27 @@ class InMemoryTraceClient(TraceClient):
         queue_size = MLFLOW_TRACING_CLIENT_BUFFER_SIZE.get()
         self.queue = deque(maxlen=queue_size)
         self._lock = threading.Lock()  # Lock for accessing the queue
+        self._client = MlflowClient()
 
     def log_trace(self, trace: Trace):
         with self._lock:
             self.queue.append(trace)
         get_display_handler().display_traces([trace])
+
+        started_trace = self._client._tracking_client.start_trace(
+            experiment_id=trace.info.experiment_id,
+            timestamp_ms=trace.info.timestamp_ms,
+            request_metadata=trace.info.request_metadata,
+            tags=trace.info.tags,
+        )
+        self._client._tracking_client._upload_trace_data(started_trace, trace.data)
+        self._client._tracking_client.end_trace(
+            request_id=started_trace.request_id,
+            timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
+            status=trace.info.status,
+            request_metadata={},
+            tags={},
+        )
 
     def get_traces(self, n: Optional[int] = 10) -> List[Trace]:
         """
