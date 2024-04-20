@@ -1,5 +1,4 @@
 import json
-
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -30,7 +29,6 @@ class TraceData:
             request=json.dumps(spans[0].inputs),
             response=json.dumps(spans[0].outputs),
         )
-
 
     def to_dict(self) -> Dict[str, Any]:
         return {
