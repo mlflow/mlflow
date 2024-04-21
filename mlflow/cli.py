@@ -24,6 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.tracking import _get_store
+from mlflow.tracking._tracking_service.utils import is_tracking_uri_set, set_tracking_uri
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import get_entry_points, is_windows
@@ -482,7 +483,12 @@ def server(
     "all of their associated runs. If experiment ids are not specified, data is removed for all "
     "experiments in the `deleted` lifecycle stage.",
 )
-def gc(older_than, backend_store_uri, run_ids, experiment_ids):
+@click.option(
+    "--tracking-uri",
+    default=os.environ.get("MLFLOW_TRACKING_URI"),
+    help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
+)
+def gc(older_than, backend_store_uri, run_ids, experiment_ids, tracking_uri):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
@@ -523,6 +529,15 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
             )
         time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
         time_delta = int(timedelta(**time_params).total_seconds() * 1000)
+
+    if tracking_uri:
+        set_tracking_uri(tracking_uri)
+
+    if not is_tracking_uri_set():
+        raise MlflowException(
+            "Tracking URL is not set. Please set MLFLOW_TRACKING_URI environment variable "
+            "or provide --tracking-uri cli option."
+        )
 
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     run_ids = run_ids.split(",") if run_ids else deleted_run_ids_older_than
