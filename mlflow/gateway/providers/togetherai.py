@@ -355,6 +355,15 @@ class TogetherAIProvider(BaseProvider):
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
         payload = jsonable_encoder(payload, exclude_none=True)
 
+        if not payload.get("max_tokens"):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "max_tokens is not present in payload."
+                    "It is a required parameter for TogetherAI completions."
+                ),
+            )
+
         stream = await self._stream_request(
             path="completions",
             payload={
@@ -379,6 +388,15 @@ class TogetherAIProvider(BaseProvider):
         self, payload: completions_schema.RequestPayload
     ) -> completions_schema.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
+
+        if not payload.get("max_tokens"):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "max_tokens is not present in payload."
+                    "It is a required parameter for TogetherAI completions."
+                ),
+            )
 
         resp = await self._request(
             path="completions",

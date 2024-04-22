@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
+from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
@@ -156,6 +157,7 @@ async def test_completions_stream(resp):
         provider = TogetherAIProvider(RouteConfig(**config))
         payload = {
             "model": "mistralai/Mixtral-8x7B-v0.1",
+            "max_tokens": 200,
             "prompt": "This is a test",
             "temperature": 1,
             "n": 1,
@@ -206,11 +208,86 @@ async def test_completions_stream(resp):
             json={
                 "model": "mistralai/Mixtral-8x7B-v0.1",
                 "temperature": 1,
+                "max_tokens": 200,
                 "n": 1,
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.asyncio
+async def test_max_tokens_missing_error():
+    config = completions_config()
+
+    # Define the response payload to be returned
+    resp = completions_response()
+
+    # Mock the post method to return the response payload
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        # Instantiate the provider
+        provider = TogetherAIProvider(RouteConfig(**config))
+
+        # Prepare the payload with missing max_tokens
+        payload = {
+            "prompt": "What is the capital of France?",
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            # "max_tokens" key is intentionally missing
+            "temperature": 1.0,
+            "n": 1,
+        }
+
+        error_string = (
+            "max_tokens is not present in payload."
+            "It is a required parameter for TogetherAI completions."
+        )
+        # Test whether HTTPException is raised when max_tokens is missing
+        with pytest.raises(HTTPException, match=error_string) as exc_info:
+            await provider.completions(completions.RequestPayload(**payload))
+
+        # Check if the raised exception has correct status code and detail
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail == error_string
+        # Assert that the post method was not called
+        mock_post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_wrong_logprobs_type_error():
+    config = completions_config()
+    # Define the response payload to be returned
+    resp = completions_response()
+
+    # Mock the post method to return the response payload
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        # Instantiate the provider
+        provider = TogetherAIProvider(RouteConfig(**config))
+
+        # Prepare the payload with missing max_tokens
+        payload = {
+            "prompt": "What is the capital of France?",
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "max_tokens": 200,
+            "temperature": 1.0,
+            "n": 1,
+            "logprobs": "invalid_type",
+        }
+        error_string = (
+            "Wrong type for logprobs." "If logprobs is set it should be an 32bit integer."
+        )
+        # Test whether HTTPException is raised when max_tokens is missing
+        with pytest.raises(HTTPException, match=error_string) as exc_info:
+            await provider.completions(completions.RequestPayload(**payload))
+
+        # Check if the raised exception has correct status code and detail
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail == error_string
+        # Assert that the post method was not called
+        mock_post.assert_not_called()
 
 
 def embeddings_config():
