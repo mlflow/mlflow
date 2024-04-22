@@ -23,7 +23,7 @@ from mlflow.langchain._langchain_autolog import (
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.tracing.types.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,

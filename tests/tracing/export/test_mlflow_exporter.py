@@ -2,14 +2,14 @@ from unittest.mock import MagicMock
 
 from mlflow.entities import LiveSpan
 from mlflow.entities.trace_data import TraceData
-from mlflow.tracing.export.mlflow import MlflowSpanExporter
-from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.constant import (
+from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_span_id
 
 from tests.tracing.helper import create_mock_otel_span

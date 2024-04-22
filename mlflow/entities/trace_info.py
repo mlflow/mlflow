@@ -6,7 +6,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
-from mlflow.tracing.types.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
 
 @dataclass

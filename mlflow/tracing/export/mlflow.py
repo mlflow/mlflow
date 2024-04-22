@@ -9,14 +9,14 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.clients import TraceClient
-from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.constant import (
+from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
     SpanAttributeKey,
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
 

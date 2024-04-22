@@ -6,7 +6,7 @@ from typing import Dict, Optional
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import LiveSpan, SpanType, Trace, TraceData, TraceInfo
+from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
@@ -14,8 +14,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow.tracing.types.constant import SpanAttributeKey
-from mlflow.tracing.types.wrapper import NoOpSpan
+from mlflow.tracing.constant import SpanAttributeKey
 
 _logger = logging.getLogger(__name__)
 
