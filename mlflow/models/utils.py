@@ -1123,7 +1123,7 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
         raise MlflowException(f"Missing required properties: {missing_props}")
     if invalid_props := data.keys() - properties.keys():
         raise MlflowException(
-            "Invalid properties not defined in the schema found: " f"{invalid_props}"
+            f"Invalid properties not defined in the schema found: {invalid_props}"
         )
     for k, v in data.items():
         try:

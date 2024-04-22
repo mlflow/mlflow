@@ -1417,7 +1417,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             if compute_latency:
                 _logger.warning(
-                    "Setting the latency to 0 for all entries because the model " "is not provided."
+                    "Setting the latency to 0 for all entries because the model is not provided."
                 )
                 self.metrics_values.update(
                     {_LATENCY_METRIC_NAME: MetricValue(scores=[0.0] * len(X_copy))}
