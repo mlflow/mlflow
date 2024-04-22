@@ -1,4 +1,4 @@
-module github.com/mlflow/mlflow/mlflow/go
+module github.com/mlflow/mlflow
 
 go 1.22.2
 
