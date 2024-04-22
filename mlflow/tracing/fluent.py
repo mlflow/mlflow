@@ -180,7 +180,7 @@ def start_span(
         trace_manager.register_span(mlflow_span)
 
     except Exception as e:
-        _logger.debug("Failed to start span: %s", e)
+        _logger.debug("Failed to start span: %s", e, exc_info=True)
         mlflow_span = NoOpSpan()
         yield mlflow_span
         return

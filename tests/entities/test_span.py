@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.provider import get_tracer
+from mlflow.tracing.provider import _get_tracer
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
@@ -17,7 +17,7 @@ from tests.tracing.conftest import clear_singleton  # noqa: F401
 def test_wrap_live_span(clear_singleton):
     request_id = "tr-12345"
 
-    tracer = get_tracer("test")
+    tracer = _get_tracer("test")
     with tracer.start_as_current_span("parent") as parent_span:
         span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
         assert span.request_id == request_id
@@ -129,7 +129,7 @@ def test_set_status_raise_for_invalid_value():
 def test_dict_conversion(clear_singleton):
     request_id = "tr-12345"
 
-    tracer = get_tracer("test")
+    tracer = _get_tracer("test")
     with tracer.start_as_current_span("parent") as parent_span:
         span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
 

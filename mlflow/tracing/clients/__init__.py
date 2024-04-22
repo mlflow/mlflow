@@ -1,7 +1,7 @@
 from mlflow.tracing.clients.base import TraceClient
 from mlflow.tracing.clients.local import InMemoryTraceClient
 from mlflow.tracing.clients.tracking import InMemoryTraceClientWithTracking
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.uri import is_databricks_uri
 
 __all__ = [
     "InMemoryTraceClient",
@@ -13,7 +13,9 @@ __all__ = [
 
 def get_trace_client() -> TraceClient:
     """Get the trace client instance based on the environment."""
-    if is_in_databricks_runtime():
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+
+    if (uri := get_tracking_uri()) and is_databricks_uri(uri):
         return InMemoryTraceClientWithTracking.get_instance()
     else:
         return InMemoryTraceClient.get_instance()

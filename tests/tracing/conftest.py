@@ -67,6 +67,14 @@ def mock_store():
         yield mock_store
 
 
+@pytest.fixture
+def databricks_tracking_uri():
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    ):
+        yield
+
+
 def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
     """
     Mocking the StartTrace API call to the tracking backend.

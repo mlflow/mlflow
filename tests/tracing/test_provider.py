@@ -5,7 +5,7 @@ from opentelemetry import trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import RestException
 from mlflow.tracing.clients import get_trace_client
-from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, create_trace_info, get_tracer
+from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _get_tracer, create_trace_info
 from mlflow.tracing.utils import encode_trace_id
 
 from tests.tracing.helper import create_mock_otel_span
@@ -17,13 +17,13 @@ def test_tracer_provider_singleton(mock_get_client):
     # Reset the Once object as there might be other tests that have already initialized it
     _TRACER_PROVIDER_INITIALIZED._done = False
 
-    get_tracer("module_1")
+    _get_tracer("module_1")
     assert mock_get_client.call_count == 1
     assert _TRACER_PROVIDER_INITIALIZED._done is True
 
     tracer_provider_1 = trace.get_tracer_provider()
 
-    get_tracer("module_2")
+    _get_tracer("module_2")
     assert mock_get_client.call_count == 1
 
     tracer_provider_2 = trace.get_tracer_provider()
@@ -32,9 +32,7 @@ def test_tracer_provider_singleton(mock_get_client):
     assert tracer_provider_1 is tracer_provider_2
 
 
-def test_create_trace_info_databricks(monkeypatch, mock_store):
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "1")
-
+def test_create_trace_info_databricks(monkeypatch, mock_store, databricks_tracking_uri):
     otel_span = create_mock_otel_span(trace_id=111, span_id=1, start_time=123456789)
     trace_info = create_trace_info(
         otel_span=otel_span,
@@ -59,7 +57,9 @@ def test_create_trace_info_databricks(monkeypatch, mock_store):
     }
 
 
-def test_create_trace_info_databricks_get_experiemnt_id_from_env(monkeypatch, mock_store):
+def test_create_trace_info_databricks_get_experiemnt_id_from_env(
+    monkeypatch, mock_store, databricks_tracking_uri
+):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "1")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     mock_store.get_experiment_by_name().experiment_id = "test_experiment_id"
@@ -73,8 +73,9 @@ def test_create_trace_info_databricks_get_experiemnt_id_from_env(monkeypatch, mo
     assert trace_info.timestamp_ms == 123
 
 
-def test_create_trace_info_fallback_to_local_when_rest_exception_raised(monkeypatch, mock_store):
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "1")
+def test_create_trace_info_fallback_to_local_when_rest_exception_raised(
+    monkeypatch, mock_store, databricks_tracking_uri
+):
     mock_store.start_trace.side_effect = RestException({"error_code": "RESOURCE_DOES_NOT_EXIST"})
 
     otel_span = create_mock_otel_span(trace_id=111, span_id=1, start_time=123456789)

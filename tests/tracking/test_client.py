@@ -15,6 +15,7 @@ from mlflow.entities import (
     SourceType,
     SpanStatusCode,
     SpanType,
+    Trace,
     TraceInfo,
     ViewType,
 )
@@ -47,6 +48,7 @@ from mlflow.utils.mlflow_tags import (
 )
 
 from tests.tracing.conftest import _mock_end_trace, _mock_start_trace, clear_singleton  # noqa: F401
+from tests.tracing.helper import create_test_trace_info
 
 
 @pytest.fixture(autouse=True)
@@ -453,8 +455,8 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-def test_log_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatch):
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "1")
+@mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
+def test_log_trace_with_databricks_tracking_uri(clear_singleton, mock_store, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     mock_store.get_experiment_by_name().experiment_id = "test_experiment_id"
 
@@ -534,23 +536,25 @@ def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
 
 
 def test_end_trace_raise_error_when_trace_not_exist(clear_singleton):
+    client = mlflow.tracking.MlflowClient()
+    mock_tracking_client = mock.MagicMock()
+    mock_tracking_client.get_trace.return_value = None
+    client._tracking_client = mock_tracking_client
+
     with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
-        mlflow.tracking.MlflowClient().end_trace("test")
+        client.end_trace("test")
 
 
 def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
     client = mlflow.tracking.MlflowClient()
+    mock_tracking_client = mock.MagicMock()
+    mock_tracking_client.get_trace.return_value = Trace(
+        info=create_test_trace_info("test"), data=None
+    )
+    client._tracking_client = mock_tracking_client
 
-    root_span = client.start_trace("test")
-    client.end_trace(root_span.request_id)
-
-    trace = mlflow.get_traces()[-1]
-    assert trace.info.request_id == root_span.request_id
-
-    with pytest.raises(
-        MlflowException, match=f"Trace with ID {root_span.request_id} already finished"
-    ):
-        client.end_trace(root_span.request_id)
+    with pytest.raises(MlflowException, match=r"Trace with ID test already finished"):
+        client.end_trace("test")
 
 
 def test_start_span_raise_error_when_parent_id_is_not_provided():

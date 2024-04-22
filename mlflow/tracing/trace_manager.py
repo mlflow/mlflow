@@ -88,7 +88,7 @@ class InMemoryTraceManager:
             trace_data_dict[span.span_id] = span
 
     @contextlib.contextmanager
-    def get_trace_info(self, request_id: str) -> Optional[Generator[TraceInfo, None, None]]:
+    def get_trace_info(self, request_id: str) -> Generator[Optional[TraceInfo], None, None]:
         """
         Yield the trace info for the given request_id.
         This is designed to be used as a context manager to ensure the trace info is accessed

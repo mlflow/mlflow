@@ -81,8 +81,9 @@ def test_trace(clear_singleton):
     }
 
 
-def test_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatch):
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "1")
+def test_trace_with_databricks_tracking_uri(
+    databricks_tracking_uri, clear_singleton, mock_store, monkeypatch
+):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     mock_store.get_experiment_by_name().experiment_id = "test_experiment_id"
 
@@ -101,9 +102,7 @@ def test_trace_in_databricks_runtime(clear_singleton, mock_store, monkeypatch):
             return z + 1
 
         def square(self, t):
-            res = t**2
-            time.sleep(0.1)
-            return res
+            return t**2
 
     model = TestModel()
 
@@ -176,7 +175,7 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
     model = TestModel()
 
     # Exception during span creation: no-op span wrapper created and no trace is logged
-    with mock.patch("mlflow.tracing.provider.get_tracer", side_effect=ValueError("Some error")):
+    with mock.patch("mlflow.tracing.provider._get_tracer", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
