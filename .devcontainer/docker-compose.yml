@@ -9,7 +9,17 @@ services:
       - ..:/workspaces/mlflow:cached
       - build:/workspaces/mlflow/mlflow/server/js/build
       - gomodcache:/go/pkg/mod
+    network_mode: service:db
+
+  db:
+    image: postgres:latest
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
 
 volumes:
   build:
   gomodcache:
+  postgres-data:
