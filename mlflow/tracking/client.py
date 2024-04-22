@@ -1790,6 +1790,10 @@ class MlflowClient:
             is_dir: False
 
         """
+        if run_id.startswith("tr-"):
+            raise MlflowException(
+                f"Invalid run id: {run_id}. `log_artifact` run id must map to a valid run."
+            )
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
     def log_artifacts(
