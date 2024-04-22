@@ -8,7 +8,7 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -97,30 +97,30 @@ class AsyncArtifactsLoggingQueue:
         If an exception occurs during processing, the exception is logged and the artifact event
         is set with the exception. If the queue is empty, it is ignored.
         """
-        run_artifacts = None  # type: RunArtifact
+        run_artifact: Optional[RunArtifact] = None
         try:
-            run_artifacts = self._queue.get(timeout=1)
+            run_artifact = self._queue.get(timeout=1)
         except Empty:
             # Ignore empty queue exception
             return
 
-        def logging_func(run_artifacts):
+        def logging_func(run_artifact):
             try:
                 self._artifact_logging_func(
-                    filename=run_artifacts.filename,
-                    artifact_path=run_artifacts.artifact_path,
-                    artifact=run_artifacts.artifact,
+                    filename=run_artifact.filename,
+                    artifact_path=run_artifact.artifact_path,
+                    artifact=run_artifact.artifact,
                 )
 
                 # Signal the artifact processing is done.
-                run_artifacts.completion_event.set()
+                run_artifact.completion_event.set()
 
             except Exception as e:
-                _logger.error(f"Failed to log artifact {run_artifacts.filename}. Exception: {e}")
-                run_artifacts.exception = e
-                run_artifacts.completion_event.set()
+                _logger.error(f"Failed to log artifact {run_artifact.filename}. Exception: {e}")
+                run_artifact.exception = e
+                run_artifact.completion_event.set()
 
-        self._artifact_logging_worker_threadpool.submit(logging_func, run_artifacts)
+        self._artifact_logging_worker_threadpool.submit(logging_func, run_artifact)
 
     def _wait_for_artifact(self, artifacts: RunArtifact) -> None:
         """Wait for given artifacts to be processed by the logging thread.
@@ -145,19 +145,16 @@ class AsyncArtifactsLoggingQueue:
             dict: A dictionary containing the object's state.
         """
         state = self.__dict__.copy()
-        del state["_queue"]
-        del state["_lock"]
-        del state["_is_activated"]
-
-        if "_stop_data_logging_thread_event" in state:
-            del state["_stop_data_logging_thread_event"]
-        if "_artifact_logging_thread" in state:
-            del state["_artifact_logging_thread"]
-        if "_artifact_logging_worker_threadpool" in state:
-            del state["_artifact_logging_worker_threadpool"]
-        if "_artifact_status_check_threadpool" in state:
-            del state["_artifact_status_check_threadpool"]
-
+        for key in [
+            "_queue",
+            "_lock",
+            "_is_activated",
+            "_stop_data_logging_thread_event",
+            "_artifact_logging_thread",
+            "_artifact_logging_worker_threadpool",
+            "_artifact_status_check_threadpool",
+        ]:
+            state.pop(key, None)
         return state
 
     def __setstate__(self, state):

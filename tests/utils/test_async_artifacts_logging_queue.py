@@ -51,13 +51,13 @@ def _assert_sent_received_artifacts(
     recieved_artifact_paths,
     received_artifacts,
 ):
-    for num in range(1, len(filenames_sent)):
+    for num in range(len(filenames_sent)):
         assert filenames_sent[num] == recieved_filenames[num]
 
-    for num in range(1, len(artifact_paths_sent)):
+    for num in range(len(artifact_paths_sent)):
         assert artifact_paths_sent[num] == recieved_artifact_paths[num]
 
-    for num in range(1, len(artifacts_sent)):
+    for num in range(len(artifacts_sent)):
         assert artifacts_sent[num] == received_artifacts[num]
 
 

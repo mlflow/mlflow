@@ -13,7 +13,7 @@ class RunArtifact:
         artifact: Union["PIL.Image.Image"],
         completion_event: threading.Event,
     ) -> None:
-        """Initializes an instance of `RunArtifacts`.
+        """Initializes an instance of `RunArtifact`.
 
         Args:
             filename: Filename of the artifact to be logged
