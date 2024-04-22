@@ -3441,9 +3441,11 @@ def test_evaluate_with_latency_static_dataset():
     assert all(grade == 0.0 for grade in logged_data["latency"])
 
 
-properly_formatted_openai_response1 = (
-    '{\n  "score": 3,\n  "justification": "' "justification" '"\n}'
-)
+properly_formatted_openai_response1 = """\
+{
+  "score": 3,
+  "justification": "justification"
+}"""
 
 
 def test_evaluate_with_correctness():
