@@ -3,6 +3,7 @@ from collections import defaultdict
 from unittest.mock import MagicMock
 
 import langchain
+from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 import pytest
 from packaging.version import Version
 
@@ -47,7 +48,11 @@ def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
-    llm = Databricks(endpoint_name="databricks-mixtral-8x7b-instruct")
+    llm_kwargs = {"endpoint_name": "databricks-mixtral-8x7b-instruct"}
+    if IS_PICKLE_SERIALIZATION_RESTRICTED:
+        llm_kwargs["allow_dangerous_deserialization"] = True
+
+    llm = Databricks(**llm_kwargs)
     d = defaultdict(list)
     _extract_databricks_dependencies_from_llm(llm, d)
     assert d.get(_DATABRICKS_LLM_ENDPOINT_NAME_KEY) == ["databricks-mixtral-8x7b-instruct"]
