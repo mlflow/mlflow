@@ -209,6 +209,7 @@ class Span:
                 start_time=data["start_time"],
                 end_time=data["end_time"],
                 attributes=data["attributes"],
+                status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
                 events=[
                     OTelEvent(
                         name=event["name"],

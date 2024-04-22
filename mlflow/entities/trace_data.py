@@ -22,7 +22,11 @@ class TraceData:
 
     @classmethod
     def from_dict(cls, d):
-        return cls(spans=[Span(**span) for span in d["spans"]])
+        return cls(
+            request=d.get("request"),
+            response=d.get("response"),
+            spans=[Span.from_dict(span) for span in d["spans"]],
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {

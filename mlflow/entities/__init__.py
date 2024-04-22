@@ -20,7 +20,7 @@ from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.source_type import SourceType
-from mlflow.entities.span import NoOpSpan, LiveSpan, Span, SpanType
+from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.entities.trace import Trace
