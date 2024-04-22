@@ -22,6 +22,7 @@ import mlflow
 from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.utils.models import (
@@ -734,7 +735,7 @@ class MlflowClient:
         value: float,
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
-        synchronous: bool = True,
+        synchronous: Optional[bool] = None,
     ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
@@ -805,12 +806,15 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.log_metric(
             run_id, key, value, timestamp, step, synchronous=synchronous
         )
 
     def log_param(
-        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
@@ -873,6 +877,9 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         if synchronous:
             self._tracking_client.log_param(run_id, key, value, synchronous=True)
             return value
@@ -911,7 +918,7 @@ class MlflowClient:
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
     def set_tag(
-        self, run_id: str, key: str, value: Any, synchronous: bool = True
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
@@ -963,6 +970,9 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
@@ -1064,7 +1074,7 @@ class MlflowClient:
         metrics: Sequence[Metric] = (),
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
-        synchronous: bool = True,
+        synchronous: Optional[bool] = None,
     ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
@@ -1131,6 +1141,9 @@ class MlflowClient:
             status: FINISHED
 
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.log_batch(
             run_id, metrics, params, tags, synchronous=synchronous
         )
@@ -1449,7 +1462,7 @@ class MlflowClient:
         key: Optional[str] = None,
         step: Optional[int] = None,
         timestamp: Optional[int] = None,
-        synchronous: Optional[bool] = False,
+        synchronous: Optional[bool] = None,
     ) -> None:
         """
         Logs an image in MLflow, supporting two use cases:
@@ -1571,6 +1584,9 @@ class MlflowClient:
                 client = mlflow.MlflowClient()
                 client.log_image(run.info.run_id, image, "image.png")
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         if artifact_file is not None and any(arg is not None for arg in [key, step, timestamp]):
             raise TypeError(
                 "The `artifact_file` parameter cannot be used in conjunction with `key`, "

@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 
 from mlflow import MlflowClient
+from mlflow.config import enable_async_logging
 from mlflow.entities import ExperimentTag, Run, RunInfo, RunStatus, RunTag, SourceType, ViewType
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
@@ -794,3 +795,14 @@ def test_client_log_metric_params_tags_overrides(mock_store):
     mock_store.log_batch_async.assert_called_once_with(
         run_id=run_id, metrics=metrics, params=params, tags=tags
     )
+
+
+def test_enable_async_logging(mock_store):
+    enable_async_logging(True)
+    MlflowClient().log_param(run_id="run_id", key="key", value="val")
+    mock_store.log_param_async.assert_called_once_with("run_id", Param("key", "val"))
+
+    MlflowClient().log_metric(run_id="run_id", key="key", value="val", step=1, timestamp=1)
+    mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))
+    # Clean up the setup.
+    enable_async_logging(False)
