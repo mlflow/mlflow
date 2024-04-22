@@ -651,6 +651,7 @@ langchain:
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
+      pytest tests/langchain/test_langchain_databricks_dependency_extraction.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
@@ -658,6 +659,7 @@ langchain:
         pip install 'pydantic>2'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain/test_langchain_model_export.py
+        pytest tests/langchain/test_langchain_databricks_dependency_extraction.py
       fi
   autologging:
     minimum: "0.1.4"
