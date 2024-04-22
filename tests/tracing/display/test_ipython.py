@@ -2,7 +2,8 @@ import json
 from unittest.mock import Mock
 
 import mlflow
-from mlflow.tracing.clients import get_trace_client
+from mlflow.tracing.display import get_display_handler
+from mlflow.tracing.fluent import TRACE_BUFFER
 
 from tests.tracing.helper import create_trace
 
@@ -21,27 +22,27 @@ def test_display_is_not_called_without_ipython(monkeypatch):
     # the value is not None.
     mock_display = Mock()
     monkeypatch.setattr("IPython.display.display", mock_display)
+    handler = get_display_handler()
 
-    client = get_trace_client()
-    client.log_trace(create_trace("a"))
+    handler.display_traces([create_trace("a")])
     assert mock_display.call_count == 0
 
     monkeypatch.setattr("IPython.get_ipython", lambda: MockIPython())
-    client.log_trace(create_trace("b"))
+    handler.display_traces([create_trace("b")])
     assert mock_display.call_count == 1
 
 
 def test_ipython_client_only_logs_once_per_execution(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
-    client = get_trace_client()
+    handler = get_display_handler()
 
     mock_display_handle = Mock()
     mock_display = Mock(return_value=mock_display_handle)
     monkeypatch.setattr("IPython.display.display", mock_display)
-    client.log_trace(create_trace("a"))
-    client.log_trace(create_trace("b"))
-    client.log_trace(create_trace("c"))
+    handler.display_traces([create_trace("a")])
+    handler.display_traces([create_trace("b")])
+    handler.display_traces([create_trace("c")])
 
     # there should be one display and two updates
     assert mock_display.call_count == 1
@@ -50,19 +51,21 @@ def test_ipython_client_only_logs_once_per_execution(monkeypatch):
     # after incrementing the execution count,
     # the next log should call display again
     mock_ipython.mock_run_cell()
-    client.log_trace(create_trace("a"))
+    handler.display_traces([create_trace("a")])
     assert mock_display.call_count == 2
 
 
 def test_display_is_called_in_correct_functions(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
-    client = get_trace_client()
+    handler = get_display_handler()
 
     mock_display_handle = Mock()
     mock_display = Mock(return_value=mock_display_handle)
     monkeypatch.setattr("IPython.display.display", mock_display)
-    client.log_trace(create_trace("a"))
+    trace = create_trace("a")
+    handler.display_traces([trace])
+    TRACE_BUFFER.append(trace)
     assert mock_display.call_count == 1
 
     mock_ipython.mock_run_cell()
@@ -83,7 +86,7 @@ def test_display_is_called_in_correct_functions(monkeypatch):
 def test_display_deduplicates_traces(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
-    client = get_trace_client()
+    handler = get_display_handler()
 
     mock_display_handle = Mock()
     mock_display = Mock(return_value=mock_display_handle)
@@ -92,14 +95,15 @@ def test_display_deduplicates_traces(monkeypatch):
     trace_a = create_trace("a")
     trace_b = create_trace("b")
     trace_c = create_trace("c")
+    TRACE_BUFFER.extend([trace_a, trace_b, trace_c])
 
     # 3 traces are created, and the same 3 traces
     # are returned by `get_traces()`. the display
     # client should dedupe these and only display
     # 3 traces (not 6).
-    client.log_trace(trace_a)
-    client.log_trace(trace_b)
-    client.log_trace(trace_c)
+    handler.display_traces([trace_a])
+    handler.display_traces([trace_b])
+    handler.display_traces([trace_c])
 
     mlflow.get_traces(n=3)
 

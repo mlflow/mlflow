@@ -57,10 +57,10 @@ class InMemoryTraceManager:
             ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
         )
         # Store mapping between OpenTelemetry trace ID and MLflow request ID
-        self._trace_id_to_request_id = {}
+        self._trace_id_to_request_id: Dict[int, str] = {}
         self._lock = threading.Lock()  # Lock for _traces
 
-    def register_trace(self, trace_id: str, trace_info: TraceInfo):
+    def register_trace(self, trace_id: int, trace_info: TraceInfo):
         """
         Register a new trace info object to the in-memory trace registry.
 
@@ -88,15 +88,14 @@ class InMemoryTraceManager:
             trace_data_dict[span.span_id] = span
 
     @contextlib.contextmanager
-    def get_trace_info(self, request_id: str) -> Generator[Optional[TraceInfo], None, None]:
+    def get_trace(self, request_id: str) -> Generator[Optional[Trace], None, None]:
         """
         Yield the trace info for the given request_id.
         This is designed to be used as a context manager to ensure the trace info is accessed
         with the lock held.
         """
         with self._lock:
-            trace = self._traces.get(request_id)
-            yield trace.info if trace else None
+            yield self._traces.get(request_id)
 
     def get_span_from_id(self, request_id: str, span_id: str) -> Optional[LiveSpan]:
         """
@@ -121,18 +120,18 @@ class InMemoryTraceManager:
 
         return None
 
-    def get_request_id_from_trace_id(self, trace_id: str) -> Optional[str]:
+    def get_request_id_from_trace_id(self, trace_id: int) -> Optional[str]:
         """
         Get the request ID for the given trace ID.
         """
         return self._trace_id_to_request_id.get(trace_id)
 
-    def pop_trace(self, request_id) -> Optional[Trace]:
+    def pop_trace(self, trace_id: int) -> Optional[Trace]:
         """
         Pop the trace data for the given id and return it as a ready-to-publish Trace object.
         """
         with self._lock:
-            self._trace_id_to_request_id.pop(request_id, None)
+            request_id = self._trace_id_to_request_id.pop(trace_id, None)
             trace = self._traces.pop(request_id, None)
         return trace.to_mlflow_trace() if trace else None
 

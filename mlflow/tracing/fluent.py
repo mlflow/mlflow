@@ -4,21 +4,28 @@ import contextlib
 import functools
 import json
 import logging
+import threading
+from collections import deque
 from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
+from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import capture_function_input_args, encode_span_id
+from mlflow.tracing.utils import capture_function_input_args, encode_span_id, get_otel_attribute
 from mlflow.utils import get_results_from_paginated_fn
 
 _logger = logging.getLogger(__name__)
+
+
+TRACE_BUFFER = deque(maxlen=MLFLOW_TRACING_CLIENT_BUFFER_SIZE.get())
+TRACE_BUFFER_LOCK = threading.Lock()
 
 
 def trace(
@@ -166,18 +173,11 @@ def start_span(
     try:
         otel_span = provider.start_span_in_context(name)
 
-        # If the trace is not registered in the in-memory trace manager, create a new trace.
-        trace_manager = InMemoryTraceManager.get_instance()
-        request_id = trace_manager.get_request_id_from_trace_id(otel_span.context.trace_id)
-        if not request_id:
-            trace_info = provider.create_trace_info(otel_span)
-            trace_manager.register_trace(otel_span.context.trace_id, trace_info)
-            request_id = trace_info.request_id
-
-        # Create a new MlflowSpanWrapper and register it to the in-memory trace manager.
+        # Create a new MlflowSpanWrapper and register it to the in-memory trace manager
+        request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = LiveSpan(otel_span, request_id=request_id, span_type=span_type)
         mlflow_span.set_attributes(attributes or {})
-        trace_manager.register_span(mlflow_span)
+        InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception as e:
         _logger.debug("Failed to start span: %s", e, exc_info=True)
@@ -204,11 +204,9 @@ def get_traces(n: int = 1) -> List[Trace]:
     Returns:
         A list of :py:class:`mlflow.entities.Trace` objects.
     """
-    from mlflow.tracing.clients import get_trace_client
-
-    traces = get_trace_client().get_traces(n)
+    with TRACE_BUFFER_LOCK:
+        traces = list(TRACE_BUFFER) if n is None else list(TRACE_BUFFER)[-n:]
     get_display_handler().display_traces(traces)
-
     return traces
 
 

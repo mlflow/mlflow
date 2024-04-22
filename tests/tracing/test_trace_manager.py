@@ -2,7 +2,6 @@ import time
 from threading import Thread
 from typing import Optional
 
-import mlflow
 from mlflow.entities import LiveSpan, Trace
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
@@ -19,10 +18,9 @@ def test_add_spans():
     trace_manager = InMemoryTraceManager.get_instance()
 
     # Add a new trace info
-    exp_id_1 = mlflow.set_experiment("test_experiment_1").experiment_id
     request_id_1 = "tr-1"
     trace_id_1 = 12345
-    trace_manager.register_trace(trace_id_1, create_test_trace_info(request_id_1, exp_id_1))
+    trace_manager.register_trace(trace_id_1, create_test_trace_info(request_id_1, "test_1"))
 
     # Add a span for a new trace
     span_1_1 = _create_test_span(request_id_1, trace_id_1, span_id=1)
@@ -40,10 +38,9 @@ def test_add_spans():
     assert len(trace_manager._traces[request_id_1].span_dict) == 3
 
     # Add a span for another trace under the different experiment
-    exp_id_2 = mlflow.set_experiment("test_experiment_2").experiment_id
     request_id_2 = "tr-2"
     trace_id_2 = 67890
-    trace_manager.register_trace(trace_id_2, create_test_trace_info(request_id_2, exp_id_2))
+    trace_manager.register_trace(trace_id_2, create_test_trace_info(request_id_2, "test_2"))
 
     span_2_1 = _create_test_span(request_id_2, trace_id_2, span_id=1)
     span_2_1_1 = _create_test_span(request_id_2, trace_id_2, span_id=2, parent_id=1)
@@ -54,22 +51,20 @@ def test_add_spans():
     assert len(trace_manager._traces[request_id_2].span_dict) == 2
 
     # Pop the trace data
-    trace = trace_manager.pop_trace(request_id_1)
+    trace = trace_manager.pop_trace(trace_id_1)
     assert isinstance(trace, Trace)
     assert trace.info.request_id == request_id_1
-    assert trace.info.experiment_id == exp_id_1
     assert len(trace.data.spans) == 3
     assert request_id_1 not in trace_manager._traces
 
-    trace = trace_manager.pop_trace(request_id_2)
+    trace = trace_manager.pop_trace(trace_id_2)
     assert isinstance(trace, Trace)
     assert trace.info.request_id == request_id_2
-    assert trace.info.experiment_id == exp_id_2
     assert len(trace.data.spans) == 2
     assert request_id_2 not in trace_manager._traces
 
     # Pop a trace that does not exist
-    assert trace_manager.pop_trace("tr-3") is None
+    assert trace_manager.pop_trace(90123) is None
 
 
 def test_add_and_pop_span_thread_safety():
@@ -80,7 +75,7 @@ def test_add_and_pop_span_thread_safety():
     num_threads = 10
 
     for trace_id in trace_ids:
-        trace_manager.register_trace(12345, create_test_trace_info(f"tr-{trace_id}", "test"))
+        trace_manager.register_trace(trace_id, create_test_trace_info(f"tr-{trace_id}", "test"))
 
     def add_spans(thread_id):
         for trace_id in trace_ids:
@@ -96,7 +91,7 @@ def test_add_and_pop_span_thread_safety():
         thread.join()
 
     for trace_id in trace_ids:
-        trace = trace_manager.pop_trace(f"tr-{trace_id}")
+        trace = trace_manager.pop_trace(trace_id)
         assert trace is not None
         assert trace.info.request_id == f"tr-{trace_id}"
         assert len(trace.data.spans) == num_threads

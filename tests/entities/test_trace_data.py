@@ -6,7 +6,7 @@ import mlflow
 from mlflow.entities import SpanType, TraceData
 from mlflow.entities.span_event import SpanEvent
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
+from tests.tracing.conftest import clear_singleton, mock_store, mock_upload_trace_data  # noqa: F401
 
 
 def test_json_deserialization(clear_singleton):

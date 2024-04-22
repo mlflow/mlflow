@@ -360,6 +360,7 @@ def test_start_and_end_trace(clear_singleton):
     assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
     assert root_span.parent_id is None
     assert root_span.attributes == {
+        "mlflow.experimentId": "test_experiment",
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"x": 1, "y": 2},

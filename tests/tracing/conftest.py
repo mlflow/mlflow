@@ -6,8 +6,8 @@ from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 import mlflow
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.clients import InMemoryTraceClient, InMemoryTraceClientWithTracking
 from mlflow.tracing.display import IPythonTraceDisplayHandler
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.fluent import _get_experiment_id
@@ -21,9 +21,8 @@ def clear_singleton():
     Clear the singleton instances after each tests to avoid side effects.
     """
     InMemoryTraceManager._instance = None
-    InMemoryTraceClient._instance = None
-    InMemoryTraceClientWithTracking._instance = None
     IPythonTraceDisplayHandler._instance = None
+    TRACE_BUFFER.clear()
 
     # Tracer provider also needs to be reset as it may hold reference to the singleton
     with _TRACER_PROVIDER_SET_ONCE._lock:
@@ -58,7 +57,7 @@ def mock_upload_trace_data():
         yield mock_upload_trace_data
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         mock_store = mock_get_store.return_value

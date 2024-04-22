@@ -28,6 +28,7 @@ def create_mock_otel_span(
     class _MockSpanContext:
         trace_id: str
         span_id: str
+        trace_flags: trace_api.TraceFlags = trace_api.TraceFlags(1)
 
     class _MockOTelSpan(trace_api.Span, ReadableSpan):
         def __init__(
@@ -69,7 +70,7 @@ def create_mock_otel_span(
         def update_name(self, name):
             self.name = name
 
-        def end():
+        def end(self):
             pass
 
         def record_exception():
