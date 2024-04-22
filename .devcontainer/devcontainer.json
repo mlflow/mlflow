@@ -21,10 +21,11 @@
         "editor.formatOnSave": true,
         "editor.formatOnSaveTimeout": 5000,
         "git.alwaysSignOff": true,
+        "go.lintTool": "golangci-lint",
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.analysis.autoImportCompletions": false,
         "[python]": {
-          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.defaultFormatter": "charliermarsh.ruff",
           "editor.formatOnSave": true
         },
         "python.formatting.provider": "none",
@@ -41,7 +42,6 @@
         "GitHub.vscode-pull-request-github",
         "golang.Go",
         "ms-azuretools.vscode-docker",
-        "ms-python.black-formatter",
         "ms-python.python",
         "ms-toolsai.jupyter",
         "oderwat.indent-rainbow",
