@@ -38,10 +38,10 @@ openai_justification1 = (
 
 # Example properly formatted response from OpenAI
 properly_formatted_openai_response1 = f"""\
-{
+{{
   "score": 3,
   "justification": {openai_justification1}
-}"""
+}}"""
 
 
 properly_formatted_openai_response2 = (
