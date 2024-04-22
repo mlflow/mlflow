@@ -3,7 +3,6 @@ from collections import defaultdict
 from unittest.mock import MagicMock
 
 import langchain
-from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 import pytest
 from packaging.version import Version
 
@@ -17,6 +16,7 @@ from mlflow.langchain.databricks_dependencies import (
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
 )
+from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 
 
 class MockDatabricksServingEndpointClient:
