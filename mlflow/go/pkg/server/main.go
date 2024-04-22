@@ -9,8 +9,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
-type GlowMlflowService struct {
-}
+type GlowMlflowService struct{}
 
 // CreateExperiment implements MlflowService.
 func (g GlowMlflowService) CreateExperiment(input *protos.CreateExperiment) (protos.CreateExperiment_Response, *MlflowError) {
@@ -132,9 +131,11 @@ func (g GlowMlflowService) UpdateRun(input *protos.UpdateRun) (protos.UpdateRun_
 	return protos.UpdateRun_Response{}, &MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
 }
 
-var mlflowService MlflowService = GlowMlflowService{}
-var modelRegistryService ModelRegistryService
-var mlflowArtifactsService MlflowArtifactsService
+var (
+	mlflowService          MlflowService = GlowMlflowService{}
+	modelRegistryService   ModelRegistryService
+	mlflowArtifactsService MlflowArtifactsService
+)
 
 type LaunchConfiguration struct {
 	Port         int

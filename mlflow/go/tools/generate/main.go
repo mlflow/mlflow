@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
+
 	"github.com/mlflow/mlflow/mlflow/go/pkg/server"
 )
 
