@@ -36,7 +36,7 @@ from mlflow.langchain.utils import (
 )
 
 if TYPE_CHECKING:
-    from langchain.schema.runnable import RunnableSequence
+    from langchain.schema.runnable import Runnable
 
 _STEPS_FOLDER_NAME = "steps"
 _RUNNABLE_STEPS_FILE_NAME = "steps.yaml"
@@ -441,10 +441,11 @@ def _load_runnables(path, conf):
     )
 
 
-def get_runnable_steps(model: RunnableSequence):
-    # RunnableSequence stores steps as `steps__` attribute since version 0.16.0. However, it was
-    # stored as `steps` attribute before that.
+def get_runnable_steps(model: Runnable):
     try:
-        return model.steps__
-    except AttributeError:
         return model.steps
+    except AttributeError:
+        # RunnableParallel stores steps as `steps__` attribute since version 0.16.0, while it was
+        # stored as `steps` attribute before that and other runnables like RunnableSequence still
+        # has `steps` property.
+        return model.steps__
