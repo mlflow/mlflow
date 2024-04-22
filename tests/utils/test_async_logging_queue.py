@@ -6,6 +6,7 @@ import time
 import uuid
 
 import pytest
+import mlflow
 
 from mlflow import MlflowException
 from mlflow.entities.metric import Metric

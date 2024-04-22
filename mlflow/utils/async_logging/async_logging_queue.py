@@ -14,6 +14,7 @@ from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 from mlflow.utils.async_logging.run_batch import RunBatch
 from mlflow.utils.async_logging.run_operations import RunOperations
+from mlflow.environment_variables import MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE
 
 _logger = logging.getLogger(__name__)
 
@@ -233,12 +234,12 @@ class AsyncLoggingQueue:
                 daemon=True,
             )
             self._batch_logging_worker_threadpool = ThreadPoolExecutor(
-                max_workers=10,
+                max_workers=MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.get() or 10,
                 thread_name_prefix="MLflowBatchLoggingWorkerPool",
             )
 
             self._batch_status_check_threadpool = ThreadPoolExecutor(
-                max_workers=10,
+                max_workers=MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.get() or 10,
                 thread_name_prefix="MLflowAsyncLoggingStatusCheck",
             )
             self._batch_logging_thread.start()
