@@ -6,7 +6,7 @@ import pytest
 
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
-from mlflow.tracing.types.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 
 
 def test_trace(mock_client):

@@ -6,10 +6,9 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import LiveSpan, Trace
+from mlflow.entities import LiveSpan, NoOpSpan, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.types.wrapper import NoOpSpan
 
 from tests.tracing.helper import create_mock_otel_span
 
