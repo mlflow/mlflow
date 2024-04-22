@@ -40,7 +40,7 @@ openai_justification1 = (
 properly_formatted_openai_response1 = f"""\
 {{
   "score": 3,
-  "justification": {openai_justification1}
+  "justification": "{openai_justification1}"
 }}"""
 
 
