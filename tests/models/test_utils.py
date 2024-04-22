@@ -248,7 +248,7 @@ def test_enforce_object_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type int",
+        match=r"Failed to enforce schema for key `a`. Expected type string, received type int",
     ):
         _enforce_object({"a": 1}, obj)
 
@@ -316,7 +316,7 @@ def test_enforce_property_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type list",
+        match=r"Failed to enforce schema for key `a`. Expected type string, received type list",
     ):
         _enforce_property(
             {"a": ["some_sentence1", "some_sentence2"]},

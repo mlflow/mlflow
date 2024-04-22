@@ -177,6 +177,7 @@ select = [
   "F",       # Pyflakes
   "C4",      # flake8-comprehensions
   "I",       # isort
+  "ISC001",  # single-line-implicit-string-concatenation
   "PIE790",  # unnecessary-placeholder
   "PLR0402", # manual-from-import
   "PT001",   # pytest-fixture-incorrect-parentheses-style
