@@ -40,6 +40,7 @@ def main():
     flavor = args.flavor
     output_file = args.output_file
     module_to_throw = args.module_to_throw
+    inspected_code_path_output = args.inspected_code_path_output
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
@@ -65,7 +66,10 @@ def main():
             )
 
     cap_cm = _CaptureImportedModulesForHF(module_to_throw)
-    store_imported_modules(cap_cm, model_path, flavor, output_file)
+    store_imported_modules(
+        cap_cm, model_path, flavor, output_file,
+        inspected_code_path_output=inspected_code_path_output,
+    )
 
 
 if __name__ == "__main__":
