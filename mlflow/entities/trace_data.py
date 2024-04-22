@@ -25,7 +25,7 @@ class TraceData:
         return cls(
             request=d.get("request"),
             response=d.get("response"),
-            spans=[Span.from_dict(span) for span in d["spans"]],
+            spans=[Span.from_dict(span) for span in d.get("spans", [])],
         )
 
     def to_dict(self) -> Dict[str, Any]:
