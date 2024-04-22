@@ -10,6 +10,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
+from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.autologging_utils import (
@@ -165,10 +166,13 @@ def _runnable_with_retriever(model):
             return any(_runnable_with_retriever(runnable) for _, runnable in model.branches)
 
         if isinstance(model, RunnableParallel):
-            return any(_runnable_with_retriever(runnable) for runnable in model.steps.values())
+            return any(
+                _runnable_with_retriever(runnable)
+                for runnable in get_runnable_steps(model).values()
+            )
 
         if isinstance(model, RunnableSequence):
-            return any(_runnable_with_retriever(runnable) for runnable in model.steps)
+            return any(_runnable_with_retriever(runnable) for runnable in get_runnable_steps(model))
 
         if isinstance(model, RunnableAssign):
             return _runnable_with_retriever(model.mapper)
