@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import cloudpickle
 import yaml
@@ -32,6 +34,9 @@ from mlflow.langchain.utils import (
     lc_runnables_types,
     picklable_runnable_types,
 )
+
+if TYPE_CHECKING:
+    from langchain.schema.runnable import Runnable
 
 _STEPS_FOLDER_NAME = "steps"
 _RUNNABLE_STEPS_FILE_NAME = "steps.yaml"
@@ -293,7 +298,7 @@ def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None
     steps_path = save_path / _STEPS_FOLDER_NAME
     steps_path.mkdir()
 
-    steps = model.steps
+    steps = get_runnable_steps(model)
     if isinstance(steps, list):
         generator = enumerate(steps)
     elif isinstance(steps, dict):
@@ -434,3 +439,13 @@ def _load_runnables(path, conf):
     raise MlflowException.invalid_parameter_value(
         _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=model_type)
     )
+
+
+def get_runnable_steps(model: Runnable):
+    try:
+        return model.steps
+    except AttributeError:
+        # RunnableParallel stores steps as `steps__` attribute since version 0.16.0, while it was
+        # stored as `steps` attribute before that and other runnables like RunnableSequence still
+        # has `steps` property.
+        return model.steps__
