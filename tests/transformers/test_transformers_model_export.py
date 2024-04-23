@@ -3458,6 +3458,7 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
+        metadata={"foo": "bar"},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
