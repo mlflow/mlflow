@@ -1,12 +1,11 @@
 from collections import defaultdict
-from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, NamedTuple, Optional, Union
 
 import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracing.utils import traces_to_df, SPANS_COLUMN_NAME
+from mlflow.tracing.utils import SPANS_COLUMN_NAME, traces_to_df
 
 
 def extract(
@@ -14,6 +13,16 @@ def extract(
     fields: List[str],
     col_name: Optional[str] = None,
 ) -> pd.DataFrame:
+    """
+    Extracts the specified fields from the spans contained in the specified traces.
+
+    Args:
+        traces: A list of MLflow Traces or a pandas DataFrame containing traces.
+        fields: A list of field strings of the form 'span_name.[inputs|outputs]' or
+            'span_name.[inputs|outputs].field_name'.
+        col_name: The name of the column in the traces DataFrame containing the spans. If `traces`
+            is a list of MLflow Traces, this argument should not be provided.
+    """
     parsed_fields = _parse_fields(fields)
 
     if isinstance(traces, list):
@@ -31,12 +40,19 @@ def extract(
         return _extract_from_traces_pandas_df(df=traces, col_name=col_name, fields=parsed_fields)
 
     raise MlflowException(
-        message=("`traces` must be a list of MLflow Traces or a pandas DataFrame. Got: {type(traces)}"),
+        message=(
+            "`traces` must be a list of MLflow Traces or a pandas DataFrame. Got: {type(traces)}"
+        ),
         error_code=INVALID_PARAMETER_VALUE,
     )
 
 
 class _ParsedField(NamedTuple):
+    """
+    Represents a parsed field from a string of the form 'span_name.[inputs|outputs]' or
+    'span_name.[inputs|outputs].field_name'.
+    """
+
     span_name: str
     field_type: Literal["inputs", "outputs"]
     field_name: Optional[str]
@@ -48,7 +64,7 @@ class _ParsedField(NamedTuple):
             raise MlflowException(
                 message=(
                     f"Field must be of the form 'span_name.[inputs|outputs]' or"
-                    f" 'span_name.[inputs|outputs].field_name. Got: {s}"
+                    f" 'span_name.[inputs|outputs].field_name'. Got: {s}"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -68,12 +84,19 @@ class _ParsedField(NamedTuple):
 
 
 def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
+    """
+    Parses the specified field strings of the form 'span_name.[inputs|outputs]' or
+    'span_name.[inputs|outputs].field_name' into _ParsedField objects.
+    """
     return [_ParsedField.from_string(field) for field in fields]
 
 
 def _extract_from_traces_pandas_df(
     df: pd.DataFrame, col_name: str, fields: List[_ParsedField]
 ) -> pd.DataFrame:
+    """
+    Extracts the specified fields from the spans contained in the specified column of the specified traces DataFrame.
+    """
     from mlflow.tracing.types.wrapper import Span
 
     if col_name not in df.columns:
@@ -102,16 +125,30 @@ def _extract_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _find_matching_value(field: _ParsedField, spans: List["mlflow.tracing.types.wrapper.Span"]) -> List[Any]:
+def _find_matching_value(
+    field: _ParsedField, spans: List["mlflow.tracing.types.wrapper.Span"]
+) -> Optional[Any]:
+    """
+    Find the value of the field in the list of spans. If the field is not found, return None.
+    """
     for span in spans:
         span_inputs_or_outputs = getattr(span, field.field_type)
-        if isinstance(span_inputs_or_outputs, dict) and field.field_name is not None and field.field_name in span_inputs_or_outputs:
+        if (
+            isinstance(span_inputs_or_outputs, dict)
+            and field.field_name is not None
+            and field.field_name in span_inputs_or_outputs
+        ):
             return span_inputs_or_outputs.get(field.field_name)
         elif field.field_name is None:
             return span_inputs_or_outputs
 
 
-def _extract_spans_from_row(row_content: Optional[List[Dict[str, Any]]]) -> List["mlflow.tracing.types.wrapper.Span"]:
+def _extract_spans_from_row(
+    row_content: Optional[List[Dict[str, Any]]],
+) -> List["mlflow.tracing.types.wrapper.Span"]:
+    """
+    Parses and extracts MLflow Spans from the row content of a traces pandas DataFrame.
+    """
     from mlflow.tracing.types.wrapper import Span
 
     if row_content is None:
