@@ -343,3 +343,23 @@ def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch, c
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
     assert df["request_metadata"].tolist() == [{}]
+
+
+def test_search_traces_extracts_fields_as_expected(monkeypatch, create_trace):
+    trace = create_trace("a")
+
+    class MockMlflowClient:
+        def search_traces(self, *args, **kwargs):
+            return [trace]
+
+    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
+    #
+    # df = mlflow.search_traces()
+    # assert df["request_id"].tolist() == [trace.info.request_id]
+    # assert df["timestamp_ms"].tolist() == [trace.info.timestamp_ms]
+    # assert df["status"].tolist() == [trace.info.status]
+    # assert df["execution_time_ms"].tolist() == [trace.info.execution_time_ms]
+    # assert df["request"].tolist() == [trace.data.request]
+    # assert df["response"].tolist() == [trace.data.response]
+    # assert df["request_metadata"].tolist() == [trace.info.request_metadata]
+    # assert df["spans"].tolist() == [trace.data.spans
