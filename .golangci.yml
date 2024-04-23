@@ -21,7 +21,11 @@ linters-settings:
     sections:
       - standard # Standard section: captures all standard packages.
       - default # Default section: contains all imports that could not be matched to another section type.
+      - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
       - prefix(github.com/mlflow/mlflow) # Custom section: groups all imports with the specified Prefix.
       - blank # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
       - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
-      - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
+
+  gofumpt:
+    module-path: github.com/mlflow/mlflow
+    extra-rules: true

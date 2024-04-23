@@ -75,6 +75,4 @@ rm "$PROTOS/databricks_filesystem_service_pb2.py.old"
 python ./dev/proto_to_graphql/code_generator.py
 
 # Generate the Go interfaces
-pushd "mlflow/go"
-go run "tools/generate/main.go" "./pkg"
-popd
+go run ./mlflow/go/tools/generate ./mlflow/go/pkg
