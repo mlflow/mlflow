@@ -6,31 +6,34 @@ import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.utils import traces_to_df, SPANS_COLUMN_NAME
 
 
 def extract(
-    traces: Union[List["mlflow.entities.Trace"], pd.DataFrame, "pyspark.sql.DataFrame"], col_name: Optional[str], fields: List[str]
-) -> Union[pd.DataFrame, "pyspark.sql.DataFrame"]:
+    traces: Union[List["mlflow.entities.Trace"], pd.DataFrame],
+    fields: List[str],
+    col_name: Optional[str] = None,
+) -> pd.DataFrame:
     parsed_fields = _parse_fields(fields)
 
-    try:
-        from pyspark.sql import DataFrame as SparkDataFrame
-
-        if isinstance(traces, SparkDataFrame):
-            return _extract_from_traces_spark_df(df=traces, col_name=col_name, fields=parsed_fields)
-    except ImportError:
-        pass
-
     if isinstance(traces, list):
-        traces = _traces_to_df(traces)
+        if col_name is not None:
+            raise MlflowException(
+                message=(
+                    "If `traces` is a list of MLflow Traces, `col_name` should not be provided."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        traces = traces_to_df(traces)
+        col_name = SPANS_COLUMN_NAME
 
     if isinstance(traces, pd.DataFrame):
         return _extract_from_traces_pandas_df(df=traces, col_name=col_name, fields=parsed_fields)
-    else:
-        raise MlflowException(
-            message=("`df` must be a pandas DataFrame or a Spark DataFrame. Got: {type(df)}"),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+
+    raise MlflowException(
+        message=("`traces` must be a list of MLflow Traces or a pandas DataFrame. Got: {type(traces)}"),
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 class _ParsedField(NamedTuple):
@@ -68,37 +71,23 @@ def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
     return [_ParsedField.from_string(field) for field in fields]
 
 
-def _traces_to_df(traces: List["mlflow.entities.Trace"]) -> pd.DataFrame:
-    """
-    Convert a list of MLflow Traces to a pandas DataFrame with one column called "traces"
-    containing string representations of each Trace.
-    """
-
-    rows = [
-        TraceRow(
-            request_id=trace.info.request_id,
-            timestamp_ms=trace.info.timestamp_ms,
-            status=trace.info.status,
-            execution_time_ms=trace.info.execution_time_ms,
-            request=trace.data.request,
-            response=trace.data.response,
-            request_metadata=trace.info.request_metadata,
-            spans=trace.data.spans,
-        )
-        for trace in traces
-    ]
-    return pd.DataFrame.from_records([row.to_dict() for row in rows])
-
-
 def _extract_from_traces_pandas_df(
     df: pd.DataFrame, col_name: str, fields: List[_ParsedField]
 ) -> pd.DataFrame:
     from mlflow.tracing.types.wrapper import Span
 
+    if col_name not in df.columns:
+        raise MlflowException(
+            message=(
+                f"Column '{col_name}' not found in traces DataFrame. Available columns: {df.columns}"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     new_columns: Dict[str, List[Any]] = defaultdict(list)
     for _, row in df.iterrows():
         spans_dict: Dict[str, List[Span]] = defaultdict(list)
-        for span in [Span.from_dict(span_dict) for span_dict in row["spans"]]:
+        for span in _extract_spans_from_row(row[col_name]):
             spans_dict[span.name].append(span)
 
         for field in fields:
@@ -126,62 +115,19 @@ def _extract_from_traces_pandas_df(
 
     return df_with_new_fields
 
-
-def _extract_from_traces_spark_df(
-    df: "pyspark.sql.DataFrame", col_name: str, fields: List[_ParsedField]
-) -> "pyspark.sql.DataFrame":
-    from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import StringType, StructField
-
-    output_schema = [
-        StructField(name=str(field), dataType=StringType(), nullable=True)
-        if field.field_name is not None
-        else StructField(
-            name=str(field),
-            dataType=MapType(
-                keyType=StringType(),
-                valueType=StringType(),
-                valueContainsNull=True,
-            ),
-            nullable=True,
-        )
-        for field in fields
-    ]
-
-    @pandas_udf(output_schema, functionType=pandas_udf.PandasUDFType.GROUPED_MAP)
-    def extract_from_traces_udf(df_iter: pd.DataFrame) -> pd.DataFrame:
-        return _extract_from_traces_pandas_df(df=df_iter, col_name=col_name, fields=fields)
-
-    return df.apply(extract_from_traces_udf)
-
-
-def _extract_spans_as_column(
-    df: pd.DataFrame, col_name: str
-) -> List[List["mlflow.tracing.types.wrapper.Span"]]:
-
-    return df
-
-@dataclass
-class TraceRow:
+def _extract_spans_from_row(row_content: Optional[List[Dict[str, Any]]]) -> List["mlflow.tracing.types.wrapper.Span"]:
     from mlflow.tracing.types.wrapper import Span
 
-    request_id: str
-    timestamp_ms: int
-    status: str
-    execution_time_ms: int
-    request: str
-    request_metadata: Dict[str, str]
-    spans: List[Span]
-    response: Optional[str] = None
+    if row_content is None:
+        return []
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "request_id": self.request_id,
-            "timestamp_ms": self.timestamp_ms,
-            "status": self.status,
-            "execution_time_ms": self.execution_time_ms,
-            "request": self.request,
-            "response": self.response,
-            "request_metadata": self.request_metadata,
-            "spans": [span.to_dict() for span in self.spans],
-        }
+    try:
+        return [Span.from_dict(span_dict) for span_dict in row_content]
+    except Exception as e:
+        raise MlflowException(
+            message=(
+                f"Failed to extract spans from traces DataFrame row content: {row_content}."
+                f" Error: {e}"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
