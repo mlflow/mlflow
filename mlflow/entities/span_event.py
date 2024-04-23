@@ -1,12 +1,11 @@
-import sys
 import time
-import traceback
 from dataclasses import dataclass, field
 from typing import Dict
 
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.utils.exception_utils import get_stacktrace
 
 
 @dataclass
@@ -33,27 +32,13 @@ class SpanEvent(_MlflowObject):
 
     @classmethod
     def from_exception(cls, exception: Exception):
-        "Create a span event from an exception."
+        """Create a span event from an exception."""
 
-        stack_trace = cls._get_stacktrace(exception)
         return cls(
             name="exception",
             attributes={
                 "exception.message": str(exception),
                 "exception.type": exception.__class__.__name__,
-                "exception.stacktrace": stack_trace,
+                "exception.stacktrace": get_stacktrace(exception),
             },
         )
-
-    @staticmethod
-    def _get_stacktrace(error: BaseException) -> str:
-        """Get the stacktrace of the parent error."""
-        msg = repr(error)
-        try:
-            if sys.version_info < (3, 10):
-                tb = traceback.format_exception(error.__class__, error, error.__traceback__)
-            else:
-                tb = traceback.format_exception(error)
-            return (msg + "\n\n".join(tb)).strip()
-        except Exception:
-            return msg
