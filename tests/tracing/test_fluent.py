@@ -5,7 +5,8 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import SpanStatusCode, SpanType
+from mlflow.entities import SpanStatusCode, SpanType, Trace, TraceData, TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.types.constant import TraceMetadataKey
 
 
@@ -316,6 +317,29 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch, create_tr
         assert df.iloc[idx].tags == trace.info.tags
 
 
-def test_search_traces_handles_missing_response(monkeypatch, create_trace):
-    traces_to_return = [create_trace("a"), create_trace("b"), create_trace("c")]
-    traces_to_return
+def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch, create_trace):
+    class MockMlflowClient:
+        def search_traces(self, *args, **kwargs):
+            return [
+                Trace(
+                    info=TraceInfo(
+                        request_id=5,
+                        experiment_id="test",
+                        timestamp_ms=1,
+                        execution_time_ms=2,
+                        status=TraceStatus.OK,
+                    ),
+                    data=TraceData(
+                        spans=[],
+                        request="request",
+                        # Response is missing
+                    ),
+                )
+            ]
+
+    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
+
+    df = mlflow.search_traces()
+    assert df["response"].isnull().all()
+    assert df["tags"].tolist() == [{}]
+    assert df["request_metadata"].tolist() == [{}]
