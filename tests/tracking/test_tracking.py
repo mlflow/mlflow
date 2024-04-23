@@ -1221,4 +1221,5 @@ def test_set_async_logging_threadpool_size():
     store = mlflow.tracking._get_store()
     async_queue = store._async_logging_queue
     assert async_queue._batch_logging_worker_threadpool._max_workers == 6
+    mlflow.flush_async_logging()
     MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.unset()
