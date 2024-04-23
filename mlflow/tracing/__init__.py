@@ -104,7 +104,7 @@ def _extract_from_traces_pandas_df(
     specified traces DataFrame.
     """
 
-    from mlflow.tracing.types.wrapper import Span
+    from mlflow.entities import Span
 
     if col_name not in df.columns:
         raise MlflowException(
@@ -133,9 +133,7 @@ def _extract_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _find_matching_value(
-    field: _ParsedField, spans: List["mlflow.tracing.types.wrapper.Span"]
-) -> Optional[Any]:
+def _find_matching_value(field: _ParsedField, spans: List["mlflow.entities.Span"]) -> Optional[Any]:
     """
     Find the value of the field in the list of spans. If the field is not found, return None.
     """
@@ -153,11 +151,11 @@ def _find_matching_value(
 
 def _extract_spans_from_row(
     row_content: Optional[List[Dict[str, Any]]],
-) -> List["mlflow.tracing.types.wrapper.Span"]:
+) -> List["mlflow.entities.Span"]:
     """
     Parses and extracts MLflow Spans from the row content of a traces pandas DataFrame.
     """
-    from mlflow.tracing.types.wrapper import Span
+    from mlflow.entities import Span
 
     if row_content is None:
         return []

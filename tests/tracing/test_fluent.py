@@ -7,7 +7,7 @@ import pytest
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType, Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.types.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 
 
 def test_trace(mock_client):
@@ -345,21 +345,38 @@ def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch, c
     assert df["request_metadata"].tolist() == [{}]
 
 
-def test_search_traces_extracts_fields_as_expected(monkeypatch, create_trace):
-    trace = create_trace("a")
+def test_search_traces_extracts_fields_as_expected(monkeypatch):
+    class TestModel:
+        @mlflow.trace()
+        def predict(self, x, y):
+            z = x + y
+            z = self.add_one(z)
+            z = mlflow.trace(self.square)(z)
+            return z  # noqa: RET504
+
+        @mlflow.trace(
+            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
+        )
+        def add_one(self, z):
+            return z + 1
+
+        def square(self, t):
+            res = t**2
+            time.sleep(0.1)
+            return res
+
+    model = TestModel()
+    model.predict(2, 5)
 
     class MockMlflowClient:
         def search_traces(self, *args, **kwargs):
-            return [trace]
+            return mlflow.get_traces()
 
     monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-    #
-    # df = mlflow.search_traces()
-    # assert df["request_id"].tolist() == [trace.info.request_id]
-    # assert df["timestamp_ms"].tolist() == [trace.info.timestamp_ms]
-    # assert df["status"].tolist() == [trace.info.status]
-    # assert df["execution_time_ms"].tolist() == [trace.info.execution_time_ms]
-    # assert df["request"].tolist() == [trace.data.request]
-    # assert df["response"].tolist() == [trace.data.response]
-    # assert df["request_metadata"].tolist() == [trace.info.request_metadata]
-    # assert df["spans"].tolist() == [trace.data.spans
+
+    df = mlflow.search_traces(
+        extract_fields=["predict.inputs.x", "predict.outputs", "add_one_with_custom_name.inputs.z"]
+    )
+    assert df["predict.inputs.x"].tolist() == [2]
+    assert df["predict.outputs"].tolist() == [64]
+    assert df["add_one_with_custom_name.inputs.z"].tolist() == [7]

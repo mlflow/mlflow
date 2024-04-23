@@ -137,15 +137,13 @@ def traces_to_df(traces: List["mlflow.entities.Trace"]) -> "pandas.DataFrame":
 
 @dataclass
 class _TraceRow:
-    from mlflow.tracing.types.wrapper import Span
-
     request_id: str
     timestamp_ms: int
     status: str
     execution_time_ms: int
     request: str
     request_metadata: Dict[str, str]
-    spans: List[Span]
+    spans: List["mlflow.entities.Span"]
     tags: Dict[str, str]
     response: Optional[str] = None
 
