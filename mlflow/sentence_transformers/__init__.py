@@ -522,5 +522,7 @@ class _SentenceTransformerModelWrapper:
             output_data = self.model.encode(sentences)
 
         if convert_output_to_llm_v1_format:
-            output_data = postprocess_output_for_llm_v1_embedding_task(sentences, output_data)
+            output_data = postprocess_output_for_llm_v1_embedding_task(
+                sentences, output_data, self.model.tokenizer
+            )
         return output_data
