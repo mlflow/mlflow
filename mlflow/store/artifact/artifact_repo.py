@@ -279,12 +279,12 @@ class ArtifactRepository:
         """
         raise NotImplementedError
 
-    def upload_trace_data(self, trace_data: Dict[str, Any]) -> None:
+    def upload_trace_data(self, trace_data: str) -> None:
         """
         Upload the trace data.
 
         Args:
-            trace_data: The trace data to upload.
+            trace_data: The json-serialized trace data to upload.
         """
         raise NotImplementedError
 

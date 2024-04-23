@@ -4,6 +4,7 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import json
 import logging
 import os
 from collections import OrderedDict
@@ -34,6 +35,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -777,7 +779,8 @@ class TrackingServiceClient:
 
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
-        return artifact_repo.upload_trace_data(trace_data.to_dict())
+        trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder)
+        return artifact_repo.upload_trace_data(trace_data_json)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.

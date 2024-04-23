@@ -1,8 +1,7 @@
-import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from mlflow.tracing.types.wrapper import Span
+from mlflow.entities import Span
 
 
 @dataclass
@@ -23,11 +22,10 @@ class TraceData:
 
     @classmethod
     def from_dict(cls, d):
-        spans = [Span.from_dict(span) for span in d["spans"]]
         return cls(
-            spans=spans,
-            request=json.dumps(spans[0].inputs),
-            response=json.dumps(spans[0].outputs),
+            request=d.get("request"),
+            response=d.get("response"),
+            spans=[Span.from_dict(span) for span in d.get("spans", [])],
         )
 
     def to_dict(self) -> Dict[str, Any]:
