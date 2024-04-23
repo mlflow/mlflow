@@ -12,9 +12,9 @@ from queue import Empty, Queue
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
+from mlflow.environment_variables import MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE
 from mlflow.utils.async_logging.run_batch import RunBatch
 from mlflow.utils.async_logging.run_operations import RunOperations
-from mlflow.environment_variables import MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE
 
 _logger = logging.getLogger(__name__)
 

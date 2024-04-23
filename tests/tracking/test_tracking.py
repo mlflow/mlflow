@@ -15,7 +15,7 @@ import yaml
 import mlflow
 from mlflow import MlflowClient, tracking
 from mlflow.entities import LifecycleStage, Metric, Param, RunStatus, RunTag, ViewType
-from mlflow.environment_variables import MLFLOW_RUN_ID, MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE
+from mlflow.environment_variables import MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE, MLFLOW_RUN_ID
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.tracking.file_store import FileStore
@@ -1212,7 +1212,7 @@ def test_log_table_with_valid_image_columns():
 
 
 def test_set_async_logging_threadpool_size():
-    mlflow.config.set_async_logging_threadpool_size(6)
+    MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.set(6)
     assert MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.get() == 6
 
     with mlflow.start_run():
@@ -1221,5 +1221,4 @@ def test_set_async_logging_threadpool_size():
     store = mlflow.tracking._get_store()
     async_queue = store._async_logging_queue
     assert async_queue._batch_logging_worker_threadpool._max_workers == 6
-    mlflow.config.set_async_logging_threadpool_size(6)
     MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.unset()

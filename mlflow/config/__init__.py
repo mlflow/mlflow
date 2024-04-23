@@ -1,6 +1,5 @@
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_LOGGING,
-    MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE,
 )
 from mlflow.system_metrics import (
     disable_system_metrics_logging,
@@ -44,15 +43,6 @@ def enable_async_logging(enable=True):
     """
 
     MLFLOW_ENABLE_ASYNC_LOGGING.set(enable)
-
-
-def set_async_logging_threadpool_size(num_workers):
-    """Set the number of workers in the thread pool for async logging.
-
-    Args:
-        num_workers: int, the number of workers in the thread pool for async logging.
-    """
-    MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.set(num_workers)
 
 
 __all__ = [
