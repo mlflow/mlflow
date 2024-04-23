@@ -318,7 +318,7 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(
             method="rename_registered_model",
             message="Use the Databricks Python SDK or Unity Catalog REST API to "
-                    "rename registered models in Unity Catalog",
+            "rename registered models in Unity Catalog",
         )
 
     def delete_registered_model(self, name):
