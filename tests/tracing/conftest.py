@@ -1,3 +1,5 @@
+import random
+import time
 from unittest import mock
 
 import pytest
@@ -55,13 +57,19 @@ def create_trace():
         info=TraceInfo(
             request_id=id,
             experiment_id="test",
-            timestamp_ms=0,
-            execution_time_ms=1,
-            status=TraceStatus.OK,
-            request_metadata={},
-            tags={},
+            timestamp_ms=int(time.time() * 1000),
+            execution_time_ms=100 % random.randint(0, 100),
+            status=TraceStatus.OK if random.randint(0, 100) % 2 == 0 else TraceStatus.ERROR,
+            request_metadata={"request_id": id},
+            tags={
+                "timestamp_ms": int(time.time() * 1000),
+            },
         ),
-        data=TraceData(),
+        data=TraceData(
+            spans=[],
+            request=(id * random.randint(0, 100)),
+            response=(id * random.randint(0, 50)),
+        ),
     )
 
 

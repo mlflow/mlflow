@@ -281,3 +281,41 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
+
+
+def test_search_traces_yields_expected_dataframe_contents(monkeypatch, create_trace):
+    traces_to_return = [create_trace("a"), create_trace("b"), create_trace("c")]
+
+    class MockMlflowClient:
+        def search_traces(self, *args, **kwargs):
+            return traces_to_return
+
+    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
+
+    df = mlflow.search_traces()
+    assert df.columns.tolist() == [
+        "request_id",
+        "timestamp_ms",
+        "status",
+        "execution_time_ms",
+        "request",
+        "response",
+        "request_metadata",
+        "spans",
+        "tags",
+    ]
+    for idx, trace in enumerate(traces_to_return):
+        assert df.iloc[idx].request_id == trace.info.request_id
+        assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
+        assert df.iloc[idx].status == trace.info.status
+        assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms
+        assert df.iloc[idx].request == trace.data.request
+        assert df.iloc[idx].response == trace.data.response
+        assert df.iloc[idx].request_metadata == trace.info.request_metadata
+        assert df.iloc[idx].spans == trace.data.spans
+        assert df.iloc[idx].tags == trace.info.tags
+
+
+def test_search_traces_handles_missing_response(monkeypatch, create_trace):
+    traces_to_return = [create_trace("a"), create_trace("b"), create_trace("c")]
+    traces_to_return
