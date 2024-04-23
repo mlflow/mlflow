@@ -38,6 +38,7 @@ module.exports = async ({ context, github, core }) => {
   }
 
   if (no) {
+    // test
     return;
   }
 
