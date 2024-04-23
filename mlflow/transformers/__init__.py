@@ -526,7 +526,7 @@ def save_model(
     #  via the mlflow_model object attribute.
     if (
         mlflow_model.metadata is not None
-        and (metadata_task := mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY])
+        and (metadata_task := mlflow_model.metadata.get(_METADATA_LLM_INFERENCE_TASK_KEY))
         and metadata_task != task
     ):
         raise MlflowException(
