@@ -1,6 +1,7 @@
 import base64
 import json
 
+import logging
 import requests
 
 from mlflow.environment_variables import (
@@ -29,6 +30,8 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+
+_logger = logging.getLogger(__name__)
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -77,6 +80,7 @@ def http_request(
     Returns:
         requests.Response object.
     """
+    _logger.warning("ROSHNI ROSHNI ROSHNI")
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
@@ -109,6 +113,8 @@ def http_request(
 
     if auth_str:
         headers["Authorization"] = auth_str
+    
+    _logger.warning("ROSHNI HEADERS == " + str(headers))
 
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
