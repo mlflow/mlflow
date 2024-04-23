@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import sys
 from typing import Any, Dict
 
@@ -17,6 +18,7 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.requirements_utils import _capture_imported_modules
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
@@ -160,6 +162,41 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     else:
         code_dir_subpath = None
     return code_dir_subpath
+
+
+def _infer_and_copy_code_paths(model_uri, flavor, path, default_subpath="code"):
+    modules = _capture_imported_modules(model_uri, flavor, record_full_module=True)
+    code_paths = set()
+    for full_module_name in modules:
+        relative_path = full_module_name.replace(".", os.sep)
+        if os.path.exists(relative_path):
+            if os.path.isdir(relative_path):
+                init_file_path = os.path.join(relative_path, "__init__.py")
+                if os.path.exists(init_file_path):
+                    code_paths.add(init_file_path)
+            if os.path.isfile(relative_path):
+                code_paths.add(relative_path)
+
+    for code_path in code_paths:
+        src_dir_path = os.path.dirname(code_path)
+        src_file_name = os.path.basename(code_path)
+        dest_dir_path = os.path.join(path, default_subpath, src_dir_path)
+        dest_file_path = os.path.join(dest_dir_path, src_file_name)
+        os.makedirs(dest_dir_path, exist_ok=True)
+        shutil.copyfile(code_path, dest_file_path)
+
+
+def _validate_infer_and_copy_code_path(
+    code_paths, path, infer_code_path, model_uri, flavor, default_subpath="code"
+):
+    if infer_code_path:
+        if code_paths:
+            raise MlflowException(
+                "If you set 'infer_code_path' to True, you can't set 'code_paths' param."
+            )
+        _infer_and_copy_code_paths(model_uri, flavor, path, default_subpath)
+    else:
+        _validate_infer_and_copy_code_path(code_paths, path, default_subpath)
 
 
 def _add_code_to_system_path(code_path):

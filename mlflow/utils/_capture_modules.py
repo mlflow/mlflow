@@ -35,19 +35,37 @@ class _CaptureImportedModules:
     `builtins.__import__` and `importlib.import_module`.
     """
 
-    def __init__(self):
+    def __init__(self, record_full_module=False):
         self.imported_modules = set()
         self.original_import = None
         self.original_import_module = None
-        self.inspected_code_paths = set()
+        self.record_full_module = record_full_module
 
     def _wrap_import(self, original):
         @functools.wraps(original)
         def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
             is_absolute_import = level == 0
-            if is_absolute_import:
-                self._record_imported_module(name)
-            return original(name, globals, locals, fromlist, level)
+            if not self.record_full_module:
+                if is_absolute_import:
+                    self._record_imported_module(name)
+
+            result = original(name, globals, locals, fromlist, level)
+
+            if self.record_full_module:
+                if is_absolute_import:
+                    self._record_imported_module(name)
+                else:
+                    parent_modules = globals["__name__"].split(".")
+                    if level > 1:
+                        parent_modules = parent_modules[: -(level - 1)]
+
+                for from_name in fromlist:
+                    full_modules = parent_modules + [from_name]
+                    full_module_name = ".".join(full_modules)
+                    if full_module_name in sys.modules:
+                        self._record_imported_module(full_module_name)
+
+            return result
 
         return wrapper
 
@@ -60,6 +78,10 @@ class _CaptureImportedModules:
         return wrapper
 
     def _record_imported_module(self, full_module_name):
+        if self.record_full_module:
+            self.imported_modules.add(full_module_name)
+            return
+
         # If the module is an internal module (prefixed by "_") or is the "databricks"
         # module, which is populated by many different packages, don't record it (specific
         # module imports within the databricks namespace are still recorded and mapped to
@@ -91,16 +113,6 @@ class _CaptureImportedModules:
 
         self.imported_modules.add(top_level_module)
 
-    def _record_inspected_code_paths(self, full_module_name):
-        relative_path = full_module_name.replace(".", os.sep)
-        if os.path.exists(relative_path):
-            if os.path.isdir(relative_path):
-                init_file_path = os.path.join(relative_path, "__init__.py")
-                if os.path.exists(init_file_path):
-                    self.inspected_code_paths.add(init_file_path)
-            if os.path.isfile(relative_path):
-                self.inspected_code_paths.add(relative_path)
-
     def __enter__(self):
         # Patch `builtins.__import__` and `importlib.import_module`
         self.original_import = builtins.__import__
@@ -123,14 +135,11 @@ def parse_args():
     parser.add_argument("--sys-path", required=True)
     parser.add_argument("--module-to-throw", required=False)
     parser.add_argument("--error-file", required=False)
-    parser.add_argument("--inspected-code-path-output", required=False)
+    parser.add_argument("--record-full-module", default=False, action="store_true")
     return parser.parse_args()
 
 
-def store_imported_modules(
-        cap_cm, model_path, flavor, output_file, error_file=None,
-        inspected_code_path_output=None,
-):
+def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file=None):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
@@ -175,8 +184,6 @@ def store_imported_modules(
 
     # Store the imported modules in `output_file`
     write_to(output_file, "\n".join(cap_cm.imported_modules))
-    if inspected_code_path_output:
-        write_to(inspected_code_path_output, "\n".join(cap_cm.inspected_code_paths))
 
 
 def main():
@@ -185,7 +192,6 @@ def main():
     flavor = args.flavor
     output_file = args.output_file
     error_file = args.error_file
-    inspected_code_path_output = args.inspected_code_path_output
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
@@ -196,11 +202,8 @@ def main():
         _prepare_subprocess_environ_for_creating_local_spark_session()
         _create_local_spark_session_for_loading_spark_model()
 
-    cap_cm = _CaptureImportedModules()
-    store_imported_modules(
-        cap_cm, model_path, flavor, output_file, error_file,
-        inspected_code_path_output,
-    )
+    cap_cm = _CaptureImportedModules(record_full_module=args.record_full_module)
+    store_imported_modules(cap_cm, model_path, flavor, output_file, error_file)
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:
