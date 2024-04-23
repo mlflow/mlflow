@@ -81,7 +81,7 @@ In the prior page, we added a model version alias to our model, but here's a pro
     model_name = "sk-learn-random-forest-reg-model"
     model_version_alias = "the_best_model_ever"
     client.set_registered_model_alias(
-        model_name, model_version_alias, 1
+        model_name, model_version_alias, "1"
     )  # Duplicate of step in UI
 
     # Get informawtion about the model
