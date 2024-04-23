@@ -8,31 +8,29 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-def select_from_traces_df(
-    df: Union[pd.DataFrame, "pyspark.sql.DataFrame"], col_name: str, fields: List[str]
+def extract(
+    traces: Union[List["mlflow.entities.Trace"], pd.DataFrame, "pyspark.sql.DataFrame"], col_name: Optional[str], fields: List[str]
 ) -> Union[pd.DataFrame, "pyspark.sql.DataFrame"]:
     parsed_fields = _parse_fields(fields)
 
     try:
         from pyspark.sql import DataFrame as SparkDataFrame
 
-        if isinstance(df, SparkDataFrame):
-            return _select_from_traces_spark_df(df=df, col_name=col_name, fields=parsed_fields)
+        if isinstance(traces, SparkDataFrame):
+            return _extract_from_traces_spark_df(df=traces, col_name=col_name, fields=parsed_fields)
     except ImportError:
         pass
 
-    if isinstance(df, pd.DataFrame):
-        return _select_from_traces_pandas_df(df=df, col_name=col_name, fields=parsed_fields)
+    if isinstance(traces, list):
+        traces = _traces_to_df(traces)
 
-    raise MlflowException(
-        message=("`df` must be a pandas DataFrame or a Spark DataFrame. Got: {type(df)}"),
-        error_code=INVALID_PARAMETER_VALUE,
-    )
-
-
-def select_from_traces(traces: List["mlflow.entities.Trace"], fields: List[str]) -> pd.DataFrame:
-    df = _traces_to_df(traces)
-    return select_from_traces_df(df=df, col_name="spans", fields=fields)
+    if isinstance(traces, pd.DataFrame):
+        return _extract_from_traces_pandas_df(df=traces, col_name=col_name, fields=parsed_fields)
+    else:
+        raise MlflowException(
+            message=("`df` must be a pandas DataFrame or a Spark DataFrame. Got: {type(df)}"),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 class _ParsedField(NamedTuple):
@@ -92,7 +90,7 @@ def _traces_to_df(traces: List["mlflow.entities.Trace"]) -> pd.DataFrame:
     return pd.DataFrame.from_records([row.to_dict() for row in rows])
 
 
-def _select_from_traces_pandas_df(
+def _extract_from_traces_pandas_df(
     df: pd.DataFrame, col_name: str, fields: List[_ParsedField]
 ) -> pd.DataFrame:
     from mlflow.tracing.types.wrapper import Span
@@ -129,11 +127,11 @@ def _select_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _select_from_traces_spark_df(
+def _extract_from_traces_spark_df(
     df: "pyspark.sql.DataFrame", col_name: str, fields: List[_ParsedField]
 ) -> "pyspark.sql.DataFrame":
     from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import StructType, StructField, StringType
+    from pyspark.sql.types import StringType, StructField
 
     output_schema = [
         StructField(name=str(field), dataType=StringType(), nullable=True)
@@ -151,24 +149,17 @@ def _select_from_traces_spark_df(
     ]
 
     @pandas_udf(output_schema, functionType=pandas_udf.PandasUDFType.GROUPED_MAP)
-    def select_from_traces_udf(df_iter: pd.DataFrame) -> pd.DataFrame:
-        return _select_from_traces_pandas_df(df=df_iter, col_name=col_name, fields=fields)
+    def extract_from_traces_udf(df_iter: pd.DataFrame) -> pd.DataFrame:
+        return _extract_from_traces_pandas_df(df=df_iter, col_name=col_name, fields=fields)
 
-    return df.apply(select_from_traces_udf)
+    return df.apply(extract_from_traces_udf)
 
 
 def _extract_spans_as_column(
     df: pd.DataFrame, col_name: str
 ) -> List[List["mlflow.tracing.types.wrapper.Span"]]:
+
     return df
-
-
-def _databricks_inference_table_to_traces_df(
-    df: "pyspark.sql.DataFrame",
-) -> "pyspark.sql.DataFrame":
-    # df.withColumn(...)
-    pass
-
 
 @dataclass
 class TraceRow:
