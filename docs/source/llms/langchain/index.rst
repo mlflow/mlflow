@@ -178,7 +178,7 @@ I can't save my chain, agent, or retriever with MLflow.
 - **Keeping Up with New Features in MLflow**: MLflow might not immediately support the latest LangChain features immediately. 
 
     If a new feature is not supported in MLflow, consider `filing a feature request on the MLflow GitHub issues page <https://github.com/mlflow/mlflow/issues>`_. 
-    With the rapid pace of changes in libraries that are in heavy active development (such as `LangChain <https://pypi.org/project/langchain/#history>`_),
+    With the rapid pace of changes in libraries that are in heavy active development (such as `LangChain's release velocity <https://pypi.org/project/langchain/#history>`_),
     breaking changes, API refactoring, and fundamental functionality support for even existing features can cause integration issues. If there is a chain, agent,
     retriever, or any future structure within LangChain that you'd like to see supported, please let us know!
 
