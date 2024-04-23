@@ -5,6 +5,7 @@ go 1.22.2
 require (
 	github.com/gofiber/fiber/v2 v2.52.4
 	github.com/iancoleman/strcase v0.3.0
+	github.com/sirupsen/logrus v1.9.3
 	google.golang.org/protobuf v1.33.0
 )
 

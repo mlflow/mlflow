@@ -1,7 +1,10 @@
 import importlib
 import importlib.metadata
+import json
+import logging
 import os
 import shlex
+import socket
 import sys
 import textwrap
 import types
@@ -226,6 +229,15 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
+def _get_safe_port():
+    """Returns an ephemeral port that is very likely to be free to bind to."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
 def _run_server(
     file_store_path,
     registry_store_uri,
@@ -241,6 +253,7 @@ def _run_server(
     waitress_opts=None,
     expose_prometheus=None,
     app_name=None,
+    experimental_go=False,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
@@ -281,9 +294,32 @@ def _run_server(
         # Instead, we need to use the `--call` flag.
         app = f"{app}()" if (not is_windows() and is_factory) else app
 
+    if experimental_go:
+        log_level = logging.getLevelName(logging.getLogger(__name__).getEffectiveLevel())
+        if log_level == "CRITICAL":
+            log_level = "FATAL"
+        go_config = {
+            "Address": f"{host}:{port}",
+            "LogLevel": log_level,
+            "PythonEnv": [f"{k}={v}" for k, v in env_map.items()],
+            "ShutdownTimeout": "1m",
+            "StaticFolder": os.path.join(os.path.dirname(__file__), REL_STATIC_DIR),
+            "Version": VERSION,
+        }
+        host = "127.0.0.1"
+        port = _get_safe_port()
+        go_config["PythonAddress"] = f"{host}:{port}"
+
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
         full_command = _build_waitress_command(waitress_opts, host, port, app, is_factory)
     else:
         full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
+
+    if experimental_go:
+        go_config["PythonCommand"] = full_command
+        env_map = {"MLFLOW_GO_CONFIG": json.dumps(go_config)}
+        # TODO this should be the actual go binary
+        full_command = ["go", "run", "./mlflow/go"]
+
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)

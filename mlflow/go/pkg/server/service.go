@@ -1,11 +1,6 @@
 package server
 
 import (
-	"fmt"
-	"path/filepath"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
@@ -136,26 +131,3 @@ var (
 	modelRegistryService   ModelRegistryService
 	mlflowArtifactsService MlflowArtifactsService
 )
-
-type LaunchConfiguration struct {
-	Port         int
-	PythonPort   int
-	StaticFolder string
-}
-
-func Launch(configuration LaunchConfiguration) {
-	app := fiber.New()
-
-	registerMlflowServiceRoutes(mlflowService, app)
-	registerModelRegistryServiceRoutes(modelRegistryService, app)
-	registerMlflowArtifactsServiceRoutes(mlflowArtifactsService, app)
-
-	app.Static("/static-files", configuration.StaticFolder)
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendFile(filepath.Join(configuration.StaticFolder, "index.html"))
-	})
-
-	app.Use(proxy.BalancerForward([]string{fmt.Sprintf("http://127.0.0.1:%d", configuration.PythonPort)}))
-
-	app.Listen(fmt.Sprintf(":%d", configuration.Port))
-}
