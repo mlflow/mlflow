@@ -120,9 +120,10 @@ def traces_to_df(traces: List["mlflow.entities.Trace"]) -> 'pandas.DataFrame':
             status=trace.info.status,
             execution_time_ms=trace.info.execution_time_ms,
             request=trace.data.request,
-            response=trace.data.response,
             request_metadata=trace.info.request_metadata,
             spans=trace.data.spans,
+            tags=trace.info.tags,
+            response=trace.data.response,
         )
         for trace in traces
     ]
@@ -140,6 +141,7 @@ class _TraceRow:
     request: str
     request_metadata: Dict[str, str]
     spans: List[Span]
+    tags: Dict[str, str]
     response: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -152,4 +154,5 @@ class _TraceRow:
             "response": self.response,
             "request_metadata": self.request_metadata,
             "spans": [span.to_dict() for span in self.spans],
+            "tags": self.tags,
         }

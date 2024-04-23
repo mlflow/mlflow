@@ -92,28 +92,24 @@ def _extract_from_traces_pandas_df(
 
         for field in fields:
             matching_spans = spans_dict.get(field.span_name, [])
-            matching_values = []
-            if field.field_type == "inputs":
-                matching_values = [
-                    span.inputs.get(field.field_name)
-                    if field.field_name is not None
-                    else span.inputs
-                    for span in matching_spans
-                ]
-            elif field.field_type == "outputs":
-                matching_values = [
-                    span.outputs.get(field.field_name)
-                    if field.field_name is not None
-                    else span.outputs
-                    for span in matching_spans
-                ]
-            new_columns[str(field)].append(matching_values[0] if matching_values else None)
+            matching_value = _find_matching_value(field, matching_spans)
+            new_columns[str(field)].append(matching_value)
 
     df_with_new_fields = df.copy()
     for field in fields:
         df_with_new_fields[str(field)] = new_columns[str(field)]
 
     return df_with_new_fields
+
+
+def _find_matching_value(field: _ParsedField, spans: List["mlflow.tracing.types.wrapper.Span"]) -> List[Any]:
+    for span in spans:
+        span_inputs_or_outputs = getattr(span, field.field_type)
+        if isinstance(span_inputs_or_outputs, dict) and field.field_name is not None and field.field_name in span_inputs_or_outputs:
+            return span_inputs_or_outputs.get(field.field_name)
+        elif field.field_name is None:
+            return span_inputs_or_outputs
+
 
 def _extract_spans_from_row(row_content: Optional[List[Dict[str, Any]]]) -> List["mlflow.tracing.types.wrapper.Span"]:
     from mlflow.tracing.types.wrapper import Span
