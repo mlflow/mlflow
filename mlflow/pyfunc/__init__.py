@@ -907,7 +907,7 @@ def load_model(
         raise e
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
-    predict_stream_fn = conf.get("predict_stream_fn") if streamable else None
+    predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
     return PyFuncModel(
         model_meta=model_meta,
@@ -2058,6 +2058,8 @@ def save_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
+    streamable=False,
+    predict_stream_fn=None,
     **kwargs,
 ):
     """
@@ -2346,6 +2348,8 @@ def save_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
+            streamable=streamable,
+            predict_stream_fn=predict_stream_fn,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -2360,6 +2364,8 @@ def save_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
+            streamable=streamable,
+            predict_stream_fn=predict_stream_fn,
         )
 
 
@@ -2382,6 +2388,8 @@ def log_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
+    streamable=False,
+    predict_stream_fn=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2536,6 +2544,11 @@ def log_model(
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
 
+        streamable: A boolean value indicating if the model supports streaming prediction, default False.
+
+        predict_stream_fn: A string value indicating the "predict_stream" method of the model,
+                           This param is only available if the ``streamable`` param is set to True.
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
@@ -2559,6 +2572,8 @@ def log_model(
         metadata=metadata,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        streamable=streamable,
+        predict_stream_fn=predict_stream_fn,
     )
 
 
@@ -2572,6 +2587,8 @@ def _save_model_with_loader_module_and_data_path(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_config=None,
+    streamable=False,
+    predict_stream_fn=None,
 ):
     """
     Export model as a generic Python function model.
@@ -2612,6 +2629,8 @@ def _save_model_with_loader_module_and_data_path(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
+        streamable=streamable,
+        predict_stream_fn=predict_stream_fn,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size

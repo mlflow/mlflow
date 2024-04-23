@@ -247,6 +247,8 @@ def _save_model_with_class_artifacts_params(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_config=None,
+    streamable=False,
+    predict_stream_fn=None,
 ):
     """
     Args:
@@ -378,6 +380,8 @@ def _save_model_with_class_artifacts_params(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
+        streamable=streamable,
+        predict_stream_fn=predict_stream_fn,
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):
