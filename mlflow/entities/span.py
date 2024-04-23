@@ -369,7 +369,7 @@ class NoOpSpan(Span):
         self._attributes = {}
 
     @property
-    def id(self):
+    def span_id(self):
         return None
 
     @property

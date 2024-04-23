@@ -142,7 +142,8 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
         key: The key of the attribute to retrieve.
 
     Returns:
-        The attribute value as decoded string. If the attribute is not found or cannot be parsed, return None.
+        The attribute value as decoded string. If the attribute is not found or cannot
+        be parsed, return None.
     """
     try:
         return json.loads(span.attributes.get(key))

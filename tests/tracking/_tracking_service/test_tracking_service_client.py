@@ -116,6 +116,7 @@ def test_upload_trace_data(tmp_path, mock_store):
         request_metadata={},
         tags={"mlflow.artifactLocation": "test"},
     )
+    mock_store.start_trace.return_value = trace_info
 
     class CustomObject(pydantic.BaseModel):
         data: str
