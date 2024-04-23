@@ -3,10 +3,15 @@ import json
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Literal
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
+
+if TYPE_CHECKING:
+    import pandas
+
+    import mlflow.entities
 
 _logger = logging.getLogger(__name__)
 
@@ -106,7 +111,7 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     )
 
 
-def traces_to_df(traces: List["mlflow.entities.Trace"]) -> 'pandas.DataFrame':
+def traces_to_df(traces: List["mlflow.entities.Trace"]) -> "pandas.DataFrame":
     """
     Convert a list of MLflow Traces to a pandas DataFrame with one column called "traces"
     containing string representations of each Trace.

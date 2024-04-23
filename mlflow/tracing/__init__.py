@@ -1,18 +1,21 @@
 from collections import defaultdict
-from typing import Any, Dict, List, Literal, NamedTuple, Optional, Union
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, NamedTuple, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.utils import SPANS_COLUMN_NAME, traces_to_df
 
+if TYPE_CHECKING:
+    import pandas as pd
+
+    import mlflow.entities
+
 
 def extract(
-    traces: Union[List["mlflow.entities.Trace"], pd.DataFrame],
+    traces: Union[List["mlflow.entities.Trace"], "pd.DataFrame"],
     fields: List[str],
     col_name: Optional[str] = None,
-) -> pd.DataFrame:
+) -> "pd.DataFrame":
     """
     Extracts the specified fields from the spans contained in the specified traces.
 
@@ -23,6 +26,8 @@ def extract(
         col_name: The name of the column in the traces DataFrame containing the spans. If `traces`
             is a list of MLflow Traces, this argument should not be provided.
     """
+    import pandas as pd
+
     parsed_fields = _parse_fields(fields)
 
     if isinstance(traces, list):
@@ -92,17 +97,20 @@ def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
 
 
 def _extract_from_traces_pandas_df(
-    df: pd.DataFrame, col_name: str, fields: List[_ParsedField]
-) -> pd.DataFrame:
+    df: "pd.DataFrame", col_name: str, fields: List[_ParsedField]
+) -> "pd.DataFrame":
     """
-    Extracts the specified fields from the spans contained in the specified column of the specified traces DataFrame.
+    Extracts the specified fields from the spans contained in the specified column of the
+    specified traces DataFrame.
     """
+
     from mlflow.tracing.types.wrapper import Span
 
     if col_name not in df.columns:
         raise MlflowException(
             message=(
-                f"Column '{col_name}' not found in traces DataFrame. Available columns: {df.columns}"
+                f"Column '{col_name}' not found in traces DataFrame."
+                f" Available columns: {df.columns}"
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
