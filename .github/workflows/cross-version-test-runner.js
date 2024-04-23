@@ -4,7 +4,7 @@ async function main({ context, github }) {
   const pull_number = context.issue.number;
 
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
-  const flavorsMatch = comment.body.match(/\/(?:cross-version-test|crt)\s+([^\n]+)\n?/);
+  const flavorsMatch = comment.body.match(/\/(?:cross-version-test|cvt)\s+([^\n]+)\n?/);
   if (!flavorsMatch) {
     return;
   }
