@@ -159,7 +159,6 @@ def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
     """
     Inject list of callbacks into the function named `func_name` of the model.
     """
-    # TODO: will this also patch invoke inside batch?
     if func_name in ["invoke", "batch"]:
         return _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs)
 
