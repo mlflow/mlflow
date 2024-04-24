@@ -344,13 +344,12 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             input_data = input_example
         try:
             data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
+            mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
         except Exception as e:
             _logger.warning(
                 f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
                 f"file due to error {e}."
             )
-        else:
-            mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:
