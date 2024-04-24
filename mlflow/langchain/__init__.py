@@ -998,6 +998,13 @@ def autolog(
                 functools.partial(patched_inference, "batch"),
             )
 
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "stream",
+                functools.partial(patched_inference, "stream"),
+            )
+
         for cls in [AgentExecutor, Chain]:
             safe_patch(
                 FLAVOR_NAME,
