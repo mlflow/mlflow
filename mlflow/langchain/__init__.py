@@ -714,9 +714,7 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import (
-            process_stream_request,
-        )
+        from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
         if isinstance(data, list):
             raise MlflowException("LangChain model predict_stream only supports single input.")
@@ -748,9 +746,7 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import (
-            process_stream_request,
-        )
+        from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
         if isinstance(data, list):
             raise MlflowException("LangChain model predict_stream only supports single input.")
