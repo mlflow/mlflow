@@ -29,7 +29,6 @@ from mlflow.entities import (
     RunTag,
     Span,
     SpanStatus,
-    SpanStatusCode,
     SpanType,
     Trace,
     TraceData,
@@ -39,6 +38,7 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -845,7 +845,7 @@ class MlflowClient:
         self,
         request_id: str,
         timestamp_ms: int,
-        status: SpanStatusCode,
+        status: TraceStatus,
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ) -> TraceInfo:
@@ -856,7 +856,7 @@ class MlflowClient:
             request_id: Unique string identifier of the trace.
             timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
                 in the TraceInfo will be calculated by subtracting the start time from this.
-            status: SpanStatusCode, status of the trace.
+            status: TraceStatus, status of the trace.
             request_metadata: dict, metadata of the trace. This will be merged with the existing
                 metadata logged during the start_trace call.
             tags: dict, tags of the trace. This will be merged with the existing tags logged

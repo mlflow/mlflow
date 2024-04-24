@@ -155,7 +155,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
     # Trace should be logged even if the function fails, with status code ERROR
     trace = mlflow.get_traces()[0]
     assert trace.info.request_id is not None
-    assert trace.info.status == SpanStatusCode.ERROR
+    assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == ""
 
@@ -225,7 +225,7 @@ def test_start_span_context_manager(clear_singleton):
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace.info.status == SpanStatusCode.OK
+    assert trace.info.status == TraceStatus.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "25"
 
@@ -307,7 +307,7 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace.info.status == SpanStatusCode.OK
+    assert trace.info.status == TraceStatus.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
 

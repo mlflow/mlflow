@@ -7,7 +7,6 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -113,7 +112,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         """Update the trace info with the final values from the root span."""
         trace.info.timestamp_ms = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000_000
-        trace.info.status = SpanStatus.from_otel_status(root_span.status).status_code
+        trace.info.status = TraceStatus.from_otel_status(root_span.status)
         trace.info.request_metadata.update(
             {
                 TraceMetadataKey.INPUTS: self._truncate_metadata(
