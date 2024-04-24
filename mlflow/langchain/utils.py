@@ -1,14 +1,14 @@
 """Utility functions for mlflow.langchain."""
 
-import contextlib
 import base64
-import tempfile
+import contextlib
 import importlib
 import json
 import logging
 import os
 import re
 import shutil
+import tempfile
 import types
 import warnings
 from functools import lru_cache
@@ -55,18 +55,16 @@ _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "langchain.schema.runnable.passthrough.RunnableAssign instances, "
     "found {instance_type}"
 )
-_UNSUPPORTED_MODEL_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
-)
-_UNSUPPORTED_LLM_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
-)
+_UNSUPPORTED_MODEL_WARNING_MESSAGE = "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
+_UNSUPPORTED_LLM_WARNING_MESSAGE = "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
 
 # Minimum version of langchain required to support ChatOpenAI and AzureChatOpenAI in MLflow
 # Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
 # will not work.
 _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
-_CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
+_CHAT_MODELS_ERROR_MSG = re.compile(
+    "Loading (openai-chat|azure-openai-chat) LLM not supported"
+)
 
 
 try:
@@ -74,9 +72,9 @@ try:
 
     # Since langchain-community 0.0.27, saving or loading a module that relies on the pickle
     # deserialization requires passing `allow_dangerous_deserialization=True`.
-    IS_PICKLE_SERIALIZATION_RESTRICTED = Version(langchain_community.__version__) >= Version(
-        "0.0.27"
-    )
+    IS_PICKLE_SERIALIZATION_RESTRICTED = Version(
+        langchain_community.__version__
+    ) >= Version("0.0.27")
 except ImportError:
     IS_PICKLE_SERIALIZATION_RESTRICTED = False
 
@@ -220,7 +218,9 @@ def _get_map_of_special_chain_class_to_loader_arg():
     else:
         if find_spec("langchain_experimental"):
             # Add this entry only if langchain_experimental is installed
-            class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
+            class_name_to_loader_arg[
+                "langchain_experimental.sql.SQLDatabaseChain"
+            ] = "database"
 
     class_to_loader_arg = {
         _RetrieverChain: "retriever",
@@ -266,7 +266,12 @@ def _get_supported_llms():
     for llm_name in ["Databricks", "Mlflow"]:
         try_adding_llm(langchain.llms, llm_name)
 
-    for chat_model_name in ["ChatDatabricks", "ChatMlflow", "ChatOpenAI", "AzureChatOpenAI"]:
+    for chat_model_name in [
+        "ChatDatabricks",
+        "ChatMlflow",
+        "ChatOpenAI",
+        "AzureChatOpenAI",
+    ]:
         try_adding_llm(langchain.chat_models, chat_model_name)
 
     return supported_llms
@@ -309,9 +314,9 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"Model path {lc_model} does not exist."
                 )
-            with open(lc_model, 'r') as _:
+            with open(lc_model) as _:
                 return lc_model
-        except IOError as e:
+        except IOError:
             from databricks.sdk import WorkspaceClient
             from databricks.sdk.service.workspace import ExportFormat
 
@@ -324,7 +329,9 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(
+                instance_type=type(lc_model).__name__
+            )
         )
 
     _SUPPORTED_LLMS = _get_supported_llms()
@@ -337,7 +344,8 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
         )
 
     if isinstance(lc_model, langchain.agents.agent.AgentExecutor) and not any(
-        isinstance(lc_model.agent.llm_chain.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
+        isinstance(lc_model.agent.llm_chain.llm, supported_llm)
+        for supported_llm in _SUPPORTED_LLMS
     ):
         logger.warning(
             _UNSUPPORTED_LLM_WARNING_MESSAGE,
@@ -505,6 +513,7 @@ def _patch_loader(loader_func: Callable) -> Callable:
         # access to the tracking server), it is safe to set this flag to True.
         def patched_loader(*args, **kwargs):
             return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
+
     else:
 
         def patched_loader(*args, **kwargs):
@@ -536,7 +545,9 @@ def _load_base_lcs(
 
     agent_path = _get_path_by_key(local_model_path, _AGENT_DATA_KEY, conf)
     tools_path = _get_path_by_key(local_model_path, _TOOLS_DATA_KEY, conf)
-    agent_primitive_path = _get_path_by_key(local_model_path, _AGENT_PRIMITIVES_DATA_KEY, conf)
+    agent_primitive_path = _get_path_by_key(
+        local_model_path, _AGENT_PRIMITIVES_DATA_KEY, conf
+    )
     loader_fn_path = _get_path_by_key(local_model_path, _LOADER_FN_KEY, conf)
     persist_dir = _get_path_by_key(local_model_path, _PERSIST_DIR_KEY, conf)
 
@@ -626,16 +637,22 @@ def patch_langchain_type_to_cls_dict():
     for module_name in modules_to_patch:
         try:
             module = importlib.import_module(module_name)
-            originals[module_name] = module.get_type_to_cls_dict  # Record original impl for cleanup
+            originals[
+                module_name
+            ] = module.get_type_to_cls_dict  # Record original impl for cleanup
         except (ImportError, AttributeError):
             continue
-        module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(originals[module_name])
+        module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(
+            originals[module_name]
+        )
 
     try:
         yield
     except ValueError as e:
         if m := _CHAT_MODELS_ERROR_MSG.search(str(e)):
-            model_name = "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
+            model_name = (
+                "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
+            )
             raise mlflow.MlflowException(
                 f"Loading {model_name} chat model is not supported in MLflow with the "
                 "current version of LangChain. Please upgrade LangChain to 0.0.307 or above "
