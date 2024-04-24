@@ -318,7 +318,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                 )
             with open(lc_model) as _:
                 return lc_model
-        except IOError:
+        except:
             from databricks.sdk import WorkspaceClient
             from databricks.sdk.service.workspace import ExportFormat
 
