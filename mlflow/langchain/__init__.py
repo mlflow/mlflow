@@ -36,7 +36,12 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path, _set_chain
+from mlflow.langchain._rag_utils import (
+    _CODE_CONFIG,
+    _CODE_PATH,
+    _set_chain,
+    _set_config_path,
+)
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -264,7 +269,9 @@ def save_model(
     if signature is None:
         if input_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
-            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+            signature = _infer_signature_from_input_example(
+                input_example, wrapped_model
+            )
         else:
             if hasattr(lc_model, "input_keys"):
                 input_columns = [
@@ -559,7 +566,9 @@ def _save_model(model, path, loader_fn, persist_dir):
         )
     with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
-            return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
+            return _save_runnables(
+                model, path, loader_fn=loader_fn, persist_dir=persist_dir
+            )
         else:
             return _save_base_lcs(model, path, loader_fn, persist_dir)
 
@@ -709,10 +718,14 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         if isinstance(data, list):
-            raise MlflowException("LangChain model predict_stream only supports single input.")
+            raise MlflowException(
+                "LangChain model predict_stream only supports single input."
+            )
 
         data = _convert_ndarray_to_list(data)
         return process_stream_request(
@@ -741,10 +754,14 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         if isinstance(data, list):
-            raise MlflowException("LangChain model predict_stream only supports single input.")
+            raise MlflowException(
+                "LangChain model predict_stream only supports single input."
+            )
 
         data = _convert_ndarray_to_list(data)
         return process_stream_request(
@@ -827,12 +844,16 @@ def _load_pyfunc(path):
     Args:
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
+    wrapper_cls = (
+        _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
+    )
     return wrapper_cls(_load_model_from_local_fs(path))
 
 
 def _load_model_from_local_fs(local_model_path):
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME
+    )
     if _CODE_CONFIG in flavor_conf:
         path = flavor_conf.get(_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
@@ -882,7 +903,9 @@ def load_model(model_uri, dst_path=None):
     Returns:
         A LangChain model instance.
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path
+    )
     return _load_model_from_local_fs(local_model_path)
 
 
