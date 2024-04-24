@@ -755,11 +755,12 @@ class MlflowClient:
             step: Integer training step (iteration) at which was the metric calculated.
                 Defaults to 0.
             synchronous: *Experimental* If True, blocks until the metric is logged successfully.
-                If False, logs the metric asynchronously and returns a future
-                representing the logging operation.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
             represents future for logging operation.
 
@@ -828,12 +829,13 @@ class MlflowClient:
             value: Parameter value, but will be string-ified if not.
                 All built-in backend stores support values up to length 6000, but some
                 may support larger values.
-            synchronous: *Experimental* If True, blocks until the parameter is logged
-                successfully. If False, logs the parameter asynchronously and
-                returns a future representing the logging operation.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns parameter value. When `synchronous=False`,
+            When `synchronous=True` or None, returns parameter value. When `synchronous=False`,
             returns an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations`
             instance that represents future for logging operation.
 
@@ -930,12 +932,13 @@ class MlflowClient:
                 length 250, but some may support larger keys.
             value: Tag value, but will be string-ified if not. All backend stores will support
                 values up to length 5000, but some may support larger values.
-            synchronous: *Experimental* If True, blocks until the tag is logged successfully. If
-                False, logs the tag asynchronously and returns a future representing the logging
-                operation.
+           synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             `mlflow.utils.async_logging.run_operations.RunOperations` instance that represents
             future for logging operation.
 
@@ -1084,15 +1087,16 @@ class MlflowClient:
             metrics: If provided, List of Metric(key, value, timestamp) instances.
             params: If provided, List of Param(key, value) instances.
             tags: If provided, List of RunTag(key, value) instances.
-            synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
-                successfully. If False, logs the metrics/tags/params asynchronously
-                and returns a future representing the logging operation.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
             represents future for logging operation.
 
@@ -1171,9 +1175,10 @@ class MlflowClient:
         Args:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            synchronous: *Experimental* If True, blocks until the artifact is logged
-                successfully. If False, logs the artifacts asynchronously
-                and returns a future representing the logging operation.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example

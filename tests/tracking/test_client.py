@@ -94,6 +94,13 @@ def mock_time():
         yield time
 
 
+@pytest.fixture
+def setup_async_logging():
+    enable_async_logging(True)
+    yield
+    enable_async_logging(False)
+
+
 def test_client_create_run(mock_store, mock_time):
     experiment_id = mock.Mock()
 
@@ -797,12 +804,9 @@ def test_client_log_metric_params_tags_overrides(mock_store):
     )
 
 
-def test_enable_async_logging(mock_store):
-    enable_async_logging(True)
+def test_enable_async_logging(mock_store, setup_async_logging):
     MlflowClient().log_param(run_id="run_id", key="key", value="val")
     mock_store.log_param_async.assert_called_once_with("run_id", Param("key", "val"))
 
     MlflowClient().log_metric(run_id="run_id", key="key", value="val", step=1, timestamp=1)
     mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))
-    # Clean up the setup.
-    enable_async_logging(False)
