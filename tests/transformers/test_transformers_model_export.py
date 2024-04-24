@@ -3529,6 +3529,15 @@ def test_llm_v1_task_embeddings_predict(feature_extraction_pipeline, model_path)
     assert prediction["usage"]["prompt_tokens"] == 10
     assert len(prediction["data"][0]["embedding"]) == 384
 
+    # Predict with pandas dataframe input
+    df = pd.DataFrame({"input": ["A great day", "A bad day", "A good day"]})
+    prediction = pyfunc_loaded.predict(df)
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 3
+    assert prediction["data"][0]["object"] == "embedding"
+    assert prediction["usage"]["prompt_tokens"] == 15
+    assert len(prediction["data"][0]["embedding"]) == 384
+
 
 @pytest.mark.parametrize(
     "request_payload",
