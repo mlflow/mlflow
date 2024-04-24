@@ -8,7 +8,10 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
+      # The first line `sudo rm /etc/...` command is a workaround for the following issue:
+      # https://github.com/orgs/community/discussions/120966#discussioncomment-9211925
       run: |
+        sudo rm /etc/apt/sources.list.d/microsoft-prod.list
         sudo apt-get update -y
         sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
