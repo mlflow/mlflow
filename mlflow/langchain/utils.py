@@ -281,10 +281,12 @@ def _get_temp_file_with_content(file_name: str, content: str, content_format) ->
     """
     Write the contents to a temporary file and return the path to that file.
 
-    :param file_name: The name of the file to be created.
-    :param content: The contents to be written to the file.
+    Args:
+        file_name: The name of the file to be created.
+        content: The contents to be written to the file.
 
-    :return: The string path to the file where the chain model is build.
+    Returns:
+        The string path to the file where the chain model is build.
     """
     # Get the temporary directory path
     temp_dir = tempfile.gettempdir()
@@ -307,7 +309,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.llms.openai
     import langchain.schema
 
-    # lc_model is a path to a file
+    # lc_model is a file path
     if isinstance(lc_model, str):
         try:
             if not os.path.exists(lc_model):
@@ -510,7 +512,6 @@ def _patch_loader(loader_func: Callable) -> Callable:
         # access to the tracking server), it is safe to set this flag to True.
         def patched_loader(*args, **kwargs):
             return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
-
     else:
 
         def patched_loader(*args, **kwargs):

@@ -548,8 +548,8 @@ def set_chain(chain):
     set_chain() so that it can be identified later when logging the
     chain with the log_model() method.
 
-    :param chain: The LangChain model instance that is defined in a
-                  Python notebook or file.
+    Args:
+        chain: The LangChain model instance that is defined in a Python notebook or file.
     """
     _set_chain(chain)
 
