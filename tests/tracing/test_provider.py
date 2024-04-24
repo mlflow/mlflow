@@ -1,5 +1,9 @@
 from opentelemetry import trace
 
+from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
+from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _get_tracer
 
 
@@ -14,3 +18,23 @@ def test_tracer_provider_singleton():
     tracer_provider_1 = trace.get_tracer_provider()
     tracer_provider_2 = trace.get_tracer_provider()
     assert tracer_provider_1 is tracer_provider_2
+
+
+def test_span_processor_and_exporter_default():
+    _TRACER_PROVIDER_INITIALIZED._done = False
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowSpanProcessor)
+    assert isinstance(processors[0].span_exporter, MlflowSpanExporter)
+
+
+def test_span_processor_and_exporter_model_serving(monkeypatch):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "True")
+
+    _TRACER_PROVIDER_INITIALIZED._done = False
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], InferenceTableSpanProcessor)
+    assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)

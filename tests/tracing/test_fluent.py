@@ -1,3 +1,4 @@
+import json
 import time
 from datetime import datetime
 from unittest import mock
@@ -6,8 +7,9 @@ import pytest
 
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
+from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 
 
 def test_trace(clear_singleton):
@@ -133,6 +135,115 @@ def test_trace_with_databricks_tracking_uri(
     mock_store.start_trace.assert_called_once()
     mock_store.end_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
+
+
+def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+
+    # Dummy flask app for prediction
+    import flask
+
+    from mlflow.tracing.export.inference_table import get_completed_trace
+
+    app = flask.Flask(__name__)
+
+    @app.route("/invocations", methods=["POST"])
+    def predict():
+        data = json.loads(flask.request.data.decode("utf-8"))
+        request_id = flask.request.headers.get("X-Request-ID")
+
+        prediction = TestModel().predict(**data)
+
+        trace = get_completed_trace(request_id=request_id)
+
+        result = json.dumps(
+            {
+                "prediction": prediction,
+                "trace": trace,
+            },
+            default=str,
+        )
+        return flask.Response(response=result, status=200, mimetype="application/json")
+
+    class TestModel:
+        @mlflow.trace()
+        def predict(self, x, y):
+            z = x + y
+            z = self.add_one(z)
+            with mlflow.start_span(name="square") as span:
+                z = self.square(z)
+                span.add_event(SpanEvent("event", 0, attributes={"foo": "bar"}))
+            return z
+
+        @mlflow.trace(span_type=SpanType.LLM, name="custom", attributes={"delta": 1})
+        def add_one(self, z):
+            return z + 1
+
+        def square(self, t):
+            return t**2
+
+    # Mimic scoring request
+    databricks_request_id = "request-12345"
+    response = app.test_client().post(
+        "/invocations",
+        headers={"X-Request-ID": databricks_request_id},
+        data=json.dumps({"x": 2, "y": 5}),
+    )
+
+    assert response.status_code == 200
+    assert response.json["prediction"] == 64
+
+    trace = response.json["trace"]
+    assert trace[TRACE_SCHEMA_VERSION_KEY] == 2
+    assert len(trace["spans"]) == 3
+
+    span_name_to_span = {span["name"]: span for span in trace["spans"]}
+    root_span = span_name_to_span["predict"]
+    assert isinstance(root_span["context"]["trace_id"], str)
+    assert isinstance(root_span["context"]["span_id"], str)
+    assert root_span["parent_id"] is None
+    assert isinstance(root_span["start_time"], int)
+    assert isinstance(root_span["end_time"], int)
+    assert root_span["status_code"] == "OK"
+    assert root_span["status_message"] == ""
+    assert json.loads(root_span["attributes"]) == {
+        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.spanType": SpanType.UNKNOWN,
+        "mlflow.spanFunctionName": "predict",
+        "mlflow.spanInputs": {"x": 2, "y": 5},
+        "mlflow.spanOutputs": 64,
+    }
+    assert root_span["events"] == []
+
+    child_span_1 = span_name_to_span["custom"]
+    assert child_span_1["parent_id"] == root_span["context"]["span_id"]
+    assert json.loads(child_span_1["attributes"]) == {
+        "delta": 1,
+        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.spanType": SpanType.LLM,
+        "mlflow.spanFunctionName": "add_one",
+        "mlflow.spanInputs": {"z": 7},
+        "mlflow.spanOutputs": 8,
+    }
+    assert child_span_1["events"] == []
+
+    child_span_2 = span_name_to_span["square"]
+    assert child_span_2["parent_id"] == root_span["context"]["span_id"]
+    assert json.loads(child_span_2["attributes"]) == {
+        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.spanType": SpanType.UNKNOWN,
+    }
+    assert child_span_2["events"] == [
+        {
+            "name": "event",
+            "timestamp": 0,
+            "attributes": {"foo": "bar"},
+        }
+    ]
+
+    # In model serving, the traces should not be stored in the fluent API buffer
+    traces = mlflow.get_traces()
+    assert len(traces) == 0
 
 
 def test_trace_handle_exception_during_prediction(clear_singleton):

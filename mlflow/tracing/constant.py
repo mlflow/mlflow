@@ -26,3 +26,7 @@ TRUNCATION_SUFFIX = "..."
 
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
+
+# Key for the trace schema version in the trace. This key is also used in
+# Databricks model serving to be careful when modifying it.
+TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"

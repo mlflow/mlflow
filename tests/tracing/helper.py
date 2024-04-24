@@ -47,6 +47,7 @@ def create_mock_otel_span(
             self._end_time = end_time
             self._status = status
             self._attributes = {}
+            self._events = []
 
         # NB: The following methods are defined as abstract method in the Span class.
         def set_attributes(self, attributes):
