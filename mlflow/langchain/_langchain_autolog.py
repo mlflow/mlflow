@@ -120,8 +120,7 @@ def _inject_callbacks(original_callbacks, new_callbacks):
         return original_callbacks
     if not isinstance(original_callbacks, list):
         original_callbacks = [original_callbacks]
-    original_callbacks.extend(new_callbacks)
-    return original_callbacks
+    return original_callbacks + new_callbacks
 
 
 def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):

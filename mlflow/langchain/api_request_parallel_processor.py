@@ -202,7 +202,7 @@ class APIRequest:
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
             docs = self.lc_model.get_relevant_documents(
-                **self.request_json, **{"callbacks": callback_handlers}
+                **self.request_json, callbacks=callback_handlers
             )
             response = [
                 {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs

@@ -699,18 +699,17 @@ class CustomCallbackHandler(BaseCallbackHandler):
     def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
         self.logs.append("chain_end")
 
-    def reset(self):
-        self.logs = []
-
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
 @pytest.mark.parametrize(
-    "callbacks", [[CustomCallbackHandler()], BaseCallbackManager([CustomCallbackHandler()])]
+    "generate_callbacks",
+    [lambda: [CustomCallbackHandler()], lambda: BaseCallbackManager([CustomCallbackHandler()])],
 )
-def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, callbacks):
+def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, generate_callbacks):
     mlflow.langchain.autolog(
         log_models=True, extra_tags={"test_tag": "test"}, log_inputs_outputs=True
     )
+    callbacks = generate_callbacks()
     with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         if invoke_arg == "args":
@@ -732,32 +731,31 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, callbacks):
     mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
     if isinstance(callbacks, BaseCallbackManager):
         assert callbacks.handlers[0].logs == ["chain_start", "chain_end"]
-        callbacks.handlers[0].reset()
     else:
         assert callbacks[0].logs == ["chain_start", "chain_end"]
-        callbacks[0].reset()
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
 @pytest.mark.parametrize(
-    "config",
+    "generate_config",
     [
-        RunnableConfig(callbacks=[CustomCallbackHandler()]),
-        RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
-        [
+        lambda: RunnableConfig(callbacks=[CustomCallbackHandler()]),
+        lambda: RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+        lambda: [
             RunnableConfig(callbacks=[CustomCallbackHandler()]),
             RunnableConfig(callbacks=[CustomCallbackHandler()]),
         ],
-        [
+        lambda: [
             RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
             RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
         ],
     ],
 )
-def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
+def test_langchain_autolog_callback_injection_in_batch(invoke_arg, generate_config):
     mlflow.langchain.autolog(
         log_models=True, extra_tags={"test_tag": "test"}, log_inputs_outputs=True
     )
+    config = generate_config()
     with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         inputs = ["MLflow"] * 2
@@ -786,7 +784,5 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
         expected_logs = sorted(["chain_start", "chain_end"] * 2)
     if isinstance(callbacks, BaseCallbackManager):
         assert sorted(callbacks.handlers[0].logs) == expected_logs
-        callbacks.handlers[0].reset()
     else:
         assert sorted(callbacks[0].logs) == expected_logs
-        callbacks[0].reset()
