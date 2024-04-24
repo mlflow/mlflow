@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 
-from mlflow import MlflowClient
+from mlflow import MlflowClient, flush_async_logging
 from mlflow.config import enable_async_logging
 from mlflow.entities import ExperimentTag, Run, RunInfo, RunStatus, RunTag, SourceType, ViewType
 from mlflow.entities.metric import Metric
@@ -98,6 +98,7 @@ def mock_time():
 def setup_async_logging():
     enable_async_logging(True)
     yield
+    flush_async_logging()
     enable_async_logging(False)
 
 
