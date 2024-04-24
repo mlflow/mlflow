@@ -39,7 +39,7 @@ dependencies = [
   "numpy<2",
   "packaging<25",
   "pandas<3",
-  "protobuf<6,>=3.12.0",
+  "protobuf<5,>=3.12.0",
   "pyarrow<16,>=4.0.0",
   "pytz<2025",
   "pyyaml<7,>=5.1",
