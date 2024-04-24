@@ -148,7 +148,13 @@ FAQ
 I can't load my chain!
 ^^^^^^^^^^^^^^^^^^^^^^
 
-- **Allowing for Dangerous Deserialization**: Pickle opt-in logic in LangChain will prevent components from being loaded via MLflow.
+- **Allowing for Dangerous Deserialization**: Pickle opt-in logic in LangChain will prevent components from being loaded via MLflow. You might see an error like this:
+
+    .. code-block:: text
+
+        ValueError: This code relies on the pickle module. You will need to set allow_dangerous_deserialization=True if you want to opt-in to 
+        allow deserialization of data using pickle. Data can be compromised by a malicious actor if not handled properly to include a malicious 
+        payload that when deserialized with pickle can execute arbitrary code on your machine. 
 
     A change within LangChain that `forces users to opt-in to pickle deserialization <https://github.com/langchain-ai/langchain/pull/18696>`_ can create 
     some issues with loading chains, vector stores, retrievers, and agents that have been logged using MLflow. Because the option is not exposed per component
@@ -156,8 +162,8 @@ I can't load my chain!
     logging the model. LangChain components that do not set this value will be saved without issue, but a ``ValueError`` will be raised when loading if unset. 
 
     To fix this, simply re-log your model, specifying the option ``allow_dangerous_deserialization=True`` in your defined loader function. See the tutorial 
-    `for LangChain retrievers <notebooks/langchain-retriever.html>`_ for an example of specifying this option when logging a ``FAISS`` vector store instance
-    within a ``loader_fn`` declaration.
+    `for LangChain retrievers <notebooks/langchain-retriever.html#Establishing-RetrievalQA-Chain-and-Logging-with-MLflow>`_ for an example of specifying this
+    option when logging a ``FAISS`` vector store instance within a ``loader_fn`` declaration.
 
 
 I can't save my chain, agent, or retriever with MLflow.
