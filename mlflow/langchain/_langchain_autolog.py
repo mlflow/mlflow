@@ -37,6 +37,7 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
     func_param_name_mapping = {
         "__call__": "inputs",
         "invoke": "input",
+        "batch": "inputs",
         "get_relevant_documents": "query",
     }
     input_example_exc = None
@@ -349,7 +350,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                 f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
                 f"file due to error {e}."
             )
-        mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
+        else:
+            mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:

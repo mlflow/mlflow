@@ -708,7 +708,9 @@ class CustomCallbackHandler(BaseCallbackHandler):
     "callbacks", [[CustomCallbackHandler()], BaseCallbackManager([CustomCallbackHandler()])]
 )
 def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, callbacks):
-    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
+    mlflow.langchain.autolog(
+        log_models=True, extra_tags={"test_tag": "test"}, log_inputs_outputs=True
+    )
     with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         if invoke_arg == "args":
@@ -726,6 +728,8 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, callbacks):
             assert artifact_name in artifacts
         else:
             assert any(artifact_name.match(artifact) for artifact in artifacts)
+    # make sure INFERENCE_FILE_NAME is logged
+    mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
     if isinstance(callbacks, BaseCallbackManager):
         assert callbacks.handlers[0].logs == ["chain_start", "chain_end"]
         callbacks.handlers[0].reset()
@@ -751,7 +755,9 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, callbacks):
     ],
 )
 def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
-    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
+    mlflow.langchain.autolog(
+        log_models=True, extra_tags={"test_tag": "test"}, log_inputs_outputs=True
+    )
     with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
         inputs = ["MLflow"] * 2
@@ -770,6 +776,8 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
         f"chain_end_{i}.json" for i in range(1, 3)
     ]:
         assert artifact_name in artifacts
+    # make sure INFERENCE_FILE_NAME is logged
+    mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
     if isinstance(config, list):
         callbacks = config[0]["callbacks"]
         expected_logs = sorted(["chain_start", "chain_end"])
