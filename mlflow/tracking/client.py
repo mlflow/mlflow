@@ -29,7 +29,6 @@ from mlflow.entities import (
     RunTag,
     Span,
     SpanStatus,
-    SpanStatusCode,
     SpanType,
     Trace,
     TraceData,
@@ -38,13 +37,14 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.span import LiveSpan, NoOpSpan
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
-    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -55,9 +55,10 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.clients import get_trace_client
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import get_otel_attribute
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -555,22 +556,29 @@ class MlflowClient:
                 error_code=BAD_REQUEST,
             )
 
-        trace_manager = InMemoryTraceManager.get_instance()
-        root_span = trace_manager.start_detached_span(name, span_type=span_type)
+        try:
+            # Create new trace and a root span
+            otel_span = mlflow.tracing.provider.start_detached_span(
+                name, experiment_id=experiment_id
+            )
+            request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
-        if inputs:
-            root_span.set_inputs(inputs)
-        if attributes:
-            root_span.set_attributes(attributes)
+            mlflow_span = LiveSpan(otel_span, request_id, span_type)
+            if inputs:
+                mlflow_span.set_inputs(inputs)
+            if attributes:
+                mlflow_span.set_attributes(attributes)
 
-        trace_info = trace_manager.get_trace_info(root_span.request_id)
-        if tags:
-            trace_info.tags.update({k: str(v) for k, v in tags.items()})
+            trace_manager = InMemoryTraceManager.get_instance()
+            with trace_manager.get_trace(request_id) as trace:
+                trace.info.tags.update(self._exclude_immutable_tags(tags or {}))
+            # Register new span in the in-memory trace manager
+            trace_manager.register_span(mlflow_span)
 
-        if experiment_id:
-            trace_info.experiment_id = experiment_id
-
-        return root_span
+            return mlflow_span
+        except Exception as e:
+            _logger.warning(f"Failed to start span {name}: {e}")
+            return NoOpSpan()
 
     def end_trace(
         self,
@@ -603,8 +611,7 @@ class MlflowClient:
         root_span_id = trace_manager.get_root_span_id(request_id)
 
         if root_span_id is None:
-            # TODO: Replace this with backend store check once we have backend support
-            if get_trace_client().get_trace(request_id=request_id):
+            if self.get_trace(request_id=request_id):
                 raise MlflowException(
                     f"Trace with ID {request_id} already finished.",
                     error_code=INVALID_PARAMETER_VALUE,
@@ -739,21 +746,32 @@ class MlflowClient:
                 "to start a new trace and root span.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if not request_id:
+            raise MlflowException(
+                "Request ID must be provided to start a span.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         trace_manager = InMemoryTraceManager.get_instance()
-        span = trace_manager.start_detached_span(
-            name=name,
-            request_id=request_id,
-            parent_id=parent_id,
-            span_type=span_type,
-        )
+        if not (parent_span := trace_manager.get_span_from_id(request_id, parent_id)):
+            raise MlflowException(
+                f"Parent span with ID '{parent_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
 
-        if attributes:
-            span.set_attributes(attributes)
-        if inputs:
-            span.set_inputs(inputs)
+        try:
+            otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
+            span = LiveSpan(otel_span, request_id, span_type)
+            if attributes:
+                span.set_attributes(attributes)
+            if inputs:
+                span.set_inputs(inputs)
 
-        return span
+            trace_manager.register_span(span)
+            return span
+        except Exception as e:
+            _logger.warning(f"Failed to start span {name}: {e}")
+            return NoOpSpan()
 
     def end_span(
         self,
@@ -796,11 +814,38 @@ class MlflowClient:
 
         span.end()
 
+    def _start_tracked_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Optional[Dict[str, str]] = None,
+        tags: Optional[Dict[str, str]] = None,
+    ) -> TraceInfo:
+        """
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        # Some tags like mlflow.runName are immutable once logged in tracking server.
+        return self._tracking_client.start_trace(
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            request_metadata=request_metadata or {},
+            tags=self._exclude_immutable_tags(tags or {}),
+        )
+
     def _upload_ended_trace_info(
         self,
         request_id: str,
         timestamp_ms: int,
-        status: SpanStatusCode,
+        status: TraceStatus,
         request_metadata: Optional[Dict[str, str]] = None,
         tags: Optional[Dict[str, str]] = None,
     ) -> TraceInfo:
@@ -811,7 +856,7 @@ class MlflowClient:
             request_id: Unique string identifier of the trace.
             timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
                 in the TraceInfo will be calculated by subtracting the start time from this.
-            status: SpanStatusCode, status of the trace.
+            status: TraceStatus, status of the trace.
             request_metadata: dict, metadata of the trace. This will be merged with the existing
                 metadata logged during the start_trace call.
             tags: dict, tags of the trace. This will be merged with the existing tags logged
@@ -820,13 +865,17 @@ class MlflowClient:
         Returns:
             The updated TraceInfo object.
         """
-        self._tracking_client.end_trace(
+        return self._tracking_client.end_trace(
             request_id=request_id,
             timestamp_ms=timestamp_ms,
             status=status,
             request_metadata=request_metadata,
-            tags=tags,
+            tags=self._exclude_immutable_tags(tags or {}),
         )
+
+    def _exclude_immutable_tags(self, tags: Dict[str, str]) -> Dict[str, str]:
+        """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
+        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
@@ -853,13 +902,18 @@ class MlflowClient:
             value: The string value of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
+        if key.startswith("mlflow."):
+            raise MlflowException(
+                f"Tags starting with 'mlflow.' are reserved and cannot be set. "
+                f"Attempted to set tag with key '{key}' on trace with ID '{request_id}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         # Trying to set the tag on the active trace first
-        try:
-            InMemoryTraceManager.get_instance().set_trace_tag(request_id, key, str(value))
-            return
-        except MlflowException as e:
-            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                raise
+        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+            if trace:
+                trace.info.tags[key] = str(value)
+                return
 
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
@@ -888,12 +942,16 @@ class MlflowClient:
                 it will be truncated when stored.
         """
         # Trying to delete the tag on the active trace first
-        try:
-            InMemoryTraceManager.get_instance().delete_trace_tag(request_id, key)
-            return
-        except MlflowException as e:
-            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                raise
+        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+            if trace:
+                if key in trace.info.tags:
+                    trace.info.tags.pop(key)
+                    return
+                else:
+                    raise MlflowException(
+                        f"Tag with key {key} not found in trace with ID {request_id}.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
 
         # If the trace is not active, try to delete the tag on the trace in the backend
         self._tracking_client.delete_trace_tag(request_id, key)

@@ -1,16 +1,11 @@
 import time
 from threading import Thread
 from typing import Optional
-from unittest import mock
 
-import pytest
-
-import mlflow
-from mlflow.entities import LiveSpan, NoOpSpan, Trace
-from mlflow.exceptions import MlflowException
+from mlflow.entities import LiveSpan, Trace
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
-from tests.tracing.helper import create_mock_otel_span
+from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 
 def test_aggregator_singleton():
@@ -22,97 +17,54 @@ def test_aggregator_singleton():
 def test_add_spans():
     trace_manager = InMemoryTraceManager.get_instance()
 
-    exp_id_1 = mlflow.set_experiment("test_experiment_1").experiment_id
+    # Add a new trace info
     request_id_1 = "tr-1"
     trace_id_1 = 12345
-    span_1_1 = _create_test_span(request_id_1, trace_id_1, span_id=1)
-    span_1_1_1 = _create_test_span(request_id_1, trace_id_1, span_id=2, parent_id=1)
-    span_1_1_2 = _create_test_span(request_id_1, trace_id_1, span_id=3, parent_id=1)
+    trace_manager.register_trace(trace_id_1, create_test_trace_info(request_id_1, "test_1"))
 
     # Add a span for a new trace
-    trace_manager.add_or_update_span(span_1_1)
+    span_1_1 = _create_test_span(request_id_1, trace_id_1, span_id=1)
+    trace_manager.register_span(span_1_1)
 
     assert request_id_1 in trace_manager._traces
     assert len(trace_manager._traces[request_id_1].span_dict) == 1
 
     # Add more spans to the same trace
-    trace_manager.add_or_update_span(span_1_1_1)
-    trace_manager.add_or_update_span(span_1_1_2)
+    span_1_1_1 = _create_test_span(request_id_1, trace_id_1, span_id=2, parent_id=1)
+    span_1_1_2 = _create_test_span(request_id_1, trace_id_1, span_id=3, parent_id=1)
+    trace_manager.register_span(span_1_1_1)
+    trace_manager.register_span(span_1_1_2)
 
     assert len(trace_manager._traces[request_id_1].span_dict) == 3
 
     # Add a span for another trace under the different experiment
-    exp_id_2 = mlflow.set_experiment("test_experiment_2").experiment_id
     request_id_2 = "tr-2"
     trace_id_2 = 67890
+    trace_manager.register_trace(trace_id_2, create_test_trace_info(request_id_2, "test_2"))
+
     span_2_1 = _create_test_span(request_id_2, trace_id_2, span_id=1)
     span_2_1_1 = _create_test_span(request_id_2, trace_id_2, span_id=2, parent_id=1)
-
-    trace_manager.add_or_update_span(span_2_1)
-    trace_manager.add_or_update_span(span_2_1_1)
+    trace_manager.register_span(span_2_1)
+    trace_manager.register_span(span_2_1_1)
 
     assert request_id_2 in trace_manager._traces
     assert len(trace_manager._traces[request_id_2].span_dict) == 2
 
     # Pop the trace data
-    trace = trace_manager.pop_trace(request_id_1)
+    trace = trace_manager.pop_trace(trace_id_1)
     assert isinstance(trace, Trace)
     assert trace.info.request_id == request_id_1
-    assert trace.info.experiment_id == exp_id_1
     assert len(trace.data.spans) == 3
     assert request_id_1 not in trace_manager._traces
 
-    trace = trace_manager.pop_trace(request_id_2)
+    trace = trace_manager.pop_trace(trace_id_2)
     assert isinstance(trace, Trace)
     assert trace.info.request_id == request_id_2
-    assert trace.info.experiment_id == exp_id_2
     assert len(trace.data.spans) == 2
     assert request_id_2 not in trace_manager._traces
 
     # Pop a trace that does not exist
-    assert trace_manager.pop_trace("tr-3") is None
-
-
-def test_start_detached_span():
-    trace_manager = InMemoryTraceManager.get_instance()
-
-    # Root span will create a new trace
-    root_span = trace_manager.start_detached_span(name="root_span")
-    request_id = root_span.request_id
-    assert len(trace_manager._traces) == 1
-    assert trace_manager.get_root_span_id(request_id) == root_span.span_id
-
-    # Child span will be added to the existing trace
-    child_span = trace_manager.start_detached_span(
-        name="child_span", request_id=request_id, parent_id=root_span.span_id
-    )
-
-    assert len(trace_manager._traces) == 1
-    assert trace_manager.get_span_from_id(request_id, span_id=child_span.span_id) == child_span
-
-
-def test_start_detached_span_show_warning_when_parent_not_found():
-    trace_manager = InMemoryTraceManager.get_instance()
-
-    with mock.patch("mlflow.tracing.trace_manager._logger") as mock_logger:
-        span = trace_manager.start_detached_span(
-            name="root_span", parent_id="not_found", request_id="test"
-        )
-
-    assert isinstance(span, NoOpSpan)
-    warning_message = mock_logger.warning.call_args[0][0]
-    assert "Parent span with ID 'not_found' not found." in warning_message
-
-
-def test_start_detached_span_show_warning_when_parent_id_is_passed_without_request_id():
-    trace_manager = InMemoryTraceManager.get_instance()
-
-    with mock.patch("mlflow.tracing.trace_manager._logger") as mock_logger:
-        span = trace_manager.start_detached_span(name="root_span", parent_id="not_found")
-
-    assert isinstance(span, NoOpSpan)
-    warning_message = mock_logger.warning.call_args[0][0]
-    assert "Parent span ID is provided without its request ID." in warning_message
+    assert trace_manager.pop_trace(90123) is None
 
 
 def test_add_and_pop_span_thread_safety():
@@ -122,9 +74,12 @@ def test_add_and_pop_span_thread_safety():
     trace_ids = list(range(5))
     num_threads = 10
 
+    for trace_id in trace_ids:
+        trace_manager.register_trace(trace_id, create_test_trace_info(f"tr-{trace_id}", "test"))
+
     def add_spans(thread_id):
         for trace_id in trace_ids:
-            trace_manager.add_or_update_span(
+            trace_manager.register_span(
                 _create_test_span(f"tr-{trace_id}", trace_id=trace_id, span_id=thread_id)
             )
 
@@ -136,7 +91,7 @@ def test_add_and_pop_span_thread_safety():
         thread.join()
 
     for trace_id in trace_ids:
-        trace = trace_manager.pop_trace(f"tr-{trace_id}")
+        trace = trace_manager.pop_trace(trace_id)
         assert trace is not None
         assert trace.info.request_id == f"tr-{trace_id}"
         assert len(trace.data.spans) == num_threads
@@ -148,10 +103,11 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
 
     trace_manager = InMemoryTraceManager.get_instance()
-
     request_id_1 = "tr-1"
+    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
+
     span_1_1 = _create_test_span(request_id_1)
-    trace_manager.add_or_update_span(span_1_1)
+    trace_manager.register_span(span_1_1)
 
     assert request_id_1 in trace_manager._traces
     assert len(trace_manager._traces[request_id_1].span_dict) == 1
@@ -170,17 +126,19 @@ def test_traces_buffer_max_size_limit(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE", "1")
 
     trace_manager = InMemoryTraceManager.get_instance()
-
     request_id_1 = "tr-1"
+    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "experiment"))
+
     span_1_1 = _create_test_span(request_id_1)
-    trace_manager.add_or_update_span(span_1_1)
+    trace_manager.register_span(span_1_1)
 
     assert request_id_1 in trace_manager._traces
     assert len(trace_manager._traces) == 1
 
     request_id_2 = "tr-2"
+    trace_manager.register_trace(67890, create_test_trace_info(request_id_2, "experiment"))
     span_2_1 = _create_test_span(request_id_2)
-    trace_manager.add_or_update_span(span_2_1)
+    trace_manager.register_span(span_2_1)
 
     assert request_id_1 not in trace_manager._traces
     assert request_id_2 in trace_manager._traces
@@ -192,20 +150,21 @@ def test_traces_buffer_max_size_limit(monkeypatch):
 
 def test_get_span_from_id():
     trace_manager = InMemoryTraceManager.get_instance()
-
     request_id_1 = "tr-1"
+    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
     span_1_1 = _create_test_span(request_id_1, trace_id=111, span_id=1)
     span_1_2 = _create_test_span(request_id_1, trace_id=111, span_id=2, parent_id=1)
 
     request_id_2 = "tr-2"
+    trace_manager.register_trace(67890, create_test_trace_info(request_id_2, "test"))
     span_2_1 = _create_test_span(request_id_2, trace_id=222, span_id=1)
     span_2_2 = _create_test_span(request_id_2, trace_id=222, span_id=2, parent_id=1)
 
     # Add a span for a new trace
-    trace_manager.add_or_update_span(span_1_1)
-    trace_manager.add_or_update_span(span_1_2)
-    trace_manager.add_or_update_span(span_2_1)
-    trace_manager.add_or_update_span(span_2_2)
+    trace_manager.register_span(span_1_1)
+    trace_manager.register_span(span_1_2)
+    trace_manager.register_span(span_2_1)
+    trace_manager.register_span(span_2_2)
 
     assert trace_manager.get_span_from_id(request_id_1, span_1_1.span_id) == span_1_1
     assert trace_manager.get_span_from_id(request_id_2, span_2_2.span_id) == span_2_2
@@ -215,54 +174,18 @@ def test_get_root_span_id():
     trace_manager = InMemoryTraceManager.get_instance()
 
     request_id_1 = "tr-1"
+    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
     span_1_1 = _create_test_span(request_id_1, span_id=1)
     span_1_2 = _create_test_span(request_id_1, span_id=2, parent_id=1)
 
     # Add a span for a new trace
-    trace_manager.add_or_update_span(span_1_1)
-    trace_manager.add_or_update_span(span_1_2)
+    trace_manager.register_span(span_1_1)
+    trace_manager.register_span(span_1_2)
 
     assert trace_manager.get_root_span_id(request_id_1) == span_1_1.span_id
 
     # Non-existing trace
     assert trace_manager.get_root_span_id("tr-2") is None
-
-
-def test_set_trace_tag():
-    trace_manager = InMemoryTraceManager.get_instance()
-
-    request_id = "tr-1"
-    span = _create_test_span(request_id)
-    trace_manager.add_or_update_span(span)
-
-    trace_manager.set_trace_tag(request_id, "foo", "bar")
-    assert trace_manager.get_trace_info(request_id).tags == {"foo": "bar"}
-
-
-def test_set_trace_tag_raises_when_trace_not_found():
-    with pytest.raises(MlflowException, match="Trace with ID test not found."):
-        InMemoryTraceManager.get_instance().set_trace_tag("test", "foo", "bar")
-
-
-def test_delete_trace_tag():
-    trace_manager = InMemoryTraceManager.get_instance()
-
-    request_id = "tr-1"
-    span = _create_test_span(request_id)
-    trace_manager.add_or_update_span(span)
-
-    trace_manager.set_trace_tag(request_id, "foo", "bar")
-    trace_manager.delete_trace_tag(request_id, "foo")
-    assert trace_manager.get_trace_info(request_id).tags == {}
-
-    # Raise when tag not found
-    with pytest.raises(MlflowException, match="Tag with key baz not found in trace with ID tr-1."):
-        trace_manager.delete_trace_tag(request_id, "baz")
-
-
-def test_delete_tag_raises_when_trace_not_found():
-    with pytest.raises(MlflowException, match="Trace with ID test not found."):
-        InMemoryTraceManager.get_instance().delete_trace_tag("test", "foo")
 
 
 def _create_test_span(

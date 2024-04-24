@@ -12,6 +12,7 @@ class TraceTagKey:
 
 # A set of reserved attribute keys
 class SpanAttributeKey:
+    EXPERIMENT_ID = "mlflow.experimentId"
     REQUEST_ID = "mlflow.traceRequestId"
     INPUTS = "mlflow.spanInputs"
     OUTPUTS = "mlflow.spanOutputs"

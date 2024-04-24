@@ -1,125 +1,62 @@
 from unittest.mock import MagicMock
 
 from mlflow.entities import LiveSpan
-from mlflow.entities.trace_data import TraceData
-from mlflow.tracing.constant import (
-    MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
-    TRUNCATION_SUFFIX,
-    TraceMetadataKey,
-    TraceTagKey,
-)
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import encode_span_id
 
-from tests.tracing.helper import create_mock_otel_span
+from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 
 def test_export():
     trace_id = 12345
     request_id = f"tr-{trace_id}"
-    otel_span_root = create_mock_otel_span(
-        name="test_span",
+    otel_span = create_mock_otel_span(
         trace_id=trace_id,
         span_id=1,
         parent_id=None,
         start_time=0,
-        end_time=4_000_000,  # nano seconds
+        end_time=1_000_000,  # nano seconds
     )
-    root_span = LiveSpan(otel_span_root, request_id=request_id)
-    root_span.set_inputs({"input1": "very long input" * 100})
-    root_span.set_outputs({"output": "very long output" * 100})
+    span = LiveSpan(otel_span, request_id=request_id)
+    span.set_inputs({"input1": "very long input" * 100})
+    span.set_outputs({"output": "very long output" * 100})
 
-    otel_span_child_1 = create_mock_otel_span(
-        name="test_span_child_1",
-        trace_id=trace_id,
-        span_id=2,
-        parent_id=1,
-        start_time=1_000_000,
-        end_time=2_000_000,
-    )
-    span_child_1 = LiveSpan(otel_span_child_1, request_id=request_id)
+    trace_info = create_test_trace_info(request_id, 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace(trace_id, trace_info)
+    trace_manager.register_span(span)
 
-    otel_span_child_2 = create_mock_otel_span(
-        name="test_span_child_2",
-        trace_id=trace_id,
-        span_id=3,
-        parent_id=1,
-        start_time=2_000_000,
-        end_time=3_000_000,
-    )
-    span_child_2 = LiveSpan(otel_span_child_2, request_id=request_id)
+    # Non-root span should be ignored
+    non_root_otel_span = create_mock_otel_span(trace_id=trace_id, span_id=2, parent_id=1)
+    child_span = LiveSpan(non_root_otel_span, request_id=request_id)
+    trace_manager.register_span(child_span)
 
-    for span in [root_span, span_child_1, span_child_2]:
-        InMemoryTraceManager.get_instance().add_or_update_span(span)
+    # Invalid span should be also ignored
+    invalid_otel_span = create_mock_otel_span(trace_id=23456, span_id=1)
 
     mock_client = MagicMock()
-    exporter = MlflowSpanExporter(mock_client)
+    mock_display = MagicMock()
+    exporter = MlflowSpanExporter(mock_client, mock_display)
 
-    # Export the first child span -> no client call
-    exporter.export([otel_span_child_1])
-    assert mock_client.log_trace.call_count == 0
+    exporter.export([otel_span, non_root_otel_span, invalid_otel_span])
 
-    # Export the second child span -> no client call
-    exporter.export([otel_span_child_2])
-    assert mock_client.log_trace.call_count == 0
-
-    # Export the root span -> client call
-    exporter.export([otel_span_root])
-
-    assert mock_client.log_trace.call_count == 1
-    client_call_args = mock_client.log_trace.call_args[0][0]
-
-    # Trace info should inherit fields from the root span
-    trace_info = client_call_args.info
-    assert trace_info.request_id == request_id
-    assert trace_info.timestamp_ms == 0
-    assert trace_info.execution_time_ms == 4
-    assert trace_info.tags[TraceTagKey.TRACE_NAME] == "test_span"
-
-    # Inputs and outputs in TraceInfo attributes should be serialized and truncated
-    inputs = trace_info.request_metadata[TraceMetadataKey.INPUTS]
-    assert inputs.startswith('{"input1": "very long input')
-    assert inputs.endswith(TRUNCATION_SUFFIX)
-    assert len(inputs) == MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-
-    outputs = trace_info.request_metadata[TraceMetadataKey.OUTPUTS]
-    assert outputs.startswith('{"output": "very long output')
-    assert outputs.endswith(TRUNCATION_SUFFIX)
-    assert len(outputs) == MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-
-    # All 3 spans should be in the logged trace data
-    assert len(client_call_args.data.spans) == 3
-
-    # Spans should be cleared from the aggregator
+    # Spans should be cleared from the trace manager
     assert len(exporter._trace_manager._traces) == 0
 
+    # Trace should be added to the in-memory buffer and displayed
+    assert len(TRACE_BUFFER) == 1
+    mock_display.display_traces.assert_called_once()
 
-def test_deduplicate_span_names():
-    span_names = ["red", "red", "blue", "red", "green", "blue"]
-
-    spans = [
-        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), request_id="tr-123")
-        for i, span_name in enumerate(span_names)
-    ]
-    trace_data = TraceData(spans=spans)
-    MlflowSpanExporter._deduplicate_span_names_in_place(trace_data)
-
-    assert [span.name for span in trace_data.spans] == [
-        "red_1",
-        "red_2",
-        "blue_1",
-        "red_3",
-        "green",
-        "blue_2",
-    ]
-    # Check if the span order is preserved
-    assert [span.span_id for span in trace_data.spans] == [
-        encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]
-    ]
-
-
-def test_deduplicate_span_names_empty_spans():
-    trace_data = TraceData(spans=[])
-    MlflowSpanExporter._deduplicate_span_names_in_place(trace_data)
-    assert trace_data.spans == []
+    # Trace should be logged
+    assert mock_client._upload_trace_data.call_count == 1
+    logged_trace_info, logged_trace_data = mock_client._upload_trace_data.call_args[0]
+    assert trace_info == logged_trace_info
+    assert len(logged_trace_data.spans) == 2
+    mock_client._upload_ended_trace_info.assert_called_once_with(
+        request_id=request_id,
+        timestamp_ms=1,
+        status="OK",
+        request_metadata={},
+        tags={},
+    )

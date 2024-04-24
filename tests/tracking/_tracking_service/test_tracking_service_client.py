@@ -11,7 +11,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
-from mlflow.tracing.types.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
@@ -116,6 +116,7 @@ def test_upload_trace_data(tmp_path, mock_store):
         request_metadata={},
         tags={"mlflow.artifactLocation": "test"},
     )
+    mock_store.start_trace.return_value = trace_info
 
     class CustomObject(pydantic.BaseModel):
         data: str

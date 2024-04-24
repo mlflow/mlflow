@@ -4,21 +4,28 @@ import contextlib
 import functools
 import json
 import logging
+import threading
+from collections import deque
 from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
+from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.provider import get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import capture_function_input_args, encode_span_id
+from mlflow.tracing.utils import capture_function_input_args, encode_span_id, get_otel_attribute
 from mlflow.utils import get_results_from_paginated_fn
 
 _logger = logging.getLogger(__name__)
+
+
+TRACE_BUFFER = deque(maxlen=MLFLOW_TRACING_CLIENT_BUFFER_SIZE.get())
+TRACE_BUFFER_LOCK = threading.Lock()
 
 
 def trace(
@@ -163,28 +170,25 @@ def start_span(
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
     """
-    # TODO: refactor this logic
     try:
-        tracer = get_tracer(__name__)
-        span = tracer.start_span(name)
-    except Exception:
-        _logger.warning(f"Failed to start span with name {name}.")
-        span = None
+        otel_span = provider.start_span_in_context(name)
+
+        # Create a new MlflowSpanWrapper and register it to the in-memory trace manager
+        request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
+        mlflow_span = LiveSpan(otel_span, request_id=request_id, span_type=span_type)
+        mlflow_span.set_attributes(attributes or {})
+        InMemoryTraceManager.get_instance().register_span(mlflow_span)
+
+    except Exception as e:
+        _logger.debug("Failed to start span: %s", e, exc_info=True)
+        mlflow_span = NoOpSpan()
+        yield mlflow_span
+        return
 
     try:
-        if span is not None:
-            trace_manager = InMemoryTraceManager.get_instance()
-            request_id = trace_manager.get_or_create_request_id(span.context.trace_id)
-            # Setting end_on_exit = False to suppress the default span
-            # export and instead invoke Span.end()
-            with trace_api.use_span(span, end_on_exit=False):
-                mlflow_span = LiveSpan(span, request_id=request_id, span_type=span_type)
-                mlflow_span.set_attributes(attributes or {})
-                trace_manager.add_or_update_span(mlflow_span)
-                yield mlflow_span
-        else:
-            # Span creation should not raise an exception
-            mlflow_span = NoOpSpan()
+        # Setting end_on_exit = False to suppress the default span
+        # export and instead invoke MlflowSpanWrapper.end()
+        with trace_api.use_span(mlflow_span._span, end_on_exit=False):
             yield mlflow_span
     finally:
         mlflow_span.end()
@@ -200,11 +204,9 @@ def get_traces(n: int = 1) -> List[Trace]:
     Returns:
         A list of :py:class:`mlflow.entities.Trace` objects.
     """
-    from mlflow.tracing.clients import get_trace_client
-
-    traces = get_trace_client().get_traces(n)
+    with TRACE_BUFFER_LOCK:
+        traces = list(TRACE_BUFFER) if n is None else list(TRACE_BUFFER)[-n:]
     get_display_handler().display_traces(traces)
-
     return traces
 
 

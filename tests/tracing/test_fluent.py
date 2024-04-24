@@ -6,10 +6,11 @@ import pytest
 
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import TraceMetadataKey
 
 
-def test_trace(mock_client):
+def test_trace(clear_singleton):
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):
@@ -80,7 +81,61 @@ def test_trace(mock_client):
     }
 
 
-def test_trace_handle_exception_during_prediction(mock_client):
+def test_trace_with_databricks_tracking_uri(
+    databricks_tracking_uri, clear_singleton, mock_store, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
+    mock_store.get_experiment_by_name().experiment_id = "test_experiment_id"
+
+    class TestModel:
+        @mlflow.trace()
+        def predict(self, x, y):
+            z = x + y
+            z = self.add_one(z)
+            z = mlflow.trace(self.square)(z)
+            return z  # noqa: RET504
+
+        @mlflow.trace(
+            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
+        )
+        def add_one(self, z):
+            return z + 1
+
+        def square(self, t):
+            return t**2
+
+    model = TestModel()
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+    ) as mock_upload_trace_data:
+        model.predict(2, 5)
+
+    traces = mlflow.get_traces()
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.request_id == "tr-12345"
+    assert trace_info.experiment_id == "test_experiment_id"
+    assert trace_info.status == TraceStatus.OK
+    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
+    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
+    assert trace_info.tags == {
+        "mlflow.traceName": "predict",
+        "mlflow.artifactLocation": "test",
+        "mlflow.user": "bob",
+    }
+
+    trace_data = traces[0].data
+    assert trace_data.request == '{"x": 2, "y": 5}'
+    assert trace_data.response == "64"
+    assert len(trace_data.spans) == 3
+
+    mock_store.start_trace.assert_called_once()
+    mock_store.end_trace.assert_called_once()
+    mock_upload_trace_data.assert_called_once()
+
+
+def test_trace_handle_exception_during_prediction(clear_singleton):
     # This test is to make sure that the exception raised by the main prediction
     # logic is raised properly and the trace is still logged.
     class TestModel:
@@ -100,7 +155,7 @@ def test_trace_handle_exception_during_prediction(mock_client):
     # Trace should be logged even if the function fails, with status code ERROR
     trace = mlflow.get_traces()[0]
     assert trace.info.request_id is not None
-    assert trace.info.status == SpanStatusCode.ERROR
+    assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == ""
 
@@ -109,7 +164,7 @@ def test_trace_handle_exception_during_prediction(mock_client):
     assert len(trace.data.spans) == 2
 
 
-def test_trace_ignore_exception_from_tracing_logic(mock_client):
+def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
     # This test is to make sure that the main prediction logic is not affected
     # by the exception raised by the tracing logic.
     class TestModel:
@@ -120,7 +175,7 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
     model = TestModel()
 
     # Exception during span creation: no-op span wrapper created and no trace is logged
-    with mock.patch("mlflow.tracing.fluent.get_tracer", side_effect=ValueError("Some error")):
+    with mock.patch("mlflow.tracing.provider._get_tracer", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
@@ -136,7 +191,7 @@ def test_trace_ignore_exception_from_tracing_logic(mock_client):
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
 
 
-def test_start_span_context_manager(mock_client):
+def test_start_span_context_manager(clear_singleton):
     datetime_now = datetime.now()
 
     class TestModel:
@@ -170,7 +225,7 @@ def test_start_span_context_manager(mock_client):
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace.info.status == SpanStatusCode.OK
+    assert trace.info.status == TraceStatus.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "25"
 
@@ -213,7 +268,7 @@ def test_start_span_context_manager(mock_client):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
-def test_start_span_context_manager_with_imperative_apis(mock_client):
+def test_start_span_context_manager_with_imperative_apis(clear_singleton):
     # This test is to make sure that the spans created with fluent APIs and imperative APIs
     # (via MLflow client) are correctly linked together. This usage is not recommended but
     # should be supported for the advanced use cases like using LangChain callbacks as a
@@ -252,7 +307,7 @@ def test_start_span_context_manager_with_imperative_apis(mock_client):
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace.info.status == SpanStatusCode.OK
+    assert trace.info.status == TraceStatus.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
 
