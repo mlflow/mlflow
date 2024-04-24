@@ -1291,6 +1291,6 @@ def test_client_log_metric_params_tags_overrides(mock_store):
 def test_invalid_run_id_log_artifact():
     with pytest.raises(
         MlflowException,
-        match="Invalid run id*",
+        match=r"Invalid run id.*",
     ):
         MlflowClient().log_artifact("tr-123", "path")

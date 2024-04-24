@@ -55,7 +55,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import get_otel_attribute
@@ -1790,7 +1790,7 @@ class MlflowClient:
             is_dir: False
 
         """
-        if run_id.startswith("tr-"):
+        if run_id.startswith(TRACE_REQUEST_ID_PREFIX):
             raise MlflowException(
                 f"Invalid run id: {run_id}. `log_artifact` run id must map to a valid run."
             )
