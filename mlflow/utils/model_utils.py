@@ -165,18 +165,38 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
 
 
 def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
+    # Capture all imported modules with full module name during loading model.
     modules = _capture_imported_modules(path, flavor, record_full_module=True)
 
+    all_modules = set(modules)
+
+    def get_parent_module(_module):
+        return _module[0: _module.rindex(".")]
+
+    for module in modules:
+        parent_module = module
+        while "." in parent_module:
+            parent_module = get_parent_module(parent_module)
+            all_modules.add(parent_module)
+
+    # Generate code_paths set from the imported modules full name list.
+    # It only picks necessary files, because:
+    #  1. Reduce risk of logging files containing user credentials to MLflow
+    #     artifact repository.
+    #  2. In databricks runtime, notebook files might exist under a code_path directory,
+    #     if logging the whole directory to MLflow artifact repository, these
+    #     notebook files are not accessible and trigger exceptions. On the other
+    #     hand, these notebook files are not used as code_paths modules because
+    #     code in notebook files are loaded into python `__main__` module.
     code_paths = set()
-    for full_module_name in modules:
+    for full_module_name in all_modules:
         relative_path = full_module_name.replace(".", os.sep)
-        if os.path.exists(relative_path):
-            if os.path.isdir(relative_path):
-                init_file_path = os.path.join(relative_path, "__init__.py")
-                if os.path.exists(init_file_path):
-                    code_paths.add(init_file_path)
-            if os.path.isfile(relative_path):
-                code_paths.add(relative_path)
+        if os.path.isdir(relative_path):
+            init_file_path = os.path.join(relative_path, "__init__.py")
+            if os.path.exists(init_file_path):
+                code_paths.add(init_file_path)
+        if os.path.isfile(relative_path + ".py"):
+            code_paths.add(relative_path + ".py")
 
     if code_paths:
         for code_path in code_paths:

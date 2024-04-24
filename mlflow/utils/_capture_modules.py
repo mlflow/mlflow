@@ -53,17 +53,21 @@ class _CaptureImportedModules:
 
             if self.record_full_module:
                 if is_absolute_import:
-                    self._record_imported_module(name)
+                    parent_modules = name.split(".")
                 else:
                     parent_modules = globals["__name__"].split(".")
                     if level > 1:
                         parent_modules = parent_modules[: -(level - 1)]
 
-                for from_name in fromlist:
-                    full_modules = parent_modules + [from_name]
-                    full_module_name = ".".join(full_modules)
-                    if full_module_name in sys.modules:
-                        self._record_imported_module(full_module_name)
+                if fromlist:
+                    for from_name in fromlist:
+                        full_modules = parent_modules + [from_name]
+                        full_module_name = ".".join(full_modules)
+                        if full_module_name in sys.modules:
+                            self._record_imported_module(full_module_name)
+                else:
+                    full_module_name = ".".join(parent_modules)
+                    self._record_imported_module(full_module_name)
 
             return result
 
@@ -139,7 +143,10 @@ def parse_args():
     return parser.parse_args()
 
 
-def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file=None):
+def store_imported_modules(
+        cap_cm, model_path, flavor, output_file, error_file=None,
+        record_full_module=False
+):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
@@ -147,33 +154,47 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file, error_file=N
         pyfunc_conf = mlflow_model.flavors.get(mlflow.pyfunc.FLAVOR_NAME)
         input_example = mlflow_model.load_input_example(model_path)
         params = mlflow_model.load_input_example_params(model_path)
-        loader_module = importlib.import_module(pyfunc_conf[MAIN])
-        original = loader_module._load_pyfunc
 
-        @functools.wraps(original)
-        def _load_pyfunc_patch(*args, **kwargs):
+        def load_model_and_predict(original_load_fn, *args, **kwargs):
+            model = original_load_fn(*args, **kwargs)
+            if input_example is not None:
+                try:
+                    model.predict(input_example, params=params)
+                except Exception as e:
+                    if error_file:
+                        stack_trace = get_stacktrace(e)
+                        write_to(
+                            error_file,
+                            "Failed to run predict on input_example, dependencies "
+                            "introduced in predict are not captured.\n" + stack_trace,
+                        )
+                    else:
+                        raise e
+            return model
+
+        if record_full_module:
+            # Note: if we want to record all imported modules
+            # (for inferring code_paths purpose),
+            # The `importlib.import_module(pyfunc_conf[MAIN])` invocation
+            # must be wrapped with `cap_cm` context manager,
+            # because `pyfunc_conf[MAIN]` might also be a module loaded from
+            # code_paths.
             with cap_cm:
-                model = original(*args, **kwargs)
-                if input_example is not None:
-                    try:
-                        model.predict(input_example, params=params)
-                    except Exception as e:
-                        if error_file:
-                            stack_trace = get_stacktrace(e)
-                            write_to(
-                                error_file,
-                                "Failed to run predict on input_example, dependencies "
-                                "introduced in predict are not captured.\n" + stack_trace,
-                            )
-                        else:
-                            raise e
-                return model
+                mlflow.pyfunc.load_model(model_path)
+        else:
+            loader_module = importlib.import_module(pyfunc_conf[MAIN])
+            original = loader_module._load_pyfunc
 
-        loader_module._load_pyfunc = _load_pyfunc_patch
-        try:
-            mlflow.pyfunc.load_model(model_path)
-        finally:
-            loader_module._load_pyfunc = original
+            @functools.wraps(original)
+            def _load_pyfunc_patch(*args, **kwargs):
+                with cap_cm:
+                    return load_model_and_predict(original, *args, **kwargs)
+
+            loader_module._load_pyfunc = _load_pyfunc_patch
+            try:
+                mlflow.pyfunc.load_model(model_path)
+            finally:
+                loader_module._load_pyfunc = original
     # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`.
     # For models that don't contain pyfunc flavor (e.g. scikit-learn estimator
     # that doesn't implement a `predict` method),
@@ -203,7 +224,10 @@ def main():
         _create_local_spark_session_for_loading_spark_model()
 
     cap_cm = _CaptureImportedModules(record_full_module=args.record_full_module)
-    store_imported_modules(cap_cm, model_path, flavor, output_file, error_file)
+    store_imported_modules(
+        cap_cm, model_path, flavor, output_file, error_file,
+        record_full_module=args.record_full_module,
+    )
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:
