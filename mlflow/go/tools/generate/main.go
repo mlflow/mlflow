@@ -70,7 +70,7 @@ func mkServiceInterfaceMethod(methodInfo server.MethodInfo) *ast.Field {
 			},
 			Results: &ast.FieldList{
 				List: []*ast.Field{
-					mkField(mkSelectorExpr(methodInfo.PackageName, methodInfo.Output)),
+					mkField(mkStarExpr(mkSelectorExpr(methodInfo.PackageName, methodInfo.Output))),
 					mkField(mkStarExpr(ast.NewIdent("MlflowError"))),
 				},
 			},
@@ -188,25 +188,21 @@ func mkReturnStmt(results ...ast.Expr) *ast.ReturnStmt {
 func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"/api/2.0%s"`, endpoint.GetFiberPath())}
 
-	// var input *protos.SearchExperiments
-	inputExpr := &ast.DeclStmt{
-		Decl: &ast.GenDecl{
-			Tok: token.VAR,
-			Specs: []ast.Spec{
-				&ast.ValueSpec{
-					Names: []*ast.Ident{ast.NewIdent("input")},
-					Type:  mkMethodInfoInputPointerType(method),
-				},
-			},
-		},
-	}
+	// input := &protos.SearchExperiments
+	inputExpr := mkAssignStmt(
+		[]ast.Expr{ast.NewIdent("input")},
+		[]ast.Expr{
+			mkAmpExpr(&ast.CompositeLit{
+				Type: mkSelectorExpr(method.PackageName, method.Input),
+			}),
+		})
 
 	// if err := ctx.QueryParser(&input); err != nil {
 	var extractModel ast.Expr
 	if endpoint.Method == "GET" {
-		extractModel = mkCallExpr(mkSelectorExpr("ctx", "QueryParser"), mkAmpExpr(ast.NewIdent("input")))
+		extractModel = mkCallExpr(mkSelectorExpr("ctx", "QueryParser"), ast.NewIdent("input"))
 	} else {
-		extractModel = mkCallExpr(mkSelectorExpr("ctx", "BodyParser"), mkAmpExpr(ast.NewIdent("input")))
+		extractModel = mkCallExpr(mkSelectorExpr("ctx", "BodyParser"), ast.NewIdent("input"))
 	}
 
 	inputErrorCheck := mkIfStmt(mkAssignStmt([]ast.Expr{ast.NewIdent("err")}, []ast.Expr{extractModel}), errNotEqualNil, mkBlockStmt(returnErr))
