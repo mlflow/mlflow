@@ -118,7 +118,7 @@ class _ResourceBuilder:
     @staticmethod
     def from_resources(
         resources: List[Resource], api_version: str = DEFAULT_API_VERSION
-    ) -> Dict[str, Dict[ResourceType, List[str]]]:
+    ) -> Dict[str, Dict[ResourceType, List[Dict]]]:
         resource_dict = defaultdict(lambda: defaultdict(list))
         for resource in resources:
             resource_data = resource.to_dict()
@@ -129,7 +129,7 @@ class _ResourceBuilder:
         return dict(resource_dict)
 
     @staticmethod
-    def from_dict(data) -> Dict[str, Dict[ResourceType, List[str]]]:
+    def from_dict(data) -> Dict[str, Dict[ResourceType, List[Dict]]]:
         resources = []
         api_version = data.pop("api_version")
         if api_version == "1":
@@ -146,7 +146,7 @@ class _ResourceBuilder:
         return _ResourceBuilder.from_resources(resources, api_version)
 
     @staticmethod
-    def from_yaml_file(path: str) -> Dict[str, Dict[ResourceType, List[str]]]:
+    def from_yaml_file(path: str) -> Dict[str, Dict[ResourceType, List[Dict]]]:
         if not os.path.exists(path):
             raise OSError(f"No such file or directory: '{path}'")
         with open(path) as file:
