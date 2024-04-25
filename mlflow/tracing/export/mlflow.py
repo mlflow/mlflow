@@ -1,11 +1,12 @@
 import logging
-from typing import Sequence
+from typing import Optional, Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
 from mlflow.tracing.display import get_display_handler
+from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.fluent import TRACE_BUFFER, TRACE_BUFFER_LOCK
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.client import MlflowClient
@@ -27,9 +28,13 @@ class MlflowSpanExporter(SpanExporter):
     logging in MLflow backend, then we can get rid of the in-memory trace aggregation.
     """
 
-    def __init__(self, client=MlflowClient(), display_handler=get_display_handler()):
-        self._client = client
-        self._display_handler = display_handler
+    def __init__(
+        self,
+        client: Optional[MlflowClient] = None,
+        display_handler: Optional[IPythonTraceDisplayHandler] = None,
+    ):
+        self._client = client or MlflowClient()
+        self._display_handler = display_handler or get_display_handler()
         self._trace_manager = InMemoryTraceManager.get_instance()
 
     def export(self, root_spans: Sequence[ReadableSpan]):

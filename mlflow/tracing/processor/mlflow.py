@@ -36,9 +36,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     This processor is used when the tracing destination is MLflow Tracking Server.
     """
 
-    def __init__(self, span_exporter: SpanExporter, client=MlflowClient()):
+    def __init__(self, span_exporter: SpanExporter, client: Optional[MlflowClient] = None):
         self.span_exporter = span_exporter
-        self._client = client
+        self._client = client or MlflowClient()
         self._trace_manager = InMemoryTraceManager.get_instance()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
