@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List
 
+DEFAULT_API_VERSION = "1"
+
 
 class ResourceType(Enum):
     """
@@ -83,10 +85,14 @@ class _ResourceBuilder:
     """
 
     @staticmethod
-    def from_resources(resources: List[Resource]) -> Dict[str, Dict[ResourceType, List[str]]]:
+    def from_resources(
+        resources: List[Resource], api_version: str = DEFAULT_API_VERSION
+    ) -> Dict[str, Dict[ResourceType, List[str]]]:
         resource_dict = defaultdict(lambda: defaultdict(list))
         for resource in resources:
             resource_data = resource.to_dict()
             for resource_type, values in resource_data.items():
                 resource_dict[resource.target_uri][resource_type].extend(values)
+
+        resource_dict["api_version"] = api_version
         return dict(resource_dict)
