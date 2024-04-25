@@ -66,8 +66,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         tags = {}
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
-        if mlflow.active_run():
-            tags[TraceTagKey.SOURCE_RUN] = mlflow.active_run().info.run_id
+        if run := mlflow.active_run():
+            tags[TraceTagKey.SOURCE_RUN] = run.info.run_id
 
         try:
             return self._client._start_tracked_trace(

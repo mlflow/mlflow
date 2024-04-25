@@ -27,6 +27,3 @@ TRUNCATION_SUFFIX = "..."
 
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
-
-# A set of trace tags that cannot be updated by the user
-IMMUTABLE_TRACE_TAGS = {"mlflow.user", "mlflow.artifactLocation"}
