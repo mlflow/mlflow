@@ -166,6 +166,49 @@ def test_targets_property(spark_session, tmp_path, df):
     )
     assert dataset_with_targets.targets == "c"
 
+    with pytest.raises(
+        MlflowException,
+        match="The specified Spark dataset does not contain the specified targets column",
+    ):
+        SparkDataset(
+            df=df_spark,
+            source=source,
+            targets="nonexistent",
+            name="testname",
+        )
+
+
+def test_predictions_property(spark_session, tmp_path, df):
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.parquet")
+    df_spark.write.parquet(path)
+
+    source = SparkDatasetSource(path=path)
+    dataset_no_predictions = SparkDataset(
+        df=df_spark,
+        source=source,
+        name="testname",
+    )
+    assert dataset_no_predictions.predictions is None
+    dataset_with_predictions = SparkDataset(
+        df=df_spark,
+        source=source,
+        predictions="b",
+        name="testname",
+    )
+    assert dataset_with_predictions.predictions == "b"
+
+    with pytest.raises(
+        MlflowException,
+        match="The specified Spark dataset does not contain the specified predictions column",
+    ):
+        SparkDataset(
+            df=df_spark,
+            source=source,
+            predictions="nonexistent",
+            name="testname",
+        )
+
 
 def test_from_spark_no_source_specified(spark_session, df):
     df_spark = spark_session.createDataFrame(df)

@@ -46,7 +46,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             )
         if predictions is not None and predictions not in df.columns:
             raise MlflowException(
-                f"The specified Spark DataFrame does not contain the specified predictions column"
+                f"The specified Spark dataset does not contain the specified predictions column"
                 f" '{predictions}'.",
                 INVALID_PARAMETER_VALUE,
             )
@@ -108,6 +108,13 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             The string name of the Spark DataFrame column containing targets.
         """
         return self._targets
+
+    @property
+    def predictions(self) -> Optional[str]:
+        """
+        The name of the predictions column. May be ``None`` if no predictions column is available.
+        """
+        return self._predictions
 
     @property
     def source(self) -> Union[SparkDatasetSource, DeltaDatasetSource]:
