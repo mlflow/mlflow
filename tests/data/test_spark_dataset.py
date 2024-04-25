@@ -349,8 +349,10 @@ def test_to_evaluation_dataset(spark_session, tmp_path, df):
         source=source,
         targets="c",
         name="testname",
+        predictions="b",
     )
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
-    assert evaluation_dataset.features_data.equals(df_spark.toPandas().drop(columns=["c"]))
+    assert evaluation_dataset.features_data.equals(df_spark.toPandas()[["a"]])
     assert np.array_equal(evaluation_dataset.labels_data, df_spark.toPandas()["c"].values)
+    assert np.array_equal(evaluation_dataset.predictions_data, df_spark.toPandas()["b"].values)

@@ -1206,7 +1206,7 @@ def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     elif isinstance(data, pd.DataFrame):
         return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
     elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
-        return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
+        return mlflow.data.from_spark(df=data, targets=targets)
     else:
         # Cannot convert to mlflow dataset, return original data.
         _logger.info(
