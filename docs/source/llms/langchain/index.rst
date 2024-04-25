@@ -224,7 +224,7 @@ MLflow langchain autologging callback support
 
 - **Model inference without callbacks**:
 
-    If you invoke your model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents`(for BaseRetriever) functions, MLflow autologging will inject
+    If you invoke your model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions, MLflow autologging will inject
     mlflow callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
 
 - **Model inference with user-specified callbacks**:
