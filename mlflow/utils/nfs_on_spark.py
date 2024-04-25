@@ -26,32 +26,11 @@ _NFS_CACHE_ROOT_DIR = None
 
 def get_nfs_cache_root_dir():
     if is_in_databricks_runtime():
-        spark_sess = _get_active_spark_session()
-        if is_in_databricks_serverless():
-            nfs_enabled = True
-        else:
-            nfs_enabled = spark_sess and (
-                spark_sess.conf.get("spark.databricks.mlflow.nfs.enabled", "true").lower() == "true"
-            )
-        if nfs_enabled:
-            try:
-                # The directory `getReplNFSTempDir` returns has read/write permissions.
-                return _get_dbutils().entry_point.getReplNFSTempDir()
-            except Exception:
-                nfs_root_dir = "/local_disk0/.ephemeral_nfs"
-                # Test whether the NFS directory is writable.
-                test_path = os.path.join(nfs_root_dir, uuid.uuid4().hex)
-                try:
-                    os.makedirs(test_path)
-                    return nfs_root_dir
-                except Exception:
-                    # For databricks cluster enabled Table ACL, we have no permission to access NFS
-                    # directory, in this case, return None, meaning NFS is not available.
-                    return None
-                finally:
-                    shutil.rmtree(test_path, ignore_errors=True)
-        else:
-            return None
+        user_python_bin_path = shutil.which("python")
+        user_env_path = os.path.dirname(os.path.dirname(user_python_bin_path))
+        nfs_temp_dir = os.path.join(user_env_path, "mlflow_nfs_temp")
+        os.makedirs(nfs_temp_dir, exist_ok=True)
+        return nfs_temp_dir
     else:
         spark_session = _get_active_spark_session()
         if spark_session is not None:
