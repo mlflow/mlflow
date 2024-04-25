@@ -38,6 +38,7 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
         "__call__": "inputs",
         "invoke": "input",
         "batch": "inputs",
+        "stream": "input",
         "get_relevant_documents": "query",
     }
     input_example_exc = None
@@ -125,9 +126,10 @@ def _inject_callbacks(original_callbacks, new_callbacks):
 
 def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
     """
-    `config` is the second positional argument of runnable.invoke and runnable.batch functions
+    `config` is the second positional argument of runnable invoke, batch and stream functions
     https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py#L468
     https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L600-L607
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L801
 
     """
     from langchain.schema.runnable.config import RunnableConfig
@@ -141,7 +143,7 @@ def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
     if config is None:
         config = RunnableConfig(callbacks=mlflow_callbacks)
     else:
-        # for `invoke`, config type is RunnableConfig
+        # for `invoke` and `stream`, config type is RunnableConfig
         # for `batch`, config type is Union[RunnableConfig, List[RunnableConfig]]
         if isinstance(config, list):
             for c in config:
@@ -159,7 +161,7 @@ def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
     """
     Inject list of callbacks into the function named `func_name` of the model.
     """
-    if func_name in ["invoke", "batch"]:
+    if func_name in ["invoke", "batch", "stream"]:
         return _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs)
 
     if func_name == "__call__":
@@ -221,8 +223,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     - metrics
     - data
 
-    We patch either `invoke` or `__call__` function for different models
-    based on their usage.
+    We patch inference functions for different models based on their usage.
     """
 
     import langchain
@@ -343,6 +344,13 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         else:
             input_data = input_example
         try:
+            # we do not convert stream output iterator for logging as tracing
+            # will provide much more information than this function, we might drop
+            # this in the future
+            if func_name == "stream":
+                raise MlflowException(
+                    f"Unsupported function {func_name} for logging inputs and outputs."
+                )
             data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
             mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
         except Exception as e:
