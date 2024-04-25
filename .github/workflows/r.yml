@@ -67,6 +67,7 @@ jobs:
           key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
       - name: Install dependencies
         run: |
+          sudo apt-get install -y libcurl4-openssl-dev libharfbuzz-dev libfribidi-dev
           Rscript -e 'source(".install-deps.R", echo=TRUE)'
       - name: Set USE_R_DEVEL
         run: |
