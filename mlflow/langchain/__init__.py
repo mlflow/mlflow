@@ -991,6 +991,13 @@ def autolog(
                 functools.partial(patched_inference, "invoke"),
             )
 
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "batch",
+                functools.partial(patched_inference, "batch"),
+            )
+
         for cls in [AgentExecutor, Chain]:
             safe_patch(
                 FLAVOR_NAME,
