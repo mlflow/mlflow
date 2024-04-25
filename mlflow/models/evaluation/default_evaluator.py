@@ -1877,7 +1877,7 @@ class DefaultEvaluator(ModelEvaluator):
         predictions=None,
         **kwargs,
     ):
-        if model is None and predictions is None:
+        if model is None and predictions is None and dataset.predictions_data is None:
             raise MlflowException(
                 message=(
                     "Either a model or set of predictions must be specified in order to use the"
