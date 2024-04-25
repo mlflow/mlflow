@@ -219,16 +219,16 @@ I can't load the model logged by mlflow langchain autologging
     consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
     environment has `pydantic` installed with at least version 2. 
 
-MLflow langchain autologging callback support
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How does MLflow langchain autologging interact with callbacks?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- **Model inference without callbacks**:
+- **Model inference with default callbacks**:
 
-    If you invoke your model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions, MLflow autologging will inject
+    If you invoke a langchain model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions directly, MLflow autologging will inject
     a callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
 
 - **Model inference with user-specified callbacks**:
 
     If your inference call already includes callbacks in the config, e.g. `model.invoke(input, config=RunnableConfig(callbacks=customer_callbacks))`, then MLflow autologging
-    still preserves your callbacks and appends a callback after them. `RunnableConfig callbacks parameter <https://github.com/langchain-ai/langchain/blob/6ccecf23639ef5cbebcbc4eaeda99eb1f7b84deb/libs/core/langchain_core/callbacks/base.py#L636>`_ 
+    still preserves your callbacks and appends a callback after them. `RunnableConfig callbacks parameter <https://api.python.langchain.com/en/latest/runnables/langchain_core.runnables.config.RunnableConfig.html#langchain_core.runnables.config.RunnableConfig>`_ 
     supports both `BaseCallbackManager` or `List[BaseCallbackHandler]`, in either case MLflow autologging appends a callback to collect metrics and artifacts.
