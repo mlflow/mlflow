@@ -2507,24 +2507,10 @@ def test_save_load_chain_errors():
             ),
         )
 
-        incorrect_path = "tests/langchain/chain1.py"
-        with pytest.raises(
-            MlflowException,
-            match=f"If {incorrect_path} is a string, it must be the path to a "
-            "file named `chain.py` on the local filesystem.",
-        ):
-            mlflow.langchain.log_model(
-                lc_model=incorrect_path,
-                artifact_path="model_path",
-                signature=signature,
-                input_example=input_example,
-                code_paths=["tests/langchain/state_of_the_union.txt"],
-            )
-
         incorrect_path = "tests/langchain1/chain.py"
         with pytest.raises(
             MlflowException,
-            match=f"If the {incorrect_path} is a string, it must be a valid "
+            match=f"If the provided model '{incorrect_path}' is a string, it must be a valid "
             "python file path containing the code for defining the chain instance.",
         ):
             mlflow.langchain.log_model(
@@ -2615,7 +2601,6 @@ def test_save_load_chain_as_code_optional_code_path():
             artifact_path="model_path",
             signature=signature,
             input_example=input_example,
-            code_paths=[],
         )
 
     assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None

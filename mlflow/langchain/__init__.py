@@ -251,7 +251,7 @@ def save_model(
             formatted_code_path.append(lc_model)
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                f"If the {lc_model} is a string, it must be a valid python "
+                f"If the provided model '{lc_model}' is a string, it must be a valid python "
                 "file path containing the code for defining the chain instance."
             )
 

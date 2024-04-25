@@ -311,23 +311,31 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
 
     # lc_model is a file path
     if isinstance(lc_model, str):
+        if not os.path.exists(lc_model):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"If the provided model '{lc_model}' is a string, it must be a valid python "
+                "file path containing the code for defining the chain instance."
+            )
+
         try:
-            if not os.path.exists(lc_model):
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Model path {lc_model} does not exist."
-                )
             with open(lc_model) as _:
                 return lc_model
         except:
-            from databricks.sdk import WorkspaceClient
-            from databricks.sdk.service.workspace import ExportFormat
+            try:
+                from databricks.sdk import WorkspaceClient
+                from databricks.sdk.service.workspace import ExportFormat
 
-            w = WorkspaceClient()
-            response = w.workspace.export(path=lc_model, format=ExportFormat.SOURCE)
-            decoded_content = base64.b64decode(response.content)
-            # TODO: code validation
+                w = WorkspaceClient()
+                response = w.workspace.export(path=lc_model, format=ExportFormat.SOURCE)
+                decoded_content = base64.b64decode(response.content)
+                # TODO: code validation
 
-            return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
+                return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
+            except:
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"If the provided model '{lc_model}' is a string, it must be a valid python "
+                    "file path containing the code for defining the chain instance."
+                )
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
