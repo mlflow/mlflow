@@ -128,8 +128,9 @@ func registerMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 	})
 	app.Get("/api/2.0/mlflow/experiments/get", func(ctx *fiber.Ctx) error {
 		fmt.Println("Enter endpoint")
-		var input *protos.GetExperiment
-		if err := ctx.QueryParser(&input); err != nil {
+		input := &protos.GetExperiment{}
+		if err := ctx.QueryParser(input); err != nil {
+			fmt.Printf("Error parsing query %#v\n", err)
 			return err
 		}
 		output, err := service.GetExperiment(input)
