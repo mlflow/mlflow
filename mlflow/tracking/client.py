@@ -73,6 +73,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
+    IMMUTABLE_TAGS,
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
@@ -876,7 +877,7 @@ class MlflowClient:
 
     def _exclude_immutable_tags(self, tags: Dict[str, str]) -> Dict[str, str]:
         """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
-        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
+        return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """

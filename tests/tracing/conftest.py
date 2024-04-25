@@ -1,3 +1,4 @@
+from typing import Dict
 from unittest import mock
 
 import pytest
@@ -10,7 +11,6 @@ from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracking.fluent import _get_experiment_id
 
 from tests.tracing.helper import create_test_trace_info
 
@@ -57,13 +57,46 @@ def mock_upload_trace_data():
         yield mock_upload_trace_data
 
 
-@pytest.fixture(autouse=True)
-def mock_store():
+@pytest.fixture
+def mock_store(monkeypatch):
+    """
+    Mocking the StartTrace and EndTrace API call to the tracking backend. We only mock those two
+    API calls, so the rest of the tracking API calls the actual tracking store e.g. create_run().
+    """
+    store = mlflow.tracking._tracking_service.utils._get_store()
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
-        mock_store = mock_get_store.return_value
-        mock_store.start_trace.side_effect = _mock_start_trace
-        mock_store.end_trace.side_effect = _mock_end_trace
-        yield mock_store
+        mock_get_store.return_value = store
+
+        _traces: Dict[str, TraceInfo] = {}
+
+        def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
+            trace_info = create_test_trace_info(
+                request_id="tr-12345",
+                experiment_id=experiment_id,
+                timestamp_ms=timestamp_ms,
+                execution_time_ms=None,
+                status=TraceStatus.IN_PROGRESS,
+                request_metadata=request_metadata,
+                tags={
+                    "mlflow.user": "bob",
+                    "mlflow.artifactLocation": "test",
+                    **tags,
+                },
+            )
+            _traces[trace_info.request_id] = trace_info
+            return trace_info
+
+        def _mock_end_trace(request_id, timestamp_ms, status, request_metadata, tags):
+            trace_info = _traces[request_id]
+            trace_info.execution_time_ms = timestamp_ms - trace_info.timestamp_ms
+            trace_info.status = status
+            trace_info.request_metadata.update(request_metadata)
+            trace_info.tags.update(tags)
+            return trace_info
+
+        monkeypatch.setattr(store, "start_trace", mock.MagicMock(side_effect=_mock_start_trace))
+        monkeypatch.setattr(store, "end_trace", mock.MagicMock(side_effect=_mock_end_trace))
+        yield store
 
 
 @pytest.fixture
@@ -72,38 +105,3 @@ def databricks_tracking_uri():
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ):
         yield
-
-
-def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
-    """
-    Mocking the StartTrace API call to the tracking backend.
-    """
-    return create_test_trace_info(
-        request_id="tr-12345",
-        experiment_id=experiment_id,
-        timestamp_ms=timestamp_ms,
-        execution_time_ms=None,
-        status=TraceStatus.IN_PROGRESS,
-        request_metadata=request_metadata,
-        tags={"mlflow.user": "bob", "mlflow.artifactLocation": "test", **tags},
-    )
-
-
-def _mock_end_trace(request_id, timestamp_ms, status, request_metadata, tags):
-    """
-    Mocking the EndTrace API call to the tracking backend.
-    """
-    return create_test_trace_info(
-        request_id=request_id,
-        experiment_id=_get_experiment_id(),
-        timestamp_ms=123,
-        execution_time_ms=timestamp_ms + 123,
-        status=status,
-        request_metadata=request_metadata or {},
-        tags={
-            "mlflow.user": "bob",
-            "mlflow.artifactLocation": "test",
-            "some_existing_tag": "value",
-            **tags,
-        },
-    )

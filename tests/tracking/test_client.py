@@ -48,7 +48,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 
-from tests.tracing.conftest import _mock_end_trace, _mock_start_trace, clear_singleton  # noqa: F401
+from tests.tracing.conftest import clear_singleton  # noqa: F401
+from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
 from tests.tracing.helper import create_test_trace_info
 
 
@@ -290,7 +291,8 @@ def test_client_delete_traces(mock_store):
     )
 
 
-def test_start_and_end_trace(clear_singleton):
+@pytest.mark.parametrize("with_active_run", [True, False])
+def test_start_and_end_trace(clear_singleton, with_active_run):
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
@@ -346,7 +348,12 @@ def test_start_and_end_trace(clear_singleton):
             return res
 
     model = TestModel()
-    model.predict(1, 2)
+    if with_active_run:
+        with mlflow.start_run() as run:
+            model.predict(1, 2)
+            run_id = run.info.run_id
+    else:
+        model.predict(1, 2)
 
     traces = mlflow.get_traces()
     assert len(traces) == 1
@@ -357,6 +364,8 @@ def test_start_and_end_trace(clear_singleton):
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
+    if with_active_run:
+        assert trace_info.tags["mlflow.sourceRun"] == run_id
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 1, "y": 2}'
@@ -466,12 +475,17 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton):
 
 
 @mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
-def test_log_trace_with_databricks_tracking_uri(clear_singleton, mock_store, monkeypatch):
+def test_log_trace_with_databricks_tracking_uri(
+    clear_singleton, mock_store_for_tracing, monkeypatch
+):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
-    mock_store.get_experiment_by_name().experiment_id = "test_experiment_id"
-
-    mock_store.start_trace.side_effect = _mock_start_trace
-    mock_store.end_trace.side_effect = _mock_end_trace
+    mock_experiment = mock.MagicMock()
+    mock_experiment.experiment_id = "test_experiment_id"
+    monkeypatch.setattr(
+        mock_store_for_tracing,
+        "get_experiment_by_name",
+        mock.MagicMock(return_value=mock_experiment),
+    )
 
     class TestModel:
         def __init__(self):
@@ -534,8 +548,8 @@ def test_log_trace_with_databricks_tracking_uri(clear_singleton, mock_store, mon
     assert trace_data.response == "5"
     assert len(trace_data.spans) == 2
 
-    mock_store.start_trace.assert_called_once()
-    mock_store.end_trace.assert_called_once()
+    mock_store_for_tracing.start_trace.assert_called_once()
+    mock_store_for_tracing.end_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 

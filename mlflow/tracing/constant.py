@@ -8,6 +8,7 @@ class TraceMetadataKey:
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
+    SOURCE_RUN = "mlflow.sourceRun"
 
 
 # A set of reserved attribute keys
