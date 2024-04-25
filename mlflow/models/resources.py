@@ -2,25 +2,22 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
+from typing import Dict, List
 
 
 class ResourceType(Enum):
-    DATABRICKS_VECTOR_SEARCH_INDEX_NAME = "databricks_vector_search_index_name"
-    DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME = "databricks_vector_search_endpoint_name"
-    DATABRICKS_EMBEDDINGS_ENDPOINT_NAME = "databricks_embeddings_endpoint_name"
-    DATABRICKS_LLM_ENDPOINT_NAME = "databricks_llm_endpoint_name"
-    DATABRICKS_CHAT_ENDPOINT_NAME = "databricks_chat_endpoint_name"
+    """
+    Enum to define the different types of resources needed to serve a model.
+    """
 
-
-class Providers(Enum):
-    DATABRICKS = "databricks"
+    VECTOR_SEARCH_INDEX = "vector_search_index"
+    SERVING_ENDPOINT = "serving_endpoint"
 
 
 @dataclass
 class Resource(ABC):
     """
-    Base class for all resources to define the resources needed to serve a model.
+    Base class for defining the resources needed to serve a model.
 
     Args:
         type (ResourceType): The resource type.
@@ -28,7 +25,7 @@ class Resource(ABC):
     """
 
     type: ResourceType
-    target_uri: Providers
+    target_uri: str
 
     @abstractmethod
     def to_dict(self):
@@ -44,11 +41,11 @@ class DatabricksResource(Resource, ABC):
     Base class to define all the Databricks resources to serve a model.
     """
 
-    target_uri: Providers = Providers.DATABRICKS.value
+    target_uri: str = "databricks"
 
 
 @dataclass
-class DatabricksLLMEndpoint(DatabricksResource):
+class DatabricksServingEndpoint(DatabricksResource):
     """
     Define Databricks LLM endpoint resource to serve a model.
 
@@ -56,66 +53,15 @@ class DatabricksLLMEndpoint(DatabricksResource):
         endpoint_name (str): The name of all the databricks endpoints used by the model.
     """
 
-    type: ResourceType = ResourceType.DATABRICKS_LLM_ENDPOINT_NAME
+    type: ResourceType = ResourceType.SERVING_ENDPOINT
     endpoint_name: str = None
 
     def to_dict(self):
-        return {self.type.value: [self.endpoint_name]} if self.endpoint_name else {}
+        return {self.type.value: [{"name": self.endpoint_name}]} if self.endpoint_name else {}
 
 
 @dataclass
-class DatabricksChatEndpoint(DatabricksResource):
-    """
-    Define Databricks LLM endpoint resource to serve a model.
-
-    Args:
-        endpoint_name (str): The name of all the databricks chat endpoints
-        used by the model.
-    """
-
-    type: ResourceType = ResourceType.DATABRICKS_CHAT_ENDPOINT_NAME
-    endpoint_name: str = None
-
-    def to_dict(self):
-        return {self.type.value: [self.endpoint_name]} if self.endpoint_name else {}
-
-
-@dataclass
-class DatabricksEmbeddingEndpoint(DatabricksResource):
-    """
-    Define Databricks embedding endpoint resource to serve a model.
-
-    Args:
-        endpoint_name (str): The name of all the databricks embedding endpoints
-        used by the model.
-    """
-
-    type: ResourceType = ResourceType.DATABRICKS_EMBEDDINGS_ENDPOINT_NAME
-    endpoint_name: str = None
-
-    def to_dict(self):
-        return {self.type.value: [self.endpoint_name]} if self.endpoint_name else {}
-
-
-@dataclass
-class DatabricksVectorSearchEndpoint(DatabricksResource):
-    """
-    Define Databricks vector search endpoint resource to serve a model.
-
-    Args:
-        endpoint_name (str): The name of all the databricks vector search endpoints
-        used by the model.
-    """
-
-    type: ResourceType = ResourceType.DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME
-    endpoint_name: str = None
-
-    def to_dict(self):
-        return {self.type.value: [self.endpoint_name]} if self.endpoint_name else {}
-
-
-@dataclass
-class DatabricksVectorSearchIndexName(DatabricksResource):
+class DatabricksVectorSearchIndex(DatabricksResource):
     """
     Define Databricks vector search index name resource to serve a model.
 
@@ -124,11 +70,11 @@ class DatabricksVectorSearchIndexName(DatabricksResource):
         used by the model.
     """
 
-    type: ResourceType = ResourceType.DATABRICKS_VECTOR_SEARCH_INDEX_NAME
+    type: ResourceType = ResourceType.VECTOR_SEARCH_INDEX
     index_name: str = None
 
     def to_dict(self):
-        return {self.type.value: [self.index_name]} if self.index_name else {}
+        return {self.type.value: [{"name": self.index_name}]} if self.index_name else {}
 
 
 class _ResourceBuilder:
@@ -137,9 +83,10 @@ class _ResourceBuilder:
     """
 
     @staticmethod
-    def from_resources(resources: List[Resource]) -> dict:
-        resource_dict = defaultdict(list)
+    def from_resources(resources: List[Resource]) -> Dict[str, Dict[ResourceType, List[str]]]:
+        resource_dict = defaultdict(lambda: defaultdict(list))
         for resource in resources:
-            for resource_type, values in resource.to_dict().items():
-                resource_dict[resource_type].extend(values)
+            resource_data = resource.to_dict()
+            for resource_type, values in resource_data.items():
+                resource_dict[resource.target_uri][resource_type].extend(values)
         return dict(resource_dict)
