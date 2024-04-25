@@ -1,3 +1,5 @@
+import pytest
+
 from mlflow.models.resources import (
     DEFAULT_API_VERSION,
     DatabricksServingEndpoint,
@@ -44,3 +46,72 @@ def test_resources():
     }
 
     assert _ResourceBuilder.from_resources(resources) == expected
+
+
+def test_resources_from_yaml(tmp_path):
+    yaml_file = tmp_path.joinpath("resources.yaml")
+    with open(yaml_file, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index:
+                - name: rag.studio_bugbash.databricks_docs_index
+                serving_endpoint:
+                - name: databricks-mixtral-8x7b-instruct
+                - name: databricks-llama-8x7b-instruct
+            """
+        )
+
+    assert _ResourceBuilder.from_yaml_file(yaml_file) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": {
+            "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-llama-8x7b-instruct"},
+            ],
+        },
+    }
+
+    with pytest.raises(OSError, match="No such file or directory: 'no-file.yaml'"):
+        _ResourceBuilder.from_yaml_file("no-file.yaml")
+
+    incorrect_version = tmp_path.joinpath("incorrect_file.yaml")
+    with open(incorrect_version, "w") as f:
+        f.write(
+            """
+            api_version: "v1"
+            """
+        )
+
+    with pytest.raises(ValueError, match="Unsupported API version: v1"):
+        _ResourceBuilder.from_yaml_file(incorrect_version)
+
+    incorrect_target_uri = tmp_path.joinpath("incorrect_target_uri.yaml")
+    with open(incorrect_target_uri, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks-aa:
+                vector_search_index_name:
+                - name: rag.studio_bugbash.databricks_docs_index
+            """
+        )
+
+    with pytest.raises(ValueError, match="Unsupported target URI: databricks-aa"):
+        _ResourceBuilder.from_yaml_file(incorrect_target_uri)
+
+    incorrect_resource = tmp_path.joinpath("incorrect_resource.yaml")
+    with open(incorrect_resource, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index_name:
+                - name: rag.studio_bugbash.databricks_docs_index
+            """
+        )
+
+    with pytest.raises(ValueError, match="Unsupported resource type: vector_search_index_name"):
+        _ResourceBuilder.from_yaml_file(incorrect_resource)
