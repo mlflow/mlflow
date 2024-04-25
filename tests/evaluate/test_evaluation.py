@@ -1035,6 +1035,46 @@ def test_evaluate_with_multi_evaluators(
                     )
 
 
+def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model_uri, iris_dataset):
+    """
+    Tests that custom evaluators are called correctly when no model or predictions are provided
+    """
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+    ):
+        with mock.patch.object(
+            FakeEvauator1, "can_evaluate", return_value=True
+        ) as mock_can_evaluate, mock.patch.object(FakeEvauator1, "evaluate") as mock_evaluate:
+            with mlflow.start_run() as run:
+                evaluate(
+                    model=None,
+                    data=iris_dataset._constructor_args["data"],
+                    predictions=None,
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    evaluators="test_evaluator1",
+                    evaluator_config=None,
+                    extra_metrics=None,
+                    baseline_model=None,
+                )
+
+                mock_can_evaluate.assert_called_once_with(
+                    model_type="classifier", evaluator_config={}
+                )
+                mock_evaluate.assert_called_once_with(
+                    model=None,
+                    dataset=iris_dataset,
+                    predictions=None,
+                    model_type="classifier",
+                    run_id=run.info.run_id,
+                    evaluator_config={},
+                    custom_metrics=None,
+                    extra_metrics=None,
+                    custom_artifacts=None,
+                    baseline_model=None,
+                )
+
+
 def test_start_run_or_reuse_active_run():
     with _start_run_or_reuse_active_run() as run_id:
         assert mlflow.active_run().info.run_id == run_id
