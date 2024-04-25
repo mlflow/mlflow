@@ -2834,6 +2834,45 @@ def test_constructing_eval_df_for_custom_metrics():
     ]
 
 
+def test_evaluate_no_model_or_predictions_specified():
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+        }
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "Either a model or set of predictions must be specified in order to use the"
+            " default evaluator"
+        ),
+    ):
+        mlflow.evaluate(
+            data=data,
+            targets="truth",
+            model_type="regressor",
+        )
+
+
+def test_evaluate_no_model_and_predictions_specified_with_unsupported_data_type():
+    X = np.random.random((5, 5))
+    y = np.random.random(5)
+
+    with pytest.raises(
+        MlflowException,
+        match="If predictions is specified, data must be one of the following types",
+    ):
+        mlflow.evaluate(
+            data=X,
+            targets=y,
+            predictions="model_output",
+            model_type="regressor",
+            evaluators="default",
+        )
+
+
 def test_evaluate_no_model_type():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(

@@ -598,7 +598,7 @@ class EvaluationDataset:
         self._has_targets = False
         self._predictions_data = None
         self._predictions_name = None
-        self._has_predictions = False
+        self._has_predictions = predictions is not None
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -615,6 +615,11 @@ class EvaluationDataset:
             raise MlflowException(
                 message="`feature_names` argument must be a list containing unique feature names.",
                 error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if self._has_predictions:
+            _validate_dataset_type_supports_predictions(
+                data=data, supported_predictions_dataset_types=self._supported_dataframe_types
             )
 
         has_targets = targets is not None
@@ -699,7 +704,6 @@ class EvaluationDataset:
                 self._labels_data = data[targets].to_numpy()
                 self._targets_name = targets
 
-            self._has_predictions = predictions is not None
             if self._has_predictions:
                 self._predictions_data = data[predictions].to_numpy()
                 self._predictions_name = predictions
@@ -1178,8 +1182,16 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
 
 def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     """Convert input data to mlflow dataset."""
+    supported_dataframe_types = [pd.DataFrame]
     if "pyspark" in sys.modules:
         from pyspark.sql import DataFrame as SparkDataFrame
+
+        supported_dataframe_types.append(SparkDataFrame)
+
+    if predictions is not None:
+        _validate_dataset_type_supports_predictions(
+            data=data, supported_predictions_dataset_types=supported_dataframe_types
+        )
 
     if isinstance(data, list):
         # If the list is flat, we assume each element is an independent sample.
@@ -1202,6 +1214,21 @@ def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
             f"a numpy array, a panda Dataframe or a spark Dataframe, but received {type(data)}."
         )
         return data
+
+
+def _validate_dataset_type_supports_predictions(data, supported_predictions_dataset_types):
+    """
+    Validate that the dataset type supports a user-specified "predictions" column.
+    """
+    if not any(isinstance(data, sdt) for sdt in supported_predictions_dataset_types):
+        raise MlflowException(
+            message=(
+                "If predictions is specified, data must be one of the following types, or an"
+                " MLflow Dataset that represents one of the following types:"
+                f" {supported_predictions_dataset_types}."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _evaluate(
@@ -2065,6 +2092,7 @@ def evaluate(
                 targets=targets,
                 path=dataset_path,
                 feature_names=feature_names,
+                predictions=predictions,
             )
         predictions_expected_in_model_output = predictions if model is not None else None
 

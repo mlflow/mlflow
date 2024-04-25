@@ -1497,29 +1497,6 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
     X = X[::5]
     y = y[::5]
     with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The model output must be specified in the "
-            "predictions parameter when model=None.",
-        ):
-            mlflow.evaluate(
-                data=X.assign(y=y, model_output=y),
-                targets="y",
-                model_type="regressor",
-            )
-
-        with pytest.raises(
-            MlflowException,
-            match="The data must be a pandas dataframe or "
-            "mlflow.data.pandas_dataset.PandasDataset when model=None.",
-        ):
-            mlflow.evaluate(
-                data=X.assign(y=y, model_output=y).to_numpy(),
-                targets="y",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
         with pytest.raises(MlflowException, match="The data argument cannot be None."):
             mlflow.evaluate(
                 data=None,

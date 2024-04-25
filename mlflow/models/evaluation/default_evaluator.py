@@ -1880,9 +1880,11 @@ class DefaultEvaluator(ModelEvaluator):
         if model is None and predictions is None:
             raise MlflowException(
                 message=(
-                    "Either a model or set of predictions must be specified. Please either specify"
-                    " the `model` parameter, the `predictions` parameter, or an MLflow dataset"
-                    " containing the `predictions` column name."
+                    "Either a model or set of predictions must be specified in order to use the"
+                    " default evaluator. Either specify the `model` parameter, the `predictions`"
+                    " parameter, an MLflow dataset containing the `predictions` column name"
+                    " (via the `data` parameter), or a different evaluator (via the `evaluators`"
+                    " parameter)."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
