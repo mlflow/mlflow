@@ -5,7 +5,8 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow import MlflowClient
+from mlflow import MlflowClient, flush_async_logging
+from mlflow.config import enable_async_logging
 from mlflow.entities import (
     ExperimentTag,
     Run,
@@ -19,8 +20,6 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
-from mlflow import MlflowClient, flush_async_logging
-from mlflow.config import enable_async_logging
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
