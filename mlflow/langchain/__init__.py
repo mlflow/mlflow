@@ -544,7 +544,9 @@ def _save_model(model, path, loader_fn, persist_dir):
             "using `pip install cloudpickle>=2.1.0` "
             "to ensure the model can be loaded correctly."
         )
-    with register_pydantic_v1_serializer_cm():
+    # patch_langchain_type_to_cls_dict here as we attempt to load model
+    # if it's saved by `dict` method
+    with register_pydantic_v1_serializer_cm(), patch_langchain_type_to_cls_dict():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
         else:
