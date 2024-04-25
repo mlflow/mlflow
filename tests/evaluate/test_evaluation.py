@@ -1468,30 +1468,6 @@ def test_evaluate_with_static_mlflow_dataset_input():
     assert "root_mean_squared_error" in run.data.metrics
 
 
-def test_evaluate_with_static_spark_dataset_unsupported():
-    data = sklearn.datasets.load_diabetes()
-    spark = SparkSession.builder.master("local[*]").getOrCreate()
-    rows = [
-        (Vectors.dense(features), float(label), float(label))
-        for features, label in zip(data.data, data.target)
-    ]
-    spark_dataframe = spark.createDataFrame(
-        spark.sparkContext.parallelize(rows, 1), ["features", "label", "model_output"]
-    )
-    with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The data must be a pandas dataframe or mlflow.data."
-            "pandas_dataset.PandasDataset when model=None.",
-        ):
-            mlflow.evaluate(
-                data=spark_dataframe,
-                targets="label",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
-
 def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]

@@ -211,6 +211,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            predictions=self._predictions,
         )
 
 
