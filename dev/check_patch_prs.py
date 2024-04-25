@@ -66,7 +66,7 @@ def fetch_patch_prs(version):
             break
         page += 1
 
-    return {pr["number"]: pr["pull_request"].get("merged_at") is not None for pr in data["items"]}
+    return {pr["number"]: pr["pull_request"].get("merged_at") is not None for pr in pulls}
 
 
 @click.command()
