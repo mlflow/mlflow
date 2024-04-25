@@ -59,7 +59,7 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singlet
 
     processor.on_start(span)
 
-    assert span.start_time != original_start_time
+    assert span.start_time > original_start_time
     # The span timestamp should not include the backend latency (0.5 second)
     assert time.time_ns() - span.start_time < 100_000_000  # 0.1 second
 
