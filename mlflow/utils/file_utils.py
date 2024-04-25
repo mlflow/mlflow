@@ -917,18 +917,8 @@ def get_or_create_nfs_tmp_dir():
 
     nfs_root_dir = get_nfs_cache_root_dir()
 
-    if is_in_databricks_runtime() and get_repl_id() is not None:
-        # Note: In databricks, atexit hook does not work.
-        # The directory returned by `dbutils.entry_point.getReplNFSTempDir()`
-        # will be removed once databricks notebook detaches.
-        # The temp directory is designed to be used by all kinds of applications,
-        # so create a child directory "mlflow" for storing mlflow temp data.
-        try:
-            repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
-        except Exception:
-            repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
-
-        tmp_nfs_dir = os.path.join(repl_nfs_tmp_dir, "mlflow")
+    if is_in_databricks_runtime():
+        tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data")
         os.makedirs(tmp_nfs_dir, exist_ok=True)
     else:
         tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
