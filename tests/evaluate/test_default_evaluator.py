@@ -2853,6 +2853,7 @@ def test_evaluate_no_model_or_predictions_specified():
             data=data,
             targets="truth",
             model_type="regressor",
+            evaluators="default",
         )
 
 
