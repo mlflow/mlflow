@@ -715,11 +715,42 @@ class PyFuncModel:
     def predict_stream(
         self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
     ) -> Iterator[PyFuncOutput]:
+        """
+        Generates streaming model predictions.
+
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
+
+        Args:
+            data: Model input as one of pandas.DataFrame, numpy.ndarray,
+                scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
+                Dict[str, numpy.ndarray].
+                For model signatures with tensor spec inputs
+                (e.g. the Tensorflow core / Keras model), the input data type must be one of
+                `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
+                `pandas.DataFrame`. If data is of `pandas.DataFrame` type and the model
+                contains a signature with tensor spec inputs, the corresponding column values
+                in the pandas DataFrame will be reshaped to the required shape with 'C' order
+                (i.e. read / write the elements using C-like index order), and DataFrame
+                column values will be cast as the required tensor spec type. For Pyspark
+                DataFrame inputs, MLflow will only enforce the schema on a subset
+                of the data rows.
+            params: Additional parameters to pass to the model for inference.
+
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+
+        Returns:
+            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+        """
+
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
         data, params = self._validate_prediction_input(data, params)
-        if inspect.signature(self._predict_fn).parameters.get("params"):
+        if inspect.signature(self._predict_stream_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
         return self._predict_stream_fn(data)
 

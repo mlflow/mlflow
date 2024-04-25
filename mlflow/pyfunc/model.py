@@ -558,9 +558,9 @@ class _PythonModelPyfuncWrapper:
                     release without warning.
 
         Returns:
-            Model predictions.
+            Streaming predictions.
         """
-        if inspect.signature(self.python_model.predict).parameters.get("params"):
+        if inspect.signature(self.python_model.predict_stream).parameters.get("params"):
             return self.python_model.predict_stream(
                 self.context, self._convert_input(model_input), params=params
             )
