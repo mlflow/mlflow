@@ -1,7 +1,7 @@
 import os
 import re
 from operator import itemgetter
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from unittest import mock
 
 import pandas as pd
@@ -10,8 +10,9 @@ from langchain.chains import LLMChain
 from langchain.document_loaders import TextLoader
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
+from langchain.schema.runnable.config import RunnableConfig
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_core.callbacks import StdOutCallbackHandler
+from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
 from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
@@ -686,19 +687,102 @@ def test_combine_input_and_output(input, output, expected):
     pd.testing.assert_frame_equal(loaded_table, pdf)
 
 
-@pytest.mark.parametrize("callbacks", [StdOutCallbackHandler(), [StdOutCallbackHandler()]])
-def test_langchain_autolog_callback_injection(callbacks):
-    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
+class CustomCallbackHandler(BaseCallbackHandler):
+    def __init__(self):
+        self.logs = []
+
+    def on_chain_start(
+        self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any
+    ) -> None:
+        self.logs.append("chain_start")
+
+    def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+        self.logs.append("chain_end")
+
+
+@pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
+@pytest.mark.parametrize(
+    "generate_callbacks",
+    [lambda: [CustomCallbackHandler()], lambda: BaseCallbackManager([CustomCallbackHandler()])],
+)
+def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, generate_callbacks):
+    mlflow.langchain.autolog(
+        log_models=True, extra_tags={"test_tag": "test"}, log_inputs_outputs=True
+    )
+    callbacks = generate_callbacks()
     with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
-        model.invoke("MLflow", callbacks=callbacks)
+        if invoke_arg == "args":
+            model.invoke("MLflow", RunnableConfig(callbacks=callbacks))
+        elif invoke_arg == "kwargs":
+            model.invoke("MLflow", config=RunnableConfig(callbacks=callbacks))
         assert mlflow.active_run() is not None
-    assert MlflowClient().get_run(run.info.run_id).data.metrics != {}
-    assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
-    assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    assert run_data.metrics != {}
+    assert run_data.tags["test_tag"] == "test"
+    assert run_data.tags["mlflow.autologging"] == "langchain"
     artifacts = get_artifacts(run.info.run_id)
     for artifact_name in get_mlflow_callback_artifacts():
         if isinstance(artifact_name, str):
             assert artifact_name in artifacts
         else:
             assert any(artifact_name.match(artifact) for artifact in artifacts)
+    # make sure INFERENCE_FILE_NAME is logged
+    mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
+    if isinstance(callbacks, BaseCallbackManager):
+        assert callbacks.handlers[0].logs == ["chain_start", "chain_end"]
+    else:
+        assert callbacks[0].logs == ["chain_start", "chain_end"]
+
+
+@pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
+@pytest.mark.parametrize(
+    "generate_config",
+    [
+        lambda: RunnableConfig(callbacks=[CustomCallbackHandler()]),
+        lambda: RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+        lambda: [
+            RunnableConfig(callbacks=[CustomCallbackHandler()]),
+            RunnableConfig(callbacks=[CustomCallbackHandler()]),
+        ],
+        lambda: [
+            RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+            RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+        ],
+    ],
+)
+def test_langchain_autolog_callback_injection_in_batch(invoke_arg, generate_config):
+    mlflow.langchain.autolog(
+        log_models=True, extra_tags={"test_tag": "test"}, log_inputs_outputs=True
+    )
+    config = generate_config()
+    with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        inputs = ["MLflow"] * 2
+        if invoke_arg == "args":
+            model.batch(inputs, config)
+        elif invoke_arg == "kwargs":
+            model.batch(inputs, config=config)
+        assert mlflow.active_run() is not None
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    assert run_data.metrics["chain_starts"] == 2
+    assert run_data.metrics["chain_ends"] == 2
+    assert run_data.tags["test_tag"] == "test"
+    assert run_data.tags["mlflow.autologging"] == "langchain"
+    artifacts = get_artifacts(run.info.run_id)
+    for artifact_name in [f"chain_start_{i}.json" for i in range(1, 3)] + [
+        f"chain_end_{i}.json" for i in range(1, 3)
+    ]:
+        assert artifact_name in artifacts
+    # make sure INFERENCE_FILE_NAME is logged
+    mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
+    if isinstance(config, list):
+        callbacks = config[0]["callbacks"]
+        expected_logs = sorted(["chain_start", "chain_end"])
+    else:
+        callbacks = config["callbacks"]
+        expected_logs = sorted(["chain_start", "chain_end"] * 2)
+    if isinstance(callbacks, BaseCallbackManager):
+        assert sorted(callbacks.handlers[0].logs) == expected_logs
+    else:
+        assert sorted(callbacks[0].logs) == expected_logs
