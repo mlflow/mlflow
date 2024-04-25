@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
@@ -31,9 +33,33 @@ func (g GlowMlflowService) DeleteTag(input *protos.DeleteTag) (protos.DeleteTag_
 	return protos.DeleteTag_Response{}, &MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
 }
 
+func strPtr(s string) *string {
+	return &s
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
 // GetExperiment implements MlflowService.
-func (g GlowMlflowService) GetExperiment(input *protos.GetExperiment) (protos.GetExperiment_Response, *MlflowError) {
-	return protos.GetExperiment_Response{}, &MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+func (g GlowMlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *MlflowError) {
+	fmt.Println("GetExperiment")
+
+	experiment := &protos.Experiment{
+		ExperimentId:     strPtr("1"),
+		Name:             strPtr("Default"),
+		ArtifactLocation: strPtr("/tmp"),
+		LifecycleStage:   strPtr("active"),
+		LastUpdateTime:   int64Ptr(2),
+		CreationTime:     int64Ptr(1),
+		Tags:             make([]*protos.ExperimentTag, 0),
+	}
+
+	response := protos.GetExperiment_Response{
+		Experiment: experiment,
+	}
+
+	return &response, nil
 }
 
 // GetExperimentByName implements MlflowService.

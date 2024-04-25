@@ -3,6 +3,8 @@
 package server
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos/artifacts"
@@ -12,7 +14,7 @@ type MlflowService interface {
 	GetExperimentByName(input *protos.GetExperimentByName) (protos.GetExperimentByName_Response, *MlflowError)
 	CreateExperiment(input *protos.CreateExperiment) (protos.CreateExperiment_Response, *MlflowError)
 	SearchExperiments(input *protos.SearchExperiments) (protos.SearchExperiments_Response, *MlflowError)
-	GetExperiment(input *protos.GetExperiment) (protos.GetExperiment_Response, *MlflowError)
+	GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *MlflowError)
 	DeleteExperiment(input *protos.DeleteExperiment) (protos.DeleteExperiment_Response, *MlflowError)
 	RestoreExperiment(input *protos.RestoreExperiment) (protos.RestoreExperiment_Response, *MlflowError)
 	UpdateExperiment(input *protos.UpdateExperiment) (protos.UpdateExperiment_Response, *MlflowError)
@@ -125,6 +127,7 @@ func registerMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		return ctx.JSON(&output)
 	})
 	app.Get("/api/2.0/mlflow/experiments/get", func(ctx *fiber.Ctx) error {
+		fmt.Println("Enter endpoint")
 		var input *protos.GetExperiment
 		if err := ctx.QueryParser(&input); err != nil {
 			return err
