@@ -7,7 +7,6 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import json
 import logging
 import os
-from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
 from typing import Dict, List, Optional
@@ -60,8 +59,6 @@ class TrackingServiceClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
-
-    _artifact_repos_cache = OrderedDict()
 
     def __init__(self, tracking_uri):
         """
@@ -739,7 +736,7 @@ class TrackingServiceClient:
 
     def _get_artifact_repo(self, run_id):
         # Attempt to fetch the artifact repo from a local cache
-        cached_repo = TrackingServiceClient._artifact_repos_cache.get(run_id)
+        cached_repo = utils._artifact_repos_cache.get(run_id)
         if cached_repo is not None:
             return cached_repo
         else:
@@ -750,9 +747,9 @@ class TrackingServiceClient:
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
-            if len(TrackingServiceClient._artifact_repos_cache) > 1024:
-                TrackingServiceClient._artifact_repos_cache.popitem(last=False)
-            TrackingServiceClient._artifact_repos_cache[run_id] = artifact_repo
+            if len(utils._artifact_repos_cache) > 1024:
+                utils._artifact_repos_cache.popitem(last=False)
+            utils._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
@@ -781,6 +778,18 @@ class TrackingServiceClient:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder)
         return artifact_repo.upload_trace_data(trace_data_json)
+
+    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
+        """
+        Write an artifact to the remote ``artifact_uri`` asynchronously.
+
+        Args:
+            filename: Filename of the artifact to be logged.
+            artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            artifact: The artifact to be logged.
+        """
+        artifact_repo = self._get_artifact_repo(run_id)
+        artifact_repo._log_artifact_async(filename, artifact_path, artifact)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.

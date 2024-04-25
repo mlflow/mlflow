@@ -38,7 +38,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import _get_store, artifact_utils
+from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
@@ -667,6 +667,14 @@ def flush_async_logging() -> None:
     _get_store().flush_async_logging()
 
 
+def flush_artifact_async_logging() -> None:
+    """Flush all pending artifact async logging."""
+    run_id = _get_or_start_run().info.run_id
+    _artifact_repo = _get_artifact_repo(run_id)
+    if _artifact_repo:
+        _artifact_repo.flush_async_logging()
+
+
 def set_experiment_tag(key: str, value: Any) -> None:
     """
     Set a tag on the current experiment. Value is converted to a string.
@@ -1222,6 +1230,7 @@ def log_image(
     key: Optional[str] = None,
     step: Optional[int] = None,
     timestamp: Optional[int] = None,
+    synchronous: Optional[bool] = False,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
@@ -1283,6 +1292,7 @@ def log_image(
         step: Integer training step (iteration) at which the image was saved.
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
+        synchronous: *Experimental* If True, blocks until the image is logged successfully.
 
     .. code-block:: python
         :caption: Time-stepped image logging numpy example
@@ -1342,7 +1352,7 @@ def log_image(
             mlflow.log_image(image, "image.png")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp)
+    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
 
 
 @experimental

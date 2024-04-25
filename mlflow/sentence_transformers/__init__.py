@@ -17,6 +17,11 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_EMBEDDING,
+    _LLM_V1_EMBEDDING_INPUT_KEY,
+    postprocess_output_for_llm_v1_embedding_task,
+)
 from mlflow.types.llm import (
     EMBEDDING_MODEL_INPUT_SCHEMA,
     EMBEDDING_MODEL_OUTPUT_SCHEMA,
@@ -55,8 +60,6 @@ _TRANSFORMER_MODEL_TYPE_KEY = "pipeline_model_type"
 
 SENTENCE_TRANSFORMERS_DATA_PATH = "model.sentence_transformer"
 _INFERENCE_CONFIG_PATH = "inference_config"
-_LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
-_LLM_V1_EMBEDDING_INPUT_KEY = "input"
 
 # Patterns to extract HuggingFace model repository name from the local snapshot path.
 # The path format would be like /path/to/{username}_{modelname}, where user name can
@@ -519,56 +522,7 @@ class _SentenceTransformerModelWrapper:
             output_data = self.model.encode(sentences)
 
         if convert_output_to_llm_v1_format:
-            output_data = self.postprocess_output_for_llm_v1_embedding_task(sentences, output_data)
+            output_data = postprocess_output_for_llm_v1_embedding_task(
+                sentences, output_data, self.model.tokenizer
+            )
         return output_data
-
-    def postprocess_output_for_llm_v1_embedding_task(
-        self, input_prompts: Union[str, List[str]], output_tensers: List[List[int]]
-    ):
-        """
-        Wrap output data with usage information.
-
-        Examples:
-            .. code-block:: python
-                input_prompt = ["hello world and hello mlflow"]
-                output_embedding = [0.47137904, 0.4669448, ..., 0.69726706]
-                output_dicts = postprocess_output_for_llm_v1_embedding_task(
-                    input_prompt, output_embedding
-                )
-                assert output_dicts == [
-                    {
-                        "object": "list",
-                        "data": [
-                            {
-                                "object": "embedding",
-                                "index": 0,
-                                "embedding": [0.47137904, 0.4669448, ..., 0.69726706],
-                            }
-                        ],
-                        "usage": {"prompt_tokens": 8, "total_tokens": 8},
-                    }
-                ]
-
-        Args:
-            input_prompts: text input prompts
-            output_tensers: List of output tensors that contain the generated embeddings
-
-        Returns:
-             Dictionaries containing the output embedding and usage information for each
-             input prompt.
-        """
-        prompt_tokens = sum(
-            [len(self.model.tokenizer(prompt)["input_ids"]) for prompt in input_prompts]
-        )
-        return {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "index": i,
-                    "embedding": tensor,
-                }
-                for i, tensor in enumerate(output_tensers)
-            ],
-            "usage": {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens},
-        }

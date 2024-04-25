@@ -15,7 +15,6 @@ class BaseMetricsMonitor(abc.ABC):
 
         Subclass should implement this method to collect metrics and store in `self._metrics`.
         """
-        pass
 
     @abc.abstractmethod
     def aggregate_metrics(self):
@@ -23,7 +22,6 @@ class BaseMetricsMonitor(abc.ABC):
 
         Subclass should implement this method to aggregate the metrics and return it in a dict.
         """
-        pass
 
     @property
     def metrics(self):

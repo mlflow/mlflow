@@ -19,6 +19,8 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow import MlflowClient, flush_async_logging
+from mlflow.config import enable_async_logging
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -37,7 +39,7 @@ from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
 from mlflow.tracking._tracking_service.utils import _register
-from mlflow.utils.databricks_utils import _construct_databricks_run_url, get_databricks_runtime
+from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
     MLFLOW_PARENT_RUN_ID,
@@ -118,6 +120,14 @@ def mock_time():
     time = 1552319350.244724
     with mock.patch("time.time", return_value=time):
         yield time
+
+
+@pytest.fixture
+def setup_async_logging():
+    enable_async_logging(True)
+    yield
+    flush_async_logging()
+    enable_async_logging(False)
 
 
 def test_client_create_run(mock_store, mock_time):
@@ -1098,20 +1108,6 @@ def _default_model_version():
     return ModelVersion("model name", 1, creation_timestamp=123, status="READY")
 
 
-def test_get_databricks_runtime_no_spark_session():
-    with mock.patch(
-        "mlflow.utils.databricks_utils._get_active_spark_session", return_value=None
-    ), mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
-        runtime = get_databricks_runtime()
-        assert runtime is None
-
-
-def test_get_databricks_runtime_nondb(mock_spark_session):
-    runtime = get_databricks_runtime()
-    assert runtime is None
-    mock_spark_session.conf.get.assert_not_called()
-
-
 def test_client_can_be_serialized_with_pickle(tmp_path):
     """
     Verifies that instances of `MlflowClient` can be serialized using pickle, even if the underlying
@@ -1294,3 +1290,11 @@ def test_invalid_run_id_log_artifact():
         match=r"Invalid run id.*",
     ):
         MlflowClient().log_artifact("tr-123", "path")
+
+
+def test_enable_async_logging(mock_store, setup_async_logging):
+    MlflowClient().log_param(run_id="run_id", key="key", value="val")
+    mock_store.log_param_async.assert_called_once_with("run_id", Param("key", "val"))
+
+    MlflowClient().log_metric(run_id="run_id", key="key", value="val", step=1, timestamp=1)
+    mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))

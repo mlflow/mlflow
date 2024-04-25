@@ -29,7 +29,6 @@ class FlavorBackend:
                          written to stdout.
             content_type: Specifies the input format. Can be one of {``json``, ``csv``}
         """
-        pass
 
     @abstractmethod
     def serve(
@@ -58,7 +57,6 @@ class FlavorBackend:
             stdout: Redirect server stdout
             stderr: Redirect server stderr
         """
-        pass
 
     def prepare_env(self, model_uri, capture_output=False):
         """
@@ -66,7 +64,6 @@ class FlavorBackend:
         downloading dependencies or initializing a conda environment. After preparation,
         calling predict or serve should be fast.
         """
-        pass
 
     @abstractmethod
     def build_image(self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver):
@@ -86,7 +83,6 @@ class FlavorBackend:
         Returns:
             True if this flavor backend can be applied in the current environment.
         """
-        pass
 
     def can_build_image(self):
         """

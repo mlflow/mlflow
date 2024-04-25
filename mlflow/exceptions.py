@@ -151,19 +151,13 @@ class RestException(MlflowException):
 class ExecutionException(MlflowException):
     """Exception thrown when executing a project fails"""
 
-    pass
-
 
 class MissingConfigException(MlflowException):
     """Exception thrown when expected configuration file/directory not found"""
 
-    pass
-
 
 class InvalidUrlException(MlflowException):
     """Exception thrown when a http request fails to send due to an invalid URL"""
-
-    pass
 
 
 class _UnsupportedMultipartUploadException(MlflowException):
