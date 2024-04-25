@@ -803,9 +803,9 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, generate_con
         model = create_openai_llmchain()
         # convert iterator to list to materialize the stream compute
         if invoke_arg == "args":
-            list(model.stream("MLflow", config))
+            next(model.stream("MLflow", config))
         elif invoke_arg == "kwargs":
-            list(model.stream("MLflow", config=config))
+            next(model.stream("MLflow", config=config))
     run_data = MlflowClient().get_run(run.info.run_id).data
     assert run_data.metrics["chain_starts"] == 1
     assert run_data.metrics["chain_ends"] == 1

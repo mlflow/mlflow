@@ -225,10 +225,10 @@ MLflow langchain autologging callback support
 - **Model inference without callbacks**:
 
     If you invoke your model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions, MLflow autologging will inject
-    mlflow callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
+    a callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
 
 - **Model inference with user-specified callbacks**:
 
-    If your inference call already include callbacks in the config, e.g. `model.invoke(input, config=RunnableConfig(callbacks=customer_callbacks))`, then MLflow autologging
-    still preserves your callbacks and injects mlflow callback after them. `RunnableConfig callbacks parameter <https://github.com/langchain-ai/langchain/blob/6ccecf23639ef5cbebcbc4eaeda99eb1f7b84deb/libs/core/langchain_core/callbacks/base.py#L636>`_ 
-    supports both `BaseCallbackManager` or `List[BaseCallbackHandler]`, in either case MLflow autologging can inject mlflow callback into existing callbacks.
+    If your inference call already includes callbacks in the config, e.g. `model.invoke(input, config=RunnableConfig(callbacks=customer_callbacks))`, then MLflow autologging
+    still preserves your callbacks and appends a callback after them. `RunnableConfig callbacks parameter <https://github.com/langchain-ai/langchain/blob/6ccecf23639ef5cbebcbc4eaeda99eb1f7b84deb/libs/core/langchain_core/callbacks/base.py#L636>`_ 
+    supports both `BaseCallbackManager` or `List[BaseCallbackHandler]`, in either case MLflow autologging appends a callback to collect metrics and artifacts.
