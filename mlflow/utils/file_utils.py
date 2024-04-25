@@ -55,7 +55,6 @@ from mlflow.utils.request_utils import cloud_storage_http_request, download_chun
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
 ENCODING = "utf-8"
-MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
 
 _logger = logging.getLogger(__name__)
