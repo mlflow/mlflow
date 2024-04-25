@@ -218,3 +218,17 @@ I can't load the model logged by mlflow langchain autologging
     For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be 
     consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
     environment has `pydantic` installed with at least version 2. 
+
+How does MLflow langchain autologging interact with callbacks?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Model inference with default callbacks**:
+
+    If you invoke a langchain model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions directly, MLflow autologging will inject
+    a callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
+
+- **Model inference with user-specified callbacks**:
+
+    If your inference call already includes callbacks in the config, e.g. `model.invoke(input, config=RunnableConfig(callbacks=customer_callbacks))`, then MLflow autologging
+    still preserves your callbacks and appends a callback after them. `RunnableConfig callbacks parameter <https://api.python.langchain.com/en/latest/runnables/langchain_core.runnables.config.RunnableConfig.html#langchain_core.runnables.config.RunnableConfig>`_ 
+    supports both `BaseCallbackManager` or `List[BaseCallbackHandler]`, in either case MLflow autologging appends a callback to collect metrics and artifacts.

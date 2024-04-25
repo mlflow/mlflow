@@ -6,7 +6,7 @@ from unittest import mock
 
 import pandas as pd
 import pytest
-from langchain.chains import LLMChain
+from langchain.chains.llm import LLMChain
 from langchain.document_loaders import TextLoader
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
@@ -786,3 +786,37 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, generate_conf
         assert sorted(callbacks.handlers[0].logs) == expected_logs
     else:
         assert sorted(callbacks[0].logs) == expected_logs
+
+
+@pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
+@pytest.mark.parametrize(
+    "generate_config",
+    [
+        lambda: RunnableConfig(callbacks=[CustomCallbackHandler()]),
+        lambda: RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+    ],
+)
+def test_langchain_autolog_callback_injection_in_stream(invoke_arg, generate_config):
+    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
+    config = generate_config()
+    with mlflow.start_run() as run, _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        # convert iterator to list to materialize the stream compute
+        if invoke_arg == "args":
+            next(model.stream("MLflow", config))
+        elif invoke_arg == "kwargs":
+            next(model.stream("MLflow", config=config))
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    assert run_data.metrics["chain_starts"] == 1
+    assert run_data.metrics["chain_ends"] == 1
+    assert run_data.tags["test_tag"] == "test"
+    assert run_data.tags["mlflow.autologging"] == "langchain"
+    artifacts = get_artifacts(run.info.run_id)
+    for artifact_name in ["chain_start_1.json", "chain_end_1.json"]:
+        assert artifact_name in artifacts
+    callbacks = config["callbacks"]
+    expected_logs = ["chain_start", "chain_end"]
+    if isinstance(callbacks, BaseCallbackManager):
+        assert callbacks.handlers[0].logs == expected_logs
+    else:
+        assert callbacks[0].logs == expected_logs
