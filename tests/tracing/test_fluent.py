@@ -10,7 +10,8 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import TraceMetadataKey
 
 
-def test_trace(clear_singleton):
+@pytest.mark.parametrize("with_active_run", [True, False])
+def test_trace(clear_singleton, with_active_run):
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):
@@ -31,7 +32,13 @@ def test_trace(clear_singleton):
             return res
 
     model = TestModel()
-    model.predict(2, 5)
+
+    if with_active_run:
+        with mlflow.start_run() as run:
+            model.predict(2, 5)
+            run_id = run.info.run_id
+    else:
+        model.predict(2, 5)
 
     trace = mlflow.get_traces()[0]
     trace_info = trace.info
@@ -41,6 +48,9 @@ def test_trace(clear_singleton):
     assert trace_info.status == SpanStatusCode.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
+    tags = trace_info.tags
+    if with_active_run:
+        assert tags["mlflow.sourceRun"] == run_id
 
     assert trace.data.request == '{"x": 2, "y": 5}'
     assert trace.data.response == "64"
@@ -85,7 +95,11 @@ def test_trace_with_databricks_tracking_uri(
     databricks_tracking_uri, clear_singleton, mock_store, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
-    mock_store.get_experiment_by_name().experiment_id = "test_experiment_id"
+    mock_experiment = mock.MagicMock()
+    mock_experiment.experiment_id = "test_experiment_id"
+    monkeypatch.setattr(
+        mock_store, "get_experiment_by_name", mock.MagicMock(return_value=mock_experiment)
+    )
 
     class TestModel:
         @mlflow.trace()
