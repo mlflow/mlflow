@@ -277,7 +277,8 @@ async def test_wrong_logprobs_type_error():
             "logprobs": "invalid_type",
         }
         error_string = (
-            "Wrong type for logprobs." "If logprobs is set it should be an 32bit integer."
+            "Wrong type for logprobs." 
+            "If logprobs is set it should be an 32bit integer."
         )
         # Test whether HTTPException is raised when max_tokens is missing
         with pytest.raises(HTTPException, match=error_string) as exc_info:
