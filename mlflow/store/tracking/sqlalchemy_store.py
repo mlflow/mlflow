@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from functools import reduce
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
@@ -22,11 +22,13 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    TraceInfo,
     ViewType,
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -50,6 +52,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlRun,
     SqlTag,
+    SqlTraceInfo,
+    SqlTraceRequestMetadata,
+    SqlTraceTag,
 )
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
@@ -1517,6 +1522,109 @@ class SqlAlchemyStore(AbstractStore):
                         )
 
             session.add_all(objs_to_write)
+
+    #######################################################################################
+    # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
+    #######################################################################################
+    def start_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Create an initial TraceInfo object in the database.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            trace_info = SqlTraceInfo(
+                request_id=uuid.uuid4().hex,
+                experiment_id=experiment_id,
+                timestamp_ms=timestamp_ms,
+                execution_time_ms=None,
+                status=TraceStatus.IN_PROGRESS,
+            )
+
+            trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
+            trace_info.request_metadata = [
+                SqlTraceRequestMetadata(key=k, value=v) for k, v in request_metadata.items()
+            ]
+            session.add(trace_info)
+
+            return trace_info.to_mlflow_entity()
+
+    def end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the database with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = self._get_sql_trace_info(session, request_id)
+            trace_start_time_ms = sql_trace_info.timestamp_ms
+            execution_time_ms = timestamp_ms - trace_start_time_ms
+            sql_trace_info.execution_time_ms = execution_time_ms
+            sql_trace_info.status = status
+            session.merge(sql_trace_info)
+            for k, v in request_metadata.items():
+                session.merge(SqlTraceRequestMetadata(request_id=request_id, key=k, value=v))
+            for k, v in tags.items():
+                session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
+            return sql_trace_info.to_mlflow_entity()
+
+    def get_trace_info(self, request_id) -> TraceInfo:
+        """
+        Fetch the trace info for the given request id.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+
+        Returns:
+            The TraceInfo object.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = self._get_sql_trace_info(session, request_id)
+            return sql_trace_info.to_mlflow_entity()
+
+    def _get_sql_trace_info(self, session, request_id) -> SqlTraceInfo:
+        sql_trace_info = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == request_id).one_or_none()
+        )
+        if sql_trace_info is None:
+            raise MlflowException(
+                f"Trace with request_id '{request_id}' not found.", RESOURCE_DOES_NOT_EXIST
+            )
+        return sql_trace_info
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):

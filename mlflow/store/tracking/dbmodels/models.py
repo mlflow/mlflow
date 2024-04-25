@@ -30,6 +30,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
@@ -640,6 +641,7 @@ class SqlInputTag(Base):
 # Below are Tracing models. We may refactor them to be in a separate module in the future.
 #######################################################################################
 
+
 class SqlTraceInfo(Base):
     __tablename__ = "trace_info"
 
@@ -707,7 +709,9 @@ class SqlTraceTag(Base):
     """
     trace_info = relationship("SqlTraceInfo", backref=backref("tags", cascade="all"))
     """
-    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`."""
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
 
     # Key is unique within a request_id
     __table_args__ = (PrimaryKeyConstraint("request_id", "key", name="trace_tag_pk"),)
@@ -730,7 +734,9 @@ class SqlTraceRequestMetadata(Base):
     """
     trace_info = relationship("SqlTraceInfo", backref=backref("request_metadata", cascade="all"))
     """
-    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`."""
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
 
     # Key is unique within a request_id
     __table_args__ = (PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),)

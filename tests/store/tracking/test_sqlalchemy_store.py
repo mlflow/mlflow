@@ -30,6 +30,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -57,6 +58,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlRun,
     SqlTag,
+    SqlTraceInfo,
+    SqlTraceRequestMetadata,
+    SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
@@ -183,6 +187,9 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlInput,
             SqlDataset,
             SqlRun,
+            SqlTraceTag,
+            SqlTraceRequestMetadata,
+            SqlTraceInfo,
             SqlExperimentTag,
             SqlExperiment,
         ):
@@ -3814,3 +3821,57 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly(input_uri,
 )
 def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+def test_start_and_end_trace(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = store.start_trace(
+        experiment_id=experiment_id,
+        timestamp_ms=1234,
+        request_metadata={"rq1": "foo", "rq2": "bar"},
+        tags={"tag1": "apple", "tag2": "orange"},
+    )
+    request_id = trace_info.request_id
+
+    assert trace_info.request_id is not None
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.timestamp_ms == 1234
+    assert trace_info.execution_time_ms is None
+    assert trace_info.status == TraceStatus.IN_PROGRESS
+    assert trace_info.request_metadata == {"rq1": "foo", "rq2": "bar"}
+    assert trace_info.tags == {"tag1": "apple", "tag2": "orange"}
+    assert trace_info == store.get_trace_info(request_id)
+
+    trace_info = store.end_trace(
+        request_id=request_id,
+        timestamp_ms=2345,
+        status=TraceStatus.OK,
+        # Update one key and add a new key
+        request_metadata={
+            "rq1": "updated",
+            "rq3": "baz",
+        },
+        tags={"tag1": "updated", "tag3": "grape"},
+    )
+    assert trace_info.request_id == request_id
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.timestamp_ms == 1234
+    assert trace_info.execution_time_ms == 2345 - 1234
+    assert trace_info.status == TraceStatus.OK
+    assert trace_info.request_metadata == {
+        "rq1": "updated",
+        "rq2": "bar",
+        "rq3": "baz",
+    }
+    assert trace_info.tags == {"tag1": "updated", "tag2": "orange", "tag3": "grape"}
+    assert trace_info == store.get_trace_info(request_id)
+
+
+def test_start_trace_with_invalid_experiment_id(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="No Experiment with id=123"):
+        store.start_trace(
+            experiment_id="123",
+            timestamp_ms=0,
+            request_metadata={},
+            tags={},
+        )
