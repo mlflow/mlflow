@@ -1877,6 +1877,16 @@ class DefaultEvaluator(ModelEvaluator):
         predictions=None,
         **kwargs,
     ):
+        if model is None and predictions is None:
+            raise MlflowException(
+                message=(
+                    "Either a model or set of predictions must be specified. Please either specify"
+                    " the `model` parameter, the `predictions` parameter, or an MLflow dataset"
+                    " containing the `predictions` column name."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         self.dataset = dataset
         self.run_id = run_id
         self.model_type = model_type

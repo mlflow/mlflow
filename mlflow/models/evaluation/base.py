@@ -1650,8 +1650,7 @@ def evaluate(
             ``data`` is a :py:class:`mlflow.data.dataset.Dataset` that defines targets,
             then ``targets`` is optional.
 
-        predictions: Optional. The name of the column that contains model outputs. There are two
-            cases where this argument is required:
+        predictions: Optional. The name of the column that contains model outputs.
 
             - When ``model`` is specified and outputs multiple columns. The
               ``predictions`` should be the name of the column that is used for
@@ -1991,36 +1990,9 @@ def evaluate(
                 "the desired configuration there.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    elif model is None:
-        # Evaluating a static dataset
-        if isinstance(data, pd.DataFrame):
-            # If data is a pandas dataframe, predictions must be specified
-            if predictions is None:
-                raise MlflowException(
-                    message="The model output must be specified in the predictions "
-                    "parameter when model=None.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        elif isinstance(data, mlflow.data.pandas_dataset.PandasDataset):
-            # If data is a mlflow PandasDataset, data.predictions must be specified
-            if data.predictions is None:
-                raise MlflowException(
-                    message="The predictions parameter must be specified with the provided "
-                    "PandasDataset when model=None. For example: "
-                    "`data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        else:
-            # Other data formats are not supported
-            raise MlflowException(
-                message="The data must be a pandas dataframe or mlflow.data.pandas_dataset."
-                "PandasDataset when model=None.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
     elif callable(model):
         model = _get_model_from_function(model)
-    else:
+    elif model is not None:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
             "an MLflow Deployments endpoint URI, an instance of `mlflow.pyfunc.PyFuncModel`, "
