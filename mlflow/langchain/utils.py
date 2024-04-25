@@ -320,7 +320,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
         try:
             with open(lc_model) as _:
                 return lc_model
-        except:
+        except Exception:
             try:
                 from databricks.sdk import WorkspaceClient
                 from databricks.sdk.service.workspace import ExportFormat
@@ -331,7 +331,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                 # TODO: code validation
 
                 return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
-            except:
+            except Exception:
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"If the provided model '{lc_model}' is a string, it must be a valid python "
                     "file path containing the code for defining the chain instance."
