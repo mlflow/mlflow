@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import types
 import uuid
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Tuple
@@ -1515,3 +1516,44 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
         {"type": "string", "required": True}
     ]
     pd.testing.assert_frame_equal(pyfunc_model.predict(["a", "b"]), pd.DataFrame(["a", "b"]))
+
+
+def test_streamable_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path):
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    class StreamableModel(mlflow.pyfunc.PythonModel):
+        def __init__(self):
+            pass
+
+        def load_context(self, context):
+            super().load_context(context)
+
+            self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
+
+        def predict(self, context, model_input, params=None):
+            return self.model.predict(model_input)
+
+        def predict_stream(self, context, model_input, params=None):
+            yield from list(self.model.predict(model_input))
+
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    python_model = StreamableModel()
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        artifacts={"sk_model": sklearn_model_path},
+        python_model=python_model,
+        streamable=True,
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
+    stream_result = loaded_pyfunc_model.predict_stream(iris_data[0])
+    assert isinstance(stream_result, types.GeneratorType)
+
+    np.testing.assert_array_equal(
+        list(stream_result),
+        sklearn_knn_model.predict(iris_data[0]),
+    )

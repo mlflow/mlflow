@@ -2059,7 +2059,6 @@ def save_model(
     model_config=None,
     example_no_conversion=False,
     streamable=False,
-    predict_stream_fn=None,
     **kwargs,
 ):
     """
@@ -2349,7 +2348,6 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
-            predict_stream_fn=predict_stream_fn,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -2365,7 +2363,6 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
-            predict_stream_fn=predict_stream_fn,
         )
 
 
@@ -2389,7 +2386,6 @@ def log_model(
     model_config=None,
     example_no_conversion=False,
     streamable=False,
-    predict_stream_fn=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2546,9 +2542,6 @@ def log_model(
 
         streamable: A boolean value indicating if the model supports streaming prediction, default False.
 
-        predict_stream_fn: A string value indicating the "predict_stream" method of the model,
-                           This param is only available if the ``streamable`` param is set to True.
-
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
@@ -2573,7 +2566,6 @@ def log_model(
         model_config=model_config,
         example_no_conversion=example_no_conversion,
         streamable=streamable,
-        predict_stream_fn=predict_stream_fn,
     )
 
 
@@ -2588,7 +2580,6 @@ def _save_model_with_loader_module_and_data_path(
     extra_pip_requirements=None,
     model_config=None,
     streamable=False,
-    predict_stream_fn=None,
 ):
     """
     Export model as a generic Python function model.
@@ -2630,7 +2621,6 @@ def _save_model_with_loader_module_and_data_path(
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
         streamable=streamable,
-        predict_stream_fn=predict_stream_fn,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size

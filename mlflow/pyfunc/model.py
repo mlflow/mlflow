@@ -248,7 +248,6 @@ def _save_model_with_class_artifacts_params(
     extra_pip_requirements=None,
     model_config=None,
     streamable=False,
-    predict_stream_fn=None,
 ):
     """
     Args:
@@ -381,7 +380,6 @@ def _save_model_with_class_artifacts_params(
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
         streamable=streamable,
-        predict_stream_fn=predict_stream_fn,
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):
@@ -471,7 +469,7 @@ def _load_context_model_and_signature(
 def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
     context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
-        python_model=python_model, context=context, signature=signature
+        python_model=python_model, context=context, signature=signature,
     )
 
 
@@ -549,6 +547,25 @@ class _PythonModelPyfuncWrapper:
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))
+
+    def predict_stream(self, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        Args:
+            model_input: Model input data.
+            params: Additional parameters to pass to the model for inference.
+
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+
+        Returns:
+            Model predictions.
+        """
+        if inspect.signature(self.python_model.predict).parameters.get("params"):
+            return self.python_model.predict_stream(
+                self.context, self._convert_input(model_input), params=params
+            )
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        return self.python_model.predict_stream(self.context, self._convert_input(model_input))
 
 
 def _get_pyfunc_loader_module(python_model):
