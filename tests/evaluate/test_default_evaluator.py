@@ -14,7 +14,9 @@ import numpy as np
 import pandas as pd
 import pytest
 from PIL import Image, ImageChops
-from sklearn.datasets import load_breast_cancer, load_iris
+from pyspark.ml.linalg import Vectors
+from pyspark.sql import SparkSession
+from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.pipeline import Pipeline
@@ -608,12 +610,33 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
         logged_metrics=logged_metrics,
     )
 
-    assert "mlflow.datassets" not in tags
-
     check_artifacts_are_not_generated_for_baseline_model_evaluation(
         logged_artifacts=artifacts,
         result_artifacts=result.artifacts,
     )
+
+
+def test_static_spark_dataset_evaluation():
+    data = load_diabetes()
+    spark = SparkSession.builder.master("local[*]").getOrCreate()
+    rows = [
+        (Vectors.dense(features), float(label), float(label))
+        for features, label in zip(data.data, data.target)
+    ]
+    spark_dataframe = spark.createDataFrame(
+        spark.sparkContext.parallelize(rows, 1), ["features", "label", "model_output"]
+    )
+    with mlflow.start_run():
+        mlflow.evaluate(
+            data=spark_dataframe,
+            targets="label",
+            predictions="model_output",
+            model_type="regressor",
+        )
+        run_id = mlflow.active_run().info.run_id
+
+    computed_eval_metrics = mlflow.get_run(run_id).data.metrics
+    assert "mean_squared_error" in computed_eval_metrics
 
 
 @pytest.mark.parametrize(
@@ -2832,6 +2855,46 @@ def test_constructing_eval_df_for_custom_metrics():
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
     ]
+
+
+def test_evaluate_no_model_or_predictions_specified():
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+        }
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "Either a model or set of predictions must be specified in order to use the"
+            " default evaluator"
+        ),
+    ):
+        mlflow.evaluate(
+            data=data,
+            targets="truth",
+            model_type="regressor",
+            evaluators="default",
+        )
+
+
+def test_evaluate_no_model_and_predictions_specified_with_unsupported_data_type():
+    X = np.random.random((5, 5))
+    y = np.random.random(5)
+
+    with pytest.raises(
+        MlflowException,
+        match="If predictions is specified, data must be one of the following types",
+    ):
+        mlflow.evaluate(
+            data=X,
+            targets=y,
+            predictions="model_output",
+            model_type="regressor",
+            evaluators="default",
+        )
 
 
 def test_evaluate_no_model_type():
