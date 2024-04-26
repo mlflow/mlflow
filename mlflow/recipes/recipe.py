@@ -175,7 +175,6 @@ class BaseRecipe:
 
         Concrete recipe class should implement this method.
         """
-        pass
 
     @abc.abstractmethod
     def _get_step_classes(self):
@@ -184,7 +183,6 @@ class BaseRecipe:
 
         Concrete recipe class should implement this method.
         """
-        pass
 
     def _get_recipe_dag_file(self) -> str:
         """

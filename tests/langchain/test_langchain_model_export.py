@@ -2843,3 +2843,65 @@ def test_langchain_model_not_streamable():
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     with pytest.raises(MlflowException, match="This model does not support predict_stream method"):
         loaded_model.predict_stream({"product": "shoe"})
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_langchain_model_save_exception(fake_chat_model):
+    from langchain.prompts import PromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+
+    prompt = PromptTemplate.from_template(
+        "What's your favorite {industry} company in {country}?", partial_variables={"country": "US"}
+    )
+    chain = prompt | fake_chat_model | StrOutputParser()
+    assert chain.invoke({"industry": "tech"}) == "Databricks"
+
+    with pytest.raises(
+        MlflowException, match=r"Failed to save runnable sequence: {'0': 'PromptTemplate -- "
+    ):
+        with mlflow.start_run():
+            mlflow.langchain.log_model(chain, "model_path", input_example={"industry": "tech"})
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_chat_model):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
+    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a helpful assistant."),
+            MessagesPlaceholder(variable_name="history"),
+            ("human", "{question}"),
+        ]
+    )
+
+    def retrieve_history(input):
+        return {"history": [], "question": input["question"], "name": input["name"]}
+
+    chain = (
+        {"question": itemgetter("question"), "name": itemgetter("name")}
+        | (RunnableLambda(retrieve_history) | prompt | fake_chat_model).with_listeners()
+        | StrOutputParser()
+        | RunnablePassthrough()
+    )
+    input_example = {"question": "Who owns MLflow?", "name": ""}
+    assert chain.invoke(input_example) == "Databricks"
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to save runnable sequence: {'1': 'RunnableSequence "
+        r"-- Cannot save runnable without `save` method.'",
+    ), mlflow.start_run():
+        mlflow.langchain.log_model(
+            chain,
+            artifact_path="chain",
+        )

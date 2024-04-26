@@ -57,6 +57,8 @@ from mlflow.transformers.flavor_config import (
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_CHAT,
+    _LLM_INFERENCE_TASK_COMPLETIONS,
+    _LLM_INFERENCE_TASK_EMBEDDING,
     _LLM_INFERENCE_TASK_KEY,
     _LLM_INFERENCE_TASK_PREFIX,
     _METADATA_LLM_INFERENCE_TASK_KEY,
@@ -65,6 +67,8 @@ from mlflow.transformers.llm_inference_utils import (
     convert_data_messages_with_chat_template,
     infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
+    postprocess_output_for_llm_v1_embedding_task,
+    preprocess_llm_embedding_params,
     preprocess_llm_inference_params,
 )
 from mlflow.transformers.model_io import (
@@ -526,7 +530,7 @@ def save_model(
     #  via the mlflow_model object attribute.
     if (
         mlflow_model.metadata is not None
-        and (metadata_task := mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY])
+        and (metadata_task := mlflow_model.metadata.get(_METADATA_LLM_INFERENCE_TASK_KEY))
         and metadata_task != task
     ):
         raise MlflowException(
@@ -1648,9 +1652,11 @@ class _TransformersWrapper:
         """
         if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
             convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
-
-        if self.llm_inference_task:
             data, params = preprocess_llm_inference_params(data, self.flavor_config)
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
+            data, params = preprocess_llm_inference_params(data, self.flavor_config)
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:
+            data, params = preprocess_llm_embedding_params(data)
 
         # NB: This `predict` method updates the model_config several times. To make the predict
         # call idempotent, we keep the original self.model_config immutable and creates a deep
@@ -1809,7 +1815,13 @@ class _TransformersWrapper:
                 )
 
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
-            return self._parse_feature_extraction_output(raw_output)
+            if self.llm_inference_task:
+                output = [np.array(tensor[0][0]) for tensor in raw_output]
+                output = postprocess_output_for_llm_v1_embedding_task(
+                    data, output, self.pipeline.tokenizer
+                )
+            else:
+                return self._parse_feature_extraction_output(raw_output)
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):

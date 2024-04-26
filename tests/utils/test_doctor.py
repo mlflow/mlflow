@@ -17,9 +17,9 @@ def test_doctor_active_run(capsys):
 
 
 def test_doctor_databricks_runtime(capsys):
-    mock_version = "12.0-cpu-ml-scala2.12"
+    mock_version = "12.0"
     with mock.patch(
-        "mlflow.utils.doctor.get_databricks_runtime", return_value=mock_version
+        "mlflow.utils.doctor.get_databricks_runtime_version", return_value=mock_version
     ) as mock_runtime:
         mlflow.doctor()
         mock_runtime.assert_called_once()

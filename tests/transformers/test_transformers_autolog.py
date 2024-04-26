@@ -38,19 +38,26 @@ def setfit_trainer():
 
     model = SetFitModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
+    training_args = SetFitTrainingArguments(
+        loss=CosineSimilarityLoss,
+        batch_size=16,
+        num_iterations=5,
+        num_epochs=1,
+        report_to="none",
+    )
+
+    # TODO: Remove this once https://github.com/huggingface/setfit/issues/512
+    #   is resolved. This is a workaround during the deprecation of the
+    #   evaluation_strategy argument is being addressed in the SetFit library.
+    training_args.eval_strategy = training_args.evaluation_strategy
+
     return SetFitTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         metric="accuracy",
         column_mapping={"sentence": "text", "label": "label"},
-        args=SetFitTrainingArguments(
-            loss=CosineSimilarityLoss,
-            batch_size=16,
-            num_iterations=5,
-            num_epochs=1,
-            report_to="none",
-        ),
+        args=training_args,
     )
 
 

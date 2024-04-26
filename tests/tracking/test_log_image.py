@@ -162,15 +162,15 @@ def test_log_image_with_steps():
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        mlflow.log_image(image, key="dog", step=0)
+        mlflow.log_image(image, key="dog", step=0, synchronous=True)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
 
-        # .png file for the image, and .json file for metadata
-        assert len(files) == 3
+        # .png file for the image and .webp file for compressed image
+        assert len(files) == 2
         for file in files:
             assert file.startswith("dog%step%0")
             logged_path = os.path.join(run_artifact_dir, file)
@@ -193,15 +193,15 @@ def test_log_image_with_timestamp():
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        mlflow.log_image(image, key="dog", timestamp=100)
+        mlflow.log_image(image, key="dog", timestamp=100, synchronous=True)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
 
-        # .png file for the image, and .json file for metadata
-        assert len(files) == 3
+        # .png file for the image, and .webp file for compressed image
+        assert len(files) == 2
         for file in files:
             assert file.startswith("dog%step%0")
             logged_path = os.path.join(run_artifact_dir, file)
@@ -228,14 +228,14 @@ def test_duplicated_log_image_with_step():
     image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        mlflow.log_image(image1, key="dog", step=100)
-        mlflow.log_image(image2, key="dog", step=100)
+        mlflow.log_image(image1, key="dog", step=100, synchronous=True)
+        mlflow.log_image(image2, key="dog", step=100, synchronous=True)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
-        assert len(files) == 2 * 3  # 2 images and 3 files per image
+        assert len(files) == 2 * 2  # 2 images and 2 files per image
 
 
 def test_duplicated_log_image_with_timestamp():
@@ -249,14 +249,14 @@ def test_duplicated_log_image_with_timestamp():
     image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        mlflow.log_image(image1, key="dog", step=100, timestamp=100)
-        mlflow.log_image(image2, key="dog", step=100, timestamp=100)
+        mlflow.log_image(image1, key="dog", step=100, timestamp=100, synchronous=True)
+        mlflow.log_image(image2, key="dog", step=100, timestamp=100, synchronous=True)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
-        assert len(files) == 2 * 3
+        assert len(files) == 2 * 2
 
 
 @pytest.mark.parametrize(
@@ -289,3 +289,20 @@ def test_log_image_raises_exception_for_missing_arguments():
     exception = "Invalid arguments: Please specify exactly one of `artifact_file` or `key`"
     with mlflow.start_run(), pytest.raises(TypeError, match=exception):
         mlflow.log_image(np.zeros((1,), dtype=np.uint8))
+
+
+def test_async_log_image_flush():
+    import numpy as np
+
+    image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+    with mlflow.start_run():
+        for i in range(100):
+            mlflow.log_image(image1, key="dog", step=i, timestamp=i, synchronous=False)
+
+        mlflow.flush_artifact_async_logging()
+
+        logged_path = "images/"
+        artifact_uri = mlflow.get_artifact_uri(logged_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+        assert len(files) == 100 * 2

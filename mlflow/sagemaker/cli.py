@@ -20,7 +20,6 @@ def commands():
     To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
     environment variable to the URL of the desired server.
     """
-    pass
 
 
 @commands.command("deploy-transform-job")

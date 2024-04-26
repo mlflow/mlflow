@@ -3458,10 +3458,10 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
+        metadata={"foo": "bar"},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-
     inference = pyfunc_loaded.predict(
         {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
     )
@@ -3496,6 +3496,81 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     assert output_dict["choices"][0]["text"] is not None
     assert output_dict["choices"][0]["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
+
+
+def test_llm_v1_task_embeddings_predict(feature_extraction_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=feature_extraction_pipeline,
+        path=model_path,
+        input_examples=["Football", "Soccer"],
+        task="llm/v1/embeddings",
+    )
+
+    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+
+    flavor_config = mlmodel["flavors"]["transformers"]
+    assert flavor_config["inference_task"] == "llm/v1/embeddings"
+    assert mlmodel["metadata"]["task"] == "llm/v1/embeddings"
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    # Predict with single string input
+    prediction = pyfunc_loaded.predict({"input": "A great day"})
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 1
+    assert prediction["data"][0]["object"] == "embedding"
+    assert prediction["usage"]["prompt_tokens"] == 5
+    assert len(prediction["data"][0]["embedding"]) == 384
+
+    # Predict with list of string input
+    prediction = pyfunc_loaded.predict({"input": ["A great day", "A bad day"]})
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 2
+    assert prediction["data"][0]["object"] == "embedding"
+    assert prediction["usage"]["prompt_tokens"] == 10
+    assert len(prediction["data"][0]["embedding"]) == 384
+
+    # Predict with pandas dataframe input
+    df = pd.DataFrame({"input": ["A great day", "A bad day", "A good day"]})
+    prediction = pyfunc_loaded.predict(df)
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 3
+    assert prediction["data"][0]["object"] == "embedding"
+    assert prediction["usage"]["prompt_tokens"] == 15
+    assert len(prediction["data"][0]["embedding"]) == 384
+
+
+@pytest.mark.parametrize(
+    "request_payload",
+    [
+        {"input": "A single string"},
+        {
+            "inputs": {"input": ["A list of strings"]},
+        },
+    ],
+)
+def test_llm_v1_task_embeddings_serve(feature_extraction_pipeline, request_payload):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=feature_extraction_pipeline,
+            artifact_path="model",
+            input_examples=["Football", "Soccer"],
+            task="llm/v1/embeddings",
+        )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(request_payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    response = json.loads(response.content.decode("utf-8"))
+    prediction = response["predictions"] if "inputs" in request_payload else response
+
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 1
+    assert prediction["data"][0]["object"] == "embedding"
+    assert len(prediction["data"][0]["embedding"]) == 384
 
 
 def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):

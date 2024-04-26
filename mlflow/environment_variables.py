@@ -535,6 +535,11 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
+#: Number of workers in the thread pool used for asynchronous logging, defaults to 10.
+MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE = _EnvironmentVariable(
+    "MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE", int, 10
+)
+
 #: Specifies whether or not to have mlflow configure logging on import.
 #: If set to True, mlflow will configure ``mlflow.<module_name>`` loggers with
 #: logging handlers and formatters.

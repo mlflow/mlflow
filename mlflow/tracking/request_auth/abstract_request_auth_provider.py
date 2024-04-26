@@ -22,7 +22,6 @@ class RequestAuthProvider(ABC):
         Returns:
             str of request auth provider name.
         """
-        pass
 
     @abstractmethod
     def get_auth(self):
@@ -33,4 +32,3 @@ class RequestAuthProvider(ABC):
         Returns:
             request auth object.
         """
-        pass

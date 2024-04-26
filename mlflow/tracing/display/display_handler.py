@@ -83,4 +83,3 @@ class IPythonTraceDisplayHandler:
             # get_traces, search_traces), and we don't want to block
             # the core functionality if the display fails.
             _logger.debug("Failed to display traces", exc_info=True)
-            pass

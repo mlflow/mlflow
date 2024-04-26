@@ -107,7 +107,6 @@ def test_adding_libraries_to_model_run_id_passed(sklearn_knn_model):
 
     with mlflow.start_run():
         wheeled_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        pass
 
     wheeled_model_info = add_libraries_to_model(model_uri, run_id=wheeled_run_id)
     assert original_run_id != wheeled_run_id
@@ -249,7 +248,7 @@ def test_enforce_object_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type int",
+        match=r"Failed to enforce schema for key `a`. Expected type string, received type int",
     ):
         _enforce_object({"a": 1}, obj)
 
@@ -317,7 +316,7 @@ def test_enforce_property_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type list",
+        match=r"Failed to enforce schema for key `a`. Expected type string, received type list",
     ):
         _enforce_property(
             {"a": ["some_sentence1", "some_sentence2"]},

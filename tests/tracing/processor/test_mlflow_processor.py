@@ -28,7 +28,9 @@ def test_on_start(clear_singleton):
 
     processor.on_start(span)
 
-    mock_client._start_tracked_trace.assert_called_once_with(experiment_id="0", timestamp_ms=5)
+    mock_client._start_tracked_trace.assert_called_once_with(
+        experiment_id="0", timestamp_ms=5, tags={}
+    )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
 
@@ -81,6 +83,7 @@ def test_on_start_with_experiment_id(clear_singleton):
     mock_client._start_tracked_trace.assert_called_once_with(
         experiment_id=experiment_id,
         timestamp_ms=5,
+        tags={},
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -97,7 +100,9 @@ def test_on_start_fallback_to_client_side_request_id(clear_singleton):
 
     processor.on_start(span)
 
-    mock_client._start_tracked_trace.assert_called_once_with(experiment_id="0", timestamp_ms=5)
+    mock_client._start_tracked_trace.assert_called_once_with(
+        experiment_id="0", timestamp_ms=5, tags={}
+    )
     # When the backend returns an error, the request_id is generated at client side from trace_id
     expected_request_id = encode_trace_id(_TRACE_ID)
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(expected_request_id)
