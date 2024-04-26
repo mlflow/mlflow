@@ -150,9 +150,7 @@ class TogetherAIAdapter(ProviderAdapter):
         if logprobs_in_payload_condition:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    "Wrong type for logprobs.\n" "If logprobs is set it should be an 32bit integer."
-                ),
+                detail="Wrong type for logprobs. It should be an 32bit integer.",
             )
 
         openai_top_logprobs_in_payload_condition = "top_logprobs" in payload and not isinstance(
@@ -162,10 +160,7 @@ class TogetherAIAdapter(ProviderAdapter):
         if openai_top_logprobs_in_payload_condition:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    "Wrong type for top_logprobs."
-                    "If top_logprobs is set it should a 32bit integer."
-                ),
+                detail="Wrong type for top_logprobs. It should a 32bit integer.",
             )
 
         return rename_payload_keys(payload, key_mapping)
