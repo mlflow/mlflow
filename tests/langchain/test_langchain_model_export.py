@@ -4,7 +4,6 @@ import os
 import re
 import shutil
 import sqlite3
-import tempfile
 from contextlib import contextmanager
 from operator import itemgetter
 from typing import Any, DefaultDict, Dict, Iterator, List, Mapping, Optional
