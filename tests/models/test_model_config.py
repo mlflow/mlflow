@@ -22,9 +22,7 @@ def test_config_not_set():
 @mock.patch("mlflow.langchain._rag_utils")
 def test_config_not_found(mock_rag_config_path):
     mock_rag_config_path.__databricks_rag_config_path__ = "nonexistent.yaml"
-    with pytest.raises(
-        FileNotFoundError, match="Config file 'nonexistent.yaml' not found."
-    ):
+    with pytest.raises(FileNotFoundError, match="Config file 'nonexistent.yaml' not found."):
         ModelConfig(development_config="nonexistent.yaml")
 
 

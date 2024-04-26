@@ -8,9 +8,10 @@ import mlflow
 
 class ModelConfig:
     """
-    ModelConfig used in code to read a YAML configuration file, and this configuration file can be 
+    ModelConfig used in code to read a YAML configuration file, and this configuration file can be
     overridden when logging a model.
     """
+
     def __init__(self, *, development_config: Optional[str] = None):
         # TODO: Update global path after we pass in paths using model_config
         _mlflow_rag_config_path = getattr(
