@@ -206,16 +206,17 @@ def langchain_local_model_dir(tmp_path):
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
         "signature": fake_signature.to_dict(),
-        "flavors": {
-            "langchain": {
-                "databricks_dependency": {
-                    "databricks_vector_search_index_name": ["index1", "index2"],
-                    "databricks_embeddings_endpoint_name": ["embedding_endpoint"],
-                    "databricks_llm_endpoint_name": ["llm_endpoint"],
-                    "databricks_chat_endpoint_name": ["chat_endpoint"],
-                }
+        "resources": {
+            "databricks": {
+                "serving_endpoint": [
+                    {"name": "embedding_endpoint"},
+                    {"name": "llm_endpoint"},
+                    {"name": "chat_endpoint"},
+                ],
+                "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
             }
         },
+        "flavors": {"langchain": {}},
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)

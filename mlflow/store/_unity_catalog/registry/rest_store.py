@@ -170,37 +170,27 @@ def get_model_version_dependencies(model_dir):
     to be passed into CreateModelVersion.
     """
     # import here to work around circular imports
-    from mlflow.langchain.databricks_dependencies import (
-        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
-        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
-        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
-    )
+    from mlflow.models.resources import ResourceType
 
-    model = _load_model(model_dir)
-    model_info = model.get_model_info()
+    model_info = _load_model(model_dir)
     dependencies = []
     index_names = _fetch_langchain_dependency_from_model_info(
-        model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
+        model_info, ResourceType.VECTOR_SEARCH_INDEX.value
     )
     for index_name in index_names:
-        dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", "name": index_name})
-    for key in (
-        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
-        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
-    ):
-        endpoint_names = _fetch_langchain_dependency_from_model_info(model_info, key)
-        for endpoint_name in endpoint_names:
-            dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
+        dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", **index_name})
+
+    endpoint_names = _fetch_langchain_dependency_from_model_info(
+        model_info, ResourceType.SERVING_ENDPOINT.value
+    )
+    for endpoint_name in endpoint_names:
+        dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
     return dependencies
 
 
 def _fetch_langchain_dependency_from_model_info(model_info, key):
     # import here to work around circular imports
-    from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
-
-    return model_info.flavors.get("langchain", {}).get(_DATABRICKS_DEPENDENCY_KEY, {}).get(key, [])
+    return getattr(model_info, "resources", {}).get("databricks", {}).get(key, {})
 
 
 @experimental

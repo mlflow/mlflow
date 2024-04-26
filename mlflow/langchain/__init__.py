@@ -38,7 +38,6 @@ from mlflow.langchain._langchain_autolog import (
 )
 from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path
 from mlflow.langchain.databricks_dependencies import (
-    _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
 )
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
@@ -55,6 +54,7 @@ from mlflow.langchain.utils import (
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -346,7 +346,10 @@ def save_model(
             )
 
         if databricks_dependency := _detect_databricks_dependencies(checker_model):
-            flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
+            serialized_databricks_dependency = _ResourceBuilder.from_resources(
+                databricks_dependency
+            )
+            mlflow_model.resources = serialized_databricks_dependency
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
