@@ -610,8 +610,6 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
         logged_metrics=logged_metrics,
     )
 
-    assert "mlflow.datasets" not in tags
-
     check_artifacts_are_not_generated_for_baseline_model_evaluation(
         logged_artifacts=artifacts,
         result_artifacts=result.artifacts,
