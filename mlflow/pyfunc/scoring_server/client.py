@@ -114,9 +114,6 @@ class StdinScoringServerClient(BaseScoringServerClient):
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
-
         Returns:
             :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
         """

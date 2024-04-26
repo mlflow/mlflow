@@ -127,10 +127,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
         model_config: A dict of valid overrides that can be applied to a flow instance
             during inference. These arguments are used exclusively for the case of loading
             the model as a ``pyfunc`` Model.
@@ -223,10 +220,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
         model_config: A dict of valid overrides that can be applied to a flow instance
             during inference. These arguments are used exclusively for the case of loading
             the model as a ``pyfunc`` Model.
