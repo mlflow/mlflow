@@ -2227,8 +2227,8 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
-        resources: A list of model resources or a resources.yaml file to list the resources
-                    required to serve the model.
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -2575,8 +2575,8 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
-        resources: A list of model resources or a resources.yaml file to list the resources
-                    required to serve the model.
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
