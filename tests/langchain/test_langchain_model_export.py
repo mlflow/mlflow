@@ -2391,7 +2391,7 @@ def test_save_load_chain_as_code_with_different_names(chain_model_signature):
     }
 
     # Read the contents of the original chain file
-    with open("tests/langchain/chain.py", "r") as chain_file:
+    with open("tests/langchain/chain.py") as chain_file:
         chain_file_content = chain_file.read()
 
     with tempfile.NamedTemporaryFile(mode="w+", delete=True) as temp_file:
@@ -2463,7 +2463,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature)
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/chain.py",
             artifact_path="model_path",
-            signature=signature,
+            signature=chain_model_signature,
             input_example=input_example,
             code_paths=[new_config_file],
         )
@@ -2519,7 +2519,7 @@ def test_save_load_chain_errors(chain_model_signature):
             mlflow.langchain.log_model(
                 lc_model=incorrect_path,
                 artifact_path="model_path",
-                signature=signature,
+                signature=chain_model_signature,
                 input_example=input_example,
                 code_paths=code_paths,
             )
