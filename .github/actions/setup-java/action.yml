@@ -8,7 +8,7 @@ inputs:
 
   distribution:
     description: "distribution"
-    default: adopt
+    default: temurin
     required: false
 
 runs:

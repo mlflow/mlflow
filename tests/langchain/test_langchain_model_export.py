@@ -51,6 +51,10 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.api_request_parallel_processor import APIRequest
+from mlflow.langchain.utils import (
+    _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    IS_PICKLE_SERIALIZATION_RESTRICTED,
+)
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
@@ -64,18 +68,11 @@ from mlflow.utils.openai_utils import (
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
-try:
-    import langchain_community
-
-    # this kwarg was added in langchain_community 0.0.27, and
-    # prevents the use of pickled objects if not provided.
-    VECTORSTORE_KWARGS = (
-        {"allow_dangerous_deserialization": True}
-        if Version(langchain_community.__version__) >= Version("0.0.27")
-        else {}
-    )
-except ImportError:
-    VECTORSTORE_KWARGS = {}
+# this kwarg was added in langchain_community 0.0.27, and
+# prevents the use of pickled objects if not provided.
+VECTORSTORE_KWARGS = (
+    {"allow_dangerous_deserialization": True} if IS_PICKLE_SERIALIZATION_RESTRICTED else {}
+)
 
 
 @contextmanager
@@ -334,6 +331,58 @@ def test_pyfunc_spark_udf_with_langchain_model(spark):
     assert pdf["answer"].tolist() == [TEST_CONTENT, TEST_CONTENT]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
+)
+def test_save_and_load_chat_openai(model_path):
+    from langchain.chat_models import ChatOpenAI
+
+    llm = ChatOpenAI(temperature=0.9)
+    prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
+    chain = LLMChain(llm=llm, prompt=prompt)
+    mlflow.langchain.save_model(chain, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model == chain
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
+    prediction = loaded_pyfunc_model.predict([{"product": "Mlflow?"}])
+    assert prediction == [TEST_CONTENT]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) >= _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason="This test is for non-supported LC version of loading ChatOpenAI model",
+)
+def test_save_and_load_chat_openai_with_unsupported_version_raise_helpful_message(model_path):
+    from langchain.chat_models import ChatOpenAI
+
+    llm = ChatOpenAI(temperature=0.9)
+    prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
+    chain = LLMChain(llm=llm, prompt=prompt)
+    mlflow.langchain.save_model(chain, model_path)
+
+    with pytest.raises(MlflowException, match="Loading ChatOpenAI chat model is not supported"):
+        mlflow.langchain.load_model(model_path)
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
+)
+def test_save_and_load_azure_chat_openai(model_path):
+    from langchain.chat_models import AzureChatOpenAI
+
+    llm = AzureChatOpenAI(temperature=0.9)
+    prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
+    chain = LLMChain(llm=llm, prompt=prompt)
+    mlflow.langchain.save_model(chain, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model == chain
+
+
 def test_langchain_log_huggingface_hub_model_metadata(model_path):
     model = create_huggingface_model(model_path)
     with mlflow.start_run():
@@ -422,10 +471,6 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
     assert model == loaded_model
 
 
-@pytest.mark.skipif(
-    version.parse(langchain.__version__) < version.parse("0.0.194"),
-    reason="Saving RetrievalQA chains requires langchain>=0.0.194",
-)
 def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -487,10 +532,6 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     )
 
 
-@pytest.mark.skipif(
-    version.parse(langchain.__version__) < version.parse("0.0.194"),
-    reason="Saving RetrievalQA chains requires langchain>=0.0.194",
-)
 def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -787,6 +828,10 @@ def load_db(persist_dir):
 @pytest.mark.skipif(
     version.parse(langchain.__version__) < version.parse("0.0.297"),
     reason="Saving SQLDatabaseChain chains requires langchain>=0.0.297",
+)
+@pytest.mark.skipif(
+    version.parse(langchain.__version__) in (version.parse("0.1.14"), version.parse("0.1.15")),
+    reason="LangChain 0.1.14 and 0.1.15 has a bug in loading SQLDatabaseChain",
 )
 def test_log_and_load_sql_database_chain(tmp_path):
     # Create the SQLDatabaseChain
@@ -1388,6 +1433,29 @@ def test_save_load_complex_runnable_sequence():
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": [expected_result]
     }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
+)
+def test_save_load_runnable_sequence_with_chat_openai():
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableSequence
+    from langchain_community.chat_models import ChatOpenAI
+
+    prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
+    llm = ChatOpenAI(temperature=0.9)
+    model = prompt1 | llm | StrOutputParser()
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model_path")
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert type(loaded_model) == RunnableSequence
+    assert type(loaded_model.steps[0]) == PromptTemplate
+    assert type(loaded_model.steps[1]) == ChatOpenAI
+    assert type(loaded_model.steps[2]) == StrOutputParser
 
 
 @pytest.mark.skipif(
@@ -2179,6 +2247,45 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
+def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
+    from langchain_community.llms.databricks import Databricks
+    from langchain_core.output_parsers import StrOutputParser
+
+    monkeypatch.setattr(
+        "langchain_community.llms.databricks._DatabricksServingEndpointClient",
+        mock.MagicMock(),
+    )
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    llm_kwargs = {"endpoint_name": "test-endpoint", "temperature": 0.9}
+    if IS_PICKLE_SERIALIZATION_RESTRICTED:
+        llm_kwargs["allow_dangerous_deserialization"] = True
+
+    llm = Databricks(**llm_kwargs)
+    prompt = PromptTemplate(input_variables=["question"], template="I have a question: {question}")
+    chain = prompt | llm | StrOutputParser()
+
+    # Not passing an input_example to avoid triggering prediction
+    mlflow.langchain.save_model(chain, model_path)
+
+    if IS_PICKLE_SERIALIZATION_RESTRICTED and Version(langchain.__version__) < Version("0.1.14"):
+        # For LangChain between 0.1.12 and 0.1.14, MLflow cannot load a model that relies on pickle
+        # serialization, instead, raises an MlflowException with a message that explains the issue.
+        with pytest.raises(MlflowException, match=r"Since langchain-community 0.0.27, loading a"):
+            mlflow.langchain.load_model(model_path)
+        return
+    loaded_model = mlflow.langchain.load_model(model_path)
+
+    # Check if the deserialized model has the same endpoint and temperature
+    loaded_databricks_llm = loaded_model.middle[0]
+    assert loaded_databricks_llm.endpoint_name == "test-endpoint"
+    assert loaded_databricks_llm.temperature == 0.9
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_save_load_chain_as_code():
     input_example = {
         "messages": [
@@ -2736,3 +2843,65 @@ def test_langchain_model_not_streamable():
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     with pytest.raises(MlflowException, match="This model does not support predict_stream method"):
         loaded_model.predict_stream({"product": "shoe"})
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_langchain_model_save_exception(fake_chat_model):
+    from langchain.prompts import PromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+
+    prompt = PromptTemplate.from_template(
+        "What's your favorite {industry} company in {country}?", partial_variables={"country": "US"}
+    )
+    chain = prompt | fake_chat_model | StrOutputParser()
+    assert chain.invoke({"industry": "tech"}) == "Databricks"
+
+    with pytest.raises(
+        MlflowException, match=r"Failed to save runnable sequence: {'0': 'PromptTemplate -- "
+    ):
+        with mlflow.start_run():
+            mlflow.langchain.log_model(chain, "model_path", input_example={"industry": "tech"})
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_chat_model):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
+    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a helpful assistant."),
+            MessagesPlaceholder(variable_name="history"),
+            ("human", "{question}"),
+        ]
+    )
+
+    def retrieve_history(input):
+        return {"history": [], "question": input["question"], "name": input["name"]}
+
+    chain = (
+        {"question": itemgetter("question"), "name": itemgetter("name")}
+        | (RunnableLambda(retrieve_history) | prompt | fake_chat_model).with_listeners()
+        | StrOutputParser()
+        | RunnablePassthrough()
+    )
+    input_example = {"question": "Who owns MLflow?", "name": ""}
+    assert chain.invoke(input_example) == "Databricks"
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to save runnable sequence: {'1': 'RunnableSequence "
+        r"-- Cannot save runnable without `save` method.'",
+    ), mlflow.start_run():
+        mlflow.langchain.log_model(
+            chain,
+            artifact_path="chain",
+        )

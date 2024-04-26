@@ -38,8 +38,6 @@ class DatabricksEndpoint(AttrDict):
         assert endpoint.name == "chat"
     """
 
-    pass
-
 
 @experimental
 class DatabricksDeploymentClient(BaseDeploymentClient):

@@ -10,6 +10,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
+from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.autologging_utils import (
@@ -36,6 +37,8 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
     func_param_name_mapping = {
         "__call__": "inputs",
         "invoke": "input",
+        "batch": "inputs",
+        "stream": "input",
         "get_relevant_documents": "query",
     }
     input_example_exc = None
@@ -104,49 +107,77 @@ def _update_langchain_model_config(model):
         return True
 
 
-def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
-    if func_name == "invoke":
-        from langchain.schema.runnable.config import RunnableConfig
+def _inject_callbacks(original_callbacks, new_callbacks):
+    """
+    Inject list of callbacks into the original callbacks.
+    For RunnableConfig, the callbacks is defined as List[BaseCallbackHandler] or BaseCallbackManager
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/callbacks/base.py#L636
+    """
+    from langchain_core.callbacks.base import BaseCallbackManager
 
-        in_args = False
-        # `config` is the second positional argument of runnable.invoke function
-        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py#L468
-        if len(args) >= 2:
-            config = args[1]
-            in_args = True
+    if isinstance(original_callbacks, BaseCallbackManager):
+        for callback in new_callbacks:
+            original_callbacks.add_handler(callback)
+        return original_callbacks
+    if not isinstance(original_callbacks, list):
+        original_callbacks = [original_callbacks]
+    return original_callbacks + new_callbacks
+
+
+def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
+    """
+    `config` is the second positional argument of runnable invoke, batch and stream functions
+    https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py#L468
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L600-L607
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L801
+
+    """
+    from langchain.schema.runnable.config import RunnableConfig
+
+    in_args = False
+    if len(args) >= 2:
+        config = args[1]
+        in_args = True
+    else:
+        config = kwargs.get("config")
+    if config is None:
+        config = RunnableConfig(callbacks=mlflow_callbacks)
+    else:
+        # for `invoke` and `stream`, config type is RunnableConfig
+        # for `batch`, config type is Union[RunnableConfig, List[RunnableConfig]]
+        if isinstance(config, list):
+            for c in config:
+                c["callbacks"] = _inject_callbacks(c.get("callbacks") or [], mlflow_callbacks)
         else:
-            config = kwargs.get("config", None)
-        if config is None:
-            callbacks = [mlflow_callback]
-            config = RunnableConfig(callbacks=callbacks)
-        else:
-            callbacks = config.get("callbacks") or []
-            callbacks.append(mlflow_callback)
-            config["callbacks"] = callbacks
-        if in_args:
-            args = (args[0], config) + args[2:]
-        else:
-            kwargs["config"] = config
-        return args, kwargs
+            config["callbacks"] = _inject_callbacks(config.get("callbacks") or [], mlflow_callbacks)
+    if in_args:
+        args = (args[0], config) + args[2:]
+    else:
+        kwargs["config"] = config
+    return args, kwargs
+
+
+def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
+    """
+    Inject list of callbacks into the function named `func_name` of the model.
+    """
+    if func_name in ["invoke", "batch", "stream"]:
+        return _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs)
 
     if func_name == "__call__":
         # `callbacks` is the third positional argument of chain.__call__ function
         # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
         if len(args) >= 3:
-            callbacks = args[2] or []
-            callbacks.append(mlflow_callback)
-            args = args[:2] + (callbacks,) + args[3:]
+            callbacks_arg = _inject_callbacks(args[2] or [], mlflow_callbacks)
+            args = args[:2] + (callbacks_arg,) + args[3:]
         else:
-            callbacks = kwargs.get("callbacks") or []
-            callbacks.append(mlflow_callback)
-            kwargs["callbacks"] = callbacks
+            kwargs["callbacks"] = _inject_callbacks(kwargs.get("callbacks") or [], mlflow_callbacks)
         return args, kwargs
 
+    # callbacks is only available as kwargs in get_relevant_documents function
     # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
     if func_name == "get_relevant_documents":
-        callbacks = kwargs.get("callbacks") or []
-        callbacks.append(mlflow_callback)
-        kwargs["callbacks"] = callbacks
+        kwargs["callbacks"] = _inject_callbacks(kwargs.get("callbacks") or [], mlflow_callbacks)
         return args, kwargs
 
 
@@ -161,10 +192,13 @@ def _runnable_with_retriever(model):
             return any(_runnable_with_retriever(runnable) for _, runnable in model.branches)
 
         if isinstance(model, RunnableParallel):
-            return any(_runnable_with_retriever(runnable) for runnable in model.steps.values())
+            return any(
+                _runnable_with_retriever(runnable)
+                for runnable in get_runnable_steps(model).values()
+            )
 
         if isinstance(model, RunnableSequence):
-            return any(_runnable_with_retriever(runnable) for runnable in model.steps)
+            return any(_runnable_with_retriever(runnable) for runnable in get_runnable_steps(model))
 
         if isinstance(model, RunnableAssign):
             return _runnable_with_retriever(model.mapper)
@@ -189,8 +223,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     - metrics
     - data
 
-    We patch either `invoke` or `__call__` function for different models
-    based on their usage.
+    We patch inference functions for different models based on their usage.
     """
 
     import langchain
@@ -230,7 +263,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             )
     else:
         tags = None
-    # TODO: test adding callbacks works
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
     session_id = getattr(self, "session_id", uuid.uuid4().hex)
@@ -241,7 +273,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         artifacts_dir=f"artifacts-{session_id}-{inference_id}",
         tags=tags,
     )
-    args, kwargs = _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs)
+    args, kwargs = _inject_mlflow_callbacks(func_name, [mlflow_callback], args, kwargs)
     with disable_autologging():
         result = original(self, *args, **kwargs)
 
@@ -312,13 +344,20 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         else:
             input_data = input_example
         try:
+            # we do not convert stream output iterator for logging as tracing
+            # will provide much more information than this function, we might drop
+            # this in the future
+            if func_name == "stream":
+                raise MlflowException(
+                    f"Unsupported function {func_name} for logging inputs and outputs."
+                )
             data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
+            mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
         except Exception as e:
             _logger.warning(
                 f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
                 f"file due to error {e}."
             )
-        mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:

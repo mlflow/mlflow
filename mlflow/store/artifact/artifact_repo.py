@@ -1,6 +1,7 @@
 import logging
 import os
 import posixpath
+import tempfile
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional
@@ -11,6 +12,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
+from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
 
@@ -49,8 +51,29 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
+        def log_artifact_handler(filename, artifact_path=None, artifact=None):
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = os.path.join(tmp_dir, filename)
+                if artifact is not None:
+                    # User should already have installed PIL to log a PIL image
+                    from PIL import Image
+
+                    if isinstance(artifact, Image.Image):
+                        artifact.save(tmp_path)
+                self.log_artifact(tmp_path, artifact_path)
+
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
+
     def _create_thread_pool(self):
         return ThreadPoolExecutor(max_workers=self.max_workers)
+
+    def flush_async_logging(self):
+        """
+        Flushes the async logging queue, ensuring that all pending logging operations have
+        completed.
+        """
+        if self._async_logging_queue._is_activated:
+            self._async_logging_queue.flush()
 
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
@@ -64,7 +87,32 @@ class ArtifactRepository:
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
         """
-        pass
+
+    def _log_artifact_async(self, filename, artifact_path=None, artifact=None):
+        """
+        Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
+        place it within the run's artifacts. Run artifacts can be organized into directory, so you
+        can place the artifact in the directory this way. Cleanup tells the function whether to
+        cleanup the local_file after running log_artifact, since it could be a Temporary
+        Directory.
+
+        Args:
+            filename: Filename of the artifact to be logged.
+            artifact_path: Directory within the run's artifact directory in which to log the
+                artifact.
+            artifact: The artifact to be logged.
+
+        Returns:
+            An :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance
+            that represents future for logging operation.
+        """
+
+        if not self._async_logging_queue.is_active():
+            self._async_logging_queue.activate()
+
+        return self._async_logging_queue.log_artifacts_async(
+            filename=filename, artifact_path=artifact_path, artifact=artifact
+        )
 
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -77,7 +125,6 @@ class ArtifactRepository:
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifacts.
         """
-        pass
 
     @abstractmethod
     def list_artifacts(self, path):
@@ -91,7 +138,6 @@ class ArtifactRepository:
         Returns:
             List of artifacts as FileInfo listed directly under path.
         """
-        pass
 
     def _is_directory(self, artifact_path):
         listing = self.list_artifacts(artifact_path)
@@ -247,7 +293,6 @@ class ArtifactRepository:
                 directory of the artifact repository.
             local_path: The path to which to save the downloaded file.
         """
-        pass
 
     def delete_artifacts(self, artifact_path=None):
         """
@@ -258,7 +303,6 @@ class ArtifactRepository:
         Args:
             artifact_path: Path of the artifact to delete.
         """
-        pass
 
     @property
     def max_workers(self) -> int:
@@ -282,7 +326,6 @@ class MultipartUploadMixin(ABC):
                 artifact.
 
         """
-        pass
 
     @abstractmethod
     def complete_multipart_upload(
@@ -303,7 +346,6 @@ class MultipartUploadMixin(ABC):
                 artifact.
 
         """
-        pass
 
     @abstractmethod
     def abort_multipart_upload(
@@ -322,7 +364,6 @@ class MultipartUploadMixin(ABC):
                 artifact.
 
         """
-        pass
 
 
 def verify_artifact_path(artifact_path):

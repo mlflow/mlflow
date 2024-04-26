@@ -44,15 +44,13 @@ from mlflow.langchain.databricks_dependencies import (
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
-    _MODEL_DATA_FOLDER_NAME,
-    _MODEL_DATA_PKL_FILE_NAME,
     _MODEL_LOAD_KEY,
-    _PERSIST_DIR_NAME,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
+    patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
@@ -94,13 +92,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-
-
-model_data_artifact_paths = [
-    _MODEL_DATA_FOLDER_NAME,
-    _MODEL_DATA_PKL_FILE_NAME,
-    _PERSIST_DIR_NAME,
-]
 
 
 def get_default_pip_requirements():
@@ -152,9 +143,7 @@ def save_model(
             or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
         path: Local path where the serialized model (as YAML) is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -425,9 +414,7 @@ def log_model(
             `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
@@ -557,7 +544,9 @@ def _save_model(model, path, loader_fn, persist_dir):
             "using `pip install cloudpickle>=2.1.0` "
             "to ensure the model can be loaded correctly."
         )
-    with register_pydantic_v1_serializer_cm():
+    # patch_langchain_type_to_cls_dict here as we attempt to load model
+    # if it's saved by `dict` method
+    with register_pydantic_v1_serializer_cm(), patch_langchain_type_to_cls_dict():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
         else:
@@ -668,8 +657,14 @@ class _LangChainModelWrapper:
         and `return_first_element` means if True, we should return the first element
         of inference result, otherwise we should return the whole inference result.
         """
+        # This handels spark_udf inputs and input_example inputs
         if isinstance(data, pd.DataFrame):
-            data = data.to_dict(orient="records")
+            # if the data only contains a single key as 0, we assume the input
+            # is either a string or list of strings
+            if list(data.columns) == [0]:
+                data = data.to_dict("list")[0]
+            else:
+                data = data.to_dict(orient="records")
 
         data = _convert_ndarray_to_list(data)
         if not isinstance(data, list):
@@ -849,7 +844,8 @@ def _load_model_from_local_fs(local_model_path):
         return _load_model_code_path(code_path, config_path)
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-        return _load_model(local_model_path, flavor_conf)
+        with patch_langchain_type_to_cls_dict():
+            return _load_model(local_model_path, flavor_conf)
 
 
 @experimental
@@ -995,6 +991,20 @@ def autolog(
                 cls,
                 "invoke",
                 functools.partial(patched_inference, "invoke"),
+            )
+
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "batch",
+                functools.partial(patched_inference, "batch"),
+            )
+
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "stream",
+                functools.partial(patched_inference, "stream"),
             )
 
         for cls in [AgentExecutor, Chain]:

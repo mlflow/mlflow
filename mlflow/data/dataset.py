@@ -113,12 +113,12 @@ class Dataset:
         Returns:
             A `mlflow.entities.Dataset` instance representing the dataset.
         """
-        dataset_json = json.loads(self.to_json())
+        dataset_dict = self.to_dict()
         return DatasetEntity(
-            name=dataset_json["name"],
-            digest=dataset_json["digest"],
-            source_type=dataset_json["source_type"],
-            source=dataset_json["source"],
-            schema=dataset_json.get("schema"),
-            profile=dataset_json.get("profile"),
+            name=dataset_dict["name"],
+            digest=dataset_dict["digest"],
+            source_type=dataset_dict["source_type"],
+            source=dataset_dict["source"],
+            schema=dataset_dict.get("schema"),
+            profile=dataset_dict.get("profile"),
         )

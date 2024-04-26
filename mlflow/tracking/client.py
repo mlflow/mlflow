@@ -22,6 +22,7 @@ import mlflow
 from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.utils.models import (
@@ -734,7 +735,7 @@ class MlflowClient:
         value: float,
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
-        synchronous: bool = True,
+        synchronous: Optional[bool] = None,
     ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
@@ -754,11 +755,12 @@ class MlflowClient:
             step: Integer training step (iteration) at which was the metric calculated.
                 Defaults to 0.
             synchronous: *Experimental* If True, blocks until the metric is logged successfully.
-                If False, logs the metric asynchronously and returns a future
-                representing the logging operation.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
             represents future for logging operation.
 
@@ -805,12 +807,15 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.log_metric(
             run_id, key, value, timestamp, step, synchronous=synchronous
         )
 
     def log_param(
-        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
@@ -824,12 +829,13 @@ class MlflowClient:
             value: Parameter value, but will be string-ified if not.
                 All built-in backend stores support values up to length 6000, but some
                 may support larger values.
-            synchronous: *Experimental* If True, blocks until the parameter is logged
-                successfully. If False, logs the parameter asynchronously and
-                returns a future representing the logging operation.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns parameter value. When `synchronous=False`,
+            When `synchronous=True` or None, returns parameter value. When `synchronous=False`,
             returns an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations`
             instance that represents future for logging operation.
 
@@ -873,6 +879,9 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         if synchronous:
             self._tracking_client.log_param(run_id, key, value, synchronous=True)
             return value
@@ -911,7 +920,7 @@ class MlflowClient:
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
     def set_tag(
-        self, run_id: str, key: str, value: Any, synchronous: bool = True
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
@@ -923,12 +932,13 @@ class MlflowClient:
                 length 250, but some may support larger keys.
             value: Tag value, but will be string-ified if not. All backend stores will support
                 values up to length 5000, but some may support larger values.
-            synchronous: *Experimental* If True, blocks until the tag is logged successfully. If
-                False, logs the tag asynchronously and returns a future representing the logging
-                operation.
+           synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             `mlflow.utils.async_logging.run_operations.RunOperations` instance that represents
             future for logging operation.
 
@@ -963,6 +973,9 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
@@ -1064,7 +1077,7 @@ class MlflowClient:
         metrics: Sequence[Metric] = (),
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
-        synchronous: bool = True,
+        synchronous: Optional[bool] = None,
     ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
@@ -1074,15 +1087,16 @@ class MlflowClient:
             metrics: If provided, List of Metric(key, value, timestamp) instances.
             params: If provided, List of Param(key, value) instances.
             tags: If provided, List of RunTag(key, value) instances.
-            synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
-                successfully. If False, logs the metrics/tags/params asynchronously
-                and returns a future representing the logging operation.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
             represents future for logging operation.
 
@@ -1131,6 +1145,9 @@ class MlflowClient:
             status: FINISHED
 
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.log_batch(
             run_id, metrics, params, tags, synchronous=synchronous
         )
@@ -1158,6 +1175,10 @@ class MlflowClient:
         Args:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -1257,11 +1278,27 @@ class MlflowClient:
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, filename)
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
+
+    def _log_artifact_async_helper(self, run_id, artifact_file, artifact):
+        """Log artifact asynchronously.
+
+        Args:
+            run_id: The unique identifier for the run. This ID is used to associate the
+                artifact with a specific run.
+            artifact_file: The file path of the artifact relative to the run's directory.
+                The path should be in POSIX format, using forward slashes (/) as directory
+                separators.
+            artifact: The artifact to be logged.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+        self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -1430,6 +1467,7 @@ class MlflowClient:
         key: Optional[str] = None,
         step: Optional[int] = None,
         timestamp: Optional[int] = None,
+        synchronous: Optional[bool] = None,
     ) -> None:
         """
         Logs an image in MLflow, supporting two use cases:
@@ -1551,6 +1589,9 @@ class MlflowClient:
                 client = mlflow.MlflowClient()
                 client.log_image(run.info.run_id, image, "image.png")
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         if artifact_file is not None and any(arg is not None for arg in [key, step, timestamp]):
             raise TypeError(
                 "The `artifact_file` parameter cannot be used in conjunction with `key`, "
@@ -1600,7 +1641,6 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = uuid.uuid4()
-            filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
@@ -1608,30 +1648,26 @@ class MlflowClient:
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
-            with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-                image.save(tmp_path)
-
-            # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-            with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
-                compress_image_size(image).save(tmp_path)
 
-            # Save metadata file
-            metadata_filepath = f"{filename}.json"
-            with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
-                with open(tmp_path, "w+") as f:
-                    json.dump(
-                        {
-                            "filepath": image_filepath,
-                            "key": key,
-                            "step": step,
-                            "timestamp": timestamp,
-                        },
-                        f,
-                    )
+            # Need to make a resize copy before running thread for thread safety
+            # If further optimization is needed, we can move this resize to async queue.
+            compressed_image = compress_image_size(image)
+
+            if synchronous:
+                with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
+                    image.save(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, image_filepath, image)
+
+            if synchronous:
+                with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+                    compressed_image.save(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)
 
             # Log tag indicating that the run includes logged image
-            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous=False)
+            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
@@ -1719,6 +1755,13 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
+        if not artifact_file.endswith(".json"):
+            raise ValueError(
+                f"The provided artifact file '{artifact_file}' does not have "
+                "the required '.json' extension. Please ensure the file you are trying "
+                "to log as a table is a JSON file with the '.json' extension. "
+            )
+
         if not isinstance(data, (pd.DataFrame, dict)):
             raise MlflowException.invalid_parameter_value(
                 "data must be a pandas.DataFrame or a dictionary"

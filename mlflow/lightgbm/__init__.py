@@ -83,8 +83,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "lightgbm"
 
-model_data_artifact_paths = ["model.lgb", "model.pkl"]
-
 
 _logger = logging.getLogger(__name__)
 
@@ -132,9 +130,7 @@ def save_model(
             models that implement the `scikit-learn API`_  to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: {{ signature }}
         input_example: {{ input_example }}
@@ -298,9 +294,7 @@ def log_model(
             models that implement the `scikit-learn API`_  to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.

@@ -68,8 +68,6 @@ _MODEL_TYPE_KEY = "model_type"
 _FLAVOR_KEY = "flavors"
 _SPARK_MODEL_INDICATOR = "fit_with_spark"
 
-model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
-
 _logger = logging.getLogger(__name__)
 
 
@@ -113,9 +111,7 @@ def save_model(
             ``DataFrame``.
         path: Local path destination for the serialized model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` the flavor that this model is being added to.
         signature: :py:class:`Model Signature <mlflow.models.ModelSignature>` describes model
             input and output :py:class:`Schema <mlflow.types.Schema>`. The model
@@ -374,9 +370,7 @@ def log_model(
         diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal ``DataFrame``.
         artifact_path: Run-relative artifact path to save the model instance to.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a

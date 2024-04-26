@@ -80,7 +80,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
             #   - No engine + correct deployment_id
             if deployment_id is not None:
                 _logger.warning(
-                    "Both engine and deployment_id are set. " "Using engine as it takes precedence."
+                    "Both engine and deployment_id are set. Using engine as it takes precedence."
                 )
             payload = {"engine": engine, **payload}
         elif deployment_id is None:

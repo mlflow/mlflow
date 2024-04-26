@@ -171,7 +171,6 @@ class CloudArtifactRepository(ArtifactRepository):
         Returns:
             List of ArtifactCredentialInfo objects corresponding to each file path.
         """
-        pass
 
     @abstractmethod
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
@@ -184,7 +183,6 @@ class CloudArtifactRepository(ArtifactRepository):
             artifact_file_path: Path in the artifact repository where the artifact will be logged.
 
         """
-        pass
 
     # Read APIs
 
@@ -261,7 +259,6 @@ class CloudArtifactRepository(ArtifactRepository):
         Returns:
             List of ArtifactCredentialInfo objects corresponding to each file path.
         """
-        pass
 
     @abstractmethod
     def _download_from_cloud(self, remote_file_path, local_path):
@@ -273,4 +270,3 @@ class CloudArtifactRepository(ArtifactRepository):
             local_path: Local path to download file to.
 
         """
-        pass

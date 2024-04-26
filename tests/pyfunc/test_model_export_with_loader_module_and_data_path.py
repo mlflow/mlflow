@@ -86,7 +86,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path):
         path=model_path,
         data_path=sk_model_path,
         loader_module=__name__,
-        code_path=[__file__],
+        code_paths=[__file__],
         mlflow_model=model_config,
     )
 
@@ -114,7 +114,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                     path=path,
                     data_path=tmp.path("skmodel"),
                     loader_module=__name__,
-                    code_path=[__file__],
+                    code_paths=[__file__],
                     signature=signature,
                     input_example=example,
                 )
@@ -137,7 +137,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmp_path):
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
         )
         pyfunc_model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
@@ -164,7 +164,7 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmp_path):
         artifact_path=pyfunc_artifact_path,
         data_path=sk_model_path,
         loader_module=__name__,
-        code_path=[__file__],
+        code_paths=[__file__],
     )
     pyfunc_model_path = _download_artifact_from_uri(
         f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
@@ -207,7 +207,7 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
             conda_env=pyfunc_custom_env_file,
         )
         run_id = mlflow.active_run().info.run_id
@@ -241,7 +241,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
             conda_env=pyfunc_custom_env_dict,
         )
         run_id = mlflow.active_run().info.run_id
@@ -272,7 +272,7 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
             conda_env=pyfunc_custom_env_dict,
         )
         run_id = mlflow.active_run().info.run_id
@@ -301,7 +301,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
             artifact_path=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
         )
         model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
     _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())

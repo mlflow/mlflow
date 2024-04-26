@@ -549,7 +549,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
     except Exception as e:
         # Add error into message to provide details for serving usage
         raise MlflowInvalidInputException(
-            "Ensure that the input is a valid JSON-formatted string.\n" f"Error: {e!r}"
+            f"Ensure that the input is a valid JSON-formatted string.\nError: {e!r}"
         ) from e
 
 

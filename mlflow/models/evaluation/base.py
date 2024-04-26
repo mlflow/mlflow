@@ -266,7 +266,6 @@ class EvaluationArtifact(metaclass=ABCMeta):
         Abstract interface to load the content from local artifact file path,
         and return the loaded content.
         """
-        pass
 
     def _load(self, local_artifact_path=None):
         """
@@ -287,7 +286,6 @@ class EvaluationArtifact(metaclass=ABCMeta):
     @abstractmethod
     def _save(self, output_artifact_path):
         """Save artifact content into specified path."""
-        pass
 
     @property
     def content(self):
@@ -1993,7 +1991,6 @@ def evaluate(
                 "the desired configuration there.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        pass
     elif model is None:
         # Evaluating a static dataset
         if isinstance(data, pd.DataFrame):

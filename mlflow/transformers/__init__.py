@@ -57,6 +57,8 @@ from mlflow.transformers.flavor_config import (
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_CHAT,
+    _LLM_INFERENCE_TASK_COMPLETIONS,
+    _LLM_INFERENCE_TASK_EMBEDDING,
     _LLM_INFERENCE_TASK_KEY,
     _LLM_INFERENCE_TASK_PREFIX,
     _METADATA_LLM_INFERENCE_TASK_KEY,
@@ -65,12 +67,13 @@ from mlflow.transformers.llm_inference_utils import (
     convert_data_messages_with_chat_template,
     infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
+    postprocess_output_for_llm_v1_embedding_task,
+    preprocess_llm_embedding_params,
     preprocess_llm_inference_params,
 )
 from mlflow.transformers.model_io import (
     _COMPONENTS_BINARY_DIR_NAME,
     _MODEL_BINARY_FILE_NAME,
-    _PROCESSOR_BINARY_DIR_NAME,
     load_model_and_components_from_huggingface_hub,
     load_model_and_components_from_local,
     save_pipeline_pretrained_weights,
@@ -124,6 +127,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 # The following import is only used for type hinting
 if TYPE_CHECKING:
+    import torch
     from transformers import Pipeline
 
 # Transformers pipeline complains that PeftModel is not supported for any task type, even
@@ -168,14 +172,6 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
 
 
 _logger = logging.getLogger(__name__)
-
-
-model_data_artifact_paths = [
-    _MODEL_BINARY_FILE_NAME,
-    _COMPONENTS_BINARY_DIR_NAME,
-    _PROCESSOR_BINARY_DIR_NAME,
-    _PEFT_ADAPTOR_DIR_NAME,
-]
 
 
 @experimental
@@ -265,6 +261,7 @@ def save_model(
     path: str,
     processor=None,
     task: Optional[str] = None,
+    torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -410,9 +407,7 @@ def save_model(
                     model_config=model_config,
                 )
 
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
             added to.
         signature: A Model Signature object that describes the input and output Schema of the
@@ -535,7 +530,7 @@ def save_model(
     #  via the mlflow_model object attribute.
     if (
         mlflow_model.metadata is not None
-        and (metadata_task := mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY])
+        and (metadata_task := mlflow_model.metadata.get(_METADATA_LLM_INFERENCE_TASK_KEY))
         and metadata_task != task
     ):
         raise MlflowException(
@@ -580,7 +575,7 @@ def save_model(
         save_pretrained = True
 
     # Create the flavor configuration
-    flavor_conf = build_flavor_config(built_pipeline, processor, save_pretrained)
+    flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -718,6 +713,7 @@ def log_model(
     artifact_path: str,
     processor=None,
     task: Optional[str] = None,
+    torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
@@ -797,6 +793,10 @@ def log_model(
             pipeline utilities within the transformers library will be used to infer the
             correct task type. If the value specified is not a supported type within the
             version of transformers that is currently installed, an Exception will be thrown.
+        torch_dtype: The Pytorch dtype applied to the model when loading back. This is useful
+            when you want to save the model with a specific dtype that is different from the
+            dtype of the model when it was trained. If not specified, the current dtype of the
+            model instance will be used.
         model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
             contents of the model card will be saved along with the provided
             `transformers_model`. If not provided, an attempt will be made to fetch
@@ -861,9 +861,7 @@ def log_model(
                         model_config=model_config,
                     )
 
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
@@ -932,6 +930,7 @@ def log_model(
         transformers_model=transformers_model,
         processor=processor,
         task=task,
+        torch_dtype=torch_dtype,
         model_card=model_card,
         inference_config=inference_config,
         conda_env=conda_env,
@@ -1653,9 +1652,11 @@ class _TransformersWrapper:
         """
         if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
             convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
-
-        if self.llm_inference_task:
             data, params = preprocess_llm_inference_params(data, self.flavor_config)
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
+            data, params = preprocess_llm_inference_params(data, self.flavor_config)
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:
+            data, params = preprocess_llm_embedding_params(data)
 
         # NB: This `predict` method updates the model_config several times. To make the predict
         # call idempotent, we keep the original self.model_config immutable and creates a deep
@@ -1814,7 +1815,13 @@ class _TransformersWrapper:
                 )
 
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
-            return self._parse_feature_extraction_output(raw_output)
+            if self.llm_inference_task:
+                output = [np.array(tensor[0][0]) for tensor in raw_output]
+                output = postprocess_output_for_llm_v1_embedding_task(
+                    data, output, self.pipeline.tokenizer
+                )
+            else:
+                return self._parse_feature_extraction_output(raw_output)
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
