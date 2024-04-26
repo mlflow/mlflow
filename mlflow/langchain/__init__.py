@@ -252,6 +252,15 @@ def save_model(
                 "file path or a databricks notebook file path containing the code for defining "
                 "the chain instance."
             )
+        
+        if len(code_paths) > 1:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "When the model is a string, and if the code_paths are specified, "
+                "it should contain only one path."
+                "This config path is used to set config.yml file path "
+                "for the model. This path should be passed in via the code_paths. "
+                f"Current code paths: {code_paths}"
+            )
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     model_code_dir_subpath = _validate_and_copy_model_code_path(model_code_path, path)
