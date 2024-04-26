@@ -2380,7 +2380,7 @@ def test_save_load_chain_as_code(chain_model_signature):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_as_code_with_different_names(chain_model_signature):
+def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_signature):
     input_example = {
         "messages": [
             {
@@ -2394,21 +2394,17 @@ def test_save_load_chain_as_code_with_different_names(chain_model_signature):
     with open("tests/langchain/chain.py") as chain_file:
         chain_file_content = chain_file.read()
 
-    with tempfile.NamedTemporaryFile(mode="w+", delete=True, suffix=".py") as temp_file:
-        # Add "import dbutils" to temporary chain file
-        temp_file.write(chain_file_content)
-        temp_file.flush()
-
-        chain_path = temp_file.name
-
-        with mlflow.start_run():
-            model_info = mlflow.langchain.log_model(
-                lc_model=chain_path,
-                artifact_path="model_path",
-                signature=chain_model_signature,
-                input_example=input_example,
-                code_paths=["tests/langchain/config.yml"],
-            )
+    temp_file = tmp_path / "model.py"
+    temp_file.write_text(chain_file_content)
+        
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model=str(temp_file),
+            artifact_path="model_path",
+            signature=chain_model_signature,
+            input_example=input_example,
+            code_paths=["tests/langchain/config.yml"],
+        )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     answer = "Databricks"
