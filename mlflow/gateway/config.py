@@ -48,6 +48,7 @@ class Provider(str, Enum):
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
     MISTRAL = "mistral"
+    MIXEDBREAD = "mixedbread"
 
     @classmethod
     def values(cls):
@@ -58,6 +59,14 @@ class RouteType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
+
+
+class MixedBreadConfig(ConfigModel):
+    mixedbread_api_key: str
+
+    @validator("mixedbread_api_key", pre=True)
+    def validate_mixedbread_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class CohereConfig(ConfigModel):
@@ -232,6 +241,7 @@ config_types = {
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
     Provider.MISTRAL: MistralConfig,
+    Provider.MIXEDBREAD: MixedBreadConfig,
 }
 
 
@@ -291,6 +301,7 @@ class Model(ConfigModel):
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
             MistralConfig,
+            MixedBreadConfig,
         ]
     ] = None
 
