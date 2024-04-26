@@ -285,9 +285,6 @@ class _H2OModelWrapper:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions.
         """

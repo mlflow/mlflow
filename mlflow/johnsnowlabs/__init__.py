@@ -881,9 +881,6 @@ class _PyFuncModelWrapper:
             text: pandas DataFrame containing input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             List with model predictions.
 

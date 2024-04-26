@@ -343,9 +343,6 @@ class _OnnxModelWrapper:
                 `<https://github.com/microsoft/onnxruntime>`_.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions. If the input is a pandas.DataFrame, the predictions are returned
             in a pandas.DataFrame. If the input is a numpy array or a dictionary the

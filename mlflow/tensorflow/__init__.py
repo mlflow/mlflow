@@ -778,9 +778,6 @@ class _TF2Wrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -834,9 +831,6 @@ class _TF2ModuleWrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -869,9 +863,6 @@ class _KerasModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns
             Model predictions.

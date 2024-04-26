@@ -700,9 +700,6 @@ class PyFuncModel:
                 of the data rows.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -928,9 +925,6 @@ class _ServedPyFuncModel(PyFuncModel):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
@@ -1585,9 +1579,6 @@ def spark_udf(
               errors or invalid predictions.
 
         params: Additional parameters to pass to the model for inference.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
 
         extra_env: Extra environment variables to pass to the UDF executors.
 

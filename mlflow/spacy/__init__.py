@@ -292,9 +292,6 @@ class _SpacyModelWrapper:
                        expected shape is (n_rows,1 column)
             params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
         Returns:
             dataframe with predictions
         """

@@ -605,9 +605,6 @@ class _LangChainModelWrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions.
         """
@@ -629,9 +626,6 @@ class _LangChainModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
             callback_handlers: Callback handlers to pass to LangChain.
             convert_chat_responses: If true, forcibly convert response to chat model
                 response format.
@@ -692,9 +686,6 @@ class _LangChainModelWrapper:
             data: Model input data, only single input is allowed.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             An iterator of model prediction chunks.
         """
@@ -720,9 +711,6 @@ class _LangChainModelWrapper:
         Args:
             data: Model input data, only single input is allowed.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
             callback_handlers: Callback handlers to pass to LangChain.
             convert_chat_responses: If true, forcibly convert response to chat model
                 response format.
@@ -760,9 +748,6 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.

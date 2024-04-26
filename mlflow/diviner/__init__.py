@@ -482,9 +482,6 @@ class _DivinerModelWrapper:
                 was trained on.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             A Pandas DataFrame containing the forecasted values for each group key that was
             either trained or declared as a subset with a ``groups`` entry in the ``dataframe``
