@@ -1518,24 +1518,16 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
     pd.testing.assert_frame_equal(pyfunc_model.predict(["a", "b"]), pd.DataFrame(["a", "b"]))
 
 
-def test_streamable_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path):
-    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
-
+def test_streamable_model_save_load(iris_data, tmp_path):
     class StreamableModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
 
-        def load_context(self, context):
-            super().load_context(context)
-
-            self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
-
         def predict(self, context, model_input, params=None):
-            return self.model.predict(model_input)
+            pass
 
         def predict_stream(self, context, model_input, params=None):
-            yield from list(self.model.predict(model_input))
+            yield "test"
 
     pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
 
@@ -1543,7 +1535,6 @@ def test_streamable_model_save_load(sklearn_knn_model, main_scoped_model_class, 
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
-        artifacts={"sk_model": sklearn_model_path},
         python_model=python_model,
         streamable=True,
     )
@@ -1553,7 +1544,5 @@ def test_streamable_model_save_load(sklearn_knn_model, main_scoped_model_class, 
     stream_result = loaded_pyfunc_model.predict_stream(iris_data[0])
     assert isinstance(stream_result, types.GeneratorType)
 
-    np.testing.assert_array_equal(
-        list(stream_result),
-        sklearn_knn_model.predict(iris_data[0]),
-    )
+    assert next(stream_result) == "test"
+

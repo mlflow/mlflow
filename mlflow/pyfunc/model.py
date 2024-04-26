@@ -117,10 +117,20 @@ class PythonModel:
                      can use to perform inference.
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                 release without warning.
         """
+
+    def predict_stream(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        Evaluates a pyfunc-compatible input and produces an iterator of output.
+        For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
+        """
+        raise NotImplementedError()
 
 
 class _FunctionPythonModel(PythonModel):
@@ -149,9 +159,6 @@ class _FunctionPythonModel(PythonModel):
                 can use to perform inference.
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
@@ -247,7 +254,7 @@ def _save_model_with_class_artifacts_params(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_config=None,
-    streamable=False,
+    streamable=None,
 ):
     """
     Args:
@@ -276,6 +283,10 @@ def _save_model_with_class_artifacts_params(
 
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.
+
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -371,6 +382,9 @@ def _save_model_with_class_artifacts_params(
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     saved_code_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if streamable is None:
+        streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
@@ -535,9 +549,6 @@ class _PythonModelPyfuncWrapper:
             model_input: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions.
         """
@@ -553,9 +564,6 @@ class _PythonModelPyfuncWrapper:
         Args:
             model_input: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Streaming predictions.

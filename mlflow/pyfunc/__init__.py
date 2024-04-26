@@ -700,9 +700,6 @@ class PyFuncModel:
                 of the data rows.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -739,11 +736,11 @@ class PyFuncModel:
                 of the data rows.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
-            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+            Model predictions as an iterator. The elements in the iterator are determined by
+            the model streaming prediction. Currently Langchain model streaming prediction is
+            supported, its `predict_stream` method accepts single input and return an iterator
+            of result chunks.
         """
 
         if self._predict_stream_fn is None:
@@ -959,9 +956,6 @@ class _ServedPyFuncModel(PyFuncModel):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
@@ -1617,9 +1611,6 @@ def spark_udf(
 
         params: Additional parameters to pass to the model for inference.
 
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
         extra_env: Extra environment variables to pass to the UDF executors.
 
     Returns:
@@ -2224,10 +2215,6 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 
@@ -2416,7 +2403,7 @@ def log_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
-    streamable=False,
+    streamable=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2561,9 +2548,6 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 
@@ -2571,7 +2555,9 @@ def log_model(
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
 
-        streamable: A boolean value indicating if the model supports streaming prediction, default False.
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -2610,7 +2596,7 @@ def _save_model_with_loader_module_and_data_path(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_config=None,
-    streamable=False,
+    streamable=None,
 ):
     """
     Export model as a generic Python function model.
@@ -2627,7 +2613,8 @@ def _save_model_with_loader_module_and_data_path(
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
             this model should be run in.
-
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    None value also means not streamable.
     Returns:
         Model configuration containing model info.
     """
@@ -2643,6 +2630,7 @@ def _save_model_with_loader_module_and_data_path(
     if mlflow_model is None:
         mlflow_model = Model()
 
+    streamable = streamable or False
     mlflow.pyfunc.add_to_model(
         mlflow_model,
         loader_module=loader_module,
