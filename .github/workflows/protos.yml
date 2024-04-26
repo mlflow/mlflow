@@ -59,10 +59,9 @@ jobs:
 
       - name: Test
         run: |
-          python -c "from google.protobuf.internal import api_implementation; print(api_implementation.Type())"
+          python -c "from google.protobuf.internal import api_implementation; assert api_implementation.Type() != 'python'"
           python -c "import mlflow"
 
           export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-          pip install -U protobuf
-          python -c "from google.protobuf.internal import api_implementation; print(api_implementation.Type())"
+          python -c "from google.protobuf.internal import api_implementation; assert api_implementation.Type() == 'python'"
           python -c "import mlflow"
