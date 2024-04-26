@@ -47,8 +47,9 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry Span object that is started.
             parent_context: The context of the span. Note that this is only passed when the context
-            object is explicitly specified to OpenTelemetry start_span call. If the parent span is
-            obtained from the global context, it won't be passed here so we should not rely on it.
+                object is explicitly specified to OpenTelemetry start_span call. If the parent
+                span is obtained from the global context, it won't be passed here so we should not
+                rely on it.
         """
         request_id = _get_flask_request().headers.get(_HEADER_REQUEST_ID_KEY)
         if not request_id:

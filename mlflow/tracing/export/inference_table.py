@@ -12,7 +12,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
@@ -30,10 +30,14 @@ def get_completed_trace(request_id: str) -> Optional[Dict[str, Any]]:
 # so that they can be retrieved by the Databricks model serving. This needs
 # to be a different from the queue-based buffer used by MLflow fluent API as
 # the access is not index-based but key (request ID) based.
-_TRACE_BUFFER = TTLCache(
-    maxsize=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
-    ttl=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
-)
+def _initialize_trace_buffer():  # Define as a function for testing purposes
+    return TTLCache(
+        maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+        ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+    )
+
+
+_TRACE_BUFFER = _initialize_trace_buffer()
 
 
 class InferenceTableSpanExporter(SpanExporter):
@@ -69,13 +73,13 @@ class InferenceTableSpanExporter(SpanExporter):
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
             _TRACE_BUFFER[trace.info.request_id] = {
-                TRACE_SCHEMA_VERSION_KEY: 2,
-                "start_timestamp": self.nanoseconds_to_datetime(span._start_time),
-                "end_timestamp": self.nanoseconds_to_datetime(span._end_time),
-                "spans": [self.format_spans(span) for span in trace.data.spans],
+                TRACE_SCHEMA_VERSION_KEY: TRACE_SCHEMA_VERSION,
+                "start_timestamp": self._nanoseconds_to_datetime(span._start_time),
+                "end_timestamp": self._nanoseconds_to_datetime(span._end_time),
+                "spans": [self._format_spans(span) for span in trace.data.spans],
             }
 
-    def format_spans(self, mlflow_span: LiveSpan) -> Dict[str, Any]:
+    def _format_spans(self, mlflow_span: LiveSpan) -> Dict[str, Any]:
         """
         Format the MLflow span to the format that can be stored in the Inference Table.
 
@@ -86,9 +90,17 @@ class InferenceTableSpanExporter(SpanExporter):
         span_dict = mlflow_span.to_dict()
         attributes = span_dict["attributes"]
         # deserialize each attribute value and then serialize the whole dictionary
-        attributes = {k: json.loads(v) for k, v in attributes.items()}
+        attributes = {k: self._decode_attribute(v) for k, v in attributes.items()}
         span_dict["attributes"] = json.dumps(attributes)
         return span_dict
 
-    def nanoseconds_to_datetime(self, t: Optional[int]) -> Optional[datetime]:
+    def _decode_attribute(self, value: str) -> Any:
+        # All attribute values should be JSON encoded strings if they set via the MLflow Span
+        # property, but there may be some attributes set directly to the OpenTelemetry span.
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return value
+
+    def _nanoseconds_to_datetime(self, t: Optional[int]) -> Optional[datetime]:
         return datetime.fromtimestamp(t / 1e9) if t is not None else None
