@@ -56,3 +56,13 @@ jobs:
       - name: Run tests
         run: |
           ./dev/test-generate-protos.sh
+
+      - name: Test
+        run: |
+          python -c "from google.protobuf.internal import api_implementation; print(api_implementation.Type())"
+          python -c "import mlflow"
+
+          export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+          pip install -U protobuf
+          python -c "from google.protobuf.internal import api_implementation; print(api_implementation.Type())"
+          python -c "import mlflow"
