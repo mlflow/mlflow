@@ -112,7 +112,8 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def predictions(self) -> Optional[str]:
         """
-        The name of the predictions column. May be ``None`` if no predictions column is available.
+        The name of the predictions column. May be ``None`` if no predictions column
+        was specified when the dataset was created.
         """
         return self._predictions
 

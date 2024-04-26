@@ -1679,11 +1679,11 @@ def evaluate(
 
         predictions: Optional. The name of the column that contains model outputs.
 
-            - When ``model`` is specified and outputs multiple columns. The
-              ``predictions`` should be the name of the column that is used for
+            - When ``model`` is specified and outputs multiple columns, ``predictions`` can be used
+              to specify the name of the column that will be used to store model outputs for
               evaluation.
-            - When ``model`` is not specified and ``data`` is a pandas dataframe. The
-              ``predictions`` should be the name of the column in ``data`` that
+            - When ``model`` is not specified and ``data`` is a pandas dataframe,
+              ``predictions`` can be used to specify the name of the column in ``data`` that
               contains model outputs.
 
             .. code-block:: python
