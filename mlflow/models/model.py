@@ -853,13 +853,16 @@ class ModelConfig:
 
     def _read_config(self):
         """Reads the YAML configuration file and returns its contents.
+
         Raises:
             FileNotFoundError: If the configuration file does not exist.
             yaml.YAMLError: If there is an error parsing the YAML content.
+
         Returns:
-            dict or None: The content of the YAML file as a dictionary, or None if the config path is not set.
+            dict or None: The content of the YAML file as a dictionary, or None if the
+            config path is not set.
         """
-        with open(self.config_path, "r") as file:
+        with open(self.config_path) as file:
             try:
                 return yaml.safe_load(file)
             except yaml.YAMLError as e:
