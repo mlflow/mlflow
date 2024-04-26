@@ -1,5 +1,6 @@
 """Utility functions for mlflow.langchain."""
 
+import base64
 import contextlib
 import importlib
 import json
@@ -7,6 +8,7 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import types
 import warnings
 from functools import lru_cache
@@ -264,10 +266,39 @@ def _get_supported_llms():
     for llm_name in ["Databricks", "Mlflow"]:
         try_adding_llm(langchain.llms, llm_name)
 
-    for chat_model_name in ["ChatDatabricks", "ChatMlflow", "ChatOpenAI", "AzureChatOpenAI"]:
+    for chat_model_name in [
+        "ChatDatabricks",
+        "ChatMlflow",
+        "ChatOpenAI",
+        "AzureChatOpenAI",
+    ]:
         try_adding_llm(langchain.chat_models, chat_model_name)
 
     return supported_llms
+
+
+def _get_temp_file_with_content(file_name: str, content: str, content_format) -> str:
+    """
+    Write the contents to a temporary file and return the path to that file.
+
+    Args:
+        file_name: The name of the file to be created.
+        content: The contents to be written to the file.
+
+    Returns:
+        The string path to the file where the chain model is build.
+    """
+    # Get the temporary directory path
+    temp_dir = tempfile.gettempdir()
+
+    # Construct the full path where the temporary file will be created
+    temp_file_path = os.path.join(temp_dir, file_name)
+
+    # Create and write to the file
+    with open(temp_file_path, content_format) as tmp_file:
+        tmp_file.write(content)
+
+    return temp_file_path
 
 
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
@@ -278,13 +309,35 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.llms.openai
     import langchain.schema
 
+    # lc_model is a file path
     if isinstance(lc_model, str):
-        if os.path.basename(os.path.abspath(lc_model)) != "chain.py":
+        if not os.path.exists(lc_model):
             raise mlflow.MlflowException.invalid_parameter_value(
-                f"If {lc_model} is a string, it must be the path to a file "
-                "named `chain.py` on the local filesystem."
+                f"If the provided model '{lc_model}' is a string, it must be a valid python "
+                "file path or a databricks notebook file path containing the code for defining "
+                "the chain instance."
             )
-        return lc_model
+
+        try:
+            with open(lc_model) as _:
+                return lc_model
+        except Exception:
+            try:
+                from databricks.sdk import WorkspaceClient
+                from databricks.sdk.service.workspace import ExportFormat
+
+                w = WorkspaceClient()
+                response = w.workspace.export(path=lc_model, format=ExportFormat.SOURCE)
+                decoded_content = base64.b64decode(response.content)
+                # TODO: code validation
+
+                return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
+            except Exception:
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"If the provided model '{lc_model}' is a string, it must be a valid python "
+                    "file path or a databricks notebook file path containing the code for defining "
+                    "the chain instance."
+                )
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(

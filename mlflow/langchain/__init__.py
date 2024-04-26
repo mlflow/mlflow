@@ -36,7 +36,12 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path
+from mlflow.langchain._rag_utils import (
+    _CODE_CONFIG,
+    _CODE_PATH,
+    _set_chain,
+    _set_config_path,
+)
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -81,9 +86,11 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
+    FLAVOR_CONFIG_MODEL_CODE,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
+    _validate_and_copy_model_code_path,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -236,21 +243,22 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    formatted_code_path = code_paths[:] if code_paths else []
+    model_code_path = None
     if isinstance(lc_model, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
 
         if os.path.exists(lc_model):
-            formatted_code_path.append(lc_model)
+            model_code_path = lc_model
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                f"If the {lc_model} is a string, it must be a valid python "
-                "file path containing the code for defining the chain instance."
+                f"If the provided model '{lc_model}' is a string, it must be a valid python "
+                "file path or a databricks notebook file path containing the code for defining "
+                "the chain instance."
             )
 
-        if len(code_paths) > 1:
+        if code_paths and len(code_paths) > 1:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "When the model is a string, and if the code_paths are specified, "
                 "it should contain only one path."
@@ -259,7 +267,8 @@ def save_model(
                 f"Current code paths: {code_paths}"
             )
 
-    code_dir_subpath = _validate_and_copy_code_paths(formatted_code_path, path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+    model_code_dir_subpath = _validate_and_copy_model_code_path(model_code_path, path)
 
     if signature is None:
         if input_example is not None:
@@ -314,6 +323,7 @@ def save_model(
             **model_data_kwargs,
         }
     else:
+        # TODO: use model_config instead
         # If the model is a string, we expect the code_path which is ideally config.yml
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
@@ -325,6 +335,7 @@ def save_model(
         )
         model_data_kwargs = {}
 
+    # TODO: pass model_config
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -333,12 +344,14 @@ def save_model(
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
         streamable=streamable,
+        model_code=model_code_dir_subpath,
         **model_data_kwargs,
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
         checker_model = lc_model
         if isinstance(lc_model, str):
+            # TODO: use model_config instead of code_paths[0]
             checker_model = (
                 _load_model_code_path(lc_model, code_paths[0])
                 if code_paths and len(code_paths) >= 1
@@ -352,6 +365,7 @@ def save_model(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
         code=code_dir_subpath,
+        model_code=model_code_dir_subpath,
         streamable=streamable,
         **flavor_conf,
     )
@@ -536,6 +550,19 @@ def log_model(
     )
 
 
+@experimental
+def set_chain(chain):
+    """
+    After defining your LangChain in a Python file or notebook, call
+    set_chain() so that it can be identified later when logging the
+    chain with the log_model() method.
+
+    Args:
+        chain: The LangChain model instance that is defined in a Python notebook or file.
+    """
+    _set_chain(chain)
+
+
 def _save_model(model, path, loader_fn, persist_dir):
     if Version(cloudpickle.__version__) < Version("2.1.0"):
         warnings.warn(
@@ -696,7 +723,9 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         if isinstance(data, list):
             raise MlflowException("LangChain model predict_stream only supports single input.")
@@ -728,7 +757,9 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         if isinstance(data, list):
             raise MlflowException("LangChain model predict_stream only supports single input.")
@@ -833,9 +864,10 @@ def _load_model_from_local_fs(local_model_path):
             config_path = None
 
         flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
+        flavor_model_code_config = flavor_conf.get(FLAVOR_CONFIG_MODEL_CODE)
         code_path = os.path.join(
             local_model_path,
-            flavor_code_config,
+            flavor_model_code_config,
             os.path.basename(flavor_code_path),
         )
 
