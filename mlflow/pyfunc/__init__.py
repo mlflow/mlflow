@@ -720,7 +720,7 @@ class PyFuncModel:
             raise MlflowException("This model does not support predict_stream method.")
 
         data, params = self._validate_prediction_input(data, params)
-        if inspect.signature(self._predict_fn).parameters.get("params"):
+        if inspect.signature(self._predict_stream_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
