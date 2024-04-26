@@ -243,7 +243,6 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    code_paths = code_paths[:] if code_paths else []
     model_code_path = None
     if isinstance(lc_model, str):
         # The LangChain model is defined as Python code located in the file at the path
