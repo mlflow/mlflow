@@ -40,7 +40,7 @@ from mlflow.models.evaluation import (
     make_metric,
 )
 from mlflow.models.flavor_backend import FlavorBackend
-from mlflow.models.model import Model, get_model_info
+from mlflow.models.model import Model, ModelConfig, get_model_info
 from mlflow.models.python_api import build_docker
 from mlflow.utils.environment import infer_pip_requirements
 
@@ -57,6 +57,7 @@ __all__ = [
     "list_evaluators",
     "MetricThreshold",
     "build_docker",
+    "ModelConfig",
 ]
 
 
