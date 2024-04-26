@@ -36,12 +36,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import (
-    _CODE_CONFIG,
-    _CODE_PATH,
-    _set_chain,
-    _set_config_path,
-)
+from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -256,15 +251,6 @@ def save_model(
                 f"If the provided model '{lc_model}' is a string, it must be a valid python "
                 "file path or a databricks notebook file path containing the code for defining "
                 "the chain instance."
-            )
-
-        if code_paths and len(code_paths) > 1:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "When the model is a string, and if the code_paths are specified, "
-                "it should contain only one path."
-                "This config path is used to set config.yml file path "
-                "for the model. This path should be passed in via the code_paths. "
-                f"Current code paths: {code_paths}"
             )
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -548,19 +534,6 @@ def log_model(
         example_no_conversion=example_no_conversion,
         run_id=run_id,
     )
-
-
-@experimental
-def set_chain(chain):
-    """
-    After defining your LangChain in a Python file or notebook, call
-    set_chain() so that it can be identified later when logging the
-    chain with the log_model() method.
-
-    Args:
-        chain: The LangChain model instance that is defined in a Python notebook or file.
-    """
-    _set_chain(chain)
 
 
 def _save_model(model, path, loader_fn, persist_dir):

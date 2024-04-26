@@ -11,7 +11,7 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
 import mlflow
-from mlflow.langchain import set_chain
+from mlflow.langchain._rag_utils import _set_chain
 
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
@@ -81,4 +81,4 @@ retrieval_chain = (
     | StrOutputParser()
 )
 
-set_chain(retrieval_chain)
+_set_chain(retrieval_chain)

@@ -2395,7 +2395,7 @@ def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_sign
 
     temp_file = tmp_path / "model.py"
     temp_file.write_text(chain_file_content)
-        
+
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             lc_model=str(temp_file),
