@@ -583,9 +583,6 @@ def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] 
         data: Input data.
         inputs_key: Key to represent data in the request payload.
         params: Additional parameters to pass to the model for inference.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
     """
     import numpy as np
     import pandas as pd

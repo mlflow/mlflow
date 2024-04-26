@@ -197,10 +197,7 @@ def save_model(
             pyfunc representation of the resulting MLflow Model. Current supported functions
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -382,10 +379,7 @@ def log_model(
             pyfunc representation of the resulting MLflow Model. Current supported functions
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -533,9 +527,6 @@ class _SklearnModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns:
             Model predictions.

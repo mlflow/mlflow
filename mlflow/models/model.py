@@ -605,10 +605,7 @@ class Model:
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
-            metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                .. Note:: Experimental: This parameter may change or be removed in a
-                                        future release without warning.
+            metadata: {{ metadata }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:

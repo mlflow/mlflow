@@ -117,9 +117,6 @@ class PythonModel:
                      can use to perform inference.
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                 release without warning.
         """
 
 
@@ -149,9 +146,6 @@ class _FunctionPythonModel(PythonModel):
                 can use to perform inference.
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
@@ -532,9 +526,6 @@ class _PythonModelPyfuncWrapper:
         Args:
             model_input: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
