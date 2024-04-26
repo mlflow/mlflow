@@ -2394,7 +2394,7 @@ def test_save_load_chain_as_code_with_different_names(chain_model_signature):
     with open("tests/langchain/chain.py") as chain_file:
         chain_file_content = chain_file.read()
 
-    with tempfile.NamedTemporaryFile(mode="w+", delete=True) as temp_file:
+    with tempfile.NamedTemporaryFile(mode="w+", delete=True, suffix=".py") as temp_file:
         # Add "import dbutils" to temporary chain file
         temp_file.write(chain_file_content)
         temp_file.flush()
