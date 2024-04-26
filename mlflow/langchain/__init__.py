@@ -86,6 +86,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
+    FLAVOR_CONFIG_MODEL_CODE,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -723,7 +724,9 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         if isinstance(data, list):
             raise MlflowException("LangChain model predict_stream only supports single input.")
@@ -755,7 +758,9 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         if isinstance(data, list):
             raise MlflowException("LangChain model predict_stream only supports single input.")
@@ -860,9 +865,10 @@ def _load_model_from_local_fs(local_model_path):
             config_path = None
 
         flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
+        flavor_model_code_config = flavor_conf.get(FLAVOR_CONFIG_MODEL_CODE)
         code_path = os.path.join(
             local_model_path,
-            flavor_code_config,
+            flavor_model_code_config,
             os.path.basename(flavor_code_path),
         )
 

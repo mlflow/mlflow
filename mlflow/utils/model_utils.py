@@ -20,6 +20,7 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+FLAVOR_CONFIG_MODEL_CODE = "model_code"
 
 
 def _get_all_flavor_configurations(model_path):
@@ -231,7 +232,10 @@ def _validate_onnx_session_options(onnx_session_options):
                     f"Value for key {key} in onnx_session_options should be a dict, "
                     "not {type(value)}"
                 )
-            elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
+            elif key == "execution_mode" and value.upper() not in [
+                "PARALLEL",
+                "SEQUENTIAL",
+            ]:
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be "
                     f"'parallel' or 'sequential', not {value}"
