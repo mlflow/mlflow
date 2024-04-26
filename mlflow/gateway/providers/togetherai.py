@@ -151,8 +151,7 @@ class TogetherAIAdapter(ProviderAdapter):
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "Wrong type for logprobs."
-                    "If logprobs is set it should be an 32bit integer."
+                    "Wrong type for logprobs.\n" "If logprobs is set it should be an 32bit integer."
                 ),
             )
 
