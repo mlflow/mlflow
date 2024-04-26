@@ -522,16 +522,16 @@ MLflow model logging code example:
     from mlflow import MlflowClient
     from transformers import pipeline
 
-    mlflow.set_tracking_uri(
-        "<your mlflow tracking server uri>"
+    mlflow.set_tracking_uri("<your mlflow tracking server uri>")
+    mlflow.create_experiment("<your_exp_name>")
+    classifier = pipeline(
+        "sentiment-analysis", model="michellejieli/emotion_text_classifier"
     )
-    mlflow.create_experiment(
-        "<your_exp_name>"
-    )
-    classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
 
     with mlflow.start_run():
-        mlflow.transformers.log_model(transformers_model=classifier, artifact_path=MODEL_NAME)
+        mlflow.transformers.log_model(
+            transformers_model=classifier, artifact_path=MODEL_NAME
+        )
     mlflow.end_run()
 
 **Configuration**
