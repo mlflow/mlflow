@@ -162,6 +162,20 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     return code_dir_subpath
 
 
+def _validate_and_copy_model_code_path(code_path, path, default_subpath="model_code"):
+    """Copies the model code from code_path to a directory.
+
+    Args:
+        code_path: A file containing model code that should be logged as an artifact.
+        path: The local model path.
+        default_subpath: The default directory name used to store model code artifacts.
+    """
+    if code_path:
+        return _validate_and_copy_code_paths([code_path], path, default_subpath)
+    else:
+        return None
+
+
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + sys.path
 

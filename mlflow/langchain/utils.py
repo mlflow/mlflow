@@ -314,7 +314,8 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
         if not os.path.exists(lc_model):
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                "file path containing the code for defining the chain instance."
+                "file path or a databricks notebook file path containing the code for defining "
+                "the chain instance."
             )
 
         try:
@@ -334,7 +335,8 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
             except Exception:
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                    "file path containing the code for defining the chain instance."
+                    "file path or a databricks notebook file path containing the code for defining "
+                    "the chain instance."
                 )
 
     if not isinstance(lc_model, supported_lc_types()):
