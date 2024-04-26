@@ -136,7 +136,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         save_model_kwargs: A dict of kwargs to pass to `keras.Model.save`
             method.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
