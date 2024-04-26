@@ -1,6 +1,7 @@
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 
 import click
@@ -22,21 +23,32 @@ def get_commits(branch: str):
     """
     Get the commits in the release branch.
     """
-    log_stdout = subprocess.check_output(
-        [
-            "git",
-            "log",
-            branch,
-            '--since="3 months ago"',
-            "--pretty=format:%H %s",
-        ],
-        text=True,
-    )
-    pr_rgx = re.compile(r"([a-z0-9]+) .+\s+\(#(\d+)\)$")
-    commits = []
-    for commit in log_stdout.splitlines():
-        if m := pr_rgx.search(commit.rstrip()):
-            commits.append(Commit(sha=m.group(1), pr_num=int(m.group(2))))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        subprocess.check_call(
+            [
+                "git",
+                "clone",
+                "--shallow-since=3 months ago",
+                "--branch",
+                branch,
+                "https://github.com/mlflow/mlflow.git",
+                tmpdir,
+            ],
+        )
+        log_stdout = subprocess.check_output(
+            [
+                "git",
+                "log",
+                "--pretty=format:%H %s",
+            ],
+            text=True,
+            cwd=tmpdir,
+        )
+        pr_rgx = re.compile(r"([a-z0-9]+) .+\s+\(#(\d+)\)$")
+        commits = []
+        for commit in log_stdout.splitlines():
+            if m := pr_rgx.search(commit.rstrip()):
+                commits.append(Commit(sha=m.group(1), pr_num=int(m.group(2))))
 
     return commits
 
