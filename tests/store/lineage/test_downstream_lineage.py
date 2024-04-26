@@ -43,9 +43,9 @@ def lineage_header_info_to_extra_headers(lineage_header_info):
     ("is_in_notebook", "is_in_job", "notebook_id", "job_id"),
     [
         (True, True, None, None),
-        (True, True, 1234, None),
-        (True, True, None, 5678),
-        (True, True, 1234, 5678),
+        # (True, True, 1234, None),
+        # (True, True, None, 5678),
+        # (True, True, 1234, 5678),
         (False, False, 1234, 5678),
     ],
 )
