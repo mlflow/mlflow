@@ -56,3 +56,14 @@ jobs:
       - name: Run tests
         run: |
           ./dev/test-generate-protos.sh
+
+      - name: Test
+        run: |
+          python -c "from google.protobuf.internal import api_implementation; assert api_implementation.Type() != 'python'"
+          python -c "import mlflow"
+
+          # Ensure mlflow works fine with the python backend. See the following link for more details:
+          # https://github.com/protocolbuffers/protobuf/tree/main/python#implementation-backends
+          export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+          python -c "from google.protobuf.internal import api_implementation; assert api_implementation.Type() == 'python'"
+          python -c "import mlflow"
