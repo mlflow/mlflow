@@ -665,10 +665,12 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = None) -> Any:
 def flush_async_logging() -> None:
     """Flush all pending async logging."""
     _get_store().flush_async_logging()
-    run_id = mlflow.active_run().info.run_id
-    _artifact_repo = _get_artifact_repo(run_id)
-    if _artifact_repo:
-        _artifact_repo.flush_async_logging()
+    run = mlflow.active_run()
+    if run is not None:
+        run_id = run.info.run_id
+        _artifact_repo = _get_artifact_repo(run_id)
+        if _artifact_repo:
+            _artifact_repo.flush_async_logging()
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
