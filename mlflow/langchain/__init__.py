@@ -335,8 +335,7 @@ def save_model(
         )
         model_data_kwargs = {}
 
-    # TODO: add model_code_path here when pyfunc supports it?
-    # since it is no longer in the code_dir_subpath
+    # TODO: pass model_config
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -345,6 +344,7 @@ def save_model(
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
         streamable=streamable,
+        model_code=model_code_dir_subpath,
         **model_data_kwargs,
     )
 
@@ -365,8 +365,8 @@ def save_model(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
         code=code_dir_subpath,
-        streamable=streamable,
         model_code=model_code_dir_subpath,
+        streamable=streamable,
         **flavor_conf,
     )
     if size := get_total_file_size(path):
