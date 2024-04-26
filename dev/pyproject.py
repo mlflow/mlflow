@@ -30,7 +30,7 @@ def build(skinny: bool) -> None:
     python_version = Path("requirements", "python-version.txt").read_text().strip()
     data = {
         "build-system": {
-            "requires": ["setuptools"],
+            "requires": ["setuptools", "wheel"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {
