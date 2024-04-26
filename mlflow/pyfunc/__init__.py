@@ -700,9 +700,6 @@ class PyFuncModel:
                 of the data rows.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -928,9 +925,6 @@ class _ServedPyFuncModel(PyFuncModel):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
@@ -1586,9 +1580,6 @@ def spark_udf(
 
         params: Additional parameters to pass to the model for inference.
 
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
         extra_env: Extra environment variables to pass to the UDF executors.
 
     Returns:
@@ -2191,11 +2182,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 
@@ -2525,10 +2512,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 

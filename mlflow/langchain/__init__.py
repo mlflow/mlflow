@@ -172,10 +172,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
         loader_fn: A function that's required for models containing objects that aren't natively
             serialized by LangChain.
             This function takes a string `persist_dir` as an argument and returns the
@@ -458,10 +455,7 @@ def log_model(
             Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
         loader_fn: A function that's required for models containing objects that aren't natively
             serialized by LangChain.
             This function takes a string `persist_dir` as an argument and returns the
@@ -552,7 +546,9 @@ def _save_model(model, path, loader_fn, persist_dir):
             "using `pip install cloudpickle>=2.1.0` "
             "to ensure the model can be loaded correctly."
         )
-    with register_pydantic_v1_serializer_cm():
+    # patch_langchain_type_to_cls_dict here as we attempt to load model
+    # if it's saved by `dict` method
+    with register_pydantic_v1_serializer_cm(), patch_langchain_type_to_cls_dict():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
         else:
@@ -611,9 +607,6 @@ class _LangChainModelWrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions.
         """
@@ -635,9 +628,6 @@ class _LangChainModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
             callback_handlers: Callback handlers to pass to LangChain.
             convert_chat_responses: If true, forcibly convert response to chat model
                 response format.
@@ -698,9 +688,6 @@ class _LangChainModelWrapper:
             data: Model input data, only single input is allowed.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             An iterator of model prediction chunks.
         """
@@ -728,9 +715,6 @@ class _LangChainModelWrapper:
         Args:
             data: Model input data, only single input is allowed.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
             callback_handlers: Callback handlers to pass to LangChain.
             convert_chat_responses: If true, forcibly convert response to chat model
                 response format.
@@ -770,9 +754,6 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
@@ -1002,6 +983,20 @@ def autolog(
                 cls,
                 "invoke",
                 functools.partial(patched_inference, "invoke"),
+            )
+
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "batch",
+                functools.partial(patched_inference, "batch"),
+            )
+
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                "stream",
+                functools.partial(patched_inference, "stream"),
             )
 
         for cls in [AgentExecutor, Chain]:
