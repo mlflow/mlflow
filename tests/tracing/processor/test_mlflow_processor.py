@@ -1,4 +1,5 @@
 import json
+import time
 from unittest import mock
 
 from mlflow.entities.span import LiveSpan
@@ -42,6 +43,27 @@ def test_on_start(clear_singleton):
 
     mock_client._start_tracked_trace.assert_not_called()
     assert child_span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
+
+
+def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singleton):
+    trace_info = create_test_trace_info(_REQUEST_ID, 0)
+    mock_client = mock.MagicMock()
+
+    def _mock_start_tracked_trace():
+        time.sleep(0.5)  # Simulate backend latency
+        return trace_info
+
+    mock_client._start_tracked_trace.side_effect = _mock_start_tracked_trace
+    processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
+
+    original_start_time = time.time_ns()
+    span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1, start_time=original_start_time)
+
+    processor.on_start(span)
+
+    assert span.start_time > original_start_time
+    # The span timestamp should not include the backend latency (0.5 second)
+    assert time.time_ns() - span.start_time < 100_000_000  # 0.1 second
 
 
 def test_on_start_with_experiment_id(clear_singleton):

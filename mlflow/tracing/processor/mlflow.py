@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Optional
 
 from opentelemetry.context import Context
@@ -59,6 +60,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             request_id = trace_info.request_id
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
+        # NB: This is a workaround to exclude the latency of backend StartTrace API call (within
+        #   _create_trace_info()) from the execution time of the span. The API call takes ~1 sec
+        #   and significantly skews the span duration.
+        span._start_time = time.time_ns()
+
     def _create_trace_info(self, span: OTelSpan) -> TraceInfo:
         experiment_id = (
             get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
@@ -72,7 +78,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         try:
             return self._client._start_tracked_trace(
                 experiment_id=experiment_id,
-                timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond,
+                # TODO: This timestamp is not accurate because it is not adjusted to exclude the
+                #   latency of the backend API call. We do this adjustment for span start time
+                #   above, but can't do it for trace start time until the backend API supports
+                #   updating the trace start time.
+                timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                 tags=tags,
             )
 
