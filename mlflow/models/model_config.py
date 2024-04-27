@@ -5,6 +5,7 @@ import yaml
 
 __mlflow_model_config__ = None
 
+
 # Should we allow ModelConfig to take in dict?
 class ModelConfig:
     """
@@ -47,7 +48,7 @@ class ModelConfig:
             return config_data[key]
         else:
             raise KeyError(f"Key '{key}' not found in configuration: {config_data}.")
-        
+
 
 def _set_model_config(model_config):
     globals()["__mlflow_model_config__"] = model_config

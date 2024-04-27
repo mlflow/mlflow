@@ -88,6 +88,7 @@ _logger = logging.getLogger(__name__)
 
 _FEATURE_STORE_FLAVOR = "databricks.feature_store.mlflow_model"
 
+
 def _is_scalar(x):
     return np.isscalar(x) or x is None
 

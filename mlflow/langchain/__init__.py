@@ -96,6 +96,7 @@ _MODEL_TYPE_KEY = "model_type"
 _MODEL_CODE_CONFIG = "model_config"
 _MODEL_CODE_PATH = "model_code_path"
 
+
 def get_default_pip_requirements():
     """
     Returns:
@@ -236,7 +237,7 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    
+
     model_code_paths = None
     model_config_path = None
     if isinstance(lc_model, str):
@@ -252,7 +253,7 @@ def save_model(
                 "file path or a databricks notebook file path containing the code for defining "
                 "the chain instance."
             )
-        
+
         if isinstance(model_config, str):
             if os.path.exists(model_config):
                 model_config_path = model_config
@@ -267,10 +268,9 @@ def save_model(
             # for backwards compatibility
             if len(code_paths) == 1 and os.path.exists(code_paths[0]):
                 model_config_path = model_config
-        
+
         if model_config_path:
             model_code_paths.append(model_config_path)
-
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     model_code_dir_subpath = _validate_and_copy_model_code_paths(model_code_paths, path)
