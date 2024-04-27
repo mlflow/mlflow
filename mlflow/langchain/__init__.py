@@ -249,7 +249,7 @@ def save_model(
                 "file path or a databricks notebook file path containing the code for defining "
                 "the chain instance."
             )
-        if len(code_paths) > 1:
+        if code_paths and len(code_paths) > 1:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "When the model is a string, and if the code_paths are specified, "
                 "it should contain only one path."
