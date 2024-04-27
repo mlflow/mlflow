@@ -303,6 +303,11 @@ def _validate_pyfunc_model_config(model_config):
 
     if not model_config:
         return
+    
+    if isinstance(model_config, str):
+        # TODO: check that model_config is a valid path, and can be read. validate that it is yaml?
+        # raise exception if it is not
+        return
 
     if not isinstance(model_config, dict) or not all(isinstance(key, str) for key in model_config):
         raise MlflowException(
