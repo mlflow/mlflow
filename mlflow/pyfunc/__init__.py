@@ -827,7 +827,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: Optional[str] = None,
-    model_config: Optional[Union[Dict[str, Any], str]] = None,
+    model_config: Optional[Dict[str, Any]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -878,7 +878,6 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    # TODO: convert model_config to dict? if it is a file path?
     model_config = _get_overridden_pyfunc_model_config(
         conf.get(MODEL_CONFIG, None), model_config, _logger
     )

@@ -336,7 +336,7 @@ def save_model(
         )
         model_data_kwargs = {}
 
-    # TODO: add model_config is file path support to pyfunc
+    # TODO: Pass file paths for model_config when it is supported in pyfunc
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -346,7 +346,7 @@ def save_model(
         predict_stream_fn="predict_stream",
         streamable=streamable,
         model_code=model_code_dir_subpath,
-        model_config=model_config,
+        model_config=None if isinstance(model_config, str) else model_config,
         **model_data_kwargs,
     )
 
