@@ -30,7 +30,7 @@ from mlflow.utils.request_utils import (
 )
 from mlflow.utils.string_utils import strip_suffix
 
-RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
+RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 
 
