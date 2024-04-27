@@ -1434,7 +1434,7 @@ def _is_in_string_only(line, search_string):
 
 def _validate_model_code_from_notebook(code):
     """
-    Validate there isn't any code that would work in a notbeook but not as exported Python file.
+    Validate there isn't any code that would work in a notebook but not as exported Python file.
     For now, this checks for dbutils and magic commands.
     """
     error_message = (
@@ -1449,3 +1449,11 @@ def _validate_model_code_from_notebook(code):
                 line, "dbutils"
             ):
                 raise ValueError(error_message)
+    
+    magic_regex = r"# MAGIC %\S+.*"
+    if re.search(magic_regex, code):
+        _logger.warning(
+            "The model file uses magic commands which have been commented out. To ensure your code "
+            "functions correctly, make sure that it does not rely on these magic commands for."
+            "correctness."
+        )
