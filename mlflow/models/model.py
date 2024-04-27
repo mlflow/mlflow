@@ -292,6 +292,7 @@ class Model:
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
+        resources: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -305,6 +306,7 @@ class Model:
         self.mlflow_version = mlflow_version
         self.metadata = metadata
         self.model_size_bytes = model_size_bytes
+        self.resources = resources
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -469,6 +471,23 @@ class Model:
     def model_size_bytes(self, value: Optional[int]):
         self._model_size_bytes = value
 
+    @experimental
+    @property
+    def resources(self) -> Optional[Dict[str, Any]]:
+        """
+        An optional dictionary that contains the resources required to serve the model.
+
+        :getter: Retrieves the resources required to serve the model
+        :setter: Sets the resources required to serve the model
+        :type: Optional[Dict[str, Any]]
+        """
+        return self._resources
+
+    @experimental
+    @resources.setter
+    def resources(self, value: Optional[Dict[str, Any]]):
+        self._resources = value
+
     def get_model_info(self):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -502,6 +521,8 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
+        if self.resources is not None:
+            res["resources"] = self.resources
         if self.model_size_bytes is not None:
             res["model_size_bytes"] = self.model_size_bytes
         # Exclude null fields in case MLmodel file consumers such as Model Serving may not
@@ -594,6 +615,7 @@ class Model:
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         metadata=None,
         run_id=None,
+        resources=None,
         **kwargs,
     ):
         """
@@ -615,6 +637,7 @@ class Model:
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
             metadata: {{ metadata }}
+            resources: {{ resources }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
@@ -627,7 +650,9 @@ class Model:
             local_path = tmp.path("model")
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
+            mlflow_model = cls(
+                artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
+            )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
 
             # Copy model metadata files to a sub-directory 'metadata',
