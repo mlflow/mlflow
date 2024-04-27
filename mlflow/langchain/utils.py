@@ -22,6 +22,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _validate_model_code_from_notebook
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.class_utils import _get_class_from_string
 

@@ -1419,14 +1419,13 @@ def _is_in_string_only(line, search_string):
 
     # Concatenate the patterns using the OR operator '|'
     # This will matches left to right - on quotes first, search_string last
-    pattern = (
-        double_quotes_regex + r"|" + single_quotes_regex + r"|" + search_string_regex
-    )
+    pattern = double_quotes_regex + r"|" + single_quotes_regex + r"|" + search_string_regex
 
     # Iterate through all matches in the line
     for match in re.finditer(pattern, line):
         # If the regex matched on the search_string, we know that it did not match in quotes since
-        # that is the order. So we know that the search_string exists outside of quotes (at least once).
+        # that is the order. So we know that the search_string exists outside of quotes
+        # (at least once).
         if match.group() == search_string:
             return False
     return True
@@ -1445,11 +1444,9 @@ def _validate_model_code_from_notebook(code):
     for line in code.splitlines():
         for match in re.finditer(r"\bdbutils\b", line):
             start = match.start()
-            if not _is_in_comment(line, start) and not _is_in_string_only(
-                line, "dbutils"
-            ):
+            if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
                 raise ValueError(error_message)
-    
+
     magic_regex = r"# MAGIC %\S+.*"
     if re.search(magic_regex, code):
         _logger.warning(
