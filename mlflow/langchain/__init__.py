@@ -238,7 +238,6 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     
     model_code_paths = None
-    model_code_path = None
     model_config_path = None
     if isinstance(lc_model, str):
         # The LangChain model is defined as Python code located in the file at the path
@@ -246,8 +245,7 @@ def save_model(
         # model directory along with any other specified code modules
 
         if os.path.exists(lc_model):
-            model_code_path = lc_model
-            model_code_paths = [model_code_path]
+            model_code_paths = [lc_model]
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"If the provided model '{lc_model}' is a string, it must be a valid python "
@@ -258,13 +256,20 @@ def save_model(
         if isinstance(model_config, str):
             if os.path.exists(model_config):
                 model_config_path = model_config
-                model_code_paths.append(model_config_path)
             else:
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"If the provided model_config '{model_config}' is a string, it must be a "
                     "valid yaml file path containing the configuration for the model."
                 )
         # TODO: deal with dicts properly as well
+
+        if not model_config:
+            # for backwards compatibility
+            if len(code_paths) == 1 and os.path.exists(code_paths[0]):
+                model_config_path = model_config
+        
+        if model_config_path:
+            model_code_paths.append(model_config_path)
 
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -329,8 +334,8 @@ def save_model(
         # can use that path instead of the config.yml path when the model is loaded
         # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {_MODEL_CODE_CONFIG: model_config, _MODEL_CODE_PATH: lc_model}
-            if model_config
+            {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: lc_model}
+            if model_config_path
             else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: lc_model}
         )
         model_data_kwargs = {}
@@ -353,8 +358,8 @@ def save_model(
         checker_model = lc_model
         if isinstance(lc_model, str):
             checker_model = (
-                _load_model_code_path(lc_model, model_config)
-                if model_config
+                _load_model_code_path(lc_model, model_config_path)
+                if model_config_path
                 else _load_model_code_path(lc_model)
             )
 
