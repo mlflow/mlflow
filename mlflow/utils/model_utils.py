@@ -229,10 +229,7 @@ def _validate_onnx_session_options(onnx_session_options):
                     f"Value for key {key} in onnx_session_options should be a dict, "
                     "not {type(value)}"
                 )
-            elif key == "execution_mode" and value.upper() not in [
-                "PARALLEL",
-                "SEQUENTIAL",
-            ]:
+            elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be "
                     f"'parallel' or 'sequential', not {value}"

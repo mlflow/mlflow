@@ -36,7 +36,6 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -94,7 +93,8 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-
+_MODEL_CODE_CONFIG = "model_config"
+_MODEL_CODE_PATH = "model_code_path"
 
 def get_default_pip_requirements():
     """
@@ -264,8 +264,7 @@ def save_model(
                     f"If the provided model_config '{model_config}' is a string, it must be a "
                     "valid yaml file path containing the configuration for the model."
                 )
-        # in the case that the model_config is a dict, should we write it out to a file?
-        # or otherwise set the global so that it is read properly for ModelConfig()
+        # TODO: deal with dicts properly as well
 
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -328,11 +327,11 @@ def save_model(
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
-        # TODO: what if model_config is not a string?
+        # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {_CODE_CONFIG: model_config, _CODE_PATH: lc_model}
+            {_MODEL_CODE_CONFIG: model_config, _MODEL_CODE_PATH: lc_model}
             if model_config
-            else {_CODE_CONFIG: None, _CODE_PATH: lc_model}
+            else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: lc_model}
         )
         model_data_kwargs = {}
 
@@ -830,10 +829,11 @@ def _load_pyfunc(path):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if _CODE_CONFIG in flavor_conf:
-        path = flavor_conf.get(_CODE_CONFIG)
+    if _MODEL_CODE_CONFIG in flavor_conf:
+        path = flavor_conf.get(_MODEL_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
         if path is not None:
+            # TODO: code_config can also be a dict, not only a path. handle this case
             config_path = os.path.join(
                 local_model_path,
                 flavor_code_config,
@@ -842,7 +842,7 @@ def _load_model_from_local_fs(local_model_path):
         else:
             config_path = None
 
-        flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
+        flavor_code_path = flavor_conf.get(_MODEL_CODE_PATH, "chain.py")
         flavor_model_code_config = flavor_conf.get(FLAVOR_CONFIG_MODEL_CODE)
         code_path = os.path.join(
             local_model_path,
