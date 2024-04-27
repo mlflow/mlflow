@@ -33,15 +33,8 @@ def _get_all_flavor_configurations(model_path):
         The dictionary contains all flavor configurations with flavor name as key.
 
     """
-    model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
-    if not os.path.exists(model_configuration_path):
-        raise MlflowException(
-            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
-            RESOURCE_DOES_NOT_EXIST,
-        )
 
-    model_conf = Model.load(model_configuration_path)
-    return model_conf.flavors
+    return Model.load(model_path).flavors
 
 
 def _get_flavor_configuration(model_path, flavor_name):
@@ -58,13 +51,12 @@ def _get_flavor_configuration(model_path, flavor_name):
         The flavor configuration as a dictionary.
 
     """
-    flavors = _get_all_flavor_configurations(model_path)
-    if flavor_name not in flavors:
+    try:
+        return Model.load(model_path).flavors[flavor_name]
+    except KeyError as ex:
         raise MlflowException(
-            f'Model does not have the "{flavor_name}" flavor',
-            RESOURCE_DOES_NOT_EXIST,
-        )
-    return flavors[flavor_name]
+            f'Model does not have the "{flavor_name}" flavor', RESOURCE_DOES_NOT_EXIST
+        ) from ex
 
 
 def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):

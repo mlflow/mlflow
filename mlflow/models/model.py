@@ -33,6 +33,7 @@ from mlflow.utils.environment import (
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.rest_utils import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
@@ -551,6 +552,13 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
+
+        if not os.path.exists(path):
+            raise MlflowException(
+                f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
         path = download_artifacts(artifact_uri=path)
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)

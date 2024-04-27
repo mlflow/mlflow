@@ -194,6 +194,7 @@ __all__ = [
     "log_table",
     "log_text",
     "login",
+    "pyfunc",
     "register_model",
     "run",
     "search_experiments",
