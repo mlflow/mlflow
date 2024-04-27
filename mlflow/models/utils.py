@@ -1389,3 +1389,7 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
     if converter:
         return converter(value)
     return value
+
+
+def _set_model_config(model_config):
+    globals()["__mlflow_model_config__"] = model_config
