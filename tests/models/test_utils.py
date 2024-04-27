@@ -447,7 +447,9 @@ def test_model_code_validation():
     some_valid_python_code = "valid"
     """
 
-    with pytest.raises(ValueError, match="The model file uses 'dbutils' command which is not supported."):
+    with pytest.raises(
+        ValueError, match="The model file uses 'dbutils' command which is not supported."
+    ):
         _validate_model_code_from_notebook(invalid_code)
 
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
