@@ -143,7 +143,7 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
     # Dummy flask app for prediction
     import flask
 
-    from mlflow.tracing.export.inference_table import get_completed_trace
+    from mlflow.tracing.export.inference_table import pop_trace
 
     app = flask.Flask(__name__)
 
@@ -154,7 +154,7 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
 
         prediction = TestModel().predict(**data)
 
-        trace = get_completed_trace(request_id=request_id)
+        trace = pop_trace(request_id=request_id)
 
         result = json.dumps(
             {
@@ -240,6 +240,9 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
             "attributes": {"foo": "bar"},
         }
     ]
+
+    # The trace should be removed from the buffer after being retrieved
+    assert pop_trace(request_id=databricks_request_id) is None
 
     # In model serving, the traces should not be stored in the fluent API buffer
     traces = mlflow.get_traces()

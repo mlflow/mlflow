@@ -8,7 +8,7 @@ from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
     _initialize_trace_buffer,
-    get_completed_trace,
+    pop_trace,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
@@ -52,7 +52,7 @@ def test_export():
 
     # Trace should be added to the in-memory buffer and can be extracted
     assert len(_TRACE_BUFFER) == 1
-    trace_dict = get_completed_trace(_REQUEST_ID)
+    trace_dict = pop_trace(_REQUEST_ID)
     assert trace_dict[TRACE_SCHEMA_VERSION_KEY] == 2
     assert trace_dict["start_timestamp"] == datetime(1970, 1, 1, 0, 0)
     assert trace_dict["end_timestamp"] == datetime(1970, 1, 1, 0, 0, 1)
@@ -78,7 +78,7 @@ def test_export_handle_invalid_attributes():
     exporter = InferenceTableSpanExporter()
     exporter.export([otel_span])
 
-    trace = get_completed_trace(_REQUEST_ID)
+    trace = pop_trace(_REQUEST_ID)
     assert trace is not None
     span = trace["spans"][0]
     # Invalid attributes should be exported as is
@@ -104,15 +104,15 @@ def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
 
     exporter.export([otel_span_1])
 
-    assert get_completed_trace(_REQUEST_ID) is not None
+    assert pop_trace(_REQUEST_ID) is not None
 
     otel_span_2 = create_mock_otel_span(name="2", trace_id=_TRACE_ID + 1, span_id=1)
     _register_span_and_trace(LiveSpan(otel_span_2, request_id=_REQUEST_ID_2))
 
     exporter.export([otel_span_2])
 
-    assert get_completed_trace(_REQUEST_ID) is None
-    assert get_completed_trace(_REQUEST_ID_2) is not None
+    assert pop_trace(_REQUEST_ID) is None
+    assert pop_trace(_REQUEST_ID_2) is not None
 
 
 def _register_span_and_trace(span: LiveSpan):
