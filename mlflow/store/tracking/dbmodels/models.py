@@ -26,9 +26,11 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    TraceInfo,
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -632,3 +634,111 @@ class SqlInputTag(Base):
             mlflow.entities.InputTag: Description of the return value.
         """
         return InputTag(key=self.name, value=self.value)
+
+
+#######################################################################################
+# Below are Tracing models. We may refactor them to be in a separate module in the future.
+#######################################################################################
+
+TraceStatusTypes = [
+    TraceStatus.OK,
+    TraceStatus.ERROR,
+    TraceStatus.IN_PROGRESS,
+    TraceStatus.UNSPECIFIED,
+]
+
+
+class SqlTraceInfo(Base):
+    __tablename__ = "trace_info"
+
+    request_id = Column(String(32), nullable=False)
+    """
+    Request ID: `String` (limit 32 characters). *Primary Key* for ``trace_info`` table.
+    """
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    """
+    Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
+    """
+    timestamp_ms = Column(BigInteger, nullable=False)
+    """
+    Start time of the trace, in milliseconds.
+    """
+    execution_time_ms = Column(BigInteger, nullable=True)
+    """
+    Duration of the trace, in milliseconds. Could be *null* if the trace is still in progress
+    or not ended correctly for some reason.
+    """
+    status = Column(String(24), nullable=False)
+    """
+    Status of the trace. Must be one of the
+    :py:class:`mlflow.entities.trace_status.TraceStatus` enum values.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("request_id", name="trace_info_pk"),
+        CheckConstraint(status.in_(TraceStatusTypes), name="trace_status"),
+        # TODO: Add indexes
+    )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.TraceInfo` object.
+        """
+        return TraceInfo(
+            request_id=self.request_id,
+            experiment_id=str(self.experiment_id),
+            timestamp_ms=self.timestamp_ms,
+            execution_time_ms=self.execution_time_ms,
+            status=TraceStatus(self.status),
+            tags={t.key: t.value for t in self.tags},
+            request_metadata={m.key: m.value for m in self.request_metadata},
+        )
+
+
+class SqlTraceTag(Base):
+    __tablename__ = "trace_tags"
+
+    key = Column(String(250))
+    """
+    Tag key: `String` (limit 250 characters).
+    """
+    value = Column(String(250), nullable=True)
+    """
+    Value associated with tag: `String` (limit 250 characters). Could be *null*.
+    """
+    request_id = Column(String(32), ForeignKey("trace_info.request_id"), nullable=False)
+    """
+    Request ID to which this tag belongs: *Foreign Key* into ``trace_info`` table.
+    """
+    trace_info = relationship("SqlTraceInfo", backref=backref("tags", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`."""
+
+    # Key is unique within a request_id
+    __table_args__ = (PrimaryKeyConstraint("request_id", "key", name="trace_tag_pk"),)
+
+
+class SqlTraceRequestMetadata(Base):
+    __tablename__ = "trace_request_metadata"
+
+    key = Column(String(250))
+    """
+    Metadata key: `String` (limit 250 characters).
+    """
+    value = Column(String(250), nullable=True)
+    """
+    Value associated with metadata: `String` (limit 250 characters). Could be *null*.
+    """
+    request_id = Column(String(32), ForeignKey("trace_info.request_id"), nullable=False)
+    """
+    Request ID to which this metadata belongs: *Foreign Key* into ``trace_info`` table.
+    """
+    trace_info = relationship("SqlTraceInfo", backref=backref("request_metadata", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`."""
+
+    # Key is unique within a request_id
+    __table_args__ = (PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),)
