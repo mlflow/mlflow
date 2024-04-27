@@ -88,7 +88,6 @@ _logger = logging.getLogger(__name__)
 
 _FEATURE_STORE_FLAVOR = "databricks.feature_store.mlflow_model"
 
-
 def _is_scalar(x):
     return np.isscalar(x) or x is None
 
@@ -1389,7 +1388,3 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
     if converter:
         return converter(value)
     return value
-
-
-def _set_model_config(model_config):
-    globals()["__mlflow_model_config__"] = model_config
