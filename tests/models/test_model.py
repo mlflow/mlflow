@@ -13,7 +13,7 @@ from packaging.version import Version
 from scipy.sparse import csc_matrix
 
 import mlflow
-from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
+from mlflow.models import Model, ModelSignature, infer_signature, set_model, validate_schema
 from mlflow.models.model import METADATA_FILES
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -510,3 +510,39 @@ def test_legacy_flavor():
         model_info = Model.log("some/path", LegacyTestFlavor)
     artifact_path = _download_artifact_from_uri(model_info.model_uri)
     assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {"MLmodel"}
+
+
+def test_pyfunc_set_model():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    set_model(MyModel())
+    assert isinstance(mlflow.models.model.__mlflow_model__, mlflow.pyfunc.PythonModel)
+
+
+def test_langchain_set_model():
+    from langchain.chains import LLMChain
+
+    def create_openai_llmchain():
+        from langchain.llms import OpenAI
+        from langchain.prompts import PromptTemplate
+
+        llm = OpenAI(temperature=0.9, openai_api_key="api_key")
+        prompt = PromptTemplate(
+            input_variables=["product"],
+            template="What is a good name for a company that makes {product}?",
+        )
+        model = LLMChain(llm=llm, prompt=prompt)
+        set_model(model)
+
+    create_openai_llmchain()
+    assert isinstance(mlflow.models.model.__mlflow_model__, LLMChain)
+
+
+def test_error_set_model(sklearn_knn_model):
+    with pytest.raises(
+        mlflow.MlflowException,
+        match="Model should either be an instance of PyFuncModel or Langchain type.",
+    ):
+        set_model(sklearn_knn_model)
