@@ -15,6 +15,7 @@ from scipy.sparse import csc_matrix
 import mlflow
 from mlflow.models import Model, ModelSignature, infer_signature, set_model, validate_schema
 from mlflow.models.model import METADATA_FILES
+from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -556,18 +557,24 @@ def test_error_set_model(sklearn_knn_model):
 
 
 def test_model_resources():
+    expected_resources = {
+        "api_version": "1",
+        "databricks": {
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-bge-large-en"},
+                {"name": "azure-eastus-model-serving-2_vs_endpoint"},
+            ],
+            "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+        },
+    }
     with TempDir(chdr=True) as tmp:
-        resources = {
-            "api_version": "1",
-            "databricks": {
-                "serving_endpoint": [
-                    {"name": "databricks-mixtral-8x7b-instruct"},
-                    {"name": "databricks-bge-large-en"},
-                    {"name": "azure-eastus-model-serving-2_vs_endpoint"},
-                ],
-                "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
-            },
-        }
+        resources = [
+            DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+            DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+            DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
+            DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+        ]
         local_path, _ = _log_model_with_signature_and_example(tmp, None, None, resources=resources)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert loaded_model.resources == resources
+        assert loaded_model.resources == expected_resources

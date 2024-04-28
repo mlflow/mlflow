@@ -15,6 +15,7 @@ import yaml
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
+from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -292,7 +293,7 @@ class Model:
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
-        resources: Optional[Dict[str, Any]] = None,
+        resources: Optional[Union[str, List[Resource]]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -473,20 +474,26 @@ class Model:
 
     @experimental
     @property
-    def resources(self) -> Optional[Dict[str, Any]]:
+    def resources(self) -> Dict[str, Dict[ResourceType, List[Dict]]]:
         """
         An optional dictionary that contains the resources required to serve the model.
 
         :getter: Retrieves the resources required to serve the model
         :setter: Sets the resources required to serve the model
-        :type: Optional[Dict[str, Any]]
+        :type: Dict[str, Dict[ResourceType, List[Dict]]]
         """
         return self._resources
 
     @experimental
     @resources.setter
-    def resources(self, value: Optional[Dict[str, Any]]):
-        self._resources = value
+    def resources(self, value: Optional[Union[str, List[Resource]]]):
+        if isinstance(value, (Path, str)):
+            serialized_resource = _ResourceBuilder.from_yaml_file(value)
+        elif isinstance(value, List) and all(isinstance(resource, Resource) for resource in value):
+            serialized_resource = _ResourceBuilder.from_resources(value)
+        else:
+            serialized_resource = value
+        self._resources = serialized_resource
 
     def get_model_info(self):
         """
