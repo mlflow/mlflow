@@ -836,3 +836,30 @@ def update_model_requirements(
     _logger.info(f"Uploading updated requirements files to {resolved_uri}...")
     _upload_artifact_to_uri(conda_yaml_path, resolved_uri)
     _upload_artifact_to_uri(requirements_txt_path, resolved_uri)
+
+
+__mlflow_model__ = None
+
+
+def set_model(model):
+    """
+    When logging model as code, this function can be used to set the model object
+    to be logged.
+
+    Args:
+        model: The model object to be logged.
+    """
+    from mlflow.pyfunc import PythonModel
+
+    if not isinstance(model, PythonModel):
+        try:
+            from mlflow.langchain import _validate_and_wrap_lc_model
+
+            # If its not a PyFuncModel, then it should be a Langchain model
+            _validate_and_wrap_lc_model(model, None)
+        except Exception as e:
+            raise mlflow.MlflowException(
+                "Model should either be an instance of PyFuncModel or Langchain type."
+            ) from e
+
+    globals()["__mlflow_model__"] = model
