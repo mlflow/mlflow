@@ -552,7 +552,10 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
 
-        if "://" not in str(path) and not os.path.exists(path):
+        from urllib.parse import urlparse
+        path_scheme = urlparse('file:/path/to/aa').scheme
+
+        if (not scheme or scheme == 'file') and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
