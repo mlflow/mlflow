@@ -1,7 +1,6 @@
 import importlib
 import json
 import os
-import re
 import shutil
 import sqlite3
 from contextlib import contextmanager
@@ -12,7 +11,6 @@ from unittest import mock
 import langchain
 import numpy as np
 import openai
-import mlflow.models.model
 import pytest
 import transformers
 import yaml
@@ -48,6 +46,7 @@ from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
 import mlflow
+import mlflow.models.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException

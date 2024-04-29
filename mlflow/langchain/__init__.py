@@ -36,6 +36,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
+from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -835,11 +836,15 @@ def _load_pyfunc(path):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if _MODEL_CODE_CONFIG in flavor_conf:
-        path = flavor_conf.get(_MODEL_CODE_CONFIG)
+    if _MODEL_CODE_PATH in flavor_conf:
+        code_path = flavor_conf.get(_MODEL_CODE_PATH)
+        config_path = flavor_conf.get(_MODEL_CODE_CONFIG, None)
+        return _load_model_code_path(code_path, config_path)
+    # Code for backwards compatibility, relies on RAG utils - remove in the future
+    elif _CODE_CONFIG in flavor_conf:
+        path = flavor_conf.get(_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
         if path is not None:
-            # TODO: code_config can also be a dict, not only a path. handle this case
             config_path = os.path.join(
                 local_model_path,
                 flavor_code_config,
@@ -848,7 +853,7 @@ def _load_model_from_local_fs(local_model_path):
         else:
             config_path = None
 
-        flavor_code_path = flavor_conf.get(_MODEL_CODE_PATH, "chain.py")
+        flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
         flavor_model_code_config = flavor_conf.get(FLAVOR_CONFIG_MODEL_CODE)
         code_path = os.path.join(
             local_model_path,
