@@ -431,6 +431,7 @@ class PyFuncBackend(FlavorBackend):
             # always disable env creation at runtime for pyfunc
             disable_env_creation_at_runtime=True,
         )
+
         _logger.debug("generated dockerfile at {output_dir}", extra={"dockerfile": dockerfile_text})
 
     def _get_base_image(self, model_path: str, install_java: bool) -> str:
