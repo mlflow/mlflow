@@ -82,6 +82,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
+    FLAVOR_CONFIG_MODEL_CODE,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -324,6 +325,7 @@ def save_model(
             **model_data_kwargs,
         }
     else:
+        # TODO: use model_config instead
         # If the model is a string, we expect the code_path which is ideally config.yml
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
@@ -353,6 +355,7 @@ def save_model(
     if Version(langchain.__version__) >= Version("0.0.311"):
         checker_model = lc_model
         if isinstance(lc_model, str):
+            # TODO: use model_config instead of code_paths[0]
             checker_model = (
                 _load_model_code_path(lc_model, model_config_path)
                 if model_config_path
@@ -848,9 +851,10 @@ def _load_model_from_local_fs(local_model_path):
             config_path = None
 
         flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
+        flavor_model_code_config = flavor_conf.get(FLAVOR_CONFIG_MODEL_CODE)
         code_path = os.path.join(
             local_model_path,
-            flavor_code_config,
+            flavor_model_code_config,
             os.path.basename(flavor_code_path),
         )
 

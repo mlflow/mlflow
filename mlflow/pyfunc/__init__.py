@@ -667,7 +667,6 @@ class PyFuncModel:
                 )
 
         params = _validate_params(params, self.metadata)
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
         if HAS_PYSPARK and isinstance(data, SparkDataFrame):
             _logger.warning(
                 "Input data is a Spark DataFrame. Note that behaviour for "
@@ -707,6 +706,8 @@ class PyFuncModel:
         data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_fn(data)
 
     def predict_stream(
@@ -716,8 +717,10 @@ class PyFuncModel:
             raise MlflowException("This model does not support predict_stream method.")
 
         data, params = self._validate_prediction_input(data, params)
-        if inspect.signature(self._predict_fn).parameters.get("params"):
+        if inspect.signature(self._predict_stream_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_stream_fn(data)
 
     @experimental
