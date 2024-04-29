@@ -552,10 +552,8 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
-
         # Check if the path is a local directory and not remote
         path_scheme = urlparse(str(path)).scheme
-
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
