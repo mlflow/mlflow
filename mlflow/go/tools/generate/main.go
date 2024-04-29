@@ -280,7 +280,7 @@ func mkRouteRegistrationFunction(serviceInfo server.ServiceInfo) *ast.FuncDecl {
 	}
 
 	return &ast.FuncDecl{
-		Name: ast.NewIdent(fmt.Sprintf("register%sRoutes", serviceInfo.Name)),
+		Name: ast.NewIdent(fmt.Sprintf("Register%sRoutes", serviceInfo.Name)),
 		Type: &ast.FuncType{
 			Params: &ast.FieldList{
 				List: []*ast.Field{
@@ -311,12 +311,14 @@ func generateServices(pkgFolder string) error {
 	// Set up the FileSet and the AST File
 	fset := token.NewFileSet()
 
+	pkg := "contract"
+
 	file := &ast.File{
-		Name:  ast.NewIdent("server"),
+		Name:  ast.NewIdent(pkg),
 		Decls: decls,
 	}
 
-	outputPath := filepath.Join(pkgFolder, "server", "interface.g.go")
+	outputPath := filepath.Join(pkgFolder, pkg, "interface.g.go")
 
 	return saveASTToFile(fset, file, true, outputPath)
 }
