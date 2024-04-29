@@ -28,6 +28,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    TraceInfo,
     ViewType,
     _DatasetSummary,
 )
@@ -4138,3 +4139,79 @@ def test_set_tag_truncate_too_long_tag(store: SqlAlchemyStore):
     tags = store.get_trace_info(request_id).tags
     assert len(tags["key"]) == 8000
     assert tags["key"] == "123" + "a" * 7997
+
+
+def test_delete_traces(store):
+    exp1 = store.create_experiment("exp1")
+    exp2 = store.create_experiment("exp2")
+
+    for i in range(10):
+        _create_trace(store, f"tr-exp1-{i}", exp1)
+        _create_trace(store, f"tr-exp2-{i}", exp2)
+
+    traces, _ = store.search_traces([exp1, exp2])
+    assert len(traces) == 20
+
+    deleted = store.delete_traces(experiment_id=exp1)
+    assert deleted == 10
+    traces, _ = store.search_traces([exp1, exp2])
+    assert len(traces) == 10
+    for trace in traces:
+        assert trace.experiment_id == exp2
+
+    deleted = store.delete_traces(experiment_id=exp2)
+    assert deleted == 10
+    traces, _ = store.search_traces([exp1, exp2])
+    assert len(traces) == 0
+
+    deleted = store.delete_traces(experiment_id=exp1)
+    assert deleted == 0
+
+
+def test_delete_traces_with_max_timestamp(store):
+    exp1 = store.create_experiment("exp1")
+    for i in range(10):
+        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+
+    deleted = store.delete_traces(exp1, max_timestamp_millis=3)
+    assert deleted == 4  # inclusive (0, 1, 2, 3)
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 6
+    for trace in traces:
+        assert trace.timestamp_ms >= 4
+
+    deleted = store.delete_traces(exp1, max_timestamp_millis=10)
+    assert deleted == 6
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 0
+
+
+def test_delete_traces_with_max_count(store):
+    exp1 = store.create_experiment("exp1")
+    for i in range(10):
+        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+
+    deleted = store.delete_traces(exp1, max_traces=4)
+    assert deleted == 4
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 6
+    # Traces should be deleted from the oldest
+    for trace in traces:
+        assert trace.timestamp_ms >= 4
+
+    deleted = store.delete_traces(exp1, max_traces=10, max_timestamp_millis=8)
+    assert deleted == 5
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 1
+
+
+def test_delete_traces_with_request_ids(store):
+    exp1 = store.create_experiment("exp1")
+    for i in range(10):
+        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+
+    deleted = store.delete_traces(exp1, request_ids=[f"tr-{i}" for i in range(8)])
+    assert deleted == 8
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 2
+    assert [trace.request_id for trace in traces] == ["tr-9", "tr-8"]
