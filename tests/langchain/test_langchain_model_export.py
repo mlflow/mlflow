@@ -355,7 +355,9 @@ def test_save_and_load_chat_openai(model_path):
     Version(langchain.__version__) >= _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     reason="This test is for non-supported LC version of loading ChatOpenAI model",
 )
-def test_save_and_load_chat_openai_with_unsupported_version_raise_helpful_message(model_path):
+def test_save_and_load_chat_openai_with_unsupported_version_raise_helpful_message(
+    model_path,
+):
     from langchain.chat_models import ChatOpenAI
 
     llm = ChatOpenAI(temperature=0.9)
@@ -2283,10 +2285,50 @@ def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_
     assert loaded_databricks_llm.temperature == 0.9
 
 
+@pytest.fixture
+def chain_model_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(
+                    type=Array(
+                        Object(
+                            [
+                                Property("role", DataType.string),
+                                Property("content", DataType.string),
+                            ]
+                        ),
+                    ),
+                    name="messages",
+                ),
+                ColSpec(
+                    type=Object(
+                        [
+                            Property("return_trace", DataType.string, required=False),
+                        ]
+                    ),
+                    name="databricks_options",
+                    required=False,
+                ),
+            ]
+        ),
+        outputs=Schema(
+            [
+                ColSpec(name="id", type=DataType.string),
+                ColSpec(name="object", type=DataType.string),
+                ColSpec(name="created", type=DataType.long),
+                ColSpec(name="model", type=DataType.string),
+                ColSpec(name="choices", type=DataType.string),
+                ColSpec(name="usage", type=DataType.string),
+            ]
+        ),
+    )
+
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_as_code():
+def test_save_load_chain_as_code(chain_model_signature):
     input_example = {
         "messages": [
             {
@@ -2296,47 +2338,10 @@ def test_save_load_chain_as_code():
         ]
     }
     with mlflow.start_run():
-        signature = ModelSignature(
-            inputs=Schema(
-                [
-                    ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string),
-                                ]
-                            ),
-                        ),
-                        name="messages",
-                    ),
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property("return_trace", DataType.string, required=False),
-                            ]
-                        ),
-                        name="databricks_options",
-                        required=False,
-                    ),
-                ]
-            ),
-            outputs=Schema(
-                [
-                    ColSpec(name="id", type=DataType.string),
-                    ColSpec(name="object", type=DataType.string),
-                    ColSpec(name="created", type=DataType.long),
-                    ColSpec(name="model", type=DataType.string),
-                    ColSpec(name="choices", type=DataType.string),
-                    ColSpec(name="usage", type=DataType.string),
-                ]
-            ),
-        )
-
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/chain.py",
             artifact_path="model_path",
-            signature=signature,
+            signature=chain_model_signature,
             input_example=input_example,
             code_paths=["tests/langchain/config.yml"],
         )
@@ -2374,7 +2379,49 @@ def test_save_load_chain_as_code():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_as_code_multiple_times(tmp_path):
+def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_signature):
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+
+    # Read the contents of the original chain file
+    with open("tests/langchain/chain.py") as chain_file:
+        chain_file_content = chain_file.read()
+
+    temp_file = tmp_path / "model.py"
+    temp_file.write_text(chain_file_content)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model=str(temp_file),
+            artifact_path="model_path",
+            signature=chain_model_signature,
+            input_example=input_example,
+            code_paths=["tests/langchain/config.yml"],
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    answer = "Databricks"
+    assert loaded_model.invoke(input_example) == answer
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert (
+        pyfunc_loaded_model.predict(input_example)[0]
+        .get("choices")[0]
+        .get("message")
+        .get("content")
+        == answer
+    )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature):
     config_path = "tests/langchain/config.yml"
     input_example = {
         "messages": [
@@ -2385,47 +2432,10 @@ def test_save_load_chain_as_code_multiple_times(tmp_path):
         ]
     }
     with mlflow.start_run():
-        signature = ModelSignature(
-            inputs=Schema(
-                [
-                    ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string),
-                                ]
-                            ),
-                        ),
-                        name="messages",
-                    ),
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property("return_trace", DataType.string, required=False),
-                            ]
-                        ),
-                        name="databricks_options",
-                        required=False,
-                    ),
-                ]
-            ),
-            outputs=Schema(
-                [
-                    ColSpec(name="id", type=DataType.string),
-                    ColSpec(name="object", type=DataType.string),
-                    ColSpec(name="created", type=DataType.long),
-                    ColSpec(name="model", type=DataType.string),
-                    ColSpec(name="choices", type=DataType.string),
-                    ColSpec(name="usage", type=DataType.string),
-                ]
-            ),
-        )
-
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/chain.py",
             artifact_path="model_path",
-            signature=signature,
+            signature=chain_model_signature,
             input_example=input_example,
             code_paths=[config_path],
         )
@@ -2448,7 +2458,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path):
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/chain.py",
             artifact_path="model_path",
-            signature=signature,
+            signature=chain_model_signature,
             input_example=input_example,
             code_paths=[new_config_file],
         )
@@ -2460,7 +2470,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_errors():
+def test_save_load_chain_errors(chain_model_signature):
     input_example = {
         "messages": [
             {
@@ -2470,67 +2480,17 @@ def test_save_load_chain_errors():
         ]
     }
     with mlflow.start_run():
-        signature = ModelSignature(
-            inputs=Schema(
-                [
-                    ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string),
-                                ]
-                            ),
-                        ),
-                        name="messages",
-                    ),
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property("return_trace", DataType.string, required=False),
-                            ]
-                        ),
-                        name="databricks_options",
-                        required=False,
-                    ),
-                ]
-            ),
-            outputs=Schema(
-                [
-                    ColSpec(name="id", type=DataType.string),
-                    ColSpec(name="object", type=DataType.string),
-                    ColSpec(name="created", type=DataType.long),
-                    ColSpec(name="model", type=DataType.string),
-                    ColSpec(name="choices", type=DataType.string),
-                    ColSpec(name="usage", type=DataType.string),
-                ]
-            ),
-        )
-
-        incorrect_path = "tests/langchain/chain1.py"
-        with pytest.raises(
-            MlflowException,
-            match=f"If {incorrect_path} is a string, it must be the path to a "
-            "file named `chain.py` on the local filesystem.",
-        ):
-            mlflow.langchain.log_model(
-                lc_model=incorrect_path,
-                artifact_path="model_path",
-                signature=signature,
-                input_example=input_example,
-                code_paths=["tests/langchain/state_of_the_union.txt"],
-            )
-
         incorrect_path = "tests/langchain1/chain.py"
         with pytest.raises(
             MlflowException,
-            match=f"If the {incorrect_path} is a string, it must be a valid "
-            "python file path containing the code for defining the chain instance.",
+            match=f"If the provided model '{incorrect_path}' is a string, it must be a valid "
+            "python file path or a databricks notebook file path containing the code for defining "
+            "the chain instance.",
         ):
             mlflow.langchain.log_model(
                 lc_model=incorrect_path,
                 artifact_path="model_path",
-                signature=signature,
+                signature=chain_model_signature,
                 input_example=input_example,
                 code_paths=["tests/langchain/state_of_the_union.txt"],
             )
@@ -2554,7 +2514,7 @@ def test_save_load_chain_errors():
             mlflow.langchain.log_model(
                 lc_model=incorrect_path,
                 artifact_path="model_path",
-                signature=signature,
+                signature=chain_model_signature,
                 input_example=input_example,
                 code_paths=code_paths,
             )
@@ -2563,7 +2523,7 @@ def test_save_load_chain_errors():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_as_code_optional_code_path():
+def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
     input_example = {
         "messages": [
             {
@@ -2573,49 +2533,11 @@ def test_save_load_chain_as_code_optional_code_path():
         ]
     }
     with mlflow.start_run():
-        signature = ModelSignature(
-            inputs=Schema(
-                [
-                    ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string),
-                                ]
-                            ),
-                        ),
-                        name="messages",
-                    ),
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property("return_trace", DataType.string, required=False),
-                            ]
-                        ),
-                        name="databricks_options",
-                        required=False,
-                    ),
-                ]
-            ),
-            outputs=Schema(
-                [
-                    ColSpec(name="id", type=DataType.string),
-                    ColSpec(name="object", type=DataType.string),
-                    ColSpec(name="created", type=DataType.long),
-                    ColSpec(name="model", type=DataType.string),
-                    ColSpec(name="choices", type=DataType.string),
-                    ColSpec(name="usage", type=DataType.string),
-                ]
-            ),
-        )
-
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/no_config/chain.py",
             artifact_path="model_path",
-            signature=signature,
+            signature=chain_model_signature,
             input_example=input_example,
-            code_paths=[],
         )
 
     assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
@@ -2688,7 +2610,11 @@ def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
             run_manager: Optional[CallbackManagerForLLMRun] = None,
             **kwargs: Any,
         ) -> Iterator[ChatGenerationChunk]:
-            for chunk_content, finish_reason in [("Da", None), ("tab", None), ("ricks", "stop")]:
+            for chunk_content, finish_reason in [
+                ("Da", None),
+                ("tab", None),
+                ("ricks", "stop"),
+            ]:
                 chunk = ChatGenerationChunk(
                     message=AIMessageChunk(content=chunk_content),
                     generation_info={"finish_reason": finish_reason},
