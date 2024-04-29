@@ -15,7 +15,9 @@ class ModelConfig:
 
     def __init__(self, *, development_config: Optional[str] = None):
         config = globals().get("__mlflow_model_config__", None)
-        self.config_path = config or development_config
+        # backwards compatibility
+        rag_config = globals().get("__databricks_rag_config_path__", None)
+        self.config_path = config or rag_config or development_config
 
         if not self.config_path:
             raise FileNotFoundError("Config file is None. Please provide a valid path.")

@@ -85,7 +85,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _validate_and_copy_model_code_paths,
+    _validate_and_copy_model_code_and_config_paths,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -239,16 +239,13 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    model_code_paths = None
     model_config_path = None
     if isinstance(lc_model, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
 
-        if os.path.exists(lc_model):
-            model_code_paths = [lc_model]
-        else:
+        if not os.path.exists(lc_model):
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"If the provided model '{lc_model}' is a string, it must be a valid python "
                 "file path or a databricks notebook file path containing the code for defining "
@@ -270,11 +267,9 @@ def save_model(
             if len(code_paths) == 1 and os.path.exists(code_paths[0]):
                 model_config_path = model_config
 
-        if model_config_path:
-            model_code_paths.append(model_config_path)
+        _validate_and_copy_model_code_and_config_paths(lc_model, model_config_path, path)
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-    model_code_dir_subpath = _validate_and_copy_model_code_paths(model_code_paths, path)
 
     if signature is None:
         if input_example is not None:
