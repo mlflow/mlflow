@@ -25,7 +25,9 @@ from mlflow.pyfunc import (
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import get_conda_bin_executable, get_or_create_conda_env
-from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
+from mlflow.utils.env_manager import CONDA as CONDAENV
+from mlflow.utils.env_manager import LOCAL as LOCALENV
+from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.utils.environment import Environment, _PythonEnv
 from mlflow.utils.file_utils import (
     TempDir,
@@ -92,11 +94,11 @@ class PyFuncBackend(FlavorBackend):
         """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
-        if env_manager == CONDA and ENV not in config:
+        if env_manager == CONDAENV and ENV not in config:
             warnings.warn(
                 "Conda environment is not specified in config `env`. Using local environment."
             )
-            env_manager = LOCAL
+            env_manager = LOCALENV
         self._env_manager = env_manager
         self._install_mlflow = install_mlflow
         self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
@@ -137,7 +139,7 @@ class PyFuncBackend(FlavorBackend):
                 pip_requirements_override=pip_requirements_override,
             )
             self._environment = Environment(activate_cmd)
-        elif self._env_manager == CONDA:
+        elif self._env_manager == CONDAENV:
             conda_env_path = os.path.join(local_path, _extract_conda_env(self._config[ENV]))
             self._environment = get_or_create_conda_env(
                 conda_env_path,
@@ -147,7 +149,7 @@ class PyFuncBackend(FlavorBackend):
                 pip_requirements_override=pip_requirements_override,
             )
 
-        elif self._env_manager == LOCAL:
+        elif self._env_manager == LOCALENV:
             raise Exception("Prepare env should not be called with local env manager!")
         else:
             raise Exception(f"Unexpected env manager value '{self._env_manager}'")
@@ -177,7 +179,7 @@ class PyFuncBackend(FlavorBackend):
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
 
-        if self._env_manager != LOCAL:
+        if self._env_manager != LOCALENV:
             predict_cmd = [
                 "python",
                 _mlflow_pyfunc_backend_predict.__file__,
@@ -191,7 +193,7 @@ class PyFuncBackend(FlavorBackend):
             if output_path:
                 predict_cmd += ["--output-path", shlex.quote(str(output_path))]
 
-            if pip_requirements_override and self._env_manager == CONDA:
+            if pip_requirements_override and self._env_manager == CONDAENV:
                 # Conda use = instead of == for version pinning
                 pip_requirements_override = [
                     pip_req.replace("==", "=") for pip_req in pip_requirements_override
@@ -282,7 +284,7 @@ class PyFuncBackend(FlavorBackend):
             #  does not support prctl. We need to find an approach to address it.
             command = "exec " + command
 
-        if self._env_manager != LOCAL:
+        if self._env_manager != LOCALENV:
             return self.prepare_env(local_path).execute(
                 command,
                 command_env,
@@ -331,7 +333,7 @@ class PyFuncBackend(FlavorBackend):
         )
 
     def can_score_model(self):
-        if self._env_manager == LOCAL:
+        if self._env_manager == LOCALENV:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
         conda_path = get_conda_bin_executable("conda")
@@ -388,15 +390,15 @@ class PyFuncBackend(FlavorBackend):
 
             if base_image.startswith("python"):
                 # we can directly use local env for python image
-                env_manager = self._env_manager or LOCAL
-                if env_manager in [CONDA, VIRTUALENV]:
+                env_manager = self._env_manager or LOCALENV
+                if env_manager in [CONDAENV, VIRTUALENV]:
                     # we can directly use ubuntu image for conda and virtualenv
                     base_image = UBUNTU_BASE_IMAGE
             elif base_image == UBUNTU_BASE_IMAGE:
                 env_manager = self._env_manager or VIRTUALENV
                 # installing python on ubuntu image is problematic and not recommended officially
                 # , so we recommend using conda or virtualenv instead on ubuntu image
-                if env_manager == LOCAL:
+                if env_manager == LOCALENV:
                     raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
             # shouldn't reach here but add this so we can validate base_image value above
             else:
