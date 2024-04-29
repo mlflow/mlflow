@@ -553,7 +553,8 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
 
-        path_scheme = urlparse("file:/path/to/aa").scheme
+        # Check if the path is a local directory and not remote
+        path_scheme = urlparse(str(path)).scheme
 
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
