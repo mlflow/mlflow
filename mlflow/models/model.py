@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
+from urllib.parse import urlparse
 
 import yaml
 
@@ -552,10 +553,9 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
 
-        from urllib.parse import urlparse
-        path_scheme = urlparse('file:/path/to/aa').scheme
+        path_scheme = urlparse("file:/path/to/aa").scheme
 
-        if (not scheme or scheme == 'file') and not os.path.exists(path):
+        if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
