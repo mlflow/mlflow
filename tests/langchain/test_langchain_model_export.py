@@ -12,6 +12,7 @@ from unittest import mock
 import langchain
 import numpy as np
 import openai
+import mlflow.models.model
 import pytest
 import transformers
 import yaml
@@ -2343,7 +2344,7 @@ def test_save_load_chain_as_code(chain_model_signature):
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            code_paths=["tests/langchain/config.yml"],
+            model_config="tests/langchain/config.yml",
         )
 
     assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
@@ -2437,7 +2438,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature)
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            code_paths=[config_path],
+            model_config=config_path,
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
@@ -2492,31 +2493,7 @@ def test_save_load_chain_errors(chain_model_signature):
                 artifact_path="model_path",
                 signature=chain_model_signature,
                 input_example=input_example,
-                code_paths=["tests/langchain/state_of_the_union.txt"],
-            )
-
-        incorrect_path = "tests/langchain/chain.py"
-        code_paths = [
-            "tests/langchain/state_of_the_union.txt",
-            "tests/langchain/chain.py",
-        ]
-
-        with pytest.raises(
-            MlflowException,
-            match=re.escape(
-                "When the model is a string, and if the code_paths are specified, "
-                "it should contain only one path."
-                "This config path is used to set config.yml file path "
-                "for the model. This path should be passed in via the code_paths. "
-                f"Current code paths: {code_paths}"
-            ),
-        ):
-            mlflow.langchain.log_model(
-                lc_model=incorrect_path,
-                artifact_path="model_path",
-                signature=chain_model_signature,
-                input_example=input_example,
-                code_paths=code_paths,
+                model_config="tests/langchain/state_of_the_union.txt",
             )
 
 
@@ -2576,11 +2553,11 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
 def test_config_path_context():
     with mlflow.langchain._config_path_context("tests/langchain/config.yml"):
         assert (
-            mlflow.langchain._rag_utils.__databricks_rag_config_path__
+            mlflow.models.model_config.__mlflow_model_config__
             == "tests/langchain/config.yml"
         )
 
-    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
 
 
 def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
