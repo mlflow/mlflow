@@ -48,9 +48,8 @@ def test_trace(clear_singleton, with_active_run):
     assert trace_info.status == SpanStatusCode.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
-    tags = trace_info.tags
     if with_active_run:
-        assert tags["mlflow.sourceRun"] == run_id
+        assert trace_info.request_metadata["mlflow.sourceRun"] == run_id
 
     assert trace.data.request == '{"x": 2, "y": 5}'
     assert trace.data.response == "64"

@@ -69,11 +69,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         experiment_id = (
             get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
         )
-        tags = {}
+        metadata = {}
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
         if run := mlflow.active_run():
-            tags[TraceTagKey.SOURCE_RUN] = run.info.run_id
+            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
 
         try:
             return self._client._start_tracked_trace(
@@ -83,7 +83,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 #   above, but can't do it for trace start time until the backend API supports
                 #   updating the trace start time.
                 timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-                tags=tags,
+                request_metadata=metadata,
             )
 
         # TODO: This catches all exceptions from the tracking server so the in-memory tracing still
@@ -102,7 +102,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_time_ms=None,
             status=TraceStatus.IN_PROGRESS,
-            tags=tags,
+            request_metadata=metadata,
         )
 
     def on_end(self, span: OTelReadableSpan) -> None:

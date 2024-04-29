@@ -365,7 +365,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
     if with_active_run:
-        assert trace_info.tags["mlflow.sourceRun"] == run_id
+        assert trace_info.request_metadata["mlflow.sourceRun"] == run_id
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 1, "y": 2}'

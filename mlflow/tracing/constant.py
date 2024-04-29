@@ -2,13 +2,11 @@
 class TraceMetadataKey:
     INPUTS = "mlflow.traceInputs"
     OUTPUTS = "mlflow.traceOutputs"
-    SOURCE_NAME = "mlflow.source.name"
-    SOURCE_TYPE = "mlflow.source.type"
+    SOURCE_RUN = "mlflow.sourceRun"
 
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
-    SOURCE_RUN = "mlflow.sourceRun"
 
 
 # A set of reserved attribute keys
