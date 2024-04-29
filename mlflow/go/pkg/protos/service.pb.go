@@ -1298,7 +1298,7 @@ type GetExperiment struct {
 	unknownFields protoimpl.UnknownFields
 
 	// ID of the associated experiment.
-	ExperimentId *string `protobuf:"bytes,1,opt,name=experiment_id,json=experimentId" json:"experiment_id,omitempty" query:"experiment_id"`
+	ExperimentId *string `protobuf:"bytes,1,opt,name=experiment_id,json=experimentId" json:"experiment_id,omitempty" query:"experiment_id" validate:"required, positiveInteger"`
 }
 
 func (x *GetExperiment) Reset() {

@@ -325,6 +325,10 @@ func generateServices(pkgFolder string) error {
 
 var jsonFieldTagRegexp = regexp.MustCompile(`json:"([^"]+)"`)
 
+var validations map[string]string = map[string]string{
+	"GetExperiment_ExperimentId": "required, positiveInteger",
+}
+
 // Inspect the AST of the incoming file and add a query annotation to the struct tags which have a json tag.
 func addQueryAnnotation(generatedGoFile string) error {
 	// Parse the file into an AST
@@ -353,12 +357,20 @@ func addQueryAnnotation(generatedGoFile string) error {
 			}
 			tagValue := field.Tag.Value
 
-			if strings.Contains(tagValue, "query:") {
+			hasQuery := strings.Contains(tagValue, "query:")
+			hasValidate := strings.Contains(tagValue, "validate:")
+			validationKey := fmt.Sprintf("%s_%s", ts.Name, field.Names[0])
+			validationRule, needsValidation := validations[validationKey]
+
+			if hasQuery && (!needsValidation || needsValidation && hasValidate) {
 				continue
 			}
 
+			// With opening ` tick
+			newTag := tagValue[0 : len(tagValue)-1]
+
 			matches := jsonFieldTagRegexp.FindStringSubmatch(tagValue)
-			if len(matches) > 0 {
+			if len(matches) > 0 && !hasQuery {
 				// Modify the tag here
 				// The json annotation could be something like `json:"key,omitempty"`
 				// We only want the key part, the `omitempty` is not relevant for the query annotation
@@ -366,9 +378,18 @@ func addQueryAnnotation(generatedGoFile string) error {
 				if strings.Contains(key, ",") {
 					key = strings.Split(key, ",")[0]
 				}
-				newTag := fmt.Sprintf("`%s query:\"%s\"`", tagValue[1:len(tagValue)-1], key)
-				field.Tag.Value = newTag
+				// Add query annotation
+				newTag += fmt.Sprintf(" query:\"%s\"", key)
 			}
+
+			if needsValidation {
+				// Add validation annotation
+				newTag += fmt.Sprintf(" validate:\"%s\"", validationRule)
+			}
+
+			// Closing ` tick
+			newTag += "`"
+			field.Tag.Value = newTag
 		}
 		return false
 	})
