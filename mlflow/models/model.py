@@ -552,7 +552,7 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
 
-        if not str(path).startswith(("s3://", "runs://")) and not os.path.exists(path):
+        if "://" not in str(path) and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
