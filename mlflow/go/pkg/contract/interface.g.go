@@ -3,12 +3,15 @@
 package contract
 
 import (
+	"strings"
 	"github.com/gofiber/fiber/v2"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos/artifacts"
 )
 
 type MlflowService interface {
+	Validate(input interface {
+	}) []string
 	GetExperimentByName(input *protos.GetExperimentByName) (*protos.GetExperimentByName_Response, *MlflowError)
 	CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *MlflowError)
 	SearchExperiments(input *protos.SearchExperiments) (*protos.SearchExperiments_Response, *MlflowError)
@@ -35,6 +38,8 @@ type MlflowService interface {
 	LogInputs(input *protos.LogInputs) (*protos.LogInputs_Response, *MlflowError)
 }
 type ModelRegistryService interface {
+	Validate(input interface {
+	}) []string
 	CreateRegisteredModel(input *protos.CreateRegisteredModel) (*protos.CreateRegisteredModel_Response, *MlflowError)
 	RenameRegisteredModel(input *protos.RenameRegisteredModel) (*protos.RenameRegisteredModel_Response, *MlflowError)
 	UpdateRegisteredModel(input *protos.UpdateRegisteredModel) (*protos.UpdateRegisteredModel_Response, *MlflowError)
@@ -58,6 +63,8 @@ type ModelRegistryService interface {
 	GetModelVersionByAlias(input *protos.GetModelVersionByAlias) (*protos.GetModelVersionByAlias_Response, *MlflowError)
 }
 type MlflowArtifactsService interface {
+	Validate(input interface {
+	}) []string
 	DownloadArtifact(input *artifacts.DownloadArtifact) (*artifacts.DownloadArtifact_Response, *MlflowError)
 	UploadArtifact(input *artifacts.UploadArtifact) (*artifacts.UploadArtifact_Response, *MlflowError)
 	ListArtifacts(input *artifacts.ListArtifacts) (*artifacts.ListArtifacts_Response, *MlflowError)
@@ -73,6 +80,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.GetExperimentByName(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -86,6 +97,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.CreateExperiment{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.CreateExperiment(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -101,6 +116,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.SearchExperiments(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -114,6 +133,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.SearchExperiments{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.SearchExperiments(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -129,6 +152,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.GetExperiment(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -142,6 +169,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.DeleteExperiment{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.DeleteExperiment(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -157,6 +188,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.RestoreExperiment(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -170,6 +205,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.UpdateExperiment{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.UpdateExperiment(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -185,6 +224,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.CreateRun(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -198,6 +241,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.UpdateRun{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.UpdateRun(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -213,6 +260,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.DeleteRun(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -226,6 +277,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.RestoreRun{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.RestoreRun(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -241,6 +296,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.LogMetric(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -254,6 +313,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.LogParam{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.LogParam(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -269,6 +332,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.SetExperimentTag(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -282,6 +349,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.SetTag{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.SetTag(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -297,6 +368,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.DeleteTag(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -310,6 +385,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.GetRun{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.GetRun(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -325,6 +404,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.SearchRuns(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -338,6 +421,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.ListArtifacts{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.ListArtifacts(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -353,6 +440,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.GetMetricHistory(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -366,6 +457,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.GetMetricHistoryBulkInterval{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.GetMetricHistoryBulkInterval(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -381,6 +476,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.LogBatch(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -395,6 +494,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.LogModel(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -408,6 +511,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		input := &protos.LogInputs{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.LogInputs(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -425,6 +532,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.CreateRegisteredModel(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -438,6 +549,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.RenameRegisteredModel{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.RenameRegisteredModel(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -453,6 +568,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.UpdateRegisteredModel(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -466,6 +585,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.DeleteRegisteredModel{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.DeleteRegisteredModel(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -481,6 +604,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.GetRegisteredModel(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -494,6 +621,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.SearchRegisteredModels{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.SearchRegisteredModels(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -509,6 +640,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.GetLatestVersions(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -522,6 +657,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.GetLatestVersions{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.GetLatestVersions(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -537,6 +676,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.CreateModelVersion(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -550,6 +693,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.UpdateModelVersion{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.UpdateModelVersion(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -565,6 +712,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.TransitionModelVersionStage(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -578,6 +729,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.DeleteModelVersion{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.DeleteModelVersion(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -593,6 +748,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.GetModelVersion(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -606,6 +765,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.SearchModelVersions{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.SearchModelVersions(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -621,6 +784,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.GetModelVersionDownloadUri(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -634,6 +801,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.SetRegisteredModelTag{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.SetRegisteredModelTag(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -649,6 +820,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.SetModelVersionTag(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -662,6 +837,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.DeleteRegisteredModelTag{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.DeleteRegisteredModelTag(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -677,6 +856,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.DeleteModelVersionTag(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -690,6 +873,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.SetRegisteredModelAlias{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.SetRegisteredModelAlias(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -705,6 +892,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.DeleteRegisteredModelAlias(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -718,6 +909,10 @@ func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber
 		input := &protos.GetModelVersionByAlias{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.GetModelVersionByAlias(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -735,6 +930,10 @@ func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *f
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.DownloadArtifact(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -748,6 +947,10 @@ func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *f
 		input := &artifacts.UploadArtifact{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.UploadArtifact(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -763,6 +966,10 @@ func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *f
 		if err := ctx.QueryParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.ListArtifacts(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -776,6 +983,10 @@ func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *f
 		input := &artifacts.DeleteArtifact{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.DeleteArtifact(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
@@ -791,6 +1002,10 @@ func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *f
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.CreateMultipartUpload(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -805,6 +1020,10 @@ func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *f
 		if err := ctx.BodyParser(input); err != nil {
 			return err
 		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
 		output, err := service.CompleteMultipartUpload(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 			return ctx.Next()
@@ -818,6 +1037,10 @@ func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *f
 		input := &artifacts.AbortMultipartUpload{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.AbortMultipartUpload(input)
 		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {

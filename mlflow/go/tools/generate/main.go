@@ -25,6 +25,7 @@ func mkImportSpec(value string) *ast.ImportSpec {
 var importStatements = &ast.GenDecl{
 	Tok: token.IMPORT,
 	Specs: []ast.Spec{
+		mkImportSpec(`"strings"`),
 		mkImportSpec(`"github.com/gofiber/fiber/v2"`),
 		mkImportSpec(`"github.com/mlflow/mlflow/mlflow/go/pkg/protos"`),
 		mkImportSpec(`"github.com/mlflow/mlflow/mlflow/go/pkg/protos/artifacts"`),
@@ -80,9 +81,27 @@ func mkServiceInterfaceMethod(methodInfo server.MethodInfo) *ast.Field {
 
 // Generate a service interface declaration
 func mkServiceInterfaceNode(serviceInfo server.ServiceInfo) *ast.GenDecl {
-	methods := make([]*ast.Field, len(serviceInfo.Methods))
+	// We add one method to validate any of the input structs
+	methods := make([]*ast.Field, len(serviceInfo.Methods)+1)
+
+	methods[0] = &ast.Field{
+		Names: []*ast.Ident{ast.NewIdent("Validate")},
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{
+				List: []*ast.Field{
+					mkNamedField("input", &ast.InterfaceType{Methods: &ast.FieldList{}}),
+				},
+			},
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					mkField(&ast.ArrayType{Elt: ast.NewIdent("string")}),
+				},
+			},
+		},
+	}
+
 	for idx := range len(serviceInfo.Methods) {
-		methods[idx] = mkServiceInterfaceMethod(serviceInfo.Methods[idx])
+		methods[idx+1] = mkServiceInterfaceMethod(serviceInfo.Methods[idx])
 	}
 
 	// Create an interface declaration
@@ -185,6 +204,13 @@ func mkReturnStmt(results ...ast.Expr) *ast.ReturnStmt {
 	}
 }
 
+func mkKeyValueExpr(key string, value ast.Expr) *ast.KeyValueExpr {
+	return &ast.KeyValueExpr{
+		Key:   ast.NewIdent(key),
+		Value: value,
+	}
+}
+
 func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"/api/2.0%s"`, endpoint.GetFiberPath())}
 
@@ -204,6 +230,38 @@ func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 	} else {
 		extractModel = mkCallExpr(mkSelectorExpr("ctx", "BodyParser"), ast.NewIdent("input"))
 	}
+
+	// validationErrors := service.Validate(input)
+	validationErrors := mkAssignStmt(
+		[]ast.Expr{ast.NewIdent("validationErrors")},
+		[]ast.Expr{mkCallExpr(mkSelectorExpr("service", "Validate"), ast.NewIdent("input"))},
+	)
+
+	// if len(validationErrors) > 0 { return &fiber.Error{} )
+	validationErrorsCheck := mkIfStmt(
+		nil,
+		mkBinaryExpr(
+			mkCallExpr(ast.NewIdent("len"), ast.NewIdent("validationErrors")),
+			token.GTR,
+			ast.NewIdent("0"),
+		),
+		mkBlockStmt(
+			mkReturnStmt(
+				mkAmpExpr(
+					&ast.CompositeLit{
+						Type: mkSelectorExpr("fiber", "Error"),
+						Elts: []ast.Expr{
+							mkKeyValueExpr("Code", mkSelectorExpr("fiber.ErrBadRequest", "Code")),
+							mkKeyValueExpr(
+								"Message",
+								mkCallExpr(
+									mkSelectorExpr("strings", "Join"),
+									ast.NewIdent("validationErrors"),
+									&ast.BasicLit{Value: `" and "`})),
+						},
+					},
+				))),
+	)
 
 	inputErrorCheck := mkIfStmt(mkAssignStmt([]ast.Expr{ast.NewIdent("err")}, []ast.Expr{extractModel}), errNotEqualNil, mkBlockStmt(returnErr))
 
@@ -254,6 +312,8 @@ func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 			List: []ast.Stmt{
 				inputExpr,
 				inputErrorCheck,
+				validationErrors,
+				validationErrorsCheck,
 				outputExpr,
 				notImplentedCheck,
 				outputErrorCheck,
