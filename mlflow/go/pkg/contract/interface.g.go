@@ -3,10 +3,10 @@
 package contract
 
 import (
-	"strings"
 	"github.com/gofiber/fiber/v2"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos/artifacts"
+	"strings"
 )
 
 type MlflowService interface {

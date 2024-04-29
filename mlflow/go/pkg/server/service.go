@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
@@ -14,11 +15,24 @@ type AbstractStore interface {
 }
 
 type MlflowService struct {
-	store AbstractStore
+	store     AbstractStore
+	validator *validator.Validate
 }
 
 func (m MlflowService) Validate(input interface{}) []string {
-	return make([]string, 0)
+	validationErrors := make([]string, 0)
+	errs := m.validator.Struct(input)
+
+	if errs != nil {
+		for _, err := range errs.(validator.ValidationErrors) {
+			field := err.Field()
+			tag := err.Tag()
+			value := err.Value()
+			validationErrors = append(validationErrors, fmt.Sprintf("%s should be %s, got %v", field, tag, value))
+		}
+	}
+
+	return validationErrors
 }
 
 // CreateExperiment implements MlflowService.
@@ -48,7 +62,6 @@ func (m MlflowService) DeleteTag(input *protos.DeleteTag) (*protos.DeleteTag_Res
 
 // GetExperiment implements MlflowService.
 func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *contract.MlflowError) {
-	// TODO: either validate here or assume validation is done in the handler
 	fmt.Printf("GetExperiment for %s\n", *input.ExperimentId)
 
 	err, experiment := m.store.GetExperiment(1)
@@ -157,7 +170,9 @@ func (m MlflowService) UpdateRun(input *protos.UpdateRun) (*protos.UpdateRun_Res
 }
 
 var (
-	mlflowService          contract.MlflowService = MlflowService{}
+	mlflowService contract.MlflowService = MlflowService{
+		validator: NewValidator(),
+	}
 	modelRegistryService   contract.ModelRegistryService
 	mlflowArtifactsService contract.MlflowArtifactsService
 )
