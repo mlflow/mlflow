@@ -8,13 +8,14 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
+from urllib.parse import urlparse
 
 import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -551,6 +552,14 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
+        # Check if the path is a local directory and not remote
+        path_scheme = urlparse(str(path)).scheme
+        if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
+            raise MlflowException(
+                f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
         path = download_artifacts(artifact_uri=path)
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
