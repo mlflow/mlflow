@@ -68,6 +68,7 @@ promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
+rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
 recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
@@ -194,6 +195,7 @@ __all__ = [
     "log_table",
     "log_text",
     "login",
+    "pyfunc",
     "register_model",
     "run",
     "search_experiments",

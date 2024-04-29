@@ -8,13 +8,14 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
+from urllib.parse import urlparse
 
 import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -551,6 +552,14 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
+        # Check if the path is a local directory and not remote
+        path_scheme = urlparse(str(path)).scheme
+        if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
+            raise MlflowException(
+                f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
         path = download_artifacts(artifact_uri=path)
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
@@ -836,3 +845,30 @@ def update_model_requirements(
     _logger.info(f"Uploading updated requirements files to {resolved_uri}...")
     _upload_artifact_to_uri(conda_yaml_path, resolved_uri)
     _upload_artifact_to_uri(requirements_txt_path, resolved_uri)
+
+
+__mlflow_model__ = None
+
+
+def set_model(model):
+    """
+    When logging model as code, this function can be used to set the model object
+    to be logged.
+
+    Args:
+        model: The model object to be logged.
+    """
+    from mlflow.pyfunc import PythonModel
+
+    if not isinstance(model, PythonModel):
+        try:
+            from mlflow.langchain import _validate_and_wrap_lc_model
+
+            # If its not a PyFuncModel, then it should be a Langchain model
+            _validate_and_wrap_lc_model(model, None)
+        except Exception as e:
+            raise mlflow.MlflowException(
+                "Model should either be an instance of PyFuncModel or Langchain type."
+            ) from e
+
+    globals()["__mlflow_model__"] = model
