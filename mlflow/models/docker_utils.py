@@ -81,13 +81,12 @@ def generate_dockerfile(
     """
     setup_java_steps = ""
     setup_python_venv_steps = ""
-    install_mlflow_steps = ""
+    install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
 
     if base_image.startswith("python:"):
         setup_python_venv_steps = (
             "RUN apt-get -y update && apt-get install -y --no-install-recommends nginx"
         )
-        install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
 
     elif base_image == UBUNTU_BASE_IMAGE:
         setup_python_venv_steps = (
@@ -106,7 +105,6 @@ def generate_dockerfile(
             f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
         )
 
-        install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
         install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
 
     with open(os.path.join(output_dir, "Dockerfile"), "w") as f:

@@ -386,11 +386,10 @@ class PyFuncBackend(FlavorBackend):
             pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
             base_image = base_image or self._get_base_image(model_path, install_java)
-            env_manager = self._env_manager
+            env_manager = self._env_manager or _EnvManager.LOCAL
 
             if base_image.startswith("python"):
                 # we can directly use local env for python image
-                env_manager = self._env_manager or em.LOCAL
                 if env_manager in [em.CONDA, em.VIRTUALENV]:
                     # we can directly use ubuntu image for conda and virtualenv
                     base_image = UBUNTU_BASE_IMAGE
