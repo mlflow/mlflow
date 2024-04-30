@@ -2639,7 +2639,8 @@ def fake_chat_stream_model():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_simple_chat_model_stream_inference(fake_chat_stream_model):
+@pytest.mark.parametrize("provide_signature", [True, False])
+def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_signature):
     input_example = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -2647,17 +2648,23 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model):
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    signature = infer_signature(model_input=input_example, model_output=None)
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             fake_chat_stream_model,
             "model",
         )
 
-    with mlflow.start_run():
-        model_with_siginature_info = mlflow.langchain.log_model(
-            fake_chat_stream_model, "model", signature=signature
-        )
+    if provide_signature:
+        signature = infer_signature(model_input=input_example)
+        with mlflow.start_run():
+            model_with_siginature_info = mlflow.langchain.log_model(
+                fake_chat_stream_model, "model", signature=signature
+            )
+    else:
+        with mlflow.start_run():
+            model_with_siginature_info = mlflow.langchain.log_model(
+                fake_chat_stream_model, "model", input_example=input_example
+            )
 
     for model_uri in [model_info.model_uri, model_with_siginature_info.model_uri]:
         loaded_model = mlflow.pyfunc.load_model(model_uri)
