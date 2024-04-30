@@ -5,7 +5,6 @@ import pytest
 import yaml
 
 from mlflow.models import ModelConfig
-import mlflow
 
 dir_path = os.path.dirname(os.path.abspath(__file__))
 VALID_CONFIG_PATH = os.path.join(dir_path, "configs/config.yaml")

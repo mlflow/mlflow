@@ -22,6 +22,7 @@ from mlflow.utils.uri import append_to_uri_path
 FLAVOR_CONFIG_CODE = "code"
 FLAVOR_CONFIG_MODEL_CODE = "model_code"
 
+
 def _get_all_flavor_configurations(model_path):
     """Obtains all the flavor configurations from the specified MLflow model path.
 
@@ -164,7 +165,6 @@ def _validate_path_exists(path, name):
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
-
 
 
 def _validate_and_copy_model_code_and_config_paths(code_path, config_path, path):

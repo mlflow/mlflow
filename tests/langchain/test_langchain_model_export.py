@@ -2348,7 +2348,7 @@ def test_save_load_chain_as_code(chain_model_signature):
 
     assert mlflow.models.model_config.__mlflow_model_config__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    assert mlflow.models.model_config.__mlflow_model_config__  is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2516,9 +2516,9 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
             input_example=input_example,
         )
 
-    assert mlflow.models.model_config.__mlflow_model_config__  is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    assert mlflow.models.model_config.__mlflow_model_config__  is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2551,10 +2551,7 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
 
 def test_config_path_context():
     with mlflow.langchain._config_path_context("tests/langchain/config.yml"):
-        assert (
-            mlflow.models.model_config.__mlflow_model_config__
-            == "tests/langchain/config.yml"
-        )
+        assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
 
     assert mlflow.models.model_config.__mlflow_model_config__ is None
 

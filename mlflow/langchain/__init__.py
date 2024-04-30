@@ -268,7 +268,7 @@ def save_model(
 
         if not model_config:
             # for backwards compatibility
-            if len(code_paths) == 1 and os.path.exists(code_paths[0]):
+            if code_paths and len(code_paths) == 1 and os.path.exists(code_paths[0]):
                 model_config_path = code_paths[0]
 
         _validate_and_copy_model_code_and_config_paths(lc_model, model_config_path, path)

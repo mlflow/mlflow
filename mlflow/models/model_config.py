@@ -6,7 +6,7 @@ import yaml
 __mlflow_model_config__ = None
 
 
-# Should we allow ModelConfig to take in dict?
+# TODO: Let ModelConfig take in a dictionary instead of a file path
 class ModelConfig:
     """
     ModelConfig used in code to read a YAML configuration file, and this configuration file can be
