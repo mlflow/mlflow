@@ -2394,7 +2394,11 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature):
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            model_config={"response": "modified response", "embedding_size": 5, "llm_prompt_template": "answer the question"},
+            model_config={
+                "response": "modified response",
+                "embedding_size": 5,
+                "llm_prompt_template": "answer the question",
+            },
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
