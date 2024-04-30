@@ -671,7 +671,10 @@ class SqlTraceInfo(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("request_id", name="trace_info_pk"),
-        # TODO: Add indexes
+        # The most frequent query will be get all traces in an experiment sorted by timestamp desc,
+        # which is the default view in the UI. Also every search query should have experiment_id(s)
+        # in the where clause.
+        Index(f"index_{__tablename__}_experiment_id", "experiment_id", "timestamp_ms"),
     )
 
     def to_mlflow_entity(self):
@@ -714,7 +717,11 @@ class SqlTraceTag(Base):
     """
 
     # Key is unique within a request_id
-    __table_args__ = (PrimaryKeyConstraint("request_id", "key", name="trace_tag_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("request_id", "key", name="trace_tag_pk"),
+        Index(f"index_{__tablename__}_request_id"),
+        # TODO: Should we add an index on key?
+    )
 
 
 class SqlTraceRequestMetadata(Base):
@@ -739,4 +746,8 @@ class SqlTraceRequestMetadata(Base):
     """
 
     # Key is unique within a request_id
-    __table_args__ = (PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
+        Index(f"index_{__tablename__}_request_id"),
+        # TODO: Should we add an index on key?
+    )

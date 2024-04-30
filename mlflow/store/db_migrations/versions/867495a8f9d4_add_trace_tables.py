@@ -34,6 +34,7 @@ def upgrade():
         sa.Column("execution_time_ms", sa.BigInteger(), nullable=True),
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.PrimaryKeyConstraint("request_id", name="trace_info_pk"),
+        sa.Index("ix_trace_info_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
     )
     op.create_table(
         SqlTraceTag.__tablename__,
@@ -50,6 +51,7 @@ def upgrade():
             primary_key=True,
         ),
         sa.PrimaryKeyConstraint("key", "request_id", name="trace_tag_pk"),
+        sa.Index("ix_trace_tag_request_id", "request_id"),
     )
     op.create_table(
         SqlTraceRequestMetadata.__tablename__,
@@ -66,6 +68,7 @@ def upgrade():
             primary_key=True,
         ),
         sa.PrimaryKeyConstraint("key", "request_id", name="trace_request_metadata_pk"),
+        sa.Index("ix_trace_request_metadata_request_id", "request_id"),
     )
 
 
