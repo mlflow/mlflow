@@ -948,7 +948,7 @@ def _load_model_code_path(code_path: str, config_path: Optional[str] = None):
         except ImportError as e:
             raise mlflow.MlflowException("Failed to import LangChain model.") from e
 
-    return mlflow.langchain._rag_utils.__databricks_rag_chain__
+    return mlflow.models.model.__mlflow_model__
 
 
 # TODO: We are keeping this method even though it is private because
