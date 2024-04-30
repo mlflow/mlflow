@@ -433,19 +433,11 @@ def test_enforce_array_with_errors():
 
 
 def test_model_code_validation():
-    invalid_code = """
-    dbutils.library.restartPython()
-    some_python_variable = 5
-    """
+    invalid_code = "dbutils.library.restartPython()\nsome_python_variable = 5"
 
-    warning_code = """
-    # dbutils.library.restartPython()
-    # MAGIC %run ../wheel_installer
-    """
+    warning_code = "# dbutils.library.restartPython()\n# MAGIC %run ../wheel_installer"
 
-    valid_code = """
-    some_valid_python_code = "valid"
-    """
+    valid_code = "some_valid_python_code = 'valid'"
 
     with pytest.raises(
         ValueError, match="The model file uses 'dbutils' command which is not supported."
