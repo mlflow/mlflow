@@ -109,10 +109,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+        metadata: {{ metadata }}
     """
     import spacy
 
@@ -242,10 +239,7 @@ def log_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+        metadata: {{ metadata }}
         kwargs: kwargs to pass to ``spacy.save_model`` method.
 
     Returns:
@@ -291,9 +285,6 @@ class _SpacyModelWrapper:
             dataframe: pandas dataframe containing texts to be categorized
                        expected shape is (n_rows,1 column)
             params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
 
         Returns:
             dataframe with predictions

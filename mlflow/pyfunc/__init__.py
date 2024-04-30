@@ -669,7 +669,6 @@ class PyFuncModel:
                 )
 
         params = _validate_params(params, self.metadata)
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
         if HAS_PYSPARK and isinstance(data, SparkDataFrame):
             _logger.warning(
                 "Input data is a Spark DataFrame. Note that behaviour for "
@@ -711,6 +710,8 @@ class PyFuncModel:
         data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_fn(data)
 
     def predict_stream(
@@ -739,6 +740,8 @@ class PyFuncModel:
         data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_stream_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_stream_fn(data)
 
     @experimental
@@ -2204,7 +2207,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 
@@ -2537,7 +2540,8 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
+
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 

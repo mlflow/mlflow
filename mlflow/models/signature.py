@@ -209,9 +209,6 @@ def infer_signature(
                     # Passing params to `predict` function directly
                     result = pyfunc_loaded.predict(data, params=params)
 
-              .. Note:: Experimental: This parameter may change or be removed in a future
-                                     release without warning.
-
     Returns:
       ModelSignature
     """

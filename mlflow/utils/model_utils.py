@@ -20,6 +20,7 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+FLAVOR_CONFIG_MODEL_CODE = "model_code"
 
 
 def _get_all_flavor_configurations(model_path):
@@ -33,15 +34,8 @@ def _get_all_flavor_configurations(model_path):
         The dictionary contains all flavor configurations with flavor name as key.
 
     """
-    model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
-    if not os.path.exists(model_configuration_path):
-        raise MlflowException(
-            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
-            RESOURCE_DOES_NOT_EXIST,
-        )
 
-    model_conf = Model.load(model_configuration_path)
-    return model_conf.flavors
+    return Model.load(model_path).flavors
 
 
 def _get_flavor_configuration(model_path, flavor_name):
@@ -58,13 +52,12 @@ def _get_flavor_configuration(model_path, flavor_name):
         The flavor configuration as a dictionary.
 
     """
-    flavors = _get_all_flavor_configurations(model_path)
-    if flavor_name not in flavors:
+    try:
+        return Model.load(model_path).flavors[flavor_name]
+    except KeyError as ex:
         raise MlflowException(
-            f'Model does not have the "{flavor_name}" flavor',
-            RESOURCE_DOES_NOT_EXIST,
-        )
-    return flavors[flavor_name]
+            f'Model does not have the "{flavor_name}" flavor', RESOURCE_DOES_NOT_EXIST
+        ) from ex
 
 
 def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
@@ -162,6 +155,20 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     return code_dir_subpath
 
 
+def _validate_and_copy_model_code_path(code_path, path, default_subpath="model_code"):
+    """Copies the model code from code_path to a directory.
+
+    Args:
+        code_path: A file containing model code that should be logged as an artifact.
+        path: The local model path.
+        default_subpath: The default directory name used to store model code artifacts.
+    """
+    if code_path:
+        return _validate_and_copy_code_paths([code_path], path, default_subpath)
+    else:
+        return None
+
+
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + sys.path
 
@@ -217,7 +224,10 @@ def _validate_onnx_session_options(onnx_session_options):
                     f"Value for key {key} in onnx_session_options should be a dict, "
                     "not {type(value)}"
                 )
-            elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
+            elif key == "execution_mode" and value.upper() not in [
+                "PARALLEL",
+                "SEQUENTIAL",
+            ]:
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be "
                     f"'parallel' or 'sequential', not {value}"
