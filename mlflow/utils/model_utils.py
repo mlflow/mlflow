@@ -20,7 +20,6 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
-FLAVOR_CONFIG_MODEL_CODE = "model_code"
 
 
 def _get_all_flavor_configurations(model_path):

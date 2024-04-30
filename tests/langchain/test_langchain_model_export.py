@@ -2751,3 +2751,122 @@ def test_langchain_model_not_streamable():
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     with pytest.raises(MlflowException, match="This model does not support predict_stream method"):
         loaded_model.predict_stream({"product": "shoe"})
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_langchain_model_save_exception(fake_chat_model):
+    from langchain.prompts import PromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+
+    prompt = PromptTemplate.from_template(
+        "What's your favorite {industry} company in {country}?", partial_variables={"country": "US"}
+    )
+    chain = prompt | fake_chat_model | StrOutputParser()
+    assert chain.invoke({"industry": "tech"}) == "Databricks"
+
+    with pytest.raises(
+        MlflowException, match=r"Failed to save runnable sequence: {'0': 'PromptTemplate -- "
+    ):
+        with mlflow.start_run():
+            mlflow.langchain.log_model(chain, "model_path", input_example={"industry": "tech"})
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
+def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_chat_model):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
+    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a helpful assistant."),
+            MessagesPlaceholder(variable_name="history"),
+            ("human", "{question}"),
+        ]
+    )
+
+    def retrieve_history(input):
+        return {"history": [], "question": input["question"], "name": input["name"]}
+
+    chain = (
+        {"question": itemgetter("question"), "name": itemgetter("name")}
+        | (RunnableLambda(retrieve_history) | prompt | fake_chat_model).with_listeners()
+        | StrOutputParser()
+        | RunnablePassthrough()
+    )
+    input_example = {"question": "Who owns MLflow?", "name": ""}
+    assert chain.invoke(input_example) == "Databricks"
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to save runnable sequence: {'1': 'RunnableSequence "
+        r"-- Cannot save runnable without `save` method.'",
+    ), mlflow.start_run():
+        mlflow.langchain.log_model(
+            chain,
+            artifact_path="chain",
+        )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_model_as_code_correct_streamable(chain_model_signature):
+    input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+    answer = "Databricks"
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/no_config/chain.py",
+            artifact_path="model_path",
+            signature=chain_model_signature,
+            input_example=input_example,
+            example_no_conversion=True,
+        )
+
+    assert model_info.flavors["langchain"]["streamable"] is True
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    with mock.patch("time.time", return_value=1677858242):
+        assert pyfunc_loaded_model._model_impl._predict_with_callbacks(input_example) == {
+            "id": None,
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": None,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "Databricks"},
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+            },
+        }
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    # avoid minor diff of created time in the response
+    prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    prediction_result["predictions"][0]["created"] = 123
+    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction["created"] = 123
+    assert prediction_result == {"predictions": [expected_prediction]}
+
+    langchain_flavor = model_info.flavors["langchain"]
+    assert langchain_flavor["databricks_dependency"] == {
+        "databricks_chat_endpoint_name": ["fake-endpoint"]
+    }
