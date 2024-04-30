@@ -36,7 +36,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH
+from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -267,7 +267,8 @@ def save_model(
         # TODO: deal with dicts properly as well
 
         if not model_config:
-            # for backwards compatibility
+            # If the model_config is not provided we fallback to getting the config path
+            # from code_paths so that is backwards compatible.
             if code_paths and len(code_paths) == 1 and os.path.exists(code_paths[0]):
                 model_config_path = code_paths[0]
 
@@ -328,7 +329,6 @@ def save_model(
             **model_data_kwargs,
         }
     else:
-        # TODO: use model_config instead
         # If the model is a string, we expect the code_path which is ideally config.yml
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
@@ -358,7 +358,6 @@ def save_model(
     if Version(langchain.__version__) >= Version("0.0.311"):
         checker_model = lc_model
         if isinstance(lc_model, str):
-            # TODO: use model_config instead of code_paths[0]
             checker_model = (
                 _load_model_code_path(lc_model, model_config_path)
                 if model_config_path
@@ -897,10 +896,14 @@ def load_model(model_uri, dst_path=None):
 @contextmanager
 def _config_path_context(code_path: Optional[str] = None):
     _set_model_config(code_path)
+    # set rag utils global for backwards compatibility
+    _set_config_path(code_path)
     try:
         yield
     finally:
         _set_model_config(None)
+        # unset rag utils global for backwards compatibility
+        _set_config_path(None)
 
 
 # In the Python's module caching mechanism, which by default, prevents the
