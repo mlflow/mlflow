@@ -3,6 +3,7 @@ import decimal
 import json
 import logging
 import os
+import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
@@ -1389,3 +1390,67 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
     if converter:
         return converter(value)
     return value
+
+
+def _is_in_comment(line, start):
+    """
+    Check if the code at the index "start" of the line is in a comment.
+
+    Limitations: This function does not handle multi-line comments, and the # symbol could be in a
+    string, or otherwise not indicate a comment.
+    """
+    return "#" in line[:start]
+
+
+def _is_in_string_only(line, search_string):
+    """
+    Check is the search_string
+
+    Limitations: This function does not handle multi-line strings.
+    """
+    # Regex for matching double quotes and everything inside
+    double_quotes_regex = r"\"(\\.|[^\"])*\""
+
+    # Regex for matching single quotes and everything inside
+    single_quotes_regex = r"\'(\\.|[^\'])*\'"
+
+    # Regex for matching search_string exactly
+    search_string_regex = rf"({re.escape(search_string)})"
+
+    # Concatenate the patterns using the OR operator '|'
+    # This will matches left to right - on quotes first, search_string last
+    pattern = double_quotes_regex + r"|" + single_quotes_regex + r"|" + search_string_regex
+
+    # Iterate through all matches in the line
+    for match in re.finditer(pattern, line):
+        # If the regex matched on the search_string, we know that it did not match in quotes since
+        # that is the order. So we know that the search_string exists outside of quotes
+        # (at least once).
+        if match.group() == search_string:
+            return False
+    return True
+
+
+def _validate_model_code_from_notebook(code):
+    """
+    Validate there isn't any code that would work in a notebook but not as exported Python file.
+    For now, this checks for dbutils and magic commands.
+    """
+    error_message = (
+        "The model file uses 'dbutils' command which is not supported. To ensure your code "
+        "functions correctly, remove or comment out usage of 'dbutils' command."
+    )
+
+    for line in code.splitlines():
+        for match in re.finditer(r"\bdbutils\b", line):
+            start = match.start()
+            if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
+                raise ValueError(error_message)
+
+    magic_regex = r"^# MAGIC %\S+.*"
+    if re.search(magic_regex, code, re.MULTILINE):
+        _logger.warning(
+            "The model file uses magic commands which have been commented out. To ensure your code "
+            "functions correctly, make sure that it does not rely on these magic commands for."
+            "correctness."
+        )
