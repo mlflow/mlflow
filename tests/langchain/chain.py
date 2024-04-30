@@ -53,7 +53,7 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
     return FakeChatModel(endpoint=endpoint)
 
 
-config_path = mlflow.langchain._rag_utils.__databricks_rag_config_path__
+config_path = mlflow.models.model_config.__mlflow_model_config__
 assert os.path.exists(config_path)
 
 with open(config_path) as f:
