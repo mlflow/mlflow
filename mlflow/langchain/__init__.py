@@ -229,6 +229,11 @@ def save_model(
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
         example_no_conversion: {{ example_no_conversion }}
+        model_config: The model configuration to apply to the model. This configuration
+            is available during model loading.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -350,7 +355,7 @@ def save_model(
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
         streamable=streamable,
-        model_code=model_code_path,
+        model_code_path=model_code_path,
         model_config=None if isinstance(model_config, str) else model_config,
         **model_data_kwargs,
     )
