@@ -6,7 +6,7 @@ from unittest import mock
 from unittest.mock import ANY, call, mock_open
 
 import pytest
-from pyarrow import HadoopFileSystem
+from pyarrow.fs import HadoopFileSystem
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.hdfs_artifact_repo import (
