@@ -612,7 +612,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        messages, return_first_element = self._prepare_messages(data)
+        messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(lc_model=self.lc_model, requests=messages)
         return results[0] if return_first_element else results
 
@@ -637,7 +637,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        messages, return_first_element = self._prepare_messages(data)
+        messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
             requests=messages,
@@ -646,14 +646,8 @@ class _LangChainModelWrapper:
         )
         return results[0] if return_first_element else results
 
-    def _prepare_messages(self, data):
-        """
-        Return a tuple of (preprocessed_data, return_first_element)
-        `preprocessed_data` is always a list,
-        and `return_first_element` means if True, we should return the first element
-        of inference result, otherwise we should return the whole inference result.
-        """
-        # This handels spark_udf inputs and input_example inputs
+    def _convert_input_data(self, data):
+        # This handles spark_udf inputs and input_example inputs
         if isinstance(data, pd.DataFrame):
             # if the data only contains a single key as 0, we assume the input
             # is either a string or list of strings
@@ -663,6 +657,17 @@ class _LangChainModelWrapper:
                 data = data.to_dict(orient="records")
 
         data = _convert_ndarray_to_list(data)
+        return data
+
+    def _prepare_predict_messages(self, data):
+        """
+        Return a tuple of (preprocessed_data, return_first_element)
+        `preprocessed_data` is always a list,
+        and `return_first_element` means if True, we should return the first element
+        of inference result, otherwise we should return the whole inference result.
+        """
+        data = self._convert_input_data(data)
+
         if not isinstance(data, list):
             # if the input data is not a list (i.e. single input),
             # we still need to convert it to a one-element list `[data]`
@@ -677,6 +682,20 @@ class _LangChainModelWrapper:
             "Input must be a pandas DataFrame or a list "
             f"for model {self.lc_model.__class__.__name__}"
         )
+
+    def _prepare_predict_stream_messages(self, data):
+        data = self._convert_input_data(data)
+
+        if isinstance(data, list):
+            # `predict_stream` only accepts single input.
+            # but `enforce_schema` might convert single input into a list like `[single_input]`
+            # so extract the first element in the list.
+            if len(data) != 1:
+                raise MlflowException(
+                    f"'predict_stream' requires single input, but it got input data {data}"
+                )
+            return data[0]
+        return data
 
     def predict_stream(
         self,
@@ -693,10 +712,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
-        if isinstance(data, list):
-            raise MlflowException("LangChain model predict_stream only supports single input.")
-
-        data = _convert_ndarray_to_list(data)
+        data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,
@@ -722,10 +738,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_stream_request
 
-        if isinstance(data, list):
-            raise MlflowException("LangChain model predict_stream only supports single input.")
-
-        data = _convert_ndarray_to_list(data)
+        data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,

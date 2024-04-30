@@ -2640,11 +2640,6 @@ def fake_chat_stream_model():
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 def test_simple_chat_model_stream_inference(fake_chat_stream_model):
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(fake_chat_stream_model, "model")
-
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-
     input_example = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -2652,59 +2647,72 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model):
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
+    signature = infer_signature(model_input=input_example, model_output=None)
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            fake_chat_stream_model, "model",
+        )
 
-    chunk_iter = loaded_model.predict_stream(input_example)
+    with mlflow.start_run():
+        model_with_siginature_info = mlflow.langchain.log_model(
+            fake_chat_stream_model, "model", signature=signature
+        )
 
-    finish_reason = None if Version(langchain.__version__) < Version("0.1.0") else "stop"
+    for model_uri in [model_info.model_uri, model_with_siginature_info.model_uri]:
+        loaded_model = mlflow.pyfunc.load_model(model_uri)
 
-    with mock.patch("time.time", return_value=1677858242):
-        chunks = list(chunk_iter)
+        chunk_iter = loaded_model.predict_stream(input_example)
 
-        for chunk in chunks:
-            assert "id" in chunk, "chunk id is lost."
-            chunk["id"] = None
+        finish_reason = None if Version(langchain.__version__) < Version("0.1.0") else "stop"
 
-        assert chunks == [
-            {
-                "id": None,
-                "object": "chat.completion.chunk",
-                "created": 1677858242,
-                "model": None,
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": None,
-                        "delta": {"role": "assistant", "content": "Da"},
-                    }
-                ],
-            },
-            {
-                "id": None,
-                "object": "chat.completion.chunk",
-                "created": 1677858242,
-                "model": None,
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": None,
-                        "delta": {"role": "assistant", "content": "tab"},
-                    }
-                ],
-            },
-            {
-                "id": None,
-                "object": "chat.completion.chunk",
-                "created": 1677858242,
-                "model": None,
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": finish_reason,
-                        "delta": {"role": "assistant", "content": "ricks"},
-                    }
-                ],
-            },
-        ]
+        with mock.patch("time.time", return_value=1677858242):
+            chunks = list(chunk_iter)
+
+            for chunk in chunks:
+                assert "id" in chunk, "chunk id is lost."
+                chunk["id"] = None
+
+            assert chunks == [
+                {
+                    "id": None,
+                    "object": "chat.completion.chunk",
+                    "created": 1677858242,
+                    "model": None,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "finish_reason": None,
+                            "delta": {"role": "assistant", "content": "Da"},
+                        }
+                    ],
+                },
+                {
+                    "id": None,
+                    "object": "chat.completion.chunk",
+                    "created": 1677858242,
+                    "model": None,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "finish_reason": None,
+                            "delta": {"role": "assistant", "content": "tab"},
+                        }
+                    ],
+                },
+                {
+                    "id": None,
+                    "object": "chat.completion.chunk",
+                    "created": 1677858242,
+                    "model": None,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "finish_reason": finish_reason,
+                            "delta": {"role": "assistant", "content": "ricks"},
+                        }
+                    ],
+                },
+            ]
 
 
 @pytest.mark.skipif(
