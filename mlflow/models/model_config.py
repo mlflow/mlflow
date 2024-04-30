@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Union, Dict, Any
+from typing import Any, Dict, Optional, Union
 
 import yaml
 

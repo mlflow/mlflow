@@ -263,7 +263,7 @@ def save_model(
 
         if isinstance(model_config, dict):
             model_config_path = os.path.join(path, "mlflow_config.yaml")
-            with open(model_config_path, 'w') as file:
+            with open(model_config_path, "w") as file:
                 yaml.dump(model_config, file)
         elif isinstance(model_config, str):
             if os.path.exists(model_config):
