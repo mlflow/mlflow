@@ -241,12 +241,15 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     model_config_path = None
+    model_code_path = None
     if isinstance(lc_model, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
 
-        if not os.path.exists(lc_model):
+        if os.path.exists(lc_model):
+            model_code_path = lc_model
+        else:
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"If the provided model '{lc_model}' is a string, it must be a valid python "
                 "file path or a databricks notebook file path containing the code for defining "
@@ -347,7 +350,7 @@ def save_model(
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
         streamable=streamable,
-        model_code=model_code_dir_subpath,
+        model_code=model_code_path,
         model_config=None if isinstance(model_config, str) else model_config,
         **model_data_kwargs,
     )
@@ -369,7 +372,8 @@ def save_model(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
         code=code_dir_subpath,
-        model_code=model_code_dir_subpath,
+        model_code=model_code_path,
+        model_config=model_config_path,
         streamable=streamable,
         **flavor_conf,
     )
