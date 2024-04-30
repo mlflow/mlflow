@@ -3,9 +3,10 @@ from typing import Optional
 
 import yaml
 
-import mlflow
+__mlflow_model_config__ = None
 
 
+# TODO: Let ModelConfig take in a dictionary instead of a file path
 class ModelConfig:
     """
     ModelConfig used in code to read a YAML configuration file, and this configuration file can be
@@ -13,11 +14,10 @@ class ModelConfig:
     """
 
     def __init__(self, *, development_config: Optional[str] = None):
-        # TODO: Update global path after we pass in paths using model_config
-        _mlflow_rag_config_path = getattr(
-            mlflow.langchain._rag_utils, "__databricks_rag_config_path__", None
-        )
-        self.config_path = _mlflow_rag_config_path or development_config
+        config = globals().get("__mlflow_model_config__", None)
+        # backwards compatibility
+        rag_config = globals().get("__databricks_rag_config_path__", None)
+        self.config_path = config or rag_config or development_config
 
         if not self.config_path:
             raise FileNotFoundError("Config file is None. Please provide a valid path.")
@@ -50,3 +50,7 @@ class ModelConfig:
             return config_data[key]
         else:
             raise KeyError(f"Key '{key}' not found in configuration: {config_data}.")
+
+
+def _set_model_config(model_config):
+    globals()["__mlflow_model_config__"] = model_config
