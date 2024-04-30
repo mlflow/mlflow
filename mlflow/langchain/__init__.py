@@ -256,7 +256,11 @@ def save_model(
                 "the chain instance."
             )
 
-        if isinstance(model_config, str):
+        if isinstance(model_config, dict):
+            model_config_path = os.path.join(path, "mlflow_config.yaml")
+            with open(model_config_path, 'w') as file:
+                yaml.dump(model_config, file)
+        if not isinstance(model_config, dict) and isinstance(model_config, str):
             if os.path.exists(model_config):
                 model_config_path = model_config
             else:
@@ -264,7 +268,6 @@ def save_model(
                     f"If the provided model_config '{model_config}' is a string, it must be a "
                     "valid yaml file path containing the configuration for the model."
                 )
-        # TODO: deal with dicts properly as well
 
         if not model_config:
             # If the model_config is not provided we fallback to getting the config path
@@ -333,7 +336,6 @@ def save_model(
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
-        # TODO: what if model_config is not a string / file path?
         flavor_conf = (
             {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: lc_model}
             if model_config_path
