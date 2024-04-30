@@ -2650,7 +2650,8 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model):
     signature = infer_signature(model_input=input_example, model_output=None)
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            fake_chat_stream_model, "model",
+            fake_chat_stream_model,
+            "model",
         )
 
     with mlflow.start_run():
