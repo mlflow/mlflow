@@ -269,7 +269,7 @@ def save_model(
         if not model_config:
             # for backwards compatibility
             if len(code_paths) == 1 and os.path.exists(code_paths[0]):
-                model_config_path = model_config
+                model_config_path = code_paths[0]
 
         _validate_and_copy_model_code_and_config_paths(lc_model, model_config_path, path)
 
@@ -372,8 +372,6 @@ def save_model(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
         code=code_dir_subpath,
-        model_code=model_code_path,
-        model_config=model_config_path,
         streamable=streamable,
         **flavor_conf,
     )
