@@ -415,6 +415,7 @@ from mlflow.models.utils import (
     PyFuncLLMSingleInput,
     PyFuncLLMOutputChunk,
     PyFuncOutput,
+    _convert_llm_input_data,
     _enforce_params_schema,
     _enforce_schema,
     _save_example,
@@ -677,8 +678,8 @@ class PyFuncModel:
         return data, params
 
     def predict(
-            self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
-    ) -> PyFuncLLMOutputChunk:
+            self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
+    ) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -715,8 +716,8 @@ class PyFuncModel:
         return self._predict_fn(data)
 
     def predict_stream(
-        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
-    ) -> Iterator[PyFuncOutput]:
+        self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[PyFuncLLMOutputChunk]:
         """
         Generates streaming model predictions. Only LLM suports this method.
 
@@ -738,6 +739,17 @@ class PyFuncModel:
             raise MlflowException("This model does not support predict_stream method.")
 
         data, params = self._validate_prediction_input(data, params)
+        data = _convert_llm_input_data(data)
+        if isinstance(data, list):
+            # `predict_stream` only accepts single input.
+            # but `enforce_schema` might convert single input into a list like `[single_input]`
+            # so extract the first element in the list.
+            if len(data) != 1:
+                raise MlflowException(
+                    f"'predict_stream' requires single input, but it got input data {data}"
+                )
+            data = data[0]
+
         if inspect.signature(self._predict_stream_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
 

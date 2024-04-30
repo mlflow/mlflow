@@ -30,6 +30,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.models.utils import _convert_llm_input_data
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
@@ -579,20 +580,6 @@ def _load_model(local_model_path, flavor_conf):
     return model
 
 
-# numpy array is not json serializable, so we convert it to list
-# then send it to the model
-def _convert_ndarray_to_list(data):
-    import numpy as np
-
-    if isinstance(data, np.ndarray):
-        return data.tolist()
-    if isinstance(data, list):
-        return [_convert_ndarray_to_list(d) for d in data]
-    if isinstance(data, dict):
-        return {k: _convert_ndarray_to_list(v) for k, v in data.items()}
-    return data
-
-
 class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
@@ -646,18 +633,6 @@ class _LangChainModelWrapper:
         )
         return results[0] if return_first_element else results
 
-    def _convert_input_data(self, data):
-        # This handles spark_udf inputs and input_example inputs
-        if isinstance(data, pd.DataFrame):
-            # if the data only contains a single key as 0, we assume the input
-            # is either a string or list of strings
-            if list(data.columns) == [0]:
-                data = data.to_dict("list")[0]
-            else:
-                data = data.to_dict(orient="records")
-
-        return _convert_ndarray_to_list(data)
-
     def _prepare_predict_messages(self, data):
         """
         Return a tuple of (preprocessed_data, return_first_element)
@@ -665,7 +640,7 @@ class _LangChainModelWrapper:
         and `return_first_element` means if True, we should return the first element
         of inference result, otherwise we should return the whole inference result.
         """
-        data = self._convert_input_data(data)
+        data = _convert_llm_input_data(data)
 
         if not isinstance(data, list):
             # if the input data is not a list (i.e. single input),
@@ -683,7 +658,7 @@ class _LangChainModelWrapper:
         )
 
     def _prepare_predict_stream_messages(self, data):
-        data = self._convert_input_data(data)
+        data = _convert_llm_input_data(data)
 
         if isinstance(data, list):
             # `predict_stream` only accepts single input.
