@@ -871,7 +871,7 @@ class MlflowClient:
             request_id=request_id,
             timestamp_ms=timestamp_ms,
             status=status,
-            request_metadata=request_metadata,
+            request_metadata=request_metadata or {},
             tags=self._exclude_immutable_tags(tags or {}),
         )
 

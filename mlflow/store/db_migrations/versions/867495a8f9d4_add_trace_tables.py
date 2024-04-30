@@ -24,14 +24,16 @@ def upgrade():
         sa.Column(
             "experiment_id",
             sa.Integer(),
-            sa.ForeignKey("experiments.experiment_id"),
+            sa.ForeignKey(
+                column="experiments.experiment_id",
+                name="fk_trace_info_experiment_id",
+            ),
             nullable=False,
         ),
         sa.Column("timestamp_ms", sa.BigInteger(), nullable=False),
         sa.Column("execution_time_ms", sa.BigInteger(), nullable=True),
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.PrimaryKeyConstraint("request_id", name="trace_info_pk"),
-        # TODO: Add indexes
     )
     op.create_table(
         SqlTraceTag.__tablename__,
@@ -40,7 +42,10 @@ def upgrade():
         sa.Column(
             "request_id",
             sa.String(length=50),
-            sa.ForeignKey(SqlTraceInfo.request_id),
+            sa.ForeignKey(
+                column=SqlTraceInfo.request_id,
+                name="fk_trace_tag_request_id",
+            ),
             nullable=False,
             primary_key=True,
         ),
@@ -53,7 +58,10 @@ def upgrade():
         sa.Column(
             "request_id",
             sa.String(length=50),
-            sa.ForeignKey(SqlTraceInfo.request_id),
+            sa.ForeignKey(
+                column=SqlTraceInfo.request_id,
+                name="fk_trace_request_metadata_request_id",
+            ),
             nullable=False,
             primary_key=True,
         ),
