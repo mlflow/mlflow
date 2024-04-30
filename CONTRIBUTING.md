@@ -906,10 +906,10 @@ for an example.
 
 > Note: If you are experiencing issues with rstcheck warning of failures in files that you did not modify, try:
 
-  ```bash
-  cd docs
-  make clean; make html
-  ```
+```bash
+cd docs
+make clean; make html
+```
 
 ### Sign your work
 
