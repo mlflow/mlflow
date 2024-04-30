@@ -229,6 +229,11 @@ def save_model(
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
         example_no_conversion: {{ example_no_conversion }}
+        model_config: The model configuration to apply to the model if saving model as code. This
+            configuration is available during model loading.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -260,7 +265,7 @@ def save_model(
             model_config_path = os.path.join(path, "mlflow_config.yaml")
             with open(model_config_path, 'w') as file:
                 yaml.dump(model_config, file)
-        if not isinstance(model_config, dict) and isinstance(model_config, str):
+        elif isinstance(model_config, str):
             if os.path.exists(model_config):
                 model_config_path = model_config
             else:
@@ -268,8 +273,7 @@ def save_model(
                     f"If the provided model_config '{model_config}' is a string, it must be a "
                     "valid yaml file path containing the configuration for the model."
                 )
-
-        if not model_config:
+        elif not model_config:
             # If the model_config is not provided we fallback to getting the config path
             # from code_paths so that is backwards compatible.
             if code_paths and len(code_paths) == 1 and os.path.exists(code_paths[0]):
@@ -336,6 +340,7 @@ def save_model(
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
+        # TODO: what if model_config is not a string / file path?
         flavor_conf = (
             {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: lc_model}
             if model_config_path
@@ -352,7 +357,7 @@ def save_model(
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
         streamable=streamable,
-        model_code=model_code_path,
+        model_code_path=model_code_path,
         model_config=None if isinstance(model_config, str) else model_config,
         **model_data_kwargs,
     )
@@ -528,8 +533,8 @@ def log_model(
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
-        model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+        model_config: The model configuration to apply to the model if saving model as code. This
+            configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -635,7 +640,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        messages, return_first_element = self._prepare_messages(data)
+        messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(lc_model=self.lc_model, requests=messages)
         return results[0] if return_first_element else results
 
@@ -660,7 +665,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        messages, return_first_element = self._prepare_messages(data)
+        messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
             requests=messages,
@@ -669,14 +674,8 @@ class _LangChainModelWrapper:
         )
         return results[0] if return_first_element else results
 
-    def _prepare_messages(self, data):
-        """
-        Return a tuple of (preprocessed_data, return_first_element)
-        `preprocessed_data` is always a list,
-        and `return_first_element` means if True, we should return the first element
-        of inference result, otherwise we should return the whole inference result.
-        """
-        # This handels spark_udf inputs and input_example inputs
+    def _convert_input_data(self, data):
+        # This handles spark_udf inputs and input_example inputs
         if isinstance(data, pd.DataFrame):
             # if the data only contains a single key as 0, we assume the input
             # is either a string or list of strings
@@ -685,7 +684,17 @@ class _LangChainModelWrapper:
             else:
                 data = data.to_dict(orient="records")
 
-        data = _convert_ndarray_to_list(data)
+        return _convert_ndarray_to_list(data)
+
+    def _prepare_predict_messages(self, data):
+        """
+        Return a tuple of (preprocessed_data, return_first_element)
+        `preprocessed_data` is always a list,
+        and `return_first_element` means if True, we should return the first element
+        of inference result, otherwise we should return the whole inference result.
+        """
+        data = self._convert_input_data(data)
+
         if not isinstance(data, list):
             # if the input data is not a list (i.e. single input),
             # we still need to convert it to a one-element list `[data]`
@@ -700,6 +709,20 @@ class _LangChainModelWrapper:
             "Input must be a pandas DataFrame or a list "
             f"for model {self.lc_model.__class__.__name__}"
         )
+
+    def _prepare_predict_stream_messages(self, data):
+        data = self._convert_input_data(data)
+
+        if isinstance(data, list):
+            # `predict_stream` only accepts single input.
+            # but `enforce_schema` might convert single input into a list like `[single_input]`
+            # so extract the first element in the list.
+            if len(data) != 1:
+                raise MlflowException(
+                    f"'predict_stream' requires single input, but it got input data {data}"
+                )
+            return data[0]
+        return data
 
     def predict_stream(
         self,
@@ -718,10 +741,7 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
-        if isinstance(data, list):
-            raise MlflowException("LangChain model predict_stream only supports single input.")
-
-        data = _convert_ndarray_to_list(data)
+        data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,
@@ -749,10 +769,7 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
-        if isinstance(data, list):
-            raise MlflowException("LangChain model predict_stream only supports single input.")
-
-        data = _convert_ndarray_to_list(data)
+        data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,
