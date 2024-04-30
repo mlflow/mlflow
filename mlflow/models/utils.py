@@ -63,6 +63,20 @@ ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
+PyFuncLLMSingleInput = Union[
+    Dict[str, Any],
+    bool,
+    bytes,
+    float,
+    int,
+    str,
+]
+
+PyFuncLLMOutputChunk = Union[
+    Dict[str, Any],
+    str,
+]
+
 PyFuncInput = Union[
     pd.DataFrame,
     pd.Series,

@@ -546,11 +546,12 @@ class _PythonModelPyfuncWrapper:
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
         Args:
-            model_input: Model input data.
+            model_input: Model input data as one of dict, str, bool, bytes, float, int, str type.
             params: Additional parameters to pass to the model for inference.
 
         Returns:
-            Model predictions.
+            Model predictions as an iterator of chunks. The chunks in the iterator must be type of
+            dict or string. Chunk dict fields are determined by the model implementation.
         """
         if inspect.signature(self.python_model.predict).parameters.get("params"):
             return self.python_model.predict(
@@ -562,7 +563,7 @@ class _PythonModelPyfuncWrapper:
     def predict_stream(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
         Args:
-            model_input: Model input data.
+            model_input: LLM Model single input.
             params: Additional parameters to pass to the model for inference.
 
         Returns:

@@ -412,6 +412,8 @@ from mlflow.models.signature import (
 )
 from mlflow.models.utils import (
     PyFuncInput,
+    PyFuncLLMSingleInput,
+    PyFuncLLMOutputChunk,
     PyFuncOutput,
     _enforce_params_schema,
     _enforce_schema,
@@ -675,7 +677,9 @@ class PyFuncModel:
             )
         return data, params
 
-    def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
+    def predict(
+            self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+    ) -> PyFuncLLMOutputChunk:
         """
         Generates model predictions.
 
@@ -685,7 +689,7 @@ class PyFuncModel:
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
 
         Args:
-            data: Model input as one of pandas.DataFrame, numpy.ndarray,
+            data: LLM Model single input as one of pandas.DataFrame, numpy.ndarray,
                 scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
                 Dict[str, numpy.ndarray].
                 For model signatures with tensor spec inputs
@@ -713,7 +717,7 @@ class PyFuncModel:
         self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
     ) -> Iterator[PyFuncOutput]:
         """
-        Generates streaming model predictions.
+        Generates streaming model predictions. Only LLM suports this method.
 
         If the model contains signature, enforce the input schema first before calling the model
         implementation with the sanitized input. If the pyfunc model does not include model schema,
@@ -721,26 +725,12 @@ class PyFuncModel:
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
 
         Args:
-            data: Model input as one of pandas.DataFrame, numpy.ndarray,
-                scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
-                Dict[str, numpy.ndarray].
-                For model signatures with tensor spec inputs
-                (e.g. the Tensorflow core / Keras model), the input data type must be one of
-                `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
-                `pandas.DataFrame`. If data is of `pandas.DataFrame` type and the model
-                contains a signature with tensor spec inputs, the corresponding column values
-                in the pandas DataFrame will be reshaped to the required shape with 'C' order
-                (i.e. read / write the elements using C-like index order), and DataFrame
-                column values will be cast as the required tensor spec type. For Pyspark
-                DataFrame inputs, MLflow will only enforce the schema on a subset
-                of the data rows.
+            data: LLM Model single input as one of dict, str, bool, bytes, float, int, str type.
             params: Additional parameters to pass to the model for inference.
 
         Returns:
-            Model predictions as an iterator. The elements in the iterator are determined by
-            the model streaming prediction. Currently Langchain model streaming prediction is
-            supported, its `predict_stream` method accepts single input and return an iterator
-            of result chunks.
+            Model predictions as an iterator of chunks. The chunks in the iterator must be type of
+            dict or string. Chunk dict fields are determined by the model implementation.
         """
 
         if self._predict_stream_fn is None:
