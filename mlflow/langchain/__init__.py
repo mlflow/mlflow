@@ -55,6 +55,7 @@ from mlflow.langchain.utils import (
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model_config import _set_model_config
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -85,7 +86,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _validate_and_copy_model_code_path,
+    _validate_and_copy_model_code_and_config_paths,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -94,6 +95,8 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
+_MODEL_CODE_CONFIG = "model_config"
+_MODEL_CODE_PATH = "model_code_path"
 
 
 def get_default_pip_requirements():
@@ -133,6 +136,7 @@ def save_model(
     loader_fn=None,
     persist_dir=None,
     example_no_conversion=False,
+    model_config=None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -228,6 +232,11 @@ def save_model(
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
         example_no_conversion: {{ example_no_conversion }}
+        model_config: The model configuration to apply to the model if saving model as code. This
+            configuration is available during model loading.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -238,6 +247,8 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
+
+    model_config_path = None
     model_code_path = None
     if isinstance(lc_model, str):
         # The LangChain model is defined as Python code located in the file at the path
@@ -252,17 +263,26 @@ def save_model(
                 "file path or a databricks notebook file path containing the code for defining "
                 "the chain instance."
             )
-        if code_paths and len(code_paths) > 1:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "When the model is a string, and if the code_paths are specified, "
-                "it should contain only one path."
-                "This config path is used to set config.yml file path "
-                "for the model. This path should be passed in via the code_paths. "
-                f"Current code paths: {code_paths}"
-            )
+
+        if isinstance(model_config, str):
+            if os.path.exists(model_config):
+                model_config_path = model_config
+            else:
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"If the provided model_config '{model_config}' is a string, it must be a "
+                    "valid yaml file path containing the configuration for the model."
+                )
+        # TODO: deal with dicts properly as well
+
+        if not model_config:
+            # If the model_config is not provided we fallback to getting the config path
+            # from code_paths so that is backwards compatible.
+            if code_paths and len(code_paths) == 1 and os.path.exists(code_paths[0]):
+                model_config_path = code_paths[0]
+
+        _validate_and_copy_model_code_and_config_paths(lc_model, model_config_path, path)
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-    model_code_dir_subpath = _validate_and_copy_model_code_path(model_code_path, path)
 
     if signature is None:
         if input_example is not None:
@@ -317,19 +337,19 @@ def save_model(
             **model_data_kwargs,
         }
     else:
-        # TODO: use model_config instead
         # If the model is a string, we expect the code_path which is ideally config.yml
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
+        # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {_CODE_CONFIG: code_paths[0], _CODE_PATH: lc_model}
-            if code_paths and len(code_paths) >= 1
-            else {_CODE_CONFIG: None, _CODE_PATH: lc_model}
+            {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: lc_model}
+            if model_config_path
+            else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: lc_model}
         )
         model_data_kwargs = {}
 
-    # TODO: pass model_config
+    # TODO: Pass file paths for model_config when it is supported in pyfunc
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -338,17 +358,17 @@ def save_model(
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
         streamable=streamable,
-        model_code=model_code_dir_subpath,
+        model_code_path=model_code_path,
+        model_config=None if isinstance(model_config, str) else model_config,
         **model_data_kwargs,
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
         checker_model = lc_model
         if isinstance(lc_model, str):
-            # TODO: use model_config instead of code_paths[0]
             checker_model = (
-                _load_model_code_path(lc_model, code_paths[0])
-                if code_paths and len(code_paths) >= 1
+                _load_model_code_path(lc_model, model_config_path)
+                if model_config_path
                 else _load_model_code_path(lc_model)
             )
 
@@ -359,7 +379,6 @@ def save_model(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
         code=code_dir_subpath,
-        model_code=model_code_dir_subpath,
         streamable=streamable,
         **flavor_conf,
     )
@@ -411,6 +430,7 @@ def log_model(
     persist_dir=None,
     example_no_conversion=False,
     run_id=None,
+    model_config=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -517,6 +537,11 @@ def log_model(
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
+        model_config: The model configuration to apply to the model if saving model as code. This
+            configuration is available during model loading.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -541,6 +566,7 @@ def log_model(
         persist_dir=persist_dir,
         example_no_conversion=example_no_conversion,
         run_id=run_id,
+        model_config=model_config,
     )
 
 
@@ -722,7 +748,9 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
@@ -751,7 +779,9 @@ class _LangChainModelWrapper:
         Returns:
             An iterator of model prediction chunks.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_stream_request
+        from mlflow.langchain.api_request_parallel_processor import (
+            process_stream_request,
+        )
 
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
@@ -840,7 +870,12 @@ def _load_pyfunc(path):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if _CODE_CONFIG in flavor_conf:
+    if _MODEL_CODE_PATH in flavor_conf:
+        code_path = flavor_conf.get(_MODEL_CODE_PATH)
+        config_path = flavor_conf.get(_MODEL_CODE_CONFIG, None)
+        return _load_model_code_path(code_path, config_path)
+    # Code for backwards compatibility, relies on RAG utils - remove in the future
+    elif _CODE_CONFIG in flavor_conf:
         path = flavor_conf.get(_CODE_CONFIG)
         flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
         if path is not None:
@@ -896,10 +931,14 @@ def load_model(model_uri, dst_path=None):
 
 @contextmanager
 def _config_path_context(code_path: Optional[str] = None):
+    _set_model_config(code_path)
+    # set rag utils global for backwards compatibility
     _set_config_path(code_path)
     try:
         yield
     finally:
+        _set_model_config(None)
+        # unset rag utils global for backwards compatibility
         _set_config_path(None)
 
 
