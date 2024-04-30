@@ -60,3 +60,8 @@ def test_config_setup_with_mlflow_langchain_path():
 def test_config_development_config_must_be_specified_with_keyword():
     with pytest.raises(TypeError, match="1 positional argument but 2 were given"):
         ModelConfig(VALID_CONFIG_PATH_2)
+
+
+def test_config_development_config_is_a_dict():
+    config = ModelConfig(development_config={"llm_parameters": {"temperature": 0.01}})
+    assert config.get("llm_parameters").get("temperature") == 0.01
