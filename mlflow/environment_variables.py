@@ -568,9 +568,11 @@ MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
 )
 
 #: Private configuration option.
-#: Enables the ability to catch exceptions within MLflow evaluate for classification models 
-#: where a class imbalance due to a missing target class would raise an error in the 
-#: underlying metrology modules (scikit-learn). If set to True, specific exceptions will be 
-#: caught, alerted via the warnings module, and evaluation will resume. 
+#: Enables the ability to catch exceptions within MLflow evaluate for classification models
+#: where a class imbalance due to a missing target class would raise an error in the
+#: underlying metrology modules (scikit-learn). If set to True, specific exceptions will be
+#: caught, alerted via the warnings module, and evaluation will resume.
 #: (default: ``False``)
-_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY = _BooleanEnvironmentVariable("_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY", False)
+_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY = _BooleanEnvironmentVariable(
+    "_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY", False
+)

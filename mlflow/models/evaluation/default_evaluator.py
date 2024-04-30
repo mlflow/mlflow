@@ -13,7 +13,7 @@ import traceback
 import warnings
 from collections import namedtuple
 from functools import partial
-from typing import Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Callable, List, NamedTuple, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -68,6 +68,23 @@ _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
+
+
+def _handle_plotting_errors(exception_type: Type[Exception] = AttributeError, error_message=""):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                func(self, *args, **kwargs)
+            except exception_type:
+                if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
+                    _logger.warning(error_message)
+                else:
+                    raise
+
+        return wrapper
+
+    return decorator
 
 
 def _is_categorical(values):
@@ -176,6 +193,11 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
+@_handle_plotting_errors(ValueError, "Failed to calculate log_loss due to class imbalance")
+def _calculate_log_loss(y_true, y_proba, labels, sample_weights):
+    sk_metrics.log_loss(y_true, y_proba, labels=labels, sample_weight=sample_weights)
+
+
 def _get_common_classifier_metrics(
     *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
 ):
@@ -205,16 +227,11 @@ def _get_common_classifier_metrics(
         ),
     }
     if y_proba is not None:
-        try:
-            print(_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get())
-            metrics["log_loss"] = sk_metrics.log_loss(
-                y_true, y_proba, labels=labels, sample_weight=sample_weights
-            )
-        except ValueError as e:
-            if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
-                _logger.warning(f"Failed to calculate log_loss due to class imbalance: {e!r}")
-            else:
-                raise
+        log_loss = _calculate_log_loss(
+            y_true, y_proba, labels=labels, sample_weights=sample_weights
+        )
+        if log_loss:
+            metrics["log_loss"] = log_loss
     return metrics
 
 
@@ -238,9 +255,9 @@ def _get_binary_classifier_metrics(
                 sample_weights=sample_weights,
             ),
         }
-    except ValueError as e:
+    except ValueError:
         if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
-            _logger.warning(f"Failed to calculate confusion matrix components due to a class imbalance: {e!r}")
+            _logger.warning("Failed to extract confusion matrix due to class imbalance")
         else:
             raise
 
@@ -360,6 +377,7 @@ def _gen_classifier_curve(
                 # legend
                 pos_label=_pos_label if _pos_label == pos_label else None,
             )
+
             auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
@@ -453,7 +471,7 @@ def _gen_classifier_curve(
 
 
 def _get_aggregate_metrics_values(metrics):
-    return {name: MetricValue(aggregate_results={name: value}) for name, value in metrics.items()} 
+    return {name: MetricValue(aggregate_results={name: value}) for name, value in metrics.items()}
 
 
 _matplotlib_config = {
@@ -977,8 +995,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.plots.beeswarm(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
             _adjust_axis_tick()
-        
-        
+
         try:
             self._log_image_artifact(
                 plot_beeswarm,
@@ -986,9 +1003,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
         except ValueError as e:
             if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
-                _logger.warning(
-                    f"Failed to plot shap beeswarm plot due to class imbalance: {e!r}."
-                )
+                _logger.warning(f"Failed to plot shap beeswarm plot due to class imbalance: {e!r}.")
             else:
                 raise
 
@@ -996,17 +1011,15 @@ class DefaultEvaluator(ModelEvaluator):
             shap.summary_plot(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
             _adjust_axis_tick()
-        
+
         try:
             self._log_image_artifact(
-            plot_summary,
-            "shap_summary_plot",
-        )
+                plot_summary,
+                "shap_summary_plot",
+            )
         except TypeError as e:
             if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
-                _logger.warning(
-                    f"Failed to plot shap summary plot due to class imbalance: {e!r}."
-                )
+                _logger.warning(f"Failed to plot shap summary plot due to class imbalance: {e!r}.")
             else:
                 raise
 
@@ -1041,6 +1054,9 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 _logger.debug("", exc_info=True)
 
+    @_handle_plotting_errors(
+        ValueError, "Unable to compute confusion matrix due to class imbalance."
+    )
     def _compute_roc_and_pr_curve(self):
         if self.y_probs is not None:
             self.roc_curve = _gen_classifier_curve(
@@ -1127,25 +1143,30 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
-    def _log_binary_classifier_artifacts(self):
+    @_handle_plotting_errors(Exception, "Failed to plot ROC curve due to class imbalance")
+    def _log_roc_curve(self):
+        self._log_image_artifact(self.roc_curve.plot_fn, "roc_curve_plot")
+
+    @_handle_plotting_errors(
+        Exception, "Failed to plot Precision-Recall curve due to class imbalance."
+    )
+    def _log_precision_recall_curve(self):
+        self._log_image_artifact(self.pr_curve.plot_fn, "precision_recall_curve_plot")
+
+    @_handle_plotting_errors(ValueError, "Failed to plot lift curve due to class imbalance.")
+    def _log_lift_curve(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
+        def plot_fn():
+            return plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label)
+
+        self._log_image_artifact(plot_fn, "lift_curve_plot")
+
+    def _log_binary_classifier_artifacts(self):
         if self.y_probs is not None:
-
-            def plot_roc_curve():
-                self.roc_curve.plot_fn(**self.roc_curve.plot_fn_args)
-
-            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
-
-            def plot_pr_curve():
-                self.pr_curve.plot_fn(**self.pr_curve.plot_fn_args)
-
-            self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
-
-            self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label),
-                "lift_curve_plot",
-            )
+            self._log_roc_curve()
+            self._log_precision_recall_curve()
+            self._log_lift_curve()
 
     def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):
         """
@@ -1480,10 +1501,20 @@ class DefaultEvaluator(ModelEvaluator):
                     self.label_list = np.append(self.label_list, self.pos_label)
                 elif self.pos_label is None:
                     self.pos_label = self.label_list[-1]
-                _logger.info(
-                    "The evaluation dataset is inferred as binary dataset, positive label is "
-                    f"{self.label_list[1]}, negative label is {self.label_list[0]}."
-                )
+                try:
+                    _logger.info(
+                        "The evaluation dataset is inferred as binary dataset, positive label is "
+                        f"{self.label_list[1]}, negative label is {self.label_list[0]}."
+                    )
+                except IndexError:
+                    if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
+                        _logger.warning(
+                            "The evaluation dataset is inferred as binary dataset, but the dataset "
+                            "does not contain enough labels to infer the positive and negative "
+                            "labels due to class imbalance."
+                        )
+                    else:
+                        raise
             else:
                 _logger.info(
                     "The evaluation dataset is inferred as multiclass dataset, number of classes "
@@ -1511,36 +1542,28 @@ class DefaultEvaluator(ModelEvaluator):
         if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
                 metrics = _get_binary_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            pos_label=self.pos_label,
-                            sample_weights=self.sample_weights,
-                        )
+                    y_true=self.y,
+                    y_pred=self.y_pred,
+                    y_proba=self.y_probs,
+                    labels=self.label_list,
+                    pos_label=self.pos_label,
+                    sample_weights=self.sample_weights,
+                )
                 if metrics:
-                    self.metrics_values.update(
-                        _get_aggregate_metrics_values(
-                            metrics
-                        )
-                    )
+                    self.metrics_values.update(_get_aggregate_metrics_values(metrics))
                     self._compute_roc_and_pr_curve()
             else:
                 average = self.evaluator_config.get("average", "weighted")
                 metrics = _get_multiclass_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            average=average,
-                            sample_weights=self.sample_weights,
-                        )
+                    y_true=self.y,
+                    y_pred=self.y_pred,
+                    y_proba=self.y_probs,
+                    labels=self.label_list,
+                    average=average,
+                    sample_weights=self.sample_weights,
+                )
                 if metrics:
-                    self.metrics_values.update(
-                        _get_aggregate_metrics_values(
-                            metrics
-                        )
-                    )
+                    self.metrics_values.update(_get_aggregate_metrics_values(metrics))
         elif self.model_type == _ModelType.REGRESSOR:
             self.metrics_values.update(
                 _get_aggregate_metrics_values(

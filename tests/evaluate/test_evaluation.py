@@ -1569,8 +1569,16 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
                 predictions="model_output",
             )
 
-@pytest.mark.parametrize("baseline_model_uri", [("None"), ("binary_logistic_regressor_model_uri")], indirect=["baseline_model_uri"])
-def test_binary_classification_missing_minority_class_exception_override(binary_logistic_regressor_model_uri, breast_cancer_dataset, baseline_model_uri):
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("binary_logistic_regressor_model_uri")],
+    indirect=["baseline_model_uri"],
+)
+def test_binary_classification_missing_minority_class_exception_override(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, baseline_model_uri, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY", True)
 
     ds_targets = breast_cancer_dataset._constructor_args["targets"]
     # Simulate a missing target label
@@ -1589,13 +1597,15 @@ def test_binary_classification_missing_minority_class_exception_override(binary_
 
     assert saved_metrics == eval_result.metrics
 
+
 @pytest.mark.parametrize(
     "baseline_model_uri",
     [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
     indirect=["baseline_model_uri"],
 )
-def test_multiclass_classification_missing_minority_class_exception_override(multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, monkeypatch):
-
+def test_multiclass_classification_missing_minority_class_exception_override(
+    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, monkeypatch
+):
     monkeypatch.setenv("_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY", True)
 
     ds_targets = iris_dataset._constructor_args["targets"]
@@ -1615,6 +1625,7 @@ def test_multiclass_classification_missing_minority_class_exception_override(mul
 
     assert saved_metrics == eval_result.metrics
     assert "shap_beeswarm_plot.png" not in saved_artifacts
+
 
 @pytest.mark.parametrize(
     ("model", "is_endpoint_uri"),
