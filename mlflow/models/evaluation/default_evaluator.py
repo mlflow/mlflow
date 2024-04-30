@@ -193,9 +193,14 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-@_handle_plotting_errors(ValueError, "Failed to calculate log_loss due to class imbalance")
 def _calculate_log_loss(y_true, y_proba, labels, sample_weights):
-    sk_metrics.log_loss(y_true, y_proba, labels=labels, sample_weight=sample_weights)
+    try:
+        return sk_metrics.log_loss(y_true, y_proba, labels=labels, sample_weight=sample_weights)
+    except ValueError:
+        if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
+            _logger.warning("Failed to calculate log loss due to class imbalance.")
+        else:
+            raise
 
 
 def _get_common_classifier_metrics(
@@ -226,12 +231,11 @@ def _get_common_classifier_metrics(
             sample_weight=sample_weights,
         ),
     }
+
     if y_proba is not None:
-        log_loss = _calculate_log_loss(
+        metrics["log_loss"] = _calculate_log_loss(
             y_true, y_proba, labels=labels, sample_weights=sample_weights
         )
-        if log_loss:
-            metrics["log_loss"] = log_loss
     return metrics
 
 
@@ -1145,22 +1149,28 @@ class DefaultEvaluator(ModelEvaluator):
 
     @_handle_plotting_errors(Exception, "Failed to plot ROC curve due to class imbalance")
     def _log_roc_curve(self):
-        self._log_image_artifact(self.roc_curve.plot_fn, "roc_curve_plot")
+        def _plot_roc_curve():
+            self.roc_curve.plot_fn(**self.roc_curve.plot_fn_args)
+
+        self._log_image_artifact(_plot_roc_curve, "roc_curve_plot")
 
     @_handle_plotting_errors(
         Exception, "Failed to plot Precision-Recall curve due to class imbalance."
     )
     def _log_precision_recall_curve(self):
-        self._log_image_artifact(self.pr_curve.plot_fn, "precision_recall_curve_plot")
+        def _plot_pr_curve():
+            self.pr_curve.plot_fn(**self.pr_curve.plot_fn_args)
+
+        self._log_image_artifact(_plot_pr_curve, "precision_recall_curve_plot")
 
     @_handle_plotting_errors(ValueError, "Failed to plot lift curve due to class imbalance.")
     def _log_lift_curve(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
-        def plot_fn():
+        def _plot_lift_curve():
             return plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label)
 
-        self._log_image_artifact(plot_fn, "lift_curve_plot")
+        self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
 
     def _log_binary_classifier_artifacts(self):
         if self.y_probs is not None:
