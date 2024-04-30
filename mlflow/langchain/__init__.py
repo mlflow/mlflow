@@ -229,8 +229,8 @@ def save_model(
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
         example_no_conversion: {{ example_no_conversion }}
-        model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+        model_config: The model configuration to apply to the model if saving model as code. This 
+            configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -531,8 +531,8 @@ def log_model(
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
-        model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+        model_config: The model configuration to apply to the model if saving model as code. This 
+            configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
