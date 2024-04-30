@@ -1545,4 +1545,3 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     assert isinstance(stream_result, types.GeneratorType)
 
     assert next(stream_result) == "test"
-

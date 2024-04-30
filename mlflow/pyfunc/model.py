@@ -483,7 +483,9 @@ def _load_context_model_and_signature(
 def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
     context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
-        python_model=python_model, context=context, signature=signature,
+        python_model=python_model,
+        context=context,
+        signature=signature,
     )
 
 

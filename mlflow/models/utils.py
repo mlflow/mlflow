@@ -1487,6 +1487,7 @@ def _convert_llm_ndarray_to_list(data):
 
 def _convert_llm_input_data(data):
     import pandas as pd
+
     # This handles spark_udf inputs and input_example inputs
     if isinstance(data, pd.DataFrame):
         # if the data only contains a single key as 0, we assume the input

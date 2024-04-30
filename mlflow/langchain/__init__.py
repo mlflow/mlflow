@@ -30,7 +30,6 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models.utils import _convert_llm_input_data
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
@@ -57,7 +56,7 @@ from mlflow.langchain.utils import (
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import _convert_llm_input_data, _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema

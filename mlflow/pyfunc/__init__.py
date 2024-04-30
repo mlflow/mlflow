@@ -412,8 +412,8 @@ from mlflow.models.signature import (
 )
 from mlflow.models.utils import (
     PyFuncInput,
-    PyFuncLLMSingleInput,
     PyFuncLLMOutputChunk,
+    PyFuncLLMSingleInput,
     PyFuncOutput,
     _convert_llm_input_data,
     _enforce_params_schema,
@@ -677,9 +677,7 @@ class PyFuncModel:
             )
         return data, params
 
-    def predict(
-            self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
-    ) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -2621,6 +2619,7 @@ def _save_model_with_loader_module_and_data_path(
             this model should be run in.
         streamable: A boolean value indicating if the model supports streaming prediction,
                     None value also means not streamable.
+
     Returns:
         Model configuration containing model info.
     """
