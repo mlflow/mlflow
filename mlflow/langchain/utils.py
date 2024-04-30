@@ -22,6 +22,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _validate_model_code_from_notebook
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.class_utils import _get_class_from_string
 
@@ -329,7 +330,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                 w = WorkspaceClient()
                 response = w.workspace.export(path=lc_model, format=ExportFormat.SOURCE)
                 decoded_content = base64.b64decode(response.content)
-                # TODO: code validation
+                _validate_model_code_from_notebook(decoded_content)
 
                 return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
             except Exception:
