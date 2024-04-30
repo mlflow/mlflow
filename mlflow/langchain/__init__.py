@@ -82,7 +82,6 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
-    FLAVOR_CONFIG_MODEL_CODE,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -277,7 +276,12 @@ def save_model(
             if code_paths and len(code_paths) == 1 and os.path.exists(code_paths[0]):
                 model_config_path = code_paths[0]
 
-        _validate_and_copy_model_code_and_config_paths(lc_model, model_config_path, path)
+        lc_model = (
+            _load_model_code_path(model_code_path, model_config_path)
+            if model_config_path
+            else _load_model_code_path(model_code_path)
+        )
+        _validate_and_copy_model_code_and_config_paths(model_code_path, model_config_path, path)
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -327,7 +331,7 @@ def save_model(
 
     streamable = isinstance(lc_model, lc_runnables_types())
 
-    if not isinstance(lc_model, str):
+    if not isinstance(model_code_path, str):
         model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
         flavor_conf = {
             _MODEL_TYPE_KEY: lc_model.__class__.__name__,
@@ -340,9 +344,9 @@ def save_model(
         # can use that path instead of the config.yml path when the model is loaded
         # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: lc_model}
+            {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: model_code_path}
             if model_config_path
-            else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: lc_model}
+            else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: model_code_path}
         )
         model_data_kwargs = {}
 
@@ -361,15 +365,7 @@ def save_model(
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        checker_model = lc_model
-        if isinstance(lc_model, str):
-            checker_model = (
-                _load_model_code_path(lc_model, model_config_path)
-                if model_config_path
-                else _load_model_code_path(lc_model)
-            )
-
-        if databricks_dependency := _detect_databricks_dependencies(checker_model):
+        if databricks_dependency := _detect_databricks_dependencies(lc_model):
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
 
     mlflow_model.add_flavor(
@@ -852,8 +848,21 @@ def _load_pyfunc(path):
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     if _MODEL_CODE_PATH in flavor_conf:
-        code_path = flavor_conf.get(_MODEL_CODE_PATH)
-        config_path = flavor_conf.get(_MODEL_CODE_CONFIG, None)
+        flavor_config_path = flavor_conf.get(_MODEL_CODE_CONFIG, None)
+        if flavor_config_path is not None:
+            config_path = os.path.join(
+                local_model_path,
+                os.path.basename(flavor_config_path),
+            )
+        else:
+            config_path = None
+
+        flavor_code_path = flavor_conf.get(_MODEL_CODE_PATH)
+        code_path = os.path.join(
+            local_model_path,
+            os.path.basename(flavor_code_path),
+        )
+
         return _load_model_code_path(code_path, config_path)
     # Code for backwards compatibility, relies on RAG utils - remove in the future
     elif _CODE_CONFIG in flavor_conf:
@@ -869,10 +878,9 @@ def _load_model_from_local_fs(local_model_path):
             config_path = None
 
         flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
-        flavor_model_code_config = flavor_conf.get(FLAVOR_CONFIG_MODEL_CODE)
         code_path = os.path.join(
             local_model_path,
-            flavor_model_code_config,
+            flavor_code_config,
             os.path.basename(flavor_code_path),
         )
 
@@ -948,7 +956,9 @@ def _load_model_code_path(code_path: str, config_path: Optional[str] = None):
         except ImportError as e:
             raise mlflow.MlflowException("Failed to import LangChain model.") from e
 
-    return mlflow.langchain._rag_utils.__databricks_rag_chain__
+    return (
+        mlflow.models.model.__mlflow_model__ or mlflow.langchain._rag_utils.__databricks_rag_chain__
+    )
 
 
 # TODO: We are keeping this method even though it is private because
