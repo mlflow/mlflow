@@ -656,8 +656,7 @@ class _LangChainModelWrapper:
             else:
                 data = data.to_dict(orient="records")
 
-        data = _convert_ndarray_to_list(data)
-        return data
+        return _convert_ndarray_to_list(data)
 
     def _prepare_predict_messages(self, data):
         """
