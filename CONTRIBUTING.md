@@ -193,7 +193,7 @@ guide.
 
 ###### Code Style
 
-We use [pylint](https://pypi.org/project/pylint/), [prettier](https://prettier.io/),
+We use [prettier](https://prettier.io/),
 [blacken-docs](https://pypi.org/project/blacken-docs/), [ruff](https://github.com/astral-sh/ruff), and
 a number of custom lint checking scripts in our CI via
 pre-commit Git hooks. If your code passes the CI checks, it's
