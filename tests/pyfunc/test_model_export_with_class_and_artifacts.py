@@ -1527,7 +1527,8 @@ def test_streamable_model_save_load(iris_data, tmp_path):
             pass
 
         def predict_stream(self, context, model_input, params=None):
-            yield "test"
+            yield "test1"
+            yield "test2"
 
     pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
 
@@ -1543,4 +1544,5 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     stream_result = loaded_pyfunc_model.predict_stream("single-input")
     assert isinstance(stream_result, types.GeneratorType)
 
-    assert next(stream_result) == "test"
+    assert list(stream_result) == ["test1", "test2"]
+
