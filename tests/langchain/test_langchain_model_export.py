@@ -56,6 +56,7 @@ from mlflow.langchain.utils import (
     IS_PICKLE_SERIALIZATION_RESTRICTED,
 )
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
+from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
@@ -67,6 +68,7 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 
 # this kwarg was added in langchain_community 0.0.27, and
 # prevents the use of pickled objects if not provided.
@@ -2905,3 +2907,46 @@ def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_cha
             chain,
             artifact_path="chain",
         )
+
+
+def test_langchain_model_inject_callback_in_model_serving(monkeypatch, model_path):
+    # Emulate the model serving environment
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+
+    model = create_openai_llmchain()
+    mlflow.langchain.save_model(model, model_path)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    # Mock Flask context
+    with mock.patch("mlflow.tracing.processor.inference_table._get_flask_request") as mock_request:
+        mock_request.return_value.headers = {_HEADER_REQUEST_ID_KEY: _REQUEST_ID}
+
+        loaded_model.predict({"product": "shoe"})
+
+    # Trace should be logged to the inference table
+    from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+
+    assert len(_TRACE_BUFFER) == 1
+    assert _REQUEST_ID in _TRACE_BUFFER
+    _TRACE_BUFFER.clear()
+
+
+def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_path):
+    # Emulate the model serving environment
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+
+    # Disable tracing
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "false")
+
+    model = create_openai_llmchain()
+    mlflow.langchain.save_model(model, model_path)
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+    loaded_model.predict({"product": "shoe"})
+
+    # Trace should be logged to the inference table
+    from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+
+    assert _TRACE_BUFFER == {}
+    _TRACE_BUFFER.clear()
