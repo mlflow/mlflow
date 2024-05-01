@@ -61,7 +61,7 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     autologging_is_disabled,
@@ -959,13 +959,6 @@ def _load_model_code_path(code_path: str, config_path: Optional[str] = None):
     return (
         mlflow.models.model.__mlflow_model__ or mlflow.langchain._rag_utils.__databricks_rag_chain__
     )
-
-
-# TODO: We are keeping this method even though it is private because
-# rag studio is explicitly monkey patching it. Will remove soon.
-@deprecated(alternative="mlflow.langchain._load_model_code_path")
-def _load_code_model(config_path: Optional[str] = None):
-    pass
 
 
 @experimental
