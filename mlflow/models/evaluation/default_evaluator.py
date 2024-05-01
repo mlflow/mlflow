@@ -25,7 +25,7 @@ from sklearn.pipeline import Pipeline as sk_Pipeline
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
-from mlflow.environment_variables import _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY
+from mlflow.environment_variables import _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
     EvaluationMetric,
@@ -75,7 +75,7 @@ _LATENCY_METRIC_NAME = "latency"
 def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True):
     """
     Exception handler context manager to suppress Exceptions if the private environment
-    variable `_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY` is set to `True`.
+    variable `_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS` is set to `True`.
     The purpose of this handler is to prevent an evaluation call for a binary or multiclass
     classification automl run from aborting due to an extreme minority class imbalance
     encountered during iterative training cycles due to the non deterministic sampling
@@ -87,7 +87,7 @@ def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True)
     try:
         yield
     except exception_type as e:
-        if _MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY.get():
+        if _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS.get():
             if log_warning:
                 _logger.warning(
                     "Failed to calculate metrics due to class imbalance. "
@@ -996,7 +996,7 @@ class DefaultEvaluator(ModelEvaluator):
             _adjust_color_bar()
             _adjust_axis_tick()
 
-        with _suppress_class_imbalance_errors(ValueError):
+        with _suppress_class_imbalance_errors(ValueError, log_warning=False):
             self._log_image_artifact(
                 plot_beeswarm,
                 "shap_beeswarm_plot",
@@ -1007,7 +1007,7 @@ class DefaultEvaluator(ModelEvaluator):
             _adjust_color_bar()
             _adjust_axis_tick()
 
-        with _suppress_class_imbalance_errors(TypeError):
+        with _suppress_class_imbalance_errors(TypeError, log_warning=False):
             self._log_image_artifact(
                 plot_summary,
                 "shap_summary_plot",
@@ -1017,7 +1017,7 @@ class DefaultEvaluator(ModelEvaluator):
             shap.plots.bar(shap_values, show=False)
             _adjust_axis_tick()
 
-        with _suppress_class_imbalance_errors(IndexError):
+        with _suppress_class_imbalance_errors(IndexError, log_warning=False):
             self._log_image_artifact(
                 plot_feature_importance,
                 "shap_feature_importance_plot",
@@ -1039,7 +1039,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _compute_roc_and_pr_curve(self):
         if self.y_probs is not None:
-            with _suppress_class_imbalance_errors(ValueError):
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self.roc_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y,
@@ -1053,7 +1053,7 @@ class DefaultEvaluator(ModelEvaluator):
                 self.metrics_values.update(
                     _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
                 )
-            with _suppress_class_imbalance_errors(ValueError):
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self.pr_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y,
@@ -1147,11 +1147,11 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_binary_classifier_artifacts(self):
         if self.y_probs is not None:
-            with _suppress_class_imbalance_errors():
+            with _suppress_class_imbalance_errors(log_warning=False):
                 self._log_roc_curve()
-            with _suppress_class_imbalance_errors():
+            with _suppress_class_imbalance_errors(log_warning=False):
                 self._log_precision_recall_curve()
-            with _suppress_class_imbalance_errors(ValueError):
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self._log_lift_curve()
 
     def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):

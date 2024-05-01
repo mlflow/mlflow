@@ -573,6 +573,6 @@ MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
 #: underlying metrology modules (scikit-learn). If set to True, specific exceptions will be
 #: caught, alerted via the warnings module, and evaluation will resume.
 #: (default: ``False``)
-_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY = _BooleanEnvironmentVariable(
-    "_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY", False
+_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
+    "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
 )
