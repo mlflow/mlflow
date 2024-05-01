@@ -18,9 +18,7 @@ def test_config_not_set():
         ModelConfig()
 
 
-@mock.patch("mlflow.langchain._rag_utils")
-def test_config_not_found(mock_rag_config_path):
-    mock_rag_config_path.__databricks_rag_config_path__ = "nonexistent.yaml"
+def test_config_not_found():
     with pytest.raises(FileNotFoundError, match="Config file 'nonexistent.yaml' not found."):
         ModelConfig(development_config="nonexistent.yaml")
 
@@ -44,20 +42,18 @@ def test_config_setup_correctly():
     assert config.get("llm_parameters").get("temperature") == 0.01
 
 
-@mock.patch("mlflow.langchain._rag_utils")
-def test_config_setup_correctly_with_mlflow_langchain(mock_rag_config_path):
-    mock_rag_config_path.__databricks_rag_config_path__ = VALID_CONFIG_PATH
+@mock.patch("mlflow.models.model_config.__mlflow_model_config__", new=VALID_CONFIG_PATH)
+def test_config_setup_correctly_with_mlflow_langchain():
     config = ModelConfig(development_config="nonexistent.yaml")
     assert config.get("llm_parameters").get("temperature") == 0.01
 
 
-@mock.patch("mlflow.langchain._rag_utils")
-def test_config_setup_with_mlflow_langchain_path(mock_rag_config_path):
-    mock_rag_config_path.__databricks_rag_config_path__ = VALID_CONFIG_PATH_2
-    config = ModelConfig(development_config=VALID_CONFIG_PATH)
+@mock.patch("mlflow.models.model_config.__mlflow_model_config__", new=VALID_CONFIG_PATH_2)
+def test_config_setup_with_mlflow_langchain_path():
     # here the config.yaml has the max_tokens set to 500
     # where as the config_2.yaml has it set to 200.
-    # Here we give preference to the __databricks_rag_config_path__.
+    # Here we give preference to the __mlflow_model_config__.
+    config = ModelConfig(development_config=VALID_CONFIG_PATH)
     assert config.get("llm_parameters").get("max_tokens") == 200
 
 

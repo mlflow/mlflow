@@ -20,7 +20,6 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
-FLAVOR_CONFIG_MODEL_CODE = "model_code"
 
 
 def _get_all_flavor_configurations(model_path):
@@ -155,18 +154,45 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     return code_dir_subpath
 
 
-def _validate_and_copy_model_code_path(code_path, path, default_subpath="model_code"):
+def _validate_path_exists(path, name):
+    if path and not os.path.exists(path):
+        raise MlflowException(
+            message=(
+                f"Failed to copy the specified {name} path '{path}' into the model "
+                f"artifacts. The specified {name }path does not exist. Please specify a valid "
+                f"{name} path and try again."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_and_copy_model_code_and_config_paths(code_path, config_path, path):
     """Copies the model code from code_path to a directory.
 
     Args:
         code_path: A file containing model code that should be logged as an artifact.
+        config_path: A file containing model config code that should be logged as an artifact.
         path: The local model path.
-        default_subpath: The default directory name used to store model code artifacts.
     """
-    if code_path:
-        return _validate_and_copy_code_paths([code_path], path, default_subpath)
-    else:
-        return None
+    _validate_path_exists(code_path, "code")
+    _validate_path_exists(config_path, "config")
+    try:
+        _copy_file_or_tree(src=code_path, dst=path)
+        if config_path:
+            _copy_file_or_tree(src=config_path, dst=path)
+    except OSError as e:
+        # A common error is code-paths includes Databricks Notebook. We include it in error
+        # message when running in Databricks, but not in other envs tp avoid confusion.
+        example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
+        raise MlflowException(
+            message=(
+                f"Failed to copy the specified code path '{code_path}' into the model "
+                "artifacts. It appears that your code path includes file(s) that cannot "
+                f"be copied{example}. Please specify a code path that does not include "
+                "such files and try again.",
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
 
 
 def _add_code_to_system_path(code_path):

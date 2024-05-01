@@ -11,7 +11,7 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
 import mlflow
-from mlflow.langchain._rag_utils import _set_chain
+from mlflow.models import set_model
 
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
@@ -53,7 +53,7 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
     return FakeChatModel(endpoint=endpoint)
 
 
-config_path = mlflow.langchain._rag_utils.__databricks_rag_config_path__
+config_path = mlflow.models.model_config.__mlflow_model_config__
 assert os.path.exists(config_path)
 
 with open(config_path) as f:
@@ -81,4 +81,4 @@ retrieval_chain = (
     | StrOutputParser()
 )
 
-_set_chain(retrieval_chain)
+set_model(retrieval_chain)

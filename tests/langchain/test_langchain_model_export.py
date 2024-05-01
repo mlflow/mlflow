@@ -1,7 +1,6 @@
 import importlib
 import json
 import os
-import re
 import shutil
 import sqlite3
 from contextlib import contextmanager
@@ -47,6 +46,7 @@ from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
 import mlflow
+import mlflow.models.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
@@ -2343,12 +2343,12 @@ def test_save_load_chain_as_code(chain_model_signature):
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            code_paths=["tests/langchain/config.yml"],
+            model_config="tests/langchain/config.yml",
         )
 
-    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2437,7 +2437,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature)
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            code_paths=[config_path],
+            model_config=config_path,
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
@@ -2492,31 +2492,7 @@ def test_save_load_chain_errors(chain_model_signature):
                 artifact_path="model_path",
                 signature=chain_model_signature,
                 input_example=input_example,
-                code_paths=["tests/langchain/state_of_the_union.txt"],
-            )
-
-        incorrect_path = "tests/langchain/chain.py"
-        code_paths = [
-            "tests/langchain/state_of_the_union.txt",
-            "tests/langchain/chain.py",
-        ]
-
-        with pytest.raises(
-            MlflowException,
-            match=re.escape(
-                "When the model is a string, and if the code_paths are specified, "
-                "it should contain only one path."
-                "This config path is used to set config.yml file path "
-                "for the model. This path should be passed in via the code_paths. "
-                f"Current code paths: {code_paths}"
-            ),
-        ):
-            mlflow.langchain.log_model(
-                lc_model=incorrect_path,
-                artifact_path="model_path",
-                signature=chain_model_signature,
-                input_example=input_example,
-                code_paths=code_paths,
+                model_config="tests/langchain/state_of_the_union.txt",
             )
 
 
@@ -2540,9 +2516,9 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
             input_example=input_example,
         )
 
-    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2575,12 +2551,9 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
 
 def test_config_path_context():
     with mlflow.langchain._config_path_context("tests/langchain/config.yml"):
-        assert (
-            mlflow.langchain._rag_utils.__databricks_rag_config_path__
-            == "tests/langchain/config.yml"
-        )
+        assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
 
-    assert mlflow.langchain._rag_utils.__databricks_rag_config_path__ is None
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
 
 
 def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
@@ -2840,3 +2813,60 @@ def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_cha
             chain,
             artifact_path="chain",
         )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_model_as_code_correct_streamable(chain_model_signature):
+    input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+    answer = "Databricks"
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/no_config/chain.py",
+            artifact_path="model_path",
+            signature=chain_model_signature,
+            input_example=input_example,
+            example_no_conversion=True,
+        )
+
+    assert model_info.flavors["langchain"]["streamable"] is True
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    with mock.patch("time.time", return_value=1677858242):
+        assert pyfunc_loaded_model._model_impl._predict_with_callbacks(input_example) == {
+            "id": None,
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": None,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "Databricks"},
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+            },
+        }
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    # avoid minor diff of created time in the response
+    prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    prediction_result["predictions"][0]["created"] = 123
+    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction["created"] = 123
+    assert prediction_result == {"predictions": [expected_prediction]}
+
+    langchain_flavor = model_info.flavors["langchain"]
+    assert langchain_flavor["databricks_dependency"] == {
+        "databricks_chat_endpoint_name": ["fake-endpoint"]
+    }
