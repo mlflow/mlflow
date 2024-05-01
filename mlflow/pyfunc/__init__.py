@@ -412,7 +412,10 @@ from mlflow.models.signature import (
 )
 from mlflow.models.utils import (
     PyFuncInput,
+    PyFuncLLMOutputChunk,
+    PyFuncLLMSingleInput,
     PyFuncOutput,
+    _convert_llm_input_data,
     _enforce_params_schema,
     _enforce_schema,
     _save_example,
@@ -684,7 +687,7 @@ class PyFuncModel:
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
 
         Args:
-            data: Model input as one of pandas.DataFrame, numpy.ndarray,
+            data: LLM Model single input as one of pandas.DataFrame, numpy.ndarray,
                 scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
                 Dict[str, numpy.ndarray].
                 For model signatures with tensor spec inputs
@@ -711,12 +714,40 @@ class PyFuncModel:
         return self._predict_fn(data)
 
     def predict_stream(
-        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
-    ) -> Iterator[PyFuncOutput]:
+        self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[PyFuncLLMOutputChunk]:
+        """
+        Generates streaming model predictions. Only LLM suports this method.
+
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
+
+        Args:
+            data: LLM Model single input as one of dict, str, bool, bytes, float, int, str type.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Model predictions as an iterator of chunks. The chunks in the iterator must be type of
+            dict or string. Chunk dict fields are determined by the model implementation.
+        """
+
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
         data, params = self._validate_prediction_input(data, params)
+        data = _convert_llm_input_data(data)
+        if isinstance(data, list):
+            # `predict_stream` only accepts single input.
+            # but `enforce_schema` might convert single input into a list like `[single_input]`
+            # so extract the first element in the list.
+            if len(data) != 1:
+                raise MlflowException(
+                    f"'predict_stream' requires single input, but it got input data {data}"
+                )
+            data = data[0]
+
         if inspect.signature(self._predict_stream_fn).parameters.get("params"):
             return self._predict_stream_fn(data, params=params)
 
@@ -907,7 +938,7 @@ def load_model(
         raise e
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
-    predict_stream_fn = conf.get("predict_stream_fn") if streamable else None
+    predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
     return PyFuncModel(
         model_meta=model_meta,
@@ -2052,6 +2083,7 @@ def save_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
+    streamable=None,
     **kwargs,
 ):
     """
@@ -2336,6 +2368,7 @@ def save_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
+            streamable=streamable,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -2350,6 +2383,7 @@ def save_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
+            streamable=streamable,
         )
 
 
@@ -2372,6 +2406,7 @@ def log_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
+    streamable=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2516,12 +2551,17 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -2546,6 +2586,7 @@ def log_model(
         metadata=metadata,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        streamable=streamable,
     )
 
 
@@ -2559,6 +2600,7 @@ def _save_model_with_loader_module_and_data_path(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_config=None,
+    streamable=None,
 ):
     """
     Export model as a generic Python function model.
@@ -2575,6 +2617,8 @@ def _save_model_with_loader_module_and_data_path(
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
             this model should be run in.
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    None value also means not streamable.
 
     Returns:
         Model configuration containing model info.
@@ -2591,6 +2635,7 @@ def _save_model_with_loader_module_and_data_path(
     if mlflow_model is None:
         mlflow_model = Model()
 
+    streamable = streamable or False
     mlflow.pyfunc.add_to_model(
         mlflow_model,
         loader_module=loader_module,
@@ -2599,6 +2644,7 @@ def _save_model_with_loader_module_and_data_path(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
+        streamable=streamable,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
