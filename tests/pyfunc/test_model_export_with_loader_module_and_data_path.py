@@ -1,6 +1,8 @@
 import os
 import pickle
+import types
 
+import cloudpickle
 import numpy as np
 import pytest
 import sklearn.datasets
@@ -305,3 +307,38 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
         )
         model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
     _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
+
+
+def test_streamable_model_save_load(tmp_path, model_path):
+    class StreamableModel:
+        def __init__(self):
+            pass
+
+        def predict(self, model_input, params=None):
+            pass
+
+        def predict_stream(self, model_input, params=None):
+            yield "test1"
+            yield "test2"
+
+    custom_model = StreamableModel()
+
+    custom_model_path = os.path.join(tmp_path, "model.pkl")
+    with open(custom_model_path, "wb") as f:
+        cloudpickle.dump(custom_model, f)
+
+    model_config = Model(run_id="test", artifact_path="testtest")
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        data_path=custom_model_path,
+        loader_module=__name__,
+        code_paths=[__file__],
+        mlflow_model=model_config,
+        streamable=True,
+    )
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
+
+    stream_result = loaded_pyfunc_model.predict_stream("single-input")
+    assert isinstance(stream_result, types.GeneratorType)
+
+    assert list(stream_result) == ["test1", "test2"]

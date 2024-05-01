@@ -119,6 +119,19 @@ class PythonModel:
             params: Additional parameters to pass to the model for inference.
         """
 
+    def predict_stream(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        Evaluates a pyfunc-compatible input and produces an iterator of output.
+        For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
+        """
+        raise NotImplementedError()
+
 
 class _FunctionPythonModel(PythonModel):
     """
@@ -241,6 +254,7 @@ def _save_model_with_class_artifacts_params(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_config=None,
+    streamable=None,
 ):
     """
     Args:
@@ -269,6 +283,10 @@ def _save_model_with_class_artifacts_params(
 
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.
+
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -365,6 +383,9 @@ def _save_model_with_class_artifacts_params(
 
     saved_code_subpath = _validate_and_copy_code_paths(code_paths, path)
 
+    if streamable is None:
+        streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
+
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
         loader_module=_get_pyfunc_loader_module(python_model),
@@ -372,6 +393,7 @@ def _save_model_with_class_artifacts_params(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
+        streamable=streamable,
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):
@@ -461,7 +483,9 @@ def _load_context_model_and_signature(
 def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
     context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
-        python_model=python_model, context=context, signature=signature
+        python_model=python_model,
+        context=context,
+        signature=signature,
     )
 
 
@@ -524,11 +548,12 @@ class _PythonModelPyfuncWrapper:
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
         Args:
-            model_input: Model input data.
+            model_input: Model input data as one of dict, str, bool, bytes, float, int, str type.
             params: Additional parameters to pass to the model for inference.
 
         Returns:
-            Model predictions.
+            Model predictions as an iterator of chunks. The chunks in the iterator must be type of
+            dict or string. Chunk dict fields are determined by the model implementation.
         """
         if inspect.signature(self.python_model.predict).parameters.get("params"):
             return self.python_model.predict(
@@ -536,6 +561,22 @@ class _PythonModelPyfuncWrapper:
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))
+
+    def predict_stream(self, model_input, params: Optional[Dict[str, Any]] = None):
+        """
+        Args:
+            model_input: LLM Model single input.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Streaming predictions.
+        """
+        if inspect.signature(self.python_model.predict_stream).parameters.get("params"):
+            return self.python_model.predict_stream(
+                self.context, self._convert_input(model_input), params=params
+            )
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        return self.python_model.predict_stream(self.context, self._convert_input(model_input))
 
 
 def _get_pyfunc_loader_module(python_model):

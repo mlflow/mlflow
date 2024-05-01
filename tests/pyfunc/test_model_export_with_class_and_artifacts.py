@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import types
 import uuid
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Tuple
@@ -1515,3 +1516,32 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
         {"type": "string", "required": True}
     ]
     pd.testing.assert_frame_equal(pyfunc_model.predict(["a", "b"]), pd.DataFrame(["a", "b"]))
+
+
+def test_streamable_model_save_load(iris_data, tmp_path):
+    class StreamableModel(mlflow.pyfunc.PythonModel):
+        def __init__(self):
+            pass
+
+        def predict(self, context, model_input, params=None):
+            pass
+
+        def predict_stream(self, context, model_input, params=None):
+            yield "test1"
+            yield "test2"
+
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    python_model = StreamableModel()
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        python_model=python_model,
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
+    stream_result = loaded_pyfunc_model.predict_stream("single-input")
+    assert isinstance(stream_result, types.GeneratorType)
+
+    assert list(stream_result) == ["test1", "test2"]
