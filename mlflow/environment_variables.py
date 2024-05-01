@@ -566,3 +566,13 @@ MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERS
 MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
     "MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED", False
 )
+
+#: Private configuration option.
+#: Enables the ability to catch exceptions within MLflow evaluate for classification models
+#: where a class imbalance due to a missing target class would raise an error in the
+#: underlying metrology modules (scikit-learn). If set to True, specific exceptions will be
+#: caught, alerted via the warnings module, and evaluation will resume.
+#: (default: ``False``)
+_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
+    "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
+)
