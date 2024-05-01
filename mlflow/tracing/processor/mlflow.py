@@ -12,7 +12,6 @@ import mlflow
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.pyfunc.context import maybe_get_evaluation_request_id
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
@@ -67,6 +66,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span._start_time = time.time_ns()
 
     def _start_trace(self, span: OTelSpan) -> TraceInfo:
+        from mlflow.pyfunc.context import maybe_get_evaluation_request_id
+
         experiment_id = (
             get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
         )

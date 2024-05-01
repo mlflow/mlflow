@@ -9,6 +9,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.tracing.utils import TraceJSONEncoder
 
+from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import get_traces
 
 
