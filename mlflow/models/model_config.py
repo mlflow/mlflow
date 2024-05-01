@@ -3,6 +3,8 @@ from typing import Any, Dict, Optional, Union
 
 import yaml
 
+import mlflow
+
 __mlflow_model_config__ = None
 
 
@@ -17,10 +19,26 @@ class ModelConfig:
         config = globals().get("__mlflow_model_config__", None)
         # backwards compatibility
         rag_config = globals().get("__databricks_rag_config_path__", None)
-        self.config = config or rag_config or development_config
+        
+        # Here mlflow_model_config have 3 states:
+        # 1. None, this means if the mlflow_model_config is None, use development_config if
+        # available
+        # 2. "", Empty string, this means the users explicitly didn't set the model config
+        # while logging the model so if ModelConfig is used, it should throw an error
+        # 3. A valid path, this means the users have set the model config while logging the
+        # model so use that path
+        if config is not None:
+            self.config = config
+        elif rag_config is not None:
+            self.config = rag_config
+        else:
+            self.config = development_config
 
         if not self.config:
-            raise FileNotFoundError("Config file is None. Please provide a valid path.")
+            raise FileNotFoundError(
+                "Config file is not provided which is needed to load the model. "
+                "Please provide a valid path."
+            )
 
         if not isinstance(self.config, dict) and not os.path.isfile(self.config):
             raise FileNotFoundError(f"Config file '{self.config}' not found.")

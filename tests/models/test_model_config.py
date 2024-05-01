@@ -13,7 +13,7 @@ VALID_CONFIG_PATH_2 = os.path.join(dir_path, "configs/config_2.yaml")
 
 def test_config_not_set():
     with pytest.raises(
-        FileNotFoundError, match="Config file is None. Please provide a valid path."
+        FileNotFoundError, match="Config file is not provided which is needed to load the model."
     ):
         ModelConfig()
 
@@ -65,3 +65,10 @@ def test_config_development_config_must_be_specified_with_keyword():
 def test_config_development_config_is_a_dict():
     config = ModelConfig(development_config={"llm_parameters": {"temperature": 0.01}})
     assert config.get("llm_parameters").get("temperature") == 0.01
+
+@mock.patch("mlflow.models.model_config.__mlflow_model_config__", new="")
+def test_config_setup_correctly_errors_with_no_config_path():
+    with pytest.raises(
+        FileNotFoundError, match="Config file is not provided which is needed to load the model."
+    ):
+        ModelConfig(development_config=VALID_CONFIG_PATH)

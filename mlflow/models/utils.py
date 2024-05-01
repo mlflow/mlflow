@@ -64,6 +64,20 @@ ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
+PyFuncLLMSingleInput = Union[
+    Dict[str, Any],
+    bool,
+    bytes,
+    float,
+    int,
+    str,
+]
+
+PyFuncLLMOutputChunk = Union[
+    Dict[str, Any],
+    str,
+]
+
 PyFuncInput = Union[
     pd.DataFrame,
     pd.Series,
@@ -1451,6 +1465,36 @@ def _validate_model_code_from_notebook(code):
     if re.search(magic_regex, code, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
-            "functions correctly, make sure that it does not rely on these magic commands for."
+            "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
+
+
+# Convert llm input data:
+# numpy array is not json serializable, so we convert it to list
+# then send it to the model
+def _convert_llm_ndarray_to_list(data):
+    import numpy as np
+
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, list):
+        return [_convert_llm_ndarray_to_list(d) for d in data]
+    if isinstance(data, dict):
+        return {k: _convert_llm_ndarray_to_list(v) for k, v in data.items()}
+    return data
+
+
+def _convert_llm_input_data(data):
+    import pandas as pd
+
+    # This handles spark_udf inputs and input_example inputs
+    if isinstance(data, pd.DataFrame):
+        # if the data only contains a single key as 0, we assume the input
+        # is either a string or list of strings
+        if list(data.columns) == [0]:
+            data = data.to_dict("list")[0]
+        else:
+            data = data.to_dict(orient="records")
+
+    return _convert_llm_ndarray_to_list(data)
