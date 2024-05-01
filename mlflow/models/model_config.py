@@ -18,7 +18,7 @@ class ModelConfig:
     def __init__(self, *, development_config: Optional[Union[str, Dict[str, Any]]] = None):
         config = globals().get("__mlflow_model_config__", None)
         # backwards compatibility
-        rag_config = globals().get("__databricks_rag_config_path__", None)
+        rag_config = getattr(mlflow.langchain._rag_utils, "__databricks_rag_config_path__", None)
         
         # Here mlflow_model_config have 3 states:
         # 1. None, this means if the mlflow_model_config is None, use development_config if
