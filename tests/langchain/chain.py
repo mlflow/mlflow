@@ -8,10 +8,8 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
-from mlflow.langchain._rag_utils import _set_chain
-from mlflow.models import ModelConfig
-
-base_config = ModelConfig(development_config="tests/langchain/config.yaml")
+import mlflow
+from mlflow.models import set_model
 
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
@@ -74,4 +72,4 @@ retrieval_chain = (
     | StrOutputParser()
 )
 
-_set_chain(retrieval_chain)
+set_model(retrieval_chain)

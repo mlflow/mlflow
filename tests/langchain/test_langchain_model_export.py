@@ -2851,3 +2851,60 @@ def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_cha
             chain,
             artifact_path="chain",
         )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_model_as_code_correct_streamable(chain_model_signature):
+    input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+    answer = "Databricks"
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/no_config/chain.py",
+            artifact_path="model_path",
+            signature=chain_model_signature,
+            input_example=input_example,
+            example_no_conversion=True,
+        )
+
+    assert model_info.flavors["langchain"]["streamable"] is True
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    with mock.patch("time.time", return_value=1677858242):
+        assert pyfunc_loaded_model._model_impl._predict_with_callbacks(input_example) == {
+            "id": None,
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": None,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "Databricks"},
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+            },
+        }
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    # avoid minor diff of created time in the response
+    prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    prediction_result["predictions"][0]["created"] = 123
+    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction["created"] = 123
+    assert prediction_result == {"predictions": [expected_prediction]}
+
+    langchain_flavor = model_info.flavors["langchain"]
+    assert langchain_flavor["databricks_dependency"] == {
+        "databricks_chat_endpoint_name": ["fake-endpoint"]
+    }
