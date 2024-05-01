@@ -6,6 +6,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.util._once import Once
 
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 # Once() object ensures a function is executed only once in a process.
 # Note that it doesn't work as expected in a distributed environment.
@@ -66,21 +67,18 @@ def _setup_tracer_provider():
     """
     Instantiate a tracer provider and set it as the global tracer provider.
     """
-    # TODO: Make factory method for exporters once we support more sink destinations
-    # E.g.
-    # if is_in_databricks_model_serving_environment():
-    #    from mlflow.tracing.export.serving import InferenceTableExporter
-    #    from mlflow.tracing.processor.serving import ModelServingSpanProcessor
-    #
-    #    exporter = InferenceTableExporter()
-    #    processor = ModelServingSpanProcessor(exporter)
-    # elif is_tracking_uri_databricks():
-    #    ...
-    from mlflow.tracing.export.mlflow import MlflowSpanExporter
-    from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+    if is_in_databricks_model_serving_environment():
+        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 
-    exporter = MlflowSpanExporter()
-    processor = MlflowSpanProcessor(exporter)
+        exporter = InferenceTableSpanExporter()
+        processor = InferenceTableSpanProcessor(exporter)
+    else:
+        from mlflow.tracing.export.mlflow import MlflowSpanExporter
+        from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+
+        exporter = MlflowSpanExporter()
+        processor = MlflowSpanProcessor(exporter)
 
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
