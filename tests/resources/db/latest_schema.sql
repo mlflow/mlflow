@@ -210,3 +210,4 @@ CREATE TABLE trace_tags (
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
 	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
 )
+
