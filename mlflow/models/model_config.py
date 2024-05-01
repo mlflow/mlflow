@@ -22,7 +22,7 @@ class ModelConfig:
         if not self.config:
             raise FileNotFoundError("Config file is None. Please provide a valid path.")
 
-        if not isinstance(development_config, dict) and not os.path.isfile(self.config):
+        if not isinstance(self.config, dict) and not os.path.isfile(self.config):
             raise FileNotFoundError(f"Config file '{self.config}' not found.")
 
     def _read_config(self):
