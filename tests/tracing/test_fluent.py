@@ -9,7 +9,10 @@ import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+
+from tests.tracing.helper import get_traces
 
 
 @pytest.mark.parametrize("with_active_run", [True, False])
@@ -42,7 +45,7 @@ def test_trace(clear_singleton, with_active_run):
     else:
         model.predict(2, 5)
 
-    trace = mlflow.get_traces()[0]
+    trace = get_traces()[0]
     trace_info = trace.info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == "0"  # default experiment
@@ -126,7 +129,7 @@ def test_trace_with_databricks_tracking_uri(
     ) as mock_upload_trace_data:
         model.predict(2, 5)
 
-    traces = mlflow.get_traces()
+    traces = get_traces()
     assert len(traces) == 1
     trace_info = traces[0].info
     assert trace_info.request_id == "tr-12345"
@@ -258,8 +261,41 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
     assert pop_trace(request_id=databricks_request_id) is None
 
     # In model serving, the traces should not be stored in the fluent API buffer
-    traces = mlflow.get_traces()
+    traces = get_traces()
     assert len(traces) == 0
+
+
+def test_trace_in_model_evaluation(clear_singleton, mock_store):
+    class TestModel:
+        @mlflow.trace()
+        def predict(self, x, y):
+            return x + y
+
+    model = TestModel()
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+        request_id_1 = "tr-eval-123"
+        with set_prediction_context(Context(request_id=request_id_1, is_evaluate=True)):
+            model.predict(1, 2)
+
+        request_id_2 = "tr-eval-456"
+        with set_prediction_context(Context(request_id=request_id_2, is_evaluate=True)):
+            model.predict(3, 4)
+
+    trace = mlflow.get_trace(request_id_1)
+    assert trace.info.request_id == request_id_1
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
+    assert trace.info.tags == {"mlflow.traceName": "predict"}
+
+    trace = mlflow.get_trace(request_id_2)
+    assert trace.info.request_id == request_id_2
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
+    assert trace.info.tags == {"mlflow.traceName": "predict"}
+
+    # MLflow backend API should not be called for model evaluation
+    mock_store.start_trace.assert_not_called()
+    mock_store.end_trace.assert_not_called()
 
 
 def test_trace_handle_exception_during_prediction(clear_singleton):
@@ -280,7 +316,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
         model.predict(2, 5)
 
     # Trace should be logged even if the function fails, with status code ERROR
-    trace = mlflow.get_traces()[0]
+    trace = get_traces()[0]
     assert trace.info.request_id is not None
     assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -306,14 +342,14 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
         output = model.predict(2, 5)
 
     assert output == 7
-    assert mlflow.get_traces() == []
+    assert get_traces() == []
 
     # Exception during inspecting inputs: trace is logged without inputs field
     with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
-    trace = mlflow.get_traces()[0]
+    trace = get_traces()[0]
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
 
@@ -348,7 +384,7 @@ def test_start_span_context_manager(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = mlflow.get_traces()[0]
+    trace = get_traces()[0]
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -430,7 +466,7 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = mlflow.get_traces()[0]
+    trace = get_traces()[0]
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec

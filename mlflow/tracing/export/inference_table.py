@@ -27,9 +27,9 @@ def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
 
 
 # For Inference Table, we use special TTLCache to store the finished traces
-# so that they can be retrieved by the Databricks model serving. This needs
-# to be a different from the queue-based buffer used by MLflow fluent API as
-# the access is not index-based but key (request ID) based.
+# so that they can be retrieved by the Databricks model serving. The values
+# in the buffer is not Trace dataclass but a dictionary with the schema
+# used in the Databricks.
 def _initialize_trace_buffer():  # Define as a function for testing purposes
     return TTLCache(
         maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),

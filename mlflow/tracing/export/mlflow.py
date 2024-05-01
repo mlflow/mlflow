@@ -5,9 +5,10 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
+from mlflow.pyfunc.context import maybe_get_evaluation_request_id
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
-from mlflow.tracing.fluent import TRACE_BUFFER, TRACE_BUFFER_LOCK
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.client import MlflowClient
 
@@ -56,8 +57,13 @@ class MlflowSpanExporter(SpanExporter):
                 continue
 
             # Add the trace to the in-memory buffer
-            with TRACE_BUFFER_LOCK:
-                TRACE_BUFFER.append(trace)
+            TRACE_BUFFER[trace.info.request_id] = trace
+
+            # If the trace is created in the context of MLflow model evaluation, we don't display
+            # the trace here or log it to MLflow backend. The trace will be extracted from the
+            # buffer by the caller and logged as a part of the evaluation table.
+            if maybe_get_evaluation_request_id() is not None:
+                return
 
             # Display the trace in the UI
             self._display_handler.display_traces([trace])

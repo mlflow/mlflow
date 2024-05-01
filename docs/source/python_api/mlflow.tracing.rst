@@ -36,7 +36,7 @@ Fluent APIs are high-level APIs that allow developers to instrument their code w
     :noindex:
 
 
-.. autofunction:: mlflow.get_traces
+.. autofunction:: mlflow.get_trace
     :noindex:
 
 .. _tracing-client-apis:

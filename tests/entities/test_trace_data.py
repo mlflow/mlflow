@@ -6,7 +6,7 @@ import mlflow
 from mlflow.entities import SpanType, TraceData
 from mlflow.entities.span_event import SpanEvent
 
-from tests.tracing.conftest import clear_singleton, mock_store, mock_upload_trace_data  # noqa: F401
+from tests.tracing.helper import get_traces
 
 
 def test_json_deserialization(clear_singleton):
@@ -31,7 +31,7 @@ def test_json_deserialization(clear_singleton):
     with pytest.raises(Exception, match="Error!"):
         model.predict(2, 5)
 
-    trace = mlflow.get_traces()[0]
+    trace = get_traces()[0]
     trace_data = trace.data
 
     # Compare events separately as it includes exception stacktrace which is hard to hardcode

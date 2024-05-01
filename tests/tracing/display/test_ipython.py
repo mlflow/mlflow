@@ -3,7 +3,6 @@ from unittest.mock import Mock
 
 import mlflow
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.fluent import TRACE_BUFFER
 
 from tests.tracing.helper import create_trace
 
@@ -65,12 +64,7 @@ def test_display_is_called_in_correct_functions(monkeypatch):
     monkeypatch.setattr("IPython.display.display", mock_display)
     trace = create_trace("a")
     handler.display_traces([trace])
-    TRACE_BUFFER.append(trace)
     assert mock_display.call_count == 1
-
-    mock_ipython.mock_run_cell()
-    mlflow.get_traces(n=10)
-    assert mock_display.call_count == 2
 
     class MockMlflowClient:
         def search_traces(self, *args, **kwargs):
@@ -80,7 +74,7 @@ def test_display_is_called_in_correct_functions(monkeypatch):
 
     mock_ipython.mock_run_cell()
     mlflow.search_traces(["123"])
-    assert mock_display.call_count == 3
+    assert mock_display.call_count == 2
 
 
 def test_display_deduplicates_traces(monkeypatch):
@@ -95,17 +89,12 @@ def test_display_deduplicates_traces(monkeypatch):
     trace_a = create_trace("a")
     trace_b = create_trace("b")
     trace_c = create_trace("c")
-    TRACE_BUFFER.extend([trace_a, trace_b, trace_c])
 
-    # 3 traces are created, and the same 3 traces
-    # are returned by `get_traces()`. the display
-    # client should dedupe these and only display
-    # 3 traces (not 6).
+    # The display client should dedupe traces to display and only display 3 (not 6).
     handler.display_traces([trace_a])
     handler.display_traces([trace_b])
     handler.display_traces([trace_c])
-
-    mlflow.get_traces(n=3)
+    handler.display_traces([trace_a, trace_b, trace_c])
 
     expected = [trace_a, trace_b, trace_c]
 
