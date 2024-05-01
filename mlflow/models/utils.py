@@ -1465,7 +1465,7 @@ def _validate_model_code_from_notebook(code):
     if re.search(magic_regex, code, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
-            "functions correctly, make sure that it does not rely on these magic commands for."
+            "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
 
