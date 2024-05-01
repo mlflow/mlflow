@@ -265,8 +265,8 @@ def save_model(
                 model_config_path = model_config
             else:
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    f"If the provided model_config '{model_config}' is a string, it must be a "
-                    "valid yaml file path containing the configuration for the model."
+                    f"Model config path '{model_config}' provided is not a valid file path. "
+                    "Please provide a valid model configuration."
                 )
         # TODO: deal with dicts properly as well
 
@@ -893,10 +893,16 @@ def load_model(model_uri, dst_path=None):
 
 
 @contextmanager
-def _config_path_context(code_path: Optional[str] = None):
-    _set_model_config(code_path)
+def _config_path_context(config_path: Optional[str] = None):
+    # Check if config_path is None and set it to "" so when loading the model
+    # the config_path is set to "" so the ModelConfig can correctly check if the
+    # config is set or not
+    if config_path is None:
+        config_path = ""
+
+    _set_model_config(config_path)
     # set rag utils global for backwards compatibility
-    _set_config_path(code_path)
+    _set_config_path(config_path)
     try:
         yield
     finally:
