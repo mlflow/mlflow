@@ -389,7 +389,8 @@ import threading
 import warnings
 from copy import deepcopy
 from functools import lru_cache
-from typing import Any, Dict, Iterator, Optional, Tuple, Union
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas
@@ -406,6 +407,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
+from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
     _infer_signature_from_type_hints,
@@ -2084,6 +2086,7 @@ def save_model(
     model_config=None,
     example_no_conversion=False,
     streamable=None,
+    resources: Optional[Union[str, List[Resource]]] = None,
     **kwargs,
 ):
     """
@@ -2224,6 +2227,11 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
@@ -2357,6 +2365,14 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    if resources is not None:
+        if isinstance(resources, (Path, str)):
+            serialized_resource = _ResourceBuilder.from_yaml_file(resources)
+        else:
+            serialized_resource = _ResourceBuilder.from_resources(resources)
+
+        mlflow_model.resources = serialized_resource
+
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
             path=path,
@@ -2407,6 +2423,7 @@ def log_model(
     model_config=None,
     example_no_conversion=False,
     streamable=None,
+    resources: Optional[Union[str, List[Resource]]] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2558,6 +2575,12 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+
 
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
@@ -2587,6 +2610,7 @@ def log_model(
         model_config=model_config,
         example_no_conversion=example_no_conversion,
         streamable=streamable,
+        resources=resources,
     )
 
 
