@@ -28,6 +28,7 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
+from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -1545,3 +1546,116 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     assert isinstance(stream_result, types.GeneratorType)
 
     assert list(stream_result) == ["test1", "test2"]
+
+
+def test_model_save_load_with_resources(tmp_path):
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+    pyfunc_model_path_2 = os.path.join(tmp_path, "pyfunc_model_2")
+
+    expected_resources = {
+        "api_version": "1",
+        "databricks": {
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-bge-large-en"},
+                {"name": "azure-eastus-model-serving-2_vs_endpoint"},
+            ],
+            "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+        },
+    }
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        conda_env=_conda_env(),
+        python_model=mlflow.pyfunc.model.PythonModel(),
+        resources=[
+            DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+            DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+            DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
+            DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+        ],
+    )
+
+    reloaded_model = Model.load(pyfunc_model_path)
+    assert reloaded_model.resources == expected_resources
+
+    yaml_file = tmp_path.joinpath("resources.yaml")
+    with open(yaml_file, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index:
+                - name: rag.studio_bugbash.databricks_docs_index
+                serving_endpoint:
+                - name: databricks-mixtral-8x7b-instruct
+                - name: databricks-bge-large-en
+                - name: azure-eastus-model-serving-2_vs_endpoint
+            """
+        )
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path_2,
+        conda_env=_conda_env(),
+        python_model=mlflow.pyfunc.model.PythonModel(),
+        resources=yaml_file,
+    )
+
+    reloaded_model = Model.load(pyfunc_model_path_2)
+    assert reloaded_model.resources == expected_resources
+
+
+def test_model_log_with_resources(tmp_path):
+    pyfunc_artifact_path = "pyfunc_model"
+
+    expected_resources = {
+        "api_version": "1",
+        "databricks": {
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-bge-large-en"},
+                {"name": "azure-eastus-model-serving-2_vs_endpoint"},
+            ],
+            "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+        },
+    }
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            resources=[
+                DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+                DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+                DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
+                DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+            ],
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources == expected_resources
+
+    yaml_file = tmp_path.joinpath("resources.yaml")
+    with open(yaml_file, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index:
+                - name: rag.studio_bugbash.databricks_docs_index
+                serving_endpoint:
+                - name: databricks-mixtral-8x7b-instruct
+                - name: databricks-bge-large-en
+                - name: azure-eastus-model-serving-2_vs_endpoint
+            """
+        )
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            resources=yaml_file,
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources == expected_resources

@@ -15,6 +15,7 @@ from scipy.sparse import csc_matrix
 import mlflow
 from mlflow.models import Model, ModelSignature, infer_signature, set_model, validate_schema
 from mlflow.models.model import METADATA_FILES
+from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -118,12 +119,19 @@ class TestFlavor:
         mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def _log_model_with_signature_and_example(tmp_path, sig, input_example, metadata=None):
+def _log_model_with_signature_and_example(
+    tmp_path, sig, input_example, metadata=None, resources=None
+):
     experiment_id = mlflow.create_experiment("test")
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
         Model.log(
-            "some/path", TestFlavor, signature=sig, input_example=input_example, metadata=metadata
+            "some/path",
+            TestFlavor,
+            signature=sig,
+            input_example=input_example,
+            metadata=metadata,
+            resources=resources,
         )
 
     # TODO: remove this after replacing all `with TempDir(chdr=True) as tmp`
@@ -546,3 +554,27 @@ def test_error_set_model(sklearn_knn_model):
         match="Model should either be an instance of PyFuncModel or Langchain type.",
     ):
         set_model(sklearn_knn_model)
+
+
+def test_model_resources():
+    expected_resources = {
+        "api_version": "1",
+        "databricks": {
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-bge-large-en"},
+                {"name": "azure-eastus-model-serving-2_vs_endpoint"},
+            ],
+            "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+        },
+    }
+    with TempDir(chdr=True) as tmp:
+        resources = [
+            DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+            DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+            DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
+            DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+        ]
+        local_path, _ = _log_model_with_signature_and_example(tmp, None, None, resources=resources)
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        assert loaded_model.resources == expected_resources
