@@ -649,7 +649,7 @@ class SqlTraceInfo(Base):
     """
     Request ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
