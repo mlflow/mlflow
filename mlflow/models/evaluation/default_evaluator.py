@@ -1487,7 +1487,7 @@ class DefaultEvaluator(ModelEvaluator):
                     self.label_list = np.append(self.label_list, self.pos_label)
                 elif self.pos_label is None:
                     self.pos_label = self.label_list[-1]
-                with _suppress_class_imbalance_errors(IndexError):
+                with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                     _logger.info(
                         "The evaluation dataset is inferred as binary dataset, positive label is "
                         f"{self.label_list[1]}, negative label is {self.label_list[0]}."

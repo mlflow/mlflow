@@ -1578,7 +1578,7 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
 def test_binary_classification_missing_minority_class_exception_override(
     binary_logistic_regressor_model_uri, breast_cancer_dataset, baseline_model_uri, monkeypatch
 ):
-    monkeypatch.setenv("_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY", True)
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
 
     ds_targets = breast_cancer_dataset._constructor_args["targets"]
     # Simulate a missing target label
@@ -1606,7 +1606,7 @@ def test_binary_classification_missing_minority_class_exception_override(
 def test_multiclass_classification_missing_minority_class_exception_override(
     multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, monkeypatch
 ):
-    monkeypatch.setenv("_MLFLOW_EVALUATE_CLASSIFICATION_ERRORS_WARN_ONLY", True)
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
 
     ds_targets = iris_dataset._constructor_args["targets"]
     # Simulate a missing target label
