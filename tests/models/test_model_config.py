@@ -66,6 +66,7 @@ def test_config_development_config_is_a_dict():
     config = ModelConfig(development_config={"llm_parameters": {"temperature": 0.01}})
     assert config.get("llm_parameters").get("temperature") == 0.01
 
+
 @mock.patch("mlflow.models.model_config.__mlflow_model_config__", new="")
 def test_config_setup_correctly_errors_with_no_config_path():
     with pytest.raises(
