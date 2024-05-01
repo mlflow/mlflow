@@ -448,7 +448,7 @@ def test_model_code_validation():
         _validate_model_code_from_notebook(warning_code)
         mock_warning.assert_called_once_with(
             "The model file uses magic commands which have been commented out. To ensure your code "
-            "functions correctly, make sure that it does not rely on these magic commands for."
+            "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
 
