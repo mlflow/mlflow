@@ -1,8 +1,8 @@
 import os
 import pickle
-import cloudpickle
 import types
 
+import cloudpickle
 import numpy as np
 import pytest
 import sklearn.datasets
