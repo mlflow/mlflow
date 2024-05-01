@@ -1564,6 +1564,63 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
 
 
 @pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("binary_logistic_regressor_model_uri")],
+    indirect=["baseline_model_uri"],
+)
+def test_binary_classification_missing_minority_class_exception_override(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, baseline_model_uri, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+
+    ds_targets = breast_cancer_dataset._constructor_args["targets"]
+    # Simulate a missing target label
+    ds_targets = np.where(ds_targets == 0, 1, ds_targets)
+
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=ds_targets,
+            evaluators=["default"],
+            baseline_model=baseline_model_uri,
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    assert saved_metrics == eval_result.metrics
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
+    indirect=["baseline_model_uri"],
+)
+def test_multiclass_classification_missing_minority_class_exception_override(
+    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+
+    ds_targets = iris_dataset._constructor_args["targets"]
+    # Simulate a missing target label
+    ds_targets = np.where(ds_targets == 0, 1, ds_targets)
+
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=ds_targets,
+            evaluators=["default"],
+            baseline_model=baseline_model_uri,
+        )
+    _, saved_metrics, _, saved_artifacts = get_run_data(run.info.run_id)
+
+    assert saved_metrics == eval_result.metrics
+    assert "shap_beeswarm_plot.png" not in saved_artifacts
+
+
+@pytest.mark.parametrize(
     ("model", "is_endpoint_uri"),
     [
         ("endpoints:/test", True),
