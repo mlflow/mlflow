@@ -2083,7 +2083,7 @@ def save_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
-    streamable=False,
+    streamable=None,
     **kwargs,
 ):
     """

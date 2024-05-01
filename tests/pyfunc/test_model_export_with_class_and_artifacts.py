@@ -1536,12 +1536,11 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         python_model=python_model,
-        streamable=True,
     )
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
-    stream_result = loaded_pyfunc_model.predict_stream(iris_data[0])
+    stream_result = loaded_pyfunc_model.predict_stream("single-input")
     assert isinstance(stream_result, types.GeneratorType)
 
     assert next(stream_result) == "test"
