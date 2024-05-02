@@ -694,13 +694,16 @@ class Model:
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params 
-            # model_config could be a dictionary that contains the model configuration or a path to a file
-            if "model_config" in kwargs:
-                model_config = kwargs["model_config"]
-                if isinstance(model_config, str):
-                    with open(model_config, "r") as f:
-                        model_config = json.load(f)
-                mlflow.tracking.fluent.log_params(model_config)
+            try:
+                if "model_config" in kwargs:
+                    model_config = kwargs["model_config"]
+                    if isinstance(model_config, str):
+                        with open(model_config, "r") as f:
+                            model_config = json.load(f)
+                    mlflow.tracking.fluent.log_params(model_config)
+            except Exception as e:
+                _logger.warning("Failed to log model config as params: %s", str(e))
+
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
             except MlflowException:
