@@ -693,12 +693,12 @@ class Model:
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
-            # if the model_config kwarg is passed in, then log the model config as an params 
+            # if the model_config kwarg is passed in, then log the model config as an params
             try:
                 if "model_config" in kwargs:
                     model_config = kwargs["model_config"]
                     if isinstance(model_config, str):
-                        with open(model_config, "r") as f:
+                        with open(model_config) as f:
                             model_config = json.load(f)
                     mlflow.tracking.fluent.log_params(model_config)
             except Exception as e:
