@@ -270,6 +270,8 @@ def _validate_onnx_session_options(onnx_session_options):
                 )
 
 
+# pyfunc_config is the model conf loaded from MLmodel file
+# load_config is passed into load_model
 def _get_overridden_pyfunc_model_config(
     pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
 ) -> Dict[str, Any]:
@@ -289,6 +291,7 @@ def _get_overridden_pyfunc_model_config(
         overrides.update(dict(json.loads(env_overrides)))
 
     if load_config:
+        # TODO: determine if the passed in is a file or a dict
         overrides.update(load_config)
 
     if not overrides:

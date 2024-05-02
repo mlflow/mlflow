@@ -827,6 +827,7 @@ class PyFuncModel:
     @property
     def model_config(self):
         """Model's flavor configuration"""
+        # TODO: should the default here still be an empty dict?
         return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
 
     @experimental
@@ -914,6 +915,9 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
+    # conf is the model conf loaded from MLmodel file
+    # model_config is passed into load_model
+    # TODO: here model_config becomes a dict
     model_config = _get_overridden_pyfunc_model_config(
         conf.get(MODEL_CONFIG, None), model_config, _logger
     )
@@ -2235,6 +2239,7 @@ def save_model(
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
+    # TODO: convert model_config to all be in dict format
     if python_model:
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
