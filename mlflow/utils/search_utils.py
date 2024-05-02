@@ -1519,7 +1519,7 @@ class SearchTraceUtils(SearchUtils):
             # Request metadata accepts the same set of comparators as tags
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}"
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'"
                 )
             return True
         return False

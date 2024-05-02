@@ -1662,8 +1662,14 @@ class SqlAlchemyStore(AbstractStore):
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
             stmt = (
-                stmt.distinct()
-                .filter(
+                # NB: We don't need to distinct the results of joins because of the fact that
+                #   the right tables of the joins are unique on the join key, request_id.
+                #   This is because the subquery that is joined on the right side is conditioned
+                #   by a key and value pair of tags/metadata, and the combination of key and
+                #   request_id is unique in those tables.
+                #   Be careful when changing the query building logic, as it may break this
+                #   uniqueness property and require deduplication, which can be expensive.
+                stmt.filter(
                     SqlTraceInfo.experiment_id.in_(experiment_ids),
                     *attribute_filters,
                 )
@@ -1934,8 +1940,8 @@ def _get_search_experiments_order_by_clauses(order_by):
 
 
 def _get_orderby_clauses_for_search_traces(order_by_list: List[str], session):
-    """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
-    Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
+    """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
+    Traces are ordered first by timestamp_ms descending, then by request_id for tie-breaking.
     """
     clauses = []
     ordering_joins = []
@@ -1975,11 +1981,9 @@ def _get_orderby_clauses_for_search_traces(order_by_list: List[str], session):
         clauses.append(order_value if ascending else order_value.desc())
 
     # Add descending trace start time as default ordering and a tie-breaker
-    if (
-        SearchTraceUtils._ATTRIBUTE_IDENTIFIER,
-        SqlTraceInfo.timestamp_ms.key,
-    ) not in observed_order_by_clauses:
-        clauses.append(SqlTraceInfo.timestamp_ms.desc())
+    for attr, ascending in [(SqlTraceInfo.timestamp_ms, False), (SqlTraceInfo.request_id, True)]:
+        if (SearchTraceUtils._ATTRIBUTE_IDENTIFIER, attr.key) not in observed_order_by_clauses:
+            clauses.append(attr if ascending else attr.desc())
     return select_clauses, clauses, ordering_joins
 
 

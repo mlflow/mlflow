@@ -2,6 +2,7 @@ import json
 import math
 import os
 import pathlib
+import random
 import re
 import shutil
 import time
@@ -3980,7 +3981,7 @@ def store_with_traces(tmp_path_factory):
         # Order by tag (null comes last)
         (["tag.fruit"], ["tr-2", "tr-1", "tr-3", "tr-4", "tr-0"]),
         # Order by multiple tags
-        (["tag.fruit", "tag.color"], ["tr-2", "tr-1", "tr-3", "tr-4", "tr-0"]),
+        (["tag.fruit", "tag.color"], ["tr-2", "tr-1", "tr-3", "tr-3", "tr-0"]),
         # Order by non-existent tag (should be ordered by default order)
         (["tag.nonexistent"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
         # Order by run Id
@@ -4017,7 +4018,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         ("tags.fruit = 'apple'", ["tr-2", "tr-1"]),
         ("tags.fruit = 'apple' and tags.color != 'red'", ["tr-2"]),
         ("tags.color LIKE 're%'", ["tr-1"]),
-        # Search by reqeest metadata
+        # Search by request metadata
         ("run_id = 'run0'", ["tr-0"]),
     ],
 )
@@ -4043,7 +4044,7 @@ def test_search_traces_raise_if_max_results_arg_is_invalid(store):
         store.search_traces(experiment_ids=[], max_results=-1)
 
 
-def test_search_traces_pagenation(store_with_traces):
+def test_search_traces_pagination(store_with_traces):
     exps = [
         store_with_traces.get_experiment_by_name("exp1").experiment_id,
         store_with_traces.get_experiment_by_name("exp2").experiment_id,
@@ -4058,3 +4059,30 @@ def test_search_traces_pagenation(store_with_traces):
     traces, token = store_with_traces.search_traces(exps, max_results=2, page_token=token)
     assert [t.request_id for t in traces] == ["tr-0"]
     assert token is None
+
+
+def test_search_traces_pagination_tie_breaker(store):
+    # This test is for ensuring the tie breaker for ordering traces with the same timestamp
+    # works correctly.
+    exp1 = store.create_experiment("exp1")
+
+    request_ids = [f"tr-{i}" for i in range(5)]
+    random.shuffle(request_ids)
+    # Insert traces with random order
+    for rid in request_ids:
+        _create_trace(store, rid, exp1, timestamp_ms=0)
+
+    # Insert 5 more traces with newer timestamp
+    request_ids = [f"tr-{i+5}" for i in range(5)]
+    random.shuffle(request_ids)
+    for rid in request_ids:
+        _create_trace(store, rid, exp1, timestamp_ms=1)
+
+    traces, token = store.search_traces([exp1], max_results=3)
+    assert [t.request_id for t in traces] == ["tr-5", "tr-6", "tr-7"]
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-8", "tr-9", "tr-0"]
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-4"]
