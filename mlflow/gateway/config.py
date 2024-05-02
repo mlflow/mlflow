@@ -251,7 +251,7 @@ def get_config_model(config_model: str) -> Optional[Type[ProviderConfigModel]]:
         conf = import_plugin_obj(config_model)
         if not (isinstance(conf, type) and issubclass(conf, ProviderConfigModel)):
             raise MlflowException.invalid_parameter_value(
-                f"Plugin config model {conf} is not a subclass of ConfigModel"
+                f"Plugin config model {conf} is not a subclass of ProviderConfigModel"
             )
         return conf
 
