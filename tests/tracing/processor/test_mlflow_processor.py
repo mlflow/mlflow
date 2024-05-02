@@ -2,12 +2,15 @@ import json
 import time
 from unittest import mock
 
+import pytest
+
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_trace_id
+from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -45,6 +48,7 @@ def test_on_start(clear_singleton):
     assert child_span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
 
 
+@pytest.mark.skipif(is_windows(), reason="Timestamp is not precise enough on Windows")
 def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singleton):
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     mock_client = mock.MagicMock()
