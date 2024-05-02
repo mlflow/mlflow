@@ -2379,6 +2379,44 @@ def test_save_load_chain_as_code(chain_model_signature):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
+def test_save_load_chain_as_code_model_config_dict(chain_model_signature):
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/chain.py",
+            artifact_path="model_path",
+            signature=chain_model_signature,
+            input_example=input_example,
+            model_config={
+                "response": "modified response",
+                "embedding_size": 5,
+                "llm_prompt_template": "answer the question",
+            },
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    answer = "modified response"
+    assert loaded_model.invoke(input_example) == answer
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert (
+        pyfunc_loaded_model.predict(input_example)[0]
+        .get("choices")[0]
+        .get("message")
+        .get("content")
+        == answer
+    )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_signature):
     input_example = {
         "messages": [
