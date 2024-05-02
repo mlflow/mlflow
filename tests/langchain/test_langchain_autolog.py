@@ -412,7 +412,10 @@ def test_llmchain_autolog_log_inputs_outputs():
 
 
 @mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
-def test_loaded_llmchain_autolog_within_model_evaluation(mock_get_display, tmp_path):
+def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
+    # Disable autolog here as it is enabled in other tests.
+    mlflow.langchain.autolog(disable=True)
+
     model = create_openai_llmchain()
     model_path = tmp_path / "model"
     mlflow.langchain.save_model(model, path=model_path)
