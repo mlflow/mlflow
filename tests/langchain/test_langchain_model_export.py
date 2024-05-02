@@ -2491,7 +2491,7 @@ def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_sign
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            code_paths=["tests/langchain/config.yml"],
+            model_config="tests/langchain/config.yml",
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
@@ -2549,7 +2549,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature)
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            code_paths=[new_config_file],
+            model_config=new_config_file,
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
