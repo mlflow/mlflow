@@ -1,7 +1,5 @@
-import os
 from typing import Any, List, Optional
 
-import yaml
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.prompts import ChatPromptTemplate
@@ -10,8 +8,9 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
-import mlflow
-from mlflow.models import set_model
+from mlflow.models import ModelConfig, set_model
+
+base_config = ModelConfig(development_config="tests/langchain/config.yaml")
 
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
@@ -38,7 +37,7 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": "Databricks",
+                            "content": f"{base_config.get('response')}",
                         },
                         "finish_reason": None,
                     }
@@ -53,19 +52,12 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
     return FakeChatModel(endpoint=endpoint)
 
 
-config_path = mlflow.models.model_config.__mlflow_model_config__
-assert os.path.exists(config_path)
-
-with open(config_path) as f:
-    base_config = yaml.safe_load(f)
-
 text_path = "tests/langchain/state_of_the_union.txt"
 loader = TextLoader(text_path)
 documents = loader.load()
 text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 docs = text_splitter.split_documents(documents)
 
-assert base_config.get("embedding_size") == 5
 embeddings = FakeEmbeddings(size=base_config.get("embedding_size"))
 vectorstore = FAISS.from_documents(docs, embeddings)
 retriever = vectorstore.as_retriever()
