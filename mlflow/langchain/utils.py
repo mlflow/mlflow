@@ -330,15 +330,15 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                 w = WorkspaceClient()
                 response = w.workspace.export(path=lc_model, format=ExportFormat.SOURCE)
                 decoded_content = base64.b64decode(response.content)
-                _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-
-                return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
             except Exception:
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"If the provided model '{lc_model}' is a string, it must be a valid python "
                     "file path or a databricks notebook file path containing the code for defining "
                     "the chain instance."
                 )
+
+            _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+            return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
