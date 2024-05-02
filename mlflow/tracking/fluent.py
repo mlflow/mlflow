@@ -199,6 +199,70 @@ class ActiveRun(Run):
         return exc_type is None
 
 
+def start_run_by_name(
+    run_name: str,
+    experiment_id: Optional[str] = None,
+    nested: bool = False,
+    tags: Optional[Dict[str, Any]] = None,
+    description: Optional[str] = None,
+    log_system_metrics: Optional[bool] = None,
+) -> ActiveRun:
+    """
+    Start a new MLflow run, setting it as the active run under which metrics and parameters
+    will be logged. The return value can be used as a context manager within a ``with`` block;
+    otherwise, you must call ``end_run()`` to terminate the current run.
+
+    ``start_run_by_name`` attempts to resume a run with the specified run name and
+    other parameters are ignored.
+
+    Throws an exception if there are multiple runs with the specified run_name
+
+    Args:
+        run_name: Get the run with the specified run_name and log parameters
+            and metrics under that run. The run's end time is unset and its status
+            is set to running, but the run's other attributes (``source_version``,
+            ``source_type``, etc.) are not changed.
+        experiment_id: ID of the experiment under which to create the current run (applicable
+            only when ``run_id`` is not specified). If ``experiment_id`` argument
+            is unspecified, will look for valid experiment in the following order:
+            activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
+            environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
+            or the default experiment as defined by the tracking server.
+        nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
+        tags: An optional dictionary of string keys and values to set as tags on the run.
+            If a run is being resumed, these tags are set on the resumed run. If a new run is
+            being created, these tags are set on the new run.
+        description: An optional string that populates the description box of the run.
+            If a run is being resumed, the description is set on the resumed run.
+            If a new run is being created, the description is set on the new run.
+        log_system_metrics: bool, defaults to None. If True, system metrics will be logged
+            to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
+            `MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING` to determine whether to log system metrics.
+            System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
+
+    Returns:
+        :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
+        run's state.
+
+    """
+    runs = search_runs(filter_string=f"attributes.run_name='{run_name}'", output_format="list")
+    if len(runs) == 0:
+        return start_run(
+            run_name=run_name,
+            tags=tags,
+            description=description,
+            experiment_id=experiment_id,
+            log_system_metrics=log_system_metrics,
+            nested=nested,
+        )
+    elif len(runs) == 1:
+        return start_run(run_id=runs[0].info.run_id, tags=tags, description=description)
+    else:
+        raise MlflowException(
+            message="More than one run_id with {} run_name. "
+                    "start_run_by_name can only be used for runs with unique run_names".format(run_name))
+
+
 def start_run(
     run_id: Optional[str] = None,
     experiment_id: Optional[str] = None,
