@@ -14,8 +14,6 @@ from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 _logger = logging.getLogger(__name__)
 
-INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
-
 
 def _get_input_from_model(model, kwargs):
     from openai.resources.chat.completions import Completions as ChatCompletions
