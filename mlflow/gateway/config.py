@@ -14,7 +14,7 @@ from pydantic import ConfigDict, Field, ValidationError, root_validator, validat
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
+from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel, ProviderConfigModel
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
@@ -56,7 +56,7 @@ class Provider(str, Enum):
         return {p.value for p in cls}
 
 
-class TogetherAIConfig(ConfigModel):
+class TogetherAIConfig(ProviderConfigModel):
     togetherai_api_key: str
 
     @validator("togetherai_api_key", pre=True)
@@ -70,7 +70,7 @@ class RouteType(str, Enum):
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 
-class CohereConfig(ConfigModel):
+class CohereConfig(ProviderConfigModel):
     cohere_api_key: str
 
     @validator("cohere_api_key", pre=True)
@@ -78,7 +78,7 @@ class CohereConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class AI21LabsConfig(ConfigModel):
+class AI21LabsConfig(ProviderConfigModel):
     ai21labs_api_key: str
 
     @validator("ai21labs_api_key", pre=True)
@@ -86,7 +86,7 @@ class AI21LabsConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class MosaicMLConfig(ConfigModel):
+class MosaicMLConfig(ProviderConfigModel):
     mosaicml_api_key: str
     mosaicml_api_base: Optional[str] = None
 
@@ -112,7 +112,7 @@ class OpenAIAPIType(str, Enum):
         raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{value}'")
 
 
-class OpenAIConfig(ConfigModel):
+class OpenAIConfig(ProviderConfigModel):
     openai_api_key: str
     openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
     openai_api_base: Optional[str] = None
@@ -173,7 +173,7 @@ class OpenAIConfig(ConfigModel):
             return cls._validate_field_compatibility(config)
 
 
-class AnthropicConfig(ConfigModel):
+class AnthropicConfig(ProviderConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
 
@@ -182,7 +182,7 @@ class AnthropicConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class PaLMConfig(ConfigModel):
+class PaLMConfig(ProviderConfigModel):
     palm_api_key: str
 
     @validator("palm_api_key", pre=True)
@@ -190,7 +190,7 @@ class PaLMConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class MlflowModelServingConfig(ConfigModel):
+class MlflowModelServingConfig(ProviderConfigModel):
     model_server_url: str
 
     # Workaround to suppress warning that Pydantic raises when a field name starts with "model_".
@@ -198,7 +198,7 @@ class MlflowModelServingConfig(ConfigModel):
     model_config = pydantic.ConfigDict(protected_namespaces=())
 
 
-class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
+class HuggingFaceTextGenerationInferenceConfig(ProviderConfigModel):
     hf_server_url: str
 
 
@@ -217,12 +217,12 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: Optional[str] = None
 
 
-class AmazonBedrockConfig(ConfigModel):
+class AmazonBedrockConfig(ProviderConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
 
-class MistralConfig(ConfigModel):
+class MistralConfig(ProviderConfigModel):
     mistral_api_key: str
 
     @validator("mistral_api_key", pre=True)
@@ -246,10 +246,10 @@ config_types = {
 }
 
 
-def get_config_model(config_model: str) -> Optional[Type[ConfigModel]]:
+def get_config_model(config_model: str) -> Optional[Type[ProviderConfigModel]]:
     if string_is_plugin_obj(config_model):
         conf = import_plugin_obj(config_model)
-        if not (isinstance(conf, type) and issubclass(conf, ConfigModel)):
+        if not (isinstance(conf, type) and issubclass(conf, ProviderConfigModel)):
             raise MlflowException.invalid_parameter_value(
                 f"Plugin config model {conf} is not a subclass of ConfigModel"
             )
@@ -301,21 +301,7 @@ class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
     config_model: Optional[str] = None
-    config: Optional[
-        Union[
-            CohereConfig,
-            OpenAIConfig,
-            AI21LabsConfig,
-            AnthropicConfig,
-            AmazonBedrockConfig,
-            MosaicMLConfig,
-            MlflowModelServingConfig,
-            HuggingFaceTextGenerationInferenceConfig,
-            PaLMConfig,
-            MistralConfig,
-            TogetherAIConfig,
-        ]
-    ] = None
+    config: Optional[ProviderConfigModel] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
