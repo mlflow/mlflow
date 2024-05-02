@@ -1,4 +1,7 @@
+import inspect
+import json
 import logging
+import uuid
 from copy import deepcopy
 
 import mlflow
@@ -68,22 +71,21 @@ def _combine_input_and_output(input, output):
 def patched_call(original, self, *args, **kwargs):
     run_id = getattr(self, "run_id", None)
     active_run = mlflow.active_run()
+    mlflow_client = mlflow.MlflowClient()
     if run_id is None:
         # only log the tags once
-        extra_tags = get_autologging_config(
-            mlflow.openai.FLAVOR_NAME, "extra_tags", None
-        )
+        extra_tags = get_autologging_config(mlflow.openai.FLAVOR_NAME, "extra_tags", None)
         # include run context tags
         resolved_tags = context_registry.resolve_tags(extra_tags)
         tags = _resolve_extra_tags(mlflow.openai.FLAVOR_NAME, resolved_tags)
         if active_run:
             run_id = active_run.info.run_id
-            mlflow.MlflowClient().log_batch(
+            mlflow_client.log_batch(
                 run_id=run_id,
                 tags=[RunTag(key, str(value)) for key, value in tags.items()],
             )
         else:
-            run = mlflow.MlflowClient().create_run(
+            run = mlflow_client.create_run(
                 experiment_id=_get_experiment_id(),
                 tags=tags,
             )
@@ -91,6 +93,34 @@ def patched_call(original, self, *args, **kwargs):
 
     with disable_autologging():
         result = original(self, *args, **kwargs)
+
+    class _OpenAIJsonEncoder(json.JSONEncoder):
+        def default(self, o):
+            from openai._types import NotGiven
+
+            if isinstance(o, NotGiven):
+                return str(o)
+
+            return super().default(o)
+
+    # Use session_id-inference_id as artifact directory where mlflow
+    # callback logs artifacts into, to avoid overriding artifacts
+    session_id = getattr(self, "session_id", uuid.uuid4().hex)
+    inference_id = getattr(self, "inference_id", 0)
+
+    # log input and output as artifacts
+    call_args = inspect.getcallargs(original, self, *args, **kwargs)
+    call_args.pop("self")
+    mlflow_client.log_text(
+        run_id=run_id,
+        text=json.dumps(call_args, indent=2, cls=_OpenAIJsonEncoder),
+        artifact_file=f"artifacts-{session_id}-{inference_id}/input.json",
+    )
+    mlflow_client.log_text(
+        run_id=run_id,
+        text=result.to_json(),
+        artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
+    )
 
     log_models = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_models", False)
     log_input_examples = get_autologging_config(
@@ -128,8 +158,12 @@ def patched_call(original, self, *args, **kwargs):
             _logger.warning(f"Failed to log model due to error: {e}.")
         self.model_logged = True
 
+    # Even if the model is not logged, we keep a single run per model
     if not hasattr(self, "run_id"):
         self.run_id = run_id
+    if not hasattr(self, "session_id"):
+        self.session_id = session_id
+    self.inference_id = inference_id + 1
 
     log_inputs_outputs = get_autologging_config(
         mlflow.openai.FLAVOR_NAME, "log_inputs_outputs", False
@@ -138,9 +172,7 @@ def patched_call(original, self, *args, **kwargs):
         if input_example is None:
             input_data = deepcopy(_get_input_from_model(self, kwargs))
             if input_data is None:
-                _logger.info(
-                    "Input data gathering failed, only log prediction results."
-                )
+                _logger.info("Input data gathering failed, only log prediction results.")
         else:
             input_data = input_example
         try:
@@ -154,6 +186,6 @@ def patched_call(original, self, *args, **kwargs):
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != run_id:
-        mlflow.MlflowClient().set_terminated(run_id)
+        mlflow_client.set_terminated(run_id)
 
     return result
