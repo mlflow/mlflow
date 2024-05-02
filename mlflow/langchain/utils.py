@@ -319,10 +319,10 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                 "the chain instance."
             )
 
-        _, file_extension = os.path.splitext(lc_model)
-        if file_extension == ".py":
-            return lc_model
-        else:
+        try:
+            with open(lc_model) as _:
+                return lc_model
+        except Exception:
             try:
                 from databricks.sdk import WorkspaceClient
                 from databricks.sdk.service.workspace import ExportFormat
