@@ -2,13 +2,17 @@ import logging
 import os
 from typing import Any, Dict, Optional, Union
 
-import pandas as pd
 import yaml
-from llama_index.core import StorageContext, load_index_from_storage
-from llama_index.core.schema import QueryBundle, QueryType
+from llama_index.core import Settings, StorageContext, load_index_from_storage
+from llama_index.core.indices.base import BaseIndex
 
 import mlflow
+import mlflow.exceptions
 from mlflow import pyfunc
+from mlflow.llama_index.serialize_objects import (
+    deserialize_settings_to_json,
+    serialize_settings_to_json,
+)
 from mlflow.llama_index.signature import (
     infer_signature_from_input_example,
     validate_and_resolve_signature,
@@ -39,13 +43,25 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
-_SUPPORTED_ENGINES = {"chat", "query", "retriever"}
+_CHAT_ENGINE_NAME = "chat"
+_QUERY_ENGINE_NAME = "query"
+_RETRIEVER_ENGINE_NAME = "retriever"
+_ENGINE_TO_INSTANTIATION_METHOD = {
+    _CHAT_ENGINE_NAME: "as_chat_engine",
+    _QUERY_ENGINE_NAME: "as_query_engine",
+    _RETRIEVER_ENGINE_NAME: "as_retriever",
+}
+_ENGINE_TO_INTERACTION_METHOD = {
+    _CHAT_ENGINE_NAME: "chat",
+    _QUERY_ENGINE_NAME: "query",
+    _RETRIEVER_ENGINE_NAME: "retrieve",
+}
+_SUPPORTED_ENGINES = {_CHAT_ENGINE_NAME, _QUERY_ENGINE_NAME, _RETRIEVER_ENGINE_NAME}
 
 FLAVOR_NAME = "llama_index"
 _INDEX_PERSIST_FOLDER = "index"
+_LLAMA_INDEX_OBJECTS = "object_dependencies"
 
-
-# model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
 
 _logger = logging.getLogger(__name__)
 
@@ -76,10 +92,41 @@ def _should_add_pyfunc_to_model(index):
     return True
 
 
+def _required_params(index, instantiation_method_name: str):
+    # TODO: replace with signature inspection
+    return {"llm"}
+
+
+def _validate_construct_engine(index: Union[BaseIndex], engine_type: str, kwargs: Dict[str, any]):
+    instantiation_method_name = _ENGINE_TO_INSTANTIATION_METHOD[engine_type]
+    if not hasattr(index, instantiation_method_name):
+        raise Exception(
+            f"{engine_type} is not supported for {index.__class__.rsplit('.',1)[-1]}"
+            "Please use a different engine or index type"
+        )
+
+    missing_required_kwargs = kwargs.keys() - _required_params(index, instantiation_method_name)
+    if len(missing_required_kwargs) > 0:
+        raise Exception(
+            f"Your kwargs to instantiate an {engine_type} is missing required kwargs: "
+            f"{missing_required_kwargs}"
+        )
+
+    try:
+        getattr(index, instantiation_method_name)(**kwargs)
+    except Exception:
+        # error instantiating beyond required kwargs and engine not supported
+        # TODO
+        _ = 1
+        raise
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     index,
     path: str,
+    engine_type: str,
+    engine_config: Optional[Dict[str, any]] = None,
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
@@ -93,11 +140,20 @@ def save_model(
     """ """
     import llama_index
 
+    if engine_type not in _SUPPORTED_ENGINES:
+        raise ValueError(
+            f"Currently mlflow only supports the following engine types: "
+            f"{_SUPPORTED_ENGINES}. {engine_type} is not supported, so please"
+            "use one of the above types"
+        )
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    _validate_construct_engine(index, engine_type, engine_config)
 
     if signature is None and input_example is not None:
         wrapped_model = _LlamaIndexModelWrapper(index)
@@ -115,10 +171,10 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_path = path  # os.path.join(path, _INDEX_PERSIST_FOLDER)
+    model_data_path = path
     _save_model(index, model_data_path)
 
-    flavor_conf = {}
+    flavor_conf = {"engine_type": engine_type, "engine_config": engine_config}
     if _should_add_pyfunc_to_model(index):
         if mlflow_model.signature is None:
             mlflow_model.signature = infer_signature_from_input_example(
@@ -128,20 +184,18 @@ def save_model(
                 flavor_config=flavor_conf,
             )
 
-    # model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.llama_index",
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
-        # **model_bin_kwargs,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         llama_index_version=llama_index.core.__version__,
         code=code_dir_subpath,
-        # **flavor_conf,
+        **flavor_conf,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -174,6 +228,8 @@ def save_model(
 def log_model(
     index,
     artifact_path,
+    engine_type: str,
+    engine_config: Optional[Dict[str, any]] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -185,8 +241,11 @@ def log_model(
     metadata=None,
 ):
     """ """
+
     return Model.log(
         artifact_path=artifact_path,
+        engine_type=engine_type,
+        engine_config=engine_config,
         flavor=mlflow.llama_index,
         registered_model_name=registered_model_name,
         index=index,
@@ -205,69 +264,56 @@ def _save_model(index, path):
     index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
     index.storage_context.persist(persist_dir=index_path)
 
+    objects_path = os.path.join(path, _LLAMA_INDEX_OBJECTS)
+    serialize_settings_to_json(index, objects_path)
 
-def _load_model(path):
+
+def _load_model(path, flavor_conf):
+    _add_code_from_conf_to_system_path(path, flavor_conf)
+    objects_path = os.path.join(path, _LLAMA_INDEX_OBJECTS)
+    llama_index_objects = deserialize_settings_to_json(objects_path)
+
+    embed_model_callable, embed_model_kwargs = llama_index_objects["embed_model"]
+    # TODO: double check that is how they do it
+    # TODO: add NB
+    Settings.embed_model = embed_model_callable(**embed_model_kwargs)
+
+    # TODO: change callable to class_reference
+    # TODO: add friently erorr handling for failures of these object
+    llm_callable, llm_kwargs = llama_index_objects["llm"]
+    Settings.llm = llm_callable(**llm_kwargs)
+
     index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
     storage_context = StorageContext.from_defaults(persist_dir=index_path)
     return load_index_from_storage(storage_context)
 
 
 def _load_pyfunc(path):
-    return _LlamaIndexModelWrapper(_load_model(path))
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    return _LlamaIndexModelWrapper(_load_model(path, flavor_conf), flavor_conf)
 
 
 def load_model(model_uri, dst_path=None):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-
-    return _load_model(local_model_path)
+    return _load_model(local_model_path, flavor_conf)
 
 
 class _LlamaIndexModelWrapper:
-    def __init__(self, index):
+    def __init__(self, index, flavor_config):
         self.index = index
 
-    def _unwrap_query_or_retriever_data(self, data) -> Union[QueryType]:
-        if isinstance(data, QueryBundle):
-            return data
+        # TODO: need to add a way to inject all Settings objects that are not serialized
+        # TODO: convert to a class (Yuki tracing branch with class enums)
+        # - don't use enum class - just class
+        engine_type = flavor_config["engine_type"]
+        engine_method_name = _ENGINE_TO_INSTANTIATION_METHOD[engine_type]
+        engine_method = getattr(self.index, engine_method_name)
+        engine = engine_method(**flavor_config["engine_config"])
 
-        elif isinstance(data, pd.DataFrame):
-            return str(data.iloc[0, 0])
+        self.predict_method = getattr(engine, _ENGINE_TO_INTERACTION_METHOD[engine_type])
 
-    def _unwrap_chat_data(self, data) -> str:
-        """
-        The chat() method takes the following parameters:
-        - message: str
-        - chat_history: Optional[List[ChatMessage]]
-        """
-        # TODO: figure out good way to map from all data input types to message and chat_history
-        if isinstance(data, pd.DataFrame):
-            if "message" in data.colums:
-                message = data["message"].iloc[0]
-            else:
-                raise ValueError("DataFrame must have a column named 'message'")
-
-            if "chat_history" in data.columns:
-                chat_history = data["chat_history"].iloc[0]  # assumes a list in this column
-            else:
-                raise ValueError("DataFrame must have a column named 'chat_history'")
-
-            return message, chat_history
-
-    def _is_supported_engine(self, engine: str):
-        return engine in _SUPPORTED_ENGINES
-
-    def predict(self, data: Union[QueryType], params: Optional[Dict[str, Any]] = None):
-        engine = params.pop("engine")
-        if not self._is_supported_engine(engine):
-            raise ValueError(
-                f"Engine {engine} is not supported. Supported engines are: {_SUPPORTED_ENGINES}"
-            )
-
-        if engine in ("query", "retrieve"):
-            query = self._unwrap_query_or_retriever_data(data)
-            return self.index.as_query_engine(**params).query(query)
-        elif engine == "chat":
-            message, chat_history = self._unwrap_chat_data(data)
-            return self.index.as_chat_engine(**params).chat(message, chat_history)
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        data = "asdf"
+        # data = data.iloc[0,0] # TODO: unwrap
+        return self.predict_method(data)
