@@ -8,11 +8,22 @@ import pytest
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import create_test_trace_info, get_traces
+
+
+@pytest.fixture
+def mock_client():
+    client = mock.MagicMock()
+    with mock.patch("mlflow.tracing.fluent.MlflowClient", return_value=client):
+        yield client
 
 
 @pytest.mark.parametrize("with_active_run", [True, False])
@@ -499,3 +510,79 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
+
+
+def test_search_traces(mock_client):
+    mock_client.search_traces.return_value = PagedList(
+        [
+            Trace(
+                info=create_test_trace_info(f"tr-{i}"),
+                data=TraceData([], "", ""),
+            )
+            for i in range(10)
+        ],
+        token=None,
+    )
+
+    traces = mlflow.search_traces(
+        experiment_ids=["1"],
+        filter_string="name = 'foo'",
+        max_results=10,
+        order_by=["timestamp DESC"],
+    )
+
+    assert len(traces) == 10
+    mock_client.search_traces.assert_called_once_with(
+        experiment_ids=["1"],
+        filter_string="name = 'foo'",
+        max_results=10,
+        order_by=["timestamp DESC"],
+        page_token=None,
+    )
+
+
+def test_search_traces_with_pagination(mock_client):
+    traces = [
+        Trace(
+            info=create_test_trace_info(f"tr-{i}"),
+            data=TraceData([], "", ""),
+        )
+        for i in range(30)
+    ]
+
+    mock_client.search_traces.side_effect = [
+        PagedList(traces[:10], token="token-1"),
+        PagedList(traces[10:20], token="token-2"),
+        PagedList(traces[20:], token=None),
+    ]
+
+    traces = mlflow.search_traces(experiment_ids=["1"])
+
+    assert len(traces) == 30
+    common_args = {
+        "experiment_ids": ["1"],
+        "max_results": SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        "filter_string": None,
+        "order_by": None,
+    }
+    mock_client.search_traces.assert_has_calls(
+        [
+            mock.call(**common_args, page_token=None),
+            mock.call(**common_args, page_token="token-1"),
+            mock.call(**common_args, page_token="token-2"),
+        ]
+    )
+
+
+def test_search_traces_with_default_experiment_id(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+    with mock.patch("mlflow.tracing.fluent._get_experiment_id", return_value="123"):
+        mlflow.search_traces()
+
+    mock_client.search_traces.assert_called_once_with(
+        experiment_ids=["123"],
+        filter_string=None,
+        max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by=None,
+        page_token=None,
+    )
