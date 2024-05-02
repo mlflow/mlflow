@@ -244,6 +244,34 @@ def start_run_by_name(
         :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
         run's state.
 
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        # Resume an existing run
+        experiment_id = mlflow.create_experiment("experiment1")
+        old_run  = mlflow.start_named_run(run_name="My Test Run")
+        mlflow.end_run()
+
+        resumed_run = mlflow.start_named_run(run_name="My Test Run")
+
+        print("old run:")
+        print(f"run_id: {old_run.info.run_id}")
+
+        print("resumed run:")
+        print(f"run_id: {resumed_run.info.run_id}")
+
+    .. code-block:: text
+        :caption: Output
+
+        old run:
+        run_id: 8979459433a24a52ab3be87a229a9cdf
+        resumed run:
+        run_id: 8979459433a24a52ab3be87a229a9cdf
+
+
     """
     runs = search_runs(filter_string=f"attributes.run_name='{run_name}'", output_format="list")
     if len(runs) == 0:
