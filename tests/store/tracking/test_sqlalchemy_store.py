@@ -3903,10 +3903,9 @@ def _create_trace(
     return trace_info
 
 
-# NB: Define a fixture with function scope to avoid repeated setup for parametrized tests
-@pytest.fixture(scope="module")
-def store_with_traces(tmp_path_factory):
-    store = _get_store(tmp_path_factory.mktemp("store"))
+@pytest.fixture
+def store_with_traces(tmp_path):
+    store = _get_store(tmp_path.mktemp("store"))
     exp1 = store.create_experiment("exp1")
     exp2 = store.create_experiment("exp2")
 
