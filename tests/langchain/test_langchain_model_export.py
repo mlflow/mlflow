@@ -55,7 +55,12 @@ from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
 )
+from mlflow.models import Model
+from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
+from mlflow.tracking.artifact_utils import (
+    _download_artifact_from_uri,
+)
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
@@ -1776,9 +1781,12 @@ def test_chat_with_history(spark, fake_chat_model):
     }
 
 
-def _extract_endpoint_name_from_lc_model(lc_model, dependency_dict: DefaultDict[str, List[Any]]):
+def _extract_endpoint_name_from_lc_model(
+    lc_model, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
+):
     if type(lc_model).__name__ == type(get_fake_chat_model()).__name__:
         dependency_dict["fake_chat_model_endpoint_name"].append(lc_model.endpoint_name)
+        dependency_list.append(DatabricksServingEndpoint(endpoint_name=lc_model.endpoint_name))
 
 
 @pytest.mark.skipif(
@@ -1803,8 +1811,9 @@ def test_databricks_dependency_extraction_from_lcel_chain():
 
     chain = prompt_1 | {"joke1": model_1, "joke2": model_2} | prompt_2 | model_3 | output_parser
 
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(chain, "basic_chain")
+    pyfunc_artifact_path = "basic_chain"
+    with mlflow.start_run() as run:
+        model_info = mlflow.langchain.log_model(chain, pyfunc_artifact_path)
 
     langchain_flavor = model_info.flavors["langchain"]
     assert langchain_flavor["databricks_dependency"] == {
@@ -1814,10 +1823,20 @@ def test_databricks_dependency_extraction_from_lcel_chain():
             "fake-endpoint-3",
         ]
     }
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources["databricks"] == {
+        "serving_endpoint": [
+            {"name": "fake-endpoint-1"},
+            {"name": "fake-endpoint-2"},
+            {"name": "fake-endpoint-3"},
+        ]
+    }
 
 
 def _extract_databricks_dependencies_from_retriever(
-    retriever, dependency_dict: DefaultDict[str, List[Any]]
+    retriever, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
 ):
     import langchain_community
 
@@ -1825,15 +1844,20 @@ def _extract_databricks_dependencies_from_retriever(
     if vectorstore:
         if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
             dependency_dict["fake_index"].append("faiss-index")
+            dependency_list.append(DatabricksVectorSearchIndex(index_name="faiss-index"))
 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, FakeEmbeddings):
             dependency_dict["fake_embeddings_size"].append(embeddings.size)
+            dependency_list.append(DatabricksServingEndpoint(endpoint_name="fake-embeddings"))
 
 
-def _extract_databricks_dependencies_from_llm(llm, dependency_dict: DefaultDict[str, List[Any]]):
+def _extract_databricks_dependencies_from_llm(
+    llm, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
+):
     if isinstance(llm, FakeLLM):
         dependency_dict["fake_llm_endpoint_name"].append(llm.endpoint_name)
+        dependency_list.append(DatabricksServingEndpoint(endpoint_name=llm.endpoint_name))
 
 
 @pytest.mark.skipif(
@@ -1867,10 +1891,11 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
         vectorstore = FAISS.load_local(persist_directory, embeddings)
         return vectorstore.as_retriever()
 
-    with mlflow.start_run():
+    pyfunc_artifact_path = "retrieval_qa_chain"
+    with mlflow.start_run() as run:
         logged_model = mlflow.langchain.log_model(
             retrievalQA,
-            "retrieval_qa_chain",
+            pyfunc_artifact_path,
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )
@@ -1880,6 +1905,20 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
         "fake_index": ["faiss-index"],
         "fake_embeddings_size": [5],
     }
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    actual = reloaded_model.resources["databricks"]
+    expected = {
+        "serving_endpoint": [
+            {"name": "fake-llm-endpoint"},
+            {"name": "fake-embeddings"},
+        ],
+        "vector_search_index": [{"name": "faiss-index"}],
+    }
+    assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
+    assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
+    assert actual["vector_search_index"] == expected["vector_search_index"]
 
 
 def _error_func(*args, **kwargs):
@@ -1908,9 +1947,14 @@ def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
     with pytest.raises(ValueError, match="error"):
         _detect_databricks_dependencies(model, log_errors_as_warnings=False)
 
-    with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+    pyfunc_artifact_path = "langchain_model"
+    with mlflow.start_run() as run:
+        logged_model = mlflow.langchain.log_model(model, pyfunc_artifact_path)
     assert logged_model.flavors["langchain"].get(_DATABRICKS_DEPENDENCY_KEY) is None
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources is None
 
 
 @pytest.mark.skipif(
@@ -2337,10 +2381,11 @@ def test_save_load_chain_as_code(chain_model_signature):
             }
         ]
     }
-    with mlflow.start_run():
+    artifact_path = "model_path"
+    with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/chain.py",
-            artifact_path="model_path",
+            artifact_path=artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
             model_config="tests/langchain/config.yml",
@@ -2373,6 +2418,12 @@ def test_save_load_chain_as_code(chain_model_signature):
     langchain_flavor = model_info.flavors["langchain"]
     assert langchain_flavor["databricks_dependency"] == {
         "databricks_chat_endpoint_name": ["fake-endpoint"]
+    }
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources["databricks"] == {
+        "serving_endpoint": [{"name": "fake-endpoint"}]
     }
 
 
@@ -2546,10 +2597,11 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
             }
         ]
     }
-    with mlflow.start_run():
+    artifact_path = "model_path"
+    with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/no_config/chain.py",
-            artifact_path="model_path",
+            artifact_path=artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
         )
@@ -2584,6 +2636,12 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
     langchain_flavor = model_info.flavors["langchain"]
     assert langchain_flavor["databricks_dependency"] == {
         "databricks_chat_endpoint_name": ["fake-endpoint"]
+    }
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources["databricks"] == {
+        "serving_endpoint": [{"name": "fake-endpoint"}]
     }
 
 
