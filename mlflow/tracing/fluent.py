@@ -201,12 +201,12 @@ def start_span(
         mlflow_span.end()
 
 
-def get_trace(request_id: str) -> List[Trace]:
+def get_trace(request_id: str) -> Trace:
     """
     Get a trace by the given request ID.
 
     Returns:
-        A list of :py:class:`mlflow.entities.Trace` objects.
+        A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
     return TRACE_BUFFER.get(request_id, None)
 
