@@ -570,7 +570,6 @@ class MlflowClient:
                 mlflow_span.set_inputs(inputs)
             if attributes:
                 mlflow_span.set_attributes(attributes)
-
             trace_manager = InMemoryTraceManager.get_instance()
             with trace_manager.get_trace(request_id) as trace:
                 trace.info.tags.update(self._exclude_immutable_tags(tags or {}))

@@ -19,7 +19,7 @@ class Context:
 
 
 @contextlib.contextmanager
-def set_prediction_context(context: Context):
+def set_prediction_context(context: Optional[Context]):
     """
     Set the context for the current prediction request. The context will be set as a thread-local
     variable and will be accessible globally within the same thread.
@@ -27,7 +27,7 @@ def set_prediction_context(context: Context):
     Args:
         context: The context for the current prediction request.
     """
-    if not isinstance(context, Context):
+    if context and not isinstance(context, Context):
         raise TypeError(f"Expected context to be an instance of Context, but got: {context}")
 
     token = _PREDICTION_REQUEST_CTX.set(context)

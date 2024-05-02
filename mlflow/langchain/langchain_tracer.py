@@ -1,4 +1,5 @@
 import logging
+from contextvars import Context
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 
@@ -19,6 +20,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.pyfunc.context import set_prediction_context
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -46,13 +48,20 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                         "What is MLflow?",
                         config={"callbacks": [MlflowLangchainTracer(root_span)]},
                     )
+        prediction_context: Optional prediction context object to be set for the
+            thread-local context. Occasionally this has to be passed manually because
+            the callback may be invoked asynchronously and Langchain doesn't correctly
+            propagate the thread-local context.
     """
 
-    def __init__(self, parent_span: Optional[LiveSpan] = None):
+    def __init__(
+        self, parent_span: Optional[LiveSpan] = None, prediction_context: Optional[Context] = None
+    ):
         super().__init__()
         self._mlflow_client = MlflowClient()
         self._parent_span = parent_span
         self._run_span_mapping: Dict[str, LiveSpan] = {}
+        self._prediction_context = prediction_context
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span := self._run_span_mapping.get(str(run_id)):
@@ -81,9 +90,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             )
         else:
             # When parent_run_id is None, this is root component so start trace
-            span = self._mlflow_client.start_trace(
-                name=span_name, span_type=span_type, inputs=inputs, attributes=attributes
-            )
+            with set_prediction_context(self._prediction_context):
+                span = self._mlflow_client.start_trace(
+                    name=span_name, span_type=span_type, inputs=inputs, attributes=attributes
+                )
+
         self._run_span_mapping[str(run_id)] = span
         return span
 

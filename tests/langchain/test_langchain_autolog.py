@@ -25,6 +25,7 @@ from mlflow.langchain._langchain_autolog import (
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
@@ -408,6 +409,25 @@ def test_llmchain_autolog_log_inputs_outputs():
         assert len(loaded_dict) == 5
         new_session_id = loaded_dict[-1]["session_id"]
         assert new_session_id != session_id
+
+
+def test_loaded_llmchain_autolog_within_model_evaluation(tmp_path):
+    model = create_openai_llmchain()
+    model_path = tmp_path / "model"
+    mlflow.langchain.save_model(model, path=model_path)
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    request_id = "eval-123"
+    with mlflow.start_run(run_name="eval-run") as run:
+        run_id = run.info.run_id
+        with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
+            with _mock_request(return_value=_mock_chat_completion_response()):
+                response = loaded_model.predict({"product": "MLflow"})
+
+    assert response == ["test"]
+    trace = mlflow.get_trace(request_id)
+    assert trace.info.request_id == request_id
+    assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
 
 
 def test_agent_autolog(clear_trace_singleton):
