@@ -9,6 +9,7 @@ from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import maybe_get_evaluation_request_id
 from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
@@ -45,8 +46,6 @@ class MlflowSpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
                 Only root spans for each trace are passed to this method.
         """
-        from mlflow.pyfunc.context import maybe_get_evaluation_request_id
-
         for span in root_spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")

@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
+from mlflow.exceptions import BAD_REQUEST, MlflowException
+
 _logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -149,3 +151,25 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
         return json.loads(span.attributes.get(key))
     except Exception:
         _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
+
+
+def maybe_get_evaluation_request_id() -> Optional[str]:
+    """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
+    # NB: Tracing is enabled in mlflow-skinny, but the pyfunc module cannot be imported as it
+    #     relies on numpy, which is not installed in skinny.
+    try:
+        from mlflow.pyfunc.context import get_prediction_context
+    except ImportError:
+        return None
+
+    context = get_prediction_context()
+    if not context or not context.is_evaluate:
+        return None
+
+    if not context.request_id:
+        raise MlflowException(
+            "When prediction request context has is_evaluate set to True, request ID must be set.",
+            error_code=BAD_REQUEST,
+        )
+
+    return context.request_id

@@ -4,11 +4,9 @@ from threading import Thread
 
 import pytest
 
-from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import (
     Context,
     get_prediction_context,
-    maybe_get_evaluation_request_id,
     set_prediction_context,
 )
 
@@ -32,15 +30,7 @@ def test_prediction_context_thread_safe():
     assert get_prediction_context() is None
 
 
-def test_maybe_get_evaluation_request_id():
-    assert maybe_get_evaluation_request_id() is None
-
-    with set_prediction_context(Context(request_id="eval", is_evaluate=True)):
-        assert maybe_get_evaluation_request_id() == "eval"
-
-    with set_prediction_context(Context(request_id="non_eval", is_evaluate=False)):
-        assert maybe_get_evaluation_request_id() is None
-
-    with pytest.raises(MlflowException, match="When prediction request context"):
-        with set_prediction_context(Context(request_id=None, is_evaluate=True)):
-            maybe_get_evaluation_request_id()
+def test_set_prediction_context_raise_on_invalid_context():
+    with pytest.raises(TypeError, match="Expected context to be an instance of Context"):
+        with set_prediction_context("invalid"):
+            pass

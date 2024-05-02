@@ -24,6 +24,7 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_trace_id,
     get_otel_attribute,
+    maybe_get_evaluation_request_id,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
@@ -66,8 +67,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span._start_time = time.time_ns()
 
     def _start_trace(self, span: OTelSpan) -> TraceInfo:
-        from mlflow.pyfunc.context import maybe_get_evaluation_request_id
-
         experiment_id = (
             get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
         )

@@ -1,5 +1,12 @@
+import pytest
+
 from mlflow.entities import LiveSpan
-from mlflow.tracing.utils import deduplicate_span_names_in_place, encode_span_id
+from mlflow.exceptions import MlflowException
+from mlflow.tracing.utils import (
+    deduplicate_span_names_in_place,
+    encode_span_id,
+    maybe_get_evaluation_request_id,
+)
 
 from tests.tracing.helper import create_mock_otel_span
 
@@ -23,3 +30,22 @@ def test_deduplicate_span_names():
     ]
     # Check if the span order is preserved
     assert [span.span_id for span in spans] == [encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]]
+
+
+def test_maybe_get_evaluation_request_id():
+    assert maybe_get_evaluation_request_id() is None
+
+    try:
+        from mlflow.pyfunc.context import Context, set_prediction_context
+    except ImportError:
+        pytest.skip("Skipping the rest of tests as mlflow.pyfunc module is not available.")
+
+    with set_prediction_context(Context(request_id="eval", is_evaluate=True)):
+        assert maybe_get_evaluation_request_id() == "eval"
+
+    with set_prediction_context(Context(request_id="non_eval", is_evaluate=False)):
+        assert maybe_get_evaluation_request_id() is None
+
+    with pytest.raises(MlflowException, match="When prediction request context"):
+        with set_prediction_context(Context(request_id=None, is_evaluate=True)):
+            maybe_get_evaluation_request_id()

@@ -3,9 +3,6 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Optional
 
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
-
 # A thread local variable to store the context of the current prediction request.
 # This is particularly used to associate logs/traces with a specific prediction request in the
 # caller side. The context variable is intended to be set by the called before invoking the
@@ -49,18 +46,3 @@ def get_prediction_context() -> Optional[Context]:
         The context for the current prediction request, or None if no context is set.
     """
     return _PREDICTION_REQUEST_CTX.get()
-
-
-def maybe_get_evaluation_request_id() -> Optional[str]:
-    """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
-    context = get_prediction_context()
-    if not context or not context.is_evaluate:
-        return None
-
-    if not context.request_id:
-        raise MlflowException(
-            "When prediction request context has is_evaluate set to True, request ID must be set.",
-            error_code=BAD_REQUEST,
-        )
-
-    return context.request_id
