@@ -300,8 +300,8 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
-    config_model: Optional[str] = None
     config: Optional[SerializeAsAny[ProviderConfigModel]] = None
+    config_model: Optional[str] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
