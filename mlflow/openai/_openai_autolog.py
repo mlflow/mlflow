@@ -165,25 +165,6 @@ def patched_call(original, self, *args, **kwargs):
         self.session_id = session_id
     self.inference_id = inference_id + 1
 
-    log_inputs_outputs = get_autologging_config(
-        mlflow.openai.FLAVOR_NAME, "log_inputs_outputs", False
-    )
-    if log_inputs_outputs:
-        if input_example is None:
-            input_data = deepcopy(_get_input_from_model(self, kwargs))
-            if input_data is None:
-                _logger.info("Input data gathering failed, only log prediction results.")
-        else:
-            input_data = input_example
-        try:
-            data_dict = _combine_input_and_output(input_data, result)
-            mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=run_id)
-        except Exception as e:
-            _logger.warning(
-                f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
-                f"file due to error: {e}."
-            )
-
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != run_id:
         mlflow_client.set_terminated(run_id)
