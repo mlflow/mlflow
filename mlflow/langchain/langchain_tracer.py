@@ -122,13 +122,14 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         status=SpanStatus(SpanStatusCode.OK),
     ):
         """Close MLflow Span (or Trace if it is root component)"""
-        self._mlflow_client.end_span(
-            request_id=span.request_id,
-            span_id=span.span_id,
-            outputs=outputs,
-            attributes=attributes,
-            status=status,
-        )
+        with set_prediction_context(self._prediction_context):
+            self._mlflow_client.end_span(
+                request_id=span.request_id,
+                span_id=span.span_id,
+                outputs=outputs,
+                attributes=attributes,
+                status=status,
+            )
 
     def _reset(self):
         self._run_span_mapping = {}

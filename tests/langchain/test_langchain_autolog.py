@@ -411,7 +411,8 @@ def test_llmchain_autolog_log_inputs_outputs():
         assert new_session_id != session_id
 
 
-def test_loaded_llmchain_autolog_within_model_evaluation(tmp_path):
+@mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
+def test_loaded_llmchain_autolog_within_model_evaluation(mock_get_display, tmp_path):
     model = create_openai_llmchain()
     model_path = tmp_path / "model"
     mlflow.langchain.save_model(model, path=model_path)
@@ -428,6 +429,10 @@ def test_loaded_llmchain_autolog_within_model_evaluation(tmp_path):
     trace = mlflow.get_trace(request_id)
     assert trace.info.request_id == request_id
     assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
+
+    # Trace should not be displayed in the notebook cell if it is in evaluation
+    mock_display_handler = mock_get_display.return_value
+    mock_display_handler.display_traces.assert_not_called()
 
 
 def test_agent_autolog(clear_trace_singleton):
