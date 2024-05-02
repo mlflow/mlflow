@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import yaml
 from typing import Any, Dict
 
 from mlflow.exceptions import MlflowException
@@ -324,17 +325,32 @@ def _validate_pyfunc_model_config(model_config):
 
     if not model_config:
         return
-
-    if not isinstance(model_config, dict) or not all(isinstance(key, str) for key in model_config):
+    
+    if isinstance(model_config, str):
+        if os.path.exists(model_config):
+            with open(model_config) as file:
+                try:
+                    return yaml.safe_load(file)
+                except yaml.YAMLError as e:
+                    raise yaml.YAMLError(
+                        f"The provided ``model_config`` file '{model_config}' is not a valid YAML "
+                        f"file: {e}"
+                    )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "An invalid ``model_config`` structure was passed. The provided ``model_config`` "
+                f"file '{model_config}'is not a valid file path."
+            )
+    elif isinstance(model_config, dict) and all(isinstance(key, str) for key in model_config):
+        try:
+            json.dumps(model_config)
+        except (TypeError, OverflowError):
+            raise MlflowException(
+                "Values in the provided ``model_config`` are of an unsupported type. Only "
+                "JSON-serializable data types can be provided as values."
+            )
+    else:
         raise MlflowException(
-            "An invalid ``model_config`` structure was passed. ``model_config`` must be of type "
-            "``dict`` with string keys."
-        )
-
-    try:
-        json.dumps(model_config)
-    except (TypeError, OverflowError):
-        raise MlflowException(
-            "Values in the provided ``model_config`` are of an unsupported type. Only "
-            "JSON-serializable data types can be provided as values."
+            "An invalid ``model_config`` structure was passed. ``model_config`` must be a "
+            "valid file path or of type ``dict`` with string keys."
         )
