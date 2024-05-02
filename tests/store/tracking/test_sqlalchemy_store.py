@@ -3981,7 +3981,7 @@ def store_with_traces(tmp_path_factory):
         # Order by tag (null comes last)
         (["tag.fruit"], ["tr-2", "tr-1", "tr-3", "tr-4", "tr-0"]),
         # Order by multiple tags
-        (["tag.fruit", "tag.color"], ["tr-2", "tr-1", "tr-3", "tr-3", "tr-0"]),
+        (["tag.fruit", "tag.color"], ["tr-2", "tr-1", "tr-3", "tr-4", "tr-0"]),
         # Order by non-existent tag (should be ordered by default order)
         (["tag.nonexistent"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
         # Order by run Id
