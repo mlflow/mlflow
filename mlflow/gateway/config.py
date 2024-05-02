@@ -4,7 +4,7 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import pydantic
 import yaml
@@ -20,6 +20,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
+from mlflow.gateway.plugins import import_plugin_obj, string_is_plugin_obj
 from mlflow.gateway.utils import (
     check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,
@@ -245,6 +246,16 @@ config_types = {
 }
 
 
+def get_config_model(config_model: str) -> Optional[Type[ConfigModel]]:
+    if string_is_plugin_obj(config_model):
+        conf = import_plugin_obj(config_model)
+        if not (isinstance(conf, type) and issubclass(conf, ConfigModel)):
+            raise MlflowException.invalid_parameter_value(
+                f"Plugin config model {conf} is not a subclass of ConfigModel"
+            )
+        return conf
+
+
 class ModelInfo(ResponseModel):
     name: Optional[str] = None
     provider: Provider
@@ -289,6 +300,7 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
+    config_model: Optional[str] = None
     config: Optional[
         Union[
             CohereConfig,
@@ -312,10 +324,15 @@ class Model(ConfigModel):
         formatted_value = value.replace("-", "_").upper()
         if formatted_value in Provider.__members__:
             return Provider[formatted_value]
+        if value.startswith("plugin:"):
+            return value
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @classmethod
     def _validate_config(cls, info, values):
+        if config_model := values.get("config_model"):
+            if config_type := get_config_model(config_model):
+                return config_type(**info)
         if provider := values.get("provider"):
             config_type = config_types[provider]
             return config_type(**info)
