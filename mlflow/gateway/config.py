@@ -10,11 +10,11 @@ import pydantic
 import yaml
 from packaging import version
 from packaging.version import Version
-from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
+from pydantic import ConfigDict, Field, SerializeAsAny, ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel, ProviderConfigModel
+from mlflow.gateway.base_models import ConfigModel, LimitModel, ProviderConfigModel, ResponseModel
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
@@ -301,7 +301,7 @@ class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
     config_model: Optional[str] = None
-    config: Optional[ProviderConfigModel] = None
+    config: Optional[SerializeAsAny[ProviderConfigModel]] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
