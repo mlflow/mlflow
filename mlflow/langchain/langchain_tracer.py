@@ -462,8 +462,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def flush_tracker(self):
         try:
-            # Make sure the trace renders in the notebook
-            mlflow.get_traces()
             self._reset()
         except Exception as e:
             _logger.debug(f"Failed to flush MLflow tracer due to error {e}.")

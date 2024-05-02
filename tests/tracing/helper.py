@@ -1,12 +1,13 @@
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 import opentelemetry.trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.tracing.fluent import TRACE_BUFFER
 
 
 def create_mock_otel_span(
@@ -108,3 +109,8 @@ def create_test_trace_info(
         request_metadata=request_metadata or {},
         tags=tags or {},
     )
+
+
+def get_traces() -> List[Trace]:
+    # Get all traces from the trace buffer
+    return list(TRACE_BUFFER.values())

@@ -107,7 +107,7 @@ from mlflow.models import evaluate
 from mlflow.projects import run
 from mlflow.tracing.fluent import (
     get_current_active_span,
-    get_traces,
+    get_trace,
     search_traces,
     start_span,
     trace,
@@ -221,7 +221,7 @@ __all__ = [
     "Image",
     # Tracing Fluent APIs
     "get_current_active_span",
-    "get_traces",
+    "get_trace",
     "search_traces",
     "start_span",
     "trace",

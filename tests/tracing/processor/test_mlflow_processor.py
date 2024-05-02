@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -115,6 +116,19 @@ def test_on_start_fallback_to_client_side_request_id(clear_singleton):
         assert trace.info.timestamp_ms == 5
         assert trace.info.execution_time_ms is None
         assert trace.info.status == TraceStatus.IN_PROGRESS
+
+
+def test_on_start_during_model_evaluation(clear_singleton):
+    # Root span should create a new trace on start
+    span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)
+    mock_client = mock.MagicMock()
+    processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
+
+    with set_prediction_context(Context(request_id=_REQUEST_ID, is_evaluate=True)):
+        processor.on_start(span)
+
+    mock_client._start_tracked_trace.assert_not_called()
+    assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
 
 
 def test_on_end(clear_singleton):

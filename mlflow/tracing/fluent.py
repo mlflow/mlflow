@@ -4,15 +4,17 @@ import contextlib
 import functools
 import json
 import logging
-import threading
-from collections import deque
 from typing import Any, Callable, Dict, List, Optional
 
+from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
-from mlflow.environment_variables import MLFLOW_TRACING_CLIENT_BUFFER_SIZE
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_BUFFER_MAX_SIZE,
+    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
+)
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
@@ -24,8 +26,13 @@ from mlflow.utils import get_results_from_paginated_fn
 _logger = logging.getLogger(__name__)
 
 
-TRACE_BUFFER = deque(maxlen=MLFLOW_TRACING_CLIENT_BUFFER_SIZE.get())
-TRACE_BUFFER_LOCK = threading.Lock()
+# Traces are stored in memory after completion so they can be retrieved conveniently.
+# For example, Databricks model serving fetches the trace data from the buffer after
+# making the prediction request, and logging them into the Inference Table.
+TRACE_BUFFER = TTLCache(
+    maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+    ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+)
 
 
 def trace(
@@ -194,20 +201,14 @@ def start_span(
         mlflow_span.end()
 
 
-def get_traces(n: int = 1) -> List[Trace]:
+def get_trace(request_id: str) -> List[Trace]:
     """
-    Get the last n traces.
-
-    Args:
-        n: The number of traces to return.
+    Get a trace by the given request ID.
 
     Returns:
         A list of :py:class:`mlflow.entities.Trace` objects.
     """
-    with TRACE_BUFFER_LOCK:
-        traces = list(TRACE_BUFFER) if n is None else list(TRACE_BUFFER)[-n:]
-    get_display_handler().display_traces(traces)
-    return traces
+    return TRACE_BUFFER.get(request_id, None)
 
 
 def search_traces(

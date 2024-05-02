@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.tracing.utils import TraceJSONEncoder
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
+from tests.tracing.helper import get_traces
 
 
 def test_json_deserialization(clear_singleton):
@@ -38,7 +39,7 @@ def test_json_deserialization(clear_singleton):
     model = TestModel()
     model.predict(2, 5)
 
-    trace = mlflow.get_traces()[0]
+    trace = get_traces()[0]
     trace_json = trace.to_json()
 
     trace_json_as_dict = json.loads(trace_json)

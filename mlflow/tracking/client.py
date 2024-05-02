@@ -580,6 +580,7 @@ class MlflowClient:
             return mlflow_span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
+            raise e
             return NoOpSpan()
 
     def end_trace(

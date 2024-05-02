@@ -35,6 +35,7 @@ from mlflow.utils.openai_utils import (
 
 # TODO: This test helper is used outside the tracing module, we should move it to a common utils
 from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
+from tests.tracing.helper import get_traces
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -186,7 +187,7 @@ def test_autolog_manage_run():
     assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
     mlflow.end_run()
 
-    traces = mlflow.get_traces(None)
+    traces = get_traces()
     assert len(traces) == 2
     for trace in traces:
         attrs = trace.data.spans[0].attributes
@@ -253,7 +254,7 @@ def test_autolog_record_exception(clear_trace_singleton):
     with pytest.raises(Exception, match="Error!"):
         model.invoke("test")
 
-    traces = mlflow.get_traces(None)
+    traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "ERROR"
@@ -273,7 +274,7 @@ def test_llmchain_autolog(clear_trace_singleton):
             assert model.invoke(question) == answer
             log_model_mock.assert_called_once()
 
-    traces = mlflow.get_traces(None)
+    traces = get_traces()
     assert len(traces) == 2
     for trace in traces:
         spans = trace.data.spans
@@ -305,7 +306,7 @@ def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton
             assert model.invoke(question) == answer
             create_run_mock.assert_not_called()
 
-    traces = mlflow.get_traces(None)
+    traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
     assert len(spans) == 2
@@ -429,7 +430,7 @@ def test_agent_autolog(clear_trace_singleton):
         assert model.invoke(input, return_only_outputs=True) == {"output": TEST_CONTENT}
         log_model_mock.assert_called_once()
 
-    traces = mlflow.get_traces(None)
+    traces = get_traces()
     assert len(traces) == 4
     for trace in traces:
         spans = [(s.name, s.attributes[SpanAttributeKey.SPAN_TYPE]) for s in trace.data.spans]
@@ -522,7 +523,7 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
         assert chain.invoke(input_example) == TEST_CONTENT
         log_model_mock.assert_called_once()
 
-    traces = mlflow.get_traces(None)
+    traces = get_traces()
     assert len(traces) == 2
     for trace in traces:
         spans = {(s.name, s.attributes[SpanAttributeKey.SPAN_TYPE]) for s in trace.data.spans}
@@ -620,7 +621,7 @@ def test_retriever_autolog(tmp_path, clear_trace_singleton):
         log_model_mock.assert_not_called()
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
 
-    traces = mlflow.get_traces(None)
+    traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
     assert len(spans) == 1

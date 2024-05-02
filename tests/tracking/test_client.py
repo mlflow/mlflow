@@ -50,7 +50,7 @@ from mlflow.utils.mlflow_tags import (
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
-from tests.tracing.helper import create_test_trace_info
+from tests.tracing.helper import create_test_trace_info, get_traces
 
 
 @pytest.fixture(autouse=True)
@@ -355,7 +355,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     else:
         model.predict(1, 2)
 
-    traces = mlflow.get_traces()
+    traces = get_traces()
     assert len(traces) == 1
     trace_info = traces[0].info
     assert trace_info.request_id is not None
@@ -439,7 +439,7 @@ def test_start_and_end_trace_before_all_span_end(clear_singleton):
     model = TestModel()
     model.predict(1)
 
-    traces = mlflow.get_traces()
+    traces = get_traces()
     assert len(traces) == 1
 
     trace_info = traces[0].info
@@ -528,7 +528,7 @@ def test_log_trace_with_databricks_tracking_uri(
     ) as mock_upload_trace_data:
         model.predict(1, 2)
 
-    traces = mlflow.get_traces()
+    traces = get_traces()
     assert len(traces) == 1
     trace_info = traces[0].info
     assert trace_info.request_id == "tr-12345"
@@ -594,7 +594,7 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton):
     client.set_trace_tag(request_id, "foo", "bar")
     client.end_trace(request_id)
 
-    trace = mlflow.get_traces()[-1]
+    trace = get_traces()[0]
     assert trace.info.tags == {"mlflow.traceName": "test", "foo": "bar"}
 
 
@@ -610,7 +610,7 @@ def test_delete_trace_tag_on_active_trace(clear_singleton):
     client.delete_trace_tag(request_id, "foo")
     client.end_trace(request_id)
 
-    trace = mlflow.get_traces()[-1]
+    trace = get_traces()[0]
     assert trace.info.tags == {
         "baz": "qux",
         "mlflow.traceName": "test",  # Added by MLflow
