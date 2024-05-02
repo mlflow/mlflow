@@ -57,6 +57,7 @@ from mlflow.langchain.utils import (
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.model_config import _set_model_config
+from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _convert_llm_input_data, _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -367,8 +368,12 @@ def save_model(
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        if databricks_dependency := _detect_databricks_dependencies(lc_model):
+        (databricks_dependency, databricks_resources) = _detect_databricks_dependencies(lc_model)
+        if databricks_dependency:
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
+        if databricks_resources:
+            serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
+            mlflow_model.resources = serialized_databricks_resources
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
