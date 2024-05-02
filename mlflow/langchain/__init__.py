@@ -30,7 +30,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_TRACE_IN_SERVING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
@@ -66,6 +66,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     safe_patch,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -611,11 +612,17 @@ class _LangChainModelWrapper:
         Returns:
             Model predictions.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_api_requests
+        # TODO: We don't automatically turn tracing on in OSS model serving, because we haven't
+        # implemented storage option for traces in OSS model serving (counterpart to the
+        # Inference Table in Databricks model serving).
+        if is_in_databricks_model_serving_environment() and MLFLOW_ENABLE_TRACE_IN_SERVING.get():
+            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
-        messages, return_first_element = self._prepare_messages(data)
-        results = process_api_requests(lc_model=self.lc_model, requests=messages)
-        return results[0] if return_first_element else results
+            callbacks = [MlflowLangchainTracer()]
+        else:
+            callbacks = None
+
+        return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
     @experimental
     def _predict_with_callbacks(
