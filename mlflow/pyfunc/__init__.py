@@ -591,9 +591,7 @@ def _load_model_env(path):
     Returned value is a model-relative path to a Conda Environment file,
     or None if none was specified at model save time
     """
-    return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(
-        ENV, None
-    )
+    return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
 def _validate_params(params, model_metadata):
@@ -632,9 +630,7 @@ class PyFuncModel:
         predict_stream_fn: Optional[str] = None,
     ):
         if not hasattr(model_impl, predict_fn):
-            raise MlflowException(
-                f"Model implementation is missing required {predict_fn} method."
-            )
+            raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
@@ -683,9 +679,7 @@ class PyFuncModel:
             )
         return data, params
 
-    def predict(
-        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
-    ) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -814,9 +808,7 @@ class PyFuncModel:
             if python_model is None:
                 raise AttributeError("Expected python_model attribute not to be None.")
         except AttributeError as e:
-            raise MlflowException(
-                "Unable to retrieve base model object from pyfunc."
-            ) from e
+            raise MlflowException("Unable to retrieve base model object from pyfunc.") from e
         return python_model
 
     def __eq__(self, other):
@@ -848,10 +840,7 @@ class PyFuncModel:
     def __repr__(self):
         info = {}
         if self._model_meta is not None:
-            if (
-                hasattr(self._model_meta, "run_id")
-                and self._model_meta.run_id is not None
-            ):
+            if hasattr(self._model_meta, "run_id") and self._model_meta.run_id is not None:
                 info["run_id"] = self._model_meta.run_id
             if (
                 hasattr(self._model_meta, "artifact_path")
@@ -859,9 +848,7 @@ class PyFuncModel:
             ):
                 info["artifact_path"] = self._model_meta.artifact_path
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
-        return yaml.safe_dump(
-            {"mlflow.pyfunc.loaded_model": info}, default_flow_style=False
-        )
+        return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
 def _get_pip_requirements_from_model_path(model_path: str):
@@ -869,9 +856,7 @@ def _get_pip_requirements_from_model_path(model_path: str):
     if not os.path.exists(req_file_path):
         return []
 
-    return [
-        req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)
-    ]
+    return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
 def load_model(
@@ -909,9 +894,7 @@ def load_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
     """
-    local_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path
-    )
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     if not suppress_warnings:
         model_requirements = _get_pip_requirements_from_model_path(local_path)
@@ -927,9 +910,7 @@ def load_model(
         )
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
-        _warn_potentially_incompatible_py_version_if_necessary(
-            model_py_version=model_py_version
-        )
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
@@ -939,9 +920,7 @@ def load_model(
 
     try:
         if model_config:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
-                data_path, model_config
-            )
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
         else:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     except ModuleNotFoundError as e:
@@ -950,9 +929,7 @@ def load_model(
         # module might be "databricks", "databricks.feature_store" or full package. So we will
         # raise the error with the following note if "databricks" presents in the error. All non-
         # databricks moduel errors will just be re-raised.
-        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith(
-            "databricks"
-        ):
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
                 f"{e.msg}; "
                 "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
@@ -963,9 +940,7 @@ def load_model(
         raise e
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
-    predict_stream_fn = (
-        conf.get("predict_stream_fn", "predict_stream") if streamable else None
-    )
+    predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
     return PyFuncModel(
         model_meta=model_meta,
@@ -1049,9 +1024,7 @@ def _load_model_or_server(
     # Set capture_output to True in Databricks so that when environment preparation fails, the
     # exception message of the notebook cell output will include child process command execution
     # stdout/stderr output.
-    pyfunc_backend.prepare_env(
-        model_uri=local_path, capture_output=is_in_databricks_runtime()
-    )
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
     if is_port_connectable:
         server_port = find_free_port()
         scoring_server_proc = pyfunc_backend.serve(
@@ -1211,9 +1184,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
             " incompatible with the version of Python that is currently running: Python %s",
             PYTHON_VERSION,
         )
-    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(
-        PYTHON_VERSION
-    ):
+    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
         _logger.warning(
             "The version of Python that the model was saved in, `Python %s`, differs"
             " from the version of Python that is currently running, `Python %s`,"
@@ -1224,9 +1195,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
 
 
 def _create_model_downloading_tmp_dir(should_use_nfs):
-    root_tmp_dir = (
-        get_or_create_nfs_tmp_dir() if should_use_nfs else get_or_create_tmp_dir()
-    )
+    root_tmp_dir = get_or_create_nfs_tmp_dir() if should_use_nfs else get_or_create_tmp_dir()
 
     root_model_cache_dir = os.path.join(root_tmp_dir, "models")
     os.makedirs(root_model_cache_dir, exist_ok=True)
@@ -1307,9 +1276,7 @@ def _infer_spark_udf_return_type(model_output_schema):
 
     return StructType(
         [
-            StructField(
-                name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec)
-            )
+            StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
             for i, spec in enumerate(model_output_schema.inputs)
         ]
     )
@@ -1415,9 +1382,7 @@ def _check_udf_return_struct_type(struct_type):
         ):
             continue
 
-        if isinstance(field_type, StructType) and _check_udf_return_struct_type(
-            field_type
-        ):
+        if isinstance(field_type, StructType) and _check_udf_return_struct_type(field_type):
             continue
 
         return False
@@ -1503,8 +1468,7 @@ def _convert_struct_values(
         elif isinstance(field_type, ArrayType):
             if is_pandas_df:
                 field_values = pandas.Series(
-                    _convert_array_values(field_value, field_type)
-                    for field_value in field_values
+                    _convert_array_values(field_value, field_type) for field_value in field_values
                 )
             else:
                 field_values = _convert_array_values(field_values, field_type)
@@ -1821,9 +1785,7 @@ Compound types:
                         "Model input is missing required columns. Expected {} required"
                         " input columns {}, but the model received only {} unnamed input columns"
                         " (Since the columns were passed unnamed they are expected to be in"
-                        " the order specified by the schema).".format(
-                            len(names), names, len(args)
-                        )
+                        " the order specified by the schema).".format(len(names), names, len(args))
                     )
             pdf = pandas.DataFrame(
                 data={
@@ -1844,27 +1806,17 @@ Compound types:
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
 
-        if isinstance(result_type, ArrayType) and isinstance(
-            result_type.elementType, ArrayType
-        ):
+        if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
             result_values = _convert_array_values(result, result_type)
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
-            result = (
-                pandas.DataFrame([result])
-                if np.isscalar(result)
-                else pandas.DataFrame(result)
-            )
+            result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
 
         if isinstance(result_type, SparkStructType):
             return _convert_struct_values(result, result_type)
 
-        elem_type = (
-            result_type.elementType
-            if isinstance(result_type, ArrayType)
-            else result_type
-        )
+        elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 
         if type(elem_type) == IntegerType:
             result = result.select_dtypes(
@@ -1872,9 +1824,9 @@ Compound types:
             ).astype(np.int32)
 
         elif type(elem_type) == LongType:
-            result = result.select_dtypes(
-                [np.byte, np.ubyte, np.short, np.ushort, int]
-            ).astype(np.int64)
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int]).astype(
+                np.int64
+            )
 
         elif type(elem_type) == FloatType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float32)
@@ -1938,8 +1890,8 @@ Compound types:
 
             if env_manager != _EnvManager.LOCAL:
                 if should_use_spark_to_broadcast_file:
-                    local_model_path_on_executor = (
-                        _SparkDirectoryDistributor.get_or_extract(archive_path)
+                    local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
+                        archive_path
                     )
                     # Call "prepare_env" in advance in order to reduce scoring server launch time.
                     # So that we can use a shorter timeout when call `client.wait_server_ready`,
@@ -1999,15 +1951,12 @@ Compound types:
                 server_redirect_log_thread.start()
 
                 try:
-                    client.wait_server_ready(
-                        timeout=90, scoring_server_proc=scoring_server_proc
-                    )
+                    client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
                 except Exception as e:
-                    err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
-                    if (
-                        len(server_tail_logs)
-                        == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
-                    ):
+                    err_msg = (
+                        "During spark UDF task execution, mlflow model server failed to launch. "
+                    )
+                    if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
                         err_msg += (
                             f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
                             "lines of MLflow model server output:\n"
@@ -2034,9 +1983,7 @@ Compound types:
                         loaded_model = mlflow.pyfunc.load_model(model_path)
                     except Exception:
                         os.makedirs(model_path, exist_ok=True)
-                        loaded_model = mlflow.pyfunc.load_model(
-                            model_uri, dst_path=model_path
-                        )
+                        loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
                 elif should_use_spark_to_broadcast_file:
                     loaded_model, _ = SparkModelCache.get_or_load(archive_path)
                 else:
@@ -2323,9 +2270,7 @@ def save_model(
 
     if code_paths is not None:
         if not isinstance(code_paths, list):
-            raise TypeError(
-                f"Argument code_path should be a list, not {type(code_paths)}"
-            )
+            raise TypeError(f"Argument code_path should be a list, not {type(code_paths)}")
 
     first_argument_set = {
         "loader_module": loader_module,
@@ -2335,12 +2280,8 @@ def save_model(
         "artifacts": artifacts,
         "python_model": python_model,
     }
-    first_argument_set_specified = any(
-        item is not None for item in first_argument_set.values()
-    )
-    second_argument_set_specified = any(
-        item is not None for item in second_argument_set.values()
-    )
+    first_argument_set_specified = any(item is not None for item in first_argument_set.values())
+    second_argument_set_specified = any(item is not None for item in second_argument_set.values())
     if first_argument_set_specified and second_argument_set_specified:
         raise MlflowException(
             message=(
@@ -2394,9 +2335,7 @@ def save_model(
             # perform output validation and throw if
             # output is not coercable to ChatResponse
             messages = [ChatMessage(**m) for m in input_example["messages"]]
-            params = ChatParams(
-                **{k: v for k, v in input_example.items() if k != "messages"}
-            )
+            params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
@@ -2425,9 +2364,7 @@ def save_model(
                         _PythonModelPyfuncWrapper(python_model, None, None),
                     )
                 except Exception as e:
-                    _logger.warning(
-                        f"Failed to infer model signature from input example. {e}"
-                    )
+                    _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if input_example is not None:
         _save_example(mlflow_model, input_example, path, example_no_conversion)
