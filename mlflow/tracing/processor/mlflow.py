@@ -27,6 +27,7 @@ from mlflow.tracing.utils import (
     maybe_get_evaluation_request_id,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
 
@@ -179,6 +180,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         experiment_id: Optional[str] = None,
         request_metadata: Optional[Dict[str, Any]] = None,
     ) -> TraceInfo:
+        tags = resolve_tags()
         return TraceInfo(
             request_id=request_id,
             experiment_id=experiment_id,
@@ -186,4 +188,5 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             execution_time_ms=None,
             status=TraceStatus.IN_PROGRESS,
             request_metadata=request_metadata or {},
+            tags=tags,
         )
