@@ -212,9 +212,11 @@ def start_run_by_name(
     will be logged. The return value can be used as a context manager within a ``with`` block;
     otherwise, you must call ``end_run()`` to terminate the current run.
 
-    ``start_run_by_name`` attempts to resume a run with the specified run name and
-    other parameters are ignored.
-
+    When you pass a ``run_name``, ``start_run_by_name`` attempts to resume a run with the specified run name and
+    other parameters (except ``tags`` and ``description``) are ignored.
+    ``run_name`` takes precedence over ``MLFLOW_RUN_ID``.
+    If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
+    In case there are no runs with the specified run_name a new run is started.
     Throws an exception if there are multiple runs with the specified run_name
 
     Args:
@@ -223,7 +225,7 @@ def start_run_by_name(
             is set to running, but the run's other attributes (``source_version``,
             ``source_type``, etc.) are not changed.
         experiment_id: ID of the experiment under which to create the current run (applicable
-            only when ``run_id`` is not specified). If ``experiment_id`` argument
+            only when run is being resumed. If ``experiment_id`` argument
             is unspecified, will look for valid experiment in the following order:
             activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
             environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
