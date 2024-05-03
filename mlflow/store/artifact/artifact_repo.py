@@ -4,7 +4,7 @@ import posixpath
 import tempfile
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
@@ -309,6 +309,28 @@ class ArtifactRepository:
         """Compute the number of workers to use for multi-threading."""
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
+
+    def download_trace_data(self) -> Dict[str, Any]:
+        """
+        Download the trace data.
+
+        Returns:
+            The trace data as a dictionary.
+
+        Raises:
+            - `MlflowTraceDataNotFound`: The trace data is not found.
+            - `MlflowTraceDataCorrupted`: The trace data is corrupted.
+        """
+        raise NotImplementedError
+
+    def upload_trace_data(self, trace_data: str) -> None:
+        """
+        Upload the trace data.
+
+        Args:
+            trace_data: The json-serialized trace data to upload.
+        """
+        raise NotImplementedError
 
 
 class MultipartUploadMixin(ABC):

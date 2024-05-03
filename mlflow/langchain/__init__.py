@@ -30,7 +30,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_TRACE_IN_SERVING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
@@ -60,6 +60,7 @@ from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _convert_llm_input_data, _save_example
+from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
@@ -69,6 +70,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     safe_patch,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -641,11 +643,24 @@ class _LangChainModelWrapper:
         Returns:
             Model predictions.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_api_requests
+        # TODO: We don't automatically turn tracing on in OSS model serving, because we haven't
+        # implemented storage option for traces in OSS model serving (counterpart to the
+        # Inference Table in Databricks model serving).
+        if is_in_databricks_model_serving_environment() and MLFLOW_ENABLE_TRACE_IN_SERVING.get():
+            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
-        messages, return_first_element = self._prepare_predict_messages(data)
-        results = process_api_requests(lc_model=self.lc_model, requests=messages)
-        return results[0] if return_first_element else results
+            callbacks = [MlflowLangchainTracer()]
+        elif (context := get_prediction_context()) and context.is_evaluate:
+            # NB: We enable traces automatically for the model evaluation. Note that we have to
+            #   manually pass the context instance to callback, because LangChain callback may be
+            #   invoked asynchronously and it doesn't correctly propagate the thread-local context.
+            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
+            callbacks = [MlflowLangchainTracer(prediction_context=context)]
+        else:
+            callbacks = None
+
+        return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
     @experimental
     def _predict_with_callbacks(
@@ -971,7 +986,11 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inputs_outputs=True,
+    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
+    # the LangChain autologging, as it is a common use case to log input/output table for
+    # evaluation. Once tracing is fully launched, this should be supported by the tracer
+    # but we should design it to be compatible with the existing UJ.
+    log_inputs_outputs=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -1004,7 +1023,7 @@ def autolog(
         log_inputs_outputs: If ``True``, inference data and results are combined into a single
             pandas DataFrame and logged to MLflow Tracking as an artifact.
             If ``False``, inference data and results are not logged.
-            Default to ``True``.
+            Default to ``False``.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

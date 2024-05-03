@@ -10,6 +10,7 @@ from unittest.mock import ANY
 import pytest
 from requests.models import Response
 
+from mlflow.entities import TraceData
 from mlflow.entities.file_info import FileInfo as FileInfoEntity
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
@@ -18,6 +19,7 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     CompleteMultipartUpload,
     CreateMultipartUpload,
     GetCredentialsForRead,
+    GetCredentialsForTraceDataUpload,
     GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
 )
@@ -218,7 +220,12 @@ def test_log_artifact_azure(databricks_artifact_repo, test_file, artifact_path, 
         get_credential_infos_mock.assert_called_with(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
-        azure_upload_mock.assert_called_with(mock_credential_info, test_file, expected_location)
+        azure_upload_mock.assert_called_with(
+            mock_credential_info,
+            test_file,
+            expected_location,
+            get_credentials=mock.ANY,
+        )
 
 
 @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
@@ -302,7 +309,7 @@ def test_log_artifact_adls_gen2(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         azure_adls_gen2_upload_mock.assert_called_with(
-            mock_credential_info, test_file, expected_location
+            mock_credential_info, test_file, expected_location, mock.ANY
         )
 
 
@@ -1480,3 +1487,66 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
             headers={"header": "abort"},
             timeout=None,
         )
+
+
+class MockResponse:
+    def __init__(self, content: bytes):
+        self.content = content
+
+    def iter_content(self, chunk_size):
+        yield self.content
+
+    def close(self):
+        pass
+
+    def raise_for_status(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_download_trace_data(databricks_artifact_repo, cred_type):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=cred_type,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        return_value=cred,
+    ), mock.patch("requests.Session.request", return_value=MockResponse(b'{"spans": []}')):
+        trace_data = databricks_artifact_repo.download_trace_data()
+        assert TraceData.from_dict(trace_data) == TraceData(spans=[])
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_upload_trace_data(databricks_artifact_repo, cred_type):
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI, type=cred_type)
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        return_value=cred,
+    ), mock.patch("requests.Session.request", return_value=MockResponse(b"{}")):
+        trace_data = json.dumps({"spans": [], "request": None, "response": None})
+        databricks_artifact_repo.upload_trace_data(trace_data)
