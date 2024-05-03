@@ -1190,6 +1190,11 @@ This allows users to integrate their own language model services with the MLflow
 To create a custom plugin, you need to implement a Provider class that inherits from ``mlflow.gateway.providers.BaseProvider``,
 and a Config class that inherits from ``mlflow.gateway.base_models.ProviderConfigModel``.
 
+.. important::
+
+    Only install plugin packages you trust. Starting a server with plugin provider will execute arbitrary codes
+    in the plugin package, including possibly reading any files on your machine.
+
 .. code-block:: python
     :caption: Example
 
