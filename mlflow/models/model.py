@@ -8,13 +8,15 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
+from urllib.parse import urlparse
 
 import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -291,6 +293,7 @@ class Model:
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
+        resources: Optional[Union[str, List[Resource]]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -304,6 +307,7 @@ class Model:
         self.mlflow_version = mlflow_version
         self.metadata = metadata
         self.model_size_bytes = model_size_bytes
+        self.resources = resources
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -468,6 +472,29 @@ class Model:
     def model_size_bytes(self, value: Optional[int]):
         self._model_size_bytes = value
 
+    @experimental
+    @property
+    def resources(self) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+        """
+        An optional dictionary that contains the resources required to serve the model.
+
+        :getter: Retrieves the resources required to serve the model
+        :setter: Sets the resources required to serve the model
+        :type: Dict[str, Dict[ResourceType, List[Dict]]]
+        """
+        return self._resources
+
+    @experimental
+    @resources.setter
+    def resources(self, value: Optional[Union[str, List[Resource]]]):
+        if isinstance(value, (Path, str)):
+            serialized_resource = _ResourceBuilder.from_yaml_file(value)
+        elif isinstance(value, List) and all(isinstance(resource, Resource) for resource in value):
+            serialized_resource = _ResourceBuilder.from_resources(value)
+        else:
+            serialized_resource = value
+        self._resources = serialized_resource
+
     def get_model_info(self):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -501,6 +528,8 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
+        if self.resources is not None:
+            res["resources"] = self.resources
         if self.model_size_bytes is not None:
             res["model_size_bytes"] = self.model_size_bytes
         # Exclude null fields in case MLmodel file consumers such as Model Serving may not
@@ -551,6 +580,14 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
+        # Check if the path is a local directory and not remote
+        path_scheme = urlparse(str(path)).scheme
+        if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
+            raise MlflowException(
+                f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
         path = download_artifacts(artifact_uri=path)
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
@@ -585,6 +622,7 @@ class Model:
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         metadata=None,
         run_id=None,
+        resources=None,
         **kwargs,
     ):
         """
@@ -605,10 +643,8 @@ class Model:
                 being created and is in ``READY`` status. By default, the
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
-            metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                .. Note:: Experimental: This parameter may change or be removed in a
-                                        future release without warning.
+            metadata: {{ metadata }}
+            resources: {{ resources }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
@@ -621,7 +657,9 @@ class Model:
             local_path = tmp.path("model")
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
+            mlflow_model = cls(
+                artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
+            )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
 
             # Copy model metadata files to a sub-directory 'metadata',
@@ -654,6 +692,21 @@ class Model:
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
+
+            # if the model_config kwarg is passed in, then log the model config as an params
+            if "model_config" in kwargs:
+                model_config = kwargs["model_config"]
+                if isinstance(model_config, str):
+                    try:
+                        with open(model_config) as f:
+                            model_config = json.load(f)
+                    except Exception as e:
+                        _logger.warning("Failed to load model config from %s: %s", model_config, e)
+                try:
+                    mlflow.tracking.fluent.log_params(model_config or {}, run_id=run_id)
+                except Exception as e:
+                    _logger.warning("Failed to log model config as params: %s", str(e))
+
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
             except MlflowException:
@@ -839,3 +892,30 @@ def update_model_requirements(
     _logger.info(f"Uploading updated requirements files to {resolved_uri}...")
     _upload_artifact_to_uri(conda_yaml_path, resolved_uri)
     _upload_artifact_to_uri(requirements_txt_path, resolved_uri)
+
+
+__mlflow_model__ = None
+
+
+def set_model(model):
+    """
+    When logging model as code, this function can be used to set the model object
+    to be logged.
+
+    Args:
+        model: The model object to be logged.
+    """
+    from mlflow.pyfunc import PythonModel
+
+    if not isinstance(model, PythonModel):
+        try:
+            from mlflow.langchain import _validate_and_wrap_lc_model
+
+            # If its not a PyFuncModel, then it should be a Langchain model
+            _validate_and_wrap_lc_model(model, None)
+        except Exception as e:
+            raise mlflow.MlflowException(
+                "Model should either be an instance of PyFuncModel or Langchain type."
+            ) from e
+
+    globals()["__mlflow_model__"] = model

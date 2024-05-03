@@ -220,10 +220,7 @@ def log_model(
 
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -384,10 +381,7 @@ def save_model(
             If ``None``, no extra files are added to the model.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata:{{ metadata }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -739,9 +733,6 @@ class _PyTorchWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                            release without warning.
 
         Returns:
             Model predictions.

@@ -205,10 +205,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -328,10 +325,7 @@ def save_model(
             if the model to be saved is a Tensorflow module.
         keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
             to be saved is a keras model.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
@@ -778,9 +772,6 @@ class _TF2Wrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -834,9 +825,6 @@ class _TF2ModuleWrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -869,9 +857,6 @@ class _KerasModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns
             Model predictions.
