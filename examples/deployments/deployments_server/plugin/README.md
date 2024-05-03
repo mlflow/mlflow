@@ -3,7 +3,7 @@
 To see an example of specifying the completions endpoint for a plugin provider, 
 see [the configuration](config.yaml) YAML file.
 
-We implement our plugin provider under `foo/` folder. It implements the completions method.
+We implement our plugin provider under `./foo-provider` folder. It implements the completions method.
 
 This configuration file specifies one endpoint: 'completions', using the model 'foo-model-0.1.2'.
 
