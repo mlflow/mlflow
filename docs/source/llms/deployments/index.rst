@@ -1178,6 +1178,103 @@ Here are some examples for how you might use curl to interact with the MLflow De
 
 **Note:** Remember to replace ``my.deployments:8888`` with the URL of your actual MLflow Deployments Server.
 
+.. _deployments_plugin:
+
+Plugin LLM Provider
+===================
+
+The MLflow Deployments Server supports the use of custom language model providers through the use of plugins.
+A plugin is a Python package that provides a custom implementation of a language model provider.
+This allows users to integrate their own language model services with the MLflow Deployments Server.
+
+To create a custom plugin, you need to implement a Provider class that inherits from ``mlflow.gateway.providers.BaseProvider``,
+and a Config class that inherits from ``mlflow.gateway.base_models.ProviderConfigModel``.
+
+.. code-block:: python
+    :caption: Example
+
+    from typing import AsyncIterable
+    from pydantic import validator
+    from mlflow.gateway.base_models import ProviderConfigModel
+    from mlflow.gateway.config import RouteConfig, _resolve_api_key_from_input
+    from mlflow.gateway.providers import BaseProvider
+    from mlflow.gateway.schemas import completions
+
+
+    class MyConfig(ProviderConfigModel):
+        my_api_key: str
+
+        @validator("my_api_key", pre=True)
+        def validate_my_api_key(cls, value):
+            return _resolve_api_key_from_input(value)
+
+
+    class MyProvider(BaseProvider):
+        NAME = "my-provider"
+
+        def __init__(self, config: RouteConfig) -> None:
+            super().__init__(config)
+            if config.model.config is None or not isinstance(config.model.config, MyConfig):
+                raise TypeError(f"Unexpected config type {config.model.config}")
+            self.my_config: MyConfig = config.model.config
+
+        # You can implement one or more of the following methods
+        # depending on the capabilities of your provider.
+        # Unimplemented methods will return a 501 Not Implemented HTTP response upon invocation.
+
+        async def completions_stream(
+            self, payload: completions.RequestPayload
+        ) -> AsyncIterable[completions.StreamResponsePayload]: ...
+
+        async def completions(
+            self, payload: completions.RequestPayload
+        ) -> completions.ResponsePayload: ...
+
+        async def chat_stream(
+            self, payload: chat.RequestPayload
+        ) -> AsyncIterable[chat.StreamResponsePayload]: ...
+
+        async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload: ...
+
+        async def embeddings(
+            self, payload: embeddings.RequestPayload
+        ) -> embeddings.ResponsePayload: ...
+
+Then, you need to create a Python package that contains the plugin implementation. For example:
+
+.. code-block:: python
+    :caption: setup.py
+
+    from setuptools import setup, find_packages
+
+    setup(
+        name="my-provider",
+        version="0.1.0",
+        packages=find_packages(),
+        install_requires=[
+            "mlflow",
+            "pydantic>=2",
+        ],
+    )
+
+Finally, you need to install the plugin package in the same environment as the MLflow Deployments Server.
+
+Then, you can configure the MLflow Deployments Server configuration file
+with the `plugin:` prefix to specify the provider and config model:
+
+.. code-block:: yaml
+
+    endpoints:
+      - name: chat
+        endpoint_type: llm/v1/chat
+        model:
+          provider: plugin:my_provider:MyProvider
+          config_model: plugin:my_provider:MyConfig
+          name: my-model-v0.1.2
+          config:
+            my_api_key: $MY_API_KEY
+
+
 MLflow Deployments Server API Documentation
 ===========================================
 
