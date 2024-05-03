@@ -386,6 +386,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import uuid
 import warnings
 from copy import deepcopy
 from functools import lru_cache
@@ -482,6 +483,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
     _validate_and_copy_code_paths,
+    _validate_and_copy_model_code_and_config_paths,
     _validate_and_prepare_target_save_path,
     _validate_pyfunc_model_config,
 )
@@ -503,6 +505,7 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 MODEL_CONFIG = "config"
+_MODEL_CODE_PATH = "model_code_path"
 
 _MODEL_DATA_SUBPATH = "data"
 
@@ -2236,6 +2239,18 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
     if python_model:
+        model_code_path = None
+        if isinstance(python_model, str):
+            if os.path.exists(python_model):
+                model_code_path = python_model
+            else:
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    f"If the provided python model '{python_model}' is a string, it must be a valid"
+                    " python file path or a databricks notebook file path containing the code for"
+                    " defining the chain instance."
+                )
+            python_model = _load_model_code_path(model_code_path)
+            _validate_and_copy_model_code_and_config_paths(model_code_path, None, path)
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2400,7 +2415,20 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            model_code_path=model_code_path,
         )
+
+
+def _load_model_code_path(code_path: str):
+    try:
+        new_module_name = f"code_model_{uuid.uuid4().hex}"
+        spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[new_module_name] = module
+        spec.loader.exec_module(module)
+    except ImportError as e:
+        raise mlflow.MlflowException("Failed to import pyfunc model.") from e
+    return mlflow.models.model.__mlflow_model__
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))

@@ -3,6 +3,7 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+from copy import deepcopy
 import inspect
 import logging
 import os
@@ -255,6 +256,7 @@ def _save_model_with_class_artifacts_params(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    **kwargs,
 ):
     """
     Args:
@@ -291,9 +293,8 @@ def _save_model_with_class_artifacts_params(
     if mlflow_model is None:
         mlflow_model = Model()
 
-    custom_model_config_kwargs = {
-        CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
-    }
+    custom_model_config_kwargs = deepcopy(kwargs)
+    custom_model_config_kwargs[CONFIG_KEY_CLOUDPICKLE_VERSION] = cloudpickle.__version__
     if callable(python_model):
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH

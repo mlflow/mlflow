@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -154,8 +154,8 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     return code_dir_subpath
 
 
-def _validate_path_exists(path, name):
-    if path and not os.path.exists(path):
+def _validate_path_exists(path: str, name: str):
+    if not os.path.exists(path):
         raise MlflowException(
             message=(
                 f"Failed to copy the specified {name} path '{path}' into the model "
@@ -166,7 +166,9 @@ def _validate_path_exists(path, name):
         )
 
 
-def _validate_and_copy_model_code_and_config_paths(code_path, config_path, path):
+def _validate_and_copy_model_code_and_config_paths(
+    code_path: str, config_path: Optional[str], path: str
+):
     """Copies the model code from code_path to a directory.
 
     Args:
@@ -174,8 +176,10 @@ def _validate_and_copy_model_code_and_config_paths(code_path, config_path, path)
         config_path: A file containing model config code that should be logged as an artifact.
         path: The local model path.
     """
-    _validate_path_exists(code_path, "code")
-    _validate_path_exists(config_path, "config")
+    if code_path:
+        _validate_path_exists(code_path, "code")
+    if config_path:
+        _validate_path_exists(config_path, "config")
     try:
         _copy_file_or_tree(src=code_path, dst=path)
         if config_path:
