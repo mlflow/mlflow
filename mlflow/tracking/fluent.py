@@ -254,10 +254,11 @@ def start_run_by_name(
 
         # Resume an existing run
         experiment_id = mlflow.create_experiment("experiment1")
-        old_run  = mlflow.start_named_run(run_name="My Test Run")
+        old_run  = mlflow.start_run_by_name(run_name="My Test Run")
         mlflow.end_run()
 
-        resumed_run = mlflow.start_named_run(run_name="My Test Run")
+        resumed_run = mlflow.start_run_by_name(run_name="My Test Run")
+        mlflow.end_run()
 
         print("old run:")
         print(f"run_id: {old_run.info.run_id}")
