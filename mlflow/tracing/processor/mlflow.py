@@ -27,6 +27,7 @@ from mlflow.tracing.utils import (
     maybe_get_evaluation_request_id,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
 
 _logger = logging.getLogger(__name__)
@@ -70,6 +71,16 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         experiment_id = (
             get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
         )
+        if experiment_id == DEFAULT_EXPERIMENT_ID:
+            _logger.warning(
+                "Creating a trace within the default experiment with id "
+                f"'{DEFAULT_EXPERIMENT_ID}'. It is strongly recommended to not use "
+                "the default experiment to log traces due to ambiguous search results and "
+                "probable performance issues over time due to directory table listing performance "
+                "degradation with high volumes of directories within a specific path. "
+                "To avoid performance and disambiguation issues, set the experiment for "
+                "your environment using `mlflow.set_experiment()` API."
+            )
         metadata = {}
 
         # If the span is started within an active MLflow run, we should record it as a trace tag

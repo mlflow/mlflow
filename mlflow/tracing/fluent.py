@@ -15,12 +15,14 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import capture_function_input_args, encode_span_id, get_otel_attribute
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 
 _logger = logging.getLogger(__name__)
@@ -212,7 +214,7 @@ def get_trace(request_id: str) -> Trace:
 
 
 def search_traces(
-    experiment_ids: List[str],
+    experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
@@ -221,7 +223,8 @@ def search_traces(
     Return traces that match the given list of search expressions within the experiments.
 
     Args:
-        experiment_ids: List of experiment ids to scope the search.
+        experiment_ids: List of experiment ids to scope the search. If not provided, the search
+            will be performed across the current active experiment.
         filter_string: A search filter string.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
@@ -231,6 +234,14 @@ def search_traces(
         A list of :py:class:`Trace <mlflow.entities.Trace>` objects that satisfy the search
         expressions.
     """
+    if not experiment_ids:
+        if experiment_id := _get_experiment_id():
+            experiment_ids = [experiment_id]
+        else:
+            raise MlflowException(
+                "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
+                "or specify the list of experiment IDs in the `experiment_ids` parameter."
+            )
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_traces(
