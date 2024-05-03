@@ -35,6 +35,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.types.schema import Array, ColSpec, DataType, Schema
 
 _logger = logging.getLogger(__name__)
 
@@ -89,6 +90,10 @@ class _ChatMessage(pydantic.BaseModel, extra="forbid"):
                 f"Unrecognized chat message role: {self.role}"
             )
 
+    @staticmethod
+    def get_schema():
+        return Schema([ColSpec(DataType.string, "role"), ColSpec(DataType.string, "content")])
+
 
 class _ChatDeltaMessage(pydantic.BaseModel):
     role: str
@@ -107,6 +112,16 @@ class _ChatChoice(pydantic.BaseModel, extra="forbid"):
     message: _ChatMessage = None
     finish_reason: Optional[str] = None
 
+    @staticmethod
+    def get_schema():
+        return Schema(
+            [
+                ColSpec(DataType.integer, "index"),
+                ColSpec(_ChatMessage.get_schema(), "message", required=False),
+                ColSpec(DataType.string, "finish_reason", required=False),
+            ]
+        )
+
 
 class _ChatChoiceDelta(pydantic.BaseModel):
     index: int
@@ -119,6 +134,16 @@ class _ChatUsage(pydantic.BaseModel, extra="forbid"):
     completion_tokens: Optional[int] = None
     total_tokens: Optional[int] = None
 
+    @staticmethod
+    def get_schema():
+        return Schema(
+            [
+                ColSpec(DataType.integer, "prompt_tokens", required=False),
+                ColSpec(DataType.integer, "completion_tokens", required=False),
+                ColSpec(DataType.integer, "total_tokens", required=False),
+            ]
+        )
+
 
 class _ChatResponse(pydantic.BaseModel, extra="forbid"):
     id: Optional[str] = None
@@ -129,6 +154,19 @@ class _ChatResponse(pydantic.BaseModel, extra="forbid"):
     model: Optional[str] = None
     choices: List[_ChatChoice]
     usage: _ChatUsage
+
+    @staticmethod
+    def get_schema():
+        return Schema(
+            [
+                ColSpec(DataType.string, "id", required=False),
+                ColSpec(DataType.string, "object"),
+                ColSpec(DataType.integer, "created"),
+                ColSpec(DataType.string, "model", required=False),
+                ColSpec(Array(_ChatChoice.get_schema()), "choices"),
+                ColSpec(_ChatUsage.get_schema(), "usage"),
+            ]
+        )
 
 
 class _ChatChunkResponse(pydantic.BaseModel):
