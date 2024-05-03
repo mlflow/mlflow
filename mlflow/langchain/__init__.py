@@ -269,6 +269,7 @@ def save_model(
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
 
+        # TODO: bbqiu can we delete this since it's handled in _validate_and_wrap_lc_model?
         if os.path.exists(lc_model):
             model_code_path = lc_model
         else:

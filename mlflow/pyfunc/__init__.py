@@ -398,6 +398,7 @@ import pandas
 import yaml
 
 import mlflow
+from mlflow.models.utils import _validate_and_get_model_code_path
 import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
@@ -2241,14 +2242,7 @@ def save_model(
     if python_model:
         model_code_path = None
         if isinstance(python_model, str):
-            if os.path.exists(python_model):
-                model_code_path = python_model
-            else:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    f"If the provided python model '{python_model}' is a string, it must be a valid"
-                    " python file path or a databricks notebook file path containing the code for"
-                    " defining the chain instance."
-                )
+            model_code_path = _validate_and_get_model_code_path(python_model)
             python_model = _load_model_code_path(model_code_path)
             _validate_and_copy_model_code_and_config_paths(model_code_path, None, path)
         _validate_function_python_model(python_model)

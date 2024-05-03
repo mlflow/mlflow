@@ -1,3 +1,4 @@
+import base64
 import datetime as dt
 import decimal
 import json
@@ -5,6 +6,7 @@ import logging
 import os
 import re
 from copy import deepcopy
+import tempfile
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -1498,3 +1500,66 @@ def _convert_llm_input_data(data):
             data = data.to_dict(orient="records")
 
     return _convert_llm_ndarray_to_list(data)
+
+
+def _get_temp_file_with_content(file_name: str, content: str, content_format) -> str:
+    """
+    Write the contents to a temporary file and return the path to that file.
+
+    Args:
+        file_name: The name of the file to be created.
+        content: The contents to be written to the file.
+
+    Returns:
+        The string path to the file where the chain model is build.
+    """
+    # Get the temporary directory path
+    temp_dir = tempfile.gettempdir()
+
+    # Construct the full path where the temporary file will be created
+    temp_file_path = os.path.join(temp_dir, file_name)
+
+    # Create and write to the file
+    with open(temp_file_path, content_format) as tmp_file:
+        tmp_file.write(content)
+
+    return temp_file_path
+
+
+"""
+TODO: BBQIU
+Validate
+- model code path exists
+- error for dbutils and warn for magic commands
+create a temp file if it's a notebook
+"""
+
+
+def _validate_and_get_model_code_path(model_code_path: str):
+    if not os.path.exists(model_code_path):
+        raise MlflowException.invalid_parameter_value(
+            f"If the provided model '{model_code_path}' is a string, it must be a valid python "
+            "file path or a databricks notebook file path containing the code for defining "
+            "the chain instance."
+        )
+
+    try:
+        with open(model_code_path) as _:
+            return model_code_path
+    except Exception:
+        try:
+            from databricks.sdk import WorkspaceClient
+            from databricks.sdk.service.workspace import ExportFormat
+
+            w = WorkspaceClient()
+            response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
+            decoded_content = base64.b64decode(response.content)
+        except Exception:
+            raise MlflowException.invalid_parameter_value(
+                f"If the provided model '{model_code_path}' is a string, it must be a valid python "
+                "file path or a databricks notebook file path containing the code for defining "
+                "the chain instance."
+            )
+
+        _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+        return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
