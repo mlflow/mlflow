@@ -1,7 +1,9 @@
 from opentelemetry import trace
 
+import mlflow
 from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _get_tracer
@@ -38,3 +40,25 @@ def test_span_processor_and_exporter_model_serving(monkeypatch):
     assert len(processors) == 1
     assert isinstance(processors[0], InferenceTableSpanProcessor)
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
+
+
+def test_disable_enable_tracing():
+    @mlflow.trace
+    def test_fn():
+        pass
+
+    test_fn()
+    assert len(TRACE_BUFFER) == 1
+    assert isinstance(_get_tracer(__name__), trace.Tracer)
+    TRACE_BUFFER.clear()
+
+    mlflow.tracing.disable()
+    test_fn()
+    assert len(TRACE_BUFFER) == 0
+    assert isinstance(_get_tracer(__name__), trace.NoOpTracer)
+
+    mlflow.tracing.enable()
+    test_fn()
+    assert len(TRACE_BUFFER) == 1
+    assert isinstance(_get_tracer(__name__), trace.Tracer)
+    TRACE_BUFFER.clear()

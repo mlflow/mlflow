@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Optional, Tuple
 
 from opentelemetry import trace
@@ -11,6 +12,8 @@ from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environ
 # Once() object ensures a function is executed only once in a process.
 # Note that it doesn't work as expected in a distributed environment.
 _TRACER_PROVIDER_INITIALIZED = Once()
+
+_logger = logging.getLogger(__name__)
 
 
 def start_span_in_context(name: str) -> trace.Span:
@@ -83,3 +86,33 @@ def _setup_tracer_provider():
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
     trace.set_tracer_provider(tracer_provider)
+
+
+def disable():
+    """
+    Disable tracing by setting the global tracer provider to NoOpTracerProvider.
+    """
+    if isinstance(trace.get_tracer_provider(), trace.NoOpTracerProvider):
+        _logger.info("Tracing is already disabled")
+        return
+
+    with trace._TRACER_PROVIDER_SET_ONCE._lock:
+        trace._TRACER_PROVIDER_SET_ONCE._done = False
+
+    trace.set_tracer_provider(trace.NoOpTracerProvider())
+
+
+def enable():
+    """
+    Enable tracing by setting the global tracer provider to the actual tracer provider.
+    """
+    from mlflow.tracing.provider import _setup_tracer_provider
+
+    if not isinstance(trace.get_tracer_provider(), trace.NoOpTracerProvider):
+        _logger.info("Tracing is already enabled")
+        return
+
+    with trace._TRACER_PROVIDER_SET_ONCE._lock:
+        trace._TRACER_PROVIDER_SET_ONCE._done = False
+
+    _setup_tracer_provider()
