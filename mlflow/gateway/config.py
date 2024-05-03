@@ -322,7 +322,7 @@ class Model(ConfigModel):
         formatted_value = value.replace("-", "_").upper()
         if formatted_value in Provider.__members__:
             return Provider[formatted_value]
-        if value.startswith("plugin:"):
+        if string_is_plugin_obj(value):
             return value
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
