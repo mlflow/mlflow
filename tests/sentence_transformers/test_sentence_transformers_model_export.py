@@ -68,8 +68,9 @@ def test_model_save_and_load(model_path, basic_model):
 
 
 @pytest.mark.skipif(
-    Version(sentence_transformers.__version__) < Version("2.3.0"),
-    reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0",
+    Version(sentence_transformers.__version__) < Version("2.4.0"),
+    reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0 "
+    "and `include_prompt` from gte-base-en-v1.5 requires 2.4.0 or above",
 )
 def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
     mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
