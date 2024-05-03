@@ -6,8 +6,6 @@ from abc import abstractmethod
 from collections import namedtuple
 from concurrent.futures import as_completed
 
-import requests
-
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
@@ -75,16 +73,13 @@ def _retry_with_new_creds(try_func, creds_func, og_creds=None):
     try:
         first_creds = creds_func() if og_creds is None else og_creds
         return try_func(first_creds)
-    except requests.HTTPError as e:
-        if e.response.status_code in [401, 403]:
-            _logger.info(
-                "Failed to authorize request, possibly due to credential expiration."
-                " Refreshing credentials and trying again..."
-            )
-            new_creds = creds_func()
-            return try_func(new_creds)
-        else:
-            raise e
+    except Exception as e:
+        _logger.info(
+            "Failed to complete request, possibly due to credential expiration."
+            f" Refreshing credentials and trying again... (Error: {e})"
+        )
+        new_creds = creds_func()
+        return try_func(new_creds)
 
 
 StagedArtifactUpload = namedtuple(
