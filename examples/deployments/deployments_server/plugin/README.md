@@ -20,3 +20,9 @@ Then, start the server:
 ```sh
 FOO_API_KEY=my-key mlflow deployments start-server --config-path config.yaml --port 7000
 ```
+
+To clean up the installed package after the example, run 
+
+```sh
+pip uninstall foo
+```
