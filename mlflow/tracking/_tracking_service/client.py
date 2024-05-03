@@ -4,16 +4,37 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import json
+import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
+from mlflow.entities import (
+    ExperimentTag,
+    Metric,
+    Param,
+    RunStatus,
+    RunTag,
+    TraceData,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.dataset_input import DatasetInput
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import (
+    GET_METRIC_HISTORY_MAX_RESULTS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -30,6 +51,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class TrackingServiceClient:
@@ -140,6 +163,192 @@ class TrackingServiceClient:
             tags=[RunTag(key, value) for (key, value) in tags.items()],
             run_name=run_name,
         )
+
+    def start_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ):
+        """
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        return self.store.start_trace(
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
+
+    def end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        return self.store.end_trace(
+            request_id=request_id,
+            timestamp_ms=timestamp_ms,
+            status=status,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
+
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> int:
+        return self.store.delete_traces(
+            experiment_id=experiment_id,
+            max_timestamp_millis=max_timestamp_millis,
+            max_traces=max_traces,
+            request_ids=request_ids,
+        )
+
+    def get_trace(self, request_id) -> Trace:
+        """
+        Get the trace matching the ``request_id``.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
+        """
+        trace_info = self.store.get_trace_info(request_id)
+        try:
+            trace_data = self._download_trace_data(trace_info)
+        except MlflowTraceDataNotFound:
+            raise MlflowException(
+                message=(
+                    f"Trace with ID {request_id} cannot be loaded because it is missing span data."
+                    " Please try creating or loading another trace."
+                ),
+                error_code=BAD_REQUEST,
+            ) from None  # Ensure the original spammy exception is not included in the traceback
+        except MlflowTraceDataCorrupted:
+            raise MlflowException(
+                message=(
+                    f"Trace with ID {request_id} cannot be loaded because its span data"
+                    " is corrupted. Please try creating or loading another trace."
+                ),
+                error_code=BAD_REQUEST,
+            ) from None  # Ensure the original spammy exception is not included in the traceback
+        return Trace(trace_info, trace_data)
+
+    def _search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        return self.store.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Trace]:
+        def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
+            """
+            Downloads the trace data for the given trace_info and returns a Trace object.
+            If the download fails (e.g., the trace data is missing or corrupted), returns None.
+            """
+            try:
+                trace_data = self._download_trace_data(trace_info)
+            except (MlflowTraceDataNotFound, MlflowTraceDataCorrupted) as e:
+                _logger.debug(
+                    f"Failed to download trace data for trace with request_id={e.request_id}",
+                    trace_info.request_id,
+                    exc_info=True,
+                )
+                return None
+            else:
+                return Trace(trace_info, trace_data)
+
+        traces = []
+        next_max_results = max_results
+        next_token = page_token
+        with ThreadPoolExecutor() as executor:
+            while len(traces) < max_results:
+                trace_infos, next_token = self._search_traces(
+                    experiment_ids=experiment_ids,
+                    filter_string=filter_string,
+                    max_results=next_max_results,
+                    order_by=order_by,
+                    page_token=next_token,
+                )
+                traces.extend(t for t in executor.map(download_trace_data, trace_infos) if t)
+
+                if not next_token:
+                    break
+
+                next_max_results = max_results - len(traces)
+
+        return PagedList(traces, next_token)
+
+    def set_trace_tag(self, request_id, key, value):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        self.store.set_trace_tag(request_id, key, str(value))
+
+    def delete_trace_tag(self, request_id, key):
+        """
+        Delete a tag from the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        self.store.delete_trace_tag(request_id, key)
 
     def search_experiments(
         self,
@@ -520,6 +729,11 @@ class TrackingServiceClient:
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
+    def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
+        artifact_uri = next(v for k, v in trace_info.tags.items() if k == "mlflow.artifactLocation")
+        artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
+        return get_artifact_repository(artifact_uri)
+
     def _get_artifact_repo(self, run_id):
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = utils._artifact_repos_cache.get(run_id)
@@ -555,6 +769,15 @@ class TrackingServiceClient:
             artifact_repo.log_artifacts(local_path, path_name)
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
+
+    def _download_trace_data(self, trace_info: TraceInfo) -> TraceData:
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
+        return TraceData.from_dict(artifact_repo.download_trace_data())
+
+    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
+        trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder)
+        return artifact_repo.upload_trace_data(trace_data_json)
 
     def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
         """
