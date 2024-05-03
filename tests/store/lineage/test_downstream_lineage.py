@@ -43,10 +43,10 @@ def lineage_header_info_to_extra_headers(lineage_header_info):
     ("is_in_notebook", "is_in_job", "notebook_id", "job_id"),
     [
         (True, True, None, None),
-        (True, True, 1234, None),
-        (True, True, None, 5678),
-        (True, True, 1234, 5678),
-        (False, False, 1234, 5678),
+        (True, True, "1234", None),
+        (True, True, None, "5678"),
+        (True, True, "1234", "5678"),
+        (False, False, "1234", "5678"),
     ],
 )
 def test_downstream_notebook_job_lineage(tmp_path, is_in_notebook, is_in_job, notebook_id, job_id):
@@ -68,7 +68,7 @@ def test_downstream_notebook_job_lineage(tmp_path, is_in_notebook, is_in_job, no
 
     expected_lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
-    # Mock out all necessary dependencies
+    # Mock out all necessary dependency
     with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_notebook",
         return_value=is_in_notebook,

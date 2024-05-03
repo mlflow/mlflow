@@ -909,17 +909,17 @@ def load_model(
     """
 
     lineage_header_info = None
-    if databricks_utils.is_in_databricks_runtime() and (databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()):
+    if databricks_utils.is_in_databricks_runtime() and (
+        databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()
+    ):
         entity_list = []
         # Get notebook id and job id, pack them into lineage_header_info
-        notebook_id = databricks_utils.get_notebook_id()
-        if notebook_id:
-            notebook_entity = Notebook(id=str(notebook_id))
+        if notebook_id := databricks_utils.get_notebook_id():
+            notebook_entity = Notebook(id=notebook_id)
             entity_list.append(Entity(notebook=notebook_entity))
 
-        job_id = databricks_utils.get_job_id()
-        if job_id:
-            job_entity = Job(id=str(job_id))
+        if job_id := databricks_utils.get_job_id():
+            job_entity = Job(id=job_id)
             entity_list.append(Entity(job=job_entity))
 
         lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
