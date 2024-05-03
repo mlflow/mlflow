@@ -74,10 +74,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         if experiment_id == DEFAULT_EXPERIMENT_ID:
             _logger.warning(
                 "Creating a trace within the default experiment with id "
-                f"'{DEFAULT_EXPERIMENT_ID}'. However, it is strongly recommended to set a "
-                "specific experiment when using tracing, because the default experiment can "
-                "become a monolithic huge dump with thousands of traces and negatively "
-                "impact storage performance. To avoid this, set the experiment for "
+                f"'{DEFAULT_EXPERIMENT_ID}'. It is strongly recommended to not use "
+                "the default experiment to log traces due to ambiguous search results and "
+                "probable performance issues over time due to directory table listing performance "
+                "degradation with high volumes of directories within a specific path. "
+                "To avoid performance and disambiguation issues, set the experiment for "
                 "your environment using `mlflow.set_experiment()` API."
             )
         metadata = {}
