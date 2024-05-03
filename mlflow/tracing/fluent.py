@@ -4,7 +4,7 @@ import contextlib
 import functools
 import json
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -17,15 +17,24 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing import provider
+from mlflow.tracing import extract, provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import capture_function_input_args, encode_span_id, get_otel_attribute
+from mlflow.tracing.utils import (
+    SPANS_COLUMN_NAME,
+    capture_function_input_args,
+    encode_span_id,
+    get_otel_attribute,
+    traces_to_df,
+)
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 
 _logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    import pandas
 
 
 # Traces are stored in memory after completion so they can be retrieved conveniently.
@@ -218,7 +227,8 @@ def search_traces(
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
-):
+    extract_fields: Optional[List[str]] = None,
+) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
 
@@ -229,10 +239,15 @@ def search_traces(
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.
+        extract_fields: List of fields to extract from the traces. Fields are of the form
+            "span_name.[inputs|outputs].field_name" or "span_name.[inputs|outputs]". For example,
+            given a trace with a span named "predict" and outputs with names "result" and
+            "explanation", the field "predict.outputs.result" would extract the "result" field, and
+            the field "predict.outputs" would extract the entire outputs dictionary with keys
+            "result" and "explanation".
 
     Returns:
-        A list of :py:class:`Trace <mlflow.entities.Trace>` objects that satisfy the search
-        expressions.
+        A Pandas DataFrame containing information about traces that satisfy the search expressions.
     """
     if not experiment_ids:
         if experiment_id := _get_experiment_id():
@@ -260,7 +275,15 @@ def search_traces(
 
     get_display_handler().display_traces(results)
 
-    return results
+    traces_df = traces_to_df(results)
+    if extract_fields:
+        traces_df = extract(
+            traces=traces_df,
+            fields=extract_fields,
+            col_name=SPANS_COLUMN_NAME,
+        )
+
+    return traces_df
 
 
 def get_current_active_span():
