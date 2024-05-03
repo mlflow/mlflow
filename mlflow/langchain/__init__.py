@@ -98,6 +98,7 @@ FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
 _MODEL_CODE_CONFIG = "model_config"
 _MODEL_CODE_PATH = "model_code_path"
+_FOO = "hoge"
 
 
 def get_default_pip_requirements():
