@@ -1270,10 +1270,15 @@ with the `plugin:` prefix to specify the provider and config model:
         model:
           provider: plugin:my_provider:MyProvider
           config_model: plugin:my_provider:MyConfig
-          name: my-model-v0.1.2
+          name: my-model-0.1.2
           config:
             my_api_key: $MY_API_KEY
 
+Example
+-------
+
+A working example can be found in the MLflow repository at
+`examples/deployments/deployments_server/plugin <https://github.com/mlflow/mlflow/tree/master/examples/deployments/deployments_server/plugin>`__.
 
 MLflow Deployments Server API Documentation
 ===========================================
