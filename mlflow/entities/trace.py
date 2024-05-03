@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.tracing.utils import TraceJSONEncoder
 
 
 @dataclass
@@ -22,6 +21,8 @@ class Trace(_MlflowObject):
     data: TraceData
 
     def to_json(self) -> str:
+        from mlflow.tracing.utils import TraceJSONEncoder
+
         return json.dumps(
             {"info": asdict(self.info), "data": self.data.to_dict()}, cls=TraceJSONEncoder
         )
