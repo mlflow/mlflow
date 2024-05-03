@@ -17,7 +17,6 @@ const (
 	// Equivilance
 	EQUALS
 	NOT_EQUALS
-	NOT
 
 	// Conditional
 	LESS
@@ -74,8 +73,6 @@ func TokenKindString(kind TokenKind) string {
 		return "equals"
 	case NOT_EQUALS:
 		return "not_equals"
-	case NOT:
-		return "not"
 	case LESS:
 		return "less"
 	case LESS_EQUALS:
