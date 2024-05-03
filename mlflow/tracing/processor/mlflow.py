@@ -117,6 +117,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 request_id = encode_trace_id(span.context.trace_id)
                 trace_info = self._create_trace_info(request_id, span, experiment_id, metadata)
 
+        trace_info.tags.update(resolve_tags())
+
         return trace_info
 
     def on_end(self, span: OTelReadableSpan) -> None:
@@ -180,7 +182,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         experiment_id: Optional[str] = None,
         request_metadata: Optional[Dict[str, Any]] = None,
     ) -> TraceInfo:
-        tags = resolve_tags()
         return TraceInfo(
             request_id=request_id,
             experiment_id=experiment_id,
@@ -188,5 +189,4 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             execution_time_ms=None,
             status=TraceStatus.IN_PROGRESS,
             request_metadata=request_metadata or {},
-            tags=tags,
         )
