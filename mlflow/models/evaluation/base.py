@@ -598,7 +598,7 @@ class EvaluationDataset:
         self._has_targets = False
         self._predictions_data = None
         self._predictions_name = None
-        self._has_predictions = False
+        self._has_predictions = predictions is not None
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -615,6 +615,11 @@ class EvaluationDataset:
             raise MlflowException(
                 message="`feature_names` argument must be a list containing unique feature names.",
                 error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if self._has_predictions:
+            _validate_dataset_type_supports_predictions(
+                data=data, supported_predictions_dataset_types=self._supported_dataframe_types
             )
 
         has_targets = targets is not None
@@ -699,7 +704,6 @@ class EvaluationDataset:
                 self._labels_data = data[targets].to_numpy()
                 self._targets_name = targets
 
-            self._has_predictions = predictions is not None
             if self._has_predictions:
                 self._predictions_data = data[predictions].to_numpy()
                 self._predictions_name = predictions
@@ -1178,8 +1182,16 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
 
 def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     """Convert input data to mlflow dataset."""
+    supported_dataframe_types = [pd.DataFrame]
     if "pyspark" in sys.modules:
         from pyspark.sql import DataFrame as SparkDataFrame
+
+        supported_dataframe_types.append(SparkDataFrame)
+
+    if predictions is not None:
+        _validate_dataset_type_supports_predictions(
+            data=data, supported_predictions_dataset_types=supported_dataframe_types
+        )
 
     if isinstance(data, list):
         # If the list is flat, we assume each element is an independent sample.
@@ -1194,7 +1206,7 @@ def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     elif isinstance(data, pd.DataFrame):
         return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
     elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
-        return mlflow.data.from_spark(df=data, targets=targets)
+        return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
     else:
         # Cannot convert to mlflow dataset, return original data.
         _logger.info(
@@ -1202,6 +1214,21 @@ def _convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
             f"a numpy array, a panda Dataframe or a spark Dataframe, but received {type(data)}."
         )
         return data
+
+
+def _validate_dataset_type_supports_predictions(data, supported_predictions_dataset_types):
+    """
+    Validate that the dataset type supports a user-specified "predictions" column.
+    """
+    if not any(isinstance(data, sdt) for sdt in supported_predictions_dataset_types):
+        raise MlflowException(
+            message=(
+                "If predictions is specified, data must be one of the following types, or an"
+                " MLflow Dataset that represents one of the following types:"
+                f" {supported_predictions_dataset_types}."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _evaluate(
@@ -1650,14 +1677,13 @@ def evaluate(
             ``data`` is a :py:class:`mlflow.data.dataset.Dataset` that defines targets,
             then ``targets`` is optional.
 
-        predictions: Optional. The name of the column that contains model outputs. There are two
-            cases where this argument is required:
+        predictions: Optional. The name of the column that contains model outputs.
 
-            - When ``model`` is specified and outputs multiple columns. The
-              ``predictions`` should be the name of the column that is used for
+            - When ``model`` is specified and outputs multiple columns, ``predictions`` can be used
+              to specify the name of the column that will be used to store model outputs for
               evaluation.
-            - When ``model`` is not specified and ``data`` is a pandas dataframe. The
-              ``predictions`` should be the name of the column in ``data`` that
+            - When ``model`` is not specified and ``data`` is a pandas dataframe,
+              ``predictions`` can be used to specify the name of the column in ``data`` that
               contains model outputs.
 
             .. code-block:: python
@@ -1991,36 +2017,9 @@ def evaluate(
                 "the desired configuration there.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    elif model is None:
-        # Evaluating a static dataset
-        if isinstance(data, pd.DataFrame):
-            # If data is a pandas dataframe, predictions must be specified
-            if predictions is None:
-                raise MlflowException(
-                    message="The model output must be specified in the predictions "
-                    "parameter when model=None.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        elif isinstance(data, mlflow.data.pandas_dataset.PandasDataset):
-            # If data is a mlflow PandasDataset, data.predictions must be specified
-            if data.predictions is None:
-                raise MlflowException(
-                    message="The predictions parameter must be specified with the provided "
-                    "PandasDataset when model=None. For example: "
-                    "`data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        else:
-            # Other data formats are not supported
-            raise MlflowException(
-                message="The data must be a pandas dataframe or mlflow.data.pandas_dataset."
-                "PandasDataset when model=None.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
     elif callable(model):
         model = _get_model_from_function(model)
-    else:
+    elif model is not None:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model, "
             "an MLflow Deployments endpoint URI, an instance of `mlflow.pyfunc.PyFuncModel`, "
@@ -2093,6 +2092,7 @@ def evaluate(
                 targets=targets,
                 path=dataset_path,
                 feature_names=feature_names,
+                predictions=predictions,
             )
         predictions_expected_in_model_output = predictions if model is not None else None
 

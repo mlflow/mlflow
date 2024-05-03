@@ -78,10 +78,7 @@ def log_model(
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -182,10 +179,7 @@ def save_model(
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
     """
     if mlflow_model is None:
         mlflow_model = Model()

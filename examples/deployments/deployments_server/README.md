@@ -48,6 +48,7 @@ For full examples of configurations and supported endpoint types, see:
 - [PaLM](palm/config.yaml)
 - [AzureOpenAI](azure_openai/config.yaml)
 - [Mistral](mistral/config.yaml)
+- [TogetherAI](togetherai/config.yaml)
 
 ## Step 3: Setting Access Keys
 
