@@ -1,6 +1,6 @@
 ## Example endpoint configuration for plugin provider
 
-To see an example of specifying both the completions and the embeddings endpoints for a plugin provider, 
+To see an example of specifying the completions endpoint for a plugin provider, 
 see [the configuration](config.yaml) YAML file.
 
 We implement our plugin provider under `foo/` folder. It implements the completions method.
