@@ -23,6 +23,24 @@ from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
 
 
+class DefaultTestModel:
+    @mlflow.trace()
+    def predict(self, x, y):
+        z = x + y
+        z = self.add_one(z)
+        z = mlflow.trace(self.square)(z)
+        return z  # noqa: RET504
+
+    @mlflow.trace(span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1})
+    def add_one(self, z):
+        return z + 1
+
+    def square(self, t):
+        res = t**2
+        time.sleep(0.1)
+        return res
+
+
 @pytest.fixture
 def mock_client():
     client = mock.MagicMock()
@@ -32,26 +50,7 @@ def mock_client():
 
 @pytest.mark.parametrize("with_active_run", [True, False])
 def test_trace(clear_singleton, with_active_run):
-    class TestModel:
-        @mlflow.trace()
-        def predict(self, x, y):
-            z = x + y
-            z = self.add_one(z)
-            z = mlflow.trace(self.square)(z)
-            return z  # noqa: RET504
-
-        @mlflow.trace(
-            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
-        )
-        def add_one(self, z):
-            return z + 1
-
-        def square(self, t):
-            res = t**2
-            time.sleep(0.1)
-            return res
-
-    model = TestModel()
+    model = DefaultTestModel()
 
     if with_active_run:
         with mlflow.start_run() as run:
@@ -120,24 +119,7 @@ def test_trace_with_databricks_tracking_uri(
         mock_store, "get_experiment_by_name", mock.MagicMock(return_value=mock_experiment)
     )
 
-    class TestModel:
-        @mlflow.trace()
-        def predict(self, x, y):
-            z = x + y
-            z = self.add_one(z)
-            z = mlflow.trace(self.square)(z)
-            return z  # noqa: RET504
-
-        @mlflow.trace(
-            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
-        )
-        def add_one(self, z):
-            return z + 1
-
-        def square(self, t):
-            return t**2
-
-    model = TestModel()
+    model = DefaultTestModel()
 
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
@@ -654,26 +636,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch):
 
 
 def test_search_traces_extracts_fields_as_expected(monkeypatch):
-    class TestModel:
-        @mlflow.trace()
-        def predict(self, x, y):
-            z = x + y
-            z = self.add_one(z)
-            z = mlflow.trace(self.square)(z)
-            return z  # noqa: RET504
-
-        @mlflow.trace(
-            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
-        )
-        def add_one(self, z):
-            return z + 1
-
-        def square(self, t):
-            res = t**2
-            time.sleep(0.1)
-            return res
-
-    model = TestModel()
+    model = DefaultTestModel()
     model.predict(2, 5)
 
     class MockMlflowClient:
@@ -805,26 +768,7 @@ def test_search_traces_with_multiple_spans_with_same_name(monkeypatch):
 
 # Test a field that doesn’t exist for extraction - we shouldn’t throw, just return empty column
 def test_search_traces_with_non_existent_field(monkeypatch):
-    class TestModel:
-        @mlflow.trace()
-        def predict(self, x, y):
-            z = x + y
-            z = self.add_one(z)
-            z = mlflow.trace(self.square)(z)
-            return z  # noqa: RET504
-
-        @mlflow.trace(
-            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
-        )
-        def add_one(self, z):
-            return z + 1
-
-        def square(self, t):
-            res = t**2
-            time.sleep(0.1)
-            return res
-
-    model = TestModel()
+    model = DefaultTestModel()
     model.predict(2, 5)
 
     class MockMlflowClient:
@@ -849,26 +793,7 @@ def test_search_traces_with_non_existent_field(monkeypatch):
 
 # Test experiment ID doesn’t need to be specified
 def test_search_traces_without_experiment_id(monkeypatch):
-    class TestModel:
-        @mlflow.trace()
-        def predict(self, x, y):
-            z = x + y
-            z = self.add_one(z)
-            z = mlflow.trace(self.square)(z)
-            return z  # noqa: RET504
-
-        @mlflow.trace(
-            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
-        )
-        def add_one(self, z):
-            return z + 1
-
-        def square(self, t):
-            res = t**2
-            time.sleep(0.1)
-            return res
-
-    model = TestModel()
+    model = DefaultTestModel()
     model.predict(2, 5)
 
     class MockMlflowClient:

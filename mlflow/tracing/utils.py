@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 from collections import Counter
-from dataclasses import dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -20,7 +19,7 @@ SPANS_COLUMN_NAME = "spans"
 if TYPE_CHECKING:
     import pandas
 
-    from mlflow.entities import LiveSpan, Span, Trace
+    from mlflow.entities import LiveSpan, Trace
 
 
 def capture_function_input_args(func, args, kwargs) -> Dict[str, Any]:
@@ -185,46 +184,55 @@ def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
     Convert a list of MLflow Traces to a pandas DataFrame with one column called "traces"
     containing string representations of each Trace.
     """
-    import pandas as pd
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise MlflowException(
+            message=(
+                "The `pandas` library is not installed. Please install `pandas` to use"
+                f"`mlflow.search_traces` function. Error: {e}"
+            ),
+        )
 
     rows = [
-        _TraceRow(
-            request_id=trace.info.request_id,
-            timestamp_ms=trace.info.timestamp_ms,
-            status=trace.info.status,
-            execution_time_ms=trace.info.execution_time_ms,
-            request=trace.data.request,
-            request_metadata=trace.info.request_metadata,
-            spans=trace.data.spans,
-            tags=trace.info.tags,
-            response=trace.data.response,
-        )
+        # _TraceRow(
+        #     request_id=trace.info.request_id,
+        #     timestamp_ms=trace.info.timestamp_ms,
+        #     status=trace.info.status,
+        #     execution_time_ms=trace.info.execution_time_ms,
+        #     request=trace.data.request,
+        #     request_metadata=trace.info.request_metadata,
+        #     spans=trace.data.spans,
+        #     tags=trace.info.tags,
+        #     response=trace.data.response,
+        # )
+        trace.to_pandas_dataframe_row()
         for trace in traces
     ]
-    return pd.DataFrame.from_records([row.to_dict() for row in rows])
+    return pd.DataFrame.from_records(rows)
 
 
-@dataclass
-class _TraceRow:
-    request_id: str
-    timestamp_ms: int
-    status: str
-    execution_time_ms: int
-    request: str
-    request_metadata: Dict[str, str]
-    spans: List[Span]
-    tags: Dict[str, str]
-    response: Optional[str] = None
+# @dataclass
+# class _TraceRow:
+#     request_id: str
+#     timestamp_ms: int
+#     status: str
+#     execution_time_ms: int
+#     request: str
+#     request_metadata: Dict[str, str]
+#     spans: List[Span]
+#     tags: Dict[str, str]
+#     response: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "request_id": self.request_id,
-            "timestamp_ms": self.timestamp_ms,
-            "status": self.status,
-            "execution_time_ms": self.execution_time_ms,
-            "request": self.request,
-            "response": self.response,
-            "request_metadata": self.request_metadata,
-            "spans": [span.to_dict() for span in self.spans],
-            "tags": self.tags,
-        }
+#     def to_dict(self) -> Dict[str, Any]:
+#         return {
+#             "request_id": self.request_id,
+#             "timestamp_ms": self.timestamp_ms,
+#             "status": self.status,
+#             "execution_time_ms": self.execution_time_ms,
+#             "request": self.request,
+#             "response": self.response,
+#             "request_metadata": self.request_metadata,
+#             "spans": [span.to_dict() for span in self.spans],
+#             "tags": self.tags,
+#         }
