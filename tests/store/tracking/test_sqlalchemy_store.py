@@ -3905,7 +3905,7 @@ def _create_trace(
 
 @pytest.fixture
 def store_with_traces(tmp_path):
-    store = _get_store(tmp_path.mktemp("store"))
+    store = _get_store(tmp_path)
     exp1 = store.create_experiment("exp1")
     exp2 = store.create_experiment("exp2")
 
