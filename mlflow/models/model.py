@@ -703,7 +703,7 @@ class Model:
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
                 try:
-                    mlflow.tracking.fluent.log_params(model_config)
+                    mlflow.tracking.fluent.log_params(model_config or {}, run_id=run_id)
                 except Exception as e:
                     _logger.warning("Failed to log model config as params: %s", str(e))
 
