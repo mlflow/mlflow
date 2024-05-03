@@ -88,6 +88,7 @@ from mlflow.utils.validation import (
     _validate_param_keys_unique,
     _validate_run_id,
     _validate_tag,
+    _validate_trace_tag,
 )
 
 _logger = logging.getLogger(__name__)
@@ -1703,6 +1704,36 @@ class SqlAlchemyStore(AbstractStore):
                 f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        with self.ManagedSessionMaker() as session:
+            key, value = _validate_trace_tag(key, value)
+            session.merge(SqlTraceTag(request_id=request_id, key=key, value=value))
+
+    def delete_trace_tag(self, request_id: str, key: str):
+        """
+        Delete a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        with self.ManagedSessionMaker() as session:
+            tags = session.query(SqlTraceTag).filter_by(request_id=request_id, key=key)
+            if tags.count() == 0:
+                raise MlflowException(
+                    f"No trace tag with key '{key}' for trace with request_id '{request_id}'",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            tags.delete()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

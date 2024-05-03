@@ -4085,3 +4085,56 @@ def test_search_traces_pagination_tie_breaker(store):
     assert [t.request_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
     traces, token = store.search_traces([exp1], max_results=3, page_token=token)
     assert [t.request_id for t in traces] == ["tr-4"]
+
+
+def test_set_and_delete_tags(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("exp1")
+    request_id = "tr-123"
+    _create_trace(store, request_id, experiment_id=exp1)
+
+    assert store.get_trace_info(request_id).tags == {}
+
+    store.set_trace_tag(request_id, "tag1", "apple")
+    assert store.get_trace_info(request_id).tags == {"tag1": "apple"}
+
+    store.set_trace_tag(request_id, "tag1", "grape")
+    assert store.get_trace_info(request_id).tags == {"tag1": "grape"}
+
+    store.set_trace_tag(request_id, "tag2", "orange")
+    assert store.get_trace_info(request_id).tags == {"tag1": "grape", "tag2": "orange"}
+
+    store.delete_trace_tag(request_id, "tag1")
+    assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
+
+    with pytest.raises(MlflowException, match="No trace tag with key 'tag1'"):
+        store.delete_trace_tag(request_id, "tag1")
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "expected_error"),
+    [
+        (None, "value", "Tag name cannot be None."),
+        ("invalid?tag!name:(", "value", "Invalid tag name:"),
+        ("/.:\\.", "value", "Invalid tag name:"),
+        ("../", "value", "Invalid tag name:"),
+        ("a" * 251, "value", "Trace tag key 'aaa"),
+    ],
+    # Name each test case too avoid including the long string arguments in the test name
+    ids=["null-key", "bad-key-1", "bad-key-2", "bad-key-3", "too-long-key"],
+)
+def test_set_invalid_tag(key, value, expected_error, store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match=expected_error):
+        store.set_trace_tag("tr-123", key, value)
+
+
+def test_set_tag_truncate_too_long_tag(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("exp1")
+    request_id = "tr-123"
+    _create_trace(store, request_id, experiment_id=exp1)
+
+    assert store.get_trace_info(request_id).tags == {}
+
+    store.set_trace_tag(request_id, "key", "123" + "a" * 8000)
+    tags = store.get_trace_info(request_id).tags
+    assert len(tags["key"]) == 8000
+    assert tags["key"] == "123" + "a" * 7997
