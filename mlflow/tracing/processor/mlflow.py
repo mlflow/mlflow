@@ -117,6 +117,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 request_id = encode_trace_id(span.context.trace_id)
                 trace_info = self._create_trace_info(request_id, span, experiment_id, metadata)
 
+        trace_info.tags.update(resolve_tags())
         return trace_info
 
     def on_end(self, span: OTelReadableSpan) -> None:
@@ -162,7 +163,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 TraceTagKey.TRACE_NAME: root_span.name,
             }
         )
-        trace.info.tags.update(resolve_tags())
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
