@@ -43,7 +43,7 @@ def basic_model():
 
 @pytest.fixture
 def model_with_remote_code():
-    return SentenceTransformer("nomic-ai/nomic-embed-text-v1.5", trust_remote_code=True)
+    return SentenceTransformer("Alibaba-NLP/gte-base-en-v1.5", trust_remote_code=True)
 
 
 @pytest.fixture(scope="module")
