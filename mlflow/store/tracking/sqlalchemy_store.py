@@ -1705,7 +1705,6 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given request_id.
@@ -1735,7 +1734,6 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
             tags.delete()
-
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

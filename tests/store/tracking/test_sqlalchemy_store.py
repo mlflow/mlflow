@@ -4097,8 +4097,11 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
     store.set_trace_tag(request_id, "tag1", "apple")
     assert store.get_trace_info(request_id).tags == {"tag1": "apple"}
 
+    store.set_trace_tag(request_id, "tag1", "grape")
+    assert store.get_trace_info(request_id).tags == {"tag1": "grape"}
+
     store.set_trace_tag(request_id, "tag2", "orange")
-    assert store.get_trace_info(request_id).tags == {"tag1": "apple", "tag2": "orange"}
+    assert store.get_trace_info(request_id).tags == {"tag1": "grape", "tag2": "orange"}
 
     store.delete_trace_tag(request_id, "tag1")
     assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
