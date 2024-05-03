@@ -1,10 +1,9 @@
-from mlflow.tracing.provider import disable, enable
-
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, NamedTuple, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.provider import disable, enable
 from mlflow.tracing.utils import SPANS_COLUMN_NAME, traces_to_df
 
 if TYPE_CHECKING:
@@ -20,6 +19,7 @@ def extract(
 ) -> "pd.DataFrame":
     """
     Extracts the specified fields from the spans contained in the specified traces.
+
     Args:
         traces: A list of MLflow Traces or a pandas DataFrame containing traces.
         fields: A list of field strings of the form 'span_name.[inputs|outputs]' or
@@ -171,5 +171,6 @@ def _extract_spans_from_row(
             ),
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
-    
+
+
 __all__ = ["disable", "enable"]

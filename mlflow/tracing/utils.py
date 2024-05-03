@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
     from mlflow.entities import LiveSpan, Span, Trace
 
+
 def capture_function_input_args(func, args, kwargs) -> Dict[str, Any]:
     try:
         # Avoid capturing `self`
