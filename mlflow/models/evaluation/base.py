@@ -516,7 +516,7 @@ def _hash_array_like_obj_as_bytes(data):
                 return _hash_data_as_bytes(v)
             return v
 
-        data = data.applymap(_hash_array_like_element_as_bytes)
+        data = data.map(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
         # convert numpy array of lists into numpy array of the string representation of the lists
