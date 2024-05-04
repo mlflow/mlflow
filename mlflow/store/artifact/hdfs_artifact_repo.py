@@ -192,7 +192,7 @@ def hdfs_system(scheme, host, port):
 
     host = scheme + "://" + host if host else "default"
 
-    if packaging.version.parse(pyarrow.__version__) < packaging.version.parse("2.0.0"):
+    if packaging.version.parse(pyarrow.__version__) > packaging.version.parse("2.0.0"):
         connected = pyarrow.fs.HadoopFileSystem(
             host=host,
             port=port or 0,
