@@ -290,7 +290,7 @@ class AbstractStore:
         Args:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
-                deleting traces.
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
             max_traces: The maximum number of traces to delete.
             request_ids: A set of request IDs to delete.
 

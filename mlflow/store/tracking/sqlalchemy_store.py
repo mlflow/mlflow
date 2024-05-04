@@ -1735,6 +1735,50 @@ class SqlAlchemyStore(AbstractStore):
                 )
             tags.delete()
 
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Delete traces based on the specified criteria.
+
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+
+        Returns:
+            The number of traces deleted.
+        """
+        with self.ManagedSessionMaker() as session:
+            filters = [SqlTraceInfo.experiment_id == experiment_id]
+            if max_timestamp_millis:
+                filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
+            if request_ids:
+                filters.append(SqlTraceInfo.request_id.in_(request_ids))
+            if max_traces:
+                filters.append(
+                    SqlTraceInfo.request_id.in_(
+                        session.query(SqlTraceInfo.request_id)
+                        .filter(*filters)
+                        # Delete the oldest traces first
+                        .order_by(SqlTraceInfo.timestamp_ms)
+                        .limit(max_traces)
+                        .subquery()
+                    )
+                )
+
+            return (
+                session.query(SqlTraceInfo)
+                .filter(and_(*filters))
+                .delete(synchronize_session="fetch")
+            )
+
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """
