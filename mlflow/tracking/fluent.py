@@ -1033,7 +1033,10 @@ def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = None) -> Option
 
 
 def log_artifact(
-    local_path: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
+    local_path: str,
+    artifact_path: Optional[str] = None,
+    run_id: Optional[str] = None,
+    client: Optional[MlflowClient] = None,
 ) -> None:
     """
     Log a local file or directory as an artifact of the currently active run. If no run is
@@ -1062,12 +1065,17 @@ def log_artifact(
             with mlflow.start_run():
                 mlflow.log_artifact(path)
     """
+    if client is None:
+        client = MlflowClient()
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient().log_artifact(run_id, local_path, artifact_path)
+    client.log_artifact(run_id, local_path, artifact_path)
 
 
 def log_artifacts(
-    local_dir: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
+    local_dir: str,
+    artifact_path: Optional[str] = None,
+    run_id: Optional[str] = None,
+    client: Optional[MlflowClient] = None,
 ) -> None:
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,
@@ -1100,8 +1108,10 @@ def log_artifacts(
             with mlflow.start_run():
                 mlflow.log_artifacts(tmp_dir, artifact_path="states")
     """
+    if client is None:
+        client = MlflowClient()
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
+    client.log_artifacts(run_id, local_dir, artifact_path)
 
 
 def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:
@@ -1482,9 +1492,11 @@ def load_table(
     return MlflowClient().load_table(experiment_id, artifact_file, run_ids, extra_columns)
 
 
-def _record_logged_model(mlflow_model, run_id=None):
+def _record_logged_model(mlflow_model, run_id=None, client: Optional[MlflowClient] = None):
+    if client is None:
+        client = MlflowClient()
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient()._record_logged_model(run_id, mlflow_model)
+    client._record_logged_model(run_id, mlflow_model)
 
 
 def get_experiment(experiment_id: str) -> Experiment:

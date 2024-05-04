@@ -86,8 +86,11 @@ def _register_model(
     *,
     tags: Optional[Dict[str, Any]] = None,
     local_model_path=None,
+    client: Optional[MlflowClient] = None,
 ) -> ModelVersion:
-    client = MlflowClient()
+    if client is None:
+        client = MlflowClient()
+
     try:
         create_model_response = client.create_registered_model(name)
         eprint(f"Successfully registered model '{create_model_response.name}'.")
@@ -106,7 +109,7 @@ def _register_model(
     run_id = None
     source = model_uri
     if RunsArtifactRepository.is_runs_uri(model_uri):
-        source = RunsArtifactRepository.get_underlying_uri(model_uri)
+        source = RunsArtifactRepository.get_underlying_uri(model_uri, client=client)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
 
     create_version_response = client._create_model_version(

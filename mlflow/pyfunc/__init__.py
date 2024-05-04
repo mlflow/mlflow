@@ -374,6 +374,7 @@ In summary, use the function-based Model when you have a simple function to seri
 If you need more power, use  the class-based model.
 
 """
+from __future__ import annotations
 
 import collections
 import functools
@@ -389,7 +390,7 @@ import threading
 import warnings
 from copy import deepcopy
 from functools import lru_cache
-from typing import Any, Dict, Iterator, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Tuple, Union
 
 import numpy as np
 import pandas
@@ -485,6 +486,9 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
+
+if TYPE_CHECKING:
+    from mlflow import MlflowClient
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -2369,6 +2373,7 @@ def log_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
+    client: Optional[MlflowClient] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2543,6 +2548,7 @@ def log_model(
         metadata=metadata,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        client=client,
     )
 
 

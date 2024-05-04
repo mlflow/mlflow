@@ -7,6 +7,8 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+from __future__ import annotations
+
 import atexit
 import importlib
 import logging
@@ -15,7 +17,7 @@ import posixpath
 import shutil
 import warnings
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -61,6 +63,9 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+if TYPE_CHECKING:
+    from mlflow import MlflowClient
 
 FLAVOR_NAME = "pytorch"
 
@@ -150,6 +155,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    client: Optional[MlflowClient] = None,
     **kwargs,
 ):
     """
@@ -308,6 +314,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        client=client,
         **kwargs,
     )
 
