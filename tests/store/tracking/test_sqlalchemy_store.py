@@ -2,6 +2,7 @@ import json
 import math
 import os
 import pathlib
+import random
 import re
 import shutil
 import time
@@ -27,9 +28,12 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    TraceInfo,
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -57,6 +61,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlRun,
     SqlTag,
+    SqlTraceInfo,
+    SqlTraceRequestMetadata,
+    SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
@@ -183,6 +190,9 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlInput,
             SqlDataset,
             SqlRun,
+            SqlTraceTag,
+            SqlTraceRequestMetadata,
+            SqlTraceInfo,
             SqlExperimentTag,
             SqlExperiment,
         ):
@@ -2020,11 +2030,7 @@ def test_search_with_max_results(store: SqlAlchemyStore):
     runs.reverse()
 
     assert runs[:1000] == _search_runs(store, exp)
-    for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
-        if n == 0 and store._get_dialect() == MSSQL:
-            # In SQL server, `max_results = 0` results in the following error:
-            # The number of rows provided for a FETCH clause must be greater then zero.
-            continue
+    for n in [1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
         assert runs[: min(1200, n)] == _search_runs(store, exp, max_results=n)
 
     with pytest.raises(MlflowException, match=r"Invalid value for request parameter max_results"):
@@ -2038,11 +2044,7 @@ def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
     runs = sorted(
         [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
     )
-    for n in [0, 1, 2, 4, 8, 10, 20]:
-        if n == 0 and store._get_dialect() == MSSQL:
-            # In SQL server, `max_results = 0` results in the following error:
-            # The number of rows provided for a FETCH clause must be greater then zero.
-            continue
+    for n in [1, 2, 4, 8, 10, 20]:
         assert runs[: min(10, n)] == _search_runs(store, exp, max_results=n)
 
 
@@ -3814,3 +3816,402 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly(input_uri,
 )
 def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+def test_start_and_end_trace(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = store.start_trace(
+        experiment_id=experiment_id,
+        timestamp_ms=1234,
+        request_metadata={"rq1": "foo", "rq2": "bar"},
+        tags={"tag1": "apple", "tag2": "orange"},
+    )
+    request_id = trace_info.request_id
+
+    assert trace_info.request_id is not None
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.timestamp_ms == 1234
+    assert trace_info.execution_time_ms is None
+    assert trace_info.status == TraceStatus.IN_PROGRESS
+    assert trace_info.request_metadata == {"rq1": "foo", "rq2": "bar"}
+    assert trace_info.tags == {"tag1": "apple", "tag2": "orange"}
+    assert trace_info == store.get_trace_info(request_id)
+
+    trace_info = store.end_trace(
+        request_id=request_id,
+        timestamp_ms=2345,
+        status=TraceStatus.OK,
+        # Update one key and add a new key
+        request_metadata={
+            "rq1": "updated",
+            "rq3": "baz",
+        },
+        tags={"tag1": "updated", "tag3": "grape"},
+    )
+    assert trace_info.request_id == request_id
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.timestamp_ms == 1234
+    assert trace_info.execution_time_ms == 2345 - 1234
+    assert trace_info.status == TraceStatus.OK
+    assert trace_info.request_metadata == {
+        "rq1": "updated",
+        "rq2": "bar",
+        "rq3": "baz",
+    }
+    assert trace_info.tags == {"tag1": "updated", "tag2": "orange", "tag3": "grape"}
+    assert trace_info == store.get_trace_info(request_id)
+
+
+def test_start_trace_with_invalid_experiment_id(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="No Experiment with id=123"):
+        store.start_trace(
+            experiment_id="123",
+            timestamp_ms=0,
+            request_metadata={},
+            tags={},
+        )
+
+
+def _create_trace(
+    store: SqlAlchemyStore,
+    request_id: str,
+    experiment_id=0,
+    timestamp_ms=0,
+    execution_time_ms=0,
+    status=TraceStatus.OK,
+    request_metadata=None,
+    tags=None,
+) -> TraceInfo:
+    """Helper function to create a test trace in the database."""
+    if not store.get_experiment(experiment_id):
+        store.create_experiment(store, experiment_id)
+
+    with mock.patch.object(store, "_generate_trace_request_id", lambda: request_id):
+        trace_info = store.start_trace(
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            request_metadata=request_metadata or {},
+            tags=tags or {},
+        )
+
+    store.end_trace(
+        request_id=request_id,
+        timestamp_ms=timestamp_ms + execution_time_ms,
+        status=status,
+        request_metadata={},
+        tags={},
+    )
+    return trace_info
+
+
+@pytest.fixture
+def store_with_traces(tmp_path):
+    store = _get_store(tmp_path)
+    exp1 = store.create_experiment("exp1")
+    exp2 = store.create_experiment("exp2")
+
+    _create_trace(
+        store,
+        "tr-0",
+        exp2,
+        timestamp_ms=0,
+        execution_time_ms=6,
+        status=TraceStatus.OK,
+        tags={"mlflow.traceName": "ddd"},
+        request_metadata={"mlflow.sourceRun": "run0"},
+    )
+    _create_trace(
+        store,
+        "tr-1",
+        exp2,
+        timestamp_ms=1,
+        execution_time_ms=2,
+        status=TraceStatus.ERROR,
+        tags={"mlflow.traceName": "aaa", "fruit": "apple", "color": "red"},
+        request_metadata={"mlflow.sourceRun": "run1"},
+    )
+    _create_trace(
+        store,
+        "tr-2",
+        exp1,
+        timestamp_ms=2,
+        execution_time_ms=4,
+        status=TraceStatus.UNSPECIFIED,
+        tags={"mlflow.traceName": "bbb", "fruit": "apple", "color": "green"},
+    )
+    _create_trace(
+        store,
+        "tr-3",
+        exp1,
+        timestamp_ms=3,
+        execution_time_ms=10,
+        status=TraceStatus.OK,
+        tags={"mlflow.traceName": "ccc", "fruit": "orange"},
+    )
+    _create_trace(
+        store,
+        "tr-4",
+        exp1,
+        timestamp_ms=4,
+        execution_time_ms=10,
+        status=TraceStatus.OK,
+        tags={"mlflow.traceName": "ddd", "color": "blue"},
+    )
+
+    yield store
+    _cleanup_database(store)
+
+
+@pytest.mark.parametrize(
+    ("order_by", "expected_ids"),
+    [
+        # Default order: descending by start time
+        ([], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
+        # Order by start time
+        (["timestamp"], ["tr-0", "tr-1", "tr-2", "tr-3", "tr-4"]),
+        (["timestamp DESC"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
+        # Order by execution_time and timestamp
+        (["execution_time DESC", "timestamp ASC"], ["tr-3", "tr-4", "tr-0", "tr-2", "tr-1"]),
+        # Order by experiment ID
+        (["experiment_id"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
+        # Order by status
+        (["status"], ["tr-1", "tr-4", "tr-3", "tr-0", "tr-2"]),
+        # Order by name
+        (["name"], ["tr-1", "tr-2", "tr-3", "tr-4", "tr-0"]),
+        # Order by tag (null comes last)
+        (["tag.fruit"], ["tr-2", "tr-1", "tr-3", "tr-4", "tr-0"]),
+        # Order by multiple tags
+        (["tag.fruit", "tag.color"], ["tr-2", "tr-1", "tr-3", "tr-4", "tr-0"]),
+        # Order by non-existent tag (should be ordered by default order)
+        (["tag.nonexistent"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
+        # Order by run Id
+        (["run_id"], ["tr-0", "tr-1", "tr-4", "tr-3", "tr-2"]),
+    ],
+)
+def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
+    exp1 = store_with_traces.get_experiment_by_name("exp1").experiment_id
+    exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
+    trace_infos, _ = store_with_traces.search_traces(
+        experiment_ids=[exp1, exp2],
+        filter_string=None,
+        max_results=5,
+        order_by=order_by,
+    )
+    actual_ids = [trace_info.request_id for trace_info in trace_infos]
+    assert actual_ids == expected_ids
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_ids"),
+    [
+        # Search by name
+        ("name = 'aaa'", ["tr-1"]),
+        ("name != 'aaa'", ["tr-4", "tr-3", "tr-2", "tr-0"]),
+        ("name LIKE 'b%'", ["tr-2"]),
+        ("name ILIKE 'd%'", ["tr-4", "tr-0"]),
+        # Search by status
+        ("status = 'OK'", ["tr-4", "tr-3", "tr-0"]),
+        ("status != 'OK'", ["tr-2", "tr-1"]),
+        # Search by timestamp
+        ("`timestamp` >= 1 AND execution_time < 10", ["tr-2", "tr-1"]),
+        # Search by tag
+        ("tags.fruit = 'apple'", ["tr-2", "tr-1"]),
+        ("tags.fruit = 'apple' and tags.color != 'red'", ["tr-2"]),
+        ("tags.color LIKE 're%'", ["tr-1"]),
+        # Search by request metadata
+        ("run_id = 'run0'", ["tr-0"]),
+    ],
+)
+def test_search_traces_with_filter(store_with_traces, filter_string, expected_ids):
+    exp1 = store_with_traces.get_experiment_by_name("exp1").experiment_id
+    exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
+
+    trace_infos, _ = store_with_traces.search_traces(
+        experiment_ids=[exp1, exp2],
+        filter_string=filter_string,
+        max_results=5,
+        order_by=[],
+    )
+    actual_ids = [trace_info.request_id for trace_info in trace_infos]
+    assert actual_ids == expected_ids
+
+
+def test_search_traces_raise_if_max_results_arg_is_invalid(store):
+    with pytest.raises(MlflowException, match="Invalid value for request parameter"):
+        store.search_traces(experiment_ids=[], max_results=50001)
+
+    with pytest.raises(MlflowException, match="Invalid value for request parameter"):
+        store.search_traces(experiment_ids=[], max_results=-1)
+
+
+def test_search_traces_pagination(store_with_traces):
+    exps = [
+        store_with_traces.get_experiment_by_name("exp1").experiment_id,
+        store_with_traces.get_experiment_by_name("exp2").experiment_id,
+    ]
+
+    traces, token = store_with_traces.search_traces(exps, max_results=2)
+    assert [t.request_id for t in traces] == ["tr-4", "tr-3"]
+
+    traces, token = store_with_traces.search_traces(exps, max_results=2, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-2", "tr-1"]
+
+    traces, token = store_with_traces.search_traces(exps, max_results=2, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-0"]
+    assert token is None
+
+
+def test_search_traces_pagination_tie_breaker(store):
+    # This test is for ensuring the tie breaker for ordering traces with the same timestamp
+    # works correctly.
+    exp1 = store.create_experiment("exp1")
+
+    request_ids = [f"tr-{i}" for i in range(5)]
+    random.shuffle(request_ids)
+    # Insert traces with random order
+    for rid in request_ids:
+        _create_trace(store, rid, exp1, timestamp_ms=0)
+
+    # Insert 5 more traces with newer timestamp
+    request_ids = [f"tr-{i+5}" for i in range(5)]
+    random.shuffle(request_ids)
+    for rid in request_ids:
+        _create_trace(store, rid, exp1, timestamp_ms=1)
+
+    traces, token = store.search_traces([exp1], max_results=3)
+    assert [t.request_id for t in traces] == ["tr-5", "tr-6", "tr-7"]
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-8", "tr-9", "tr-0"]
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    assert [t.request_id for t in traces] == ["tr-4"]
+
+
+def test_set_and_delete_tags(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("exp1")
+    request_id = "tr-123"
+    _create_trace(store, request_id, experiment_id=exp1)
+
+    assert store.get_trace_info(request_id).tags == {}
+
+    store.set_trace_tag(request_id, "tag1", "apple")
+    assert store.get_trace_info(request_id).tags == {"tag1": "apple"}
+
+    store.set_trace_tag(request_id, "tag1", "grape")
+    assert store.get_trace_info(request_id).tags == {"tag1": "grape"}
+
+    store.set_trace_tag(request_id, "tag2", "orange")
+    assert store.get_trace_info(request_id).tags == {"tag1": "grape", "tag2": "orange"}
+
+    store.delete_trace_tag(request_id, "tag1")
+    assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
+
+    with pytest.raises(MlflowException, match="No trace tag with key 'tag1'"):
+        store.delete_trace_tag(request_id, "tag1")
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "expected_error"),
+    [
+        (None, "value", "Tag name cannot be None."),
+        ("invalid?tag!name:(", "value", "Invalid tag name:"),
+        ("/.:\\.", "value", "Invalid tag name:"),
+        ("../", "value", "Invalid tag name:"),
+        ("a" * 251, "value", "Trace tag key 'aaa"),
+    ],
+    # Name each test case too avoid including the long string arguments in the test name
+    ids=["null-key", "bad-key-1", "bad-key-2", "bad-key-3", "too-long-key"],
+)
+def test_set_invalid_tag(key, value, expected_error, store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match=expected_error):
+        store.set_trace_tag("tr-123", key, value)
+
+
+def test_set_tag_truncate_too_long_tag(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("exp1")
+    request_id = "tr-123"
+    _create_trace(store, request_id, experiment_id=exp1)
+
+    assert store.get_trace_info(request_id).tags == {}
+
+    store.set_trace_tag(request_id, "key", "123" + "a" * 8000)
+    tags = store.get_trace_info(request_id).tags
+    assert len(tags["key"]) == 8000
+    assert tags["key"] == "123" + "a" * 7997
+
+
+def test_delete_traces(store):
+    exp1 = store.create_experiment("exp1")
+    exp2 = store.create_experiment("exp2")
+
+    for i in range(10):
+        _create_trace(store, f"tr-exp1-{i}", exp1)
+        _create_trace(store, f"tr-exp2-{i}", exp2)
+
+    traces, _ = store.search_traces([exp1, exp2])
+    assert len(traces) == 20
+
+    deleted = store.delete_traces(experiment_id=exp1)
+    assert deleted == 10
+    traces, _ = store.search_traces([exp1, exp2])
+    assert len(traces) == 10
+    for trace in traces:
+        assert trace.experiment_id == exp2
+
+    deleted = store.delete_traces(experiment_id=exp2)
+    assert deleted == 10
+    traces, _ = store.search_traces([exp1, exp2])
+    assert len(traces) == 0
+
+    deleted = store.delete_traces(experiment_id=exp1)
+    assert deleted == 0
+
+
+def test_delete_traces_with_max_timestamp(store):
+    exp1 = store.create_experiment("exp1")
+    for i in range(10):
+        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+
+    deleted = store.delete_traces(exp1, max_timestamp_millis=3)
+    assert deleted == 4  # inclusive (0, 1, 2, 3)
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 6
+    for trace in traces:
+        assert trace.timestamp_ms >= 4
+
+    deleted = store.delete_traces(exp1, max_timestamp_millis=10)
+    assert deleted == 6
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 0
+
+
+def test_delete_traces_with_max_count(store):
+    exp1 = store.create_experiment("exp1")
+    for i in range(10):
+        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+
+    deleted = store.delete_traces(exp1, max_traces=4)
+    assert deleted == 4
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 6
+    # Traces should be deleted from the oldest
+    for trace in traces:
+        assert trace.timestamp_ms >= 4
+
+    deleted = store.delete_traces(exp1, max_traces=10, max_timestamp_millis=8)
+    assert deleted == 5
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 1
+
+
+def test_delete_traces_with_request_ids(store):
+    exp1 = store.create_experiment("exp1")
+    for i in range(10):
+        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+
+    deleted = store.delete_traces(exp1, request_ids=[f"tr-{i}" for i in range(8)])
+    assert deleted == 8
+    traces, _ = store.search_traces([exp1])
+    assert len(traces) == 2
+    assert [trace.request_id for trace in traces] == ["tr-9", "tr-8"]

@@ -12,6 +12,7 @@ import time
 import traceback
 import warnings
 from collections import namedtuple
+from contextlib import contextmanager
 from functools import partial
 from typing import Callable, List, NamedTuple, Optional, Tuple, Union
 
@@ -24,6 +25,7 @@ from sklearn.pipeline import Pipeline as sk_Pipeline
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
+from mlflow.environment_variables import _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
     EvaluationMetric,
@@ -67,6 +69,32 @@ _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
+
+
+@contextmanager
+def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True):
+    """
+    Exception handler context manager to suppress Exceptions if the private environment
+    variable `_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS` is set to `True`.
+    The purpose of this handler is to prevent an evaluation call for a binary or multiclass
+    classification automl run from aborting due to an extreme minority class imbalance
+    encountered during iterative training cycles due to the non deterministic sampling
+    behavior of Spark's DataFrame.sample() API.
+    The Exceptions caught in the usage of this are broad and are designed purely to not
+    interrupt the iterative hyperparameter tuning process. Final evaluations are done
+    in a more deterministic (but expensive) fashion.
+    """
+    try:
+        yield
+    except exception_type as e:
+        if _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS.get():
+            if log_warning:
+                _logger.warning(
+                    "Failed to calculate metrics due to class imbalance. "
+                    "This is expected when the dataset is imbalanced."
+                )
+        else:
+            raise e
 
 
 def _is_categorical(values):
@@ -203,33 +231,35 @@ def _get_common_classifier_metrics(
             sample_weight=sample_weights,
         ),
     }
-    if y_proba is not None:
-        metrics["log_loss"] = sk_metrics.log_loss(
-            y_true, y_proba, labels=labels, sample_weight=sample_weights
-        )
 
+    if y_proba is not None:
+        with _suppress_class_imbalance_errors(ValueError):
+            metrics["log_loss"] = sk_metrics.log_loss(
+                y_true, y_proba, labels=labels, sample_weight=sample_weights
+            )
     return metrics
 
 
 def _get_binary_classifier_metrics(
     *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
 ):
-    tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
-    return {
-        "true_negatives": tn,
-        "false_positives": fp,
-        "false_negatives": fn,
-        "true_positives": tp,
-        **_get_common_classifier_metrics(
-            y_true=y_true,
-            y_pred=y_pred,
-            y_proba=y_proba,
-            labels=labels,
-            average="binary",
-            pos_label=pos_label,
-            sample_weights=sample_weights,
-        ),
-    }
+    with _suppress_class_imbalance_errors(ValueError):
+        tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+        return {
+            "true_negatives": tn,
+            "false_positives": fp,
+            "false_negatives": fn,
+            "true_positives": tp,
+            **_get_common_classifier_metrics(
+                y_true=y_true,
+                y_pred=y_pred,
+                y_proba=y_proba,
+                labels=labels,
+                average="binary",
+                pos_label=pos_label,
+                sample_weights=sample_weights,
+            ),
+        }
 
 
 def _get_multiclass_classifier_metrics(
@@ -347,6 +377,7 @@ def _gen_classifier_curve(
                 # legend
                 pos_label=_pos_label if _pos_label == pos_label else None,
             )
+
             auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
@@ -965,29 +996,32 @@ class DefaultEvaluator(ModelEvaluator):
             _adjust_color_bar()
             _adjust_axis_tick()
 
-        self._log_image_artifact(
-            plot_beeswarm,
-            "shap_beeswarm_plot",
-        )
+        with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+            self._log_image_artifact(
+                plot_beeswarm,
+                "shap_beeswarm_plot",
+            )
 
         def plot_summary():
             shap.summary_plot(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
             _adjust_axis_tick()
 
-        self._log_image_artifact(
-            plot_summary,
-            "shap_summary_plot",
-        )
+        with _suppress_class_imbalance_errors(TypeError, log_warning=False):
+            self._log_image_artifact(
+                plot_summary,
+                "shap_summary_plot",
+            )
 
         def plot_feature_importance():
             shap.plots.bar(shap_values, show=False)
             _adjust_axis_tick()
 
-        self._log_image_artifact(
-            plot_feature_importance,
-            "shap_feature_importance_plot",
-        )
+        with _suppress_class_imbalance_errors(IndexError, log_warning=False):
+            self._log_image_artifact(
+                plot_feature_importance,
+                "shap_feature_importance_plot",
+            )
 
     def _evaluate_sklearn_model_score_if_scorable(self):
         if self.model_loader_module == "mlflow.sklearn" and self.raw_model is not None:
@@ -1005,32 +1039,34 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _compute_roc_and_pr_curve(self):
         if self.y_probs is not None:
-            self.roc_curve = _gen_classifier_curve(
-                is_binomial=True,
-                y=self.y,
-                y_probs=self.y_probs[:, 1],
-                labels=self.label_list,
-                pos_label=self.pos_label,
-                curve_type="roc",
-                sample_weights=self.sample_weights,
-            )
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+                self.roc_curve = _gen_classifier_curve(
+                    is_binomial=True,
+                    y=self.y,
+                    y_probs=self.y_probs[:, 1],
+                    labels=self.label_list,
+                    pos_label=self.pos_label,
+                    curve_type="roc",
+                    sample_weights=self.sample_weights,
+                )
 
-            self.metrics_values.update(
-                _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
-            )
-            self.pr_curve = _gen_classifier_curve(
-                is_binomial=True,
-                y=self.y,
-                y_probs=self.y_probs[:, 1],
-                labels=self.label_list,
-                pos_label=self.pos_label,
-                curve_type="pr",
-                sample_weights=self.sample_weights,
-            )
+                self.metrics_values.update(
+                    _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
+                )
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+                self.pr_curve = _gen_classifier_curve(
+                    is_binomial=True,
+                    y=self.y,
+                    y_probs=self.y_probs[:, 1],
+                    labels=self.label_list,
+                    pos_label=self.pos_label,
+                    curve_type="pr",
+                    sample_weights=self.sample_weights,
+                )
 
-            self.metrics_values.update(
-                _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
-            )
+                self.metrics_values.update(
+                    _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
+                )
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
@@ -1089,25 +1125,34 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
-    def _log_binary_classifier_artifacts(self):
+    def _log_roc_curve(self):
+        def _plot_roc_curve():
+            self.roc_curve.plot_fn(**self.roc_curve.plot_fn_args)
+
+        self._log_image_artifact(_plot_roc_curve, "roc_curve_plot")
+
+    def _log_precision_recall_curve(self):
+        def _plot_pr_curve():
+            self.pr_curve.plot_fn(**self.pr_curve.plot_fn_args)
+
+        self._log_image_artifact(_plot_pr_curve, "precision_recall_curve_plot")
+
+    def _log_lift_curve(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
+        def _plot_lift_curve():
+            return plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label)
+
+        self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
+
+    def _log_binary_classifier_artifacts(self):
         if self.y_probs is not None:
-
-            def plot_roc_curve():
-                self.roc_curve.plot_fn(**self.roc_curve.plot_fn_args)
-
-            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
-
-            def plot_pr_curve():
-                self.pr_curve.plot_fn(**self.pr_curve.plot_fn_args)
-
-            self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
-
-            self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label),
-                "lift_curve_plot",
-            )
+            with _suppress_class_imbalance_errors(log_warning=False):
+                self._log_roc_curve()
+            with _suppress_class_imbalance_errors(log_warning=False):
+                self._log_precision_recall_curve()
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+                self._log_lift_curve()
 
     def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):
         """
@@ -1442,10 +1487,11 @@ class DefaultEvaluator(ModelEvaluator):
                     self.label_list = np.append(self.label_list, self.pos_label)
                 elif self.pos_label is None:
                     self.pos_label = self.label_list[-1]
-                _logger.info(
-                    "The evaluation dataset is inferred as binary dataset, positive label is "
-                    f"{self.label_list[1]}, negative label is {self.label_list[0]}."
-                )
+                with _suppress_class_imbalance_errors(IndexError, log_warning=False):
+                    _logger.info(
+                        "The evaluation dataset is inferred as binary dataset, positive label is "
+                        f"{self.label_list[1]}, negative label is {self.label_list[0]}."
+                    )
             else:
                 _logger.info(
                     "The evaluation dataset is inferred as multiclass dataset, number of classes "
@@ -1472,33 +1518,29 @@ class DefaultEvaluator(ModelEvaluator):
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_binary_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            pos_label=self.pos_label,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
+                metrics = _get_binary_classifier_metrics(
+                    y_true=self.y,
+                    y_pred=self.y_pred,
+                    y_proba=self.y_probs,
+                    labels=self.label_list,
+                    pos_label=self.pos_label,
+                    sample_weights=self.sample_weights,
                 )
-                self._compute_roc_and_pr_curve()
+                if metrics:
+                    self.metrics_values.update(_get_aggregate_metrics_values(metrics))
+                    self._compute_roc_and_pr_curve()
             else:
                 average = self.evaluator_config.get("average", "weighted")
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_multiclass_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            average=average,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
+                metrics = _get_multiclass_classifier_metrics(
+                    y_true=self.y,
+                    y_pred=self.y_pred,
+                    y_proba=self.y_probs,
+                    labels=self.label_list,
+                    average=average,
+                    sample_weights=self.sample_weights,
                 )
+                if metrics:
+                    self.metrics_values.update(_get_aggregate_metrics_values(metrics))
         elif self.model_type == _ModelType.REGRESSOR:
             self.metrics_values.update(
                 _get_aggregate_metrics_values(

@@ -1,5 +1,5 @@
 embedding_model_query_instructions: "Represent this sentence for searching relevant passages:"
-llm_model: "databricks-mixtral-8x7b-instruct"
+llm_model: "databricks-dbrx-instruct"
 llm_prompt_template: "You are a trustful assistant. Answer concisely and clearly."
 retriever_config:
   k: 5

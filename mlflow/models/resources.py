@@ -1,6 +1,5 @@
 import os
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List
@@ -119,14 +118,16 @@ class _ResourceBuilder:
     def from_resources(
         resources: List[Resource], api_version: str = DEFAULT_API_VERSION
     ) -> Dict[str, Dict[ResourceType, List[Dict]]]:
-        resource_dict = defaultdict(lambda: defaultdict(list))
+        resource_dict = {}
         for resource in resources:
             resource_data = resource.to_dict()
             for resource_type, values in resource_data.items():
-                resource_dict[resource.target_uri][resource_type].extend(values)
+                target_dict = resource_dict.setdefault(resource.target_uri, {})
+                target_list = target_dict.setdefault(resource_type, [])
+                target_list.extend(values)
 
         resource_dict["api_version"] = api_version
-        return dict(resource_dict)
+        return resource_dict
 
     @staticmethod
     def from_dict(data) -> Dict[str, Dict[ResourceType, List[Dict]]]:

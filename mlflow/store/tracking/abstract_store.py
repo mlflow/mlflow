@@ -1,10 +1,15 @@
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
-from mlflow.entities import DatasetInput, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -221,6 +226,140 @@ class AbstractStore:
             run_id:
 
         """
+
+    def start_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        raise NotImplementedError
+
+    def end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id : Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: mMetadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        raise NotImplementedError
+
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Delete traces based on the specified criteria.
+
+        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `request_ids` is specified.
+
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+
+        Returns:
+            The number of traces deleted.
+        """
+        raise NotImplementedError
+
+    def get_trace_info(self, request_id: str) -> TraceInfo:
+        """
+        Get the trace matching the `request_id`.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        raise NotImplementedError
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> Tuple[List[TraceInfo], Optional[str]]:
+        """
+        Return traces that match the given list of search expressions within the experiments.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of traces desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_traces`` call.
+
+        Returns:
+            A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
+            satisfy the search expressions and a pagination token for the next page of results.
+            If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
+        """
+        raise NotImplementedError
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        raise NotImplementedError
+
+    def delete_trace_tag(self, request_id: str, key: str):
+        """
+        Delete a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        raise NotImplementedError
 
     def log_metric(self, run_id, metric):
         """

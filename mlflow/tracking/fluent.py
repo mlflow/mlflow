@@ -878,7 +878,7 @@ def log_metrics(
 
 
 def log_params(
-    params: Dict[str, Any], synchronous: Optional[bool] = None
+    params: Dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
 ) -> Optional[RunOperations]:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
@@ -891,6 +891,8 @@ def log_params(
             successfully. If False, logs the parameters asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: Run ID. If specified, log params to the specified run. If not specified, log
+            params to the currently active run.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -913,7 +915,7 @@ def log_params(
         with mlflow.start_run():
             mlflow.log_params(params, synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(

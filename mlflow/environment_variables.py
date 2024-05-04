@@ -562,7 +562,32 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
 
+# How many traces to be buffered at the Trace Client.
+MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
+    "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
+)
+
+# How long a trace can be buffered at the in-memory trace client before being abandoned.
+MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
+
+# How many traces to be buffered at the in-memory trace client.
+MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
+
+# Whether or not to enable trace logging in MLflow in served models.
+# TODO: Document the behavior of this flag.
+MLFLOW_ENABLE_TRACE_IN_SERVING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_TRACE_IN_SERVING", True)
+
 # Whether to use presigned URLs to interact with the Unity Catalog
 MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
     "MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED", False
+)
+
+#: Private configuration option.
+#: Enables the ability to catch exceptions within MLflow evaluate for classification models
+#: where a class imbalance due to a missing target class would raise an error in the
+#: underlying metrology modules (scikit-learn). If set to True, specific exceptions will be
+#: caught, alerted via the warnings module, and evaluation will resume.
+#: (default: ``False``)
+_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
+    "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
 )
