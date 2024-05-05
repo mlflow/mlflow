@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     import pandas
 
 
-
 # Traces are stored in memory after completion so they can be retrieved conveniently.
 # For example, Databricks model serving fetches the trace data from the buffer after
 # making the prediction request, and logging them into the Inference Table.
@@ -252,25 +251,27 @@ def search_traces(
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
 
     .. code-block:: python
+        :caption: Search traces with extract_fields
 
-        with mlflow.start_span(name="span1") as span1:
-            span1.set_inputs({"a": 1, "b": 2})
-            span1.set_outputs({"c": 3, "d": 4})
+        import mlflow
 
+        with mlflow.start_span(name="span1") as span:
+            span.set_inputs({"a": 1, "b": 2})
+            span.set_outputs({"c": 3, "d": 4})
         mlflow.search_traces(
-            experiment_ids=["0"],
-            extract_fields=["span1.inputs", "span1.outputs", "span1.outputs.c"],
+            extract_fields=["span1.inputs", "span1.outputs", "span1.outputs.c"]
         )
 
 
     .. code-block:: python
+        :caption: Search traces with extract_fields and non-dictionary span inputs and outputs
+
+        import mlflow
 
         with mlflow.start_span(name="non_dict_span") as span:
             span.set_inputs(["a", "b"])
             span.set_outputs([1, 2, 3])
-
         mlflow.search_traces(
-            experiment_ids=["0"],
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
     """
