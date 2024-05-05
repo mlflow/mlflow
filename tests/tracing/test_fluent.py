@@ -720,9 +720,12 @@ def test_search_traces_with_non_dict_span_inputs_outputs(monkeypatch):
 
     monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
 
-    df = mlflow.search_traces(extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"])
+    df = mlflow.search_traces(
+        extract_fields=["non_dict_span.inputs", "non_dict_span.outputs", "non_dict_span.inputs.x"]
+    )
     assert df["non_dict_span.inputs"].tolist() == [["a", "b"]]
     assert df["non_dict_span.outputs"].tolist() == [[1, 2, 3]]
+    assert df["non_dict_span.inputs.x"].isnull().all()
 
 
 # Test case where there are multiple spans with the same name
