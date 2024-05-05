@@ -761,12 +761,18 @@ def test_search_traces_with_multiple_spans_with_same_name(monkeypatch):
             "duplicate_name.inputs.y",
             "duplicate_name.inputs.x",
             "duplicate_name.inputs.z",
+            "duplicate_name_1.inputs.x",
+            "duplicate_name_1.inputs.y",
+            "duplicate_name_2.inputs.z",
         ]
     )
     # Duplicate spans would all be null
     assert df["duplicate_name.inputs.y"].isnull().all()
     assert df["duplicate_name.inputs.x"].isnull().all()
     assert df["duplicate_name.inputs.z"].isnull().all()
+    assert df["duplicate_name_1.inputs.x"].tolist() == [2]
+    assert df["duplicate_name_1.inputs.y"].tolist() == [5]
+    assert df["duplicate_name_2.inputs.z"].tolist() == [7]
 
 
 # Test a field that doesn’t exist for extraction - we shouldn’t throw, just return empty column
