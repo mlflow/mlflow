@@ -330,7 +330,15 @@ def make_genai_metric(
         )
     """
     if judge_prompt is not None:
-        return _make_custom_genai_metric()
+        return _make_custom_genai_metric(
+            name=name,
+            judge_prompt=judge_prompt,
+            model=model,
+            parameters=parameters,
+            aggregations=aggregations,
+            greater_is_better=greater_is_better,
+            max_workers=max_workers,
+        )
 
     if definition is None or grading_prompt is None:
         raise MlflowException(
