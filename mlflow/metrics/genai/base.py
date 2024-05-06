@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from mlflow.metrics.genai.prompt_template import PromptTemplate
+from mlflow.models import EvaluationMetric
 from mlflow.utils.annotations import experimental
 
 

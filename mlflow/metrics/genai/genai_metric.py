@@ -187,6 +187,7 @@ def _make_custom_genai_metric(
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
 
     def eval_fn(
@@ -209,6 +210,7 @@ def _make_custom_genai_metric(
         eval_fn=eval_fn,
         greater_is_better=greater_is_better,
         name=name,
+        metric_metadata=metric_metadata,
     )
 
 
@@ -227,6 +229,7 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
@@ -238,7 +241,7 @@ def make_genai_metric(
         grading_prompt: Grading criteria of the metric.
         judge_prompt: (Optional) The entire prompt to be used for the judge model. This is useful for including
             use cases or system prompts that are not covered by the full grading prompt in any ``EvaluationMetric``
-            object. If used,  
+            object. If used, examples, definition, and grading_prompt will be ignored.
         examples: (Optional) Examples of the metric.
         version: (Optional) Version of the metric. Currently supported versions are: v1.
         model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
@@ -263,6 +266,7 @@ def make_genai_metric(
         greater_is_better: (Optional) Whether the metric is better when it is greater.
         max_workers: (Optional) The maximum number of workers to use for judge scoring.
             Defaults to 10 workers.
+        metric_metadata: Optional dictionary of metadata to be attached to the EvaluationMetric object.
 
     Returns:
         A metric object.
@@ -337,6 +341,7 @@ def make_genai_metric(
             aggregations=aggregations,
             greater_is_better=greater_is_better,
             max_workers=max_workers,
+            metric_metadata=metric_metadata,
         )
 
     if definition is None or grading_prompt is None:
@@ -504,6 +509,7 @@ def make_genai_metric(
         name=name,
         version=version,
         metric_details=evaluation_context["eval_prompt"].__str__(),
+        metric_metadata=metric_metadata,
     )
 
 
