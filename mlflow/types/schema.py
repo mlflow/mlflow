@@ -1329,25 +1329,61 @@ class ParamSchema:
     def __repr__(self) -> str:
         return repr(self.params)
 
-def convert_dataclass_to_schema(dataclass):
-    """
-    Create a Schema object from a dataclass. The dataclass should have type hints
-    for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
 
-    The Schema object should be composed of ColSpec objects for each field in the dataclass.
+
+def convert_dataclass_to_object(dataclass):
     """
+    Create an Object object from a dataclass. The dataclass should have type hints
+    for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
+    """
+    field_type_mapping = {
+        "str": DataType.string,
+        "int": DataType.integer,
+        "bool": DataType.boolean,
+    }
+
     # Create a list to store the ColSpec objects
-    col_specs = []
+    properties = []
     # Iterate over the fields in the dataclass
     for field_name, field_type in dataclass.__annotations__.items():
-        # Check if the field type is a dataclass
+        # Create a ColSpec for each row
+        # Colspec should create an mlflow.types.schema.Object based on the field_type
+        # If the field_type is a dataclass, recursively call this function
         if hasattr(field_type, "__annotations__"):
-            # If the field type is a dataclass, create a ColSpec object for the field
-            col_spec = ColSpec(field_name, convert_dataclass_to_schema(field_type))
+            properties.append(Property(name=field_name, dtype=convert_dataclass_to_object(field_type)))
+        # If the field_type is a typing.List or typing.Optional, recursively call this function
+        elif hasattr(field_type, "__origin__"):
+            if field_type.__origin__ == list:
+                properties.append(Property(name=field_name, dtype=Array(dtype=convert_dataclass_to_object(field_type.__args__[0]))))
+            elif field_type.__origin__ == Union:
+                properties.append(Property(name=field_name, dtype=convert_dataclass_to_object(field_type.__args__[0])))
+            elif field_type.__origin == Optional:
+                properties.append(Property(name=field_name, dtype=convert_dataclass_to_object(field_type.__args__[0]), required=False))
         else:
-            # If the field type is a basic type, create a ColSpec object for the field
-            col_spec = ColSpec(field_name, field_type)
-        # Append the ColSpec object to the list of ColSpec objects
-        col_specs.append(col_spec)
+            properties.append(Property(name=field_name, dtype=field_type_mapping[field_type.__name__]))
     # Create a Schema object from the list of ColSpec objects
-    return Schema(inputs=col_specs)
+    return Object(properties=properties)
+
+
+# def convert_dataclass_to_schema(dataclass):
+#     """
+#     Create a Schema object from a dataclass. The dataclass should have type hints
+#     for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
+
+#     The Schema object should be composed of ColSpec objects for each field in the dataclass.
+#     """
+#     # Create a list to store the ColSpec objects
+#     col_specs = []
+#     # Iterate over the fields in the dataclass
+#     for field_name, field_type in dataclass.__annotations__.items():
+#         # Create a ColSpec for each row
+#         print(field_name, field_type)
+#         # Colspec should create an mlflow.types.schema.Object based on the field_type
+#         # If the field_type is a dataclass, recursively call this function
+
+
+
+#         # Append the ColSpec object to the list of ColSpec objects
+#         col_specs.append(col_spec)
+#     # Create a Schema object from the list of ColSpec objects
+#     return Schema(inputs=col_specs)

@@ -11,6 +11,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
+from mlflow.models import rag_signatures
 from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
@@ -23,7 +24,10 @@ from mlflow.types.schema import (
     Property,
     Schema,
     TensorSpec,
+    convert_dataclass_to_object,
 )
+
+# convert_dataclass_to_schema,
 from mlflow.types.utils import (
     _get_tensor_shape,
     _infer_colspec_type,
@@ -1734,3 +1738,42 @@ def test_repr_of_objects():
 
     arr = Array(obj)
     assert repr(arr) == f"Array({obj_repr})"
+
+def test_convert_dataclass_to_object():
+    obj = convert_dataclass_to_object(rag_signatures.Message())
+    assert obj == Object(
+        properties = [
+            Property(name = "role", dtype = DataType.string),
+            Property(name = "content", dtype = DataType.string),
+        ]
+    )
+
+    obj = convert_dataclass_to_object(rag_signatures.ChatCompletionRequest())
+    assert obj == Object(
+        properties = [
+            Property(name="messages", dtype=Array(
+                Object(
+                    properties = [
+                        Property(name="role", dtype=DataType.string),
+                        Property(name="content", dtype=DataType.string),
+                    ]
+                )
+            ))
+        ]
+    )
+
+    obj = convert_dataclass_to_object(rag_signatures.MultiturnChatRequest())
+    print(obj)
+    assert False
+
+# def test_convert_dataclass_to_schema_basic():
+#     schema = convert_dataclass_to_schema(rag_signatures.Message())
+#     print(schema)
+#     assert False
+
+# def test_convert_dataclass_to_schema():
+#     schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+#     print(schema)
+#     assert False
+
+# def test_convert_dataclass_to_schema_composition():

@@ -1,6 +1,6 @@
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
 
@@ -11,32 +11,28 @@ class Message:
 
 @dataclass
 class ChatCompletionRequest:
-  messages: List[Message] = [Message(role="user", content="What is mlflow?")]
-
+  messages: List[Message] = field(default_factory=lambda: [Message()])
 @dataclass
 class MultiturnChatRequest:
-  query: str = "What is mlflow?"
-  history: Optional[List[Message]] = None
-
+    query: str = "What is mlflow?"
+    history: Optional[List[Message]] = field(default_factory=list)
 
 @dataclass
 class ChainCompletionChoice:
-  index: int = 0
-  message: Message = Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle.")
-  finish_reason: str = "stop"
+    index: int = 0
+    message: Message = field(default_factory=lambda: Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle."))
+    finish_reason: str = "stop"
 
 @dataclass
 class ChainCompletionChunk:
-  index: int = 0
-  delta: Message = Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle.")
-  finish_reason: str = "stop"
+    index: int = 0
+    delta: Message = field(default_factory=lambda: Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle."))
+    finish_reason: str = "stop"
 
 @dataclass
 class ChatCompletionResponse:
-  choices: Union[List[ChainCompletionChoice],
-                 List[ChainCompletionChunk]] = [ChainCompletionChoice(index=0, message=Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle."))]
+    choices: Union[List[ChainCompletionChoice], List[ChainCompletionChunk]] = field(default_factory=lambda: [ChainCompletionChoice()])
 
 @dataclass
 class StringResponse:
-  content: str = "MLflow is an open source platform for the complete machine learning lifecycle."
-
+    content: str = "MLflow is an open source platform for the complete machine learning lifecycle."
