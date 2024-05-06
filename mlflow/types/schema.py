@@ -5,7 +5,6 @@ import json
 import string
 import warnings
 from copy import deepcopy
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
@@ -433,20 +432,6 @@ class Object:
             updated_properties.append(Property(name=k, dtype=prop_dict2[k].dtype, required=False))
         return Object(properties=updated_properties)
 
-    def from_dataclass(cls, dataclass: dataclass):
-        """
-        Create an Object from a dataclass. The dataclass should have type hints
-        for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
-        """
-        properties = []
-        for field in dataclass.__dataclass_fields__.values():
-            if isinstance(field.type, dataclass):
-                prop = Property(name=field.name, dtype=Object.from_dataclass(field.type))
-            else:
-                prop = Property(name=field.name, dtype=DataType[field.type.__name__.lower()])
-            properties.append(prop)
-        return cls(properties=properties)
-
 class Array:
     """
     Specification used to represent a json-convertible array.
@@ -632,7 +617,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, Array, Object, dataclass, str],
+        type: Union[DataType, Array, Object, str],
         name: Optional[str] = None,
         optional: Optional[bool] = None,
         required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
@@ -661,9 +646,6 @@ class ColSpec:
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
             )
-        # if the type is a dataclass, we need to convert it to Object
-        if isinstance(self.type, dataclass):
-            self._type = Object.from_dataclass(self.type)
         if not isinstance(self.type, (DataType, Array, Object, Map)):
             raise TypeError(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
@@ -1346,3 +1328,26 @@ class ParamSchema:
 
     def __repr__(self) -> str:
         return repr(self.params)
+
+def convert_dataclass_to_schema(dataclass):
+    """
+    Create a Schema object from a dataclass. The dataclass should have type hints
+    for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
+
+    The Schema object should be composed of ColSpec objects for each field in the dataclass.
+    """
+    # Create a list to store the ColSpec objects
+    col_specs = []
+    # Iterate over the fields in the dataclass
+    for field_name, field_type in dataclass.__annotations__.items():
+        # Check if the field type is a dataclass
+        if hasattr(field_type, "__annotations__"):
+            # If the field type is a dataclass, create a ColSpec object for the field
+            col_spec = ColSpec(field_name, convert_dataclass_to_schema(field_type))
+        else:
+            # If the field type is a basic type, create a ColSpec object for the field
+            col_spec = ColSpec(field_name, field_type)
+        # Append the ColSpec object to the list of ColSpec objects
+        col_specs.append(col_spec)
+    # Create a Schema object from the list of ColSpec objects
+    return Schema(inputs=col_specs)

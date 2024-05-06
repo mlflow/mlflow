@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
-from mlflow.types.schema import ColSpec, Schema
-
 
 @dataclass
 class Message:
@@ -15,31 +13,30 @@ class Message:
 class ChatCompletionRequest:
   messages: List[Message] = [Message(role="user", content="What is mlflow?")]
 
-class ChatCompletionRequestSchema(Schema):
-  # create a mlflow.types.Schema object for ChatCompletionRequest
-  # using a ColSpec object for each field
-    def __init__(self):
-        super().__init__(inputs=[ColSpec("messages", ChatCompletionRequest)])
-
+@dataclass
 class MultiturnChatRequest:
-  query: str
-  history: Optional[List[Message]]
+  query: str = "What is mlflow?"
+  history: Optional[List[Message]] = None
 
 
+@dataclass
 class ChainCompletionChoice:
-  index: int
-  message: Message
-  finish_reason: str
+  index: int = 0
+  message: Message = Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle.")
+  finish_reason: str = "stop"
 
+@dataclass
 class ChainCompletionChunk:
-  index: int
-  delta: Message
-  finish_reason: str
+  index: int = 0
+  delta: Message = Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle.")
+  finish_reason: str = "stop"
 
+@dataclass
 class ChatCompletionResponse:
   choices: Union[List[ChainCompletionChoice],
-                 List[ChainCompletionChunk]]
+                 List[ChainCompletionChunk]] = [ChainCompletionChoice(index=0, message=Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle."))]
 
+@dataclass
 class StringResponse:
-  content: str
+  content: str = "MLflow is an open source platform for the complete machine learning lifecycle."
 
