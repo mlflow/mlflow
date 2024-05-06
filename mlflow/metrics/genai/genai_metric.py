@@ -27,12 +27,12 @@ from mlflow.utils.class_utils import _get_class_from_string
 _logger = logging.getLogger(__name__)
 
 _PROMPT_FORMATTING_WRAPPER = """
-You must return the following fields in your response in two lines, one below the other:
-score: Your numerical score for the model's {name} based on the rubric
-justification: Your reasoning about the model's {name} score
 
-Do not add additional new lines. Do not add any other fields.
-"""
+You must return the following fields in your response in two lines, one below the other:
+score: Your numerical score based on the rubric
+justification: Your reasoning for giving this score
+
+Do not add additional new lines. Do not add any other fields."""
 
 
 def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
@@ -198,6 +198,12 @@ def _make_custom_genai_metric(
         This is the function that is called when the metric is evaluated.
         """
         prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
+        missing_variables = prompt_template.variables - set(kwargs.keys())
+        if missing_variables:
+            raise MlflowException(
+                message=f"Missing variable inputs to eval_fn: {missing_variables}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
         arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
         scores, justifications = _score_model_on_payloads(arg_strings, model, parameters, max_workers)
@@ -241,7 +247,9 @@ def make_genai_metric(
         grading_prompt: Grading criteria of the metric.
         judge_prompt: (Optional) The entire prompt to be used for the judge model. This is useful for including
             use cases or system prompts that are not covered by the full grading prompt in any ``EvaluationMetric``
-            object. If used, examples, definition, and grading_prompt will be ignored.
+            object. If used, examples, definition, and grading_prompt will be ignored. The prompt may use
+            f-string formatting to include variables. Corresponding variables must be passed as keyword arguments
+            into the resulting metric's eval function.
         examples: (Optional) Examples of the metric.
         version: (Optional) Version of the metric. Currently supported versions are: v1.
         model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
