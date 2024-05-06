@@ -2003,8 +2003,10 @@ def evaluate(
 
     if isinstance(model, str):
         if _is_model_deployment_endpoint_uri(model):
+            print("MODEL IS MODEL DEPLOYMENT URI")
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
+            print("MODEL IS SERVER URI")
             model = _load_model_or_server(model, env_manager, model_config)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
@@ -2013,6 +2015,7 @@ def evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif isinstance(model, PyFuncModel):
+        print("MODEL IS PYFUNC")
         if model_config:
             raise MlflowException(
                 message="Indicating ``model_config`` when passing a `PyFuncModel`` object as "
@@ -2023,6 +2026,7 @@ def evaluate(
                 error_code=INVALID_PARAMETER_VALUE,
             )
     elif callable(model):
+        print("MODEL IS PYTHON FUNCTION")
         model = _get_model_from_function(model)
     elif model is not None:
         raise MlflowException(
