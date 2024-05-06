@@ -118,7 +118,9 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         scoped_token = self._get_scoped_token()
         blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
-            storage_location=blob_storage_path, scoped_token=scoped_token
+            storage_location=blob_storage_path,
+            scoped_token=scoped_token,
+            base_credential_refresh_def=self._get_scoped_token,
         )
 
     def list_artifacts(self, path=None):
