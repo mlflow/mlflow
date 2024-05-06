@@ -1,5 +1,6 @@
 import sys
 from collections import defaultdict
+from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 import langchain
@@ -179,3 +180,93 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
     _extract_databricks_dependencies_from_chat_model(chat_model, d, resources)
     assert d.get(_DATABRICKS_CHAT_ENDPOINT_NAME_KEY) == ["databricks-llama-2-70b-chat"]
     assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
+
+
+@contextmanager
+def remove_langchain_modules():
+    prefixes_to_remove = [
+        "langchain",
+        "langchain_community",
+    ]
+    exceptions = ["langchain_core", "langchain_community.llms.databricks"]
+
+    saved_modules = {}
+    for mod in list(sys.modules):
+        if any(mod.startswith(prefix) for prefix in prefixes_to_remove) and not any(
+            mod.startswith(exc) for exc in exceptions
+        ):
+            saved_modules[mod] = sys.modules.pop(mod)
+
+    try:
+        yield
+    finally:
+        sys.modules.update(saved_modules)  # Restore all removed modules safely
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"), reason="feature not existing"
+)
+def test_parsing_dependency_correct_loads_langchain_modules():
+    with remove_langchain_modules():
+        import langchain_community
+
+        with pytest.raises(
+            AttributeError, match="module 'langchain_community' has no attribute 'llms'"
+        ):
+            langchain_community.llms.Databricks
+        d = defaultdict(list)
+        resources = []
+        _extract_databricks_dependencies_from_llm("", d, resources)
+
+        # import works as expected after _extract_databricks_dependencies_from_llm
+        langchain_community.llms.Databricks
+
+    with remove_langchain_modules():
+        import langchain_community
+
+        with pytest.raises(
+            AttributeError, match="module 'langchain_community' has no attribute 'embeddings'"
+        ):
+            langchain_community.embeddings.DatabricksEmbeddings
+
+        with pytest.raises(
+            AttributeError, match="module 'langchain_community' has no attribute 'vectorstores'"
+        ):
+            langchain_community.vectorstores.DatabricksVectorSearch
+
+        d = defaultdict(list)
+        resources = []
+        _extract_databricks_dependencies_from_retriever("", d, resources)
+        # import works as expected after _extract_databricks_dependencies_from_retriever
+        langchain_community.vectorstores.DatabricksVectorSearch
+        langchain_community.embeddings.DatabricksEmbeddings
+
+    with remove_langchain_modules():
+        import langchain_community
+
+        with pytest.raises(
+            AttributeError, match="module 'langchain_community' has no attribute 'chat_models'"
+        ):
+            langchain_community.chat_models.ChatDatabricks
+
+        d = defaultdict(list)
+        resources = []
+        _extract_databricks_dependencies_from_chat_model("", d, resources)
+        # import works as expected after _extract_databricks_dependencies_from_chat_model
+        langchain_community.chat_models.ChatDatabricks
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_module_removal():
+    import langchain_community.llms
+
+    langchain_community.llms.Databricks
+    with remove_langchain_modules():
+        import langchain_community
+
+        with pytest.raises(
+            AttributeError, match="module 'langchain_community' has no attribute 'llms'"
+        ):
+            langchain_community.llms.Databricks
