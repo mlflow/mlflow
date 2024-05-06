@@ -385,10 +385,6 @@ func generateServices(pkgFolder string) error {
 
 var jsonFieldTagRegexp = regexp.MustCompile(`json:"([^"]+)"`)
 
-var validations map[string]string = map[string]string{
-	"GetExperiment_ExperimentId": "required,positiveInteger",
-}
-
 // Inspect the AST of the incoming file and add a query annotation to the struct tags which have a json tag.
 func addQueryAnnotation(generatedGoFile string) error {
 	// Parse the file into an AST

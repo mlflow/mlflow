@@ -26,6 +26,11 @@ func launchServer(ctx context.Context, cfg config.Config) error {
 		// ErrorHandler: func(c *fiber.Ctx, err error) error {},
 	})
 
+	mlflowService, err := NewMlflowService()
+	if err != nil {
+		return err
+	}
+
 	contract.RegisterMlflowServiceRoutes(mlflowService, app)
 	contract.RegisterModelRegistryServiceRoutes(modelRegistryService, app)
 	contract.RegisterMlflowArtifactsServiceRoutes(mlflowArtifactsService, app)

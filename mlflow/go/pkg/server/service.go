@@ -4,19 +4,15 @@ import (
 	"fmt"
 
 	"github.com/go-playground/validator/v10"
+
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
-	"github.com/mlflow/mlflow/mlflow/go/pkg/postgres"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql"
 )
 
-type AbstractStore interface {
-	// Get an experiment by the experiment ID.
-	// The experiment should contain the linked tags.
-	GetExperiment(id int32) (error, *protos.Experiment)
-}
-
 type MlflowService struct {
-	store     AbstractStore
+	store     store.MlflowStore
 	validator *validator.Validate
 }
 
@@ -170,13 +166,20 @@ func (m MlflowService) UpdateRun(input *protos.UpdateRun) (*protos.UpdateRun_Res
 	return &protos.UpdateRun_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
 }
 
-// TODO: probably needs a NewMlflowService function
-
 var (
-	mlflowService contract.MlflowService = MlflowService{
-		validator: NewValidator(),
-		store:     postgres.NewStore(),
-	}
 	modelRegistryService   contract.ModelRegistryService
 	mlflowArtifactsService contract.MlflowArtifactsService
 )
+
+func NewMlflowService() (contract.MlflowService, error) {
+	store, err := sql.NewSqlStore()
+	if err != nil {
+		return nil, err
+	}
+
+	validator := NewValidator()
+	return MlflowService{
+		validator: validator,
+		store:     store,
+	}, nil
+}

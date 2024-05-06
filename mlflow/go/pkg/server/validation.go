@@ -10,7 +10,7 @@ func NewValidator() *validator.Validate {
 	validate := validator.New()
 
 	// Verify that the input string is a positive integer.
-	validate.RegisterValidation("positiveInteger", func(fl validator.FieldLevel) bool {
+	validate.RegisterValidation("stringAsPositiveInteger", func(fl validator.FieldLevel) bool {
 		valueStr := fl.Field().String()
 		value, err := strconv.Atoi(valueStr)
 		if err != nil {
