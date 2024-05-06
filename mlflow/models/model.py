@@ -35,6 +35,7 @@ from mlflow.utils.environment import (
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import MODEL_CONFIG
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
@@ -694,8 +695,8 @@ class Model:
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
-            if "model_config" in kwargs:
-                model_config = kwargs["model_config"]
+            if MODEL_CONFIG in kwargs:
+                model_config = kwargs[MODEL_CONFIG]
                 if isinstance(model_config, str):
                     try:
                         with open(model_config) as f:

@@ -477,6 +477,7 @@ from mlflow.utils.file_utils import (
     write_to,
 )
 from mlflow.utils.model_utils import (
+    MODEL_CONFIG,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
@@ -502,7 +503,6 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
-MODEL_CONFIG = "config"
 
 _MODEL_DATA_SUBPATH = "data"
 

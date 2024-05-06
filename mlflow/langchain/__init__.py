@@ -86,6 +86,8 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
+    MODEL_CODE_PATH,
+    MODEL_CONFIG,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -98,8 +100,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-_MODEL_CODE_CONFIG = "model_config"
-_MODEL_CODE_PATH = "model_code_path"
 
 
 def get_default_pip_requirements():
@@ -366,9 +366,9 @@ def save_model(
         # can use that path instead of the config.yml path when the model is loaded
         # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: model_code_path}
+            {MODEL_CONFIG: model_config_path, MODEL_CODE_PATH: model_code_path}
             if model_config_path
-            else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: model_code_path}
+            else {MODEL_CONFIG: None, MODEL_CODE_PATH: model_code_path}
         )
         model_data_kwargs = {}
 
