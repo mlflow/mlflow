@@ -1265,7 +1265,7 @@ Finally, you need to install the plugin package in the same environment as the M
     execute arbitrary codes in the plugin package.
 
 Then, you can configure the MLflow Deployments Server configuration file
-with the `plugin:<module>:<class>` syntax to specify the provider and config model:
+with the ``plugin:<module>:<class>`` syntax to specify the provider and config model:
 
 .. code-block:: yaml
 
