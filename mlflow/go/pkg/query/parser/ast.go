@@ -78,6 +78,14 @@ type InSetExpr struct {
 	Set        []string
 }
 
+// a NOT IN (b, c, d)
+type NotInSetExpr struct {
+	Identifier Identifier
+	Set        []string
+}
+
+func (n NotInSetExpr) expr() {}
+
 func (n InSetExpr) expr() {}
 
 // AND

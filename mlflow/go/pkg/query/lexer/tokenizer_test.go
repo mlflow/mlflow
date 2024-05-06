@@ -47,11 +47,18 @@ func TestQueries(t *testing.T) {
 			input:    "params.batch_size != \"None\"",
 			expected: "identifier(params) dot identifier(batch_size) not_equals string(\"None\") eof",
 		},
+		{
+			input:    "datasets.digest NOT IN ('s8ds293b', 'jks834s2')",
+			expected: "identifier(datasets) dot identifier(digest) not in open_paren string('s8ds293b') comma string('jks834s2') close_paren eof",
+		},
 	}
 
 	for _, sample := range samples {
 		t.Run(sample.input, func(t *testing.T) {
-			tokens := lexer.Tokenize(sample.input)
+			tokens, err := lexer.Tokenize(sample.input)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
 			output := ""
 			for _, token := range tokens {
 				output += fmt.Sprintf(" %s", token.Debug())
@@ -61,6 +68,25 @@ func TestQueries(t *testing.T) {
 
 			if output != sample.expected {
 				t.Errorf("expected %s, got %s", sample.expected, output)
+			}
+		})
+	}
+}
+
+func TestInvalidInput(t *testing.T) {
+	samples := []string{
+		"params.'acc = LR",
+		"params.acc = 'LR",
+		"params.acc = LR'",
+		"params.acc = \"LR'",
+		"tags.acc = \"LR'",
+	}
+
+	for _, sample := range samples {
+		t.Run(sample, func(t *testing.T) {
+			_, err := lexer.Tokenize(sample)
+			if err == nil {
+				t.Errorf("expected error, got nil")
 			}
 		})
 	}

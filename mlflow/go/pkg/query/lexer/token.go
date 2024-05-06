@@ -30,6 +30,7 @@ const (
 
 	// Reserved Keywords
 	IN
+	NOT
 	LIKE
 	ILIKE
 	AND
@@ -37,6 +38,7 @@ const (
 
 var reserved_lu map[string]TokenKind = map[string]TokenKind{
 	"AND":   AND,
+	"NOT":   NOT,
 	"IN":    IN,
 	"LIKE":  LIKE,
 	"ILIKE": ILIKE,
@@ -89,6 +91,8 @@ func TokenKindString(kind TokenKind) string {
 		return "comma"
 	case IN:
 		return "in"
+	case NOT:
+		return "not"
 	case LIKE:
 		return "like"
 	case ILIKE:

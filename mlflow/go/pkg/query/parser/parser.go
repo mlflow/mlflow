@@ -147,6 +147,25 @@ func (p *parser) parseExpression() (Expr, error) {
 	if p.currentTokenKind() == lexer.IN {
 		p.advance() // Consume the IN
 		return p.parseInSetExpr(ident)
+	} else if p.currentTokenKind() == lexer.NOT {
+		p.advance() // Consume the NOT
+		if p.currentTokenKind() != lexer.IN {
+			return nil, fmt.Errorf("Expected IN after NOT, got %s", p.printCurrentToken())
+		} else {
+			p.advance() // Consume the IN
+			expr, err := p.parseInSetExpr(ident)
+			if err != nil {
+				return nil, err
+			}
+
+			switch e := expr.(type) {
+			case InSetExpr:
+				return NotInSetExpr{Identifier: e.Identifier, Set: e.Set}, nil
+			default:
+				return nil, fmt.Errorf("Expected InSetExpr, got %T", expr)
+			}
+		}
+
 	} else {
 		operator, err := p.parseOperator()
 		if err != nil {

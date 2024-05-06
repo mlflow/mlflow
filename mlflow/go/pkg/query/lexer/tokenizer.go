@@ -19,7 +19,7 @@ type lexer struct {
 	line     int
 }
 
-func Tokenize(source string) []Token {
+func Tokenize(source string) ([]Token, error) {
 	lex := createLexer(source)
 
 	for !lex.at_eof() {
@@ -35,12 +35,12 @@ func Tokenize(source string) []Token {
 		}
 
 		if !matched {
-			panic(fmt.Sprintf("lexer error: unrecognized token near '%v'", lex.remainder()))
+			return lex.Tokens, fmt.Errorf("lexer error: unrecognized token near '%v'", lex.remainder())
 		}
 	}
 
 	lex.push(newUniqueToken(EOF, "EOF"))
-	return lex.Tokens
+	return lex.Tokens, nil
 }
 
 func (lex *lexer) advanceN(n int) {

@@ -115,11 +115,26 @@ func TestQueries(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: "datasets.digest NOT IN ('s8ds293b', 'jks834s2')",
+			expected: parser.AndExpr{
+				Exprs: []parser.Expr{
+					parser.NotInSetExpr{
+						Identifier: parser.LongIdentifierExpr{"datasets", "digest"},
+						Set:        []string{"s8ds293b", "jks834s2"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, sample := range samples {
 		t.Run(sample.input, func(t *testing.T) {
-			tokens := lexer.Tokenize(sample.input)
+			tokens, err := lexer.Tokenize(sample.input)
+			if err != nil {
+				t.Errorf("unexpected lex error: %v", err)
+			}
+
 			ast, err := parser.Parse(tokens)
 			if err != nil {
 				t.Errorf("error parsing: %s", err)
@@ -127,6 +142,26 @@ func TestQueries(t *testing.T) {
 
 			if !reflect.DeepEqual(ast, sample.expected) {
 				t.Errorf("expected %#v, got %#v", sample.expected, ast)
+			}
+		})
+	}
+}
+
+func TestInvalidSyntax(t *testing.T) {
+	samples := []string{
+		"attribute.status IS 'RUNNING'",
+	}
+
+	for _, sample := range samples {
+		t.Run(sample, func(t *testing.T) {
+			tokens, err := lexer.Tokenize(sample)
+			if err != nil {
+				t.Errorf("unexpected lex error: %v", err)
+			}
+
+			_, err = parser.Parse(tokens)
+			if err == nil {
+				t.Errorf("expected parse error, got nil")
 			}
 		})
 	}
