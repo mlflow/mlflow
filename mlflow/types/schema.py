@@ -5,6 +5,7 @@ import json
 import string
 import warnings
 from copy import deepcopy
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
@@ -432,6 +433,19 @@ class Object:
             updated_properties.append(Property(name=k, dtype=prop_dict2[k].dtype, required=False))
         return Object(properties=updated_properties)
 
+    def from_dataclass(cls, dataclass: dataclass):
+        """
+        Create an Object from a dataclass. The dataclass should have type hints
+        for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
+        """
+        properties = []
+        for field in dataclass.__dataclass_fields__.values():
+            if isinstance(field.type, dataclass):
+                prop = Property(name=field.name, dtype=Object.from_dataclass(field.type))
+            else:
+                prop = Property(name=field.name, dtype=DataType[field.type.__name__.lower()])
+            properties.append(prop)
+        return cls(properties=properties)
 
 class Array:
     """
@@ -618,7 +632,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: Union[DataType, Array, Object, str],
+        type: Union[DataType, Array, Object, dataclass, str],
         name: Optional[str] = None,
         optional: Optional[bool] = None,
         required: Optional[bool] = None,  # TODO: update to required=True after deprecating optional
@@ -647,6 +661,9 @@ class ColSpec:
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
             )
+        # if the type is a dataclass, we need to convert it to Object
+        if isinstance(self.type, dataclass):
+            self._type = Object.from_dataclass(self.type)
         if not isinstance(self.type, (DataType, Array, Object, Map)):
             raise TypeError(
                 "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "

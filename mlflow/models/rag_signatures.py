@@ -1,16 +1,19 @@
 
 
+from dataclasses import dataclass
 from typing import List, Optional, Union
 
 from mlflow.types.schema import ColSpec, Schema
 
 
+@dataclass
 class Message:
-  role: str # "system", "user", or "assistant"
-  content: str
+  role: str  = "user" # "system", "user", or "assistant"
+  content: str = "What is mlflow?"
 
+@dataclass
 class ChatCompletionRequest:
-  messages: List[Message]
+  messages: List[Message] = [Message(role="user", content="What is mlflow?")]
 
 class ChatCompletionRequestSchema(Schema):
   # create a mlflow.types.Schema object for ChatCompletionRequest
