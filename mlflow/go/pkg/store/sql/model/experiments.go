@@ -2,6 +2,7 @@ package model
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
@@ -35,5 +36,24 @@ func (e Experiment) ToProto() *protos.Experiment {
 		CreationTime:     &e.CreationTime,
 		LastUpdateTime:   &e.LastUpdateTime,
 		Tags:             tags,
+	}
+}
+
+func FromCreateExperiment(proto *protos.CreateExperiment) Experiment {
+	tags := make([]ExperimentTag, len(proto.Tags))
+	for i, tag := range proto.Tags {
+		tags[i] = ExperimentTag{
+			Key:   *tag.Key,
+			Value: *tag.Value,
+		}
+	}
+
+	return Experiment{
+		Name:             *proto.Name,
+		ArtifactLocation: *proto.ArtifactLocation,
+		LifecycleStage:   "active",
+		CreationTime:     time.Now().Unix(),
+		LastUpdateTime:   time.Now().Unix(),
+		ExperimentTags:   tags,
 	}
 }

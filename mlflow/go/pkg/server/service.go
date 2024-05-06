@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/go-playground/validator/v10"
 
@@ -34,7 +35,20 @@ func (m MlflowService) Validate(input interface{}) []string {
 
 // CreateExperiment implements MlflowService.
 func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *contract.MlflowError) {
-	return &protos.CreateExperiment_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+	experimentId, err := m.store.CreateExperiment(input)
+	if err != nil {
+		return nil, &contract.MlflowError{
+			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,
+		}
+	}
+
+	id := strconv.Itoa(int(experimentId))
+
+	response := protos.CreateExperiment_Response{
+		ExperimentId: &id,
+	}
+
+	return &response, nil
 }
 
 // CreateRun implements MlflowService.
@@ -59,10 +73,14 @@ func (m MlflowService) DeleteTag(input *protos.DeleteTag) (*protos.DeleteTag_Res
 
 // GetExperiment implements MlflowService.
 func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *contract.MlflowError) {
-	fmt.Printf("GetExperiment for %s\n", *input.ExperimentId)
+	id, err := strconv.Atoi(*input.ExperimentId)
+	if err != nil {
+		return nil, &contract.MlflowError{
+			ErrorCode: protos.ErrorCode_INVALID_PARAMETER_VALUE,
+		}
+	}
 
-	err, experiment := m.store.GetExperiment(1)
-
+	experiment, err := m.store.GetExperiment(int32(id))
 	if err != nil {
 		return nil, &contract.MlflowError{
 			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,

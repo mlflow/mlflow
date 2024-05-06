@@ -8,26 +8,22 @@ import (
 
 var validator = server.NewValidator()
 
-type Input struct {
-	PositiveInteger string `validate:"stringAsPositiveInteger"`
+type PositiveInteger struct {
+	Value string `validate:"stringAsPositiveInteger"`
 }
 
-func TestStringAsPositiveInteger(t *testing.T) {
-	scenarios := []struct {
-		name          string
-		input         string
-		shouldTrigger bool
-	}{
-		{name: "positive integer", input: "1", shouldTrigger: false},
-		{name: "zero", input: "0", shouldTrigger: true},
-		{name: "negative integer", input: "-1", shouldTrigger: true},
-		{name: "alphabet", input: "a", shouldTrigger: true},
-	}
+type Scenario struct {
+	name          string
+	input         any
+	shouldTrigger bool
+}
+
+func runScenarios(t *testing.T, scenarios []Scenario) {
+	t.Helper()
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			input := Input{PositiveInteger: scenario.input}
-			errs := validator.Struct(input)
+			errs := validator.Struct(scenario.input)
 
 			if scenario.shouldTrigger && errs == nil {
 				t.Errorf("Expected validation error, got nil")
@@ -38,4 +34,31 @@ func TestStringAsPositiveInteger(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStringAsPositiveInteger(t *testing.T) {
+	scenarios := []Scenario{
+		{name: "positive integer", input: PositiveInteger{Value: "1"}, shouldTrigger: false},
+		{name: "zero", input: PositiveInteger{Value: "0"}, shouldTrigger: true},
+		{name: "negative integer", input: PositiveInteger{Value: "-1"}, shouldTrigger: true},
+		{name: "alphabet", input: PositiveInteger{Value: "a"}, shouldTrigger: true},
+	}
+
+	runScenarios(t, scenarios)
+}
+
+type UrlWithoutFragmentsOrParams struct {
+	Value string `validate:"uriWithoutFragmentsOrParams"`
+}
+
+func TestUriWithoutFragmentsOrParams(t *testing.T) {
+	scenarios := []Scenario{
+		{name: "valid url", input: UrlWithoutFragmentsOrParams{Value: "http://example.com"}, shouldTrigger: false},
+		{name: "only trigger when url is not empty", input: UrlWithoutFragmentsOrParams{Value: ""}, shouldTrigger: false},
+		{name: "url with fragment", input: UrlWithoutFragmentsOrParams{Value: "http://example.com#fragment"}, shouldTrigger: true},
+		{name: "url with query parameters", input: UrlWithoutFragmentsOrParams{Value: "http://example.com?query=param"}, shouldTrigger: true},
+		{name: "unparsable url", input: UrlWithoutFragmentsOrParams{Value: ":invalid-url"}, shouldTrigger: true},
+	}
+
+	runScenarios(t, scenarios)
 }

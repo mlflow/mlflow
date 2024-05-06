@@ -1,9 +1,6 @@
 package sql
 
 import (
-	"fmt"
-	"os"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -17,13 +14,19 @@ type Store struct {
 	db *gorm.DB
 }
 
-func (s Store) GetExperiment(id int32) (error, *protos.Experiment) {
+func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
 	experiment := model.Experiment{ExperimentID: id}
 	if err := s.db.Preload("ExperimentTags").First(&experiment).Error; err != nil {
-		return err, nil
+		return nil, err
 	}
 
-	return nil, experiment.ToProto()
+	return experiment.ToProto(), nil
+}
+
+func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, error) {
+	experiment := model.FromCreateExperiment(input)
+	err := s.db.Create(&experiment).Error
+	return experiment.ExperimentID, err
 }
 
 func NewSqlStore() (store.MlflowStore, error) {
@@ -36,18 +39,4 @@ func NewSqlStore() (store.MlflowStore, error) {
 	}
 
 	return &Store{db: db}, nil
-}
-
-func writeToFile(path string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("err opening file: %w", err)
-	}
-	defer f.Close()
-
-	if _, err := f.Write([]byte("Foobar")); err != nil {
-		return fmt.Errorf("err writing to file: %w", err)
-	}
-
-	return nil
 }
