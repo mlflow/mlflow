@@ -442,7 +442,11 @@ def safe_patch(
                 active_session_failed
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
-                or mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
+                or (
+                    mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
+                    and autologging_integration
+                    not in mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
+                )
             ):
                 # If the autologging integration associated with this patch is disabled,
                 # or if the current autologging integration is in exclusive mode and a user-created

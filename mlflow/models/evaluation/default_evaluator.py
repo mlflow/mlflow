@@ -139,8 +139,10 @@ def _extract_raw_model(model):
         return model_loader_module, None
 
 
-def _extract_predict_fn(model, raw_model):
+def _extract_predict_fn(model, raw_model, model_predict_func=None):
     predict_fn = model.predict if model is not None else None
+    if model_predict_func is not None:
+        predict_fn = model_predict_func
     predict_proba_fn = None
 
     if raw_model is not None:
@@ -1418,7 +1420,7 @@ class DefaultEvaluator(ModelEvaluator):
                 i, row_data = row
                 single_input = row_data.to_frame().T if is_dataframe else row_data
                 start_time = time.time()
-                y_pred = self.model.predict(single_input)
+                y_pred = self.model_predict_func(single_input)
                 end_time = time.time()
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
@@ -1450,7 +1452,7 @@ class DefaultEvaluator(ModelEvaluator):
             if compute_latency:
                 model_predictions = predict_with_latency(X_copy)
             else:
-                model_predictions = self.model.predict(X_copy)
+                model_predictions = self.model_predict_func(X_copy)
         else:
             if self.dataset.predictions_data is None:
                 raise MlflowException(
@@ -1866,14 +1868,18 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 # model is constructed from a user specified function or not provided
                 self.model_loader_module, self.raw_model = None, None
-            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
+            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(
+                model, self.raw_model, model_predict_func=self.model_predict_func
+            )
 
             self.artifacts = {}
             self.aggregate_metrics = {}
             self.metrics_values = {}
             self.ordered_metrics = []
 
-            with mlflow.utils.autologging_utils.disable_autologging():
+            with mlflow.utils.autologging_utils.disable_autologging(
+                exemptions=[mlflow.langchain.FLAVOR_NAME]
+            ):
                 compute_latency = False
                 for extra_metric in self.extra_metrics:
                     # If latency metric is specified, we will compute latency for the model
@@ -1912,6 +1918,7 @@ class DefaultEvaluator(ModelEvaluator):
         run_id,
         evaluator_config,
         model: "mlflow.pyfunc.PyFuncModel" = None,
+        model_predict_func=None,
         custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
@@ -1930,6 +1937,14 @@ class DefaultEvaluator(ModelEvaluator):
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        if model_predict_func is None:
+            if model is None:
+                self.model_predict_func = None
+            else:
+                self.model_predict_func = model.predict
+        else:
+            self.model_predict_func = model_predict_func
 
         self.dataset = dataset
         self.run_id = run_id

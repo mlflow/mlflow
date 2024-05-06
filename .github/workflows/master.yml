@@ -240,7 +240,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers
+          pip install pyspark torch transformers langchain langchain-experimental
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
