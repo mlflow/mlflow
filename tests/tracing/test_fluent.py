@@ -15,6 +15,7 @@ from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.tracking.context import registry
 
 from tests.tracing.helper import create_test_trace_info, get_traces
 
@@ -110,6 +111,7 @@ def test_trace_with_databricks_tracking_uri(
     databricks_tracking_uri, clear_singleton, mock_store, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "bob")
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
     monkeypatch.setattr(
@@ -148,11 +150,14 @@ def test_trace_with_databricks_tracking_uri(
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
-    assert trace_info.tags == {
+
+    expected_tags = {
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
         "mlflow.user": "bob",
     }
+    expected_tags.update(registry.resolve_tags())
+    assert trace_info.tags == expected_tags
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 2, "y": 5}'
@@ -294,15 +299,18 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store):
         with set_prediction_context(Context(request_id=request_id_2, is_evaluate=True)):
             model.predict(3, 4)
 
+    expected_tags = {"mlflow.traceName": "predict"}
+    expected_tags.update(registry.resolve_tags())
+
     trace = mlflow.get_trace(request_id_1)
     assert trace.info.request_id == request_id_1
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-    assert trace.info.tags == {"mlflow.traceName": "predict"}
+    assert trace.info.tags == expected_tags
 
     trace = mlflow.get_trace(request_id_2)
     assert trace.info.request_id == request_id_2
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-    assert trace.info.tags == {"mlflow.traceName": "predict"}
+    assert trace.info.tags == expected_tags
 
     # MLflow backend API should not be called for model evaluation
     mock_store.start_trace.assert_not_called()

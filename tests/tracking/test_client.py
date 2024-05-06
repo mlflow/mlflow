@@ -601,9 +601,8 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    resolved_tags = registry.resolve_tags()
     expected_tags = {"mlflow.traceName": "test", "foo": "bar"}
-    expected_tags.update(resolved_tags)
+    expected_tags.update(registry.resolve_tags())
     assert trace.info.tags == expected_tags
 
 
@@ -620,12 +619,11 @@ def test_delete_trace_tag_on_active_trace(clear_singleton):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    resolved_tags = registry.resolve_tags()
     expected_tags = {
         "baz": "qux",
         "mlflow.traceName": "test",  # Added by MLflow
     }
-    expected_tags.update(resolved_tags)
+    expected_tags.update(registry.resolve_tags())
     assert trace.info.tags == expected_tags
 
 

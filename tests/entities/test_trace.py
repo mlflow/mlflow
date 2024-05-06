@@ -8,6 +8,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracking.context import registry
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import get_traces
@@ -43,8 +44,7 @@ def test_json_deserialization(clear_singleton):
     trace_json = trace.to_json()
 
     trace_json_as_dict = json.loads(trace_json)
-
-    assert trace_json_as_dict == {
+    expected_dict = {
         "info": {
             "request_id": trace.info.request_id,
             "experiment_id": "0",
@@ -109,6 +109,8 @@ def test_json_deserialization(clear_singleton):
             ],
         },
     }
+    expected_dict["info"]["tags"].update(registry.resolve_tags())
+    assert trace_json_as_dict == expected_dict
 
 
 @pytest.mark.skipif(
