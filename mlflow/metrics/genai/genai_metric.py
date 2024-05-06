@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, Tuple
@@ -22,8 +23,6 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
-if TYPE_CHECKING:
-    import pandas as pd
 
 _logger = logging.getLogger(__name__)
 
