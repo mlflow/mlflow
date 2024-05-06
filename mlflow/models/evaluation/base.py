@@ -1316,8 +1316,7 @@ def _get_model_from_function(fn):
 
     class ModelFromFunction(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input: pd.DataFrame):
-            traced_fn = mlflow.trace(fn)
-            return traced_fn(model_input)
+            return fn(model_input)
 
     python_model = ModelFromFunction()
     return _PythonModelPyfuncWrapper(python_model, None, None)
@@ -1357,30 +1356,27 @@ def _get_model_from_deployment_endpoint_uri(
                 )
             input_column = model_input.columns[0]
 
-            with mlflow.start_span() as span:
-                span.set_inputs(model_input)
-                predictions = []
-                for data in model_input[input_column]:
-                    if isinstance(data, str):
-                        # If the input data is a string, we will construct the request
-                        # payload from it.
-                        prediction = _call_deployments_api(self.endpoint, data, self.params)
-                    elif isinstance(data, dict):
-                        # If the input data is a dictionary, we will directly use it as the request
-                        # payload, with adding the inference parameters if provided.
-                        prediction = _call_deployments_api(
-                            self.endpoint, data, self.params, wrap_payload=False
-                        )
-                    else:
-                        raise MlflowException(
-                            f"Invalid input column type: {type(data)}. The input data "
-                            "must be either a string or a dictionary contains the request "
-                            "payload for evaluating an MLflow Deployments endpoint.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
+            predictions = []
+            for data in model_input[input_column]:
+                if isinstance(data, str):
+                    # If the input data is a string, we will construct the request
+                    # payload from it.
+                    prediction = _call_deployments_api(self.endpoint, data, self.params)
+                elif isinstance(data, dict):
+                    # If the input data is a dictionary, we will directly use it as the request
+                    # payload, with adding the inference parameters if provided.
+                    prediction = _call_deployments_api(
+                        self.endpoint, data, self.params, wrap_payload=False
+                    )
+                else:
+                    raise MlflowException(
+                        f"Invalid input column type: {type(data)}. The input data "
+                        "must be either a string or a dictionary contains the request "
+                        "payload for evaluating an MLflow Deployments endpoint.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
-                    predictions.append(prediction)
-                span.set_outputs(predictions)
+                predictions.append(prediction)
 
             return pd.Series(predictions)
 

@@ -159,7 +159,7 @@ def _extract_predict_fn(model, raw_model):
         except ImportError:
             pass
 
-    return predict_fn, predict_proba_fn
+    return mlflow.trace(predict_fn), predict_proba_fn
 
 
 def _get_regressor_metrics(y, y_pred, sample_weights):

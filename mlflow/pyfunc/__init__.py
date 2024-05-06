@@ -965,17 +965,13 @@ class _ServedPyFuncModel(PyFuncModel):
         Returns:
             Model predictions.
         """
-        with mlflow.start_span() as span:
-            if inspect.signature(self._client.invoke).parameters.get("params"):
-                span.set_inputs({"data": data, "params": params})
-                result = self._client.invoke(data, params=params).get_predictions()
-            else:
-                span.set_inputs(data)
-                _log_warning_if_params_not_in_predict_signature(_logger, params)
-                result = self._client.invoke(data).get_predictions()
-            if isinstance(result, pandas.DataFrame):
-                result = result[result.columns[0]]
-            span.set_outputs(result)
+        if inspect.signature(self._client.invoke).parameters.get("params"):
+            result = self._client.invoke(data, params=params).get_predictions()
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+            result = self._client.invoke(data).get_predictions()
+        if isinstance(result, pandas.DataFrame):
+            result = result[result.columns[0]]
         return result
 
     @property
