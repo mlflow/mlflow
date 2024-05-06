@@ -5,8 +5,8 @@ import json
 import logging
 import os
 import re
-from copy import deepcopy
 import tempfile
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -1526,16 +1526,13 @@ def _get_temp_file_with_content(file_name: str, content: str, content_format) ->
     return temp_file_path
 
 
-"""
-TODO: BBQIU
-Validate
-- model code path exists
-- error for dbutils and warn for magic commands
-create a temp file if it's a notebook
-"""
+def _validate_and_get_model_code_path(model_code_path: str) -> str:
+    """
+    Validate model code path exists. Creates a temp file and validate its contents if it's a
+    notebook.
 
-
-def _validate_and_get_model_code_path(model_code_path: str):
+    Returns either `model_code_path` or a temp file path with the contents of the notebook.
+    """
     if not os.path.exists(model_code_path):
         raise MlflowException.invalid_parameter_value(
             f"If the provided model '{model_code_path}' is a string, it must be a valid python "

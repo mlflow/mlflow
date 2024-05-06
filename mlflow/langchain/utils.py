@@ -1,6 +1,5 @@
 """Utility functions for mlflow.langchain."""
 
-import base64
 import contextlib
 import importlib
 import json
@@ -8,7 +7,6 @@ import logging
 import os
 import re
 import shutil
-import tempfile
 import types
 import warnings
 from functools import lru_cache

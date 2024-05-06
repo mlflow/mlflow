@@ -398,7 +398,6 @@ import pandas
 import yaml
 
 import mlflow
-from mlflow.models.utils import _validate_and_get_model_code_path
 import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
@@ -423,6 +422,7 @@ from mlflow.models.utils import (
     _enforce_params_schema,
     _enforce_schema,
     _save_example,
+    _validate_and_get_model_code_path,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -2064,7 +2064,7 @@ Compound types:
 def _validate_function_python_model(python_model):
     if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
-            "`python_model` must be a PythonModel instance or a callable object",
+            "`python_model` must be a PythonModel instance, filepath, or a callable object",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -2250,8 +2250,8 @@ def save_model(
         model_code_path = None
         if isinstance(python_model, str):
             model_code_path = _validate_and_get_model_code_path(python_model)
-            python_model = _load_model_code_path(model_code_path)
             _validate_and_copy_model_code_and_config_paths(model_code_path, None, path)
+            python_model = _load_model_code_path(model_code_path)
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)

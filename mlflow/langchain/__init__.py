@@ -46,7 +46,6 @@ from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
-    _get_temp_file_with_content,
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
@@ -59,7 +58,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _convert_llm_input_data, _save_example
+from mlflow.models.utils import _convert_llm_input_data, _get_temp_file_with_content, _save_example
 from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -268,16 +267,6 @@ def save_model(
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
-
-        # TODO: bbqiu can we delete this since it's handled in _validate_and_wrap_lc_model?
-        if os.path.exists(lc_model):
-            model_code_path = lc_model
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                "file path or a databricks notebook file path containing the code for defining "
-                "the chain instance."
-            )
 
         if isinstance(model_config, dict):
             model_config_path = _get_temp_file_with_content(
