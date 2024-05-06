@@ -32,7 +32,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.plugins import import_plugin_obj, string_is_plugin_obj
+from mlflow.gateway.plugin import import_plugin_obj, string_is_plugin_obj
 from mlflow.gateway.utils import (
     check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,

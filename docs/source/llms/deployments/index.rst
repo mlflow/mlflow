@@ -1192,8 +1192,8 @@ and a Config class that inherits from ``mlflow.gateway.base_models.ProviderConfi
 
 .. important::
 
-    Only install plugin packages you trust. Starting a server with plugin provider will execute arbitrary codes
-    in the plugin package, including possibly reading any files on your machine.
+    Only install plugin packages you trust. Starting a server with plugin provider will
+    execute arbitrary codes in the plugin package.
 
 .. code-block:: python
     :caption: Example

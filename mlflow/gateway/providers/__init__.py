@@ -2,7 +2,7 @@ from typing import Type, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Provider
-from mlflow.gateway.plugins import import_plugin_obj, string_is_plugin_obj
+from mlflow.gateway.plugin import import_plugin_obj, string_is_plugin_obj
 from mlflow.gateway.providers.base import BaseProvider
 
 
