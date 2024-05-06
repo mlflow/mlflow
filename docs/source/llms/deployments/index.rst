@@ -1206,6 +1206,7 @@ and a Config class that inherits from ``mlflow.gateway.base_models.ProviderConfi
 
         @validator("my_api_key", pre=True)
         def validate_my_api_key(cls, value):
+            # This resolves the API key from an environment variable
             return _resolve_api_key_from_input(value)
 
 
@@ -1220,6 +1221,9 @@ and a Config class that inherits from ``mlflow.gateway.base_models.ProviderConfi
 
         # You can implement one or more of the following methods
         # depending on the capabilities of your provider.
+        # Implementing `completions`, `chat` and `embeddings` will enable the respective endpoints.
+        # Implementing `completions_stream` and `chat_stream` will enable the `stream=True`
+        # option for the respective endpoints.
         # Unimplemented methods will return a 501 Not Implemented HTTP response upon invocation.
 
         async def completions_stream(
@@ -1265,7 +1269,8 @@ Finally, you need to install the plugin package in the same environment as the M
     execute arbitrary codes in the plugin package.
 
 Then, you can configure the MLflow Deployments Server configuration file
-with the ``plugin:<module>:<class>`` syntax to specify the provider and config model:
+with the ``plugin:<module>:<class>`` syntax to specify the provider and config model.
+This will import and instantiate the classes from the plugin package.
 
 .. code-block:: yaml
 
