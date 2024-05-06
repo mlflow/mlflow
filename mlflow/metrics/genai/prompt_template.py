@@ -27,9 +27,7 @@ class PromptTemplate:
     """
 
     def __init__(self, template_str: Union[str, List[str]]):
-        self.template_strs = (
-            [template_str] if isinstance(template_str, str) else template_str
-        )
+        self.template_strs = [template_str] if isinstance(template_str, str) else template_str
 
     @property
     def variables(self):
@@ -45,9 +43,7 @@ class PromptTemplate:
         formatted_strs = []
         for template_str in self.template_strs:
             extracted_variables = [
-                fname
-                for _, fname, _, _ in string.Formatter().parse(template_str)
-                if fname
+                fname for _, fname, _, _ in string.Formatter().parse(template_str) if fname
             ]
             if all(item in safe_kwargs.keys() for item in extracted_variables):
                 formatted_strs.append(template_str.format(**safe_kwargs))
@@ -59,9 +55,7 @@ class PromptTemplate:
         new_template_strs = []
         for template_str in self.template_strs:
             extracted_variables = [
-                fname
-                for _, fname, _, _ in string.Formatter().parse(template_str)
-                if fname
+                fname for _, fname, _, _ in string.Formatter().parse(template_str) if fname
             ]
             safe_available_kwargs = {
                 k: safe_kwargs.get(k, "{" + k + "}") for k in extracted_variables

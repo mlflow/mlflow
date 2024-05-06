@@ -154,8 +154,7 @@ def test_make_genai_metric_correct_response():
     )
 
     assert [
-        param.name
-        for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
     ] == ["predictions", "metrics", "inputs", "targets"]
 
     with mock.patch.object(
@@ -274,8 +273,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
     )
 
     assert [
-        param.name
-        for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
     ] == ["predictions", "metrics", "inputs", "targets"]
 
     with mock.patch.object(
@@ -546,9 +544,7 @@ def test_make_genai_metric_failure():
         (None, ["column_a"]),
     ],
 )
-def test_make_genai_metric_throws_if_grading_context_cols_wrong(
-    grading_cols, example_context_cols
-):
+def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
     with pytest.raises(
         MlflowException,
         match="Example grading context does not contain required columns",
@@ -575,9 +571,7 @@ def test_make_genai_metric_throws_if_grading_context_cols_wrong(
 
 
 def test_format_args_string():
-    variable_string = _format_args_string(
-        ["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0
-    )
+    variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
     assert variable_string == (
         "Additional information used by the model:\nkey: foo\nvalue:\nfoo\nkey: bar\nvalue:\nbar"
@@ -587,9 +581,7 @@ def test_format_args_string():
         MlflowException,
         match=re.escape("bar does not exist in the eval function ['foo']."),
     ):
-        variable_string = _format_args_string(
-            ["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0
-        )
+        variable_string = _format_args_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
 
 
 def test_extract_score_and_justification():
@@ -607,9 +599,7 @@ def test_extract_score_and_justification():
     assert score2 == 2
     assert justification2 == "This is a justification"
 
-    score3, justification3 = _extract_score_and_justification(
-        properly_formatted_openai_response1
-    )
+    score3, justification3 = _extract_score_and_justification(properly_formatted_openai_response1)
     assert score3 == 3
     assert justification3 == (
         "The provided output mostly answers the question, but it is missing or hallucinating on "
@@ -810,9 +800,7 @@ def test_faithfulness_metric():
 def test_answer_correctness_metric():
     answer_correctness_metric = answer_correctness()
     input = "What is MLflow?"
-    examples = "\n".join(
-        [str(example) for example in AnswerCorrectnessMetric.default_examples]
-    )
+    examples = "\n".join([str(example) for example in AnswerCorrectnessMetric.default_examples])
 
     with mock.patch.object(
         model_utils,
@@ -879,9 +867,7 @@ def test_answer_correctness_metric():
 
 
 def test_answer_relevance_metric():
-    answer_relevance_metric = answer_relevance(
-        model="gateway:/gpt-3.5-turbo", examples=[]
-    )
+    answer_relevance_metric = answer_relevance(model="gateway:/gpt-3.5-turbo", examples=[])
     input = "What is MLflow?"
 
     with mock.patch.object(

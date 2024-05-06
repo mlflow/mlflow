@@ -35,9 +35,7 @@ justification: Your reasoning for giving this score
 Do not add additional new lines. Do not add any other fields."""
 
 
-def _format_args_string(
-    grading_context_columns: Optional[List[str]], eval_values, indx
-) -> str:
+def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
     import pandas as pd
 
     args_dict = {}
@@ -59,10 +57,7 @@ def _format_args_string(
         else (
             "Additional information used by the model:\n"
             + "\n".join(
-                [
-                    f"key: {arg}\nvalue:\n{arg_value}"
-                    for arg, arg_value in args_dict.items()
-                ]
+                [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()]
             )
         )
     )
@@ -81,17 +76,13 @@ def _extract_score_and_justification(text):
         except json.JSONDecodeError:
             # If parsing fails, use regex
             if (match := re.search(r"score: (\d+),?\s*justification: (.+)", text)) or (
-                match := re.search(
-                    r"\s*score:\s*(\d+)\s*justification:\s*(.+)", text, re.DOTALL
-                )
+                match := re.search(r"\s*score:\s*(\d+)\s*justification:\s*(.+)", text, re.DOTALL)
             ):
                 score = int(match.group(1))
                 justification = match.group(2)
             else:
                 score = None
-                justification = (
-                    f"Failed to extract score and justification. Raw output: {text}"
-                )
+                justification = f"Failed to extract score and justification. Raw output: {text}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
             return (
@@ -185,10 +176,7 @@ def _get_aggregate_results(scores, aggregations):
     scores_for_aggregation = [score for score in scores if score is not None]
 
     return (
-        {
-            option: aggregate_function(option, scores_for_aggregation)
-            for option in aggregations
-        }
+        {option: aggregate_function(option, scores_for_aggregation) for option in aggregations}
         if aggregations is not None
         else {}
     )
@@ -219,9 +207,7 @@ def _make_custom_genai_metric(
                 error_code=INVALID_PARAMETER_VALUE,
             )
         grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
-        arg_strings = [
-            prompt_template.format(**payload) for payload in grading_payloads
-        ]
+        arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
         scores, justifications = _score_model_on_payloads(
             arg_strings, model, parameters, max_workers
         )
@@ -468,9 +454,7 @@ def make_genai_metric(
         grading_payloads = []
         for indx, (input, output) in enumerate(zip(inputs, outputs)):
             try:
-                arg_string = _format_args_string(
-                    grading_context_columns, eval_values, indx
-                )
+                arg_string = _format_args_string(grading_context_columns, eval_values, indx)
             except Exception as e:
                 raise MlflowException(
                     f"Values for grading_context_columns are malformed and cannot be "
@@ -524,9 +508,7 @@ def make_genai_metric(
         return MetricValue(scores, justifications, aggregate_results)
 
     signature_parameters = [
-        Parameter(
-            "predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"
-        ),
+        Parameter("predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
         Parameter(
             "metrics",
             Parameter.POSITIONAL_OR_KEYWORD,
