@@ -406,7 +406,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
+from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME, MODEL_CONFIG
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
@@ -477,7 +477,6 @@ from mlflow.utils.file_utils import (
     write_to,
 )
 from mlflow.utils.model_utils import (
-    MODEL_CONFIG,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,

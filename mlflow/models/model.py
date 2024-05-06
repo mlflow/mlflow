@@ -35,7 +35,6 @@ from mlflow.utils.environment import (
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import MODEL_CONFIG
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
@@ -66,6 +65,8 @@ METADATA_FILES = [
     _REQUIREMENTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
 ]
+MODEL_CONFIG = "config"
+MODEL_CODE_PATH = "model_code_path"
 
 
 class ModelInfo:

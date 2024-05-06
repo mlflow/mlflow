@@ -55,7 +55,7 @@ from mlflow.langchain.utils import (
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -86,8 +86,6 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     FLAVOR_CONFIG_CODE,
-    MODEL_CODE_PATH,
-    MODEL_CONFIG,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -859,8 +857,8 @@ def _load_pyfunc(path):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if _MODEL_CODE_PATH in flavor_conf:
-        flavor_config_path = flavor_conf.get(_MODEL_CODE_CONFIG, None)
+    if MODEL_CODE_PATH in flavor_conf:
+        flavor_config_path = flavor_conf.get(MODEL_CONFIG, None)
         if flavor_config_path is not None:
             config_path = os.path.join(
                 local_model_path,
@@ -869,7 +867,7 @@ def _load_model_from_local_fs(local_model_path):
         else:
             config_path = None
 
-        flavor_code_path = flavor_conf.get(_MODEL_CODE_PATH)
+        flavor_code_path = flavor_conf.get(MODEL_CODE_PATH)
         code_path = os.path.join(
             local_model_path,
             os.path.basename(flavor_code_path),
