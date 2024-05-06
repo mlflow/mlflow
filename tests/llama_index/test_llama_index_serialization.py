@@ -1,8 +1,9 @@
 import json
 from collections import Counter, deque
+import copy
 
 import pytest
-import tiktoken
+from pydantic import BaseModel
 from llama_index.core import (
     Settings,
 )
@@ -19,10 +20,25 @@ from mlflow.llama_index.serialize_objects import (
     _sanitize_kwargs,
     object_to_dict,
     serialize_settings_to_json,
+    _deserialize_json_to_dict_of_objects,
+    deserialize_json_to_settings
 )
+
+import re
+from typing import List
 
 llm = MockLLM()
 embed_model = MockEmbedding(embed_dim=1)
+
+def mock_tokenizer(text: str) -> List[str]:
+    """Mock tokenizer."""
+    tokens = re.split(r"[ \n]", text) 
+    result = []
+    for token in tokens:
+        if token.strip() == "":
+            continue
+        result.append(token.strip())
+    return result
 
 
 def test_extract_constructor_from_object_non_constructor_with_init():
@@ -36,17 +52,6 @@ def test_extract_constructor_from_object_non_constructor_with_init():
     assert init_method_from_obj.__qualname__ == init_method_from_class.__qualname__
     assert init_method_from_obj.__module__ == init_method_from_class.__module__
     assert _get_kwargs(init_method_from_obj) == _get_kwargs(init_method_from_class)
-
-
-# TODO:
-# def test_extract_constructor_from_object_raises():
-#     class Empty:
-#         pass
-
-#     with pytest.raises(AttributeError) as exc_info:
-#         _extract_constructor_from_object(Empty())
-#     assert "cannot be converted to constructor" in str(exc_info.value)
-
 
 def test_get_dict_method_if_exists_passes_to_dict():
     expected = {"example": "example"}
@@ -172,8 +177,7 @@ def test_settings_serialization_full_object(tmp_path):
     Settings.llm = MockLLM()
     Settings.embed_model = MockEmbedding(embed_dim=1)
     Settings.callback_manager = CallbackManager([TokenCountingHandler()])
-    # TODO: use something other than openai
-    Settings._tokenizer = tiktoken.encoding_for_model("gpt-3.5-turbo").encode
+    Settings._tokenizer = mock_tokenizer
     Settings._node_parser = SentenceSplitter(chunk_size=1024)
     Settings.context_window = 4096  # this enters the _prompt_helper field
     Settings._transformations = [SentenceSplitter(chunk_size=1024)]
@@ -189,5 +193,48 @@ def test_settings_serialization_full_object(tmp_path):
         objects = json.load(f)
 
     assert len(set(objects.keys()) - set(Settings.__dict__.keys())) == 0
-    assert "_transformations" not in objects.keys()
     assert "_callback_manager" not in objects.keys()
+
+def test_deserialize_json_to_dict_of_objects(tmp_path):
+    Settings.llm = MockLLM() 
+    Settings.embed_model = MockEmbedding(embed_dim=1)
+    Settings.callback_manager = CallbackManager([TokenCountingHandler()])
+    Settings._tokenizer = mock_tokenizer
+    Settings._node_parser = SentenceSplitter(chunk_size=1024)
+    Settings.context_window = 4096  # this enters the _prompt_helper field
+    Settings._transformations = [SentenceSplitter(chunk_size=1024)]
+
+    # Validate that the object is populated
+    for k in Settings.__dict__.keys():
+        assert Settings.__dict__[k] is not None
+
+    path = tmp_path / "serialized_settings.json"
+    serialize_settings_to_json(Settings, path)
+    observed = _deserialize_json_to_dict_of_objects(path)
+
+    assert len(set(observed.keys()) - set(Settings.__dict__.keys())) == 0
+    assert observed["_llm"] == Settings.llm
+    assert observed["_embed_model"] == Settings.embed_model
+    assert "_callback_manager" not in observed.keys()
+    assert "_tokenizer" not in observed.keys() # TODO: 
+    assert observed["_node_parser"] == Settings.node_parser
+    assert observed["_prompt_helper"] == Settings.prompt_helper
+    assert observed["_transformations"] == Settings.transformations
+
+    
+def test_settings_serde(tmp_path):
+    callback_manager = CallbackManager([TokenCountingHandler()])
+    Settings.llm = MockLLM() 
+    Settings.embed_model = MockEmbedding(embed_dim=1)
+    Settings.callback_manager = callback_manager 
+    Settings._tokenizer = mock_tokenizer
+    Settings._node_parser = SentenceSplitter(chunk_size=1024)
+    Settings.context_window = 4096  # this enters the _prompt_helper field
+    Settings._transformations = [SentenceSplitter(chunk_size=1024)]
+
+    path = tmp_path / "serialized_settings.json"
+    serialize_settings_to_json(Settings, path)
+    observed = deserialize_json_to_settings(path)
+
+    assert observed is not None
+

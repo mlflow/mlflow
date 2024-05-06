@@ -106,30 +106,48 @@ def object_to_dict(o: object) -> None:
 
 def dict_to_object(d: Dict[str, str]) -> object:
     # TODO: make naming convention better
-    import_path = d["object_constructor"]
+    constructor = d["object_constructor"]
     kwargs = d["object_kwargs"]
 
+    import_path, class_name = constructor.rsplit(".", 1)
     module = importlib.import_module(import_path)
-    callable_name = import_path.rsplit(".", 1)[-1]
-    callable = getattr(module, callable_name)
+    callable = getattr(module, class_name)
 
     return callable(**kwargs)
 
 
-def deserialize_settings_to_json(path: str) -> Settings:
+def _deserialize_json_to_dict_of_objects(path: str) -> Dict[str, any]:
+    # TODO: instantiate settings
     with open(path) as f:
         to_deserialize = json.load(f)
 
-        return {k: dict_to_object(v) for k, v in to_deserialize.items()}
+        output = {}
+        for k,v in to_deserialize.items():
+            if isinstance(v, list):
+                output.update({k: [dict_to_object(vv) for vv in v]})
+            else:
+                output.update({k: dict_to_object(v)})
 
+        return output
+
+def deserialize_json_to_settings(path: str) -> Settings:
+    settings_dict = _deserialize_json_to_dict_of_objects(path)
+
+    for k, v in settings_dict.items():
+        setattr(Settings, k, v)
+
+    return Settings
 
 def serialize_settings_to_json(settings: Settings, path: str) -> None:
     to_serialize = {}
     settings_dict = settings.__dict__
 
     for k, v in settings_dict.items():
-        # TODO: support iteration over a list of objects, specifically for transformations
-        object_json = object_to_dict(v)
+        if isinstance(v, list):
+            object_json = [object_to_dict(vv) for vv in v]
+        else:
+            object_json = object_to_dict(v)
+
         if object_json == {}:
             _logger.info(
                 f"{k} serialization is not supported. It will not be logged with your model"

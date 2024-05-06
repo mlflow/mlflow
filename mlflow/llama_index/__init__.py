@@ -10,7 +10,7 @@ import mlflow
 import mlflow.exceptions
 from mlflow import pyfunc
 from mlflow.llama_index.serialize_objects import (
-    deserialize_settings_to_json,
+    deserialize_json_to_settings,
     serialize_settings_to_json,
 )
 from mlflow.llama_index.signature import (
@@ -271,7 +271,7 @@ def _save_model(index, path):
 def _load_model(path, flavor_conf):
     _add_code_from_conf_to_system_path(path, flavor_conf)
     objects_path = os.path.join(path, _LLAMA_INDEX_OBJECTS)
-    llama_index_objects = deserialize_settings_to_json(objects_path)
+    llama_index_objects = deserialize_json_to_settings(objects_path)
 
     embed_model_callable, embed_model_kwargs = llama_index_objects["embed_model"]
     # TODO: double check that is how they do it
@@ -305,7 +305,7 @@ class _LlamaIndexModelWrapper:
 
         # TODO: need to add a way to inject all Settings objects that are not serialized
         # TODO: convert to a class (Yuki tracing branch with class enums)
-        # - don't use enum class - just class
+        # - don't use enum clss - just class
         engine_type = flavor_config["engine_type"]
         engine_method_name = _ENGINE_TO_INSTANTIATION_METHOD[engine_type]
         engine_method = getattr(self.index, engine_method_name)
