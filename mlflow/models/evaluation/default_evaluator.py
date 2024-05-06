@@ -1866,6 +1866,7 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 # model is constructed from a user specified function or not provided
                 self.model_loader_module, self.raw_model = None, None
+            print("EXTRACTING PREDICTION FUNCTION")
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.artifacts = {}
@@ -1919,6 +1920,7 @@ class DefaultEvaluator(ModelEvaluator):
         predictions=None,
         **kwargs,
     ):
+        print("USING DEFAULT EVALUTOR")
         if model is None and predictions is None and dataset.predictions_data is None:
             raise MlflowException(
                 message=(
