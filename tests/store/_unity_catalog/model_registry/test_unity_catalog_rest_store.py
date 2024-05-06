@@ -376,6 +376,7 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
