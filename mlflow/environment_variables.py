@@ -591,3 +591,10 @@ MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
 _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
     "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
 )
+
+#: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
+#: a model's dependency inference. If set to True, an exception will be raised if requirements
+#: inference or the process of capturing imported modules encounters any errors.
+MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
+    "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
+)

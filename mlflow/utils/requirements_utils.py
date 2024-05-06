@@ -22,7 +22,10 @@ from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+    MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
@@ -267,6 +270,7 @@ def _capture_imported_modules(model_uri, flavor):
     local_model_path = _download_artifact_from_uri(model_uri)
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
+    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -347,6 +351,10 @@ def _capture_imported_modules(model_uri, flavor):
             with open(error_file) as f:
                 errors = f.read()
             if errors:
+                if raise_on_error:
+                    raise MlflowException(
+                        f"Encountered an error while capturing imported modules: {errors}"
+                    )
                 _logger.warning(errors)
 
         with open(output_file) as f:
@@ -433,6 +441,7 @@ def _infer_requirements(model_uri, flavor):
         A list of inferred pip requirements.
 
     """
+    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
     _init_modules_to_packages_map()
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:
@@ -458,6 +467,11 @@ def _infer_requirements(model_uri, flavor):
     # manually exclude mlflow[gateway] as it isn't listed separately in PYPI_PACKAGE_INDEX
     unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names - {"mlflow[gateway]"}
     if unrecognized_packages:
+        if raise_on_error:
+            raise MlflowException(
+                "Failed to infer requirements for the model due to unrecognized packages: "
+                f"{unrecognized_packages}"
+            )
         _logger.warning(
             "The following packages were not found in the public PyPI package index as of"
             " %s; if these packages are not present in the public PyPI index, you must install"
