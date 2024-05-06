@@ -602,13 +602,13 @@ Example:
             "t5-small", model_max_length=100
         ),
         framework="pt",
-        torch_dtype=torch.bfloat16,
     )
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=my_pipeline,
             artifact_path="my_pipeline",
+            torch_dtype=torch.bfloat16,
         )
 
     # Illustrate that the torch data type is recorded in the flavor configuration
@@ -651,13 +651,13 @@ Example:
             "t5-small", model_max_length=100
         ),
         framework="pt",
-        torch_dtype=torch.bfloat16,
     )
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=my_pipeline,
             artifact_path="my_pipeline",
+            torch_dtype=torch.bfloat16,
         )
 
     loaded_pipeline = mlflow.transformers.load_model(
@@ -672,6 +672,9 @@ Result:
 .. code-block:: bash
 
     torch.float64
+
+.. note:: MLflow 2.12.1 slightly changed the ``torch_dtype`` extraction logic.
+    Previously it depended on the ``torch_dtype`` attribute of the pipeline instance, but now it is extracted from the underlying model via ``dtype`` property. This enables MLflow to capture the dtype change of the model after pipeline instantiation.
 
 
 .. note:: Logging or saving a model in 'components' mode (using a dictionary to declare components) does not support setting the data type for a constructed pipeline.

@@ -1,5 +1,86 @@
 # CHANGELOG
 
+## 2.12.1 (2024-04-17)
+
+MLflow 2.12.1 includes several major features and improvements
+
+With this release, we're pleased to introduce several major new features that are focused on enhanced GenAI support, Deep Learning workflows involving images, expanded table logging functionality, and general usability enhancements within the UI and external integrations.
+
+### Major Features and Improvements:
+
+- **PromptFlow**: Introducing the new PromptFlow flavor, designed to enrich the GenAI landscape within MLflow. This feature simplifies the creation and management of dynamic prompts, enhancing user interaction with AI models and streamlining prompt engineering processes. (#11311, #11385 @brynn-code)
+
+- **Enhanced Metadata Sharing for Unity Catalog**: MLflow now supports the ability to share metadata (and not model weights) within Databricks Unity Catalog. When logging a model, this functionality enables the automatic duplication of metadata into a dedicated subdirectory, distinct from the model’s actual storage location, allowing for different sharing permissions and access control limits. (#11357, #11720 @WeichenXu123)
+
+- **Code Paths Unification and Standardization**: We have unified and standardized the `code_paths` parameter across all MLflow flavors to ensure a cohesive and streamlined user experience. This change promotes consistency and reduces complexity in the model deployment lifecycle. (#11688, @BenWilson2)
+
+- **ChatOpenAI and AzureChatOpenAI Support**: Support for the ChatOpenAI and AzureChatOpenAI interfaces has been integrated into the LangChain flavor, facilitating seamless deployment of conversational AI models. This development opens new doors for building sophisticated and responsive chat applications leveraging cutting-edge language models. (#11644, @B-Step62)
+
+- **Custom Models in Sentence-Transformers**: The sentence-transformers flavor now supports custom models, allowing for a greater flexibility in deploying tailored NLP solutions. (#11635, @B-Step62)
+
+- **Image Support for Log Table**: With the addition of image support in `log_table`, MLflow enhances its capabilities in handling rich media. This functionality allows for direct logging and visualization of images within the platform, improving the interpretability and analysis of visual data. (#11535, @jessechancy)
+
+- **Streaming Support for LangChain**: The newly introduced `predict_stream` API for LangChain models supports streaming outputs, enabling real-time output for chain invocation via pyfunc. This feature is pivotal for applications requiring continuous data processing and instant feedback. (#11490, #11580 @WeichenXu123)
+
+### Security Fixes:
+
+- **Security Patch**: Addressed a critical Local File Read/Path Traversal vulnerability within the Model Registry, ensuring robust protection against unauthorized access and securing user data integrity. (#11376, @WeichenXu123)
+
+
+Features:
+
+- [Models] Add the PromptFlow flavor (#11311, #11385 @brynn-code)
+- [Models] Add a new `predict_stream` API for streamable output for Langchain models and the `DatabricksDeploymentClient` (#11490, #11580 @WeichenXu123)
+- [Models] Deprecate and add `code_paths` alias for `code_path` in `pyfunc` to be standardized to other flavor implementations (#11688, @BenWilson2)
+- [Models] Add support for custom models within the `sentence-transformers` flavor (#11635, @B-Step62)
+- [Models] Enable Spark `MapType` support within model signatures when used with Spark udf inference (#11265, @WeichenXu123)
+- [Models] Add support for metadata-only sharing within Unity Catalog through the use of a subdirectory (#11357, #11720 @WeichenXu123)
+- [Models] Add Support for the `ChatOpenAI` and `AzureChatOpenAI` LLM interfaces within the LangChain flavor (#11644, @B-Step62)
+- [Artifacts] Add support for utilizing presigned URLs when uploading and downloading files when using Unity Catalog (#11534, @artjen)
+- [Artifacts] Add a new `Image` object for handling the logging and optimized compression of images (#11404, @jessechancy)
+- [Artifacts] Add time and step-based metadata to the logging of images (#11243, @jessechancy)
+- [Artifacts] Add the ability to log a dataset to Unity Catalog by means of `UCVolumeDatasetSource` (#11301, @chenmoneygithub)
+- [Tracking] Remove the restrictions for logging a table in Delta format to no longer require running within a Databricks environment (#11521, @chenmoneygithub)
+- [Tracking] Add support for logging `mlflow.Image` files within tables (#11535, @jessechancy)
+- [Server-infra] Introduce override configurations for controlling how http retries are handled (#11590, @BenWilson2)
+- [Deployments] Implement `chat` & `chat streaming` for Anthropic within the MLflow deployments server (#11195, @gabrielfu)
+
+Security fixes:
+
+- [Model Registry] Fix Local File Read/Path Traversal (LFI) bypass vulnerability (#11376, @WeichenXu123)
+
+Bug fixes:
+
+- [Model Registry] Fix a registry configuration error that occurs within Databricks serverless clusters (#11719, @WeichenXu123)
+- [Model Registry] Delete registered model permissions when deleting the underlying models (#11601, @B-Step62)
+- [Model Registry] Disallow `%` in model names to prevent URL mangling within the UI (#11474, @daniellok-db)
+- [Models] Fix an issue where crtically important environment configurations were not being captured as langchain dependencies during model logging (#11679, @serena-ruan)
+- [Models] Patch the `LangChain` loading functions to handle uncorrectable pickle-related exceptions that are thrown when loading a model in certain versions (#11582, @B-Step62)
+- [Models] Fix a regression in the `sklearn` flavor to reintroduce support for custom prediction methods (#11577, @B-Step62)
+- [Models] Fix an inconsistent and unreliable implementation for batch support within the `langchain` flavor (#11485, @WeichenXu123)
+- [Models] Fix loading remote-code-dependent `transformers` models that contain custom code (#11412, @daniellok-db)
+- [Models] Remove the legacy conversion logic within the `transformers` flavor that generates an inconsistent input example display within the MLflow UI (#11508, @B-Step62)
+- [Models] Fix an issue with Keras autologging iteration input handling (#11394, @WeichenXu123)
+- [Models] Fix an issue with `keras` autologging training dataset generator (#11383, @WeichenXu123)
+- [Tracking] Fix an issue where a module would be imported multiple times when logging a langchain model (#11553, @sunishsheth2009)
+- [Tracking] Fix the sampling logic within the `GetSampledHistoryBulkInterval` API to produce more consistent results when displayed within the UI (#11475, @daniellok-db)
+- [Tracking] Fix import issues and properly resolve dependencies of `langchain` and `lanchain_community` within `langchain` models when logging (#11450, @sunishsheth2009)
+- [Tracking] Improve the performance of asynchronous logging (#11346, @chenmoneygithub)
+- [Deployments] Add middle-of-name truncation to excessively long deployment names for Sagemaker image deployment (#11523, @BenWilson2)
+
+Documentation updates:
+
+- [Docs] Add clarity and consistent documentation for `code_paths` docstrings in API documentation (#11675, @BenWilson2)
+- [Docs] Add documentation guidance for `sentence-transformers` `OpenAI`-compatible API interfaces (#11373, @es94129)
+
+Small bug fixes and documentation updates:
+
+#11723, @freemin7; #11722, #11721, #11690, #11717, #11685, #11689, #11607, #11581, #11516, #11511, #11358, @serena-ruan; #11718, #11673, #11676, #11680, #11671, #11662, #11659, #11654, #11633, #11628, #11620, #11610, #11605, #11604, #11600, #11603, #11598, #11572, #11576, #11555, #11563, #11539, #11532, #11528, #11525, #11514, #11513, #11509, #11457, #11501, #11500, #11459, #11446, #11443, #11442, #11433, #11430, #11420, #11419, #11416, #11418, #11417, #11415, #11408, #11325, #11327, #11313, @harupy; #11707, #11527, #11663, #11529, #11517, #11510, #11489, #11455, #11427, #11389, #11378, #11326, @B-Step62; #11715, #11714, #11665, #11626, #11619, #11437, #11429, @BenWilson2; #11699, #11692, @annzhang-db; #11693, #11533, #11396, #11392, #11386, #11380, #11381, #11343, @WeichenXu123; #11696, #11687, #11683, @chilir; #11387, #11625, #11574, #11441, #11432, #11428, #11355, #11354, #11351, #11349, #11339, #11338, #11307, @daniellok-db; #11653, #11369, #11270, @chenmoneygithub; #11666, #11588, @jessechancy; #11661, @jmjeon94; #11640, @tunjan; #11639, @minkj1992; #11589, @tlm365; #11566, #11410, @brynn-code; #11570, @lababidi; #11542, #11375, #11345, @edwardfeng-db; #11463, @taranarmo; #11506, @ernestwong-db; #11502, @fzyzcjy; #11470, @clemenskol; #11452, @jkfran; #11413, @GuyAglionby; #11438, @victorsun123; #11350, @liangz1; #11370, @sunishsheth2009; #11379, #11304, @zhouyou9505; #11321, #11323, #11322, @michael-berk; #11333, @cdancette; #11228, @TomeHirata
+
+## 2.12.0 (2024-04-16)
+
+MLflow 2.12.0 has been yanked from PyPI due to an issue with packaging required JS components. MLflow 2.12.1 is its replacement.
+
 ## 2.11.3 (2024-03-21)
 
 MLflow 2.11.3 is a patch release that addresses a security exploit with the Open Source MLflow tracking server and miscellaneous Databricks integration fixes

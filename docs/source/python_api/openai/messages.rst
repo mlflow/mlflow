@@ -254,5 +254,3 @@ Payload sent to OpenAI chat completion API:
             }
         ],
     }
-
-

@@ -181,7 +181,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         Returns:
             A BaseCard containing step execution information.
         """
-        pass
 
     @abc.abstractmethod
     def _validate_and_apply_step_config(self) -> None:
@@ -189,7 +188,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         This function is responsible for validating and loading the step config for
         a particular step. It is invoked by the internal step runner.
         """
-        pass
 
     @classmethod
     @abc.abstractmethod
@@ -207,7 +205,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         Returns:
             class instance of the step.
         """
-        pass
 
     @classmethod
     def from_step_config_path(cls, step_config_path: str, recipe_root: str) -> "BaseStep":
@@ -235,7 +232,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         Returns back the name of the step for the current class instance. This is used
         downstream by the execution engine to create step-specific directory structures.
         """
-        pass
 
     @property
     def environment(self) -> Dict[str, str]:
@@ -256,7 +252,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         Returns the step class.
         """
-        pass
 
     def get_execution_state(self, output_directory: str) -> StepExecutionState:
         """

@@ -37,9 +37,12 @@ openai_justification1 = (
 )
 
 # Example properly formatted response from OpenAI
-properly_formatted_openai_response1 = (
-    '{\n  "score": 3,\n  "justification": "' f"{openai_justification1}" '"\n}'
-)
+properly_formatted_openai_response1 = f"""\
+{{
+  "score": 3,
+  "justification": "{openai_justification1}"
+}}"""
+
 
 properly_formatted_openai_response2 = (
     '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
@@ -559,7 +562,7 @@ def test_format_args_string():
     variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
     assert variable_string == (
-        "Additional information used by the model:\nkey: foo\nvalue:\nfoo" "\nkey: bar\nvalue:\nbar"
+        "Additional information used by the model:\nkey: foo\nvalue:\nfoo\nkey: bar\nvalue:\nbar"
     )
 
     with pytest.raises(

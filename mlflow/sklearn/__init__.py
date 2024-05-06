@@ -89,7 +89,6 @@ _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
 _MODEL_DATA_SUBPATH = "model.pkl"
-model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
 
 
 def _gen_estimators_to_patch():
@@ -181,9 +180,7 @@ def save_model(
         sk_model: scikit-learn model to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
@@ -200,10 +197,7 @@ def save_model(
             pyfunc representation of the resulting MLflow Model. Current supported functions
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -364,9 +358,7 @@ def log_model(
         sk_model: scikit-learn model to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
             ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
@@ -387,10 +379,7 @@ def log_model(
             pyfunc representation of the resulting MLflow Model. Current supported functions
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -538,9 +527,6 @@ class _SklearnModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns:
             Model predictions.

@@ -47,8 +47,6 @@ _logger = logging.getLogger(__name__)
 
 _MODEL_DATA_PATH = "data"
 
-model_data_artifact_paths = [_MODEL_DATA_PATH]
-
 
 def get_default_pip_requirements():
     """
@@ -138,7 +136,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         save_model_kwargs: A dict of kwargs to pass to `keras.Model.save`
             method.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example

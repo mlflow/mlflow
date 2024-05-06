@@ -55,8 +55,6 @@ _logger = logging.getLogger(__name__)
 
 _MODEL_DATA_SUBPATH = "model.onnx"
 
-model_data_artifact_paths = [_MODEL_DATA_SUBPATH]
-
 
 def get_default_pip_requirements():
     """
@@ -111,9 +109,7 @@ def save_model(
         onnx_model: ONNX model to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -150,11 +146,8 @@ def save_model(
             'execution_mode' can be set to 'sequential' or 'parallel'.
             See onnxruntime API for further descriptions:
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
     """
     import onnx
 
@@ -347,9 +340,6 @@ class _OnnxModelWrapper:
                 `<https://github.com/microsoft/onnxruntime>`_.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions. If the input is a pandas.DataFrame, the predictions are returned
             in a pandas.DataFrame. If the input is a numpy array or a dictionary the
@@ -472,9 +462,7 @@ def log_model(
         onnx_model: ONNX model to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -516,11 +504,8 @@ def log_model(
             'execution_mode' can be set to 'sequential' or 'parallel'.
             See onnxruntime API for further descriptions:
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

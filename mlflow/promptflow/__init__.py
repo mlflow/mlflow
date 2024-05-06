@@ -116,9 +116,7 @@ def log_model(
         model: A promptflow model loaded by `promptflow.load_flow()`.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -129,10 +127,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
         model_config: A dict of valid overrides that can be applied to a flow instance
             during inference. These arguments are used exclusively for the case of loading
             the model as a ``pyfunc`` Model.
@@ -219,18 +214,13 @@ def save_model(
         model: A promptflow model loaded by `promptflow.load_flow()`.
         path: Local path where the serialized model (as YAML) is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
         model_config: A dict of valid overrides that can be applied to a flow instance
             during inference. These arguments are used exclusively for the case of loading
             the model as a ``pyfunc`` Model.
@@ -419,9 +409,6 @@ class _PromptflowModelWrapper:
                         print(loaded_model.predict({"text": "Python Hello World!"}))
 
             params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
 
         Returns
             Model predictions. Dict type, example ``{"output": "\n\nprint('Hello World!')"}``

@@ -159,6 +159,7 @@ class _MetricValidationResult:
     Internal class for representing validation result per metric.
     Not user facing, used for organizing metric failures and generating failure message
     more conveniently.
+
     Args:
         metric_name: String representing the metric name
         candidate_metric_value: value of metric for candidate model

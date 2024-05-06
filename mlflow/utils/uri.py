@@ -91,8 +91,7 @@ def is_fuse_or_uc_volumes_uri(uri):
     """
     Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point.
     Multiple directory paths are collapsed into a single designator for root path validation.
-    example:
-    "////Volumes/" will resolve to "/Volumes/" for validation purposes.
+    For example, "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
     resolved_uri = re.sub("/+", "/", uri)
     return any(
@@ -487,8 +486,9 @@ def _decode(url):
     # Keep decoding until the url stops changing (with a max of 10 iterations)
     for _ in range(10):
         decoded = urllib.parse.unquote(url)
-        if decoded == url:
+        parsed = urllib.parse.urlunparse(urllib.parse.urlparse(decoded))
+        if parsed == url:
             return url
-        url = decoded
+        url = parsed
 
     raise ValueError("Failed to decode url")

@@ -72,9 +72,6 @@ class KerasImageClassifierPyfunc:
                 format must be supported by PIL (e.g. jpeg or png).
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             pandas.DataFrame containing predictions with the following schema:
                 Predicted class: string,
@@ -154,7 +151,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
             artifact_path=artifact_path,
             signature=signature,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
             data_path=data_path,
             conda_env=conda_env,
         )

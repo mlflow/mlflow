@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import cloudpickle
 import yaml
@@ -21,6 +23,7 @@ from mlflow.langchain.utils import (
     _load_from_json,
     _load_from_pickle,
     _load_from_yaml,
+    _patch_loader,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     base_lc_types,
@@ -31,6 +34,9 @@ from mlflow.langchain.utils import (
     lc_runnables_types,
     picklable_runnable_types,
 )
+
+if TYPE_CHECKING:
+    from langchain.schema.runnable import Runnable
 
 _STEPS_FOLDER_NAME = "steps"
 _RUNNABLE_STEPS_FILE_NAME = "steps.yaml"
@@ -63,7 +69,7 @@ def _load_model_from_config(path, model_config):
     if _type in chains_type_to_loader_dict:
         from langchain.chains.loading import load_chain
 
-        return load_chain(config_path)
+        return _patch_loader(load_chain)(config_path)
     elif _type in prompts_types:
         from langchain.prompts.loading import load_prompt
 
@@ -71,7 +77,7 @@ def _load_model_from_config(path, model_config):
     elif _type in llms_get_type_to_cls_dict():
         from langchain.llms.loading import load_llm
 
-        return load_llm(config_path)
+        return _patch_loader(load_llm)(config_path)
     elif _type in custom_type_to_loader_dict():
         return custom_type_to_loader_dict()[_type](config)
     raise MlflowException(f"Unsupported type {_type} for loading.")
@@ -241,17 +247,21 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
             _MODEL_DATA_KEY: _MODEL_DATA_YAML_FILE_NAME,
             _MODEL_LOAD_KEY: _CONFIG_LOAD_KEY,
         }
-        path = path / _MODEL_DATA_YAML_FILE_NAME
+        model_path = path / _MODEL_DATA_YAML_FILE_NAME
         # Save some simple runnables that langchain natively supports.
         if hasattr(runnable, "save"):
-            runnable.save(path)
-        # TODO: check if `dict` is enough to load it back
+            runnable.save(model_path)
         elif hasattr(runnable, "dict"):
-            runnable_dict = runnable.dict()
-            with open(path, "w") as f:
-                yaml.dump(runnable_dict, f, default_flow_style=False)
+            try:
+                runnable_dict = runnable.dict()
+                with open(model_path, "w") as f:
+                    yaml.dump(runnable_dict, f, default_flow_style=False)
+                # if the model cannot be loaded back, then `dict` is not enough for saving.
+                _load_model_from_config(path, conf)
+            except Exception:
+                raise Exception("Cannot save runnable without `save` method.")
         else:
-            return Exception(f"Runnable {runnable} is not supported for saving.")
+            raise Exception("Cannot save runnable without `save` or `dict` methods.")
     return conf
 
 
@@ -292,7 +302,7 @@ def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None
     steps_path = save_path / _STEPS_FOLDER_NAME
     steps_path.mkdir()
 
-    steps = model.steps
+    steps = get_runnable_steps(model)
     if isinstance(steps, list):
         generator = enumerate(steps)
     elif isinstance(steps, dict):
@@ -314,7 +324,7 @@ def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None
                 runnable, save_runnable_path, loader_fn, persist_dir
             )
         except Exception as e:
-            unsaved_runnables[step] = f"{runnable} -- {e}"
+            unsaved_runnables[step] = f"{runnable.get_name()} -- {e}"
 
     if unsaved_runnables:
         raise MlflowException(f"Failed to save runnable sequence: {unsaved_runnables}.")
@@ -349,7 +359,7 @@ def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
                     runnable, save_runnable_path, loader_fn, persist_dir
                 )
             except Exception as e:
-                unsaved_runnables[f"{index}-{i}"] = f"{runnable} -- {e}"
+                unsaved_runnables[f"{index}-{i}"] = f"{runnable.get_name()} -- {e}"
 
     # save default branch
     default_branch_path = branches_path / _DEFAULT_BRANCH_NAME
@@ -359,7 +369,7 @@ def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
             model.default, default_branch_path, loader_fn, persist_dir
         )
     except Exception as e:
-        unsaved_runnables[_DEFAULT_BRANCH_NAME] = f"{model.default} -- {e}"
+        unsaved_runnables[_DEFAULT_BRANCH_NAME] = f"{model.default.get_name()} -- {e}"
     if unsaved_runnables:
         raise MlflowException(f"Failed to save runnable branch: {unsaved_runnables}.")
 
@@ -433,3 +443,13 @@ def _load_runnables(path, conf):
     raise MlflowException.invalid_parameter_value(
         _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=model_type)
     )
+
+
+def get_runnable_steps(model: Runnable):
+    try:
+        return model.steps
+    except AttributeError:
+        # RunnableParallel stores steps as `steps__` attribute since version 0.16.0, while it was
+        # stored as `steps` attribute before that and other runnables like RunnableSequence still
+        # has `steps` property.
+        return model.steps__

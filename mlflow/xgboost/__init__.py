@@ -86,8 +86,6 @@ FLAVOR_NAME = "xgboost"
 
 _logger = logging.getLogger(__name__)
 
-model_data_artifact_paths = ["model.xgb", "model.json", "model.ubj"]
-
 
 def get_default_pip_requirements():
     """
@@ -129,19 +127,14 @@ def save_model(
             `scikit-learn API`_) to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         model_format: File format in which the model is to be saved.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+        metadata: {{ metadata }}
     """
     import xgboost as xgb
 
@@ -248,9 +241,7 @@ def log_model(
             `scikit-learn API`_) to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -262,11 +253,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         model_format: File format in which the model is to be saved.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
         kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
 
     Returns
@@ -363,9 +350,6 @@ class _XGBModelWrapper:
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns:
             Model predictions.

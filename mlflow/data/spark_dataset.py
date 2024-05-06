@@ -36,6 +36,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
+        predictions: Optional[str] = None,
     ):
         if targets is not None and targets not in df.columns:
             raise MlflowException(
@@ -43,9 +44,16 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 f" '{targets}'.",
                 INVALID_PARAMETER_VALUE,
             )
+        if predictions is not None and predictions not in df.columns:
+            raise MlflowException(
+                f"The specified Spark dataset does not contain the specified predictions column"
+                f" '{predictions}'.",
+                INVALID_PARAMETER_VALUE,
+            )
 
         self._df = df
         self._targets = targets
+        self._predictions = predictions
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -100,6 +108,14 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             The string name of the Spark DataFrame column containing targets.
         """
         return self._targets
+
+    @property
+    def predictions(self) -> Optional[str]:
+        """
+        The name of the predictions column. May be ``None`` if no predictions column
+        was specified when the dataset was created.
+        """
+        return self._predictions
 
     @property
     def source(self) -> Union[SparkDatasetSource, DeltaDatasetSource]:
@@ -203,6 +219,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            predictions=self._predictions,
         )
 
 
@@ -274,6 +291,7 @@ def from_spark(
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    predictions: Optional[str] = None,
 ) -> SparkDataset:
     """
     Given a Spark DataFrame, constructs a
@@ -314,6 +332,9 @@ def from_spark(
             generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
+        predictions: Optional. The name of the column containing model predictions,
+            if the dataset contains model predictions. If specified, this column
+            must be present in the dataframe (``df``).
 
     Returns:
         An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
@@ -379,4 +400,5 @@ def from_spark(
         targets=targets,
         name=name,
         digest=digest,
+        predictions=predictions,
     )

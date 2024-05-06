@@ -86,8 +86,6 @@ FLAVOR_NAME = "spark"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
 
-model_data_artifact_paths = [_SPARK_MODEL_PATH_SUB]
-
 
 _logger = logging.getLogger(__name__)
 
@@ -170,6 +168,7 @@ def log_model(
             MLReadable and MLWritable.
         artifact_path: Run relative artifact path.
         conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                         filesystem if running in local mode. The model is written in this
                         destination and then copied into the model's artifact directory. This is
@@ -190,10 +189,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -657,6 +653,7 @@ def save_model(
         path: Local path where the model is to be saved.
         mlflow_model: MLflow model config this flavor is being added to.
         conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
             filesystem if running in local mode. The model is be written in this
             destination and then copied to the requested local path. This is necessary
@@ -670,10 +667,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -981,9 +975,6 @@ class _PyFuncModelWrapper:
         Args:
             pandas_df: pandas DataFrame containing input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns:
             List with model predictions.

@@ -91,8 +91,6 @@ FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
 _PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings", "completions")
 
-model_data_artifact_paths = []
-
 _logger = logging.getLogger(__name__)
 
 
@@ -273,9 +271,7 @@ def save_model(
             ``'chat.completions'``.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -294,10 +290,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
@@ -473,9 +466,7 @@ def log_model(
             ``'chat.completions'``.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -500,10 +491,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
@@ -796,9 +784,6 @@ class _OpenAIWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
 
         Returns:
             Model predictions.

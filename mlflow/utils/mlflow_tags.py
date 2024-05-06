@@ -10,6 +10,7 @@ MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
 MLFLOW_RUN_NAME = "mlflow.runName"
 MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
+MLFLOW_ARTIFACT_LOCATION = "mlflow.artifactLocation"
 MLFLOW_USER = "mlflow.user"
 MLFLOW_SOURCE_TYPE = "mlflow.source.type"
 MLFLOW_RECIPE_TEMPLATE_NAME = "mlflow.pipeline.template.name"
@@ -28,6 +29,7 @@ MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
 MLFLOW_AUTOLOGGING = "mlflow.autologging"
 # Indicates the artifacts type and path that are logged
 MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
+MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
@@ -76,6 +78,9 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
+
+# A set of tags that cannot be updated by the user
+IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
 
 
 def _get_run_name_from_tags(tags):

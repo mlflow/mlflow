@@ -335,6 +335,7 @@ def revert(patch):
     ----------
     patch : gorilla.Patch
         Patch.
+
     Note
     ----
     This is only possible if the attribute :attr:`Settings.store_hit` was set

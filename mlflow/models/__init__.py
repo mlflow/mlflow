@@ -40,8 +40,10 @@ from mlflow.models.evaluation import (
     make_metric,
 )
 from mlflow.models.flavor_backend import FlavorBackend
-from mlflow.models.model import Model, get_model_info
+from mlflow.models.model import Model, get_model_info, set_model
+from mlflow.models.model_config import ModelConfig
 from mlflow.models.python_api import build_docker
+from mlflow.models.resources import Resource, ResourceType
 from mlflow.utils.environment import infer_pip_requirements
 
 __all__ = [
@@ -54,9 +56,13 @@ __all__ = [
     "EvaluationArtifact",
     "EvaluationResult",
     "get_model_info",
+    "set_model",
     "list_evaluators",
     "MetricThreshold",
     "build_docker",
+    "Resource",
+    "ResourceType",
+    "ModelConfig",
 ]
 
 

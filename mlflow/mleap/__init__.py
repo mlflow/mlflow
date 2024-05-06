@@ -26,10 +26,9 @@ from mlflow.models.utils import _save_example
 from mlflow.utils import reraise
 from mlflow.utils.annotations import deprecated, keyword_only
 from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.os import is_windows
 
 FLAVOR_NAME = "mleap"
-
-model_data_artifact_paths = ["mleap"]
 
 _logger = logging.getLogger(__name__)
 
@@ -79,10 +78,7 @@ def log_model(
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -183,10 +179,7 @@ def save_model(
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -246,7 +239,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     os.makedirs(mleap_path_full)
 
     dataset = spark_model.transform(sample_input)
-    if os.name == "nt":
+    if is_windows():
         # NB: On Windows, MLeap requires the "file://" prefix in order to correctly
         # parse the model data path, even though the result is not a correct URI.
         # None of "file:", "file:/", or "file:///", which would be canonically correct,

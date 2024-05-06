@@ -20,7 +20,6 @@ def commands():
     To deploy a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
     environment variable to the URL of the desired server.
     """
-    pass
 
 
 @commands.command("serve")
@@ -170,7 +169,7 @@ def prepare_env(
     default="mlflow-dockerfile",
     help="Output directory where the generated Dockerfile is stored.",
 )
-@cli_args.ENV_MANAGER
+@cli_args.ENV_MANAGER_DOCKERFILE
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW

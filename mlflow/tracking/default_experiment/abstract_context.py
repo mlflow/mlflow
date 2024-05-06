@@ -30,7 +30,6 @@ class DefaultExperimentProvider:
             can identify an associated MLflow Experiment ID. False otherwise.
 
         """
-        pass
 
     @abstractmethod
     def get_experiment_id(self):
@@ -42,4 +41,3 @@ class DefaultExperimentProvider:
             The ID of the MLflow Experiment associated with the current context.
 
         """
-        pass

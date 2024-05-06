@@ -386,9 +386,11 @@ import subprocess
 import sys
 import tempfile
 import threading
+import warnings
 from copy import deepcopy
 from functools import lru_cache
-from typing import Any, Dict, Iterator, Optional, Tuple, Union
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas
@@ -405,13 +407,17 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
+from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
     _infer_signature_from_type_hints,
 )
 from mlflow.models.utils import (
     PyFuncInput,
+    PyFuncLLMOutputChunk,
+    PyFuncLLMSingleInput,
     PyFuncOutput,
+    _convert_llm_input_data,
     _enforce_params_schema,
     _enforce_schema,
     _save_example,
@@ -422,7 +428,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
-    _SAVED_PYTHON_MODEL_SUBPATH,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -451,7 +456,7 @@ from mlflow.utils import (
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -500,11 +505,6 @@ ENV = "env"
 MODEL_CONFIG = "config"
 
 _MODEL_DATA_SUBPATH = "data"
-
-model_data_artifact_paths = [
-    _MODEL_DATA_SUBPATH,
-    _SAVED_PYTHON_MODEL_SUBPATH,
-]
 
 
 class EnvType:
@@ -622,46 +622,42 @@ class PyFuncModel:
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict"):
+    def __init__(
+        self,
+        model_meta: Model,
+        model_impl: Any,
+        predict_fn: str = "predict",
+        predict_stream_fn: Optional[str] = None,
+    ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
-        self._model_impl = model_impl
+        self.__model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
+        if predict_stream_fn:
+            if not hasattr(model_impl, predict_stream_fn):
+                raise MlflowException(
+                    f"Model implementation is missing required {predict_stream_fn} method."
+                )
+            self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
+        else:
+            self._predict_stream_fn = None
 
-    def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
+    @property
+    @developer_stable
+    def _model_impl(self) -> Any:
         """
-        Generates model predictions.
+        The underlying model implementation object.
 
-        If the model contains signature, enforce the input schema first before calling the model
-        implementation with the sanitized input. If the pyfunc model does not include model schema,
-        the input is passed to the model implementation as is. See `Model Signature Enforcement
-        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
-
-        Args:
-            data: Model input as one of pandas.DataFrame, numpy.ndarray,
-                scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
-                Dict[str, numpy.ndarray].
-                For model signatures with tensor spec inputs
-                (e.g. the Tensorflow core / Keras model), the input data type must be one of
-                `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
-                `pandas.DataFrame`. If data is of `pandas.DataFrame` type and the model
-                contains a signature with tensor spec inputs, the corresponding column values
-                in the pandas DataFrame will be reshaped to the required shape with 'C' order
-                (i.e. read / write the elements using C-like index order), and DataFrame
-                column values will be cast as the required tensor spec type. For Pyspark
-                DataFrame inputs, MLflow will only enforce the schema on a subset
-                of the data rows.
-            params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
-        Returns:
-            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+        NOTE: This is a stable developer API.
         """
+        return self.__model_impl
+
+    def _validate_prediction_input(
+        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
+    ) -> PyFuncInput:
         input_schema = self.metadata.get_input_schema()
         flavor = self.loader_module
         if input_schema is not None:
@@ -676,16 +672,89 @@ class PyFuncModel:
                 )
 
         params = _validate_params(params, self.metadata)
-
-        if inspect.signature(self._predict_fn).parameters.get("params"):
-            return self._predict_fn(data, params=params)
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
         if HAS_PYSPARK and isinstance(data, SparkDataFrame):
             _logger.warning(
                 "Input data is a Spark DataFrame. Note that behaviour for "
                 "Spark DataFrames is model dependent."
             )
+        return data, params
+
+    def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
+        """
+        Generates model predictions.
+
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
+
+        Args:
+            data: LLM Model single input as one of pandas.DataFrame, numpy.ndarray,
+                scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
+                Dict[str, numpy.ndarray].
+                For model signatures with tensor spec inputs
+                (e.g. the Tensorflow core / Keras model), the input data type must be one of
+                `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
+                `pandas.DataFrame`. If data is of `pandas.DataFrame` type and the model
+                contains a signature with tensor spec inputs, the corresponding column values
+                in the pandas DataFrame will be reshaped to the required shape with 'C' order
+                (i.e. read / write the elements using C-like index order), and DataFrame
+                column values will be cast as the required tensor spec type. For Pyspark
+                DataFrame inputs, MLflow will only enforce the schema on a subset
+                of the data rows.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+        """
+
+        data, params = self._validate_prediction_input(data, params)
+        if inspect.signature(self._predict_fn).parameters.get("params"):
+            return self._predict_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_fn(data)
+
+    def predict_stream(
+        self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[PyFuncLLMOutputChunk]:
+        """
+        Generates streaming model predictions. Only LLM suports this method.
+
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
+
+        Args:
+            data: LLM Model single input as one of dict, str, bool, bytes, float, int, str type.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Model predictions as an iterator of chunks. The chunks in the iterator must be type of
+            dict or string. Chunk dict fields are determined by the model implementation.
+        """
+
+        if self._predict_stream_fn is None:
+            raise MlflowException("This model does not support predict_stream method.")
+
+        data, params = self._validate_prediction_input(data, params)
+        data = _convert_llm_input_data(data)
+        if isinstance(data, list):
+            # `predict_stream` only accepts single input.
+            # but `enforce_schema` might convert single input into a list like `[single_input]`
+            # so extract the first element in the list.
+            if len(data) != 1:
+                raise MlflowException(
+                    f"'predict_stream' requires single input, but it got input data {data}"
+                )
+            data = data[0]
+
+        if inspect.signature(self._predict_stream_fn).parameters.get("params"):
+            return self._predict_stream_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        return self._predict_stream_fn(data)
 
     @experimental
     def unwrap_python_model(self):
@@ -870,7 +939,15 @@ def load_model(
             ) from None
         raise e
     predict_fn = conf.get("predict_fn", "predict")
-    return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
+    streamable = conf.get("streamable", False)
+    predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
+
+    return PyFuncModel(
+        model_meta=model_meta,
+        model_impl=model_impl,
+        predict_fn=predict_fn,
+        predict_stream_fn=predict_stream_fn,
+    )
 
 
 class _ServedPyFuncModel(PyFuncModel):
@@ -884,9 +961,6 @@ class _ServedPyFuncModel(PyFuncModel):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.
@@ -1542,9 +1616,6 @@ def spark_udf(
 
         params: Additional parameters to pass to the model for inference.
 
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
         extra_env: Extra environment variables to pass to the UDF executors.
 
     Returns:
@@ -1577,9 +1648,12 @@ def spark_udf(
 
     _EnvManager.validate(env_manager)
 
-    # Check whether spark is in local or local-cluster mode
-    # this case all executors and driver share the same filesystem
-    is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
+    if is_spark_connect:
+        is_spark_in_local_mode = False
+    else:
+        # Check whether spark is in local or local-cluster mode
+        # this case all executors and driver share the same filesystem
+        is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
@@ -1998,7 +2072,8 @@ def save_model(
     path,
     loader_module=None,
     data_path=None,
-    code_path=None,
+    code_path=None,  # deprecated
+    code_paths=None,
     conda_env=None,
     mlflow_model=None,
     python_model=None,
@@ -2010,6 +2085,8 @@ def save_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
+    streamable=None,
+    resources: Optional[Union[str, List[Resource]]] = None,
     **kwargs,
 ):
     """
@@ -2039,9 +2116,9 @@ def save_model(
             - One or more of the files specified by the ``code_path`` parameter.
 
         data_path: Path to a file or directory containing model data.
-        code_path: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path before the model is loaded.
+        code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
+            replaced by ``code_paths`` and will be removed in a future version of MLflow.
+        code_paths: {{ code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
@@ -2143,17 +2220,18 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
@@ -2170,9 +2248,23 @@ def save_model(
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
+
+    if code_path is not None and code_paths is not None:
+        raise MlflowException(
+            "Both `code_path` and `code_paths` have been specified, which is not permitted."
+        )
     if code_path is not None:
-        if not isinstance(code_path, list):
-            raise TypeError(f"Argument code_path should be a list, not {type(code_path)}")
+        # Alias for `code_path` deprecation
+        code_paths = code_path
+        warnings.warn(
+            "The `code_path` argument is replaced by `code_paths` and is deprecated "
+            "as of MLflow version 2.12.0. This argument will be removed in a future "
+            "release of MLflow."
+        )
+
+    if code_paths is not None:
+        if not isinstance(code_paths, list):
+            raise TypeError(f"Argument code_path should be a list, not {type(code_paths)}")
 
     first_argument_set = {
         "loader_module": loader_module,
@@ -2273,17 +2365,26 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    if resources is not None:
+        if isinstance(resources, (Path, str)):
+            serialized_resource = _ResourceBuilder.from_yaml_file(resources)
+        else:
+            serialized_resource = _ResourceBuilder.from_resources(resources)
+
+        mlflow_model.resources = serialized_resource
+
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
             path=path,
             loader_module=loader_module,
             data_path=data_path,
-            code_paths=code_path,
+            code_paths=code_paths,
             conda_env=conda_env,
             mlflow_model=mlflow_model,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
+            streamable=streamable,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -2293,11 +2394,12 @@ def save_model(
             python_model=python_model,
             artifacts=artifacts,
             conda_env=conda_env,
-            code_paths=code_path,
+            code_paths=code_paths,
             mlflow_model=mlflow_model,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
+            streamable=streamable,
         )
 
 
@@ -2306,7 +2408,8 @@ def log_model(
     artifact_path,
     loader_module=None,
     data_path=None,
-    code_path=None,
+    code_path=None,  # deprecated
+    code_paths=None,
     conda_env=None,
     python_model=None,
     artifacts=None,
@@ -2319,6 +2422,8 @@ def log_model(
     metadata=None,
     model_config=None,
     example_no_conversion=False,
+    streamable=None,
+    resources: Optional[Union[str, List[Resource]]] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2343,9 +2448,9 @@ def log_model(
             - One or more of the files specified by the ``code_path`` parameter.
 
         data_path: Path to a file or directory containing model data.
-        code_path: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path before the model is loaded.
+        code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
+            replaced by ``code_paths`` and will be removed in a future version of MLflow.
+        code_paths: {{ code_paths }}
         conda_env: {{ conda_env }}
         python_model:
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
@@ -2462,16 +2567,24 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
 
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        resources: A list of model resources or a resources.yaml file containing a list of
+                    resources required to serve the model.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+
+
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    If None, MLflow will try to inspect if the model supports streaming
+                    by checking if `predict_stream` method exists. Default None.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -2482,7 +2595,8 @@ def log_model(
         flavor=mlflow.pyfunc,
         loader_module=loader_module,
         data_path=data_path,
-        code_path=code_path,
+        code_path=code_path,  # deprecated
+        code_paths=code_paths,
         python_model=python_model,
         artifacts=artifacts,
         conda_env=conda_env,
@@ -2495,6 +2609,8 @@ def log_model(
         metadata=metadata,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        streamable=streamable,
+        resources=resources,
     )
 
 
@@ -2508,6 +2624,7 @@ def _save_model_with_loader_module_and_data_path(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_config=None,
+    streamable=None,
 ):
     """
     Export model as a generic Python function model.
@@ -2524,6 +2641,8 @@ def _save_model_with_loader_module_and_data_path(
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
             this model should be run in.
+        streamable: A boolean value indicating if the model supports streaming prediction,
+                    None value also means not streamable.
 
     Returns:
         Model configuration containing model info.
@@ -2540,6 +2659,7 @@ def _save_model_with_loader_module_and_data_path(
     if mlflow_model is None:
         mlflow_model = Model()
 
+    streamable = streamable or False
     mlflow.pyfunc.add_to_model(
         mlflow_model,
         loader_module=loader_module,
@@ -2548,6 +2668,7 @@ def _save_model_with_loader_module_and_data_path(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
+        streamable=streamable,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size

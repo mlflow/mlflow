@@ -791,6 +791,11 @@ def test_validate_path_is_safe_windows_good(path):
         # Encoded paths with '..'
         "%2E%2E%2Fpath",
         "%2E%2E%2F%2E%2E%2Fpath",
+        # Some URIs are passed to urllib.parse.urlparse after validation,
+        # which strips out some whitespace characters. If they are further
+        # decoded, this could result in a path that is not safe.
+        # In this example, %2%0952e -> %2\t52e -> %252e -> %2e -> .
+        "%2%0952e%2%0952e/%2%0A52e%2%0A52e/path",
     ],
 )
 def test_validate_path_is_safe_bad(path):

@@ -95,8 +95,6 @@ _MODEL_TYPE_TF2_MODULE = "tf2-module"
 _KERAS_MODEL_DATA_PATH = "data"
 _TF2MODEL_SUBPATH = "tf2model"
 
-model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
-
 
 MLflowCallback = MlflowCallback  # for backwards compatibility
 
@@ -194,9 +192,7 @@ def log_model(
             when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
             :py:func:`mlflow.pyfunc.load_model`.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -209,10 +205,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -317,9 +310,7 @@ def save_model(
         model: The Keras model or Tensorflow module to be saved.
         path: Local path where the MLflow model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
         custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
             custom classes or functions associated with the Keras model. MLflow saves
@@ -334,10 +325,7 @@ def save_model(
             if the model to be saved is a Tensorflow module.
         keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
             to be saved is a keras model.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
@@ -784,9 +772,6 @@ class _TF2Wrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -840,9 +825,6 @@ class _TF2ModuleWrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -875,9 +857,6 @@ class _KerasModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns
             Model predictions.
