@@ -1190,11 +1190,6 @@ This allows users to integrate their own language model services with the MLflow
 To create a custom plugin, you need to implement a Provider class that inherits from ``mlflow.gateway.providers.BaseProvider``,
 and a Config class that inherits from ``mlflow.gateway.base_models.ProviderConfigModel``.
 
-.. important::
-
-    Only install plugin packages you trust. Starting a server with plugin provider will
-    execute arbitrary codes in the plugin package.
-
 .. code-block:: python
     :caption: Example
 
@@ -1264,8 +1259,13 @@ Then, you need to create a Python package that contains the plugin implementatio
 
 Finally, you need to install the plugin package in the same environment as the MLflow Deployments Server.
 
+.. important::
+
+    Only install plugin packages you trust. Starting a server with plugin provider will
+    execute arbitrary codes in the plugin package.
+
 Then, you can configure the MLflow Deployments Server configuration file
-with the `plugin:` prefix to specify the provider and config model:
+with the `plugin:<module>:<class>` syntax to specify the provider and config model:
 
 .. code-block:: yaml
 
