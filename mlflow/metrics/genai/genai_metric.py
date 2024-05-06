@@ -1,10 +1,11 @@
 import json
 import logging
 import re
-import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
@@ -23,7 +24,6 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
-
 _logger = logging.getLogger(__name__)
 
 _PROMPT_FORMATTING_WRAPPER = """
@@ -35,7 +35,9 @@ justification: Your reasoning for giving this score
 Do not add additional new lines. Do not add any other fields."""
 
 
-def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
+def _format_args_string(
+    grading_context_columns: Optional[List[str]], eval_values, indx
+) -> str:
     import pandas as pd
 
     args_dict = {}
@@ -57,7 +59,10 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
         else (
             "Additional information used by the model:\n"
             + "\n".join(
-                [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()]
+                [
+                    f"key: {arg}\nvalue:\n{arg_value}"
+                    for arg, arg_value in args_dict.items()
+                ]
             )
         )
     )
@@ -76,16 +81,23 @@ def _extract_score_and_justification(text):
         except json.JSONDecodeError:
             # If parsing fails, use regex
             if (match := re.search(r"score: (\d+),?\s*justification: (.+)", text)) or (
-                match := re.search(r"\s*score:\s*(\d+)\s*justification:\s*(.+)", text, re.DOTALL)
+                match := re.search(
+                    r"\s*score:\s*(\d+)\s*justification:\s*(.+)", text, re.DOTALL
+                )
             ):
                 score = int(match.group(1))
                 justification = match.group(2)
             else:
                 score = None
-                justification = f"Failed to extract score and justification. Raw output: {text}"
+                justification = (
+                    f"Failed to extract score and justification. Raw output: {text}"
+                )
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
-            return None, f"Failed to extract score and justification. Raw output: {text}"
+            return (
+                None,
+                f"Failed to extract score and justification. Raw output: {text}",
+            )
 
         return score, justification
 
@@ -98,9 +110,7 @@ def _score_model_on_one_payload(
     parameters,
 ):
     try:
-        raw_result = model_utils.score_model_on_payload(
-            eval_model, payload, parameters
-        )
+        raw_result = model_utils.score_model_on_payload(eval_model, payload, parameters)
         return _extract_score_and_justification(raw_result)
     except ImportError:
         raise
@@ -117,7 +127,9 @@ def _score_model_on_one_payload(
         return None, f"Failed to score model on payload. Error: {e!s}"
 
 
-def _score_model_on_payloads(grading_payloads, model, parameters, max_workers) -> Tuple[List[int], List[str]]:
+def _score_model_on_payloads(
+    grading_payloads, model, parameters, max_workers
+) -> Tuple[List[int], List[str]]:
     scores = [None] * len(grading_payloads)
     justifications = [None] * len(grading_payloads)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -173,7 +185,10 @@ def _get_aggregate_results(scores, aggregations):
     scores_for_aggregation = [score for score in scores if score is not None]
 
     return (
-        {option: aggregate_function(option, scores_for_aggregation) for option in aggregations}
+        {
+            option: aggregate_function(option, scores_for_aggregation)
+            for option in aggregations
+        }
         if aggregations is not None
         else {}
     )
@@ -189,7 +204,6 @@ def _make_custom_genai_metric(
     max_workers: int = 10,
     metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
-
     def eval_fn(
         *args,
         **kwargs,
@@ -205,8 +219,12 @@ def _make_custom_genai_metric(
                 error_code=INVALID_PARAMETER_VALUE,
             )
         grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
-        arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
-        scores, justifications = _score_model_on_payloads(arg_strings, model, parameters, max_workers)
+        arg_strings = [
+            prompt_template.format(**payload) for payload in grading_payloads
+        ]
+        scores, justifications = _score_model_on_payloads(
+            arg_strings, model, parameters, max_workers
+        )
 
         aggregate_scores = _get_aggregate_results(scores, aggregations)
 
@@ -245,11 +263,14 @@ def make_genai_metric(
         name: Name of the metric.
         definition: Definition of the metric.
         grading_prompt: Grading criteria of the metric.
-        judge_prompt: (Optional) The entire prompt to be used for the judge model. This is useful for including
-            use cases or system prompts that are not covered by the full grading prompt in any ``EvaluationMetric``
-            object. If used, examples, definition, and grading_prompt will be ignored. The prompt may use
-            f-string formatting to include variables. Corresponding variables must be passed as keyword arguments
-            into the resulting metric's eval function.
+        judge_prompt: (Optional) The entire prompt to be used for the judge model.
+            This is useful for including use cases or system prompts that are not
+            covered by the full grading prompt in any ``EvaluationMetric``
+            object. If used, examples, definition, and grading_prompt will be ignored.
+            The prompt will be minimally wrapped in formatting instructions to ensure
+            scores can be parsed. The prompt may use f-string formatting to include variables.
+            Corresponding variables must be passed as keyword arguments into the
+            resulting metric's eval function.
         examples: (Optional) Examples of the metric.
         version: (Optional) Version of the metric. Currently supported versions are: v1.
         model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
@@ -274,7 +295,8 @@ def make_genai_metric(
         greater_is_better: (Optional) Whether the metric is better when it is greater.
         max_workers: (Optional) The maximum number of workers to use for judge scoring.
             Defaults to 10 workers.
-        metric_metadata: Optional dictionary of metadata to be attached to the EvaluationMetric object.
+        metric_metadata: Optional dictionary of metadata to be attached to the
+            EvaluationMetric object.
 
     Returns:
         A metric object.
@@ -446,7 +468,9 @@ def make_genai_metric(
         grading_payloads = []
         for indx, (input, output) in enumerate(zip(inputs, outputs)):
             try:
-                arg_string = _format_args_string(grading_context_columns, eval_values, indx)
+                arg_string = _format_args_string(
+                    grading_context_columns, eval_values, indx
+                )
             except Exception as e:
                 raise MlflowException(
                     f"Values for grading_context_columns are malformed and cannot be "
@@ -500,8 +524,14 @@ def make_genai_metric(
         return MetricValue(scores, justifications, aggregate_results)
 
     signature_parameters = [
-        Parameter("predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
-        Parameter("metrics", Parameter.POSITIONAL_OR_KEYWORD, annotation=Dict[str, MetricValue]),
+        Parameter(
+            "predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"
+        ),
+        Parameter(
+            "metrics",
+            Parameter.POSITIONAL_OR_KEYWORD,
+            annotation=Dict[str, MetricValue],
+        ),
         Parameter("inputs", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
     ]
 
@@ -519,5 +549,3 @@ def make_genai_metric(
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
     )
-
-

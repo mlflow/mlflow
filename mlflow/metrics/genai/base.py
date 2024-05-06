@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from mlflow.metrics.genai.prompt_template import PromptTemplate
-from mlflow.models import EvaluationMetric
 from mlflow.utils.annotations import experimental
 
 
@@ -70,7 +69,10 @@ class EvaluationExample:
     def _format_grading_context(self):
         if isinstance(self.grading_context, dict):
             return "\n".join(
-                [f"key: {key}\nvalue:\n{value}" for key, value in self.grading_context.items()]
+                [
+                    f"key: {key}\nvalue:\n{value}"
+                    for key, value in self.grading_context.items()
+                ]
             )
         else:
             return self.grading_context

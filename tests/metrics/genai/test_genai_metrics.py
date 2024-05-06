@@ -154,7 +154,8 @@ def test_make_genai_metric_correct_response():
     )
 
     assert [
-        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+        param.name
+        for param in inspect.signature(custom_metric.eval_fn).parameters.values()
     ] == ["predictions", "metrics", "inputs", "targets"]
 
     with mock.patch.object(
@@ -245,7 +246,11 @@ def test_make_genai_metric_correct_response():
         }
         assert metric_value.scores == [3]
         assert metric_value.justifications == [openai_justification1]
-        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
+        assert metric_value.aggregate_results == {
+            "mean": 3.0,
+            "p90": 3.0,
+            "variance": 0.0,
+        }
 
 
 def test_make_genai_metric_supports_string_value_for_grading_context_columns():
@@ -269,7 +274,8 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
     )
 
     assert [
-        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+        param.name
+        for param in inspect.signature(custom_metric.eval_fn).parameters.values()
     ] == ["predictions", "metrics", "inputs", "targets"]
 
     with mock.patch.object(
@@ -321,7 +327,11 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
         }
         assert metric_value.scores == [3]
         assert metric_value.justifications == [openai_justification1]
-        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
+        assert metric_value.aggregate_results == {
+            "mean": 3.0,
+            "p90": 3.0,
+            "variance": 0.0,
+        }
 
 
 def test_make_genai_metric_incorrect_response():
@@ -416,7 +426,10 @@ def test_make_genai_metric_multiple():
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
-        side_effect=[properly_formatted_openai_response1, properly_formatted_openai_response2],
+        side_effect=[
+            properly_formatted_openai_response1,
+            properly_formatted_openai_response2,
+        ],
     ):
         metric_value = custom_metric.eval_fn(
             pd.Series(
@@ -533,9 +546,12 @@ def test_make_genai_metric_failure():
         (None, ["column_a"]),
     ],
 )
-def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
+def test_make_genai_metric_throws_if_grading_context_cols_wrong(
+    grading_cols, example_context_cols
+):
     with pytest.raises(
-        MlflowException, match="Example grading context does not contain required columns"
+        MlflowException,
+        match="Example grading context does not contain required columns",
     ):
         make_genai_metric(
             name="correctness",
@@ -559,7 +575,9 @@ def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, ex
 
 
 def test_format_args_string():
-    variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
+    variable_string = _format_args_string(
+        ["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0
+    )
 
     assert variable_string == (
         "Additional information used by the model:\nkey: foo\nvalue:\nfoo\nkey: bar\nvalue:\nbar"
@@ -569,7 +587,9 @@ def test_format_args_string():
         MlflowException,
         match=re.escape("bar does not exist in the eval function ['foo']."),
     ):
-        variable_string = _format_args_string(["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0)
+        variable_string = _format_args_string(
+            ["foo", "bar"], pd.DataFrame({"foo": ["foo"]}), 0
+        )
 
 
 def test_extract_score_and_justification():
@@ -587,7 +607,9 @@ def test_extract_score_and_justification():
     assert score2 == 2
     assert justification2 == "This is a justification"
 
-    score3, justification3 = _extract_score_and_justification(properly_formatted_openai_response1)
+    score3, justification3 = _extract_score_and_justification(
+        properly_formatted_openai_response1
+    )
     assert score3 == 3
     assert justification3 == (
         "The provided output mostly answers the question, but it is missing or hallucinating on "
@@ -641,7 +663,10 @@ def test_similarity_metric():
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
         metric_value = similarity_metric.eval_fn(
-            pd.Series([mlflow_prediction]), {}, pd.Series([input]), pd.Series([mlflow_ground_truth])
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
         )
 
         assert mock_predict_function.call_count == 1
@@ -764,7 +789,8 @@ def test_faithfulness_metric():
     }
 
     with pytest.raises(
-        MlflowException, match="Failed to find faithfulness metric for version non-existent-version"
+        MlflowException,
+        match="Failed to find faithfulness metric for version non-existent-version",
     ):
         faithfulness_metric = faithfulness(
             model="gateway:/gpt-3.5-turbo",
@@ -784,7 +810,9 @@ def test_faithfulness_metric():
 def test_answer_correctness_metric():
     answer_correctness_metric = answer_correctness()
     input = "What is MLflow?"
-    examples = "\n".join([str(example) for example in AnswerCorrectnessMetric.default_examples])
+    examples = "\n".join(
+        [str(example) for example in AnswerCorrectnessMetric.default_examples]
+    )
 
     with mock.patch.object(
         model_utils,
@@ -851,7 +879,9 @@ def test_answer_correctness_metric():
 
 
 def test_answer_relevance_metric():
-    answer_relevance_metric = answer_relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+    answer_relevance_metric = answer_relevance(
+        model="gateway:/gpt-3.5-turbo", examples=[]
+    )
     input = "What is MLflow?"
 
     with mock.patch.object(
@@ -989,7 +1019,8 @@ def test_relevance_metric():
     }
 
     with pytest.raises(
-        MlflowException, match="Failed to find relevance metric for version non-existent-version"
+        MlflowException,
+        match="Failed to find relevance metric for version non-existent-version",
     ):
         relevance_metric = relevance(
             model="gateway:/gpt-3.5-turbo",
@@ -1057,7 +1088,8 @@ def test_make_genai_metric_metric_metadata():
 
     assert custom_metric.__str__() == (
         f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, "
-        f"version=v1, metric_details={expected_metric_details}, metric_metadata={expected_metric_metadata})"
+        f"version=v1, metric_details={expected_metric_details}, "
+        f"metric_metadata={expected_metric_metadata})"
     )
 
 
@@ -1071,12 +1103,15 @@ def test_make_custom_judge_prompt_genai_metric():
     )
 
     inputs = ["What is MLflow?", "What is Spark?"]
-    outputs = ["MLflow is an open-source platform", "Apache Spark is an open-source distributed framework"]
+    outputs = [
+        "MLflow is an open-source platform",
+        "Apache Spark is an open-source distributed framework",
+    ]
 
     with mock.patch.object(
-            model_utils,
-            "score_model_on_payload",
-            return_value=properly_formatted_openai_response1,
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
         metric_value = custom_judge_prompt_metric.eval_fn(
             input=pd.Series(inputs),
@@ -1084,15 +1119,19 @@ def test_make_custom_judge_prompt_genai_metric():
         )
         assert mock_predict_function.call_count == 2
         assert mock_predict_function.call_args_list[0][0][1] == (
-            "This is a custom judge prompt that uses What is MLflow? and MLflow is an open-source platform"
-            "\n\nYou must return the following fields in your response in two lines, one below the other:"
+            "This is a custom judge prompt that uses What is MLflow? and "
+            "MLflow is an open-source platform"
+            "\n\nYou must return the following fields in your response in two "
+            "lines, one below the other:"
             "\nscore: Your numerical score based on the rubric"
             "\njustification: Your reasoning for giving this score"
             "\n\nDo not add additional new lines. Do not add any other fields."
         )
         assert mock_predict_function.call_args_list[1][0][1] == (
-            "This is a custom judge prompt that uses What is Spark? and Apache Spark is an open-source distributed framework"
-            "\n\nYou must return the following fields in your response in two lines, one below the other:"
+            "This is a custom judge prompt that uses What is Spark? and "
+            "Apache Spark is an open-source distributed framework"
+            "\n\nYou must return the following fields in your response in two "
+            "lines, one below the other:"
             "\nscore: Your numerical score based on the rubric"
             "\njustification: Your reasoning for giving this score"
             "\n\nDo not add additional new lines. Do not add any other fields."
