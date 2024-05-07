@@ -1,9 +1,9 @@
 import json
 import os
 import sys
-import yaml
-from typing import Any, Dict
 from typing import Any, Dict, Optional
+
+import yaml
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -168,31 +168,26 @@ def _validate_path_exists(path: str, name: str):
         )
 
 
-def _validate_and_copy_model_code_and_config_paths(
-    code_path: str, config_path: Optional[str], path: str
-):
-    """Copies the model code from code_path to a directory.
+def _validate_and_copy_file_path(file_path: Optional[str], path: str, name: str):
+    """Copies the file at file_path to a directory.
 
     Args:
-        code_path: A file containing model code that should be logged as an artifact.
-        config_path: A file containing model config code that should be logged as an artifact.
+        file_path: A file that should be logged as an artifact.
         path: The local model path.
+        name: The name for the kind of file being copied.
     """
-    if code_path:
-        _validate_path_exists(code_path, "code")
-    if config_path:
-        _validate_path_exists(config_path, "config")
+    if not file_path:
+        return
+    _validate_path_exists(file_path, name)
     try:
-        _copy_file_or_tree(src=code_path, dst=path)
-        if config_path:
-            _copy_file_or_tree(src=config_path, dst=path)
+        _copy_file_or_tree(src=file_path, dst=path)
     except OSError as e:
         # A common error is code-paths includes Databricks Notebook. We include it in error
         # message when running in Databricks, but not in other envs tp avoid confusion.
         example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
         raise MlflowException(
             message=(
-                f"Failed to copy the specified code path '{code_path}' into the model "
+                f"Failed to copy the specified code path '{file_path}' into the model "
                 "artifacts. It appears that your code path includes file(s) that cannot "
                 f"be copied{example}. Please specify a code path that does not include "
                 "such files and try again.",
@@ -325,6 +320,23 @@ def _get_overridden_pyfunc_model_config(
     return pyfunc_config
 
 
+def _validate_and_get_model_config_from_file(model_config):
+    if os.path.exists(model_config):
+        with open(model_config) as file:
+            try:
+                return yaml.safe_load(file)
+            except yaml.YAMLError as e:
+                raise yaml.YAMLError(
+                    f"The provided ``model_config`` file '{model_config}' is not a valid YAML "
+                    f"file: {e}"
+                )
+    else:
+        raise MlflowException.invalid_parameter_value(
+            "An invalid ``model_config`` structure was passed. The provided ``model_config`` "
+            f"file '{model_config}'is not a valid file path."
+        )
+
+
 def _validate_pyfunc_model_config(model_config):
     """
     Validates the values passes in the model_config section. There are no typing
@@ -333,22 +345,9 @@ def _validate_pyfunc_model_config(model_config):
 
     if not model_config:
         return
-    
+
     if isinstance(model_config, str):
-        if os.path.exists(model_config):
-            with open(model_config) as file:
-                try:
-                    return yaml.safe_load(file)
-                except yaml.YAMLError as e:
-                    raise yaml.YAMLError(
-                        f"The provided ``model_config`` file '{model_config}' is not a valid YAML "
-                        f"file: {e}"
-                    )
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "An invalid ``model_config`` structure was passed. The provided ``model_config`` "
-                f"file '{model_config}'is not a valid file path."
-            )
+        _validate_and_get_model_config_from_file(model_config)
     elif isinstance(model_config, dict) and all(isinstance(key, str) for key in model_config):
         try:
             json.dumps(model_config)

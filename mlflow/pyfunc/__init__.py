@@ -394,6 +394,7 @@ import tempfile
 import threading
 import uuid
 import warnings
+from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
@@ -415,6 +416,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME, MODEL_CONFIG
+from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
@@ -498,7 +500,8 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
     _validate_and_copy_code_paths,
-    _validate_and_copy_model_code_and_config_paths,
+    _validate_and_copy_file_path,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
     _validate_pyfunc_model_config,
 )
@@ -845,8 +848,11 @@ class PyFuncModel:
     @property
     def model_config(self):
         """Model's flavor configuration"""
-        # TODO: should the default here still be an empty dict?
-        return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
+        model_config = self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
+        if isinstance(model_config, str):
+            return _validate_and_get_model_config_from_file(model_config)
+        else:
+            return model_config
 
     @experimental
     @property
@@ -882,7 +888,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Union[str, Dict[str, Any]]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -946,6 +952,22 @@ def load_model(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
+    model_py_version = conf.get(PY_VERSION)
+    if not suppress_warnings:
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
+
+    _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
+    data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
+
+    if isinstance(model_config, str):
+        model_config = _validate_and_get_model_config_from_file(model_config)
+    conf_model_config = conf.get(MODEL_CONFIG, None)
+    if isinstance(conf_model_config, str):
+        conf_model_config = _validate_and_get_model_config_from_file(conf_model_config)
+
+    model_config = _get_overridden_pyfunc_model_config(conf_model_config, model_config, _logger)
+    conf.update({MODEL_CONFIG: model_config})
+
     # TODO: improve this logic if we start allowing code with custom loader modules
     if conf.get(_MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
         flavor_code_path = conf.get(_MODEL_CODE_PATH)
@@ -953,19 +975,7 @@ def load_model(
             local_path,
             os.path.basename(flavor_code_path),
         )
-        return _load_model_code_path(code_path)
-    model_py_version = conf.get(PY_VERSION)
-    if not suppress_warnings:
-        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
-
-    _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
-    data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    # conf is the model conf loaded from MLmodel file
-    # model_config is passed into load_model
-    # TODO: here model_config becomes a dict
-    model_config = _get_overridden_pyfunc_model_config(
-        conf.get(MODEL_CONFIG, None), model_config, _logger
-    )
+        return _load_model_code_path(code_path, model_config)
 
     try:
         if model_config:
@@ -2285,15 +2295,19 @@ def save_model(
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
-    # TODO: convert model_config to all be in dict format
     _validate_and_prepare_target_save_path(path)
 
     if python_model:
         model_code_path = None
         if isinstance(python_model, str):
             model_code_path = _validate_and_get_model_code_path(python_model)
-            _validate_and_copy_model_code_and_config_paths(model_code_path, None, path)
-            python_model = _load_model_code_path(model_code_path)
+            _validate_and_copy_file_path(model_code_path, path, "code")
+            python_model = _load_model_code_path(model_code_path, model_config)
+        if isinstance(model_config, str):
+            _validate_and_copy_file_path(model_code_path, path, "config")
+            model_config_dict = _validate_and_get_model_config_from_file(model_config)
+        else:
+            model_config_dict = model_config
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2385,7 +2399,7 @@ def save_model(
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
-            context = PythonModelContext(artifacts, model_config)
+            context = PythonModelContext(artifacts, model_config_dict)
             python_model.load_context(context)
             output = python_model.predict(context, messages, params)
             if not isinstance(output, ChatResponse):
@@ -2456,16 +2470,34 @@ def save_model(
         )
 
 
-# TODO: bbqiu move this to models.utils.py
-def _load_model_code_path(code_path: str):
+# TODO: move this to models.utils.py
+@contextmanager
+def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
+    # Check if config_path is None and set it to "" so when loading the model
+    # the config_path is set to "" so the ModelConfig can correctly check if the
+    # config is set or not
+    if config is None:
+        config = ""
+
+    _set_model_config(config)
     try:
-        new_module_name = f"code_model_{uuid.uuid4().hex}"
-        spec = importlib.util.spec_from_file_location(new_module_name, code_path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[new_module_name] = module
-        spec.loader.exec_module(module)
-    except ImportError as e:
-        raise mlflow.MlflowException("Failed to import pyfunc model.") from e
+        yield
+    finally:
+        _set_model_config(None)
+
+
+# TODO: bbqiu move this to models.utils.py
+def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
+    with _config_context(config):
+        try:
+            new_module_name = f"code_model_{uuid.uuid4().hex}"
+            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[new_module_name] = module
+            spec.loader.exec_module(module)
+        except ImportError as e:
+            raise mlflow.MlflowException("Failed to import pyfunc model.") from e
+
     return mlflow.models.model.__mlflow_model__
 
 

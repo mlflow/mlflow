@@ -1682,6 +1682,37 @@ def test_pyfunc_as_code_log_and_load(tmp_path):
     assert loaded_model.predict(context=context, model_input=model_input) == expected_output
 
 
+def test_pyfunc_as_code_with_config(tmp_path):
+    temp_file = tmp_path / "config.yml"
+    temp_file.write_text("timeout: 400")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/pyfunc_sample_code_with_config.py",
+            artifact_path="model",
+            model_config=str(temp_file),
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    context, model_input = "context", "input"
+    expected_output = f"Predict called with context {context} and input {model_input}, timeout 400"
+    assert loaded_model.predict(context=context, model_input=model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_dict_config():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/pyfunc_sample_code_with_config.py",
+            artifact_path="model",
+            model_config={"timeout": 400},
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    context, model_input = "context", "input"
+    expected_output = f"Predict called with context {context} and input {model_input}, timeout 400"
+    assert loaded_model.predict(context=context, model_input=model_input) == expected_output
+
+
 def test_pyfunc_as_code_log_and_load_wrong_path():
     with pytest.raises(
         MlflowException,

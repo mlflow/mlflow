@@ -88,7 +88,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _validate_and_copy_model_code_and_config_paths,
+    _validate_and_copy_file_path,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -289,7 +289,8 @@ def save_model(
             if model_config_path
             else _load_model_code_path(model_code_path)
         )
-        _validate_and_copy_model_code_and_config_paths(model_code_path, model_config_path, path)
+        _validate_and_copy_file_path(model_code_path, path, "code")
+        _validate_and_copy_file_path(model_config_path, path, "config")
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
