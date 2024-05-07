@@ -9,6 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import (
@@ -98,6 +99,7 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
+    grading_system_prompt_template: Optional[List[str]] = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
@@ -131,7 +133,9 @@ def make_genai_metric(
         greater_is_better: (Optional) Whether the metric is better when it is greater.
         max_workers: (Optional) The maximum number of workers to use for judge scoring.
             Defaults to 10 workers.
-
+        grading_system_prompt_template: (Optional) The grading system prompt template for the GenAI
+            metric. Other parameters such as name, definition, grading_prompt and examples will be
+            passed to it, and can be included in the prompt template with {}.
     Returns:
         A metric object.
 
@@ -252,6 +256,11 @@ def make_genai_metric(
         examples,
         model,
         *(parameters,) if parameters is not None else (),
+        grading_system_prompt_template=(
+            PromptTemplate(grading_system_prompt_template)
+            if isinstance(grading_system_prompt_template, list)
+            else None
+        ),
     ).to_dict()
 
     def eval_fn(

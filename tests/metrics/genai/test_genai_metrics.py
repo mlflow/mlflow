@@ -1034,3 +1034,49 @@ def test_make_genai_metric_without_example():
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
+
+
+def test_custom_grading_system_prompt_template():
+    custom_system_prompt_template = [
+        """
+Task:
+Custom task defined by the user""",
+        """
+
+Input:
+{input}""",
+        """
+
+Output:
+{output}
+
+{grading_context_columns}
+
+Metric definition:
+{definition}
+
+Grading rubric:
+{grading_prompt}
+
+Custom text defined by the user.
+""",
+    ]
+    custom_metric = make_genai_metric(
+        name="correctness",
+        version="v1",
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        examples=[],
+        grading_system_prompt_template=custom_system_prompt_template,
+    )
+
+    # pylint: disable=line-too-long
+    expected_metric_details = "\nTask:\nCustom task defined by the user\n\nInput:\n{input}\n\nOutput:\n{output}\n\n{grading_context_columns}\n\nMetric definition:\nCorrectness refers to how well the generated output matches or aligns with the reference or ground truth text that is considered accurate and appropriate for the given input. The ground truth serves as a benchmark against which the provided output is compared to determine the level of accuracy and fidelity.\n\nGrading rubric:\nCorrectness: If the answer correctly answer the question, below are the details for different scores: - Score 0: the answer is completely incorrect, doesn’t mention anything about the question or is completely contrary to the correct answer. - Score 1: the answer provides some relevance to the question and answer one aspect of the question correctly. - Score 2: the answer mostly answer the question but is missing or hallucinating on one critical aspect. - Score 4: the answer correctly answer the question and not missing any major aspect\n\nCustom text defined by the user.\n"
+
+    assert custom_metric.metric_details == expected_metric_details
+
+    assert (
+        custom_metric.__str__()
+        == f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, version=v1, metric_details={expected_metric_details})"
+    )
+    # pylint: enable=line-too-long
