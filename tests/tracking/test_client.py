@@ -544,6 +544,8 @@ def test_log_trace_with_databricks_tracking_uri(
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
         "mlflow.user": "bob",
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
         "tag": "tag_value",
     }
 
