@@ -945,7 +945,8 @@ def load_model(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
-    if conf.get(_MODEL_CODE_PATH) is not None:
+    # TODO: improve this logic if we start allowing code with custom loader modules
+    if conf.get(_MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
         flavor_code_path = conf.get(_MODEL_CODE_PATH)
         code_path = os.path.join(
             local_path,
