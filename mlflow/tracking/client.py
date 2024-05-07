@@ -73,7 +73,6 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
-    IMMUTABLE_TAGS,
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
@@ -571,15 +570,17 @@ class MlflowClient:
             if attributes:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
-            with trace_manager.get_trace(request_id) as trace:
-                trace.info.tags.update(self._exclude_immutable_tags(tags or {}))
+            # Update trace tags both in store and in-memory trace manager
+            for k, v in tags.items():
+                self._tracking_client.set_trace_tag(request_id, k, v)
+            trace_info = self._tracking_client.get_trace(request_id).info
+            trace_manager.update_trace_info(trace_info)
             # Register new span in the in-memory trace manager
             trace_manager.register_span(mlflow_span)
 
             return mlflow_span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
-            raise e
             return NoOpSpan()
 
     def end_trace(
@@ -840,7 +841,7 @@ class MlflowClient:
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=self._exclude_immutable_tags(tags or {}),
+            tags=tags or {},
         )
 
     def _upload_ended_trace_info(
@@ -872,12 +873,8 @@ class MlflowClient:
             timestamp_ms=timestamp_ms,
             status=status,
             request_metadata=request_metadata or {},
-            tags=self._exclude_immutable_tags(tags or {}),
+            tags=tags or {},
         )
-
-    def _exclude_immutable_tags(self, tags: Dict[str, str]) -> Dict[str, str]:
-        """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
-        return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """

@@ -178,6 +178,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span: OTelSpan,
         experiment_id: Optional[str] = None,
         request_metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[Dict[str, str]] = None,
     ) -> TraceInfo:
         return TraceInfo(
             request_id=request_id,
@@ -186,4 +187,5 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             execution_time_ms=None,
             status=TraceStatus.IN_PROGRESS,
             request_metadata=request_metadata or {},
+            tags=tags or {},
         )

@@ -11,6 +11,7 @@ from opentelemetry import trace as trace_api
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowException
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
 
@@ -173,3 +174,8 @@ def maybe_get_evaluation_request_id() -> Optional[str]:
         )
 
     return context.request_id
+
+
+def exclude_immutable_tags(tags: Dict[str, str]) -> Dict[str, str]:
+    """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
+    return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
