@@ -3,12 +3,15 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import (
@@ -21,10 +24,15 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
-if TYPE_CHECKING:
-    import pandas as pd
-
 _logger = logging.getLogger(__name__)
+
+_PROMPT_FORMATTING_WRAPPER = """
+
+You must return the following fields in your response in two lines, one below the other:
+score: Your numerical score based on the rubric
+justification: Your reasoning for giving this score
+
+Do not add additional new lines. Do not add any other fields."""
 
 
 def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
@@ -84,6 +92,198 @@ def _extract_score_and_justification(text):
     return None, None
 
 
+def _score_model_on_one_payload(
+    payload,
+    eval_model,
+    parameters,
+):
+    try:
+        raw_result = model_utils.score_model_on_payload(eval_model, payload, parameters)
+        return _extract_score_and_justification(raw_result)
+    except ImportError:
+        raise
+    except MlflowException as e:
+        if e.error_code in [
+            ErrorCode.Name(BAD_REQUEST),
+            ErrorCode.Name(UNAUTHENTICATED),
+            ErrorCode.Name(INVALID_PARAMETER_VALUE),
+        ]:
+            raise
+        else:
+            return None, f"Failed to score model on payload. Error: {e!s}"
+    except Exception as e:
+        return None, f"Failed to score model on payload. Error: {e!s}"
+
+
+def _score_model_on_payloads(
+    grading_payloads, model, parameters, max_workers
+) -> Tuple[List[int], List[str]]:
+    scores = [None] * len(grading_payloads)
+    justifications = [None] * len(grading_payloads)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                _score_model_on_one_payload,
+                payload,
+                model,
+                parameters,
+            ): indx
+            for indx, payload in enumerate(grading_payloads)
+        }
+
+        as_comp = as_completed(futures)
+        try:
+            from tqdm.auto import tqdm
+
+            as_comp = tqdm(as_comp, total=len(futures))
+        except ImportError:
+            pass
+
+        for future in as_comp:
+            indx = futures[future]
+            score, justification = future.result()
+            scores[indx] = score
+            justifications[indx] = justification
+
+    return scores, justifications
+
+
+def _get_aggregate_results(scores, aggregations):
+    # loop over the aggregations and compute the aggregate results on the scores
+    def aggregate_function(aggregate_option, scores):
+        import numpy as np
+
+        options = {
+            "min": np.min,
+            "max": np.max,
+            "mean": np.mean,
+            "median": np.median,
+            "variance": np.var,
+            "p90": lambda x: np.percentile(x, 90) if x else None,
+        }
+
+        if aggregate_option not in options:
+            raise MlflowException(
+                message=f"Invalid aggregate option {aggregate_option}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return options[aggregate_option](scores)
+
+    scores_for_aggregation = [score for score in scores if score is not None]
+
+    return (
+        {option: aggregate_function(option, scores_for_aggregation) for option in aggregations}
+        if aggregations is not None
+        else {}
+    )
+
+
+@experimental
+def make_custom_genai_metric(
+    name: str,
+    judge_prompt: Optional[str] = None,
+    model: Optional[str] = _get_default_model(),
+    parameters: Optional[Dict[str, Any]] = None,
+    aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
+    greater_is_better: bool = True,
+    max_workers: int = 10,
+    metric_metadata: Optional[Dict[str, Any]] = None,
+) -> EvaluationMetric:
+    """
+    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces
+    a metric using only the supplied judge prompt without any pre-written system prompt.
+    This can be useful for use cases that are not covered by the full grading prompt in any
+    ``EvaluationModel`` version.
+
+    Args:
+        name: Name of the metric.
+        judge_prompt: The entire prompt to be used for the judge model.
+            The prompt will be minimally wrapped in formatting instructions to ensure
+            scores can be parsed. The prompt may use f-string formatting to include variables.
+            Corresponding variables must be passed as keyword arguments into the
+            resulting metric's eval function.
+        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
+            format of "openai:/gpt-4", "gateway:/my-route",
+            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
+            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
+            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
+            and governed by the LLM service's terms of use.
+        parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
+            set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
+            setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
+        aggregations: (Optional) The list of options to aggregate the scores. Currently supported
+            options are: min, max, mean, median, variance, p90.
+        greater_is_better: (Optional) Whether the metric is better when it is greater.
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
+
+    Returns:
+        A metric object.
+
+    .. code-block:: python
+        :test:
+        :caption: Example for creating a genai metric
+
+        from mlflow.metrics.genai import make_custom_genai_metric
+
+        metric = make_custom_genai_metric(
+            name="ease_of_understanding",
+            judge_prompt=(
+                "You must evaluate the output of a bot based on how easy it is to "
+                "understand its outputs."
+                "Evaluate the bot's output from the perspective of a layperson."
+                "The bot was provided with this input: {input} and this output: {output}."
+            ),
+            model="openai:/gpt-4",
+            parameters={"temperature": 0.0},
+            aggregations=["mean", "variance", "p90"],
+            greater_is_better=True,
+        )
+
+        metric_value = metric.eval_fn(
+            inputs=pd.Series(["What is MLflow?"]),
+            outputs=pd.Series(
+                ["MLflow is an open-source platform for managing machine learning workflows."]
+            ),
+        )
+    """
+
+    def eval_fn(
+        *args,
+        **kwargs,
+    ) -> MetricValue:
+        """
+        This is the function that is called when the metric is evaluated.
+        """
+        prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
+        missing_variables = prompt_template.variables - set(kwargs.keys())
+        if missing_variables:
+            raise MlflowException(
+                message=f"Missing variable inputs to eval_fn: {missing_variables}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
+        arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
+        scores, justifications = _score_model_on_payloads(
+            arg_strings, model, parameters, max_workers
+        )
+
+        aggregate_scores = _get_aggregate_results(scores, aggregations)
+
+        return MetricValue(scores, justifications, aggregate_scores)
+
+    return make_metric(
+        eval_fn=eval_fn,
+        greater_is_better=greater_is_better,
+        name=name,
+        metric_metadata=metric_metadata,
+    )
+
+
 @experimental
 def make_genai_metric(
     name: str,
@@ -98,6 +298,7 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
@@ -131,6 +332,9 @@ def make_genai_metric(
         greater_is_better: (Optional) Whether the metric is better when it is greater.
         max_workers: (Optional) The maximum number of workers to use for judge scoring.
             Defaults to 10 workers.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
 
     Returns:
         A metric object.
@@ -306,38 +510,16 @@ def make_genai_metric(
                 )
             )
 
-        def score_model_on_one_payload(
-            payload,
-            eval_model,
-        ):
-            try:
-                raw_result = model_utils.score_model_on_payload(
-                    eval_model, payload, eval_parameters
-                )
-                return _extract_score_and_justification(raw_result)
-            except ImportError:
-                raise
-            except MlflowException as e:
-                if e.error_code in [
-                    ErrorCode.Name(BAD_REQUEST),
-                    ErrorCode.Name(UNAUTHENTICATED),
-                    ErrorCode.Name(INVALID_PARAMETER_VALUE),
-                ]:
-                    raise
-                else:
-                    return None, f"Failed to score model on payload. Error: {e!s}"
-            except Exception as e:
-                return None, f"Failed to score model on payload. Error: {e!s}"
-
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
                 executor.submit(
-                    score_model_on_one_payload,
+                    _score_model_on_one_payload,
                     payload,
                     eval_model,
+                    eval_parameters,
                 ): indx
                 for indx, payload in enumerate(grading_payloads)
             }
@@ -356,35 +538,7 @@ def make_genai_metric(
                 scores[indx] = score
                 justifications[indx] = justification
 
-        # loop over the aggregations and compute the aggregate results on the scores
-        def aggregate_function(aggregate_option, scores):
-            import numpy as np
-
-            options = {
-                "min": np.min,
-                "max": np.max,
-                "mean": np.mean,
-                "median": np.median,
-                "variance": np.var,
-                "p90": lambda x: np.percentile(x, 90) if x else None,
-            }
-
-            if aggregate_option not in options:
-                raise MlflowException(
-                    message=f"Invalid aggregate option {aggregate_option}.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            return options[aggregate_option](scores)
-
-        scores_for_aggregation = [score for score in scores if score is not None]
-
-        aggregate_results = (
-            {option: aggregate_function(option, scores_for_aggregation) for option in aggregations}
-            if aggregations is not None
-            else {}
-        )
-
+        aggregate_results = _get_aggregate_results(scores, aggregations)
         return MetricValue(scores, justifications, aggregate_results)
 
     signature_parameters = [
@@ -405,4 +559,5 @@ def make_genai_metric(
         name=name,
         version=version,
         metric_details=evaluation_context["eval_prompt"].__str__(),
+        metric_metadata=metric_metadata,
     )
