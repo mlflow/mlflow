@@ -1009,11 +1009,13 @@ def _normalize_evaluators_and_evaluator_config_args(
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if len(evaluator_name_list) > 1:
-            _logger.warning(
-                f"Multiple registered evaluators are found {evaluator_name_list} and "
-                "they will all be used in evaluation if they support the specified model type. "
-                "If you want to evaluate with one evaluator, specify the `evaluator` argument "
-                "and optionally specify the `evaluator_config` argument."
+            _logger.info(
+                f"Multiple registered evaluators have been configured: {evaluator_name_list}. "
+                "Each evaluator will be used for evaluation if the specified model type is "
+                "compatible with the evaluator definition. If you are intending to override "
+                "the default evaluator, define your custom evaluator by declaring it via the "
+                "`evaluator` argument. If your evaluator requires additional configuration, "
+                "ensure that it is provided by specifying the `evaluator_config` argument."
             )
         if evaluator_config is not None:
             conf_dict_value_error = MlflowException(
