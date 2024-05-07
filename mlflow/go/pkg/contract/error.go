@@ -1,4 +1,4 @@
-package server
+package contract
 
 import "github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 

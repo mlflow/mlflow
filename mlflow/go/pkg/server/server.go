@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 )
 
 func launchServer(ctx context.Context, cfg config.Config) error {
@@ -25,9 +26,14 @@ func launchServer(ctx context.Context, cfg config.Config) error {
 		// ErrorHandler: func(c *fiber.Ctx, err error) error {},
 	})
 
-	registerMlflowServiceRoutes(mlflowService, app)
-	registerModelRegistryServiceRoutes(modelRegistryService, app)
-	registerMlflowArtifactsServiceRoutes(mlflowArtifactsService, app)
+	mlflowService, err := NewMlflowService()
+	if err != nil {
+		return err
+	}
+
+	contract.RegisterMlflowServiceRoutes(mlflowService, app)
+	contract.RegisterModelRegistryServiceRoutes(modelRegistryService, app)
+	contract.RegisterMlflowArtifactsServiceRoutes(mlflowArtifactsService, app)
 
 	app.Static("/static-files", cfg.StaticFolder)
 	app.Get("/", func(c *fiber.Ctx) error {
