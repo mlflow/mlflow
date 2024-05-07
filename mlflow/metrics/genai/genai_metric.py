@@ -228,7 +228,6 @@ def make_custom_genai_metric(
         :test:
         :caption: Example for creating a genai metric
 
-        import pandas as pd
         from mlflow.metrics.genai import make_custom_genai_metric
 
         metric = make_custom_genai_metric(
