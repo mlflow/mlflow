@@ -265,7 +265,7 @@ def save_model(
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
-
+        model_code_path = lc_model
         if isinstance(model_config, dict):
             model_config_path = _get_temp_file_with_content(
                 "config.yml", yaml.dump(model_config), "w"
