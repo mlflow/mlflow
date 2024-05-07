@@ -1,12 +1,11 @@
 
 from mlflow.models import rag_signatures
+from mlflow.types.dataclass import deserialize_dataclass, serialize_dataclass
 
 
 def serialize_and_deserialize(dataclass_instance):
     ser = serialize_dataclass(dataclass_instance)
-    print(ser)
     de = deserialize_dataclass(ser, type(dataclass_instance))
-    print(de)
     assert de == dataclass_instance
 
 def test_serialize_dataclass():

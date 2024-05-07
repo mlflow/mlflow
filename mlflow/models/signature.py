@@ -8,6 +8,7 @@ import inspect
 import logging
 import re
 from copy import deepcopy
+from dataclasses import dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hints
 
 import numpy as np
@@ -22,6 +23,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
+from mlflow.types.dataclass import deserialize_dataclass, serialize_dataclass
 from mlflow.types.schema import ParamSchema, Schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
@@ -57,10 +59,10 @@ class ModelSignature:
     :py:class:`ParamSchema <mlflow.types.ParamSchema>`.
     """
 
-    def __init__(self, inputs: Schema = None, outputs: Schema = None, params: ParamSchema = None):
-        if inputs and not isinstance(inputs, Schema):
+    def __init__(self, inputs: Union[Schema, dataclass] = None, outputs: Schema = None, params: ParamSchema = None):
+        if inputs and not isinstance(inputs, Schema) and not is_dataclass(inputs):
             raise TypeError(
-                "inputs must be either None or mlflow.models.signature.Schema, "
+                "inputs must be either None, mlflow.models.signature.Schema, or a dataclass, "
                 f"got '{type(inputs).__name__}'"
             )
         if outputs and not isinstance(outputs, Schema):
@@ -89,9 +91,12 @@ class ModelSignature:
         Returns:
             dictionary representation with input and output schema represented as json strings.
         """
-
+        if is_dataclass(self.inputs):
+            serialized_inputs = serialize_dataclass(self.inputs)
+        else:
+            serialized_inputs = self.inputs.to_json() if self.inputs else None
         return {
-            "inputs": self.inputs.to_json() if self.inputs else None,
+            "inputs": serialized_inputs,
             "outputs": self.outputs.to_json() if self.outputs else None,
             "params": self.params.to_json() if self.params else None,
         }
@@ -111,6 +116,8 @@ class ModelSignature:
         Returns:
             ModelSignature populated with the data form the dictionary.
         """
+        # TODO: figure out how to branch here
+        deserialized_inputs = deserialize_dataclass(x) if (x := signature_dict.get("inputs")) else None
         inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
         outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
         params = ParamSchema.from_json(x) if (x := signature_dict.get("params")) else None
@@ -134,6 +141,8 @@ class ModelSignature:
             "params: \n"
             f"  {self.params!r}\n"
         )
+
+
 
 
 def infer_signature(
