@@ -265,23 +265,13 @@ def _save_model(index, path):
     index.storage_context.persist(persist_dir=index_path)
 
     objects_path = os.path.join(path, _LLAMA_INDEX_OBJECTS)
-    serialize_settings_to_json(index, objects_path)
+    serialize_settings_to_json(Settings, objects_path)
 
 
 def _load_model(path, flavor_conf):
     _add_code_from_conf_to_system_path(path, flavor_conf)
     objects_path = os.path.join(path, _LLAMA_INDEX_OBJECTS)
-    llama_index_objects = deserialize_json_to_settings(objects_path)
-
-    embed_model_callable, embed_model_kwargs = llama_index_objects["embed_model"]
-    # TODO: double check that is how they do it
-    # TODO: add NB
-    Settings.embed_model = embed_model_callable(**embed_model_kwargs)
-
-    # TODO: change callable to class_reference
-    # TODO: add friently erorr handling for failures of these object
-    llm_callable, llm_kwargs = llama_index_objects["llm"]
-    Settings.llm = llm_callable(**llm_kwargs)
+    Settings = deserialize_json_to_settings(objects_path)  # noqa
 
     index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
     storage_context = StorageContext.from_defaults(persist_dir=index_path)

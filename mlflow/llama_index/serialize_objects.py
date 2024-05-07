@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Callable, Dict, Set, Tuple
 
-from llama_index.core import Settings
+from llama_index.core import PromptTemplate, Settings
 
 _logger = logging.getLogger(__name__)
 
@@ -15,11 +15,19 @@ _SUPPORTED_SETTINGS = ["llm", "embed_model"]
 
 
 def _extract_constructor_from_object(o: object) -> Callable:
-    # TODO: figure out how to do this properly
     if hasattr(o, "__class__"):
-        return o.__class__
+        for cls in inspect.getmro(o.__class__):
+            if hasattr(cls, "__init__"):
+                return cls
+        raise AttributeError(
+            f"Class {o.__class} does not have a __init__ method and thereby cannot "
+            "be concerted to a callable."
+        )
     else:
-        raise AttributeError(f"Object {o} cannot be converted to callable.")
+        raise AttributeError(
+            f"Object {o} does not have __class__ attribute and thereby cannot be "
+            "converted to callable."
+        )
 
 
 def _get_dict_method_if_exists(o: object) -> Dict[str, any]:
@@ -69,6 +77,24 @@ def _sanitize_api_key(d: Dict[str, str]) -> Dict[str, str]:
     return d
 
 
+def _has_arg_unpacking(c: Callable) -> bool:
+    """
+    If the passed callable is a wrapped function, the kwargs unpack will operate on the
+    wrapping function.
+    """
+    params = inspect.signature(c).parameters.values()
+    return any(p.kind == p.VAR_POSITIONAL for p in params)
+
+
+def _has_kwarg_unpacking(c: Callable) -> bool:
+    """
+    If the passed callable is a wrapped function, the kwargs unpack will operate on the
+    wrapping function.
+    """
+    params = inspect.signature(c).parameters.values()
+    return any(p.kind == p.VAR_KEYWORD for p in params)
+
+
 def _sanitize_kwargs(o: object, o_state_as_dict: Dict[str, any]) -> Dict[str, any]:
     """
     Sanitize the object kwargs by...
@@ -85,7 +111,11 @@ def _sanitize_kwargs(o: object, o_state_as_dict: Dict[str, any]) -> Dict[str, an
             f"{o_callable.__class__} is being used for the inferred kwargs."
         )
 
-    return {k: v for k, v in o_state_as_dict.items() if k in required_kwargs + optional_kwargs}
+    if _has_kwarg_unpacking(o_callable) or _has_arg_unpacking(o_callable):
+        # If there is argument unpacking, we can't condense the payload to kawrgs in the constructor
+        return o_state_as_dict
+    else:
+        return {k: v for k, v in o_state_as_dict.items() if k in required_kwargs + optional_kwargs}
 
 
 def object_to_dict(o: object) -> None:
@@ -104,25 +134,50 @@ def object_to_dict(o: object) -> None:
     }
 
 
+def _construct_prompt_template_object(c: Callable, kwargs: Dict[str, any]) -> PromptTemplate:
+    """Construct a PromptTemplate object based on the constructor and kwargs.
+
+    This method is necessary because the `template_vars` cannot be passed directly to the
+    constructor and needs to be set on an instantiated object.
+    """
+    if template := kwargs.pop("template", None):
+        prompt_template = c(template)
+        for k, v in kwargs.items():
+            setattr(prompt_template, k, v)
+
+        return prompt_template
+    else:
+        raise ValueError(
+            "'template' is a required kwargs and is not present in the prompt " "template kwargs."
+        )
+
+
 def dict_to_object(d: Dict[str, str]) -> object:
-    # TODO: make naming convention better
+    if "object_constructor" not in d:
+        raise ValueError("'object_constructor' key not found in dict.")
+    if "object_kwargs" not in d:
+        raise ValueError("'object_kwargs' key not found in dict.")
+
     constructor = d["object_constructor"]
     kwargs = d["object_kwargs"]
 
     import_path, class_name = constructor.rsplit(".", 1)
     module = importlib.import_module(import_path)
-    callable = getattr(module, class_name)
 
-    return callable(**kwargs)
+    if isinstance(module, PromptTemplate):
+        return _construct_prompt_template_object(module, kwargs)
+    else:
+        # Generic object that can be constructed from class __init__ method
+        callable = getattr(module, class_name)
+        return callable(**kwargs)
 
 
 def _deserialize_json_to_dict_of_objects(path: str) -> Dict[str, any]:
-    # TODO: instantiate settings
     with open(path) as f:
         to_deserialize = json.load(f)
 
         output = {}
-        for k,v in to_deserialize.items():
+        for k, v in to_deserialize.items():
             if isinstance(v, list):
                 output.update({k: [dict_to_object(vv) for vv in v]})
             else:
@@ -130,20 +185,12 @@ def _deserialize_json_to_dict_of_objects(path: str) -> Dict[str, any]:
 
         return output
 
-def deserialize_json_to_settings(path: str) -> Settings:
-    settings_dict = _deserialize_json_to_dict_of_objects(path)
 
-    for k, v in settings_dict.items():
-        setattr(Settings, k, v)
-
-    return Settings
-
-def serialize_settings_to_json(settings: Settings, path: str) -> None:
+def _serialize_dict_of_objects_to_json(dict_of_objects: Dict[str, object], path: str) -> None:
     to_serialize = {}
-    settings_dict = settings.__dict__
 
-    for k, v in settings_dict.items():
-        if isinstance(v, list):
+    for k, v in dict_of_objects.items():
+        if isinstance(v, list):  # noqa
             object_json = [object_to_dict(vv) for vv in v]
         else:
             object_json = object_to_dict(v)
@@ -157,3 +204,24 @@ def serialize_settings_to_json(settings: Settings, path: str) -> None:
 
     with open(path, "w") as f:
         json.dump(to_serialize, f, indent=2)
+
+
+def serialize_settings_to_json(settings: Settings, path: str) -> None:
+    _serialize_dict_of_objects_to_json(settings.__dict__, path)
+
+
+def deserialize_json_to_settings(path: str) -> Settings:
+    settings_dict = _deserialize_json_to_dict_of_objects(path)
+
+    for k, v in settings_dict.items():
+        setattr(Settings, k, v)
+
+    return Settings
+
+
+def serialize_engine_kwargs_to_json(engine_kwargs: Dict[str, object], path: str) -> None:
+    _serialize_dict_of_objects_to_json(engine_kwargs, path)
+
+
+def deserialize_json_to_engine_kwargs(path: str) -> Dict[str, object]:
+    return _deserialize_json_to_dict_of_objects(path)
