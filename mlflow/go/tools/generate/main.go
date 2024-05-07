@@ -278,18 +278,19 @@ func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 	// }
 	notImplentedCheck := mkIfStmt(
 		nil,
-		mkBinaryExpr(
-			errNotEqualNil,
-			token.LAND,
-			mkBinaryExpr(
-				mkSelectorExpr("err", "ErrorCode"),
-				token.EQL,
-				mkSelectorExpr("protos", "ErrorCode_NOT_IMPLEMENTED"),
-			)),
-		mkBlockStmt(mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "Next")))))
-
-	// if err != nil {
-	outputErrorCheck := mkIfStmt(nil, errNotEqualNil, mkBlockStmt(returnErr))
+		errNotEqualNil,
+		mkBlockStmt(
+			mkIfStmt(
+				nil,
+				mkBinaryExpr(
+					mkSelectorExpr("err", "ErrorCode"),
+					token.EQL,
+					mkSelectorExpr("protos", "ErrorCode_NOT_IMPLEMENTED"),
+				),
+				mkBlockStmt(mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "Next")))),
+			),
+			mkReturnStmt(ast.NewIdent("err"))),
+	)
 
 	// return ctx.JSON(&output)
 	returnExpr := mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "JSON"), mkAmpExpr(ast.NewIdent("output"))))
@@ -316,7 +317,6 @@ func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 				validationErrorsCheck,
 				outputExpr,
 				notImplentedCheck,
-				outputErrorCheck,
 				returnExpr,
 			},
 		},
