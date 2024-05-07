@@ -35,7 +35,10 @@ def test_on_start(clear_singleton):
     processor.on_start(span)
 
     mock_client._start_tracked_trace.assert_called_once_with(
-        experiment_id="0", timestamp_ms=5, request_metadata={}
+        experiment_id="0",
+        timestamp_ms=5,
+        request_metadata={},
+        tags={"mlflow.user": "bob", "mlflow.source.name": "test", "mlflow.source.type": "LOCAL"},
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -91,6 +94,7 @@ def test_on_start_with_experiment_id(clear_singleton):
         experiment_id=experiment_id,
         timestamp_ms=5,
         request_metadata={},
+        tags={"mlflow.user": "bob", "mlflow.source.name": "test", "mlflow.source.type": "LOCAL"},
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
