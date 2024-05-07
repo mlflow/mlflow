@@ -609,7 +609,6 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
         "foo": "bar",
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
-        "mlflow.user": "bob",
     }
 
 
@@ -634,7 +633,6 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
         "mlflow.traceName": "test",  # Added by MLflow
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
-        "mlflow.user": "bob",
     }
 
 

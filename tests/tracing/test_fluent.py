@@ -157,7 +157,6 @@ def test_trace_with_databricks_tracking_uri(
         "mlflow.artifactLocation": "test",
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
-        "mlflow.user": "bob",
     }
 
     trace_data = traces[0].data
@@ -307,7 +306,6 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
         "mlflow.traceName": "predict",
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
-        "mlflow.user": "bob",
     }
 
     trace = mlflow.get_trace(request_id_1)

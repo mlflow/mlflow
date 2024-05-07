@@ -4,8 +4,10 @@ from unittest import mock
 
 import pytest
 
+import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
@@ -94,7 +96,10 @@ def test_on_start_with_experiment_id(clear_singleton):
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
 
 
-def test_on_start_fallback_to_client_side_request_id(clear_singleton):
+def test_on_start_fallback_to_client_side_request_id(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
     )
@@ -106,7 +111,10 @@ def test_on_start_fallback_to_client_side_request_id(clear_singleton):
     processor.on_start(span)
 
     mock_client._start_tracked_trace.assert_called_once_with(
-        experiment_id="0", timestamp_ms=5, request_metadata={}
+        experiment_id="0",
+        timestamp_ms=5,
+        request_metadata={},
+        tags={"mlflow.user": "bob", "mlflow.source.name": "test", "mlflow.source.type": "LOCAL"},
     )
     # When the backend returns an error, the request_id is generated at client side from trace_id
     expected_request_id = encode_trace_id(_TRACE_ID)
