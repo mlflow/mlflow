@@ -230,6 +230,8 @@ def save_model(
     """
     import sklearn
 
+    raise Exception("DO NOT USE THIS FUNCTION")
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
