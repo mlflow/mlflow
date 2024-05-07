@@ -1680,3 +1680,15 @@ def test_pyfunc_as_code_log_and_load(tmp_path):
     context, model_input = "context", "input"
     expected_output = f"Predict called with context {context} and input {model_input}"
     assert loaded_model.predict(context=context, model_input=model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_wrong_path():
+    with pytest.raises(
+        MlflowException,
+        match="If the provided model",
+    ):
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                python_model="asdf",
+                artifact_path="model",
+            )
