@@ -857,6 +857,7 @@ def read_data(artifact_path):
         return pd.read_json(artifact_path, orient="split")
     if artifact_path.endswith(".parquet"):
         return pd.read_parquet(artifact_path)
+    raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
 
 
 @pytest.mark.skipif(
