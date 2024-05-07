@@ -85,10 +85,10 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.GetExperimentByName(input)
-		if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
-			return ctx.Next()
-		}
 		if err != nil {
+		    if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+			    return ctx.Next()
+		    }
 			return err
 		}
 		return ctx.JSON(&output)
