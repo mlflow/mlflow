@@ -85,10 +85,7 @@ def _extract_score_and_justification(text):
                 justification = f"Failed to extract score and justification. Raw output: {text}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
-            return (
-                None,
-                f"Failed to extract score and justification. Raw output: {text}",
-            )
+            return None, f"Failed to extract score and justification. Raw output: {text}"
 
         return score, justification
 
