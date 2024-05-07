@@ -361,7 +361,6 @@ def save_model(
         )
         model_data_kwargs = {}
 
-    # TODO: Pass model_config to pyfunc
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -371,6 +370,7 @@ def save_model(
         predict_stream_fn="predict_stream",
         streamable=streamable,
         model_code_path=model_code_path,
+        model_config=model_config,
         **model_data_kwargs,
     )
 
