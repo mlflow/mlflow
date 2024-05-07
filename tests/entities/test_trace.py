@@ -6,15 +6,18 @@ import pytest
 from packaging.version import Version
 
 import mlflow
+import mlflow.tracking.context.default_context
 from mlflow.entities import SpanType
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.tracking.context import registry
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import get_traces
 
 
-def test_json_deserialization(clear_singleton):
+def test_json_deserialization(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     datetime_now = datetime.now()
 
     class TestModel:
@@ -44,7 +47,7 @@ def test_json_deserialization(clear_singleton):
     trace_json = trace.to_json()
 
     trace_json_as_dict = json.loads(trace_json)
-    expected_dict = {
+    assert trace_json_as_dict == {
         "info": {
             "request_id": trace.info.request_id,
             "experiment_id": "0",
@@ -57,6 +60,9 @@ def test_json_deserialization(clear_singleton):
             },
             "tags": {
                 "mlflow.traceName": "predict",
+                "mlflow.source.name": "test",
+                "mlflow.source.type": "LOCAL",
+                "mlflow.user": "bob",
             },
         },
         "data": {
@@ -109,8 +115,6 @@ def test_json_deserialization(clear_singleton):
             ],
         },
     }
-    expected_dict["info"]["tags"].update(registry.resolve_tags())
-    assert trace_json_as_dict == expected_dict
 
 
 @pytest.mark.skipif(

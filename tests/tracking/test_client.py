@@ -25,6 +25,7 @@ from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -38,7 +39,6 @@ from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
 from mlflow.tracking._tracking_service.utils import _register
-from mlflow.tracking.context import registry
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -480,7 +480,9 @@ def test_log_trace_with_databricks_tracking_uri(
     clear_singleton, mock_store_for_tracing, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
-    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "bob")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
     monkeypatch.setattr(
@@ -538,16 +540,12 @@ def test_log_trace_with_databricks_tracking_uri(
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
-
-    resolved_tags = registry.resolve_tags()
-    expected_tags = {
+    assert trace_info.tags == {
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
         "mlflow.user": "bob",
         "tag": "tag_value",
     }
-    expected_tags.update(resolved_tags)
-    assert trace_info.tags == expected_tags
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 1, "y": 2}'
@@ -592,7 +590,10 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
         mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
 
 
-def test_set_and_delete_trace_tag_on_active_trace(clear_singleton):
+def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
     client = mlflow.tracking.MlflowClient()
 
     root_span = client.start_trace(name="test")
@@ -601,9 +602,13 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    expected_tags = {"mlflow.traceName": "test", "foo": "bar"}
-    expected_tags.update(registry.resolve_tags())
-    assert trace.info.tags == expected_tags
+    assert trace.info.tags == {
+        "mlflow.traceName": "test",
+        "foo": "bar",
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+        "mlflow.user": "bob",
+    }
 
 
 def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
@@ -611,7 +616,10 @@ def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
     mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
 
 
-def test_delete_trace_tag_on_active_trace(clear_singleton):
+def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
     client = mlflow.tracking.MlflowClient()
     root_span = client.start_trace(name="test", tags={"foo": "bar", "baz": "qux"})
     request_id = root_span.request_id
@@ -619,12 +627,13 @@ def test_delete_trace_tag_on_active_trace(clear_singleton):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    expected_tags = {
+    assert trace.info.tags == {
         "baz": "qux",
         "mlflow.traceName": "test",  # Added by MLflow
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+        "mlflow.user": "bob",
     }
-    expected_tags.update(registry.resolve_tags())
-    assert trace.info.tags == expected_tags
 
 
 def test_delete_trace_tag_on_logged_trace(mock_store, clear_singleton):
