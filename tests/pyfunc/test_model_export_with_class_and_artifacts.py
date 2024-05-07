@@ -1664,15 +1664,9 @@ def test_model_log_with_resources(tmp_path):
 
 
 def test_pyfunc_as_code_log_and_load(tmp_path):
-    with open("tests/pyfunc/pyfunc_sample_code.py") as file:
-        file_content = file.read()
-
-    temp_file = tmp_path / "model.py"
-    temp_file.write_text(file_content)
-
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=str(temp_file),
+            python_model="tests/pyfunc/pyfunc_sample_code.py",
             artifact_path="model",
         )
 

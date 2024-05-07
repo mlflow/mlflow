@@ -415,7 +415,12 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME, MODEL_CONFIG
+from mlflow.models.model import (
+    _DATABRICKS_FS_LOADER_MODULE,
+    MLMODEL_FILE_NAME,
+    MODEL_CODE_PATH,
+    MODEL_CONFIG,
+)
 from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
@@ -522,9 +527,6 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
-MODEL_CONFIG = "config"
-_MODEL_CODE_PATH = "model_code_path"
-
 _MODEL_DATA_SUBPATH = "data"
 
 
@@ -550,6 +552,7 @@ def add_to_model(
     conda_env=None,
     python_env=None,
     model_config=None,
+    model_code_path=None,
     **kwargs,
 ):
     """
@@ -597,6 +600,8 @@ def add_to_model(
             params[ENV][EnvType.VIRTUALENV] = python_env
     if model_config:
         params[MODEL_CONFIG] = model_config
+    if model_code_path:
+        params[MODEL_CODE_PATH] = model_code_path
     return model.add_flavor(FLAVOR_NAME, **params)
 
 
@@ -968,15 +973,6 @@ def load_model(
     model_config = _get_overridden_pyfunc_model_config(conf_model_config, model_config, _logger)
     conf.update({MODEL_CONFIG: model_config})
 
-    # TODO: improve this logic if we start allowing code with custom loader modules
-    if conf.get(_MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
-        flavor_code_path = conf.get(_MODEL_CODE_PATH)
-        code_path = os.path.join(
-            local_path,
-            os.path.basename(flavor_code_path),
-        )
-        return _load_model_code_path(code_path, model_config)
-
     try:
         if model_config:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
@@ -1001,6 +997,14 @@ def load_model(
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
+    # TODO: improve this logic if we start allowing code with custom loader modules
+    if conf.get(MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
+        flavor_code_path = conf.get(MODEL_CODE_PATH)
+        code_path = os.path.join(
+            local_path,
+            os.path.basename(flavor_code_path),
+        )
+        return _load_model_code_path(code_path)
     return PyFuncModel(
         model_meta=model_meta,
         model_impl=model_impl,
