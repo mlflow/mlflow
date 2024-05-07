@@ -63,6 +63,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
+from mlflow.store._unity_catalog.lineage.constants import (
+    _DATABRICKS_LINEAGE_ID_HEADER,
+    _DATABRICKS_ORG_ID_HEADER,
+)
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.rest_store import BaseRestStore
@@ -91,8 +95,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 
-_DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
-_DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -767,11 +769,16 @@ class UcModelRegistryStore(BaseRestStore):
                 self.get_host_creds(), model_version.name, model_version.version
             )
 
-        scoped_token = self._get_temporary_model_version_write_credentials(
-            name=model_version.name, version=model_version.version
-        )
+        def base_credential_refresh_def():
+            return self._get_temporary_model_version_write_credentials(
+                name=model_version.name, version=model_version.version
+            )
+
+        scoped_token = base_credential_refresh_def()
         return get_artifact_repo_from_storage_info(
-            storage_location=model_version.storage_location, scoped_token=scoped_token
+            storage_location=model_version.storage_location,
+            scoped_token=scoped_token,
+            base_credential_refresh_def=base_credential_refresh_def,
         )
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):

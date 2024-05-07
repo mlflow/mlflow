@@ -850,11 +850,22 @@ def test_search_runs_multiple_experiments():
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_3 < 4", ViewType.ALL)) == 1
 
 
+def read_data(artifact_path):
+    import pandas as pd
+
+    if artifact_path.endswith(".json"):
+        return pd.read_json(artifact_path, orient="split")
+    if artifact_path.endswith(".parquet"):
+        return pd.read_parquet(artifact_path)
+    raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
+
+
 @pytest.mark.skipif(
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_log_table():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_log_table(file_type):
     import pandas as pd
 
     table_dict = {
@@ -862,7 +873,7 @@ def test_log_table():
         "outputs": ["MLflow is ...", "Databricks is ..."],
         "toxicity": [0.0, 0.0],
     }
-    artifact_file = "qabot_eval_results.json"
+    artifact_file = f"qabot_eval_results.{file_type}"
     TAG_NAME = "mlflow.loggedArtifacts"
     run_id = None
 
@@ -881,7 +892,7 @@ def test_log_table():
 
     run = mlflow.get_run(run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    table_data = pd.read_json(artifact_path, orient="split")
+    table_data = read_data(artifact_path)
     assert table_data.shape[0] == 2
     assert table_data.shape[1] == 3
 
@@ -897,7 +908,7 @@ def test_log_table():
 
     run = mlflow.get_run(run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    table_data = pd.read_json(artifact_path, orient="split")
+    table_data = read_data(artifact_path)
     assert table_data.shape[0] == 4
     assert table_data.shape[1] == 3
     # Get the current value of the tag
@@ -905,7 +916,7 @@ def test_log_table():
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
 
-    artifact_file_new = "qabot_eval_results_new.json"
+    artifact_file_new = f"qabot_eval_results_new.{file_type}"
     with mlflow.start_run(run_id=run_id):
         # Log the dataframe as a table to new artifact file
         mlflow.log_table(data=table_df, artifact_file=artifact_file_new)
@@ -914,7 +925,7 @@ def test_log_table():
     artifact_path = mlflow.artifacts.download_artifacts(
         run_id=run_id, artifact_path=artifact_file_new
     )
-    table_data = pd.read_json(artifact_path, orient="split")
+    table_data = read_data(artifact_path)
     assert table_data.shape[0] == 2
     assert table_data.shape[1] == 3
     # Get the current value of the tag
@@ -927,7 +938,8 @@ def test_log_table():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_log_table_with_subdirectory():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_log_table_with_subdirectory(file_type):
     import pandas as pd
 
     table_dict = {
@@ -935,7 +947,7 @@ def test_log_table_with_subdirectory():
         "outputs": ["MLflow is ...", "Databricks is ..."],
         "toxicity": [0.0, 0.0],
     }
-    artifact_file = "dir/foo.json"
+    artifact_file = f"dir/foo.{file_type}"
     TAG_NAME = "mlflow.loggedArtifacts"
     run_id = None
 
@@ -946,7 +958,7 @@ def test_log_table_with_subdirectory():
 
     run = mlflow.get_run(run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    table_data = pd.read_json(artifact_path, orient="split")
+    table_data = read_data(artifact_path)
     assert table_data.shape[0] == 2
     assert table_data.shape[1] == 3
 
@@ -962,7 +974,7 @@ def test_log_table_with_subdirectory():
 
     run = mlflow.get_run(run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    table_data = pd.read_json(artifact_path, orient="split")
+    table_data = read_data(artifact_path)
     assert table_data.shape[0] == 4
     assert table_data.shape[1] == 3
     # Get the current value of the tag
@@ -975,14 +987,15 @@ def test_log_table_with_subdirectory():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_load_table():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_load_table(file_type):
     table_dict = {
         "inputs": ["What is MLflow?", "What is Databricks?"],
         "outputs": ["MLflow is ...", "Databricks is ..."],
         "toxicity": [0.0, 0.0],
     }
-    artifact_file = "qabot_eval_results.json"
-    artifact_file_2 = "qabot_eval_results_2.json"
+    artifact_file = f"qabot_eval_results.{file_type}"
+    artifact_file_2 = f"qabot_eval_results_2.{file_type}"
     run_id_2 = None
 
     with mlflow.start_run() as run:
@@ -1046,7 +1059,7 @@ def test_load_table():
     with pytest.raises(
         MlflowException, match="No runs found with the corresponding table artifact"
     ):
-        mlflow.load_table(artifact_file="error_case.json")
+        mlflow.load_table(artifact_file=f"error_case.{file_type}")
 
     # test 7: load table with no matching extra_column found. Error case
     with pytest.raises(KeyError, match="error_column"):
@@ -1057,7 +1070,8 @@ def test_load_table():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_log_table_with_datetime_columns():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_log_table_with_datetime_columns(file_type):
     import pandas as pd
 
     start_time = str(datetime.now(timezone.utc))
@@ -1066,7 +1080,7 @@ def test_log_table_with_datetime_columns():
         "outputs": ["MLflow is ...", "Databricks is ..."],
         "start_time": [start_time, start_time],
     }
-    artifact_file = "test_time.json"
+    artifact_file = f"test_time.{file_type}"
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
@@ -1074,13 +1088,19 @@ def test_log_table_with_datetime_columns():
         run_id = run.info.run_id
 
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    table_data = pd.read_json(artifact_path, orient="split", convert_dates=False)
+    if file_type == "parquet":
+        table_data = pd.read_parquet(artifact_path)
+    else:
+        table_data = pd.read_json(artifact_path, orient="split", convert_dates=False)
     assert table_data["start_time"][0] == start_time
 
     # append the same table to the same artifact file
     mlflow.log_table(data=table_dict, artifact_file=artifact_file, run_id=run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    df = pd.read_json(artifact_path, orient="split", convert_dates=False)
+    if file_type == "parquet":
+        df = pd.read_parquet(artifact_path)
+    else:
+        df = pd.read_json(artifact_path, orient="split", convert_dates=False)
     assert df["start_time"][2] == start_time
 
 
@@ -1088,9 +1108,9 @@ def test_log_table_with_datetime_columns():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_log_table_with_image_columns():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_log_table_with_image_columns(file_type):
     import numpy as np
-    import pandas as pd
     from PIL import Image
 
     image = mlflow.Image([[1, 2, 3]])
@@ -1099,7 +1119,7 @@ def test_log_table_with_image_columns():
         "outputs": ["MLflow is ...", "Databricks is ..."],
         "image": [image, image],
     }
-    artifact_file = "test_time.json"
+    artifact_file = f"test_time.{file_type}"
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
@@ -1107,7 +1127,7 @@ def test_log_table_with_image_columns():
         run_id = run.info.run_id
 
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    table_data = pd.read_json(artifact_path, orient="split")
+    table_data = read_data(artifact_path)
     assert table_data["image"][0]["type"] == "image"
     image_path = mlflow.artifacts.download_artifacts(
         run_id=run_id, artifact_path=table_data["image"][0]["filepath"]
@@ -1118,7 +1138,7 @@ def test_log_table_with_image_columns():
     # append the same table to the same artifact file
     mlflow.log_table(data=table_dict, artifact_file=artifact_file, run_id=run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    df = pd.read_json(artifact_path, orient="split")
+    df = read_data(artifact_path)
     assert df["image"][2]["type"] == "image"
 
 
@@ -1126,9 +1146,9 @@ def test_log_table_with_image_columns():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_log_table_with_pil_image_columns():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_log_table_with_pil_image_columns(file_type):
     import numpy as np
-    import pandas as pd
     from PIL import Image
 
     image = Image.fromarray(np.array([[1.0, 2.0, 3.0]]))
@@ -1139,7 +1159,7 @@ def test_log_table_with_pil_image_columns():
         "outputs": ["MLflow is ...", "Databricks is ..."],
         "image": [image, image],
     }
-    artifact_file = "test_time.json"
+    artifact_file = f"test_time.{file_type}"
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
@@ -1147,7 +1167,7 @@ def test_log_table_with_pil_image_columns():
         run_id = run.info.run_id
 
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    table_data = pd.read_json(artifact_path, orient="split")
+    table_data = read_data(artifact_path)
     assert table_data["image"][0]["type"] == "image"
     image_path = mlflow.artifacts.download_artifacts(
         run_id=run_id, artifact_path=table_data["image"][0]["filepath"]
@@ -1158,7 +1178,7 @@ def test_log_table_with_pil_image_columns():
     # append the same table to the same artifact file
     mlflow.log_table(data=table_dict, artifact_file=artifact_file, run_id=run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
-    df = pd.read_json(artifact_path, orient="split")
+    df = read_data(artifact_path)
     assert df["image"][2]["type"] == "image"
 
 
@@ -1166,14 +1186,15 @@ def test_log_table_with_pil_image_columns():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_log_table_with_invalid_image_columns():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_log_table_with_invalid_image_columns(file_type):
     image = mlflow.Image([[1, 2, 3]])
     table_dict = {
         "inputs": ["What is MLflow?", "What is Databricks?"],
         "outputs": ["MLflow is ...", "Databricks is ..."],
         "image": [image, "text"],
     }
-    artifact_file = "test_time.json"
+    artifact_file = f"test_time.{file_type}"
     with pytest.raises(ValueError, match="Column `image` contains a mix of images and non-images"):
         with mlflow.start_run():
             # Log the dictionary as a table
@@ -1184,7 +1205,8 @@ def test_log_table_with_invalid_image_columns():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
-def test_log_table_with_valid_image_columns():
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_log_table_with_valid_image_columns(file_type):
     class ImageObj:
         def __init__(self):
             self.size = (1, 1)
@@ -1205,7 +1227,7 @@ def test_log_table_with_valid_image_columns():
         "image": [image, image_obj],
     }
     # No error should be raised
-    artifact_file = "test_time.json"
+    artifact_file = f"test_time.{file_type}"
     with mlflow.start_run():
         # Log the dictionary as a table
         mlflow.log_table(data=table_dict, artifact_file=artifact_file)

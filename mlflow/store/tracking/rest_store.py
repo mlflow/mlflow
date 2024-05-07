@@ -1,6 +1,7 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, ViewType
+from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -9,10 +10,14 @@ from mlflow.protos.service_pb2 import (
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
+    DeleteTraces,
+    DeleteTraceTag,
+    EndTrace,
     GetExperiment,
     GetExperimentByName,
     GetMetricHistory,
     GetRun,
+    GetTraceInfo,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -23,18 +28,27 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchRuns,
+    SearchTraces,
     SetExperimentTag,
     SetTag,
+    SetTraceTag,
+    StartTrace,
+    TraceRequestMetadata,
+    TraceTag,
     UpdateExperiment,
     UpdateRun,
 )
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_set_trace_tag_endpoint,
+    get_single_trace_endpoint,
+    get_trace_info_endpoint,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -54,8 +68,13 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body):
-        endpoint, method = _METHOD_TO_INFO[api]
+    def _call_endpoint(self, api, json_body, endpoint=None):
+        if endpoint:
+            # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
+            # /mlflow/traces/{request_id}/info.
+            _, method = _METHOD_TO_INFO[api]
+        else:
+            endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
@@ -186,6 +205,180 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(CreateRun, req_body)
         return Run.from_proto(response_proto.run)
+
+    def start_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        request_metadata_proto = []
+        for key, value in request_metadata.items():
+            attr = TraceRequestMetadata()
+            attr.key = key
+            attr.value = value
+            request_metadata_proto.append(attr)
+
+        tags_proto = []
+        for key, value in tags.items():
+            tag = TraceTag()
+            tag.key = key
+            tag.value = value
+            tags_proto.append(tag)
+
+        req_body = message_to_json(
+            StartTrace(
+                experiment_id=str(experiment_id),
+                timestamp_ms=timestamp_ms,
+                request_metadata=request_metadata_proto,
+                tags=tags_proto,
+            )
+        )
+        response_proto = self._call_endpoint(StartTrace, req_body)
+        return TraceInfo.from_proto(response_proto.trace_info)
+
+    def end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        request_metadata_proto = []
+        for key, value in request_metadata.items():
+            attr = TraceRequestMetadata()
+            attr.key = key
+            attr.value = value
+            request_metadata_proto.append(attr)
+
+        tags_proto = []
+        for key, value in tags.items():
+            tag = TraceTag()
+            tag.key = key
+            tag.value = value
+            tags_proto.append(tag)
+
+        req_body = message_to_json(
+            EndTrace(
+                request_id=request_id,
+                timestamp_ms=timestamp_ms,
+                status=status.to_proto(),
+                request_metadata=request_metadata_proto,
+                tags=tags_proto,
+            )
+        )
+        # EndTrace endpoint is a dynamic path built with the request_id
+        endpoint = get_single_trace_endpoint(request_id)
+        response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
+        return TraceInfo.from_proto(response_proto.trace_info)
+
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> int:
+        req_body = message_to_json(
+            DeleteTraces(
+                experiment_id=experiment_id,
+                max_timestamp_millis=max_timestamp_millis,
+                max_traces=max_traces,
+                request_ids=request_ids,
+            )
+        )
+        res = self._call_endpoint(DeleteTraces, req_body)
+        return res.traces_deleted
+
+    def get_trace_info(self, request_id):
+        """
+        Get the trace matching the `request_id`.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        req_body = message_to_json(GetTraceInfo(request_id=request_id))
+        endpoint = get_trace_info_endpoint(request_id)
+        response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
+        return TraceInfo.from_proto(response_proto.trace_info)
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        st = SearchTraces(
+            experiment_ids=experiment_ids,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+        req_body = message_to_json(st)
+        response_proto = self._call_endpoint(SearchTraces, req_body)
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        req_body = message_to_json(SetTraceTag(key=key, value=value))
+        self._call_endpoint(SetTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id))
+
+    def delete_trace_tag(self, request_id: str, key: str):
+        """
+        Delete a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        req_body = message_to_json(DeleteTraceTag(key=key))
+        self._call_endpoint(
+            DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
+        )
 
     def log_metric(self, run_id, metric):
         """

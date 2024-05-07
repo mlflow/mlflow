@@ -5,6 +5,7 @@ import math
 import operator
 import re
 import shlex
+from typing import Any, Dict
 
 import sqlparse
 from packaging.version import Version
@@ -24,6 +25,7 @@ from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_IN
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
@@ -513,6 +515,12 @@ class SearchUtils:
                 )
             return True
         return False
+
+    @classmethod
+    def is_attribute(cls, key_type, key_name, comparator):
+        return cls.is_string_attribute(key_type, key_name, comparator) or cls.is_numeric_attribute(
+            key_type, key_name, comparator
+        )
 
     @classmethod
     def is_string_attribute(cls, key_type, key_name, comparator):
@@ -1423,3 +1431,95 @@ class SearchModelVersionUtils(SearchUtils):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._process_statement(parsed[0])
+
+
+class SearchTraceUtils(SearchUtils):
+    """
+    Utility class for searching traces.
+    """
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "request_id",
+        "timestamp",
+        "timestamp_ms",
+        "execution_time",
+        "execution_time_ms",
+        "status",
+        # The following keys are mapped to tags or metadata
+        "name",
+        "run_id",
+    }
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = {
+        "experiment_id",
+        "timestamp",
+        "timestamp_ms",
+        "execution_time",
+        "execution_time_ms",
+        "status",
+        # The following keys are mapped to tags or metadata
+        "name",
+        "run_id",
+    }
+
+    NUMERIC_ATTRIBUTES = {
+        "timestamp_ms",
+        "timestamp",
+        "execution_time_ms",
+        "execution_time",
+    }
+
+    _TAG_IDENTIFIER = "tag"
+    _REQUEST_METADATA_IDENTIFIER = "request_metadata"
+
+    # Some search keys are defined differently in the DB models.
+    # E.g. "name" is mapped to TraceTagKey.TRACE_NAME
+    SEARCH_KEY_TO_TAG = {
+        "name": TraceTagKey.TRACE_NAME,
+    }
+    SEARCH_KEY_TO_METADATA = {
+        "run_id": TraceMetadataKey.SOURCE_RUN,
+    }
+    # Alias for attribute keys
+    SEARCH_KEY_TO_ATTRIBUTE = {
+        "timestamp": "timestamp_ms",
+        "execution_time": "execution_time_ms",
+    }
+
+    @classmethod
+    def parse_order_by_for_search_traces(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
+        identifier = cls._replace_key_to_tag_or_metadata(identifier)
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def parse_search_filter_for_search_traces(cls, filter_string):
+        parsed = cls.parse_search_filter(filter_string)
+        return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
+
+    @classmethod
+    def _replace_key_to_tag_or_metadata(cls, parsed: Dict[str, Any]):
+        """
+        Replace search key to tag or metadata key if it is in the mapping.
+        """
+        key = parsed.get("key").lower()
+        if key in cls.SEARCH_KEY_TO_TAG:
+            parsed["type"] = cls._TAG_IDENTIFIER
+            parsed["key"] = cls.SEARCH_KEY_TO_TAG[key]
+        elif key in cls.SEARCH_KEY_TO_METADATA:
+            parsed["type"] = cls._REQUEST_METADATA_IDENTIFIER
+            parsed["key"] = cls.SEARCH_KEY_TO_METADATA[key]
+        elif key in cls.SEARCH_KEY_TO_ATTRIBUTE:
+            parsed["key"] = cls.SEARCH_KEY_TO_ATTRIBUTE[key]
+        return parsed
+
+    @classmethod
+    def is_request_metadata(cls, key_type, comparator):
+        if key_type == cls._REQUEST_METADATA_IDENTIFIER:
+            # Request metadata accepts the same set of comparators as tags
+            if comparator not in cls.VALID_TAG_COMPARATORS:
+                raise MlflowException(
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'"
+                )
+            return True
+        return False

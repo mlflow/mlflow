@@ -17,6 +17,8 @@ from decimal import Decimal
 from types import FunctionType
 from typing import Any, Dict, Optional
 
+from packaging.version import Version
+
 import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities import RunTag
@@ -115,6 +117,7 @@ class EvaluationMetric:
             ``"root_mean_squared_error"`` for ``"mse"``.
         version: (Optional) The metric version. For example ``v1``.
         metric_details: (Optional) A description of the metric and how it is calculated.
+        metric_metadata: (Optional) A dictionary containing metadata for the metric.
     '''
 
     def __init__(
@@ -125,6 +128,7 @@ class EvaluationMetric:
         long_name=None,
         version=None,
         metric_details=None,
+        metric_metadata=None,
     ):
         self.eval_fn = eval_fn
         self.name = name
@@ -132,6 +136,7 @@ class EvaluationMetric:
         self.long_name = long_name or name
         self.version = version
         self.metric_details = metric_details
+        self.metric_metadata = metric_metadata
 
     def __str__(self):
         parts = [f"name={self.name}, greater_is_better={self.greater_is_better}"]
@@ -142,6 +147,8 @@ class EvaluationMetric:
             parts.append(f"version={self.version}")
         if self.metric_details:
             parts.append(f"metric_details={self.metric_details}")
+        if self.metric_metadata:
+            parts.append(f"metric_metadata={self.metric_metadata}")
 
         return "EvaluationMetric(" + ", ".join(parts) + ")"
 
@@ -154,6 +161,7 @@ def make_metric(
     long_name=None,
     version=None,
     metric_details=None,
+    metric_metadata=None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -201,6 +209,7 @@ def make_metric(
             for ``"mse"``.
         version: (Optional) The metric version. For example ``v1``.
         metric_details: (Optional) A description of the metric and how it is calculated.
+        metric_metadata: (Optional) A dictionary containing metadata for the metric.
 
     .. seealso::
 
@@ -247,7 +256,15 @@ def make_metric(
             "name to enable creation of derived metrics that use the given metric."
         )
 
-    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, metric_details)
+    return EvaluationMetric(
+        eval_fn,
+        name,
+        greater_is_better,
+        long_name,
+        version,
+        metric_details,
+        metric_metadata,
+    )
 
 
 @developer_stable
@@ -516,7 +533,10 @@ def _hash_array_like_obj_as_bytes(data):
                 return _hash_data_as_bytes(v)
             return v
 
-        data = data.applymap(_hash_array_like_element_as_bytes)
+        if Version(pd.__version__) >= Version("2.1.0"):
+            data = data.map(_hash_array_like_element_as_bytes)
+        else:
+            data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
         # convert numpy array of lists into numpy array of the string representation of the lists
@@ -619,7 +639,8 @@ class EvaluationDataset:
 
         if self._has_predictions:
             _validate_dataset_type_supports_predictions(
-                data=data, supported_predictions_dataset_types=self._supported_dataframe_types
+                data=data,
+                supported_predictions_dataset_types=self._supported_dataframe_types,
             )
 
         has_targets = targets is not None

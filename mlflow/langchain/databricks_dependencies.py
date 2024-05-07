@@ -41,7 +41,6 @@ def _extract_databricks_dependencies_from_retriever(
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY].append(index.name)
             dependency_dict[_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY].append(index.endpoint_name)
             dependency_list.append(DatabricksVectorSearchIndex(index_name=index.name))
-            dependency_list.append(DatabricksServingEndpoint(endpoint_name=index.endpoint_name))
 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
