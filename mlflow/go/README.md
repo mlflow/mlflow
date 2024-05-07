@@ -4,14 +4,14 @@ In order to increase the performance of the `mlflow server` command, we propose 
 
 ## General setup
 
-To ensure we stay compatible with the Python implementation, we aim to generate as much as possible based on the `.proto` files in `/mlflow/protos`.
+To ensure we stay compatible with the Python implementation, we aim to generate as much as possible based on the `.proto` files in [/mlflow/protos](../protos/service.proto).
 
-By running `./dev/generate-protos.sh` Go code will be generated.
+By running [dev/generate-protos.sh](../dev/generate-protos.sh) Go code will be generated.
 This incudes:
 
-- Structs for each endpoint. (`/mlflow/go/pkg/protos`)
-- Go interfaces for each service. (`/mlflow/go/pkg/contract/interfaces.g.go`)
-- [fiber](https://gofiber.io/) routes for each point. (`/mlflow/go/pkg/contract/interfaces.g.go`)
+- Structs for each endpoint. ([mlflow/go/pkg/protos](./pkg/protos/service.pb.go))
+- Go interfaces for each service. ([mlflow/go/pkg/contract/interfaces.g.go](./pkg/contract/interface.g.go))
+- [fiber](https://gofiber.io/) routes for each point. ([mlflow/go/pkg/contract/interfaces.g.go](./pkg/contract/interface.g.go))
 
 If there is any change in the proto files, this should ripple into the Go code.
 
@@ -26,6 +26,15 @@ mlflow server --backend-store-uri postgresql://postgres:postgres@localhost:5432/
 This will launch the python process as usual. Within Python, a random port is chose to start the existing server.
 And a Go child process is spawn. The Go server will use the user specified port (5000 by default).
 Any incoming requests the Go server cannot process will be proxied to the existing Python server.
+
+## Request validation
+
+We use [Go validator](https://github.com/go-playground/validator) to validate all incoming request structs.
+As the proto files don't specify any validation rules, we map them manually in [mlflow/go/tools/generate/validations.go](./tools/generate/validations.go).
+
+Once the mapping has been done, validation will be invoked automatically in the generated fiber code.
+
+When the need arises, we can write custom validation function in [mlflow/go/pkg/server/validation.go](./pkg/server/validation.go).
 
 ## Data access
 
