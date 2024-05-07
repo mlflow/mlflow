@@ -853,9 +853,9 @@ def test_search_runs_multiple_experiments():
 def read_data(artifact_path):
     import pandas as pd
 
-    if artifact_path.endswith("json"):
+    if artifact_path.endswith(".json"):
         return pd.read_json(artifact_path, orient="split")
-    if artifact_path.endswith("parquet"):
+    if artifact_path.endswith(".parquet"):
         return pd.read_parquet(artifact_path)
 
 
