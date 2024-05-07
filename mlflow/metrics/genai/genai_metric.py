@@ -546,11 +546,7 @@ def make_genai_metric(
 
     signature_parameters = [
         Parameter("predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
-        Parameter(
-            "metrics",
-            Parameter.POSITIONAL_OR_KEYWORD,
-            annotation=Dict[str, MetricValue],
-        ),
+        Parameter("metrics", Parameter.POSITIONAL_OR_KEYWORD, annotation=Dict[str, MetricValue]),
         Parameter("inputs", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
     ]
 

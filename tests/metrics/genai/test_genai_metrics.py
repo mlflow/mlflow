@@ -246,11 +246,7 @@ def test_make_genai_metric_correct_response():
         }
         assert metric_value.scores == [3]
         assert metric_value.justifications == [openai_justification1]
-        assert metric_value.aggregate_results == {
-            "mean": 3.0,
-            "p90": 3.0,
-            "variance": 0.0,
-        }
+        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
 
 
 def test_make_genai_metric_supports_string_value_for_grading_context_columns():
@@ -326,11 +322,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
         }
         assert metric_value.scores == [3]
         assert metric_value.justifications == [openai_justification1]
-        assert metric_value.aggregate_results == {
-            "mean": 3.0,
-            "p90": 3.0,
-            "variance": 0.0,
-        }
+        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
 
 
 def test_make_genai_metric_incorrect_response():
@@ -425,10 +417,7 @@ def test_make_genai_metric_multiple():
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
-        side_effect=[
-            properly_formatted_openai_response1,
-            properly_formatted_openai_response2,
-        ],
+        side_effect=[properly_formatted_openai_response1, properly_formatted_openai_response2],
     ):
         metric_value = custom_metric.eval_fn(
             pd.Series(
@@ -547,8 +536,7 @@ def test_make_genai_metric_failure():
 )
 def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
     with pytest.raises(
-        MlflowException,
-        match="Example grading context does not contain required columns",
+        MlflowException, match="Example grading context does not contain required columns"
     ):
         make_genai_metric(
             name="correctness",
@@ -654,10 +642,7 @@ def test_similarity_metric():
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
         metric_value = similarity_metric.eval_fn(
-            pd.Series([mlflow_prediction]),
-            {},
-            pd.Series([input]),
-            pd.Series([mlflow_ground_truth]),
+            pd.Series([mlflow_prediction]), {}, pd.Series([input]), pd.Series([mlflow_ground_truth])
         )
 
         assert mock_predict_function.call_count == 1
@@ -780,8 +765,7 @@ def test_faithfulness_metric():
     }
 
     with pytest.raises(
-        MlflowException,
-        match="Failed to find faithfulness metric for version non-existent-version",
+        MlflowException, match="Failed to find faithfulness metric for version non-existent-version"
     ):
         faithfulness_metric = faithfulness(
             model="gateway:/gpt-3.5-turbo",
@@ -1006,8 +990,7 @@ def test_relevance_metric():
     }
 
     with pytest.raises(
-        MlflowException,
-        match="Failed to find relevance metric for version non-existent-version",
+        MlflowException, match="Failed to find relevance metric for version non-existent-version"
     ):
         relevance_metric = relevance(
             model="gateway:/gpt-3.5-turbo",
