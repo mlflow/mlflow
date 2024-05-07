@@ -50,7 +50,8 @@ def test_on_start(clear_singleton):
 
 
 @pytest.mark.skipif(is_windows(), reason="Timestamp is not precise enough on Windows")
-def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singleton):
+def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singleton, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     mock_client = mock.MagicMock()
 
@@ -94,7 +95,8 @@ def test_on_start_with_experiment_id(clear_singleton):
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
 
 
-def test_on_start_fallback_to_client_side_request_id(clear_singleton):
+def test_on_start_fallback_to_client_side_request_id(clear_singleton, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
     )
