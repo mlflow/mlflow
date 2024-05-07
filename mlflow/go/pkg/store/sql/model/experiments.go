@@ -39,7 +39,7 @@ func (e Experiment) ToProto() *protos.Experiment {
 	}
 }
 
-func FromCreateExperiment(proto *protos.CreateExperiment) Experiment {
+func NewExperimentFromProto(proto *protos.CreateExperiment) Experiment {
 	tags := make([]ExperimentTag, len(proto.Tags))
 	for i, tag := range proto.Tags {
 		tags[i] = ExperimentTag{

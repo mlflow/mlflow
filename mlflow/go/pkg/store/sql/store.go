@@ -24,7 +24,7 @@ func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
 }
 
 func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, error) {
-	experiment := model.FromCreateExperiment(input)
+	experiment := model.NewExperimentFromProto(input)
 	err := s.db.Create(&experiment).Error
 	return experiment.ExperimentID, err
 }
