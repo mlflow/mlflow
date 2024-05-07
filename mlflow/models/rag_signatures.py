@@ -15,7 +15,7 @@ class ChatCompletionRequest:
 @dataclass
 class MultiturnChatRequest:
     query: str = "What is mlflow?"
-    history: Optional[List[Message]] = field(default_factory=list)
+    history: Optional[List[Message]] = field(default_factory=lambda: [Message()])
 
 @dataclass
 class ChainCompletionChoice:

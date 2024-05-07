@@ -1,5 +1,6 @@
 import dataclasses
 import json
+from typing import Union
 
 from mlflow.models import rag_signatures
 
@@ -26,33 +27,28 @@ def deserialize_dataclass(json_data, cls):
         elif hasattr(cls, '__origin__') and cls.__origin__ is list:  # Check for List
             item_type = cls.__args__[0]
             return [from_serializable(item, item_type) for item in data]
+        elif hasattr(cls, '__origin__') and cls.__origin__ is Union: # Check for Union
+            for item_type in cls.__args__:
+                try:
+                    return from_serializable(data, item_type)
+                except:
+                    pass
+            raise ValueError(f"Could not deserialize {data} as {cls}")
         else:
             return data
 
     return from_serializable(data, cls)
 
 
+def serialize_and_deserialize(dataclass_instance):
+    ser = serialize_dataclass(dataclass_instance)
+    print(ser)
+    de = deserialize_dataclass(ser, type(dataclass_instance))
+    print(de)
+    assert de == dataclass_instance
+
 def test_serialize_dataclass():
-    ser = serialize_dataclass(rag_signatures.Message())
-    print(ser)
-    de = deserialize_dataclass(ser, rag_signatures.Message)
-    print(de)
-    assert de == rag_signatures.Message()
-
-    ser = serialize_dataclass(rag_signatures.ChatCompletionRequest())
-    print(ser)
-    de = deserialize_dataclass(ser, rag_signatures.ChatCompletionRequest)
-    print(de)
-    assert de == rag_signatures.ChatCompletionRequest()
-
-    ser = serialize_dataclass(rag_signatures.MultiturnChatRequest())
-    print(ser)
-    de = deserialize_dataclass(ser, rag_signatures.MultiturnChatRequest)
-    print(de)
-    assert de == rag_signatures.MultiturnChatRequest()
-
-    ser = serialize_dataclass(rag_signatures.MultiturnChatRequest(query="foo", history=[rag_signatures.Message(role="system", content="bar")]))
-    print(ser)
-    de = deserialize_dataclass(ser, rag_signatures.MultiturnChatRequest)
-    print(de)
-    assert de == rag_signatures.MultiturnChatRequest(query="foo", history=[rag_signatures.Message(role="system", content="bar")])
+    serialize_and_deserialize(rag_signatures.Message())
+    serialize_and_deserialize(rag_signatures.ChatCompletionRequest())
+    serialize_and_deserialize(rag_signatures.MultiturnChatRequest())
+    serialize_and_deserialize(rag_signatures.MultiturnChatRequest(query="foo", history=[rag_signatures.Message(role="system", content="bar")]))
