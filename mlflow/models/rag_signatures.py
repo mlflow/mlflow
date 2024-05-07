@@ -20,19 +20,31 @@ class MultiturnChatRequest:
 @dataclass
 class ChainCompletionChoice:
     index: int = 0
-    message: Message = field(default_factory=lambda: Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle."))
+    message: Message = field(
+        default_factory=lambda: Message(
+            role="assistant",
+            content="MLflow is an open source platform for the machine learning lifecycle."
+        )
+    )
     finish_reason: str = "stop"
-
 @dataclass
 class ChainCompletionChunk:
     index: int = 0
-    delta: Message = field(default_factory=lambda: Message(role="assistant", content="MLflow is an open source platform for the complete machine learning lifecycle."))
+    delta: Message = field(
+        default_factory=lambda: Message(
+            role="assistant",
+            content="MLflow is an open source platform for the machine learning lifecycle."
+        )
+    )
     finish_reason: str = "stop"
 
 @dataclass
 class ChatCompletionResponse:
-    choices: Union[List[ChainCompletionChoice], List[ChainCompletionChunk]] = field(default_factory=lambda: [ChainCompletionChoice()])
+    choices: Union[
+        List[ChainCompletionChoice],
+        List[ChainCompletionChunk]
+    ] = field(default_factory=lambda: [ChainCompletionChoice()])
 
 @dataclass
 class StringResponse:
-    content: str = "MLflow is an open source platform for the complete machine learning lifecycle."
+    content: str = "MLflow is an open source platform for the machine learning lifecycle."

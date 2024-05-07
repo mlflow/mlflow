@@ -5,8 +5,9 @@ import json
 import string
 import warnings
 from copy import deepcopy
+from dataclasses import is_dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union, get_args, get_origin
 
 import numpy as np
 
@@ -1329,19 +1330,6 @@ class ParamSchema:
     def __repr__(self) -> str:
         return repr(self.params)
 
-from dataclasses import is_dataclass
-from typing import List, Optional, Union, get_args, get_origin
-
-
-def strip_typing(obj):
-    """
-    Strip the typing module from the object
-    """
-    if hasattr(obj, "__origin__"):
-        return obj.__origin__
-    return obj
-
-
 def convert_dataclass_to_object(cls):
     """
     Create an Object object from a dataclass. The dataclass should have type hints
@@ -1370,15 +1358,39 @@ def convert_dataclass_to_object(cls):
             list_type = get_args(effective_type)[0]
             if is_dataclass(list_type):
                 dtype = convert_dataclass_to_object(list_type)
-                properties.append(Property(name=field_name, dtype=Array(dtype=dtype), required=not is_optional))
+                properties.append(
+                    Property(
+                        name=field_name,
+                        dtype=Array(dtype=dtype),
+                        required=not is_optional
+                    )
+                )
             else:
-                properties.append(Property(name=field_name, dtype=Array(dtype=field_type_mapping[list_type]), required=not is_optional))
+                properties.append(
+                    Property(
+                        name=field_name,
+                        dtype=Array(dtype=field_type_mapping[list_type]),
+                        required=not is_optional
+                    )
+                )
         elif is_dataclass(effective_type):
             # It's a nested dataclass
-            properties.append(Property(name=field_name, dtype=convert_dataclass_to_object(effective_type), required=not is_optional))
+            properties.append(
+                Property(
+                    name=field_name,
+                    dtype=convert_dataclass_to_object(effective_type),
+                    required=not is_optional
+                )
+            )
         else:
             # It's a basic type
-            properties.append(Property(name=field_name, dtype=field_type_mapping[effective_type], required=not is_optional))
+            properties.append(
+                Property(
+                    name=field_name,
+                    dtype=field_type_mapping[effective_type],
+                    required=not is_optional
+                )
+            )
 
     return Object(properties=properties)
 
