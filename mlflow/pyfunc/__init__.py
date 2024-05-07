@@ -984,14 +984,6 @@ def load_model(
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
-    # TODO: improve this logic if we start allowing code with custom loader modules
-    if conf.get(MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
-        flavor_code_path = conf.get(MODEL_CODE_PATH)
-        code_path = os.path.join(
-            local_path,
-            os.path.basename(flavor_code_path),
-        )
-        return _load_model_code_path(code_path)
     return PyFuncModel(
         model_meta=model_meta,
         model_impl=model_impl,
