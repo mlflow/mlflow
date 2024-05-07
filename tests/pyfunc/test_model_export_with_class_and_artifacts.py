@@ -50,7 +50,6 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
-from tests.store import artifact
 
 
 def get_model_class():
