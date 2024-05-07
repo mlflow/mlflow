@@ -11,20 +11,19 @@ This incudes:
 
 - Structs for each endpoint. ([mlflow/go/pkg/protos](./pkg/protos/service.pb.go))
 - Go interfaces for each service. ([mlflow/go/pkg/contract/interfaces.g.go](./pkg/contract/interface.g.go))
-- [fiber](https://gofiber.io/) routes for each point. ([mlflow/go/pkg/contract/interfaces.g.go](./pkg/contract/interface.g.go))
+- [fiber](https://gofiber.io/) routes for each endpoint. ([mlflow/go/pkg/contract/interfaces.g.go](./pkg/contract/interface.g.go))
 
 If there is any change in the proto files, this should ripple into the Go code.
 
 ## Launching the Go server
 
-To enable use the Go server, users can add the `--experimental-go` flag.
+To enable use of the Go server, users can add the `--experimental-go` flag.
 
 ```bash
 mlflow server --backend-store-uri postgresql://postgres:postgres@localhost:5432/postgres --experimental-go
 ```
 
-This will launch the python process as usual. Within Python, a random port is chose to start the existing server.
-And a Go child process is spawn. The Go server will use the user specified port (5000 by default).
+This will launch the python process as usual. Within Python, a random port is chosen to start the existing server and a Go child process is spawned. The Go server will use the user specified port (5000 by default) and spawn the actual Python server as its own child process (`gunicorn` or `waitress`).
 Any incoming requests the Go server cannot process will be proxied to the existing Python server.
 
 ## Request validation
