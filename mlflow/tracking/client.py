@@ -2286,6 +2286,15 @@ class MlflowClient:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
+    def _read_from_file(self, artifact_path):
+        import pandas as pd
+
+        if artifact_path.endswith(".json"):
+            return pd.read_json(artifact_path, orient="split")
+        if artifact_path.endswith(".parquet"):
+            return pd.read_parquet(artifact_path)
+        raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
+
     @experimental
     def log_table(
         self,
@@ -2360,11 +2369,11 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
-        if not artifact_file.endswith(".json"):
+        if not artifact_file.endswith((".json", ".parquet")):
             raise ValueError(
-                f"The provided artifact file '{artifact_file}' does not have "
-                "the required '.json' extension. Please ensure the file you are trying "
-                "to log as a table is a JSON file with the '.json' extension. "
+                f"Invalid artifact file path '{artifact_file}'. Please ensure the file you are "
+                "trying to log as a table has a file name with either '.json' "
+                "or '.parquet' extension."
             )
 
         if not isinstance(data, (pd.DataFrame, dict)):
@@ -2427,6 +2436,12 @@ class MlflowClient:
                     # Save files to artifact storage
                     data[column] = data[column].map(lambda x: process_image(x))
 
+        def write_to_file(data, artifact_path):
+            if artifact_path.endswith(".json"):
+                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
+            elif artifact_path.endswith(".parquet"):
+                data.to_parquet(artifact_path, index=False)
+
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
@@ -2436,7 +2451,7 @@ class MlflowClient:
                 downloaded_artifact_path = mlflow.artifacts.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.info(
                 "Appending new table to already existing artifact "
@@ -2445,7 +2460,7 @@ class MlflowClient:
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             try:
-                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
+                write_to_file(data, artifact_path)
             except Exception as e:
                 raise MlflowException(
                     f"Failed to save {data} as table as the data is not JSON serializable. "
@@ -2579,7 +2594,7 @@ class MlflowClient:
                         artifact_path=artifact_file,
                         dst_path=tmpdir,
                     )
-                    existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                    existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:
                         for column in extra_columns:
                             if column in existing_predictions:
