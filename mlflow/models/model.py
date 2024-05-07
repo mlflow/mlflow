@@ -691,8 +691,19 @@ class Model:
                 model_config = kwargs[MODEL_CONFIG]
                 if isinstance(model_config, str):
                     try:
-                        with open(model_config) as f:
-                            model_config = json.load(f)
+                        file_extension = os.path.splitext(model_config)[1].lower()
+                        if file_extension == ".json":
+                            with open(model_config) as f:
+                                model_config = json.load(f)
+                        elif file_extension in [".yaml", ".yml"]:
+                            with open(model_config) as f:
+                                model_config = yaml.safe_load(f)
+                        else:
+                            _logger.warning(
+                                "Unsupported file format for model config: %s. "
+                                "Failed to load model config.",
+                                model_config,
+                            )
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
                 try:
