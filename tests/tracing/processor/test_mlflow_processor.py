@@ -21,7 +21,10 @@ _TRACE_ID = 12345
 _REQUEST_ID = f"tr-{_TRACE_ID}"
 
 
-def test_on_start(clear_singleton):
+def test_on_start(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+
     # Root span should create a new trace on start
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
@@ -76,7 +79,10 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singlet
     assert time.time_ns() - span.start_time < 100_000_000  # 0.1 second
 
 
-def test_on_start_with_experiment_id(clear_singleton):
+def test_on_start_with_experiment_id(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+
     experiment_id = "test_experiment_id"
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
