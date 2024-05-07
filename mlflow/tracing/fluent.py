@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import importlib
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
@@ -240,12 +241,16 @@ def search_traces(
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.
-        extract_fields: List of fields to extract from the traces. Fields are of the form
-            "span_name.[inputs|outputs].field_name" or "span_name.[inputs|outputs]". For example,
-            given a trace with a span named "predict" and outputs with names "result" and
-            "explanation", the field "predict.outputs.result" would extract the "result" field, and
-            the field "predict.outputs" would extract the entire outputs dictionary with keys
-            "result" and "explanation".
+        extract_fields: Specify fields to extract from traces using the format
+            "span_name.[inputs|outputs].field_name" or "span_name.[inputs|outputs]".
+            For instance, "predict.outputs.result" retrieves the output "result" field from
+            a span named "predict", while "predict.outputs" fetches the entire outputs
+            dictionary, including keys "result" and "explanation".
+
+            By default, no fields are extracted into the DataFrame columns. When multiple
+            fields are specified, each is extracted as its own column. If an invalid field
+            string is provided, the function silently returns without adding that field's column.
+
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
@@ -275,6 +280,15 @@ def search_traces(
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
     """
+    # Check if pandas is installed early to avoid unnecessary computation
+    if importlib.util.find_spec("pandas") is None:
+        raise MlflowException(
+            message=(
+                "The `pandas` library is not installed. Please install `pandas` to use"
+                "`mlflow.search_traces` function."
+            ),
+        )
+
     if not experiment_ids:
         if experiment_id := _get_experiment_id():
             experiment_ids = [experiment_id]
