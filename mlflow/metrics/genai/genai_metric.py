@@ -244,12 +244,6 @@ def make_custom_genai_metric(
             greater_is_better=True,
         )
 
-        metric_value = metric.eval_fn(
-            inputs=pd.Series(["What is MLflow?"]),
-            outputs=pd.Series(
-                ["MLflow is an open-source platform for managing machine learning workflows."]
-            ),
-        )
     """
 
     def eval_fn(
