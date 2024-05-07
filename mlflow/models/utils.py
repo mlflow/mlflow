@@ -1533,12 +1533,12 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
 
     Returns either `model_code_path` or a temp file path with the contents of the notebook.
     """
-    # if not os.path.exists(model_code_path):
-    #     raise MlflowException.invalid_parameter_value(
-    #         f"If the provided model '{model_code_path}' is a string, it must be a valid python "
-    #         "file path or a databricks notebook file path containing the code for defining "
-    #         "the chain instance."
-    #     )
+    if not os.path.exists(model_code_path):
+        raise MlflowException.invalid_parameter_value(
+            f"If the provided model '{model_code_path}' is a string, it must be a valid python "
+            "file path or a databricks notebook file path containing the code for defining "
+            "the chain instance."
+        )
 
     try:
         with open(model_code_path) as _:
