@@ -176,8 +176,7 @@ def _validate_and_copy_model_code_and_config_paths(
         config_path: A file containing model config code that should be logged as an artifact.
         path: The local model path.
     """
-    if code_path:
-        _validate_path_exists(code_path, "code")
+    _validate_path_exists(code_path, "code")
     if config_path:
         _validate_path_exists(config_path, "config")
     try:

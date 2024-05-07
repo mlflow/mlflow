@@ -1559,4 +1559,4 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
             )
 
         _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-        return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
+        return _get_temp_file_with_content("model.py", decoded_content, "wb")

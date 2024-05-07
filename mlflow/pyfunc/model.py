@@ -18,7 +18,7 @@ import mlflow.pyfunc
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
@@ -281,6 +281,8 @@ def _save_model_with_class_artifacts_params(
         mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
         model_config: The model configuration for the flavor. Model configuration is available
             during model loading time.
+        model_code_path: The path to the code that is being logged as a PyFunc model. This path can
+            either be a DB notebook or normal python code.
 
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.
@@ -295,8 +297,6 @@ def _save_model_with_class_artifacts_params(
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }
-    if model_code_path:
-        custom_model_config_kwargs[mlflow.pyfunc._MODEL_CODE_PATH] = model_code_path
     if callable(python_model):
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
@@ -397,6 +397,7 @@ def _save_model_with_class_artifacts_params(
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
         streamable=streamable,
+        model_code_path=model_code_path,
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):
