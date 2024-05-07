@@ -433,6 +433,7 @@ class Object:
             updated_properties.append(Property(name=k, dtype=prop_dict2[k].dtype, required=False))
         return Object(properties=updated_properties)
 
+
 class Array:
     """
     Specification used to represent a json-convertible array.
@@ -1330,6 +1331,7 @@ class ParamSchema:
     def __repr__(self) -> str:
         return repr(self.params)
 
+
 def convert_dataclass_to_object(cls):
     """
     Create an Object object from a dataclass. The dataclass should have type hints
@@ -1359,18 +1361,14 @@ def convert_dataclass_to_object(cls):
             if is_dataclass(list_type):
                 dtype = convert_dataclass_to_object(list_type)
                 properties.append(
-                    Property(
-                        name=field_name,
-                        dtype=Array(dtype=dtype),
-                        required=not is_optional
-                    )
+                    Property(name=field_name, dtype=Array(dtype=dtype), required=not is_optional)
                 )
             else:
                 properties.append(
                     Property(
                         name=field_name,
                         dtype=Array(dtype=field_type_mapping[list_type]),
-                        required=not is_optional
+                        required=not is_optional,
                     )
                 )
         elif is_dataclass(effective_type):
@@ -1379,7 +1377,7 @@ def convert_dataclass_to_object(cls):
                 Property(
                     name=field_name,
                     dtype=convert_dataclass_to_object(effective_type),
-                    required=not is_optional
+                    required=not is_optional,
                 )
             )
         else:
@@ -1388,11 +1386,12 @@ def convert_dataclass_to_object(cls):
                 Property(
                     name=field_name,
                     dtype=field_type_mapping[effective_type],
-                    required=not is_optional
+                    required=not is_optional,
                 )
             )
 
     return Object(properties=properties)
+
 
 # def convert_dataclass_to_schema(dataclass):
 #     """

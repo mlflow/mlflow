@@ -1739,58 +1739,78 @@ def test_repr_of_objects():
     arr = Array(obj)
     assert repr(arr) == f"Array({obj_repr})"
 
+
 def test_convert_dataclass_to_object():
     obj = convert_dataclass_to_object(rag_signatures.Message())
     assert obj == Object(
-        properties = [
-            Property(name = "role", dtype = DataType.string),
-            Property(name = "content", dtype = DataType.string),
+        properties=[
+            Property(name="role", dtype=DataType.string),
+            Property(name="content", dtype=DataType.string),
         ]
     )
 
     obj = convert_dataclass_to_object(rag_signatures.ChatCompletionRequest())
     assert obj == Object(
-        properties = [
-            Property(name="messages", dtype=Array(
-                Object(
-                    properties = [
-                        Property(name="role", dtype=DataType.string),
-                        Property(name="content", dtype=DataType.string),
-                    ]
-                )
-            ))
+        properties=[
+            Property(
+                name="messages",
+                dtype=Array(
+                    Object(
+                        properties=[
+                            Property(name="role", dtype=DataType.string),
+                            Property(name="content", dtype=DataType.string),
+                        ]
+                    )
+                ),
+            )
         ]
     )
 
     obj = convert_dataclass_to_object(rag_signatures.ChatCompletionResponse())
     assert obj == Object(
-        properties = [
-            Property(name="choices", dtype=Array(
-                Object(
-                    properties = [
-                        Property(name="index", dtype=DataType.integer),
-                        Property(name="message", dtype=Object(
-                            properties = [
-                                Property(name="role", dtype=DataType.string),
-                                Property(name="content", dtype=DataType.string),
-                            ]
-                        )),
-                        Property(name="finish_reason", dtype=DataType.string)])))])
+        properties=[
+            Property(
+                name="choices",
+                dtype=Array(
+                    Object(
+                        properties=[
+                            Property(name="index", dtype=DataType.integer),
+                            Property(
+                                name="message",
+                                dtype=Object(
+                                    properties=[
+                                        Property(name="role", dtype=DataType.string),
+                                        Property(name="content", dtype=DataType.string),
+                                    ]
+                                ),
+                            ),
+                            Property(name="finish_reason", dtype=DataType.string),
+                        ]
+                    )
+                ),
+            )
+        ]
+    )
 
     obj = convert_dataclass_to_object(rag_signatures.MultiturnChatRequest())
     assert obj == Object(
-        properties = [
+        properties=[
             Property(name="query", dtype=DataType.string),
-            Property(name="history", dtype=Array(
-                Object(
-                    properties = [
-                        Property(name="role", dtype=DataType.string),
-                        Property(name="content", dtype=DataType.string),
-                    ]
-                )
-            ), required=False),
+            Property(
+                name="history",
+                dtype=Array(
+                    Object(
+                        properties=[
+                            Property(name="role", dtype=DataType.string),
+                            Property(name="content", dtype=DataType.string),
+                        ]
+                    )
+                ),
+                required=False,
+            ),
         ]
     )
+
 
 # def test_convert_dataclass_to_schema_basic():
 #     schema = convert_dataclass_to_schema(rag_signatures.Message())

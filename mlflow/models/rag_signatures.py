@@ -1,21 +1,23 @@
-
-
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
 
 @dataclass
 class Message:
-  role: str  = "user" # "system", "user", or "assistant"
-  content: str = "What is mlflow?"
+    role: str = "user"  # "system", "user", or "assistant"
+    content: str = "What is mlflow?"
+
 
 @dataclass
 class ChatCompletionRequest:
-  messages: List[Message] = field(default_factory=lambda: [Message()])
+    messages: List[Message] = field(default_factory=lambda: [Message()])
+
+
 @dataclass
 class MultiturnChatRequest:
     query: str = "What is mlflow?"
     history: Optional[List[Message]] = field(default_factory=list)
+
 
 @dataclass
 class ChainCompletionChoice:
@@ -23,28 +25,32 @@ class ChainCompletionChoice:
     message: Message = field(
         default_factory=lambda: Message(
             role="assistant",
-            content="MLflow is an open source platform for the machine learning lifecycle."
+            content="MLflow is an open source platform for the machine learning lifecycle.",
         )
     )
     finish_reason: str = "stop"
+
+
 @dataclass
 class ChainCompletionChunk:
     index: int = 0
     delta: Message = field(
         default_factory=lambda: Message(
             role="assistant",
-            content="MLflow is an open source platform for the machine learning lifecycle."
+            content="MLflow is an open source platform for the machine learning lifecycle.",
         )
     )
     finish_reason: str = "stop"
 
+
 @dataclass
 class ChatCompletionResponse:
-    choices: Union[
-        List[ChainCompletionChoice],
-    ] = field(default_factory=lambda: [ChainCompletionChoice()])
+    choices: Union[List[ChainCompletionChoice],] = field(
+        default_factory=lambda: [ChainCompletionChoice()]
+    )
 
     # TODO: union
+
 
 @dataclass
 class StringResponse:
