@@ -18,7 +18,7 @@ import mlflow.pyfunc
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
