@@ -108,7 +108,6 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     assert d.get(_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY) == ["dbdemos_vs_endpoint"]
     assert resources == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
-        DatabricksServingEndpoint(endpoint_name="dbdemos_vs_endpoint"),
         DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
     ]
 
@@ -142,7 +141,6 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     assert d.get(_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY) == ["dbdemos_vs_endpoint"]
     assert resources == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
-        DatabricksServingEndpoint(endpoint_name="dbdemos_vs_endpoint"),
         DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
     ]
 
