@@ -912,7 +912,7 @@ def load_model(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
-    if _MODEL_CODE_PATH in conf:
+    if conf.get(_MODEL_CODE_PATH) is not None:
         flavor_code_path = conf.get(_MODEL_CODE_PATH)
         code_path = os.path.join(
             local_path,
