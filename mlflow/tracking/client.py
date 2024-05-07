@@ -2371,9 +2371,9 @@ class MlflowClient:
         self._check_artifact_file_string(artifact_file)
         if not artifact_file.endswith((".json", ".parquet")):
             raise ValueError(
-                f"The provided artifact file '{artifact_file}' does not have "
-                "the required '.json' or '.parquet' extension. Please ensure the file you are "
-                "trying to log as a table is valid with either '.json' or '.parquet' extension."
+                f"Invalid artifact file path '{artifact_file}'. Please ensure the file you are "
+                "trying to log as a table has a file name with either '.json' "
+                "or '.parquet' extension."
             )
 
         if not isinstance(data, (pd.DataFrame, dict)):
