@@ -59,14 +59,10 @@ class MlflowSpanExporter(SpanExporter):
             # Add the trace to the in-memory buffer
             TRACE_BUFFER[trace.info.request_id] = trace
 
-            # If the trace is created in the context of MLflow model evaluation, we don't display
-            # the trace here or log it to MLflow backend. The trace will be extracted from the
-            # buffer by the caller and logged as a part of the evaluation table.
-            if maybe_get_evaluation_request_id() is not None:
-                return
-
-            # Display the trace in the UI
-            self._display_handler.display_traces([trace])
+            if not maybe_get_evaluation_request_id():
+                # Display the trace in the UI if the trace is not generated from within
+                # an MLflow model evaluation context
+                self._display_handler.display_traces([trace])
 
             # Log the trace to MLflow
             self._log_trace(trace)
