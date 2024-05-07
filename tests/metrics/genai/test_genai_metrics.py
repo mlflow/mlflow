@@ -1120,7 +1120,7 @@ def test_make_custom_judge_prompt_genai_metric():
 def test_make_custom_prompt_genai_metric_validates_input_kwargs():
     custom_judge_prompt = "This is a custom judge prompt that uses {input} and {output}"
 
-    custom_judge_prompt_metric = make_genai_metric(
+    custom_judge_prompt_metric = make_custom_genai_metric(
         name="custom",
         judge_prompt=custom_judge_prompt,
     )
