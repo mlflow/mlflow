@@ -16,7 +16,7 @@ import pandas as pd
 
 from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, rag_signatures
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _contains_params, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -92,14 +92,19 @@ class ModelSignature:
             dictionary representation with input and output schema represented as json strings.
         """
         if is_dataclass(self.inputs):
-            serialized_inputs = serialize_dataclass(self.inputs)
+            return {
+                "inputs": serialize_dataclass(self.inputs) if self.inputs else None,
+                # indicate which type of dataclass to use for deserialization
+                "input_format": self.inputs.__class__.__name__,
+                "outputs": self.outputs.to_json() if self.outputs else None,
+                "params": self.params.to_json() if self.params else None,
+            }
         else:
-            serialized_inputs = self.inputs.to_json() if self.inputs else None
-        return {
-            "inputs": serialized_inputs,
-            "outputs": self.outputs.to_json() if self.outputs else None,
-            "params": self.params.to_json() if self.params else None,
-        }
+            return {
+                "inputs": self.inputs.to_json() if self.inputs else None,
+                "outputs": self.outputs.to_json() if self.outputs else None,
+                "params": self.params.to_json() if self.params else None,
+            }
 
     @classmethod
     def from_dict(cls, signature_dict: Dict[str, Any]):
@@ -117,8 +122,13 @@ class ModelSignature:
             ModelSignature populated with the data form the dictionary.
         """
         # TODO: figure out how to branch here
-        deserialized_inputs = deserialize_dataclass(x) if (x := signature_dict.get("inputs")) else None
-        inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
+        if "input_format" in signature_dict:
+            print(signature_dict["input_format"])
+            inputs = deserialize_dataclass(signature_dict["inputs"], type(rag_signatures.ChatCompletionRequest()))
+            print(inputs)
+        else:
+            inputs = deserialize_dataclass(x) if (x := signature_dict.get("inputs")) else None
+        # inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
         outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
         params = ParamSchema.from_json(x) if (x := signature_dict.get("params")) else None
 

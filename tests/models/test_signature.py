@@ -278,7 +278,7 @@ def test_signature_construction():
 
 def test_signature_with_errors():
     with pytest.raises(
-        TypeError, match=r"inputs must be either None or mlflow.models.signature.Schema"
+        TypeError, match=r"inputs must be either None, mlflow.models.signature.Schema, or a dataclass"
     ):
         ModelSignature(inputs=1)
 
@@ -286,3 +286,12 @@ def test_signature_with_errors():
         ValueError, match=r"At least one of inputs, outputs or params must be provided"
     ):
         ModelSignature()
+
+def test_signature_as_dataclass():
+    from mlflow.models.rag_signatures import ChatCompletionRequest
+    signature = ModelSignature(
+        inputs = ChatCompletionRequest()
+    )
+    as_json = json.dumps(signature.to_dict())
+    signature2 = ModelSignature.from_dict(json.loads(as_json))
+    assert signature == signature2

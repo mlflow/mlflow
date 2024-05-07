@@ -1,5 +1,6 @@
     # Serialization function
 import dataclasses
+from typing import Union
 
 
 def serialize_dataclass(instance):
