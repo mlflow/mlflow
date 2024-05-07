@@ -395,6 +395,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 import numpy as np
 import pandas
 import yaml
+from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc.loaders
@@ -1844,7 +1845,10 @@ Compound types:
             )
 
         if type(elem_type) == StringType:
-            result = result.applymap(str)
+            if Version(pandas.__version__) >= Version("2.1.0"):
+                result = result.map(str)
+            else:
+                result = result.applymap(str)
 
         if type(result_type) == ArrayType:
             return pandas.Series(result.to_numpy().tolist())
