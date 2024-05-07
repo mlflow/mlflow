@@ -17,6 +17,7 @@ from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
+    _retry_with_new_creds,
 )
 from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
 from mlflow.utils.file_utils import read_chunk
@@ -47,6 +48,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         access_key_id=None,
         secret_access_key=None,
         session_token=None,
+        credential_refresh_def=None,
         addressing_style="path",
         s3_endpoint_url=None,
     ):
@@ -54,10 +56,20 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
+        self._credential_refresh_def = credential_refresh_def
         self._addressing_style = addressing_style
         self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
+
+    def _refresh_credentials(self):
+        if not self._credential_refresh_def:
+            return self._get_s3_client()
+        new_creds = self._credential_refresh_def()
+        self._access_key_id = new_creds["access_key_id"]
+        self._secret_access_key = new_creds["secret_access_key"]
+        self._session_token = new_creds["session_token"]
+        return self._get_s3_client()
 
     def _get_region_name(self):
         from botocore.exceptions import ClientError
@@ -141,7 +153,13 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
-        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+
+        def try_func(creds):
+            creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+
+        _retry_with_new_creds(
+            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+        )
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_file_path = os.path.basename(local_file)
@@ -184,19 +202,25 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
         # define helper functions for uploading data
         def _upload_part(part_number, local_file, start_byte, size):
-            presigned_url = s3_client.generate_presigned_url(
-                "upload_part",
-                Params={
-                    "Bucket": bucket,
-                    "Key": key,
-                    "UploadId": upload_id,
-                    "PartNumber": part_number,
-                },
-            )
             data = read_chunk(local_file, size, start_byte)
-            with cloud_storage_http_request("put", presigned_url, data=data) as response:
-                augmented_raise_for_status(response)
-                return response.headers["ETag"]
+
+            def try_func(creds):
+                presigned_url = creds.generate_presigned_url(
+                    "upload_part",
+                    Params={
+                        "Bucket": bucket,
+                        "Key": key,
+                        "UploadId": upload_id,
+                        "PartNumber": part_number,
+                    },
+                )
+                with cloud_storage_http_request("put", presigned_url, data=data) as response:
+                    augmented_raise_for_status(response)
+                    return response.headers["ETag"]
+
+            return _retry_with_new_creds(
+                try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+            )
 
         try:
             # Upload each part with retries
@@ -298,7 +322,13 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
     def _download_from_cloud(self, remote_file_path, local_path):
         s3_client = self._get_s3_client()
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
-        s3_client.download_file(self.bucket, s3_full_path, local_path)
+
+        def try_func(creds):
+            creds.download_file(self.bucket, s3_full_path, local_path)
+
+        _retry_with_new_creds(
+            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+        )
 
     def delete_artifacts(self, artifact_path=None):
         dest_path = self.bucket_path

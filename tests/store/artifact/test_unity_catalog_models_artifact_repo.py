@@ -132,6 +132,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
             access_key_id=fake_key_id,
             secret_access_key=fake_secret_access_key,
             session_token=fake_session_token,
+            credential_refresh_def=ANY,
         )
         mock_s3_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
         request_mock.assert_called_with(
@@ -139,6 +140,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
             endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            extra_headers=ANY,
         )
 
 
@@ -165,7 +167,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
         )
         assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         adls_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=artifact_location, credential=ANY
+            artifact_uri=artifact_location, credential=ANY, credential_refresh_def=ANY
         )
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
@@ -176,6 +178,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
             endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            extra_headers=ANY,
         )
 
 
@@ -217,6 +220,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
             endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            extra_headers=ANY,
         )
 
 
@@ -264,7 +268,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
         )
         assert models_repo.list_artifacts("artifact_path") == [fake_fileinfo]
         adls_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=artifact_location, credential=ANY
+            artifact_uri=artifact_location, credential=ANY, credential_refresh_def=ANY
         )
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
@@ -275,6 +279,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
             endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            extra_headers=ANY,
         )
 
 
@@ -325,7 +330,7 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
         temp_cred_mock.assert_called_once()
         get_location_mock.assert_called_once()
         get_artifact_repo_mock.assert_called_once_with(
-            storage_location=storage_location, scoped_token=creds
+            storage_location=storage_location, scoped_token=creds, base_credential_refresh_def=ANY
         )
 
 

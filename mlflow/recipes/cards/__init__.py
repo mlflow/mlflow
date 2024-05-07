@@ -263,6 +263,8 @@ class BaseCard:
         import pandas as pd
         from pandas.io.formats.style import Styler
 
+        pandas_version = Version(pd.__version__)
+
         if not isinstance(table, Styler):
             table = pd.DataFrame(table, columns=columns)
             # Escape specific characters in HTML to prevent
@@ -276,10 +278,11 @@ class BaseCard:
             if hasattr(table, "map"):
                 table = table.map(escape_value)
             else:
-                table = table.applymap(escape_value)
+                if pandas_version >= Version("2.1.0"):
+                    table = table.map(escape_value)
+                else:
+                    table = table.applymap(escape_value)
             table = table.style
-
-        pandas_version = Version(pd.__version__)
 
         styler = table.set_table_attributes('style="border-collapse:collapse"').set_table_styles(
             [

@@ -3,7 +3,7 @@ async function main({ context, github }) {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
 
-  const pr = await github.rest.pulls.get({ owner, repo, pull_number });
+  const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
   const flavorsMatch = comment.body.match(/\/(?:cross-version-test|cvt)\s+([^\n]+)\n?/);
   if (!flavorsMatch) {
     return;
@@ -30,7 +30,7 @@ async function main({ context, github }) {
     owner,
     repo,
     workflow_id,
-    ref: pr.data.base.ref,
+    ref: pr.base.ref,
     inputs: {
       repository: `${owner}/${repo}`,
       ref: pr.merge_commit_sha,

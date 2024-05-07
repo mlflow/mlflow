@@ -8,7 +8,12 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
     """Stores artifacts on Cloudflare R2."""
 
     def __init__(
-        self, artifact_uri, access_key_id=None, secret_access_key=None, session_token=None
+        self,
+        artifact_uri,
+        access_key_id=None,
+        secret_access_key=None,
+        session_token=None,
+        credential_refresh_def=None,
     ):
         # setup Cloudflare R2 backend to be endpoint_url, otherwise all s3 requests
         # will go to AWS S3 by default
@@ -23,6 +28,7 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=credential_refresh_def,
             addressing_style="virtual",
             s3_endpoint_url=s3_endpoint_url,
         )
