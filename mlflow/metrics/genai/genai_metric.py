@@ -182,7 +182,8 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
-def _make_custom_genai_metric(
+@experimental
+def make_custom_genai_metric(
     name: str,
     judge_prompt: Optional[str] = None,
     model: Optional[str] = _get_default_model(),
@@ -192,6 +193,68 @@ def _make_custom_genai_metric(
     max_workers: int = 10,
     metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
+    """
+    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces
+    a metric using only the supplied judge prompt without any pre-written system prompt.
+    This can be useful for use cases that are not covered by the full grading prompt in any
+    ``EvaluationModel`` version.
+
+    Args:
+        name: Name of the metric.
+        judge_prompt: The entire prompt to be used for the judge model.
+            The prompt will be minimally wrapped in formatting instructions to ensure
+            scores can be parsed. The prompt may use f-string formatting to include variables.
+            Corresponding variables must be passed as keyword arguments into the
+            resulting metric's eval function.
+        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
+            format of "openai:/gpt-4", "gateway:/my-route",
+            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
+            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
+            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
+            and governed by the LLM service's terms of use.
+        parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
+            set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
+            setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
+        aggregations: (Optional) The list of options to aggregate the scores. Currently supported
+            options are: min, max, mean, median, variance, p90.
+        greater_is_better: (Optional) Whether the metric is better when it is greater.
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
+
+    Returns:
+        A metric object.
+
+    .. code-block:: python
+        :test:
+        :caption: Example for creating a genai metric
+
+        from mlflow.metrics.genai import make_custom_genai_metric
+
+        metric = make_custom_genai_metric(
+            name="ease_of_understanding",
+            judge_prompt=(
+                "You must evaluate the output of a bot based on how easy it is to "
+                "understand its outputs."
+                "Evaluate the bot's output from the perspective of a layperson."
+                "The bot was provided with this input: {input} and this output: {output}."
+            ),
+            model="openai:/gpt-4",
+            parameters={"temperature": 0.0},
+            aggregations=["mean", "variance", "p90"],
+            greater_is_better=True,
+        )
+
+        metric_value = metric.eval_fn(
+            inputs=pd.Series(["What is MLflow?"]),
+            outputs=pd.Series(
+                ["MLflow is an open-source platform for managing machine learning workflows."]
+            ),
+        )
+    """
+
     def eval_fn(
         *args,
         **kwargs,
@@ -227,9 +290,8 @@ def _make_custom_genai_metric(
 @experimental
 def make_genai_metric(
     name: str,
-    definition: Optional[str] = None,
-    grading_prompt: Optional[str] = None,
-    judge_prompt: Optional[str] = None,
+    definition: str,
+    grading_prompt: str,
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
@@ -249,14 +311,6 @@ def make_genai_metric(
         name: Name of the metric.
         definition: Definition of the metric.
         grading_prompt: Grading criteria of the metric.
-        judge_prompt: (Optional) The entire prompt to be used for the judge model.
-            This is useful for including use cases or system prompts that are not
-            covered by the full grading prompt in any ``EvaluationMetric``
-            object. If used, examples, definition, and grading_prompt will be ignored.
-            The prompt will be minimally wrapped in formatting instructions to ensure
-            scores can be parsed. The prompt may use f-string formatting to include variables.
-            Corresponding variables must be passed as keyword arguments into the
-            resulting metric's eval function.
         examples: (Optional) Examples of the metric.
         version: (Optional) Version of the metric. Currently supported versions are: v1.
         model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
@@ -281,8 +335,9 @@ def make_genai_metric(
         greater_is_better: (Optional) Whether the metric is better when it is greater.
         max_workers: (Optional) The maximum number of workers to use for judge scoring.
             Defaults to 10 workers.
-        metric_metadata: Optional dictionary of metadata to be attached to the
-            EvaluationMetric object.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
 
     Returns:
         A metric object.
@@ -348,24 +403,6 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
-    if judge_prompt is not None:
-        return _make_custom_genai_metric(
-            name=name,
-            judge_prompt=judge_prompt,
-            model=model,
-            parameters=parameters,
-            aggregations=aggregations,
-            greater_is_better=greater_is_better,
-            max_workers=max_workers,
-            metric_metadata=metric_metadata,
-        )
-
-    if definition is None or grading_prompt is None:
-        raise MlflowException(
-            "Both definition and grading_prompt must be provided.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     if not isinstance(grading_context_columns, list):
         grading_context_columns = [grading_context_columns]
 
