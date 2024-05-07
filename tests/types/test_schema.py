@@ -1763,8 +1763,19 @@ def test_convert_dataclass_to_object():
     )
 
     obj = convert_dataclass_to_object(rag_signatures.MultiturnChatRequest())
-    print(obj)
-    assert False
+    assert obj == Object(
+        properties = [
+            Property(name="query", dtype=DataType.string),
+            Property(name="history", dtype=Array(
+                Object(
+                    properties = [
+                        Property(name="role", dtype=DataType.string),
+                        Property(name="content", dtype=DataType.string),
+                    ]
+                )
+            ), required=False),
+        ]
+    )
 
 # def test_convert_dataclass_to_schema_basic():
 #     schema = convert_dataclass_to_schema(rag_signatures.Message())
