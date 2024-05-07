@@ -250,7 +250,8 @@ def search_traces(
             By default, no fields are extracted into the DataFrame columns. When multiple
             fields are specified, each is extracted as its own column. If an invalid field
             string is provided, the function silently returns without adding that field's column.
-
+            The supported fields are limited to "inputs" and "outputs" of spans. Span names
+            cannot contain ".".
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
