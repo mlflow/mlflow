@@ -50,6 +50,7 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
+from tests.store import artifact
 
 
 def get_model_class():
@@ -1661,3 +1662,22 @@ def test_model_log_with_resources(tmp_path):
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources == expected_resources
+
+
+def test_pyfunc_as_code_log_and_load(tmp_path):
+    with open("tests/pyfunc/pyfunc_sample_code.py") as file:
+        file_content = file.read()
+
+    temp_file = tmp_path / "model.py"
+    temp_file.write_text(file_content)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=str(temp_file),
+            artifact_path="model",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    context, model_input = "context", "input"
+    expected_output = f"Predict called with context {context} and input {model_input}"
+    assert loaded_model.predict(context=context, model_input=model_input) == expected_output

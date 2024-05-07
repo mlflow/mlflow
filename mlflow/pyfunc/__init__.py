@@ -2246,6 +2246,8 @@ def save_model(
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
+    _validate_and_prepare_target_save_path(path)
+
     if python_model:
         model_code_path = None
         if isinstance(python_model, str):
@@ -2312,8 +2314,6 @@ def save_model(
             "should be a python module. A `python_model` should be a subclass of PythonModel"
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
-
-    _validate_and_prepare_target_save_path(path)
 
     if mlflow_model is None:
         mlflow_model = Model()
