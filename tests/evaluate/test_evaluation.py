@@ -1116,10 +1116,10 @@ def test_normalize_evaluators_and_evaluator_config_args():
         {"default": {"a": 3}},
     )
 
-    with mock.patch.object(_base_logger, "warning") as patched_warning_fn:
+    with mock.patch.object(_base_logger, "info") as patched_info_fn:
         _normalize_config(None, None)
-        patched_warning_fn.assert_called_once()
-        assert "Multiple registered evaluators are found" in patched_warning_fn.call_args[0][0]
+        patched_info_fn.assert_called_once()
+        assert "Multiple registered evaluators have been" in patched_info_fn.call_args[0][0]
 
     assert _normalize_config("dummy_evaluator", {"a": 3}) == (
         ["dummy_evaluator"],
