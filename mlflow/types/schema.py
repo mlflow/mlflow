@@ -1,10 +1,12 @@
 import builtins
+import dataclasses
 import datetime as dt
 import importlib.util
 import json
 import string
 import warnings
 from copy import deepcopy
+from dataclasses import dataclass, is_dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
@@ -877,7 +879,10 @@ class Schema:
     Combination of named and unnamed data inputs are not allowed.
     """
 
-    def __init__(self, inputs: List[Union[ColSpec, TensorSpec]]):
+    def __init__(self, inputs: Union[List[Union[ColSpec, TensorSpec]], dataclass]):
+        if is_dataclass(inputs):
+            self._inputs = inputs
+            return
         if not isinstance(inputs, list):
             raise MlflowException.invalid_parameter_value(
                 f"Inputs of Schema must be a list, got type {type(inputs).__name__}"
@@ -925,6 +930,12 @@ class Schema:
     def inputs(self) -> List[Union[ColSpec, TensorSpec]]:
         """Representation of a dataset that defines this schema."""
         return self._inputs
+
+    def is_dataclass_spec(self) -> bool:
+        """
+        Return true iff this schema is specified using dataclass.
+        """
+        return is_dataclass(self.inputs)
 
     def is_tensor_spec(self) -> bool:
         """Return true iff this schema is specified using TensorSpec"""
@@ -1006,15 +1017,20 @@ class Schema:
 
     def to_json(self) -> str:
         """Serialize into json string."""
+        if self.is_dataclass_spec():
+            return json.dumps(serialize_dataclass(self.inputs))
         return json.dumps([x.to_dict() for x in self.inputs])
 
     def to_dict(self) -> List[Dict[str, Any]]:
         """Serialize into a jsonable dictionary."""
+        if self.is_dataclass_spec():
+            return serialize_dataclass(self.inputs)
         return [x.to_dict() for x in self.inputs]
 
     @classmethod
     def from_json(cls, json_str: str):
         """Deserialize from a json string."""
+
 
         def read_input(x: dict):
             return (
@@ -1329,3 +1345,35 @@ class ParamSchema:
 
     def __repr__(self) -> str:
         return repr(self.params)
+
+# Serialization function
+def serialize_dataclass(instance):
+    def to_serializable(obj):
+        if dataclasses.is_dataclass(obj):
+            return {k: to_serializable(v) for k, v in dataclasses.asdict(obj).items()}
+        elif isinstance(obj, list):
+            return [to_serializable(item) for item in obj]
+        else:
+            return obj
+    return to_serializable(instance)
+
+# Deserialization function
+def deserialize_dataclass(data, cls):
+    def from_serializable(data, cls):
+        if dataclasses.is_dataclass(cls):
+            field_types = {f.name: f.type for f in dataclasses.fields(cls)}
+            return cls(**{f: from_serializable(data.get(f), field_types[f]) for f in field_types})
+        elif hasattr(cls, '__origin__') and cls.__origin__ is list:  # Check for List
+            item_type = cls.__args__[0]
+            return [from_serializable(item, item_type) for item in data]
+        elif hasattr(cls, '__origin__') and cls.__origin__ is Union: # Check for Union
+            for item_type in cls.__args__:
+                try:
+                    return from_serializable(data, item_type)
+                except:
+                    pass
+            raise ValueError(f"Could not deserialize {data} as {cls}")
+        else:
+            return data
+
+    return from_serializable(data, cls)
