@@ -156,8 +156,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
-            # we use LLM for chat models as well
-            span_type=SpanType.LLM,
+            span_type=SpanType.CHAT_MODEL,
             run_id=run_id,
             inputs=messages,
             attributes=kwargs,

@@ -567,7 +567,7 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
             ("RunnableLambda_2", "CHAIN"),
             ("extract_history", "CHAIN"),
             ("PromptTemplate", "CHAIN"),
-            ("FakeChatModel", "LLM"),
+            ("FakeChatModel", "CHAT_MODEL"),
             ("StrOutputParser", "CHAIN"),
         }
 
