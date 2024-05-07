@@ -15,6 +15,7 @@ from mlflow.entities import (
     TraceInfo,
 )
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -813,3 +814,36 @@ def test_search_traces_without_experiment_id(monkeypatch):
     monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
 
     mlflow.search_traces()
+
+
+def test_search_traces_with_span_name(monkeypatch):
+    class TestModel:
+        @mlflow.trace(name="span.llm")
+        def predict(self, x, y):
+            z = x + y
+            z = self.add_one(z)
+            z = mlflow.trace(self.square)(z)
+            return z  # noqa: RET504
+
+        @mlflow.trace(span_type=SpanType.LLM, name="span.invalidname", attributes={"delta": 1})
+        def add_one(self, z):
+            return z + 1
+
+        def square(self, t):
+            res = t**2
+            time.sleep(0.1)
+            return res
+
+    model = TestModel()
+    model.predict(2, 5)
+
+    class MockMlflowClient:
+        def search_traces(self, experiment_ids, *args, **kwargs):
+            return get_traces()
+
+    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
+
+    with pytest.raises(MlflowException, match="Field must be of the form"):
+        mlflow.search_traces(
+            extract_fields=["span.llm.inputs", "span.invalidname.outputs", "span.llm.inputs.x"]
+        )

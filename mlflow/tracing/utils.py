@@ -186,15 +186,7 @@ def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
     Convert a list of MLflow Traces to a pandas DataFrame with one column called "traces"
     containing string representations of each Trace.
     """
-    try:
-        import pandas as pd
-    except ImportError as e:
-        raise MlflowException(
-            message=(
-                "The `pandas` library is not installed. Please install `pandas` to use"
-                f"`mlflow.search_traces` function. Error: {e}"
-            ),
-        )
+    import pandas as pd
 
     rows = [trace.to_pandas_dataframe_row() for trace in traces]
     return pd.DataFrame.from_records(rows)
@@ -294,7 +286,7 @@ def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
 
 
 def _extract_from_traces_pandas_df(
-    df: "pandas.DataFrame", col_name: str, fields: List[_ParsedField]
+    df: "pandas.DataFrame", col_name: str, fields: List["_ParsedField"]
 ) -> "pandas.DataFrame":
     """
     Extracts the specified fields from the spans contained in the specified column of the
@@ -330,7 +322,9 @@ def _extract_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _find_matching_value(field: _ParsedField, spans: List["mlflow.entities.Span"]) -> Optional[Any]:
+def _find_matching_value(
+    field: "_ParsedField", spans: List["mlflow.entities.Span"]
+) -> Optional[Any]:
     """
     Find the value of the field in the list of spans. If the field is not found, return None.
     """
