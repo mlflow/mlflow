@@ -39,7 +39,7 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -571,9 +571,8 @@ class MlflowClient:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
             # Update trace tags both in store and in-memory trace manager
-            for k, v in tags.items():
-                self._tracking_client.set_trace_tag(request_id, k, v)
-            trace_info = self._tracking_client.get_trace(request_id).info
+            self._tracking_client.set_trace_tags(request_id, tags or {})
+            trace_info = self._tracking_client.get_trace_info(request_id)
             trace_manager.update_trace_info(trace_info)
             # Register new span in the in-memory trace manager
             trace_manager.register_span(mlflow_span)
@@ -581,6 +580,8 @@ class MlflowClient:
             return mlflow_span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
+            if _MLFLOW_TESTING.get():
+                raise
             return NoOpSpan()
 
     def end_trace(
@@ -774,6 +775,8 @@ class MlflowClient:
             return span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
+            if _MLFLOW_TESTING.get():
+                raise
             return NoOpSpan()
 
     def end_span(

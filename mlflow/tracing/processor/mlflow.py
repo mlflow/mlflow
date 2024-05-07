@@ -12,6 +12,7 @@ import mlflow
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRUNCATION_SUFFIX,
@@ -113,6 +114,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                     "backend APIs are not available. Fallback to client-side generation",
                     exc_info=True,
                 )
+                if _MLFLOW_TESTING.get():
+                    raise
                 request_id = encode_trace_id(span.context.trace_id)
                 trace_info = self._create_trace_info(request_id, span, experiment_id, metadata)
 
