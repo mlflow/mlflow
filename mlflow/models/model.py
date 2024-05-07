@@ -64,6 +64,8 @@ METADATA_FILES = [
     _REQUIREMENTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
 ]
+MODEL_CONFIG = "config"
+MODEL_CODE_PATH = "model_code_path"
 
 
 class ModelInfo:
@@ -685,8 +687,8 @@ class Model:
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
-            if "model_config" in kwargs:
-                model_config = kwargs["model_config"]
+            if MODEL_CONFIG in kwargs:
+                model_config = kwargs[MODEL_CONFIG]
                 if isinstance(model_config, str):
                     try:
                         with open(model_config) as f:
