@@ -886,17 +886,19 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
 
 def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmp_path):
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance or a callable object"
+        MlflowException, match="must be a PythonModel instance, filepath, or a callable object"
     ):
-        mlflow.pyfunc.save_model(
-            path=os.path.join(tmp_path, "model1"), python_model="not the right type"
-        )
+        mlflow.pyfunc.save_model(path=os.path.join(tmp_path, "model1"), python_model=5)
 
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance or a callable object"
+        MlflowException, match="must be a PythonModel instance, filepath, or a callable object"
     ):
         mlflow.pyfunc.save_model(
-            path=os.path.join(tmp_path, "model2"), python_model="not the right type"
+            path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
+        )
+    with pytest.raises(MlflowException, match="If the provided model"):
+        mlflow.pyfunc.save_model(
+            path=os.path.join(tmp_path, "model3"), python_model="not a valid filepath"
         )
 
 
@@ -1659,3 +1661,34 @@ def test_model_log_with_resources(tmp_path):
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources == expected_resources
+
+
+def test_pyfunc_as_code_log_and_load(tmp_path):
+    with open("tests/pyfunc/pyfunc_sample_code.py") as file:
+        file_content = file.read()
+
+    temp_file = tmp_path / "model.py"
+    temp_file.write_text(file_content)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=str(temp_file),
+            artifact_path="model",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    context, model_input = "context", "input"
+    expected_output = f"Predict called with context {context} and input {model_input}"
+    assert loaded_model.predict(context=context, model_input=model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_wrong_path():
+    with pytest.raises(
+        MlflowException,
+        match="If the provided model",
+    ):
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                python_model="asdf",
+                artifact_path="model",
+            )

@@ -392,6 +392,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import uuid
 import warnings
 from copy import deepcopy
 from functools import lru_cache
@@ -428,6 +429,7 @@ from mlflow.models.utils import (
     _enforce_params_schema,
     _enforce_schema,
     _save_example,
+    _validate_and_get_model_code_path,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -496,6 +498,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
     _validate_and_copy_code_paths,
+    _validate_and_copy_model_code_and_config_paths,
     _validate_and_prepare_target_save_path,
     _validate_pyfunc_model_config,
 )
@@ -516,6 +519,8 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+MODEL_CONFIG = "config"
+_MODEL_CODE_PATH = "model_code_path"
 
 _MODEL_DATA_SUBPATH = "data"
 
@@ -941,6 +946,14 @@ def load_model(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
+    # TODO: improve this logic if we start allowing code with custom loader modules
+    if conf.get(_MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
+        flavor_code_path = conf.get(_MODEL_CODE_PATH)
+        code_path = os.path.join(
+            local_path,
+            os.path.basename(flavor_code_path),
+        )
+        return _load_model_code_path(code_path)
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
@@ -2090,7 +2103,7 @@ Compound types:
 def _validate_function_python_model(python_model):
     if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
-            "`python_model` must be a PythonModel instance or a callable object",
+            "`python_model` must be a PythonModel instance, filepath, or a callable object",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -2273,7 +2286,14 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
     # TODO: convert model_config to all be in dict format
+    _validate_and_prepare_target_save_path(path)
+
     if python_model:
+        model_code_path = None
+        if isinstance(python_model, str):
+            model_code_path = _validate_and_get_model_code_path(python_model)
+            _validate_and_copy_model_code_and_config_paths(model_code_path, None, path)
+            python_model = _load_model_code_path(model_code_path)
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2330,8 +2350,6 @@ def save_model(
             "should be a python module. A `python_model` should be a subclass of PythonModel"
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
-
-    _validate_and_prepare_target_save_path(path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -2434,7 +2452,21 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            model_code_path=model_code_path,
         )
+
+
+# TODO: bbqiu move this to models.utils.py
+def _load_model_code_path(code_path: str):
+    try:
+        new_module_name = f"code_model_{uuid.uuid4().hex}"
+        spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[new_module_name] = module
+        spec.loader.exec_module(module)
+    except ImportError as e:
+        raise mlflow.MlflowException("Failed to import pyfunc model.") from e
+    return mlflow.models.model.__mlflow_model__
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))

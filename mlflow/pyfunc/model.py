@@ -255,6 +255,7 @@ def _save_model_with_class_artifacts_params(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    model_code_path=None,
 ):
     """
     Args:
@@ -294,6 +295,8 @@ def _save_model_with_class_artifacts_params(
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }
+    if model_code_path:
+        custom_model_config_kwargs[mlflow.pyfunc._MODEL_CODE_PATH] = model_code_path
     if callable(python_model):
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
