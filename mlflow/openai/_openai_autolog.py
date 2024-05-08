@@ -1,7 +1,9 @@
 import inspect
 import json
 import logging
+import os
 import uuid
+from contextlib import contextmanager
 from copy import deepcopy
 
 import mlflow
@@ -64,6 +66,21 @@ def _combine_input_and_output(input, output):
         output = [output.model_dump(mode="json")]
         result.update(_convert_data_to_dict(output, "output"))
     return result
+
+
+@contextmanager
+def _set_api_key_env_var(client):
+    """
+    Gets the API key from the client and temporarily set it as an environment variable
+    """
+    api_key = client.api_key
+    original = os.environ.pop("OPENAI_API_KEY", None)
+    os.environ["OPENAI_API_KEY"] = api_key
+    yield
+    if original is not None:
+        os.environ["OPENAI_API_KEY"] = original
+    else:
+        os.environ.pop("OPENAI_API_KEY")
 
 
 def patched_call(original, self, *args, **kwargs):
@@ -144,14 +161,19 @@ def patched_call(original, self, *args, **kwargs):
         try:
             task = mlflow.openai._get_task_name(self.__class__)
             with disable_autologging():
-                mlflow.openai.log_model(
-                    kwargs.get("model", None),
-                    task,
-                    "model",
-                    input_example=input_example,
-                    registered_model_name=registered_model_name,
-                    run_id=run_id,
-                )
+                # If the user is using `openai.OpenAI()` client,
+                # they do not need to set the "OPENAI_API_KEY" environment variable.
+                # This temporarily sets the API key as an environment variable
+                # so that the model can be logged.
+                with _set_api_key_env_var(self._client):
+                    mlflow.openai.log_model(
+                        kwargs.get("model", None),
+                        task,
+                        "model",
+                        input_example=input_example,
+                        registered_model_name=registered_model_name,
+                        run_id=run_id,
+                    )
         except Exception as e:
             _logger.warning(f"Failed to log model due to error: {e}.")
         self.model_logged = True
