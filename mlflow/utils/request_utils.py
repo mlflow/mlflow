@@ -134,7 +134,10 @@ def _cached_get_request_session(
             super().__init__(*args, **kwargs)
 
         # Trying to use https://requests.readthedocs.io/en/latest/api/#requests.adapters.HTTPAdapter
-        # and https://urllib3.readthedocs.io/en/stable/reference/urllib3.poolmanager.html to customize SSL context
+        # and https://urllib3.readthedocs.io/en/stable/reference/urllib3.poolmanager.html
+        # https://urllib3.readthedocs.io/en/stable/reference/urllib3.connectionpool.html#urllib3.connectionpool.ConnectionPool
+        
+        # to customize SSL context
         def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
             # Overriding the method to use our custom SSL context
             pool_kwargs['ssl_context'] = ssl_context
