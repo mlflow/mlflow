@@ -134,7 +134,7 @@ def _cached_get_request_session(
 
     # Create a custom SSL context with debug enabled
     ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    ssl_context.set_debug_level(2)  # Set debug level for SSL connections
+    # ssl_context.set_debug_level(2)  # Set debug level for SSL connections
     ssl_context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_3
 
     retry_kwargs = {
@@ -166,6 +166,7 @@ def _cached_get_request_session(
     # Initialize a session with the custom adapter
     adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
     timeout = 30
+
     _logger.info(f"Creating requests.Session with adapter {adapter}, ssl context {ssl_context}, timeout {timeout}")
     session = requests.Session(timeout=timeout)
     session.mount("https://", adapter)
