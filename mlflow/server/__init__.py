@@ -3,6 +3,7 @@ import importlib.metadata
 import json
 import logging
 import os
+import pathlib
 import shlex
 import socket
 import sys
@@ -10,6 +11,7 @@ import textwrap
 import types
 
 from flask import Flask, Response, send_from_directory
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -28,7 +30,6 @@ from mlflow.server.handlers import (
 from mlflow.utils.os import get_entry_points, is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
-from packaging.version import Version
 
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -320,7 +321,7 @@ def _run_server(
     if experimental_go:
         go_config["PythonCommand"] = full_command
         env_map = {"MLFLOW_GO_CONFIG": json.dumps(go_config)}
-        pkg = os.path.join(os.path.dirname(__file__), "..", "go")
+        pkg = pathlib.Path(os.path.join(os.path.dirname(__file__), "..", "go")).resolve()
         server = os.path.join(pkg, "server")
         # Use the pre-built go server if it exists, otherwise run the go code directly
         full_command = [server] if os.path.exists(server) else ["go", "run", pkg]
