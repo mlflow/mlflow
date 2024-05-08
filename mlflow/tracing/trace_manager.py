@@ -77,7 +77,6 @@ class InMemoryTraceManager:
         Update the trace info object in the in-memory trace registry.
 
         Args:
-            trace_id: The trace ID for the existing trace.
             trace_info: The updated trace info object to be stored.
         """
         with self._lock:
