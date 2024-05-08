@@ -8,7 +8,7 @@ import time
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import List
+from typing import List, NamedTuple
 from unittest import mock
 
 import pytest
@@ -27,6 +27,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
@@ -65,22 +66,30 @@ def store_and_trace_info(store):
     return store, store.start_trace(exp_id, timestamp_ms, {}, {})
 
 
+class TraceInfos(NamedTuple):
+    trace_infos: List[TraceInfo]
+    store: FileStore
+    exp_id: str
+    request_ids: List[str]
+    timestamps: List[int]
+
+
 @pytest.fixture
 def generate_trace_infos(store):
     exp_id = store.create_experiment("test")
     timestamps = list(range(0, 100, 10))
     trace_infos = []
     request_ids = []
-    for i in range(10):
+    for i, timestamp in enumerate(timestamps):
         trace_info = store.start_trace(
             exp_id,
-            timestamps[i],
+            timestamp,
             {},
             {TraceTagKey.TRACE_NAME: f"trace_{i}"},
         )
         trace_infos.append(trace_info)
         request_ids.append(trace_info.request_id)
-    return trace_infos, store, exp_id, request_ids, timestamps
+    return TraceInfos(trace_infos, store, exp_id, request_ids, timestamps)
 
 
 def create_experiments(store, experiment_names):
@@ -2877,7 +2886,11 @@ def _validate_search_traces(store, exp_ids, filter_string, expected_traces, orde
 
 
 def test_search_traces_filter(generate_trace_infos):
-    trace_infos, store, exp_id, request_ids, timestamps = generate_trace_infos
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+    request_ids = generate_trace_infos.request_ids
+    timestamps = generate_trace_infos.timestamps
 
     # by default sort by timestamp_ms DESC, request_id ASC
     _validate_search_traces(store, [exp_id], None, trace_infos[::-1])
@@ -2991,7 +3004,11 @@ def test_search_traces_filter(generate_trace_infos):
 
 
 def test_search_traces_order(generate_trace_infos):
-    trace_infos, store, exp_id, request_ids, timestamps = generate_trace_infos
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+    request_ids = generate_trace_infos.request_ids
+    timestamps = generate_trace_infos.timestamps
     # order by timestamp
     for timestamp_key in ["timestamp", "timestamp_ms"]:
         _validate_search_traces(store, [exp_id], "", trace_infos, order_by=[f"{timestamp_key} ASC"])
@@ -3062,7 +3079,8 @@ def test_search_traces_order(generate_trace_infos):
 
 
 def test_search_traces_raise_errors(generate_trace_infos):
-    _, store, exp_id, _, _ = generate_trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
 
     # unsupported order_by keys
     with pytest.raises(
@@ -3077,7 +3095,9 @@ def test_search_traces_raise_errors(generate_trace_infos):
 
 
 def test_search_traces_pagination(generate_trace_infos):
-    trace_infos, store, exp_id, _, _ = generate_trace_infos
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
 
     # test returned token behavior
     traces, token = store.search_traces([exp_id], None, max_results=5)

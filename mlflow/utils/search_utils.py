@@ -70,8 +70,14 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
         if search_traces:
             # timestamp
             if first.match(ttype=TokenType.Name.Builtin, values=["timestamp", "timestamp_ms"]):
-                (_, second) = next(iterator)
-                (_, third) = next(iterator)
+                (_, second) = next(iterator, (None, None))
+                (_, third) = next(iterator, (None, None))
+                if any(x is None for x in [second, third]):
+                    raise MlflowException(
+                        f"Invalid comparison clause with token `{first}, {second}, {third}`, "
+                        "expected 3 tokens",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 if (
                     second.match(
                         ttype=TokenType.Operator.Comparison,
