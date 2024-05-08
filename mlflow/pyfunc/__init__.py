@@ -977,7 +977,7 @@ def load_model(
     if isinstance(conf_model_config, str):
         conf_model_config_path = os.path.join(
             local_path,
-            os.path.basename(model_config),
+            os.path.basename(conf_model_config),
         )
         conf_model_config = _validate_and_get_model_config_from_file(conf_model_config_path)
 
