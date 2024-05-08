@@ -858,6 +858,45 @@ def autolog(
     registered_model_name=None,
     extra_tags=None,
 ):
+    """
+    Enables (or disables) and configures autologging from OpenAI to MLflow.
+
+    Args:
+        log_input_examples: If ``True``, input examples from inference data are collected and
+            logged along with Langchain model artifacts during inference. If
+            ``False``, input examples are not logged.
+            Note: Input examples are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with OpenAI model artifacts during inference. If ``False``,
+            signatures are not logged.
+            Note: Model signatures are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_models: If ``True``, OpenAI models are logged as MLflow model artifacts.
+            If ``False``, OpenAI models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
+            if applicable. If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the OpenAI autologging integration. If ``False``,
+            enables the OpenAI autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            OpenAI that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during OpenAI
+            autologging. If ``False``, show all events and warnings during OpenAI
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    """
+
     if Version(_get_openai_package_version()).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
