@@ -53,10 +53,4 @@ def test_export():
     logged_trace_info, logged_trace_data = mock_client._upload_trace_data.call_args[0]
     assert trace_info == logged_trace_info
     assert len(logged_trace_data.spans) == 2
-    mock_client._upload_ended_trace_info.assert_called_once_with(
-        request_id=request_id,
-        timestamp_ms=1,
-        status="OK",
-        request_metadata={},
-        tags={},
-    )
+    mock_client._upload_ended_trace_info.assert_called_once_with(trace_info)

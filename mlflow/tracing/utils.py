@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import uuid
 from collections import Counter
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -179,3 +180,7 @@ def maybe_get_evaluation_request_id() -> Optional[str]:
 def exclude_immutable_tags(tags: Dict[str, str]) -> Dict[str, str]:
     """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
+
+
+def generate_request_id() -> str:
+    return uuid.uuid4().hex

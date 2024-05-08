@@ -3886,7 +3886,9 @@ def _create_trace(
     if not store.get_experiment(experiment_id):
         store.create_experiment(store, experiment_id)
 
-    with mock.patch.object(store, "_generate_trace_request_id", lambda: request_id):
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.generate_request_id", side_effect=lambda: request_id
+    ):
         trace_info = store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,

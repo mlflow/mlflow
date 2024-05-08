@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Dict, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -73,3 +73,22 @@ class TraceInfo(_MlflowObject):
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
             tags={tag.key: tag.value for tag in proto.tags},
         )
+
+    def to_dict(self):
+        """
+        Convert trace info to a dictionary for persistence.
+        Update status field to the string value for serialization.
+        """
+        trace_info_dict = asdict(self)
+        trace_info_dict["status"] = self.status.value
+        return trace_info_dict
+
+    @classmethod
+    def from_dict(cls, trace_info_dict):
+        """
+        Convert trace info dictionary to TraceInfo object.
+        """
+        if "status" not in trace_info_dict:
+            raise ValueError("status is required in trace info dictionary.")
+        trace_info_dict["status"] = TraceStatus(trace_info_dict["status"])
+        return cls(**trace_info_dict)
