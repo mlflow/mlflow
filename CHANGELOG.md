@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2.12.2 (2024-05-08)
+
+MLflow 2.12.2 is a patch release that includes several bug fixes and integration improvements to existing features. New features that are introduced in this patch release are intended to provide a foundation to further major features that will be released in the next 2 minor releases.
+
+Features:
+
+- [Models] Add an environment configuration flag to enable raising an exception instead of a warning for failures in model dependency inference (#11903, @BenWilson2)
+- [Models] Add support for the `llm/v1/embeddings` task in the Transformers flavor to unify the input and output structures for embedding models (#11795, @B-Step62)
+- [Models] Introduce model streaming return via `predict_stream()` for custom `pyfunc` models capable of returning a stream response (#11791, #11895, @WeichenXu123)
+- [Evaluate] Add support for overriding the entire model evaluation judgment prompt within `mlflow.evaluate` for GenAI models (#11912, @apurva-koti)
+- [Tracking] Add support for defining deployment resource metadata to configure deployment resources within `pyfunc` models (#11832, #11825, #11804, @sunishsheth2009)
+- [Tracking] Add support for logging `LangChain` and custom `pyfunc` models as code (#11855, #11842, @sunishsheth2009)
+- [Tracking] Modify MLflow client's behavior to read from a global asynchronous configuration state (#11778, #11780, @chenmoneygithub)
+- [Tracking] Enhance system metrics data collection to include a GPU power consumption metric (#11747, @chenmoneygithub)
+
+
+Bug fixes:
+
+- [Models] Fix a validation issue when performing signature validation if `params` are specified (#11838, @WeichenXu123)
+- [Databricks] Fix an issue where models cannot be loaded in the Databricks serverless runtime (#11758, @WeichenXu123)
+- [Databricks] Fix an issue with the Databricks serverless runtime where scaled workers do not have authorization to read from the driver NFS mount (#11757, @WeichenXu123)
+- [Databricks] Fix an issue in the Databricks serverless runtime where a model loaded via a `spark_udf` for inference fails due to a configuration issue (#11752, @WeichenXu123)
+- [Server-infra] Upgrade the gunicorn dependency to version 22 to address a third-party security issue (#11742, @maitreyakv)
+
+
+Documentation updates:
+
+- [Docs] Add additional guidance on search syntax restrictions for search APIs (#11892, @BenWilson2)
+- [Docs] Fix an issue with the quickstart guide where the Keras example model is defined incorrectly (#11848, @horw)
+- [Docs] Provide fixes and updates to LangChain tutorials and guides (#11802, @BenWilson2)
+- [Docs] Fix the model registry example within the docs for correct type formatting (#11789, @80rian)
+
+Small bug fixes and documentation updates:
+
+#11928, @apurva-koti; #11910, #11915, #11864, #11893, #11875, #11744, @BenWilson2; #11913, #11918, #11869, #11873, #11867, @sunishsheth2009; #11916, #11879, #11877, #11860, #11843, #11844, #11817, #11841, @annzhang-db; #11822, #11861, @serena-ruan; #11890, #11819, #11794, #11774, @B-Step62; #11880, @prithvikannan; #11833, #11818, @harupy; #11831, @dbczumar; #11812, #11816, #11800, @daniellok-db; #11788, @smurching; #11756, @IgorMilavec; #11627, @jessechancy
+
 ## 2.12.1 (2024-04-17)
 
 MLflow 2.12.1 includes several major features and improvements
