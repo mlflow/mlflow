@@ -136,9 +136,8 @@ def test_upload_trace_data(tmp_path, mock_store):
         client = TrackingServiceClient(tmp_path.as_uri())
         client._upload_trace_data(trace_info=trace_info, trace_data=trace_data)
         mock_upload_trace_data.assert_called_once_with(trace_data_json)
-        # The TraceInfo is already fetched prior to the upload_trace_data call,
-        # so we should not call _get_trace_info again
-        mock_store.get_trace_info.assert_not_called()
+        # get_trace_info is called after tags are set
+        mock_store.get_trace_info.assert_called_once()
 
 
 def test_search_traces(tmp_path):
