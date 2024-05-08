@@ -968,10 +968,18 @@ def load_model(
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
 
     if isinstance(model_config, str):
-        model_config = _validate_and_get_model_config_from_file(model_config)
+        model_config_path = os.path.join(
+            local_path,
+            os.path.basename(model_config),
+        )
+        model_config = _validate_and_get_model_config_from_file(model_config_path)
     conf_model_config = conf.get(MODEL_CONFIG, None)
     if isinstance(conf_model_config, str):
-        conf_model_config = _validate_and_get_model_config_from_file(conf_model_config)
+        conf_model_config_path = os.path.join(
+            local_path,
+            os.path.basename(model_config),
+        )
+        conf_model_config = _validate_and_get_model_config_from_file(conf_model_config_path)
 
     model_config = _get_overridden_pyfunc_model_config(conf_model_config, model_config, _logger)
     conf.update({MODEL_CONFIG: model_config})
