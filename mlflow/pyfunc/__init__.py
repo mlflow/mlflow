@@ -998,7 +998,7 @@ def load_model(
             os.path.basename(flavor_code_path),
         )
 
-        return _load_model_code_path(code_path, model_config)
+        return _load_model_code_path(code_path, model_config, suffix="loading")
     # else:
     try:
         if model_config:
@@ -2510,10 +2510,12 @@ def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
 
 
 # TODO: bbqiu move this to models.utils.py
-def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
+def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]], suffix=None):
     with _config_context(config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
+            if suffix:
+                new_module_name = f"{new_module_name}_{suffix}"
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)
             module = importlib.util.module_from_spec(spec)
             sys.modules[new_module_name] = module
