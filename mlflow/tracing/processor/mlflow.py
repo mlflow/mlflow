@@ -28,6 +28,7 @@ from mlflow.tracing.utils import (
     maybe_get_evaluation_request_id,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
 
@@ -83,6 +84,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "your environment using `mlflow.set_experiment()` API."
             )
         metadata = {}
+        default_tags = resolve_tags()
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
         if run := mlflow.active_run():
@@ -92,7 +94,13 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
         if request_id := maybe_get_evaluation_request_id():
-            trace_info = self._create_trace_info(request_id, span, experiment_id, metadata)
+            trace_info = self._create_trace_info(
+                request_id,
+                span,
+                experiment_id,
+                metadata,
+                tags=default_tags,
+            )
         else:
             try:
                 trace_info = self._client._start_tracked_trace(
@@ -103,6 +111,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                     #   updating the trace start time.
                     timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                     request_metadata=metadata,
+                    tags=default_tags,
                 )
 
             # TODO: This catches all exceptions from the tracking server so the in-memory tracing
@@ -117,7 +126,13 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 if _MLFLOW_TESTING.get():
                     raise
                 request_id = encode_trace_id(span.context.trace_id)
-                trace_info = self._create_trace_info(request_id, span, experiment_id, metadata)
+                trace_info = self._create_trace_info(
+                    request_id,
+                    span,
+                    experiment_id,
+                    metadata,
+                    tags=default_tags,
+                )
 
         return trace_info
 
