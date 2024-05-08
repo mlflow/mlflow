@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
@@ -14,7 +15,7 @@ import (
 
 func launchCommand(ctx context.Context, cfg config.Config) error {
 	cmd := exec.CommandContext(ctx, cfg.PythonCommand[0], cfg.PythonCommand[1:]...)
-	cmd.Env = cfg.PythonEnv
+	cmd.Env = append(os.Environ(), cfg.PythonEnv...)
 	cmd.Stdout = logrus.StandardLogger().Writer()
 	cmd.Stderr = logrus.StandardLogger().Writer()
 	cmd.WaitDelay = 5 * time.Second
