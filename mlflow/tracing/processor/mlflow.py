@@ -93,6 +93,29 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
         if request_id := maybe_get_evaluation_request_id():
+            default_tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
+        try:
+            trace_info = self._client._start_tracked_trace(
+                experiment_id=experiment_id,
+                # TODO: This timestamp is not accurate because it is not adjusted to exclude the
+                #   latency of the backend API call. We do this adjustment for span start time
+                #   above, but can't do it for trace start time until the backend API supports
+                #   updating the trace start time.
+                timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
+                request_metadata=metadata,
+                tags=default_tags,
+            )
+
+        # TODO: This catches all exceptions from the tracking server so the in-memory tracing
+        # still works if the backend APIs are not ready. Once backend is ready, we should
+        # catch more specific exceptions and handle them accordingly.
+        except Exception:
+            _logger.debug(
+                "Failed to start a trace in the tracking server. This may be because the "
+                "backend APIs are not available. Fallback to client-side generation",
+                exc_info=True,
+            )
+            request_id = encode_trace_id(span.context.trace_id)
             trace_info = self._create_trace_info(
                 request_id,
                 span,
@@ -100,36 +123,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 metadata,
                 tags=default_tags,
             )
-        else:
-            try:
-                trace_info = self._client._start_tracked_trace(
-                    experiment_id=experiment_id,
-                    # TODO: This timestamp is not accurate because it is not adjusted to exclude the
-                    #   latency of the backend API call. We do this adjustment for span start time
-                    #   above, but can't do it for trace start time until the backend API supports
-                    #   updating the trace start time.
-                    timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-                    request_metadata=metadata,
-                    tags=default_tags,
-                )
-
-            # TODO: This catches all exceptions from the tracking server so the in-memory tracing
-            # still works if the backend APIs are not ready. Once backend is ready, we should
-            # catch more specific exceptions and handle them accordingly.
-            except Exception:
-                _logger.debug(
-                    "Failed to start a trace in the tracking server. This may be because the "
-                    "backend APIs are not available. Fallback to client-side generation",
-                    exc_info=True,
-                )
-                request_id = encode_trace_id(span.context.trace_id)
-                trace_info = self._create_trace_info(
-                    request_id,
-                    span,
-                    experiment_id,
-                    metadata,
-                    tags=default_tags,
-                )
 
         return trace_info
 
