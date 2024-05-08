@@ -60,6 +60,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceRequestMetadata,
     SqlTraceTag,
 )
+from mlflow.tracing.utils import generate_request_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
@@ -1539,7 +1540,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_experiment_is_active(experiment)
 
             trace_info = SqlTraceInfo(
-                request_id=self._generate_trace_request_id(),
+                request_id=generate_request_id(),
                 experiment_id=experiment_id,
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=None,
@@ -1604,9 +1605,6 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
             return sql_trace_info.to_mlflow_entity()
-
-    def _generate_trace_request_id(self) -> str:
-        return uuid.uuid4().hex
 
     def _get_sql_trace_info(self, session, request_id) -> SqlTraceInfo:
         sql_trace_info = (

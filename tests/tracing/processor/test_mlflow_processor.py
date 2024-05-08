@@ -73,6 +73,8 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singlet
     original_start_time = time.time_ns()
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1, start_time=original_start_time)
 
+    # make sure _start_tracked_trace is invoked
+    assert processor._trace_manager.get_request_id_from_trace_id(span.context.trace_id) is None
     processor.on_start(span)
 
     assert span.start_time > original_start_time
