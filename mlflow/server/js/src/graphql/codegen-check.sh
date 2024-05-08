@@ -61,4 +61,3 @@ else
   # Remove all additional generated files if tests pass
   find . -path '**/__generated_test__/*.ts' | xargs rm
 fi
-
