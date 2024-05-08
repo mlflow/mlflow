@@ -56,6 +56,10 @@ class IPythonTraceDisplayHandler:
                 return
 
             traces_to_display = list(self.traces_to_display.values())[:MAX_TRACES_TO_DISPLAY]
+            if len(traces_to_display) == 0:
+                self.traces_to_display = {}
+                return
+
             display(
                 self.get_mimebundle(traces_to_display),
                 display_id=True,
