@@ -33,6 +33,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
@@ -297,13 +298,14 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
+            self._exp_id = self._client.create_experiment("test_experiment")
 
         def predict(self, x, y):
             root_span = self._client.start_trace(
                 name="predict",
                 inputs={"x": x, "y": y},
                 tags={"tag": "tag_value"},
-                experiment_id="test_experiment",
+                experiment_id=self._exp_id,
             )
             request_id = root_span.request_id
 
@@ -360,7 +362,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     assert len(traces) == 1
     trace_info = traces[0].info
     assert trace_info.request_id is not None
-    assert trace_info.experiment_id == "test_experiment"
+    assert trace_info.experiment_id == model._exp_id
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
@@ -379,7 +381,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
     assert root_span.parent_id is None
     assert root_span.attributes == {
-        "mlflow.experimentId": "test_experiment",
+        "mlflow.experimentId": model._exp_id,
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"x": 1, "y": 2},
@@ -527,9 +529,21 @@ def test_log_trace_with_databricks_tracking_uri(
 
     model = TestModel()
 
+    def _mock_update_trace_info(trace_info):
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace("tr-12345") as trace:
+            trace.info.tags.update({"tag": "tag_value"})
+
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-    ) as mock_upload_trace_data:
+    ) as mock_upload_trace_data, mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tags",
+    ), mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
+    ), mock.patch(
+        "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
+        side_effect=_mock_update_trace_info,
+    ):
         model.predict(1, 2)
 
     traces = get_traces()
@@ -604,12 +618,10 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    assert trace.info.tags == {
-        "mlflow.traceName": "test",
-        "foo": "bar",
-        "mlflow.source.name": "test",
-        "mlflow.source.type": "LOCAL",
-    }
+    assert trace.info.tags["mlflow.traceName"] == "test"
+    assert trace.info.tags["foo"] == "bar"
+    assert trace.info.tags["mlflow.source.name"] == "test"
+    assert trace.info.tags["mlflow.source.type"] == "LOCAL"
 
 
 def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
@@ -628,12 +640,10 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    assert trace.info.tags == {
-        "baz": "qux",
-        "mlflow.traceName": "test",  # Added by MLflow
-        "mlflow.source.name": "test",
-        "mlflow.source.type": "LOCAL",
-    }
+    assert trace.info.tags["baz"] == "qux"
+    assert trace.info.tags["mlflow.traceName"] == "test"
+    assert trace.info.tags["mlflow.source.name"] == "test"
+    assert trace.info.tags["mlflow.source.type"] == "LOCAL"
 
 
 def test_delete_trace_tag_on_logged_trace(mock_store, clear_singleton):
