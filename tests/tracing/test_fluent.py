@@ -15,7 +15,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey, TraceTagKey
 
 from tests.tracing.helper import create_test_trace_info, get_traces
 
@@ -308,21 +308,19 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
+        "mlflow.artifactLocation": "test",
     }
 
     trace = mlflow.get_trace(request_id_1)
-    assert trace.info.request_id == request_id_1
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-    assert trace.info.tags == expected_tags
+    assert trace.info.tags == {**expected_tags, **{TraceTagKey.EVAL_REQUEST_ID: request_id_1}}
 
     trace = mlflow.get_trace(request_id_2)
-    assert trace.info.request_id == request_id_2
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-    assert trace.info.tags == expected_tags
+    assert trace.info.tags == {**expected_tags, **{TraceTagKey.EVAL_REQUEST_ID: request_id_2}}
 
-    # MLflow backend API should not be called for model evaluation
-    mock_store.start_trace.assert_not_called()
-    mock_store.end_trace.assert_not_called()
+    assert mock_store.start_trace.call_count == 2
+    assert mock_store.end_trace.call_count == 2
 
 
 def test_trace_handle_exception_during_prediction(clear_singleton):
