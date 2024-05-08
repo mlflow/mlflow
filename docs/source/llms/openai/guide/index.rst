@@ -171,7 +171,6 @@ Below is an example script that logs the model, inputs and outputs.
 
 For more examples, please click `here <https://github.com/mlflow/mlflow/blob/master/examples/openai/autologging>`_.
 
-
 Next Steps in Your NLP Journey
 ------------------------------
 We invite you to harness the combined power of MLflow and OpenAI for developing innovative NLP applications. Whether it's creating interactive 
