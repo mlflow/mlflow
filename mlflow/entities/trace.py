@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
+from typing import Any, Dict
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.tracing.utils import TraceJSONEncoder
 
 
 @dataclass
@@ -22,6 +22,8 @@ class Trace(_MlflowObject):
     data: TraceData
 
     def to_json(self) -> str:
+        from mlflow.tracing.utils import TraceJSONEncoder
+
         return json.dumps(
             {"info": asdict(self.info), "data": self.data.to_dict()}, cls=TraceJSONEncoder
         )
@@ -39,4 +41,17 @@ class Trace(_MlflowObject):
         return {
             "application/databricks.mlflow.trace": self.to_json(),
             "text/plain": self.__repr__(),
+        }
+
+    def to_pandas_dataframe_row(self) -> Dict[str, Any]:
+        return {
+            "request_id": self.info.request_id,
+            "timestamp_ms": self.info.timestamp_ms,
+            "status": self.info.status,
+            "execution_time_ms": self.info.execution_time_ms,
+            "request": self.data.request,
+            "response": self.data.response,
+            "request_metadata": self.info.request_metadata,
+            "spans": [span.to_dict() for span in self.data.spans],
+            "tags": self.info.tags,
         }
