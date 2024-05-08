@@ -254,9 +254,10 @@ def _get_http_response_with_retries(
     env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
     allow_redirects = env_value if allow_redirects is None else allow_redirects
 
-    timeout = 30
-    _logger.debug(f"Sending request to URL {url} with timeout {timeout} seconds")
-    return session.request(method, url, allow_redirects=allow_redirects, timeout=timeout, **kwargs)
+    if "timeout" not in kwargs:
+        kwargs["timeout"] = 30
+    _logger.debug(f"Sending request to URL {url} with timeout {kwargs.get('timeout')} seconds")
+    return session.request(method, url, allow_redirects=allow_redirects, **kwargs)
 
 
 def cloud_storage_http_request(
