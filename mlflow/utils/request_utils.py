@@ -124,24 +124,23 @@ def _cached_get_request_session(
 
 
     # Create a custom SSL context with debug enabled
-    ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
     # ssl_context.set_debug_level(2)  # Set debug level for SSL connections
-    ssl_context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_3
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
 
     class CustomSSLContextAdapter(HTTPAdapter):
         """An adapter for `requests` to use a predefined SSL context."""
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            self.ssl_context = ssl_context
 
         # Trying to use https://requests.readthedocs.io/en/latest/api/#requests.adapters.HTTPAdapter
         # and https://urllib3.readthedocs.io/en/stable/reference/urllib3.poolmanager.html
         # https://urllib3.readthedocs.io/en/stable/reference/urllib3.connectionpool.html#urllib3.connectionpool.ConnectionPool
-        
         # to customize SSL context
-        def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        def init_poolmanager(self, *args, **kwargs):
             # Overriding the method to use our custom SSL context
-            pool_kwargs['ssl_context'] = ssl_context
-            return super().init_poolmanager(connections=connections, maxsize=maxsize, block=block, **pool_kwargs)
+            kwargs['ssl_context'] = ssl_context
+            return super().init_poolmanager(*args, **kwargs)
 
             # self.poolmanager = PoolManager(num_pools=pool_connections,
             #                                maxsize=pool_maxsize,
@@ -179,8 +178,7 @@ def _cached_get_request_session(
     # adapter = HTTPAdapter(max_retries=retry)
 
     # Initialize a session with the custom adapter
-    adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
-
+    adapter = CustomSSLContextAdapter(max_retries=retry)
     _logger.info(f"Creating requests.Session with adapter {adapter}, ssl context {ssl_context}")
     session = requests.Session()
     session.keep_alive = False
