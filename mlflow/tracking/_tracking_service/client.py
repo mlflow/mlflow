@@ -236,6 +236,18 @@ class TrackingServiceClient:
             request_ids=request_ids,
         )
 
+    def get_trace_info(self, request_id) -> TraceInfo:
+        """
+        Get the trace info matching the ``request_id``.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
+        """
+        return self.store.get_trace_info(request_id)
+
     def get_trace(self, request_id) -> Trace:
         """
         Get the trace matching the ``request_id``.
@@ -246,7 +258,7 @@ class TrackingServiceClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        trace_info = self.store.get_trace_info(request_id)
+        trace_info = self.get_trace_info(request_id)
         try:
             trace_data = self._download_trace_data(trace_info)
         except MlflowTraceDataNotFound:
@@ -328,6 +340,17 @@ class TrackingServiceClient:
                 next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
+
+    def set_trace_tags(self, request_id, tags):
+        """
+        Set tags on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            tags: A dictionary of key-value pairs.
+        """
+        for k, v in tags.items():
+            self.set_trace_tag(request_id, k, v)
 
     def set_trace_tag(self, request_id, key, value):
         """
