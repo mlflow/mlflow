@@ -141,12 +141,13 @@ def test_on_start_during_model_evaluation(clear_singleton):
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)
     mock_client = mock.MagicMock()
+    mock_client._start_tracked_trace.return_value = create_test_trace_info(_REQUEST_ID, 0)
     processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
 
     with set_prediction_context(Context(request_id=_REQUEST_ID, is_evaluate=True)):
         processor.on_start(span)
 
-    mock_client._start_tracked_trace.assert_not_called()
+    mock_client._start_tracked_trace.assert_called_once()
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
 
 

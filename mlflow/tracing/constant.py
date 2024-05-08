@@ -7,6 +7,7 @@ class TraceMetadataKey:
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
+    EVAL_REQUEST_ID = "eval.requestId"
 
 
 # A set of reserved attribute keys
