@@ -120,6 +120,7 @@ def _cached_get_request_session(
     from requests.adapters import HTTPAdapter
     # from requests.packages.urllib3.poolmanager import PoolManager
     import ssl
+    from urllib3.poolmanager import PoolManager
 
 
     # Create a custom SSL context with debug enabled
@@ -132,10 +133,17 @@ def _cached_get_request_session(
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
-        def init_poolmanager(self, *args, **kwargs):
+        # Trying to use https://requests.readthedocs.io/en/latest/api/#requests.adapters.HTTPAdapter
+        # and https://urllib3.readthedocs.io/en/stable/reference/urllib3.poolmanager.html to customize SSL context
+        def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
             # Overriding the method to use our custom SSL context
-            kwargs['ssl_context'] = ssl_context
-            return super().init_poolmanager(*args, **kwargs)
+            pool_kwargs['ssl_context'] = ssl_context
+            return super().init_poolmanager(connections=connections, maxsize=maxsize, block=block, **pool_kwargs)
+
+            # self.poolmanager = PoolManager(num_pools=pool_connections,
+            #                                maxsize=pool_maxsize,
+            #                                block=pool_block,
+            #                                ssl_context=ssl_context)
         # def get_connection(self, url, proxies=None):
         #     # Overriding get_connection to handle SSLContext correctly
         #     return super().get_connection(url, proxies=proxies, ssl_context=ssl_context)
@@ -165,10 +173,10 @@ def _cached_get_request_session(
         retry = Retry(**retry_kwargs)
     # NOTE: commenting out the existing adapter in favor of our custom one
     # to debug
-    adapter = HTTPAdapter(max_retries=retry)
+    # adapter = HTTPAdapter(max_retries=retry)
 
     # Initialize a session with the custom adapter
-    # adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
+    adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
 
     _logger.info(f"Creating requests.Session with adapter {adapter}, ssl context {ssl_context}")
     session = requests.Session()
