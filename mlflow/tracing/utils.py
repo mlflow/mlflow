@@ -364,6 +364,7 @@ def _extract_spans_from_row(
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
+
 def exclude_immutable_tags(tags: Dict[str, str]) -> Dict[str, str]:
     """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
