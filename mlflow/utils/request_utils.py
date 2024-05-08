@@ -136,6 +136,10 @@ def _cached_get_request_session(
             # Overriding the method to use our custom SSL context
             kwargs['ssl_context'] = ssl_context
             return super().init_poolmanager(*args, **kwargs)
+        # def get_connection(self, url, proxies=None):
+        #     # Overriding get_connection to handle SSLContext correctly
+        #     return super().get_connection(url, proxies=proxies, ssl_context=ssl_context)
+
 
     retry_kwargs = {
         "total": max_retries,
@@ -161,13 +165,14 @@ def _cached_get_request_session(
         retry = Retry(**retry_kwargs)
     # NOTE: commenting out the existing adapter in favor of our custom one
     # to debug
-    # adapter = HTTPAdapter(max_retries=retry)
+    adapter = HTTPAdapter(max_retries=retry)
 
     # Initialize a session with the custom adapter
-    adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
+    # adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
 
     _logger.info(f"Creating requests.Session with adapter {adapter}, ssl context {ssl_context}")
     session = requests.Session()
+    session.keep_alive = False
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
