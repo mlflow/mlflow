@@ -135,6 +135,9 @@ Currently, the following tasks are supported for autologging:
 - Completions
 - Embeddings
 
+If streaming is enabled on chat completions and completions, the output artifact will contain
+all streaming chunks as a list of JSON objects.
+
 Note that async clients like `openai.AsyncOpenAI()` are not supported for autologging.
 
 Below is an example script that logs the model, inputs and outputs.
