@@ -4,6 +4,7 @@
 import os
 import random
 from functools import lru_cache
+import logging
 
 import requests
 import urllib3
@@ -26,6 +27,7 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
     ]
 )
 
+_logger = logging.getLogger(__name__)
 
 class JitteredRetry(Retry):
     """
@@ -114,6 +116,26 @@ def _cached_get_request_session(
     """
     This function should not be called directly. Instead, use `_get_request_session` below.
     """
+    import requests
+    from requests.adapters import HTTPAdapter
+    # from requests.packages.urllib3.poolmanager import PoolManager
+    import ssl
+
+    class CustomSSLContextAdapter(HTTPAdapter):
+        """An adapter for `requests` to use a predefined SSL context."""
+        def __init__(self, ssl_context, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.ssl_context = ssl_context
+
+        def init_poolmanager(self, *args, **kwargs):
+            # Overriding the method to use our custom SSL context
+            kwargs['ssl_context'] = self.ssl_context
+            return super().init_poolmanager(*args, **kwargs)
+
+    # Create a custom SSL context with debug enabled
+    ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    ssl_context.set_debug_level(2)  # Set debug level for SSL connections
+    ssl_context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_3
 
     retry_kwargs = {
         "total": max_retries,
@@ -137,8 +159,15 @@ def _cached_get_request_session(
         retry = JitteredRetry(**retry_kwargs)
     else:
         retry = Retry(**retry_kwargs)
-    adapter = HTTPAdapter(max_retries=retry)
-    session = requests.Session()
+    # NOTE: commenting out the existing adapter in favor of our custom one
+    # to debug
+    # adapter = HTTPAdapter(max_retries=retry)
+
+    # Initialize a session with the custom adapter
+    adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
+    timeout = 30
+    _logger.info(f"Creating requests.Session with adapter {adapter}, ssl context {ssl_context}, timeout {timeout}")
+    session = requests.Session(timeout=timeout)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
@@ -225,7 +254,8 @@ def _get_http_response_with_retries(
     env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
     allow_redirects = env_value if allow_redirects is None else allow_redirects
 
-    return session.request(method, url, allow_redirects=allow_redirects, **kwargs)
+    timeout = 30
+    return session.request(method, url, allow_redirects=allow_redirects, timeout=timeout, **kwargs)
 
 
 def cloud_storage_http_request(
