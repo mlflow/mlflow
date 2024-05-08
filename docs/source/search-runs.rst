@@ -166,7 +166,54 @@ Second, let's try filtering the runs for our really bad models: ``metrics.loss >
 
 You'll notice that we now are displaying 2 runs instead of 10. Pretty easy, right?
 
-Now let's go over the search query syntax in more detail.
+Search Syntax Overview
+^^^^^^^^^^^^^^^^^^^^^^
+
+MLflow's Search functionality leverages a Domain Specific Language (DSL) for querying. It is inspired by SQL but does not 
+offer the full range of SQL capabilities.
+
+This section describes the syntax formatting, focusing on "left side" and "right side" elements in search queries. The 
+"left side" pertains to the field being filtered, such as ``metrics.loss``, while the "right side" relates to the value against which 
+the field is being compared, like ``0.8``.
+
+**Visual Representation of Search Components:**
+
+.. figure:: _static/images/search-runs/search_syntax.png
+   :alt: search components
+   :width: 30%
+   :align: center
+
+**Valid Syntax for Left and Right Side Elements:**
+
+1. **Left Side Syntax:**
+
+   * Fields without special characters or reserved keywords can be referenced directly (e.g., ``tag.test``).
+   * Use backticks for fields that contain special characters or are reserved keywords.
+   * Double quotes are also acceptable for enclosing field names (e.g., ``tag."test"``).
+
+   **Unsupported:**
+   
+   * Single quotes are **not valid** for enclosing field names (e.g., ``tag.'test'`` results in a syntax error).
+
+2. **Right Side Syntax:**
+   
+   * Enclose values in single or double quotes based on content requirements (e.g., ``tag.`test` = 'abc'`` or ``tag.`test` = "abc"``). 
+   * Non-metric values, **including numeric values** that may be stored as tags or as parameters must be enclosed in quotations.
+
+   **Unsupported:**
+   
+   * Using backticks or no wrapping for values is not allowed. Examples of invalid syntax include:
+
+    .. code-block:: sql
+      :caption: This results in a syntax error as backticks cannot be used for right-hand values.
+
+      tag.`test` = `abc`
+
+    .. code-block:: sql
+      :caption: This results in a syntax error as values must be wrapped in double quotes if they are not metrics.
+
+      tag.`test` = abc
+
 
 Search Query Syntax Deep Dive
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -174,17 +221,17 @@ Search Query Syntax Deep Dive
 As noted above, MLflow search syntax is similar to SQL with a few notable exceptions.
 
 * The SQL ``OR`` keyword is not supported.
-* For fields that contain special characters or start with numbers, you need to wrap them in double quotes.
+* For fields that contain special characters or start with numbers, these should be wrapped in **backticks**.
 
   .. code-block:: diff
 
     - Bad:  metrics.cross-entropy-loss < 0.5
-    + Good: metrics."cross-entropy-loss" < 0.5
+    + Good: metrics.`cross-entropy-loss` < 0.5
 
     - Bad:  params.1st_iteration_timestamp = "2022-01-01"
-    + Good: params."1st_iteration_timestamp" = "2022-01-01"
+    + Good: params.`1st_iteration_timestamp` = "2022-01-01"
 
-* For the SQL ``IN`` keyword, you must surround the values of your list with single quotes.
+* For the SQL ``IN`` keyword, you must surround the values of your list with **single quotes**.
 
   .. code-block:: diff
 
@@ -257,8 +304,8 @@ side of the inequality. Note that they are **stored as numbers**, so you must us
   metrics.accuracy > 0.72
   metrics."accuracy" > 0.72
   metrics.loss <= 0.15
-  metrics."log-scale-loss" <= 0
-  metrics."f1 score" >= 0.5
+  metrics.`log-scale-loss` <= 0
+  metrics.`f1 score` >= 0.5
   metrics.accuracy > 0.72 AND metrics.loss <= 0.15
 
 2 - Searching By Params
@@ -271,6 +318,9 @@ or ``mlflow.log_params`` or automatically via autologging.
 To search for runs by filtering on params, you must include the ``params`` prefix in the left 
 side of the inequality. Note that they are **stored as strings**, so you must use string 
 comparators, such as ``=`` and ``!=``.
+
+Note that numeric values stored as parameters are cast to string in the tracking store. 
+When querying for numeric parameters, you must specify them as strings by enclosing them in **double quotes**.
 
 .. code-block:: sql
 
@@ -340,10 +390,10 @@ comparators, such as ``=`` and ``!=``.
 .. code-block:: sql
   :caption: Examples for Strings
 
-  attributes.status = 'ACTIVE'
-  attributes.user_id LIKE 'user1'
-  attributes.run_name = 'my-run'
-  attributes.run_id = 'a1b2c3d4'
+  attributes.status = "ACTIVE"
+  attributes.user_id LIKE "user1"
+  attributes.run_name = "my-run"
+  attributes.run_id = "a1b2c3d4"
   attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
 
 .. code-block:: sql
@@ -533,7 +583,8 @@ check out the documentation for more details.
 
 R
 ^^^^^^
-The R API is similar to the Python API.
+The R API is similar to the Python API, with the exeption that the filter conditions must be string wrapped. Due to this 
+behavior, right-hand side conditional elements must be wrapped in single quotes for parameters, attributes, and tags. 
 
 .. code-block:: r
 
@@ -546,7 +597,9 @@ The R API is similar to the Python API.
 
 Java
 ^^^^
-The Java API is similar to Python API.
+The Java API is similar to the Python API with the exception that the entire conditional filter syntax is string-encapsulated. 
+This is due to the fact that the Java API is a thin wrapper around the Python core APIs, and as such, will be translated between 
+the two languages.
 
 .. code-block:: java
 

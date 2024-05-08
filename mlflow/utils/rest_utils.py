@@ -32,6 +32,7 @@ from mlflow.utils.string_utils import strip_suffix
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
+_TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 
 
 def http_request(
@@ -270,6 +271,18 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
+def get_single_trace_endpoint(request_id):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
+
+
+def get_trace_info_endpoint(request_id):
+    return f"{get_single_trace_endpoint(request_id)}/info"
+
+
+def get_set_trace_tag_endpoint(request_id):
+    return f"{get_single_trace_endpoint(request_id)}/tags"
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
@@ -287,6 +300,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     else:
         call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
+
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)

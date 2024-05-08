@@ -65,6 +65,8 @@ METADATA_FILES = [
     _REQUIREMENTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
 ]
+MODEL_CONFIG = "config"
+MODEL_CODE_PATH = "model_code_path"
 
 
 class ModelInfo:
@@ -692,6 +694,32 @@ class Model:
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
+
+            # if the model_config kwarg is passed in, then log the model config as an params
+            if MODEL_CONFIG in kwargs:
+                model_config = kwargs[MODEL_CONFIG]
+                if isinstance(model_config, str):
+                    try:
+                        file_extension = os.path.splitext(model_config)[1].lower()
+                        if file_extension == ".json":
+                            with open(model_config) as f:
+                                model_config = json.load(f)
+                        elif file_extension in [".yaml", ".yml"]:
+                            with open(model_config) as f:
+                                model_config = yaml.safe_load(f)
+                        else:
+                            _logger.warning(
+                                "Unsupported file format for model config: %s. "
+                                "Failed to load model config.",
+                                model_config,
+                            )
+                    except Exception as e:
+                        _logger.warning("Failed to load model config from %s: %s", model_config, e)
+                try:
+                    mlflow.tracking.fluent.log_params(model_config or {}, run_id=run_id)
+                except Exception as e:
+                    _logger.warning("Failed to log model config as params: %s", str(e))
+
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
             except MlflowException:

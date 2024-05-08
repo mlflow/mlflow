@@ -60,3 +60,19 @@ sqlparse:
   # Lower bound sqlparse for: https://github.com/andialbrecht/sqlparse/pull/567
   minimum: "0.4.0"
   max_major_version: 0
+
+# Required for tracing
+cachetools:
+  pip_release: cachetools
+  minimum: "5.0.0"
+  max_major_version: 5
+
+opentelemetry-api:
+  pip_release: opentelemetry-api
+  minimum: "1.0.0"
+  max_major_version: 2
+
+opentelemetry-sdk:
+  pip_release: opentelemetry-sdk
+  minimum: "1.0.0"
+  max_major_version: 2
