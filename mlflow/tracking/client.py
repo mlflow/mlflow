@@ -866,7 +866,7 @@ class MlflowClient:
             timestamp_ms=trace_info.timestamp_ms + trace_info.execution_time_ms,
             status=trace_info.status,
             request_metadata=trace_info.request_metadata,
-            tags=self._exclude_immutable_tags(trace_info.tags or {}),
+            tags=trace_info.tags or {},
         )
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
