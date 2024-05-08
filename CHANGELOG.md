@@ -1,5 +1,45 @@
 # CHANGELOG
 
+## 2.12.2 (2024-05-08)
+
+MLflow 2.12.2 includes several major features and improvements
+
+Features:
+
+- [Models] Add configurable raising instead of warning for failures in dependency inference (#11903, @BenWilson2)
+- [Deployments] Add parameter for system prompt in make_genai_metric, add metric metadata to EvaluationMetric (#11912, @apurva-koti)
+- [Tracking] [MLflow] Updating Pyfunc to specify resources needed to serve the model (#11832, @sunishsheth2009)
+- [Models] Make PythonModel supporting streaming prediction (#11791, @WeichenXu123)
+- [Tracking] [MLflow] Ability to infer signature and streamable for langchain, model log as code (#11855, @sunishsheth2009)
+- [Tracking] [MLflow] Add ability to set_model for pyfunc and langchain model (#11842, @sunishsheth2009)
+- [Tracking] [MLflow] Adding from_yaml_file builder method to generate resources (#11825, @sunishsheth2009)
+- [Tracking] [MLflow] Adding resources class to define resources required to serve a model (#11804, @sunishsheth2009)
+- [Tracking] Make Mlflow client's logging function controlled by global async logging config (#11778, @chenmoneygithub)
+- [Tracking] Make it possible to set the threadpool size of async logging (#11780, @chenmoneygithub)
+- [Models] Support llm/v1/embeddings task in Transformers flavor (#11795, @B-Step62)
+- [Tracking] Include GPU power in system metrics (#11747, @chenmoneygithub)
+
+Bug fixes:
+
+- [Server-infra / Sqlalchemy] fix: cascade experiment id fk deletion in datasets table (#11695, @chilir)
+- [Models] Fix langchain pyfunc model `predict_stream` for the case that model signature is logged (#11859, @WeichenXu123)
+- [Models] Fix log_warning_if_params_not_in_predict_signature in PyFunc Model (#11838, @WeichenXu123)
+- [] Fix `get_databricks_runtime` in serverless (#11758, @WeichenXu123)
+- [] Check if it is in serverless mode when invoking `get_nfs_cache_root_dir` (#11757, @WeichenXu123)
+- [Scoring] Fix spark_udf in serverless (#11752, @WeichenXu123)
+- [Server-infra] Upgrades gunicorn dependency to 22 (#11742, @maitreyakv)
+
+Documentation updates:
+
+- [Docs] Add additional guidance on search syntax restrictions (#11892, @BenWilson2)
+- [Examples] fix(index.rst): model layout (#11848, @horw)
+- [Docs] Provide fixes and updates to LangChain tutorials and guides (#11802, @BenWilson2)
+- [Docs] docs: Fix parameter type from int to str (#11789, @80rian)
+
+Small bug fixes and documentation updates:
+
+#11928, @apurva-koti; #11910, #11915, #11864, #11893, #11875, #11744, @BenWilson2; #11913, #11918, #11869, #11873, #11867, @sunishsheth2009; #11916, #11879, #11877, #11860, #11843, #11844, #11817, #11841, @annzhang-db; #11822, #11861, @serena-ruan; #11890, #11819, #11794, #11774, @B-Step62; #11880, @prithvikannan; #11833, #11818, @harupy; #11831, @dbczumar; #11812, #11816, #11800, @daniellok-db; #11788, @smurching; #11756, @IgorMilavec; #11627, @jessechancy
+
 ## 2.12.1 (2024-04-17)
 
 MLflow 2.12.1 includes several major features and improvements
