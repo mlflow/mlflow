@@ -446,8 +446,8 @@ def test_load_spark_model_from_models_uri(
         mock_download_artifacts.reset_mock()
         mlflow.spark.load_model(f"models:/{model_name}@Champion")
         assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None),
-            mock.call("", None),
+            mock.call("MLmodel", None, lineage_header_info=None),
+            mock.call("", None, lineage_header_info=None),
         ]
         assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 
