@@ -120,8 +120,6 @@ def get_default_conda_env():
 
 
 def _get_obj_to_task_mapping():
-    import openai
-
     if Version(_get_openai_package_version()).major < 1:
         from openai import api_resources as ar
 
@@ -140,22 +138,20 @@ def _get_obj_to_task_mapping():
             ar.Moderation: "moderations",
         }
     else:
+        from openai import resources as r
+
         return {
-            openai.audio: "audio",
-            openai.chat.completions: "chat.completions",
-            openai.completions: "completions",
-            openai.images.edit: "images.edit",
-            openai.embeddings: "embeddings",
-            openai.files: "files",
-            openai.images: "images",
-            openai.fine_tuning: "fine_tuning",
-            openai.moderations: "moderations",
-            openai.models: "models",
+            r.Audio: "audio",
+            r.chat.Completions: "chat.completions",
+            r.Completions: "completions",
+            r.Images.edit: "images.edit",
+            r.Embeddings: "embeddings",
+            r.Files: "files",
+            r.Images: "images",
+            r.FineTuning: "fine_tuning",
+            r.Moderations: "moderations",
+            r.Models: "models",
         }
-
-
-def _get_class_to_task_mapping():
-    return {k.__class__: v for k, v in _get_obj_to_task_mapping().items()}
 
 
 def _get_model_name(model):
@@ -181,22 +177,16 @@ def _get_task_name(task):
             )
         return task
     else:
-        task_name = mapping.get(task)
+        task_name = (
+            mapping.get(task)
+            or mapping.get(task.__class__)
+            or mapping.get(getattr(task, "__func__"))  # if task is a method
+        )
         if task_name is None:
             raise mlflow.MlflowException(
                 f"Unsupported task object: {task}", error_code=INVALID_PARAMETER_VALUE
             )
         return task_name
-
-
-def _get_task_name_from_class(cls):
-    mapping = _get_class_to_task_mapping()
-    task_name = mapping.get(cls)
-    if task_name is None:
-        raise mlflow.MlflowException(
-            f"Unsupported task class: {cls}", error_code=INVALID_PARAMETER_VALUE
-        )
-    return task_name
 
 
 def _get_api_config() -> _OpenAIApiConfig:

@@ -142,7 +142,7 @@ def patched_call(original, self, *args, **kwargs):
             mlflow.openai.FLAVOR_NAME, "registered_model_name", None
         )
         try:
-            task = mlflow.openai._get_task_name_from_class(self.__class__)
+            task = mlflow.openai._get_task_name(self.__class__)
             with disable_autologging():
                 mlflow.openai.log_model(
                     kwargs.get("model", None),
