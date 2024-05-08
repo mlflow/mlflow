@@ -69,9 +69,20 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span._start_time = time.time_ns()
 
     def _start_trace(self, span: OTelSpan) -> TraceInfo:
+        metadata = {}
+
+        # If the span is started within an active MLflow run, we should record it as a trace tag
+        run_experiment_id = None
+        if run := mlflow.active_run():
+            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
+            run_experiment_id = run.info.experiment_id
+
         experiment_id = (
-            get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
+            run_experiment_id
+            or get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
+            or _get_experiment_id()
         )
+
         if experiment_id == DEFAULT_EXPERIMENT_ID:
             _logger.warning(
                 "Creating a trace within the default experiment with id "
@@ -82,12 +93,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "To avoid performance and disambiguation issues, set the experiment for "
                 "your environment using `mlflow.set_experiment()` API."
             )
-        metadata = {}
         default_tags = resolve_tags()
-
-        # If the span is started within an active MLflow run, we should record it as a trace tag
-        if run := mlflow.active_run():
-            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
