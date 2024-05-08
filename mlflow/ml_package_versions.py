@@ -251,6 +251,10 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "0.27.2",
             "maximum": "1.19.0"
+        },
+        "autologging": {
+            "minimum": "1.0.0",
+            "maximum": "1.26.0"
         }
     },
     "langchain": {
