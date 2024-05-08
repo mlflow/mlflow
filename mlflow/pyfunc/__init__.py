@@ -973,6 +973,42 @@ def load_model(
     model_config = _get_overridden_pyfunc_model_config(conf_model_config, model_config, _logger)
     conf.update({MODEL_CONFIG: model_config})
 
+    """if conf.get(MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
+        flavor_code_path = conf.get(MODEL_CODE_PATH)
+        code_path = os.path.join(
+            local_path,
+            os.path.basename(flavor_code_path),
+        )
+        with _config_context(model_config):
+            try:
+                new_module_name = f"code_model_{uuid.uuid4().hex}"
+                spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[new_module_name] = module
+                spec.loader.exec_module(module)
+            except ImportError as e:
+                raise mlflow.MlflowException("Failed to import pyfunc model.") from e
+
+        model_impl = importlib.import_module(new_module_name)._load_pyfunc
+    """
+    if MODEL_CODE_PATH in conf:
+        flavor_config_path = conf.get(MODEL_CONFIG, None)
+        if flavor_config_path is not None:
+            config_path = os.path.join(
+                local_path,
+                os.path.basename(flavor_config_path),
+            )
+        else:
+            config_path = None
+
+        flavor_code_path = conf.get(MODEL_CODE_PATH)
+        code_path = os.path.join(
+            local_path,
+            os.path.basename(flavor_code_path),
+        )
+
+        return _load_model_code_path(code_path, config_path)
+    # else:
     try:
         if model_config:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
