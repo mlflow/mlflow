@@ -90,3 +90,11 @@ repos:
         stages: [commit]
         require_serial: true
         pass_filenames: false
+
+      - id: golangci-lint
+        name: golangci-lint
+        entry: golangci-lint run
+        language: system
+        types: [go]
+        stages: [commit]
+        require_serial: true
