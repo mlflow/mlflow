@@ -18,19 +18,20 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs):
-    from mlflow import pyfunc
+    from mlflow import pyfunc, rfunc
     from mlflow.pyfunc.backend import PyFuncBackend
     from mlflow.rfunc.backend import RFuncBackend
 
     if not model:
         return pyfunc.FLAVOR_NAME, PyFuncBackend({}, **kwargs)
 
-    _flavor_backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, "crate": RFuncBackend}
-    for flavor_name, flavor_config in model.flavors.items():
-        if flavor_name in _flavor_backends:
-            backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
-            if build_docker and backend.can_build_image() or backend.can_score_model():
-                return flavor_name, backend
+    backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, rfunc.FLAVOR_NAME: RFuncBackend}
+    for flavor, Backend in backends.items():
+        if flavor in model.flavors:
+            backend = Backend(model.flavors[flavor], **kwargs)
+            if (build_docker and backend.can_build_image()) or backend.can_score_model():
+                return flavor, backend
+
     return None, None
 
 

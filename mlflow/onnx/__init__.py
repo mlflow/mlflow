@@ -146,11 +146,8 @@ def save_model(
             'execution_mode' can be set to 'sequential' or 'parallel'.
             See onnxruntime API for further descriptions:
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
     """
     import onnx
 
@@ -343,9 +340,6 @@ class _OnnxModelWrapper:
                 `<https://github.com/microsoft/onnxruntime>`_.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions. If the input is a pandas.DataFrame, the predictions are returned
             in a pandas.DataFrame. If the input is a numpy array or a dictionary the
@@ -510,11 +504,8 @@ def log_model(
             'execution_mode' can be set to 'sequential' or 'parallel'.
             See onnxruntime API for further descriptions:
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

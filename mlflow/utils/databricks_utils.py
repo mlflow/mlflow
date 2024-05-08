@@ -214,6 +214,11 @@ def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
 
 
+def is_in_databricks_serverless():
+    dbr_version = get_databricks_runtime_version()
+    return dbr_version and dbr_version.startswith("client.")
+
+
 def is_dbfs_fuse_available():
     with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
         try:
@@ -262,17 +267,6 @@ def get_notebook_path():
         return _get_command_context().notebookPath().get()
     except Exception:
         return _get_extra_context("notebook_path")
-
-
-@_use_repl_context_if_available("runtimeVersion")
-def get_databricks_runtime():
-    if is_in_databricks_runtime():
-        spark_session = _get_active_spark_session()
-        if spark_session is not None:
-            return spark_session.conf.get(
-                "spark.databricks.clusterUsageTags.sparkVersion", default=None
-            )
-    return None
 
 
 @_use_repl_context_if_available("clusterId")

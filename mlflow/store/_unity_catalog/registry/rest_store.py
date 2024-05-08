@@ -63,6 +63,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
+from mlflow.store._unity_catalog.lineage.constants import (
+    _DATABRICKS_LINEAGE_ID_HEADER,
+    _DATABRICKS_ORG_ID_HEADER,
+)
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.rest_store import BaseRestStore
@@ -91,8 +95,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 
-_DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
-_DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -176,31 +178,54 @@ def get_model_version_dependencies(model_dir):
         _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
         _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
     )
+    from mlflow.models.resources import ResourceType
 
     model = _load_model(model_dir)
     model_info = model.get_model_info()
     dependencies = []
-    index_names = _fetch_langchain_dependency_from_model_info(
-        model_info, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
-    )
-    for index_name in index_names:
-        dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", "name": index_name})
-    for key in (
-        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
-        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
-    ):
-        endpoint_names = _fetch_langchain_dependency_from_model_info(model_info, key)
+
+    databricks_resources = getattr(model, "resources", {})
+
+    if databricks_resources:
+        databricks_dependencies = databricks_resources.get("databricks", {})
+        index_names = _fetch_langchain_dependency_from_model_info(
+            databricks_dependencies, ResourceType.VECTOR_SEARCH_INDEX.value
+        )
+        for index_name in index_names:
+            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", **index_name})
+        endpoint_names = _fetch_langchain_dependency_from_model_info(
+            databricks_dependencies, ResourceType.SERVING_ENDPOINT.value
+        )
         for endpoint_name in endpoint_names:
-            dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
+            dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
+    else:
+        # import here to work around circular imports
+        from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
+
+        databricks_dependencies = model_info.flavors.get("langchain", {}).get(
+            _DATABRICKS_DEPENDENCY_KEY, {}
+        )
+
+        index_names = _fetch_langchain_dependency_from_model_info(
+            databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
+        )
+        for index_name in index_names:
+            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", "name": index_name})
+        for key in (
+            _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
+            _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
+            _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
+        ):
+            endpoint_names = _fetch_langchain_dependency_from_model_info(
+                databricks_dependencies, key
+            )
+            for endpoint_name in endpoint_names:
+                dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
     return dependencies
 
 
-def _fetch_langchain_dependency_from_model_info(model_info, key):
-    # import here to work around circular imports
-    from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
-
-    return model_info.flavors.get("langchain", {}).get(_DATABRICKS_DEPENDENCY_KEY, {}).get(key, [])
+def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):
+    return databricks_dependencies.get(key, [])
 
 
 @experimental
@@ -317,7 +342,8 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _raise_unsupported_method(
             method="rename_registered_model",
-            message="Use the Unity Catalog REST API to rename registered models",
+            message="Use the Databricks Python SDK or Unity Catalog REST API to "
+            "rename registered models in Unity Catalog",
         )
 
     def delete_registered_model(self, name):
@@ -743,11 +769,16 @@ class UcModelRegistryStore(BaseRestStore):
                 self.get_host_creds(), model_version.name, model_version.version
             )
 
-        scoped_token = self._get_temporary_model_version_write_credentials(
-            name=model_version.name, version=model_version.version
-        )
+        def base_credential_refresh_def():
+            return self._get_temporary_model_version_write_credentials(
+                name=model_version.name, version=model_version.version
+            )
+
+        scoped_token = base_credential_refresh_def()
         return get_artifact_repo_from_storage_info(
-            storage_location=model_version.storage_location, scoped_token=scoped_token
+            storage_location=model_version.storage_location,
+            scoped_token=scoped_token,
+            base_credential_refresh_def=base_credential_refresh_def,
         )
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -959,4 +990,3 @@ class UcModelRegistryStore(BaseRestStore):
         Does not wait for the model version to become READY as a successful creation will
         immediately place the model version in a READY state.
         """
-        pass

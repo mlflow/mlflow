@@ -151,19 +151,13 @@ class RestException(MlflowException):
 class ExecutionException(MlflowException):
     """Exception thrown when executing a project fails"""
 
-    pass
-
 
 class MissingConfigException(MlflowException):
     """Exception thrown when expected configuration file/directory not found"""
 
-    pass
-
 
 class InvalidUrlException(MlflowException):
     """Exception thrown when a http request fails to send due to an invalid URL"""
-
-    pass
 
 
 class _UnsupportedMultipartUploadException(MlflowException):
@@ -173,3 +167,19 @@ class _UnsupportedMultipartUploadException(MlflowException):
 
     def __init__(self):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
+class MlflowTraceDataNotFound(MlflowException):
+    """Exception thrown when trace data is not found"""
+
+    def __init__(self, request_id: str):
+        self.request_id = request_id
+        super().__init__(f"Trace data not found for {request_id}", error_code=NOT_FOUND)
+
+
+class MlflowTraceDataCorrupted(MlflowException):
+    """Exception thrown when trace data is corrupted"""
+
+    def __init__(self, request_id: str):
+        self.request_id = request_id
+        super().__init__(f"Trace data is corrupted for {request_id}", error_code=INVALID_STATE)

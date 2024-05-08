@@ -5,6 +5,7 @@ from unittest import mock
 from unittest.mock import ANY
 
 import pytest
+import requests
 
 from mlflow.protos.service_pb2 import FileInfo
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
@@ -245,3 +246,55 @@ def test_download_file_in_parallel_when_necessary(
             parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
         else:
             download_mock.assert_called()
+
+
+def test_refresh_credentials():
+    with mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo._get_s3_client"
+    ) as mock_get_s3_client, mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name"
+    ) as mock_get_region_name:
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        resp = requests.Response()
+        resp.status_code = 401
+        err = requests.HTTPError(response=resp)
+        s3_client_mock.download_file.side_effect = err
+        mock_get_region_name.return_value = "us-west-2"
+
+        def credential_refresh_def():
+            return {
+                "access_key_id": "my-id-2",
+                "secret_access_key": "my-key-2",
+                "session_token": "my-session-2",
+            }
+
+        repo = OptimizedS3ArtifactRepository(
+            "s3://my_bucket/my_path",
+            access_key_id="my-id-1",
+            secret_access_key="my-key-1",
+            session_token="my-session-1",
+            credential_refresh_def=credential_refresh_def,
+        )
+        try:
+            repo._download_from_cloud("file_1.txt", "local_path")
+        except requests.HTTPError as e:
+            assert e == err
+
+        mock_get_s3_client.assert_any_call(
+            addressing_style="path",
+            access_key_id="my-id-1",
+            secret_access_key="my-key-1",
+            session_token="my-session-1",
+            region_name="us-west-2",
+            s3_endpoint_url=None,
+        )
+
+        mock_get_s3_client.assert_any_call(
+            addressing_style="path",
+            access_key_id="my-id-2",
+            secret_access_key="my-key-2",
+            session_token="my-session-2",
+            region_name="us-west-2",
+            s3_endpoint_url=None,
+        )

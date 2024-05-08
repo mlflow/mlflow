@@ -16,6 +16,8 @@ from mlflow.langchain.databricks_dependencies import (
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
 )
+from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
+from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 
 
 class MockDatabricksServingEndpointClient:
@@ -47,10 +49,18 @@ def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
-    llm = Databricks(endpoint_name="databricks-mixtral-8x7b-instruct")
+    llm_kwargs = {"endpoint_name": "databricks-mixtral-8x7b-instruct"}
+    if IS_PICKLE_SERIALIZATION_RESTRICTED:
+        llm_kwargs["allow_dangerous_deserialization"] = True
+
+    llm = Databricks(**llm_kwargs)
     d = defaultdict(list)
-    _extract_databricks_dependencies_from_llm(llm, d)
+    resources = []
+    _extract_databricks_dependencies_from_llm(llm, d, resources)
     assert d.get(_DATABRICKS_LLM_ENDPOINT_NAME_KEY) == ["databricks-mixtral-8x7b-instruct"]
+    assert resources == [
+        DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
+    ]
 
 
 class MockVectorSearchIndex:
@@ -91,10 +101,15 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content", embedding=embedding_model)
     retriever = vectorstore.as_retriever()
     d = defaultdict(list)
-    _extract_databricks_dependencies_from_retriever(retriever, d)
+    resources = []
+    _extract_databricks_dependencies_from_retriever(retriever, d, resources)
     assert d.get(_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY) == ["databricks-bge-large-en"]
     assert d.get(_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY) == ["mlflow.rag.vs_index"]
     assert d.get(_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY) == ["dbdemos_vs_endpoint"]
+    assert resources == [
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+    ]
 
 
 @pytest.mark.skipif(
@@ -119,10 +134,15 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content", embedding=embedding_model)
     retriever = vectorstore.as_retriever()
     d = defaultdict(list)
-    _extract_databricks_dependencies_from_retriever(retriever, d)
+    resources = []
+    _extract_databricks_dependencies_from_retriever(retriever, d, resources)
     assert d.get(_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY) == ["databricks-bge-large-en"]
     assert d.get(_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY) == ["mlflow.rag.vs_index"]
     assert d.get(_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY) == ["dbdemos_vs_endpoint"]
+    assert resources == [
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+    ]
 
 
 @pytest.mark.skipif(
@@ -137,8 +157,10 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
 
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
     d = defaultdict(list)
-    _extract_databricks_dependencies_from_chat_model(chat_model, d)
+    resources = []
+    _extract_databricks_dependencies_from_chat_model(chat_model, d, resources)
     assert d.get(_DATABRICKS_CHAT_ENDPOINT_NAME_KEY) == ["databricks-llama-2-70b-chat"]
+    assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
 
 @pytest.mark.skipif(
@@ -153,5 +175,7 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
 
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
     d = defaultdict(list)
-    _extract_databricks_dependencies_from_chat_model(chat_model, d)
+    resources = []
+    _extract_databricks_dependencies_from_chat_model(chat_model, d, resources)
     assert d.get(_DATABRICKS_CHAT_ENDPOINT_NAME_KEY) == ["databricks-llama-2-70b-chat"]
+    assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]

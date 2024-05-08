@@ -55,6 +55,12 @@ public class Model {
   @JsonProperty("metadata")
   private JsonNode metadata;
 
+  @JsonProperty("model_size_bytes")
+  private Integer model_size_bytes;
+
+  @JsonProperty("resources")
+  private JsonNode resources;
+
   private String rootPath;
 
   /**
@@ -125,6 +131,20 @@ public class Model {
   /** @return The path to the root directory of the MLflow model */
   public Optional<String> getRootPath() {
     return Optional.ofNullable(this.rootPath);
+  }
+
+  /**
+   * @return The user defined model size bytes of the MLflow model
+   */
+  public Optional<Integer> getModelSizeBytes() {
+    return Optional.ofNullable(this.model_size_bytes);
+  }
+
+  /**
+   * @return The user defined resources added to the model
+   */
+  public Optional<JsonNode> getResources() {
+    return Optional.ofNullable(this.resources);
   }
 
   /**

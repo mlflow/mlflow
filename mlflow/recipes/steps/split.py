@@ -9,6 +9,7 @@ from multiprocessing.pool import Pool, ThreadPool
 
 import numpy as np
 import pandas as pd
+from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.recipes.artifacts import DataframeArtifact
@@ -130,6 +131,8 @@ def _parallelize(data, func, n_jobs=-1):
 
 
 def _run_on_subset(func, data_subset):
+    if Version(pd.__version__) >= Version("2.1.0"):
+        return data_subset.map(func)
     return data_subset.applymap(func)
 
 

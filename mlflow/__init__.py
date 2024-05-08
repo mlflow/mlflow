@@ -68,6 +68,7 @@ promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
+rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
 recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
@@ -105,6 +106,13 @@ from mlflow.config import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
+from mlflow.tracing.fluent import (
+    get_current_active_span,
+    get_trace,
+    search_traces,
+    start_span,
+    trace,
+)
 from mlflow.tracking._model_registry.fluent import (
     register_model,
     search_model_versions,
@@ -119,6 +127,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     delete_tag,
     end_run,
+    flush_artifact_async_logging,
     flush_async_logging,
     get_artifact_uri,
     get_experiment,
@@ -169,6 +178,7 @@ __all__ = [
     "end_run",
     "evaluate",
     "flush_async_logging",
+    "flush_artifact_async_logging",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",
@@ -192,6 +202,7 @@ __all__ = [
     "log_table",
     "log_text",
     "login",
+    "pyfunc",
     "register_model",
     "run",
     "search_experiments",
@@ -210,6 +221,12 @@ __all__ = [
     "set_tracking_uri",
     "start_run",
     "Image",
+    # Tracing Fluent APIs
+    "get_current_active_span",
+    "get_trace",
+    "search_traces",
+    "start_span",
+    "trace",
 ]
 
 

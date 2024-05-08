@@ -245,6 +245,9 @@ dataset, for example:
     signature = infer_signature(train, predictions)
 """
         ),
+        "metadata": (
+            "Custom metadata dictionary passed to the model and stored in the MLmodel file."
+        ),
         "input_example": (
             """one or several instances of valid model input. The input example is used
 as a hint of what data to feed the model. It will be converted to a Pandas

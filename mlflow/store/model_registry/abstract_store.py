@@ -33,7 +33,6 @@ class AbstractStore:
                 to support subsequently uploading them to the model registry storage
                 location.
         """
-        pass
 
     # CRUD API for RegisteredModel objects
 
@@ -53,7 +52,6 @@ class AbstractStore:
             created in the backend.
 
         """
-        pass
 
     @abstractmethod
     def update_registered_model(self, name, description):
@@ -67,7 +65,6 @@ class AbstractStore:
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        pass
 
     @abstractmethod
     def rename_registered_model(self, name, new_name):
@@ -81,7 +78,6 @@ class AbstractStore:
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        pass
 
     @abstractmethod
     def delete_registered_model(self, name):
@@ -95,7 +91,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     @abstractmethod
     def search_registered_models(
@@ -117,7 +112,6 @@ class AbstractStore:
             that satisfy the search expressions. The pagination token for the next page can be
             obtained via the ``token`` attribute of the object.
         """
-        pass
 
     @abstractmethod
     def get_registered_model(self, name):
@@ -130,7 +124,6 @@ class AbstractStore:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        pass
 
     @abstractmethod
     def get_latest_versions(self, name, stages=None):
@@ -146,7 +139,6 @@ class AbstractStore:
         Returns:
             List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
-        pass
 
     @abstractmethod
     def set_registered_model_tag(self, name, tag):
@@ -160,7 +152,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     @abstractmethod
     def delete_registered_model_tag(self, name, key):
@@ -174,7 +165,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     # CRUD API for ModelVersion objects
 
@@ -212,7 +202,6 @@ class AbstractStore:
             created in the backend.
 
         """
-        pass
 
     @abstractmethod
     def update_model_version(self, name, version, description):
@@ -227,7 +216,6 @@ class AbstractStore:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        pass
 
     @abstractmethod
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -247,7 +235,6 @@ class AbstractStore:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
         """
-        pass
 
     @abstractmethod
     def delete_model_version(self, name, version):
@@ -261,7 +248,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     @abstractmethod
     def get_model_version(self, name, version):
@@ -275,7 +261,6 @@ class AbstractStore:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        pass
 
     @abstractmethod
     def get_model_version_download_uri(self, name, version):
@@ -291,7 +276,6 @@ class AbstractStore:
         Returns:
             A single URI location that allows reads for downloading.
         """
-        pass
 
     @abstractmethod
     def search_model_versions(
@@ -316,7 +300,6 @@ class AbstractStore:
             page can be obtained via the ``token`` attribute of the object.
 
         """
-        pass
 
     @abstractmethod
     def set_model_version_tag(self, name, version, tag):
@@ -331,7 +314,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     @abstractmethod
     def delete_model_version_tag(self, name, version, key):
@@ -346,7 +328,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     @abstractmethod
     def set_registered_model_alias(self, name, alias, version):
@@ -361,7 +342,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     @abstractmethod
     def delete_registered_model_alias(self, name, alias):
@@ -375,7 +355,6 @@ class AbstractStore:
         Returns:
             None
         """
-        pass
 
     @abstractmethod
     def get_model_version_by_alias(self, name, alias):
@@ -389,7 +368,6 @@ class AbstractStore:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        pass
 
     def copy_model_version(self, src_mv, dst_name):
         """

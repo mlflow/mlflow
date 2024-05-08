@@ -1803,7 +1803,7 @@ def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
 
     assert {
         "key": "mlflow.loggedArtifacts",
-        "value": '[{"path": "eval_results_table.json", ' '"type": "table"}]',
+        "value": '[{"path": "eval_results_table.json", "type": "table"}]',
     } in run_json["run"]["data"]["tags"]
     assert {"key": "mlflow.runSourceType", "value": "PROMPT_ENGINEERING"} in run_json["run"][
         "data"

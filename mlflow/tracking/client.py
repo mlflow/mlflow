@@ -19,11 +19,34 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import yaml
 
 import mlflow
-from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    Experiment,
+    FileInfo,
+    Metric,
+    Param,
+    Run,
+    RunTag,
+    Span,
+    SpanStatus,
+    SpanType,
+    Trace,
+    TraceData,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.span import LiveSpan, NoOpSpan
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    FEATURE_DISABLED,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -32,7 +55,11 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.display import get_display_handler
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import get_otel_attribute
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -46,6 +73,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
+    IMMUTABLE_TAGS,
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
@@ -65,6 +93,7 @@ if TYPE_CHECKING:
     import pandas
     import PIL
     import plotly
+
 
 _logger = logging.getLogger(__name__)
 
@@ -356,6 +385,578 @@ class MlflowClient:
             status: RUNNING
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
+
+    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+        return self._tracking_client._upload_trace_data(trace_info, trace_data)
+
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Delete traces based on the specified criteria.
+
+        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `request_ids` is specified.
+
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+
+        Returns:
+            The number of traces deleted.
+        """
+        return self._tracking_client.delete_traces(
+            experiment_id=experiment_id,
+            max_timestamp_millis=max_timestamp_millis,
+            max_traces=max_traces,
+            request_ids=request_ids,
+        )
+
+    def get_trace(self, request_id: str) -> Trace:
+        """
+        Get the trace matching the specified ``request_id``.
+
+        Args:
+            request_id: String ID of the trace to fetch.
+
+        Returns:
+            The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            request_id = "12345678"
+            trace = client.get_trace(request_id)
+        """
+        trace = self._tracking_client.get_trace(request_id)
+        get_display_handler().display_traces([trace])
+        return trace
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Trace]:
+        """
+        Return traces that match the given list of search expressions within the experiments.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of traces desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_traces`` call.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Trace <mlflow.entities.Trace>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
+        """
+        traces = self._tracking_client.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+        get_display_handler().display_traces(traces)
+        return traces
+
+    def start_trace(
+        self,
+        name: str,
+        span_type: str = SpanType.UNKNOWN,
+        inputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Dict[str, str]] = None,
+        tags: Optional[Dict[str, str]] = None,
+        experiment_id: Optional[str] = None,
+    ) -> Span:
+        """
+        Create a new trace object and start a root span under it.
+
+        This is an imperative API to manually create a new span under a specific trace id and
+        parent span, unlike the higher-level APIs like :py:func:`@mlflow.trace <mlflow.trace>`
+        and :py:func:`with mlflow.start_span() <mlflow.start_span>`, which automatically manage
+        the span lifecycle and parent-child relationship. You only need to call this method
+        when using the :py:func:`start_span() <start_span>` method of MlflowClient to create
+        spans.
+
+        .. attention::
+
+            A trace started with this method must be ended by calling
+            ``MlflowClient().end_trace(request_id)``. Otherwise the trace will be not recorded.
+
+        Args:
+            name: The name of the trace (and the root span).
+            span_type: The type of the span.
+            inputs: Inputs to set on the root span of the trace.
+            attributes: A dictionary of attributes to set on the root span of the trace.
+            tags: A dictionary of tags to set on the trace.
+            experiment_id: The ID of the experiment to create the trace in. If not provided,
+                MLflow will look for valid experiment in the following order: activated using
+                :py:func:`mlflow.set_experiment() <mlflow.set_experiment>`,
+                ``MLFLOW_EXPERIMENT_NAME`` environment variable, ``MLFLOW_EXPERIMENT_ID``
+                environment variable, or the default experiment as defined by the tracking server.
+
+        Returns:
+            An :py:class:`Span <mlflow.entities.Span>` object
+            representing the root span of the trace.
+
+        Example:
+
+        .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+
+                root_span = client.start_trace("my_trace")
+                request_id = root_span.request_id
+
+                # Create a child span
+                child_span = client.start_span(
+                    "child_span", request_id=request_id, parent_id=root_span.span_id
+                )
+                # Do something...
+                client.end_span(request_id=request_id, span_id=child_span.span_id)
+
+                client.end_trace(request_id)
+        """
+        # Validate no active trace is set in the global context. If there is an active trace,
+        # the span created by this method will be a child span under the active trace rather than
+        # a root span of a new trace, which is not desired behavior.
+        if span := mlflow.get_current_active_span():
+            raise MlflowException(
+                f"Another trace is already set in the global context with ID {span.request_id}. "
+                "It appears that you have already started a trace using fluent APIs like "
+                "`@mlflow.trace()` or `with mlflow.start_span()`. However, it is not allowed "
+                "to call MlflowClient.start_trace() under an active trace created by fluent APIs "
+                "because it may lead to unexpected behavior. To resolve this issue, consider the "
+                "following options:\n"
+                " - To create a child span under the active trace, use "
+                "`with mlflow.start_span()` or `MlflowClient.start_span()` instead.\n"
+                " - To start multiple traces in parallel, avoid using fluent APIs "
+                "and create all traces using `MlflowClient.start_trace()`.",
+                error_code=BAD_REQUEST,
+            )
+
+        try:
+            # Create new trace and a root span
+            otel_span = mlflow.tracing.provider.start_detached_span(
+                name, experiment_id=experiment_id
+            )
+            request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
+
+            mlflow_span = LiveSpan(otel_span, request_id, span_type)
+            if inputs:
+                mlflow_span.set_inputs(inputs)
+            if attributes:
+                mlflow_span.set_attributes(attributes)
+            trace_manager = InMemoryTraceManager.get_instance()
+            with trace_manager.get_trace(request_id) as trace:
+                trace.info.tags.update(self._exclude_immutable_tags(tags or {}))
+            # Register new span in the in-memory trace manager
+            trace_manager.register_span(mlflow_span)
+
+            return mlflow_span
+        except Exception as e:
+            _logger.warning(f"Failed to start span {name}: {e}")
+            raise e
+            return NoOpSpan()
+
+    def end_trace(
+        self,
+        request_id: str,
+        outputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        status: Union[SpanStatus, str] = "OK",
+    ):
+        """
+        End the trace with the given trace ID. This will end the root span of the trace and
+        log the trace to the backend if configured.
+
+        If any of children spans are not ended, they will be ended forcefully with the status
+        ``TRACE_STATUS_UNSPECIFIED``. If the trace is already ended, this method will have
+        no effect.
+
+        Args:
+            request_id: The ID of the trace to end.
+            outputs: Outputs to set on the trace.
+            attributes: A dictionary of attributes to set on the trace. If the trace already
+                has attributes, the new attributes will be merged with the existing ones.
+                If the same key already exists, the new value will overwrite the old one.
+            status: The status of the trace. This can be a
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string
+                representing the status code defined in
+                :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
+                e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
+        """
+        trace_manager = InMemoryTraceManager.get_instance()
+        root_span_id = trace_manager.get_root_span_id(request_id)
+
+        if root_span_id is None:
+            if self.get_trace(request_id=request_id):
+                raise MlflowException(
+                    f"Trace with ID {request_id} already finished.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                raise MlflowException(
+                    f"Trace with ID {request_id} not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+        self.end_span(request_id, root_span_id, outputs, attributes, status)
+
+    def start_span(
+        self,
+        name: str,
+        request_id: str,
+        parent_id: str,
+        span_type: str = SpanType.UNKNOWN,
+        inputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> Span:
+        """
+        Create a new span and start it without attaching it to the global trace context.
+
+        This is an imperative API to manually create a new span under a specific trace id
+        and parent span, unlike the higher-level APIs like
+        :py:func:`@mlflow.trace <mlflow.trace>` decorator and
+        :py:func:`with mlflow.start_span() <mlflow.start_span>` context manager, which
+        automatically manage the span lifecycle and parent-child relationship.
+
+        This API is useful for the case where the automatic context management is not
+        sufficient, such as callback-based instrumentation where span start and end are
+        not in the same call stack, or multi-threaded applications where the context is
+        not propagated automatically.
+
+        This API requires a parent span ID to be provided explicitly. If you haven't
+        started any span yet, use the :py:func:`start_trace() <start_trace>` method to
+        start a new trace and a root span.
+
+        .. warning::
+
+            The span created with this method needs to be ended explicitly by calling
+            the :py:func:`end_span() <end_span>` method. Otherwise the span will be
+            recorded with the incorrect end time and status ``TRACE_STATUS_UNSPECIFIED``.
+
+        .. tip::
+
+            Instead of creating a root span with the :py:func:`start_trace() <start_trace>`
+            method, you can also use this method within the context of a parent span created
+            by the fluent APIs like :py:func:`@mlflow.trace <mlflow.trace>` and
+            :py:func:`with mlflow.start_span() <mlflow.start_span>`, by passing its span
+            ids the parent. This flexibility allows you to use the imperative APIs in
+            conjunction with the fluent APIs like below:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+
+                with mlflow.start_span("parent_span") as parent_span:
+                    child_span = client.start_span(
+                        name="child_span",
+                        request_id=parent_span.request_id,
+                        parent_id=parent_span.span_id,
+                    )
+
+                    # Do something...
+
+                    client.end_span(
+                        request_id=parent_span.request_id,
+                        span_id=child_span.span_id,
+                    )
+
+            However, **the opposite does not work**. You cannot use the fluent APIs within
+            the span created by this MlflowClient API. This is because the fluent APIs
+            fetches the current span from the managed context, which is not set by the MLflow
+            Client APIs. Once you create a span with the MLflow Client APIs, all children
+            spans must be created with the MLflow Client APIs. Please be cautious when using
+            this mixed approach, as it can lead to unexpected behavior if not used properly.
+
+        Args:
+            name: The name of the span.
+            request_id: The ID of the trace to attach the span to. This is synonym to
+                trace_id` in OpenTelemetry.
+            span_type: The type of the span. Can be either a string or a
+                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
+            parent_id: The ID of the parent span. The parent span can be a span created by
+                both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
+            inputs: Inputs to set on the span.
+            attributes: A dictionary of attributes to set on the span.
+
+        Returns:
+            An :py:class:`mlflow.entities.Span` object representing the span.
+
+        Example:
+
+        .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+
+                span = client.start_trace("my_trace")
+
+                x = 2
+
+                # Create a child span
+                child_span = client.start_span(
+                    "child_span",
+                    request_id=span.request_id,
+                    parent_id=span.id,
+                    inputs={"x": 2},
+                )
+
+                y = x**2
+
+                client.end_span(
+                    request_id=child_span.request_id,
+                    span_id=child_span.span_id,
+                    attributes={"factor": 2},
+                    outputs={"y": y},
+                )
+
+                client.end_trace(request_id)
+        """
+        if not parent_id:
+            raise MlflowException(
+                "start_span() must be called with an explicit parent_id."
+                "If you haven't started any span yet, use MLflowClient().start_trace() "
+                "to start a new trace and root span.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if not request_id:
+            raise MlflowException(
+                "Request ID must be provided to start a span.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        if not (parent_span := trace_manager.get_span_from_id(request_id, parent_id)):
+            raise MlflowException(
+                f"Parent span with ID '{parent_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        try:
+            otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
+            span = LiveSpan(otel_span, request_id, span_type)
+            if attributes:
+                span.set_attributes(attributes)
+            if inputs:
+                span.set_inputs(inputs)
+
+            trace_manager.register_span(span)
+            return span
+        except Exception as e:
+            _logger.warning(f"Failed to start span {name}: {e}")
+            return NoOpSpan()
+
+    def end_span(
+        self,
+        request_id: str,
+        span_id: str,
+        outputs: Optional[Dict[str, Any]] = None,
+        attributes: Optional[Any] = None,
+        status: Union[SpanStatus, str] = "OK",
+    ):
+        """
+        End the span with the given trace ID and span ID.
+
+        Args:
+            request_id: The ID of the trace to end.
+            span_id: The ID of the span to end.
+            outputs: Outputs to set on the span.
+            attributes: A dictionary of attributes to set on the span. If the span already has
+                attributes, the new attributes will be merged with the existing ones. If the same
+                key already exists, the new value will overwrite the old one.
+            status: The status of the span. This can be a
+                :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string
+                representing the status code defined in
+                :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
+                e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
+        """
+        trace_manager = InMemoryTraceManager.get_instance()
+        span = trace_manager.get_span_from_id(request_id, span_id)
+
+        if span is None:
+            raise MlflowException(
+                f"Span with ID {span_id} is not found or already finished.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        if attributes:
+            span.set_attributes(attributes or {})
+        if outputs:
+            span.set_outputs(outputs)
+        span.set_status(status)
+
+        span.end()
+
+    def _start_tracked_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Optional[Dict[str, str]] = None,
+        tags: Optional[Dict[str, str]] = None,
+    ) -> TraceInfo:
+        """
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        # Some tags like mlflow.runName are immutable once logged in tracking server.
+        return self._tracking_client.start_trace(
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            request_metadata=request_metadata or {},
+            tags=self._exclude_immutable_tags(tags or {}),
+        )
+
+    def _upload_ended_trace_info(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: Optional[Dict[str, str]] = None,
+        tags: Optional[Dict[str, str]] = None,
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: TraceStatus, status of the trace.
+            request_metadata: dict, metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: dict, tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        return self._tracking_client.end_trace(
+            request_id=request_id,
+            timestamp_ms=timestamp_ms,
+            status=status,
+            request_metadata=request_metadata or {},
+            tags=self._exclude_immutable_tags(tags or {}),
+        )
+
+    def _exclude_immutable_tags(self, tags: Dict[str, str]) -> Dict[str, str]:
+        """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
+        return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given trace ID.
+
+        The trace can be an active one or the one that has already ended and recorded in the
+        backend. Below is an example of setting a tag on an active trace. You can replace the
+        ``request_id`` parameter to set a tag on an already ended trace.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            root_span = client.start_trace("my_trace")
+            client.set_trace_tag(root_span.request_id, "key", "value")
+            client.end_trace(root_span.request_id)
+
+        Args:
+            request_id: The ID of the trace to set the tag on.
+            key: The string key of the tag. Must be at most 250 characters long, otherwise
+                it will be truncated when stored.
+            value: The string value of the tag. Must be at most 250 characters long, otherwise
+                it will be truncated when stored.
+        """
+        if key.startswith("mlflow."):
+            raise MlflowException(
+                f"Tags starting with 'mlflow.' are reserved and cannot be set. "
+                f"Attempted to set tag with key '{key}' on trace with ID '{request_id}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Trying to set the tag on the active trace first
+        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+            if trace:
+                trace.info.tags[key] = str(value)
+                return
+
+        # If the trace is not active, try to set the tag on the trace in the backend
+        self._tracking_client.set_trace_tag(request_id, key, value)
+
+    def delete_trace_tag(self, request_id: str, key: str) -> None:
+        """
+        Delete a tag on the trace with the given trace ID.
+
+        The trace can be an active one or the one that has already ended and recorded in the
+        backend. Below is an example of deleting a tag on an active trace. You can replace the
+        ``request_id`` parameter to delete a tag on an already ended trace.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            root_span = client.start_trace("my_trace", tags={"key": "value"})
+            client.delete_trace_tag(root_span.request_id, "key")
+            client.end_trace(root_span.request_id)
+
+        Args:
+            request_id: The ID of the trace to delete the tag from.
+            key: The string key of the tag. Must be at most 250 characters long, otherwise
+                it will be truncated when stored.
+        """
+        # Trying to delete the tag on the active trace first
+        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+            if trace:
+                if key in trace.info.tags:
+                    trace.info.tags.pop(key)
+                    return
+                else:
+                    raise MlflowException(
+                        f"Tag with key {key} not found in trace with ID {request_id}.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+
+        # If the trace is not active, try to delete the tag on the trace in the backend
+        self._tracking_client.delete_trace_tag(request_id, key)
 
     def search_experiments(
         self,
@@ -734,7 +1335,7 @@ class MlflowClient:
         value: float,
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
-        synchronous: bool = True,
+        synchronous: Optional[bool] = None,
     ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
@@ -754,11 +1355,12 @@ class MlflowClient:
             step: Integer training step (iteration) at which was the metric calculated.
                 Defaults to 0.
             synchronous: *Experimental* If True, blocks until the metric is logged successfully.
-                If False, logs the metric asynchronously and returns a future
-                representing the logging operation.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
             represents future for logging operation.
 
@@ -805,12 +1407,15 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.log_metric(
             run_id, key, value, timestamp, step, synchronous=synchronous
         )
 
     def log_param(
-        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
@@ -824,12 +1429,13 @@ class MlflowClient:
             value: Parameter value, but will be string-ified if not.
                 All built-in backend stores support values up to length 6000, but some
                 may support larger values.
-            synchronous: *Experimental* If True, blocks until the parameter is logged
-                successfully. If False, logs the parameter asynchronously and
-                returns a future representing the logging operation.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns parameter value. When `synchronous=False`,
+            When `synchronous=True` or None, returns parameter value. When `synchronous=False`,
             returns an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations`
             instance that represents future for logging operation.
 
@@ -873,6 +1479,9 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         if synchronous:
             self._tracking_client.log_param(run_id, key, value, synchronous=True)
             return value
@@ -911,7 +1520,7 @@ class MlflowClient:
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
     def set_tag(
-        self, run_id: str, key: str, value: Any, synchronous: bool = True
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
     ) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
@@ -923,12 +1532,13 @@ class MlflowClient:
                 length 250, but some may support larger keys.
             value: Tag value, but will be string-ified if not. All backend stores will support
                 values up to length 5000, but some may support larger values.
-            synchronous: *Experimental* If True, blocks until the tag is logged successfully. If
-                False, logs the tag asynchronously and returns a future representing the logging
-                operation.
+           synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             `mlflow.utils.async_logging.run_operations.RunOperations` instance that represents
             future for logging operation.
 
@@ -963,6 +1573,9 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
@@ -1064,7 +1677,7 @@ class MlflowClient:
         metrics: Sequence[Metric] = (),
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
-        synchronous: bool = True,
+        synchronous: Optional[bool] = None,
     ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
@@ -1074,15 +1687,16 @@ class MlflowClient:
             metrics: If provided, List of Metric(key, value, timestamp) instances.
             params: If provided, List of Param(key, value) instances.
             tags: If provided, List of RunTag(key, value) instances.
-            synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
-                successfully. If False, logs the metrics/tags/params asynchronously
-                and returns a future representing the logging operation.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
 
         Returns:
-            When `synchronous=True`, returns None. When `synchronous=False`, returns an
+            When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
             represents future for logging operation.
 
@@ -1131,6 +1745,9 @@ class MlflowClient:
             status: FINISHED
 
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         return self._tracking_client.log_batch(
             run_id, metrics, params, tags, synchronous=synchronous
         )
@@ -1158,6 +1775,10 @@ class MlflowClient:
         Args:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -1191,6 +1812,10 @@ class MlflowClient:
             is_dir: False
 
         """
+        if run_id.startswith(TRACE_REQUEST_ID_PREFIX):
+            raise MlflowException(
+                f"Invalid run id: {run_id}. `log_artifact` run id must map to a valid run."
+            )
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
     def log_artifacts(
@@ -1257,11 +1882,27 @@ class MlflowClient:
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, filename)
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
+
+    def _log_artifact_async_helper(self, run_id, artifact_file, artifact):
+        """Log artifact asynchronously.
+
+        Args:
+            run_id: The unique identifier for the run. This ID is used to associate the
+                artifact with a specific run.
+            artifact_file: The file path of the artifact relative to the run's directory.
+                The path should be in POSIX format, using forward slashes (/) as directory
+                separators.
+            artifact: The artifact to be logged.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+        self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -1298,7 +1939,7 @@ class MlflowClient:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
-        JSON format is used.
+        JSON format is used, and we stringify objects that can't be JSON-serialized.
 
         Args:
             run_id: String ID of the run.
@@ -1337,7 +1978,8 @@ class MlflowClient:
                 if extension in [".yml", ".yaml"]:
                     yaml.dump(dictionary, f, indent=2, default_flow_style=False)
                 else:
-                    json.dump(dictionary, f, indent=2)
+                    # Stringify objects that can't be JSON-serialized
+                    json.dump(dictionary, f, indent=2, default=str)
 
     def log_figure(
         self,
@@ -1430,6 +2072,7 @@ class MlflowClient:
         key: Optional[str] = None,
         step: Optional[int] = None,
         timestamp: Optional[int] = None,
+        synchronous: Optional[bool] = None,
     ) -> None:
         """
         Logs an image in MLflow, supporting two use cases:
@@ -1551,6 +2194,9 @@ class MlflowClient:
                 client = mlflow.MlflowClient()
                 client.log_image(run.info.run_id, image, "image.png")
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         if artifact_file is not None and any(arg is not None for arg in [key, step, timestamp]):
             raise TypeError(
                 "The `artifact_file` parameter cannot be used in conjunction with `key`, "
@@ -1600,7 +2246,6 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = uuid.uuid4()
-            filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
@@ -1608,30 +2253,26 @@ class MlflowClient:
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
-            with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-                image.save(tmp_path)
-
-            # Save compressed image
             compressed_image_filepath = f"{compressed_filename}.webp"
-            with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
-                compress_image_size(image).save(tmp_path)
 
-            # Save metadata file
-            metadata_filepath = f"{filename}.json"
-            with self._log_artifact_helper(run_id, metadata_filepath) as tmp_path:
-                with open(tmp_path, "w+") as f:
-                    json.dump(
-                        {
-                            "filepath": image_filepath,
-                            "key": key,
-                            "step": step,
-                            "timestamp": timestamp,
-                        },
-                        f,
-                    )
+            # Need to make a resize copy before running thread for thread safety
+            # If further optimization is needed, we can move this resize to async queue.
+            compressed_image = compress_image_size(image)
+
+            if synchronous:
+                with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
+                    image.save(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, image_filepath, image)
+
+            if synchronous:
+                with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+                    compressed_image.save(tmp_path)
+            else:
+                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)
 
             # Log tag indicating that the run includes logged image
-            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous=False)
+            self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
@@ -1644,6 +2285,15 @@ class MlflowClient:
         for char in characters_to_check:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
+
+    def _read_from_file(self, artifact_path):
+        import pandas as pd
+
+        if artifact_path.endswith(".json"):
+            return pd.read_json(artifact_path, orient="split")
+        if artifact_path.endswith(".parquet"):
+            return pd.read_parquet(artifact_path)
+        raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
 
     @experimental
     def log_table(
@@ -1719,11 +2369,11 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
-        if not artifact_file.endswith(".json"):
+        if not artifact_file.endswith((".json", ".parquet")):
             raise ValueError(
-                f"The provided artifact file '{artifact_file}' does not have "
-                "the required '.json' extension. Please ensure the file you are trying "
-                "to log as a table is a JSON file with the '.json' extension. "
+                f"Invalid artifact file path '{artifact_file}'. Please ensure the file you are "
+                "trying to log as a table has a file name with either '.json' "
+                "or '.parquet' extension."
             )
 
         if not isinstance(data, (pd.DataFrame, dict)):
@@ -1786,6 +2436,12 @@ class MlflowClient:
                     # Save files to artifact storage
                     data[column] = data[column].map(lambda x: process_image(x))
 
+        def write_to_file(data, artifact_path):
+            if artifact_path.endswith(".json"):
+                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
+            elif artifact_path.endswith(".parquet"):
+                data.to_parquet(artifact_path, index=False)
+
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
@@ -1795,7 +2451,7 @@ class MlflowClient:
                 downloaded_artifact_path = mlflow.artifacts.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.info(
                 "Appending new table to already existing artifact "
@@ -1804,7 +2460,7 @@ class MlflowClient:
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             try:
-                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
+                write_to_file(data, artifact_path)
             except Exception as e:
                 raise MlflowException(
                     f"Failed to save {data} as table as the data is not JSON serializable. "
@@ -1938,7 +2594,7 @@ class MlflowClient:
                         artifact_path=artifact_file,
                         dst_path=tmpdir,
                     )
-                    existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                    existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:
                         for column in extra_columns:
                             if column in existing_predictions:

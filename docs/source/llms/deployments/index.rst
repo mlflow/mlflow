@@ -262,6 +262,10 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 | Mistral                  | - mistral-tiny           | N/A                      |  - mistral-embed         |
 |                          | - mistral-small          |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
++--------------------------+--------------------------+--------------------------+--------------------------+
+| TogetherAI               | - google/gemma-2b        | - dbrx-instruct          |  - BAAI/bge-large-en-v1.5|
+|                          | - microsoft/phi-2        |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
 
 § For full compatibility references for ``OpenAI``, see the `OpenAI Model Compatibility Matrix <https://platform.openai.com/docs/models/model-endpoint-compatibility>`_.
 
@@ -308,6 +312,7 @@ As of now, the MLflow Deployments Server supports the following providers:
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
 * **bedrock**: This is used for models offered by `Amazon Bedrock <https://aws.amazon.com/bedrock/>`_.
 * **mistral**: This is used for models offered by `Mistral <https://docs.mistral.ai/>`_.
+* **togetherai**: This is used for models offered by `TogetherAI <https://docs.together.ai/docs/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
@@ -517,6 +522,7 @@ Each endpoint has the following configuration parameters:
     - "ai21labs"
     - "bedrock"
     - "mistral"
+    - "togetherai"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -697,6 +703,15 @@ Mistral
 | **mistral_api_key**       | Yes      | N/A                      | This is the API key for the Mistral service.         |
 +--------------------------+----------+--------------------------+-------------------------------------------------------+
 
+
+TogetherAI
+++++++++++
+
++---------------------------------------------------------------------------------------------------+
+| Configuration Parameter  | Required | Default  | Description                                      |
++--------------------------+----------+----------+--------------------------------------------------+
+| **togetherai_api_key**   | Yes      | N/A      | This is the API key for the TogetherAI service.  |
++--------------------------+----------+----------+--------------------------------------------------+
 
 An example configuration for Azure OpenAI is:
 
