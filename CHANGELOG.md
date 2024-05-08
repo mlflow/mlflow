@@ -2,39 +2,35 @@
 
 ## 2.12.2 (2024-05-08)
 
-MLflow 2.12.2 includes several major features and improvements
+MLflow 2.12.2 is a patch release that includes several bug fixes and integration improvements to existing features. New features that are introduced in this patch release are intended to provide a foundation to further major features that will be released in the next 2 minor releases.
 
 Features:
 
-- [Models] Add configurable raising instead of warning for failures in dependency inference (#11903, @BenWilson2)
-- [Deployments] Add parameter for system prompt in make_genai_metric, add metric metadata to EvaluationMetric (#11912, @apurva-koti)
-- [Tracking] [MLflow] Updating Pyfunc to specify resources needed to serve the model (#11832, @sunishsheth2009)
-- [Models] Make PythonModel supporting streaming prediction (#11791, @WeichenXu123)
-- [Tracking] [MLflow] Ability to infer signature and streamable for langchain, model log as code (#11855, @sunishsheth2009)
-- [Tracking] [MLflow] Add ability to set_model for pyfunc and langchain model (#11842, @sunishsheth2009)
-- [Tracking] [MLflow] Adding from_yaml_file builder method to generate resources (#11825, @sunishsheth2009)
-- [Tracking] [MLflow] Adding resources class to define resources required to serve a model (#11804, @sunishsheth2009)
-- [Tracking] Make Mlflow client's logging function controlled by global async logging config (#11778, @chenmoneygithub)
-- [Tracking] Make it possible to set the threadpool size of async logging (#11780, @chenmoneygithub)
-- [Models] Support llm/v1/embeddings task in Transformers flavor (#11795, @B-Step62)
-- [Tracking] Include GPU power in system metrics (#11747, @chenmoneygithub)
+- [Models] Add an environment configuration flag to enable raising an exception instead of a warning for failures in model dependency inference (#11903, @BenWilson2)
+- [Models] Add support for the `llm/v1/embeddings` task in the Transformers flavor to unify the input and output structures for embedding models (#11795, @B-Step62)
+- [Models] Introduce model streaming return via `predict_stream()` for custom `pyfunc` models capable of returning a stream response (#11791, #11895, @WeichenXu123)
+- [Evaluate] Add support for overriding the entire model evaluation judgment prompt within `mlflow.evaluate` for GenAI models (#11912, @apurva-koti)
+- [Tracking] Add support for defining deployment resource metadata to configure deployment resources within `pyfunc` models (#11832, #11825, #11804, @sunishsheth2009)
+- [Tracking] Add support for logging `LangChain` and custom `pyfunc` models as code (#11855, #11842, @sunishsheth2009)
+- [Tracking] Modify MLflow client's behavior to read from a global asynchronous configuration state (#11778, #11780, @chenmoneygithub)
+- [Tracking] Enhance system metrics data collection to include a GPU power consumption metric (#11747, @chenmoneygithub)
+
 
 Bug fixes:
 
-- [Server-infra / Sqlalchemy] fix: cascade experiment id fk deletion in datasets table (#11695, @chilir)
-- [Models] Fix langchain pyfunc model `predict_stream` for the case that model signature is logged (#11859, @WeichenXu123)
-- [Models] Fix log_warning_if_params_not_in_predict_signature in PyFunc Model (#11838, @WeichenXu123)
-- [] Fix `get_databricks_runtime` in serverless (#11758, @WeichenXu123)
-- [] Check if it is in serverless mode when invoking `get_nfs_cache_root_dir` (#11757, @WeichenXu123)
-- [Scoring] Fix spark_udf in serverless (#11752, @WeichenXu123)
-- [Server-infra] Upgrades gunicorn dependency to 22 (#11742, @maitreyakv)
+- [Models] Fix a validation issue when performing signature validation if `params` are specified (#11838, @WeichenXu123)
+- [Databricks] Fix an issue where models cannot be loaded in the Databricks serverless runtime (#11758, @WeichenXu123)
+- [Databricks] Fix an issue with the Databricks serverless runtime where scaled workers do not have authorization to read from the driver NFS mount (#11757, @WeichenXu123)
+- [Databricks] Fix an issue in the Databricks serverless runtime where a model loaded via a `spark_udf` for inference fails due to a configuration issue (#11752, @WeichenXu123)
+- [Server-infra] Upgrade the gunicorn dependency to version 22 to address a third-party security issue (#11742, @maitreyakv)
+
 
 Documentation updates:
 
-- [Docs] Add additional guidance on search syntax restrictions (#11892, @BenWilson2)
-- [Examples] fix(index.rst): model layout (#11848, @horw)
+- [Docs] Add additional guidance on search syntax restrictions for search APIs (#11892, @BenWilson2)
+- [Docs] Fix an issue with the quickstart guide where the Keras example model is defined incorrectly (#11848, @horw)
 - [Docs] Provide fixes and updates to LangChain tutorials and guides (#11802, @BenWilson2)
-- [Docs] docs: Fix parameter type from int to str (#11789, @80rian)
+- [Docs] Fix the model registry example within the docs for correct type formatting (#11789, @80rian)
 
 Small bug fixes and documentation updates:
 
