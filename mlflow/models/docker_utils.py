@@ -79,6 +79,7 @@ def generate_dockerfile(
     Generates a Dockerfile that can be used to build a docker image, that serves ML model
     stored and tracked in MLflow.
     """
+
     setup_java_steps = ""
     setup_python_venv_steps = ""
     install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
