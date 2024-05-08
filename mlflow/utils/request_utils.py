@@ -130,13 +130,11 @@ def _cached_get_request_session(
     class CustomSSLContextAdapter(HTTPAdapter):
         """An adapter for `requests` to use a predefined SSL context."""
         def __init__(self, *args, **kwargs):
-            print("@SID init")
             super().__init__(*args, **kwargs)
 
         def init_poolmanager(self, *args, **kwargs):
             # Overriding the method to use our custom SSL context
             kwargs['ssl_context'] = ssl_context
-            print("@SID Using custom SSL context")
             return super().init_poolmanager(*args, **kwargs)
 
     retry_kwargs = {
@@ -167,10 +165,9 @@ def _cached_get_request_session(
 
     # Initialize a session with the custom adapter
     adapter = CustomSSLContextAdapter(ssl_context, max_retries=retry)
-    timeout = 30
 
-    _logger.info(f"Creating requests.Session with adapter {adapter}, ssl context {ssl_context}, timeout {timeout}")
-    session = requests.Session(timeout=timeout)
+    _logger.info(f"Creating requests.Session with adapter {adapter}, ssl context {ssl_context}")
+    session = requests.Session()
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
@@ -258,6 +255,7 @@ def _get_http_response_with_retries(
     allow_redirects = env_value if allow_redirects is None else allow_redirects
 
     timeout = 30
+    _logger.debug(f"Sending request to URL {url} with timeout {timeout} seconds")
     return session.request(method, url, allow_redirects=allow_redirects, timeout=timeout, **kwargs)
 
 
