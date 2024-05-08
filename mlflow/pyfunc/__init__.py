@@ -924,6 +924,7 @@ def load_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
     """
+    # loading python model from python_model: python_model.pkl, which is pointed to by
 
     lineage_header_info = None
     if databricks_utils.is_in_databricks_runtime() and (
@@ -961,7 +962,9 @@ def load_model(
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
+    # we are not adding code from conf to system path
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
+    # DATA is not in conf, local_path is path to chain?
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
 
     if isinstance(model_config, str):
@@ -998,28 +1001,50 @@ def load_model(
             os.path.basename(flavor_code_path),
         )
 
-        return _load_model_code_path(code_path, model_config, suffix="loading")
-    # else:
-    try:
-        if model_config:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
-        else:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-    except ModuleNotFoundError as e:
-        # This error message is particularly for the case when the error is caused by module
-        # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
-        # module might be "databricks", "databricks.feature_store" or full package. So we will
-        # raise the error with the following note if "databricks" presents in the error. All non-
-        # databricks moduel errors will just be re-raised.
-        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
-            raise MlflowException(
-                f"{e.msg}; "
-                "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
-                "spark_udf() and predict() will not work as expected. Use "
-                "score_batch for offline predictions.",
-                BAD_REQUEST,
-            ) from None
-        raise e
+        model = _load_model_code_path(code_path, model_config, suffix="loading")
+
+        # CONFIG_KEY_ARTIFACTS = "artifacts"
+        # CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
+        artifacts = {}
+        for saved_artifact_name, saved_artifact_info in conf.get(
+            "artifacts", {}
+        ).items():
+            artifacts[saved_artifact_name] = os.path.join(
+                data_path, saved_artifact_info["path"]
+            )
+
+        context = PythonModelContext(artifacts=artifacts, model_config=model_config)
+        model.load_context(context=context)
+        signature = mlflow.models.Model.load(data_path).signature
+
+        context = PythonModelContext(artifacts=artifacts, model_config=model_config)
+        model_impl = _PythonModelPyfuncWrapper(
+            python_model=model,
+            context=context,
+            signature=signature,
+        )
+    else:
+        try:
+            # _load_context_model_and_signature called here which accesses python_model, but we shouldnt get here
+            if model_config:
+                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
+            else:
+                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+        except ModuleNotFoundError as e:
+            # This error message is particularly for the case when the error is caused by module
+            # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
+            # module might be "databricks", "databricks.feature_store" or full package. So we will
+            # raise the error with the following note if "databricks" presents in the error. All non-
+            # databricks moduel errors will just be re-raised.
+            if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
+                raise MlflowException(
+                    f"{e.msg}; "
+                    "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
+                    "spark_udf() and predict() will not work as expected. Use "
+                    "score_batch for offline predictions.",
+                    BAD_REQUEST,
+                ) from None
+            raise e
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
