@@ -2327,7 +2327,7 @@ def save_model(
             _validate_and_copy_file_path(model_code_path, path, "code")
             python_model = _load_model_code_path(model_code_path, model_config)
         if isinstance(model_config, str):
-            _validate_and_copy_file_path(model_code_path, path, "config")
+            _validate_and_copy_file_path(model_config, path, "config")
             model_config_dict = _validate_and_get_model_config_from_file(model_config)
         else:
             model_config_dict = model_config
