@@ -32,7 +32,6 @@ corresponding environment variable. See https://docs.databricks.com/security/sec
 for how to set up secrets on Databricks.
 """
 
-import contextlib
 import itertools
 import logging
 import os
@@ -859,15 +858,17 @@ def autolog(
     registered_model_name=None,
     extra_tags=None,
 ):
-    with contextlib.suppress(ImportError):
-        from openai.resources.chat.completions import Completions as ChatCompletions
-        from openai.resources.completions import Completions
-        from openai.resources.embeddings import Embeddings
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
-        for task in (ChatCompletions, Completions, Embeddings):
-            safe_patch(
-                FLAVOR_NAME,
-                task,
-                "create",
-                patched_call,
-            )
+    from openai.resources.chat.completions import Completions as ChatCompletions
+    from openai.resources.completions import Completions
+    from openai.resources.embeddings import Embeddings
+
+    for task in (ChatCompletions, Completions, Embeddings):
+        safe_patch(
+            FLAVOR_NAME,
+            task,
+            "create",
+            patched_call,
+        )

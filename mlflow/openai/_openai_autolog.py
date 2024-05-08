@@ -6,13 +6,19 @@ import uuid
 from contextlib import contextmanager
 from copy import deepcopy
 
+from packaging.version import Version
+
 import mlflow
 from mlflow import MlflowException
 from mlflow.entities import RunTag
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
+
+MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["minimum"])
+MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["maximum"])
 
 _logger = logging.getLogger(__name__)
 
