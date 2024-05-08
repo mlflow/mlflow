@@ -205,7 +205,7 @@ def mkdir(root, name=None):
     """
     target = os.path.join(root, name) if name is not None else root
     try:
-        os.makedirs(target)
+        os.makedirs(target, exist_ok=True)
     except OSError as e:
         if e.errno != errno.EEXIST or not os.path.isdir(target):
             raise e

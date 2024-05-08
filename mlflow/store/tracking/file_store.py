@@ -6,7 +6,7 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from mlflow.entities import (
     Dataset,
@@ -23,11 +23,13 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    TraceInfo,
     ViewType,
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos import databricks_pb2
@@ -43,8 +45,10 @@ from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.tracing.utils import generate_request_id
 from mlflow.utils import get_results_from_paginated_fn, insecure_hash
 from mlflow.utils.file_utils import (
     append_to,
@@ -73,7 +77,7 @@ from mlflow.utils.mlflow_tags import (
     _get_run_name_from_tags,
 )
 from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
-from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
+from mlflow.utils.search_utils import SearchExperimentsUtils, SearchTraceUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
@@ -155,6 +159,10 @@ class FileStore(AbstractStore):
     RESERVED_EXPERIMENT_FOLDERS = [EXPERIMENT_TAGS_FOLDER_NAME, DATASETS_FOLDER_NAME]
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
+    TRACE_INFO_FILE_NAME = "trace_info.yaml"
+    TRACES_FOLDER_NAME = "traces"
+    TRACE_TAGS_FOLDER_NAME = "tags"
+    TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -1319,3 +1327,355 @@ class FileStore(AbstractStore):
                 return _read_helper(root, file_name, attempts_remaining - 1)
 
         return _read_helper(root, file_name, attempts_remaining=retries)
+
+    def start_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        request_id = generate_request_id()
+        _validate_experiment_id(experiment_id)
+        experiment_dir = self._get_experiment_path(
+            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        mkdir(traces_dir, request_id)
+        trace_dir = os.path.join(traces_dir, request_id)
+        trace_info = TraceInfo(
+            request_id=request_id,
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            execution_time_ms=None,
+            status=TraceStatus.IN_PROGRESS,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
+        self._save_trace_info(trace_info, trace_dir)
+        return trace_info
+
+    def _save_trace_info(self, trace_info: TraceInfo, trace_dir, overwrite=False):
+        """
+        TraceInfo is saved into `traces` folder under the experiment, each trace
+        is saved in the folder named by its request_id.
+        `request_metadata` and `tags` folder store their key-value pairs such that each
+        key is the file name, and value is written as the string value.
+        Detailed directories structure is as below:
+        | - experiment_id
+        |   - traces
+        |     - request_id1
+        |       - trace_info.yaml
+        |       - request_metadata
+        |         - key
+        |       - tags
+        |     - request_id2
+        |     - ...
+        |   - run_id1 ...
+        |   - run_id2 ...
+        """
+        # Save basic trace info to TRACE_INFO_FILE_NAME
+        trace_info_dict = self._convert_trace_info_to_dict(trace_info)
+        write_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME, trace_info_dict, overwrite=overwrite)
+        # Save request_metadata to its own folder
+        self._write_dict_to_trace_sub_folder(
+            trace_dir,
+            FileStore.TRACE_REQUEST_METADATA_FOLDER_NAME,
+            trace_info.request_metadata,
+        )
+        # Save tags to its own folder
+        self._write_dict_to_trace_sub_folder(
+            trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, trace_info.tags
+        )
+
+    def _convert_trace_info_to_dict(self, trace_info: TraceInfo):
+        """
+        Convert trace info to a dictionary for persistence.
+        Drop request_metadata and tags as they're saved into separate files.
+        """
+        trace_info_dict = trace_info.to_dict()
+        trace_info_dict.pop("request_metadata", None)
+        trace_info_dict.pop("tags", None)
+        return trace_info_dict
+
+    def _write_dict_to_trace_sub_folder(self, trace_dir, sub_folder, dictionary):
+        mkdir(trace_dir, sub_folder)
+        for key, value in dictionary.items():
+            # always validate as tag name to make sure the file name is valid
+            _validate_tag_name(key)
+            tag_path = os.path.join(trace_dir, sub_folder, key)
+            # value are written as strings
+            write_to(tag_path, self._writeable_value(value))
+
+    def _get_dict_from_trace_sub_folder(self, trace_dir, sub_folder):
+        parent_path, files = self._get_resource_files(trace_dir, sub_folder)
+        dictionary = {}
+        for file_name in files:
+            _validate_tag_name(file_name)
+            value = read_file(parent_path, file_name)
+            dictionary[file_name] = value
+        return dictionary
+
+    def end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: Dict[str, str],
+        tags: Dict[str, str],
+    ) -> TraceInfo:
+        """
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id : Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: mMetadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        trace_info, trace_dir = self._get_trace_info_and_dir(request_id)
+        trace_info.execution_time_ms = timestamp_ms - trace_info.timestamp_ms
+        trace_info.status = status
+        trace_info.request_metadata.update(request_metadata)
+        trace_info.tags.update(tags)
+        self._save_trace_info(trace_info, trace_dir, overwrite=True)
+        return trace_info
+
+    def get_trace_info(self, request_id: str) -> TraceInfo:
+        """
+        Get the trace matching the `request_id`.
+
+        Args:
+            request_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
+        """
+        return self._get_trace_info_and_dir(request_id)[0]
+
+    def _get_trace_info_and_dir(self, request_id: str) -> Tuple[TraceInfo, str]:
+        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+        trace_info = self._get_trace_info_from_dir(trace_dir)
+        if trace_info.request_id != request_id:
+            raise MlflowException(
+                f"Trace with request ID '{request_id}' metadata is in invalid state.",
+                databricks_pb2.INVALID_STATE,
+            )
+        return trace_info, trace_dir
+
+    def _find_trace_dir(self, request_id, assert_exists=False):
+        self._check_root_dir()
+        all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
+        for experiment_dir in all_experiments:
+            traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+            if exists(traces_dir):
+                if traces := find(traces_dir, request_id, full_path=True):
+                    return traces[0]
+        if assert_exists:
+            raise MlflowException(
+                f"Trace with request ID '{request_id}' not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+    def _get_trace_info_from_dir(self, trace_dir) -> TraceInfo:
+        trace_info_dict = FileStore._read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
+        trace_info = TraceInfo.from_dict(trace_info_dict)
+        trace_info.request_metadata = self._get_dict_from_trace_sub_folder(
+            trace_dir, FileStore.TRACE_REQUEST_METADATA_FOLDER_NAME
+        )
+        trace_info.tags = self._get_dict_from_trace_sub_folder(
+            trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME
+        )
+        return trace_info
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+        self._write_dict_to_trace_sub_folder(
+            trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, {key: value}
+        )
+
+    def delete_trace_tag(self, request_id: str, key: str):
+        """
+        Delete a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        _validate_tag_name(key)
+        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+        tag_path = os.path.join(trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, key)
+        if not exists(tag_path):
+            raise MlflowException(
+                f"No tag with name: {key} in trace with request_id {request_id}.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        os.remove(tag_path)
+
+    def delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Delete traces based on the specified criteria.
+
+        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `request_ids` is specified.
+
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+
+        Returns:
+            The number of traces deleted.
+        """
+        # request_ids can't be an empty list of string
+        if max_timestamp_millis is None and not request_ids:
+            raise MlflowException(
+                "Either `max_timestamp_millis` or `request_ids` must be specified.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if max_timestamp_millis and request_ids:
+            raise MlflowException(
+                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if request_ids and max_traces is not None:
+            raise MlflowException(
+                "`max_traces` can't be specified if `request_ids` is specified.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if max_traces is not None and max_traces <= 0:
+            raise MlflowException(
+                f"`max_traces` must be a positive integer, received {max_traces}.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
+        traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
+        deleted_traces = 0
+        if max_timestamp_millis:
+            trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
+            if max_traces is None:
+                max_traces = len(trace_paths)
+            for trace_path in trace_paths:
+                try:
+                    trace_info = self._get_trace_info_from_dir(trace_path)
+                    if trace_info.timestamp_ms <= max_timestamp_millis:
+                        shutil.rmtree(trace_path)
+                        deleted_traces += 1
+                        max_traces -= 1
+                except MissingConfigException as e:
+                    # trap malformed trace exception and log warning
+                    request_id = os.path.basename(trace_path)
+                    logging.warning(
+                        f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
+                        exc_info=True,
+                    )
+                if max_traces == 0:
+                    break
+            return deleted_traces
+        if request_ids:
+            for request_id in request_ids:
+                trace_path = os.path.join(traces_path, request_id)
+                # Do not throw if the trace doesn't exist
+                if exists(trace_path):
+                    shutil.rmtree(trace_path)
+                    deleted_traces += 1
+            return deleted_traces
+
+    def search_traces(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        """
+        Return traces that match the given list of search expressions within the experiments.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string. Supported filter keys are `name`,
+                           `status` and `timestamp_ms`.
+            max_results: Maximum number of traces desired.
+            order_by: List of order_by clauses. Supported sort key is `timestamp_ms`. By default
+                      we sort by timestamp_ms DESC.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_traces`` call.
+
+        Returns:
+            A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
+            satisfy the search expressions and a pagination token for the next page of results.
+            If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
+        """
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at "
+                f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+        traces = []
+        for experiment_id in experiment_ids:
+            trace_infos = self._list_trace_infos(experiment_id)
+            traces.extend(trace_infos)
+        filtered = SearchTraceUtils.filter(traces, filter_string)
+        sorted_traces = SearchTraceUtils.sort(filtered, order_by)
+        traces, next_page_token = SearchTraceUtils.paginate(sorted_traces, page_token, max_results)
+        return traces, next_page_token
+
+    def _list_trace_infos(self, experiment_id):
+        experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
+        traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
+        trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
+        trace_infos = []
+        for trace_path in trace_paths:
+            try:
+                trace_info = self._get_trace_info_from_dir(trace_path)
+                trace_infos.append(trace_info)
+            except MissingConfigException as e:
+                # trap malformed trace exception and log warning
+                request_id = os.path.basename(trace_path)
+                logging.warning(
+                    f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
+                    exc_info=True,
+                )
+        return trace_infos

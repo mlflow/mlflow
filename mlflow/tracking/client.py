@@ -38,7 +38,6 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -404,7 +403,7 @@ class MlflowClient:
         Args:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
-                deleting traces.
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
             max_traces: The maximum number of traces to delete.
             request_ids: A set of request IDs to delete.
 
@@ -559,6 +558,8 @@ class MlflowClient:
 
         try:
             # Create new trace and a root span
+            # Once OTel span is created, SpanProcessor.on_start is invoked
+            # TraceInfo is created and logged into backend store inside on_start method
             otel_span = mlflow.tracing.provider.start_detached_span(
                 name, experiment_id=experiment_id
             )
@@ -849,34 +850,23 @@ class MlflowClient:
 
     def _upload_ended_trace_info(
         self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        trace_info: TraceInfo,
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
         Args:
-            request_id: Unique string identifier of the trace.
-            timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: TraceStatus, status of the trace.
-            request_metadata: dict, metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: dict, tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
+            trace_info: Updated TraceInfo object to be stored in the backend store.
 
         Returns:
             The updated TraceInfo object.
         """
         return self._tracking_client.end_trace(
-            request_id=request_id,
-            timestamp_ms=timestamp_ms,
-            status=status,
-            request_metadata=request_metadata or {},
-            tags=tags or {},
+            request_id=trace_info.request_id,
+            timestamp_ms=trace_info.timestamp_ms + trace_info.execution_time_ms,
+            status=trace_info.status,
+            request_metadata=trace_info.request_metadata,
+            tags=trace_info.tags or {},
         )
 
     def set_trace_tag(self, request_id: str, key: str, value: str):

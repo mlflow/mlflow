@@ -9,7 +9,6 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 import mlflow
-from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
@@ -19,7 +18,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_trace_id,
@@ -148,8 +147,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
         super().on_end(span)
 
-    def _update_trace_info(self, trace: Trace, root_span: OTelReadableSpan):
+    def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
+        # Q: Why do we need to update timestamp_ms here? We already saved it when start
         trace.info.timestamp_ms = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000_000
         trace.info.status = TraceStatus.from_otel_status(root_span.status)
