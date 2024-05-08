@@ -121,21 +121,23 @@ def _cached_get_request_session(
     # from requests.packages.urllib3.poolmanager import PoolManager
     import ssl
 
-    class CustomSSLContextAdapter(HTTPAdapter):
-        """An adapter for `requests` to use a predefined SSL context."""
-        def __init__(self, ssl_context, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.ssl_context = ssl_context
-
-        def init_poolmanager(self, *args, **kwargs):
-            # Overriding the method to use our custom SSL context
-            kwargs['ssl_context'] = self.ssl_context
-            return super().init_poolmanager(*args, **kwargs)
 
     # Create a custom SSL context with debug enabled
     ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
     # ssl_context.set_debug_level(2)  # Set debug level for SSL connections
     ssl_context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_3
+
+    class CustomSSLContextAdapter(HTTPAdapter):
+        """An adapter for `requests` to use a predefined SSL context."""
+        def __init__(self, *args, **kwargs):
+            print("@SID init")
+            super().__init__(*args, **kwargs)
+
+        def init_poolmanager(self, *args, **kwargs):
+            # Overriding the method to use our custom SSL context
+            kwargs['ssl_context'] = ssl_context
+            print("@SID Using custom SSL context")
+            return super().init_poolmanager(*args, **kwargs)
 
     retry_kwargs = {
         "total": max_retries,
