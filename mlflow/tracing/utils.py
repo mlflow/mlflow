@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import uuid
 from collections import Counter, defaultdict
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, NamedTuple, Optional, Union
@@ -12,6 +13,7 @@ from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
 
@@ -361,3 +363,11 @@ def _extract_spans_from_row(
             ),
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
+
+def exclude_immutable_tags(tags: Dict[str, str]) -> Dict[str, str]:
+    """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
+    return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
+
+
+def generate_request_id() -> str:
+    return uuid.uuid4().hex

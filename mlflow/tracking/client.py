@@ -38,8 +38,7 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
-from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -73,7 +72,6 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
-    IMMUTABLE_TAGS,
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
@@ -405,7 +403,7 @@ class MlflowClient:
         Args:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
-                deleting traces.
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
             max_traces: The maximum number of traces to delete.
             request_ids: A set of request IDs to delete.
 
@@ -560,6 +558,8 @@ class MlflowClient:
 
         try:
             # Create new trace and a root span
+            # Once OTel span is created, SpanProcessor.on_start is invoked
+            # TraceInfo is created and logged into backend store inside on_start method
             otel_span = mlflow.tracing.provider.start_detached_span(
                 name, experiment_id=experiment_id
             )
@@ -571,15 +571,18 @@ class MlflowClient:
             if attributes:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
-            with trace_manager.get_trace(request_id) as trace:
-                trace.info.tags.update(self._exclude_immutable_tags(tags or {}))
+            # Update trace tags both in store and in-memory trace manager
+            self._tracking_client.set_trace_tags(request_id, tags or {})
+            trace_info = self._tracking_client.get_trace_info(request_id)
+            trace_manager.update_trace_info(trace_info)
             # Register new span in the in-memory trace manager
             trace_manager.register_span(mlflow_span)
 
             return mlflow_span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
-            raise e
+            if _MLFLOW_TESTING.get():
+                raise
             return NoOpSpan()
 
     def end_trace(
@@ -773,6 +776,8 @@ class MlflowClient:
             return span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
+            if _MLFLOW_TESTING.get():
+                raise
             return NoOpSpan()
 
     def end_span(
@@ -840,44 +845,29 @@ class MlflowClient:
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=self._exclude_immutable_tags(tags or {}),
+            tags=tags or {},
         )
 
     def _upload_ended_trace_info(
         self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        trace_info: TraceInfo,
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
         Args:
-            request_id: Unique string identifier of the trace.
-            timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: TraceStatus, status of the trace.
-            request_metadata: dict, metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: dict, tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
+            trace_info: Updated TraceInfo object to be stored in the backend store.
 
         Returns:
             The updated TraceInfo object.
         """
         return self._tracking_client.end_trace(
-            request_id=request_id,
-            timestamp_ms=timestamp_ms,
-            status=status,
-            request_metadata=request_metadata or {},
-            tags=self._exclude_immutable_tags(tags or {}),
+            request_id=trace_info.request_id,
+            timestamp_ms=trace_info.timestamp_ms + trace_info.execution_time_ms,
+            status=trace_info.status,
+            request_metadata=trace_info.request_metadata,
+            tags=trace_info.tags or {},
         )
-
-    def _exclude_immutable_tags(self, tags: Dict[str, str]) -> Dict[str, str]:
-        """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
-        return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """

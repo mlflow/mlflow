@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional
 
 from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
@@ -41,6 +42,8 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.tracing.utils import exclude_immutable_tags
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -52,6 +55,7 @@ from mlflow.utils.rest_utils import (
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+_logger = logging.getLogger(__name__)
 
 
 class RestStore(AbstractStore):
@@ -225,6 +229,7 @@ class RestStore(AbstractStore):
         Returns:
             The created TraceInfo object.
         """
+        tags = exclude_immutable_tags(tags)
         request_metadata_proto = []
         for key, value in request_metadata.items():
             attr = TraceRequestMetadata()
@@ -274,6 +279,7 @@ class RestStore(AbstractStore):
         Returns:
             The updated TraceInfo object.
         """
+        tags = exclude_immutable_tags(tags)
         request_metadata_proto = []
         for key, value in request_metadata.items():
             attr = TraceRequestMetadata()
@@ -364,8 +370,13 @@ class RestStore(AbstractStore):
             key: The string key of the tag.
             value: The string value of the tag.
         """
-        req_body = message_to_json(SetTraceTag(key=key, value=value))
-        self._call_endpoint(SetTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id))
+        if key in IMMUTABLE_TAGS:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
+        else:
+            req_body = message_to_json(SetTraceTag(key=key, value=value))
+            self._call_endpoint(
+                SetTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
+            )
 
     def delete_trace_tag(self, request_id: str, key: str):
         """
@@ -375,10 +386,13 @@ class RestStore(AbstractStore):
             request_id: The ID of the trace.
             key: The string key of the tag.
         """
-        req_body = message_to_json(DeleteTraceTag(key=key))
-        self._call_endpoint(
-            DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
-        )
+        if key in IMMUTABLE_TAGS:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
+        else:
+            req_body = message_to_json(DeleteTraceTag(key=key))
+            self._call_endpoint(
+                DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
+            )
 
     def log_metric(self, run_id, metric):
         """
