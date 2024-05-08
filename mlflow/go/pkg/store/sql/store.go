@@ -29,9 +29,8 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 	return experiment.ExperimentID, err
 }
 
-func NewSqlStore() (store.MlflowStore, error) {
-	databaseUrl := "postgresql://postgres:postgres@localhost/postgres"
-	db, err := gorm.Open(postgres.Open(databaseUrl), &gorm.Config{
+func NewSqlStore(url string) (store.MlflowStore, error) {
+	db, err := gorm.Open(postgres.Open(url), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {

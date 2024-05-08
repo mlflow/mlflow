@@ -189,8 +189,8 @@ var (
 	mlflowArtifactsService contract.MlflowArtifactsService
 )
 
-func NewMlflowService() (contract.MlflowService, error) {
-	store, err := sql.NewSqlStore()
+func NewMlflowService(storeUrl string) (contract.MlflowService, error) {
+	store, err := sql.NewSqlStore(storeUrl)
 	if err != nil {
 		return nil, err
 	}

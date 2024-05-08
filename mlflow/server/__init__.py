@@ -304,6 +304,7 @@ def _run_server(
             "PythonEnv": [f"{k}={v}" for k, v in env_map.items()],
             "ShutdownTimeout": "1m",
             "StaticFolder": os.path.join(os.path.dirname(__file__), REL_STATIC_DIR),
+            "StoreUrl": file_store_path,
             "Version": VERSION,
         }
         host = "127.0.0.1"

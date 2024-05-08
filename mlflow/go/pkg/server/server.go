@@ -26,7 +26,7 @@ func launchServer(ctx context.Context, cfg config.Config) error {
 		// ErrorHandler: func(c *fiber.Ctx, err error) error {},
 	})
 
-	mlflowService, err := NewMlflowService()
+	mlflowService, err := NewMlflowService(cfg.StoreUrl)
 	if err != nil {
 		return err
 	}
