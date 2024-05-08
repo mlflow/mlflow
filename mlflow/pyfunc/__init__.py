@@ -992,22 +992,13 @@ def load_model(
         model_impl = importlib.import_module(new_module_name)._load_pyfunc
     """
     if MODEL_CODE_PATH in conf:
-        flavor_config_path = conf.get(MODEL_CONFIG, None)
-        if flavor_config_path is not None:
-            config_path = os.path.join(
-                local_path,
-                os.path.basename(flavor_config_path),
-            )
-        else:
-            config_path = None
-
         flavor_code_path = conf.get(MODEL_CODE_PATH)
         code_path = os.path.join(
             local_path,
             os.path.basename(flavor_code_path),
         )
 
-        return _load_model_code_path(code_path, config_path)
+        return _load_model_code_path(code_path, model_config)
     # else:
     try:
         if model_config:
