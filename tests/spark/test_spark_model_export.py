@@ -440,8 +440,8 @@ def test_load_spark_model_from_models_uri(
         # Assert that we downloaded both the MLmodel file and the whole model itself using
         # the models:/ URI
         assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None),
-            mock.call("", None),
+            mock.call("MLmodel", None, lineage_header_info=None),
+            mock.call("", None, lineage_header_info=None),
         ]
         mock_download_artifacts.reset_mock()
         mlflow.spark.load_model(f"models:/{model_name}@Champion")
