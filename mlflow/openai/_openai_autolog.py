@@ -5,6 +5,7 @@ import os
 import uuid
 from contextlib import contextmanager
 from copy import deepcopy
+from typing import Iterator
 
 from packaging.version import Version
 
@@ -90,6 +91,8 @@ def _set_api_key_env_var(client):
 
 
 def patched_call(original, self, *args, **kwargs):
+    from openai import Stream
+
     run_id = getattr(self, "run_id", None)
     active_run = mlflow.active_run()
     mlflow_client = mlflow.MlflowClient()
@@ -137,11 +140,30 @@ def patched_call(original, self, *args, **kwargs):
         text=json.dumps(call_args, indent=2, cls=_OpenAIJsonEncoder),
         artifact_file=f"artifacts-{session_id}-{inference_id}/input.json",
     )
-    mlflow_client.log_text(
-        run_id=run_id,
-        text=result.to_json(),
-        artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
-    )
+
+    if isinstance(result, Stream):
+        # If the output is a stream, we add a hook to store the intermediate chunks
+        # and then log the outputs as a single artifact when the stream ends
+        def _stream_output_logging_hook(stream: Iterator) -> Iterator:
+            chunks = []
+            for chunk in stream:
+                chunks.append(chunk.to_dict())
+                yield chunk
+
+            mlflow_client.log_text(
+                run_id=run_id,
+                text=json.dumps(chunks),
+                artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
+            )
+
+        result._iterator = _stream_output_logging_hook(result._iterator)
+    else:
+        # If the output is not a stream, we simply log the output as a single artifact
+        mlflow_client.log_text(
+            run_id=run_id,
+            text=result.to_json(),
+            artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
+        )
 
     log_models = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_models", False)
     log_input_examples = get_autologging_config(
