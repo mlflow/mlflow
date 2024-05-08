@@ -110,8 +110,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                     #   updating the trace start time.
                     timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                     request_metadata=metadata,
+                    tags=default_tags,
                 )
-                trace_info.tags.update(default_tags)
 
             # TODO: This catches all exceptions from the tracking server so the in-memory tracing
             # still works if the backend APIs are not ready. Once backend is ready, we should
