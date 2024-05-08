@@ -281,8 +281,7 @@ def _save_model_with_class_artifacts_params(
         mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
         model_config: The model configuration for the flavor. Model configuration is available
             during model loading time.
-        model_code_path: The path to the code that is being logged as a PyFunc model. This path can
-            either be a DB notebook or normal python code.
+        model_code_path: The path to the code that is being logged as a PyFunc model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.

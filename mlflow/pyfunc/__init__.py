@@ -450,6 +450,8 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     Notebook,
 )
 from mlflow.pyfunc.model import (
+    CONFIG_KEY_ARTIFACT_RELATIVE_PATH,
+    CONFIG_KEY_ARTIFACTS,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -527,6 +529,7 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+
 _MODEL_DATA_SUBPATH = "data"
 
 
@@ -924,7 +927,6 @@ def load_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
     """
-    # loading python model from python_model: python_model.pkl, which is pointed to by
 
     lineage_header_info = None
     if databricks_utils.is_in_databricks_runtime() and (
@@ -962,97 +964,67 @@ def load_model(
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
-    # we are not adding code from conf to system path
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
-    # DATA is not in conf, local_path is path to chain?
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
 
     if isinstance(model_config, str):
-        model_config_path = os.path.join(
-            local_path,
-            os.path.basename(model_config),
-        )
+        model_config_path = os.path.join(local_path, os.path.basename(model_config))
         model_config = _validate_and_get_model_config_from_file(model_config_path)
+
     conf_model_config = conf.get(MODEL_CONFIG, None)
     if isinstance(conf_model_config, str):
-        conf_model_config_path = os.path.join(
-            local_path,
-            os.path.basename(conf_model_config),
-        )
+        conf_model_config_path = os.path.join(local_path, os.path.basename(conf_model_config))
         conf_model_config = _validate_and_get_model_config_from_file(conf_model_config_path)
 
     model_config = _get_overridden_pyfunc_model_config(conf_model_config, model_config, _logger)
     conf.update({MODEL_CONFIG: model_config})
 
-    """if conf.get(MODEL_CODE_PATH) is not None and "pyfunc" in conf.get("loader_module"):
-        flavor_code_path = conf.get(MODEL_CODE_PATH)
-        code_path = os.path.join(
-            local_path,
-            os.path.basename(flavor_code_path),
-        )
-        with _config_context(model_config):
-            try:
-                new_module_name = f"code_model_{uuid.uuid4().hex}"
-                spec = importlib.util.spec_from_file_location(new_module_name, code_path)
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[new_module_name] = module
-                spec.loader.exec_module(module)
-            except ImportError as e:
-                raise mlflow.MlflowException("Failed to import pyfunc model.") from e
+    try:
+        if MODEL_CODE_PATH in conf:
+            flavor_code_path = conf.get(MODEL_CODE_PATH)
+            code_path = os.path.join(local_path, os.path.basename(flavor_code_path))
 
-        model_impl = importlib.import_module(new_module_name)._load_pyfunc
-    """
-    if MODEL_CODE_PATH in conf:
-        flavor_code_path = conf.get(MODEL_CODE_PATH)
-        code_path = os.path.join(
-            local_path,
-            os.path.basename(flavor_code_path),
-        )
+            model = _load_model_code_path(code_path, model_config)
 
-        model = _load_model_code_path(code_path, model_config, suffix="loading")
+            artifacts = {}
+            for saved_artifact_name, saved_artifact_info in conf.get(
+                CONFIG_KEY_ARTIFACTS, {}
+            ).items():
+                artifacts[saved_artifact_name] = os.path.join(
+                    data_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
+                )
 
-        # CONFIG_KEY_ARTIFACTS = "artifacts"
-        # CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
-        artifacts = {}
-        for saved_artifact_name, saved_artifact_info in conf.get(
-            "artifacts", {}
-        ).items():
-            artifacts[saved_artifact_name] = os.path.join(
-                data_path, saved_artifact_info["path"]
+            context = PythonModelContext(artifacts=artifacts, model_config=model_config)
+            model.load_context(context=context)
+            signature = mlflow.models.Model.load(data_path).signature
+
+            model_impl = _PythonModelPyfuncWrapper(
+                python_model=model,
+                context=context,
+                signature=signature,
             )
-
-        context = PythonModelContext(artifacts=artifacts, model_config=model_config)
-        model.load_context(context=context)
-        signature = mlflow.models.Model.load(data_path).signature
-
-        context = PythonModelContext(artifacts=artifacts, model_config=model_config)
-        model_impl = _PythonModelPyfuncWrapper(
-            python_model=model,
-            context=context,
-            signature=signature,
-        )
-    else:
-        try:
-            # _load_context_model_and_signature called here which accesses python_model, but we shouldnt get here
+        else:
             if model_config:
-                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
+                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
+                    data_path, model_config
+                )
             else:
                 model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-        except ModuleNotFoundError as e:
-            # This error message is particularly for the case when the error is caused by module
-            # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
-            # module might be "databricks", "databricks.feature_store" or full package. So we will
-            # raise the error with the following note if "databricks" presents in the error. All non-
-            # databricks moduel errors will just be re-raised.
-            if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
-                raise MlflowException(
-                    f"{e.msg}; "
-                    "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
-                    "spark_udf() and predict() will not work as expected. Use "
-                    "score_batch for offline predictions.",
-                    BAD_REQUEST,
-                ) from None
-            raise e
+    except ModuleNotFoundError as e:
+        # This error message is particularly for the case when the error is caused by module
+        # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
+        # module might be "databricks", "databricks.feature_store" or full package. So we will
+        # raise the error with the following note if "databricks" presents in the error. All non-
+        # databricks moduel errors will just be re-raised.
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
+            raise MlflowException(
+                f"{e.msg}; "
+                "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
+                "spark_udf() and predict() will not work as expected. Use "
+                "score_batch for offline predictions.",
+                BAD_REQUEST,
+            ) from None
+        raise e
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
@@ -2359,6 +2331,7 @@ def save_model(
             model_code_path = _validate_and_get_model_code_path(python_model)
             _validate_and_copy_file_path(model_code_path, path, "code")
             python_model = _load_model_code_path(model_code_path, model_config)
+
         if isinstance(model_config, str):
             _validate_and_copy_file_path(model_config, path, "config")
             model_config_dict = _validate_and_get_model_config_from_file(model_config)
@@ -2526,7 +2499,7 @@ def save_model(
         )
 
 
-# TODO: move this to models.utils.py
+# TODO: move to models.utils to share across langchain and pyfunc
 @contextmanager
 def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
     # Check if config_path is None and set it to "" so when loading the model
@@ -2542,13 +2515,11 @@ def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
         _set_model_config(None)
 
 
-# TODO: bbqiu move this to models.utils.py
-def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]], suffix=None):
+# TODO: move to models.utils to share across langchain and pyfunc
+def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
     with _config_context(config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
-            if suffix:
-                new_module_name = f"{new_module_name}_{suffix}"
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)
             module = importlib.util.module_from_spec(spec)
             sys.modules[new_module_name] = module
