@@ -149,7 +149,6 @@ class PatchFunction:
             *args: The positional arguments passed to the original function.
             **kwargs: The keyword arguments passed to the original function.
         """
-        pass
 
     @abstractmethod
     def _on_exception(self, exception):
@@ -160,7 +159,6 @@ class PatchFunction:
         Args:
             exception: The unhandled exception thrown by `_patch_implementation`.
         """
-        pass
 
     @classmethod
     def call(cls, original, *args, **kwargs):

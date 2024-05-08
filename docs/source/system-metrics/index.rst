@@ -150,6 +150,8 @@ By default, MLflow logs the following system metrics:
 * gpu_utilization_percentage
 * gpu_memory_usage_megabytes
 * gpu_memory_usage_percentage
+* gpu_power_usage_watts
+* gpu_power_usage_percentage
 * network_receive_megabytes
 * network_transmit_megabytes
 * disk_usage_megabytes

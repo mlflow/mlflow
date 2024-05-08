@@ -174,6 +174,17 @@ func (m MlflowService) SetTag(input *protos.SetTag) (*protos.SetTag_Response, *c
 	return &protos.SetTag_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
 }
 
+// SetTraceTag implements MlflowService.
+func (m MlflowService) SetTraceTag(input *protos.SetTraceTag) (*protos.SetTraceTag_Response, *contract.MlflowError) {
+	return &protos.SetTraceTag_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+}
+
+// DeleteTraceTag implements MlflowService.
+func (m MlflowService) DeleteTraceTag(input *protos.DeleteTraceTag) (*protos.DeleteTraceTag_Response, *contract.MlflowError) {
+	return &protos.DeleteTraceTag_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+
+}
+
 // UpdateExperiment implements MlflowService.
 func (m MlflowService) UpdateExperiment(input *protos.UpdateExperiment) (*protos.UpdateExperiment_Response, *contract.MlflowError) {
 	return &protos.UpdateExperiment_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
@@ -182,6 +193,30 @@ func (m MlflowService) UpdateExperiment(input *protos.UpdateExperiment) (*protos
 // UpdateRun implements MlflowService.
 func (m MlflowService) UpdateRun(input *protos.UpdateRun) (*protos.UpdateRun_Response, *contract.MlflowError) {
 	return &protos.UpdateRun_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+}
+
+// StartTrace implements MlflowService.
+func (m MlflowService) StartTrace(input *protos.StartTrace) (*protos.StartTrace_Response, *contract.MlflowError) {
+	return &protos.StartTrace_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+}
+
+// EndTrace implements MlflowService.
+func (m MlflowService) EndTrace(input *protos.EndTrace) (*protos.EndTrace_Response, *contract.MlflowError) {
+	return &protos.EndTrace_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+}
+
+// GetTraceInfo implements MlflowService.
+func (m MlflowService) GetTraceInfo(input *protos.GetTraceInfo) (*protos.GetTraceInfo_Response, *contract.MlflowError) {
+	return &protos.GetTraceInfo_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+}
+
+// SearchTraces implements MlflowService.
+func (m MlflowService) SearchTraces(input *protos.SearchTraces) (*protos.SearchTraces_Response, *contract.MlflowError) {
+	return &protos.SearchTraces_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
+}
+
+func (m MlflowService) DeleteTraces(input *protos.DeleteTraces) (*protos.DeleteTraces_Response, *contract.MlflowError) {
+	return &protos.DeleteTraces_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
 }
 
 var (

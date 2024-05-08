@@ -549,7 +549,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
     except Exception as e:
         # Add error into message to provide details for serving usage
         raise MlflowInvalidInputException(
-            "Ensure that the input is a valid JSON-formatted string.\n" f"Error: {e!r}"
+            f"Ensure that the input is a valid JSON-formatted string.\nError: {e!r}"
         ) from e
 
 
@@ -583,9 +583,6 @@ def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] 
         data: Input data.
         inputs_key: Key to represent data in the request payload.
         params: Additional parameters to pass to the model for inference.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
     """
     import numpy as np
     import pandas as pd

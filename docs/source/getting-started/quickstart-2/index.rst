@@ -91,10 +91,12 @@ parameters, results, and model itself of each trial as a child run.
 
     def train_model(params, epochs, train_x, train_y, valid_x, valid_y, test_x, test_y):
         # Define model architecture
+        mean = np.mean(train_x, axis=0)
+        var = np.var(train_x, axis=0)
         model = keras.Sequential(
             [
                 keras.Input([train_x.shape[1]]),
-                keras.layers.Normalization(mean=np.mean(train_x), variance=np.var(train_x)),
+                keras.layers.Normalization(mean=mean, variance=var),
                 keras.layers.Dense(64, activation="relu"),
                 keras.layers.Dense(1),
             ]

@@ -48,10 +48,19 @@ class Provider(str, Enum):
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
     MISTRAL = "mistral"
+    TOGETHERAI = "togetherai"
 
     @classmethod
     def values(cls):
         return {p.value for p in cls}
+
+
+class TogetherAIConfig(ConfigModel):
+    togetherai_api_key: str
+
+    @validator("togetherai_api_key", pre=True)
+    def validate_togetherai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class RouteType(str, Enum):
@@ -232,6 +241,7 @@ config_types = {
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
     Provider.MISTRAL: MistralConfig,
+    Provider.TOGETHERAI: TogetherAIConfig,
 }
 
 
@@ -291,6 +301,7 @@ class Model(ConfigModel):
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
             MistralConfig,
+            TogetherAIConfig,
         ]
     ] = None
 

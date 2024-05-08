@@ -64,6 +64,8 @@ MLflow is currently maintained by the following core members with significant co
 - [Corey Zumar](https://github.com/dbczumar)
 - [Ben Wilson](https://github.com/BenWilson2)
 - [Serena Ruan](https://github.com/serena-ruan)
+- [Yuki Watanabe](https://github.com/B-Step62)
+- [Daniel Lok](https://github.com/daniellok-db)
 - [Gabriel Fu](https://github.com/gabrielfu)
 
 ## Contribution process
@@ -189,16 +191,11 @@ We follow [Google's Python Style Guide](https://google.github.io/styleguide/pygu
 for writing docstrings. Make sure your docstrings adhere to this style
 guide.
 
-The process for converting to a standard docstring format style is  
-ongoing. If you see a docstring in the code base that doesn't adhere
-to this formatting style and you'd like to contribute a fix, feel free
-to open a PR to correct the docstring formatting.
-
 ###### Code Style
 
-We use [pylint](https://pypi.org/project/pylint/),
-[black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html),
-and [ruff](https://github.com/astral-sh/ruff) in our CI via
+We use [prettier](https://prettier.io/),
+[blacken-docs](https://pypi.org/project/blacken-docs/), [ruff](https://github.com/astral-sh/ruff), and
+a number of custom lint checking scripts in our CI via
 pre-commit Git hooks. If your code passes the CI checks, it's
 formatted correctly.
 
@@ -809,7 +806,8 @@ Finally, before filing a pull request, verify all Python tests pass.
 
 ### Building a Distributable Artifact
 
-[Install Node Modules](#install-node-modules), then run the following:
+If you would like to build a fully functional version of MLflow from your local branch for testing or a local patch fix, first
+[install the Node Modules](#install-node-modules), then run the following:
 
 Generate JS files in `mlflow/server/js/build`:
 
@@ -818,11 +816,11 @@ cd mlflow/server/js
 yarn build
 ```
 
-Build a pip-installable wheel in `dist/`:
+Build a pip-installable wheel and a compressed code archive in `dist/`:
 
 ```bash
 cd -
-python setup.py bdist_wheel
+python -m build
 ```
 
 ### TOML formatting
@@ -888,6 +886,13 @@ cd docs
 make html
 ```
 
+Generate only the main .rst based documentation:
+
+```bash
+cd docs
+make rsthtml
+```
+
 If changing existing Python APIs or adding new APIs under existing
 modules, ensure that references to the modified APIs are updated in
 existing docs under `docs/source`. Note that the Python doc generation
@@ -898,6 +903,13 @@ If adding a new public Python module, create a corresponding doc file
 for the module under `docs/source/python_api` - [see
 here](https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking)
 for an example.
+
+> Note: If you are experiencing issues with rstcheck warning of failures in files that you did not modify, try:
+
+```bash
+cd docs
+make clean; make html
+```
 
 ### Sign your work
 
@@ -950,6 +962,8 @@ Then add a line to every git commit message:
 Use your real name (sorry, no pseudonyms or anonymous contributions).
 You can sign your commit automatically with `git commit -s` after you
 set your `user.name` and `user.email` git configs.
+
+> NOTE: Failing to sign your commits will result in an inability to merge your PR!
 
 ## Code of Conduct
 

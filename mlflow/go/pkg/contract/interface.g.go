@@ -27,6 +27,8 @@ type MlflowService interface {
 	LogParam(input *protos.LogParam) (*protos.LogParam_Response, *MlflowError)
 	SetExperimentTag(input *protos.SetExperimentTag) (*protos.SetExperimentTag_Response, *MlflowError)
 	SetTag(input *protos.SetTag) (*protos.SetTag_Response, *MlflowError)
+	SetTraceTag(input *protos.SetTraceTag) (*protos.SetTraceTag_Response, *MlflowError)
+	DeleteTraceTag(input *protos.DeleteTraceTag) (*protos.DeleteTraceTag_Response, *MlflowError)
 	DeleteTag(input *protos.DeleteTag) (*protos.DeleteTag_Response, *MlflowError)
 	GetRun(input *protos.GetRun) (*protos.GetRun_Response, *MlflowError)
 	SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_Response, *MlflowError)
@@ -36,6 +38,11 @@ type MlflowService interface {
 	LogBatch(input *protos.LogBatch) (*protos.LogBatch_Response, *MlflowError)
 	LogModel(input *protos.LogModel) (*protos.LogModel_Response, *MlflowError)
 	LogInputs(input *protos.LogInputs) (*protos.LogInputs_Response, *MlflowError)
+	StartTrace(input *protos.StartTrace) (*protos.StartTrace_Response, *MlflowError)
+	EndTrace(input *protos.EndTrace) (*protos.EndTrace_Response, *MlflowError)
+	GetTraceInfo(input *protos.GetTraceInfo) (*protos.GetTraceInfo_Response, *MlflowError)
+	SearchTraces(input *protos.SearchTraces) (*protos.SearchTraces_Response, *MlflowError)
+	DeleteTraces(input *protos.DeleteTraces) (*protos.DeleteTraces_Response, *MlflowError)
 }
 type ModelRegistryService interface {
 	Validate(input interface {
@@ -363,6 +370,42 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		}
 		return ctx.JSON(&output)
 	})
+	app.Patch("/api/2.0/mlflow/traces/{request_id}/tags", func(ctx *fiber.Ctx) error {
+		input := &protos.SetTraceTag{}
+		if err := ctx.BodyParser(input); err != nil {
+			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
+		output, err := service.SetTraceTag(input)
+		if err != nil {
+			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+				return ctx.Next()
+			}
+			return err
+		}
+		return ctx.JSON(&output)
+	})
+	app.Delete("/api/2.0/mlflow/traces/{request_id}/tags", func(ctx *fiber.Ctx) error {
+		input := &protos.DeleteTraceTag{}
+		if err := ctx.BodyParser(input); err != nil {
+			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
+		output, err := service.DeleteTraceTag(input)
+		if err != nil {
+			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+				return ctx.Next()
+			}
+			return err
+		}
+		return ctx.JSON(&output)
+	})
 	app.Post("/api/2.0/mlflow/runs/delete-tag", func(ctx *fiber.Ctx) error {
 		input := &protos.DeleteTag{}
 		if err := ctx.BodyParser(input); err != nil {
@@ -517,6 +560,96 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.LogInputs(input)
+		if err != nil {
+			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+				return ctx.Next()
+			}
+			return err
+		}
+		return ctx.JSON(&output)
+	})
+	app.Post("/api/2.0/mlflow/traces", func(ctx *fiber.Ctx) error {
+		input := &protos.StartTrace{}
+		if err := ctx.BodyParser(input); err != nil {
+			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
+		output, err := service.StartTrace(input)
+		if err != nil {
+			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+				return ctx.Next()
+			}
+			return err
+		}
+		return ctx.JSON(&output)
+	})
+	app.Patch("/api/2.0/mlflow/traces/{request_id}", func(ctx *fiber.Ctx) error {
+		input := &protos.EndTrace{}
+		if err := ctx.BodyParser(input); err != nil {
+			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
+		output, err := service.EndTrace(input)
+		if err != nil {
+			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+				return ctx.Next()
+			}
+			return err
+		}
+		return ctx.JSON(&output)
+	})
+	app.Get("/api/2.0/mlflow/traces/{request_id}/info", func(ctx *fiber.Ctx) error {
+		input := &protos.GetTraceInfo{}
+		if err := ctx.QueryParser(input); err != nil {
+			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
+		output, err := service.GetTraceInfo(input)
+		if err != nil {
+			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+				return ctx.Next()
+			}
+			return err
+		}
+		return ctx.JSON(&output)
+	})
+	app.Get("/api/2.0/mlflow/traces", func(ctx *fiber.Ctx) error {
+		input := &protos.SearchTraces{}
+		if err := ctx.QueryParser(input); err != nil {
+			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
+		output, err := service.SearchTraces(input)
+		if err != nil {
+			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
+				return ctx.Next()
+			}
+			return err
+		}
+		return ctx.JSON(&output)
+	})
+	app.Post("/api/2.0/mlflow/traces/delete-traces", func(ctx *fiber.Ctx) error {
+		input := &protos.DeleteTraces{}
+		if err := ctx.BodyParser(input); err != nil {
+			return err
+		}
+		validationErrors := service.Validate(input)
+		if len(validationErrors) > 0 {
+			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
+		}
+		output, err := service.DeleteTraces(input)
 		if err != nil {
 			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
 				return ctx.Next()

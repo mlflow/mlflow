@@ -66,6 +66,8 @@ MAX_DATASET_PROFILE_SIZE = 16777215  # 16MB -1 (the db limit for MEDIUMTEXT colu
 MAX_INPUT_TAG_KEY_SIZE = 255
 MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
+MAX_TRACE_TAG_KEY_LENGTH = 250
+MAX_TRACE_TAG_VAL_LENGTH = 8000
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
 
@@ -517,3 +519,12 @@ def _validate_input_tag(input_tag: InputTag):
 def _validate_username(username):
     if username is None or username == "":
         raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
+
+
+def _validate_trace_tag(key, value):
+    _validate_tag_name(key)
+    key = _validate_length_limit("Trace tag key", MAX_TRACE_TAG_KEY_LENGTH, key)
+    value = _validate_length_limit(
+        "Trace tag value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True
+    )
+    return key, value

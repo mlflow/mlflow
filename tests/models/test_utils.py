@@ -17,6 +17,7 @@ from mlflow.models.utils import (
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
+    _validate_model_code_from_notebook,
     get_model_version_from_model_uri,
 )
 from mlflow.types import DataType
@@ -107,7 +108,6 @@ def test_adding_libraries_to_model_run_id_passed(sklearn_knn_model):
 
     with mlflow.start_run():
         wheeled_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        pass
 
     wheeled_model_info = add_libraries_to_model(model_uri, run_id=wheeled_run_id)
     assert original_run_id != wheeled_run_id
@@ -249,7 +249,7 @@ def test_enforce_object_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type int",
+        match=r"Failed to enforce schema for key `a`. Expected type string, received type int",
     ):
         _enforce_object({"a": 1}, obj)
 
@@ -317,7 +317,7 @@ def test_enforce_property_with_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type list",
+        match=r"Failed to enforce schema for key `a`. Expected type string, received type list",
     ):
         _enforce_property(
             {"a": ["some_sentence1", "some_sentence2"]},
@@ -430,3 +430,26 @@ def test_enforce_array_with_errors():
                 )
             ),
         )
+
+
+def test_model_code_validation():
+    invalid_code = "dbutils.library.restartPython()\nsome_python_variable = 5"
+
+    warning_code = "# dbutils.library.restartPython()\n# MAGIC %run ../wheel_installer"
+
+    valid_code = "some_valid_python_code = 'valid'"
+
+    with pytest.raises(
+        ValueError, match="The model file uses 'dbutils' command which is not supported."
+    ):
+        _validate_model_code_from_notebook(invalid_code)
+
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _validate_model_code_from_notebook(warning_code)
+        mock_warning.assert_called_once_with(
+            "The model file uses magic commands which have been commented out. To ensure your code "
+            "functions correctly, make sure that it does not rely on these magic commands for "
+            "correctness."
+        )
+
+    _validate_model_code_from_notebook(valid_code)

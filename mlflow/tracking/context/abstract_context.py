@@ -25,7 +25,6 @@ class RunContextProvider:
             bool indicating if in this context.
 
         """
-        pass
 
     @abstractmethod
     def tags(self):
@@ -34,4 +33,3 @@ class RunContextProvider:
         Returns:
             dict of tags.
         """
-        pass
