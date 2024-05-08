@@ -860,6 +860,8 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from OpenAI to MLflow.
+    Raises :py:class:`MlflowException <mlflow.exceptions.MlflowException>`
+    if the OpenAI version < 1.0.
 
     Args:
         log_input_examples: If ``True``, input examples from inference data are collected and
