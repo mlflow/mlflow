@@ -113,6 +113,7 @@ def test_python_model_save_load(sklearn_knn_model, iris_data, tmp_path):
         infer_code_paths=True,
     )
 
+    breakpoint()
     assert set(_walk_dir(pyfunc_model_path / "code")) == {
         'custom_model/mod1/__init__.py',
         'custom_model/mod1/mod2/__init__.py',
