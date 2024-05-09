@@ -2107,6 +2107,7 @@ def save_model(
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     mlflow_model=None,
     python_model=None,
@@ -2120,7 +2121,6 @@ def save_model(
     example_no_conversion=False,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
-    infer_code_paths=False,
     **kwargs,
 ):
     """
@@ -2153,6 +2153,7 @@ def save_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
@@ -2442,6 +2443,7 @@ def log_model(
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     python_model=None,
     artifacts=None,
@@ -2456,7 +2458,6 @@ def log_model(
     example_no_conversion=False,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
-    infer_code_paths=False,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2484,6 +2485,7 @@ def log_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single

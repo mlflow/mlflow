@@ -285,9 +285,23 @@ is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
 between them to avoid import errors when loading the model.
 
+You can leave ``code_paths`` argument unset but set ``infer_code_paths`` to ``True`` to let MLflow
+infer the model code paths. See ``infer_code_paths`` argument doc for details.
+
 For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
 limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        "infer_code_paths": (
+            """If set to ``True``, MLflow automatically infers model code paths. The inferred code path files only
+            includes necessary python module files. Only python code files under current working directory
+            is automatic inferrable. Default value is ``False``.
+
+.. warning::
+    Please ensure that the custom python module code does not contain sensitive data such as
+    credential token strings, otherwise they might be included in the automatic inferred code path files
+    and be logged to MLflow artifact repository.
 """
         ),
         "save_pretrained": (
@@ -323,7 +337,7 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     base model weights are not saved but the reference to the HuggingFace repository and
     its commit hash are logged instead.
 """
-        ),
+        )
     }
 )
 
