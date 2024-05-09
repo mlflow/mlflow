@@ -2,7 +2,7 @@
 
 ## Using OpenAI client
 
-The recommended way of using `openai` is to instantiate a client 
+The recommended way of using `openai` is to instantiate a client
 using `openai.OpenAI()`. You can run the following example to use
 autologging using such client.
 
