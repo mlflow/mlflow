@@ -1688,9 +1688,9 @@ def test_pyfunc_as_code_with_config(tmp_path):
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    context, model_input = "context", "input"
-    expected_output = f"Predict called with context {context} and input {model_input}, timeout 400"
-    assert loaded_model.predict(context=context, model_input=model_input) == expected_output
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
 
 
 def test_pyfunc_as_code_with_dict_config():
@@ -1702,9 +1702,9 @@ def test_pyfunc_as_code_with_dict_config():
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    context, model_input = "context", "input"
-    expected_output = f"Predict called with context {context} and input {model_input}, timeout 400"
-    assert loaded_model.predict(context=context, model_input=model_input) == expected_output
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
 
 
 def test_pyfunc_as_code_log_and_load_wrong_path():

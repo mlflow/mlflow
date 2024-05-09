@@ -5,9 +5,9 @@ base_config = ModelConfig(development_config="tests/pyfunc/pyfunc_sample_config.
 
 
 class MyModel(PythonModel):
-    def predict(self, context=None, model_input=None):
+    def predict(self, context, model_input):
         timeout = base_config.get("timeout")
-        return f"Predict called with context {context} and input {model_input}, timeout {timeout}"
+        return f"Predict called with input {model_input}, timeout {timeout}"
 
 
 set_model(MyModel())

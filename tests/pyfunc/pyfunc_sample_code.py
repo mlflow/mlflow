@@ -3,7 +3,7 @@ from mlflow.pyfunc import PythonModel
 
 
 class MyModel(PythonModel):
-    def predict(self, context=None, model_input=None):
+    def predict(self, context, model_input):
         return f"This was the input: {model_input}"
 
 
