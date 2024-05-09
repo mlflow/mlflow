@@ -113,10 +113,10 @@ def test_model_version_search_from_uc_proto():
     actual_model_version = model_version_search_from_uc_proto(uc_proto)
     assert actual_model_version == expected_model_version
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: PT011
         actual_model_version.tags()
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: PT011
         actual_model_version.aliases()
 
 
@@ -179,8 +179,8 @@ def test_registered_model_search_from_uc_proto():
     actual_registered_model = registered_model_search_from_uc_proto(uc_proto)
     assert actual_registered_model == expected_registered_model
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: PT011
         actual_registered_model.tags()
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: PT011
         actual_registered_model.aliases()
