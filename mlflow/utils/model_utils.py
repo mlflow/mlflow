@@ -186,18 +186,18 @@ def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
         if relative_path.is_dir():
             init_file_path = relative_path / "__init__.py"
             if init_file_path.exists():
-                code_paths.add(str(init_file_path))
+                code_paths.add(init_file_path)
 
         py_module_path = Path(relative_path_str + ".py")
         if py_module_path.is_file():
-            code_paths.add(str(py_module_path))
+            code_paths.add(py_module_path)
 
     if code_paths:
         for code_path in code_paths:
-            src_dir_path = os.path.dirname(code_path)
-            src_file_name = os.path.basename(code_path)
-            dest_dir_path = os.path.join(path, default_subpath, src_dir_path)
-            dest_file_path = os.path.join(dest_dir_path, src_file_name)
+            src_dir_path = code_path.parent
+            src_file_name = code_path.name
+            dest_dir_path = Path(path) / default_subpath / src_dir_path
+            dest_file_path = dest_dir_path / src_file_name
             os.makedirs(dest_dir_path, exist_ok=True)
             shutil.copyfile(code_path, dest_file_path)
         return default_subpath
@@ -211,7 +211,7 @@ def _validate_infer_and_copy_code_paths(
     if infer_code_paths:
         if code_paths:
             raise MlflowException(
-                "If you set 'infer_code_path' to True, you can't set 'code_paths' param."
+                "If 'infer_code_path' is set to True, 'code_paths' param cannot be set."
             )
         return _infer_and_copy_code_paths(flavor, path, default_subpath)
     else:
