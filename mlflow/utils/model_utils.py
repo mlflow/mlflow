@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 from typing import Any, Dict
+from pathlib import Path
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -16,6 +17,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import get_parent_module
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.requirements_utils import _capture_imported_modules
@@ -162,9 +164,6 @@ def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
 
     all_modules = set(modules)
 
-    def get_parent_module(_module):
-        return _module[0: _module.rindex(".")]
-
     for module in modules:
         parent_module = module
         while "." in parent_module:
@@ -182,13 +181,16 @@ def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
     #     code in notebook files are loaded into python `__main__` module.
     code_paths = set()
     for full_module_name in all_modules:
-        relative_path = full_module_name.replace(".", os.sep)
-        if os.path.isdir(relative_path):
-            init_file_path = os.path.join(relative_path, "__init__.py")
-            if os.path.exists(init_file_path):
-                code_paths.add(init_file_path)
-        if os.path.isfile(relative_path + ".py"):
-            code_paths.add(relative_path + ".py")
+        relative_path_str = full_module_name.replace(".", os.sep)
+        relative_path = Path(relative_path_str)
+        if relative_path.is_dir():
+            init_file_path = relative_path / "__init__.py"
+            if init_file_path.exists():
+                code_paths.add(str(init_file_path))
+
+        py_module_path = Path(relative_path_str + ".py")
+        if py_module_path.is_file():
+            code_paths.add(str(py_module_path))
 
     if code_paths:
         for code_path in code_paths:

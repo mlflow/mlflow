@@ -296,3 +296,7 @@ class AttrDict(dict):
         if isinstance(value, dict):
             return AttrDict(value)
         return value
+
+
+def get_parent_module(_module):
+    return _module[0: _module.rindex(".")]

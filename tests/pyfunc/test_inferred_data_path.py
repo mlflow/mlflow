@@ -7,13 +7,14 @@ import pytest
 import sklearn.neighbors
 import sklearn.datasets
 import sys
+from pathlib import Path
 
 sys.path.insert(0, ".")
 
 
 @pytest.fixture
 def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
+    return tmp_path / "model"
 
 
 @pytest.fixture(scope="module")
@@ -33,13 +34,14 @@ def sklearn_knn_model(iris_data):
 
 
 def _walk_dir(path):
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            yield os.path.relpath(os.path.join(root, file), start=path)
+    for sub_path in path.glob('**/*'):
+        if sub_path.is_file():
+            rel_path = sub_path.relative_to(path)
+            yield str(rel_path)
 
 
 def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path):
-    sk_model_path = os.path.join(tmp_path, "knn.pkl")
+    sk_model_path = tmp_path / "knn.pkl"
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
@@ -52,9 +54,9 @@ def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, m
         infer_code_paths=True,
     )
 
-    reloaded_model_config = Model.load(os.path.join(model_path, "MLmodel"))
+    reloaded_model_config = Model.load(model_path / "MLmodel")
 
-    assert set(_walk_dir(os.path.join(model_path, "code"))) == {
+    assert set(_walk_dir(model_path / "code")) == {
         'custom_model/loader.py',
         'custom_model/mod1/__init__.py',
         'custom_model/mod1/mod2/__init__.py',
@@ -94,7 +96,7 @@ def get_model_class():
 
 
 def test_python_model_save_load(sklearn_knn_model, iris_data, tmp_path):
-    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
+    sklearn_model_path = tmp_path / "sklearn_model"
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     model_class = get_model_class()
@@ -102,16 +104,16 @@ def test_python_model_save_load(sklearn_knn_model, iris_data, tmp_path):
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+    pyfunc_model_path = tmp_path / "pyfunc_model"
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
-        artifacts={"sk_model": sklearn_model_path},
+        artifacts={"sk_model": str(sklearn_model_path)},
         python_model=model_class(test_predict),
         infer_code_paths=True,
     )
 
-    assert set(_walk_dir(os.path.join(pyfunc_model_path, "code"))) == {
+    assert set(_walk_dir(pyfunc_model_path / "code")) == {
         'custom_model/mod1/__init__.py',
         'custom_model/mod1/mod2/__init__.py',
         'custom_model/mod1/mod4.py'

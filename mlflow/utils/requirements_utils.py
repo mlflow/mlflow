@@ -316,7 +316,8 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                             json.dumps(sys.path),
                             "--module-to-throw",
                             module_to_throw,
-                        ] + record_full_module_args,
+                            *record_full_module_args,
+                        ],
                         timeout_seconds=process_timeout,
                         env={**main_env, **transformer_env},
                     )
