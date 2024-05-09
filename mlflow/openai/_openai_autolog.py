@@ -147,14 +147,18 @@ def patched_call(original, self, *args, **kwargs):
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             chunks = []
             for chunk in stream:
-                chunks.append(chunk.to_dict())
+                chunks.append(chunk)
                 yield chunk
 
-            mlflow_client.log_text(
-                run_id=run_id,
-                text=json.dumps(chunks),
-                artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
-            )
+            try:
+                chunks = [chunk.to_dict() for chunk in chunks]
+                mlflow_client.log_text(
+                    run_id=run_id,
+                    text=json.dumps(chunks),
+                    artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
+                )
+            except Exception as e:
+                _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
