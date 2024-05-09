@@ -131,11 +131,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
-
+        metadata: {{ metadata }}
         kwargs: Optional configurations for Spark DataFrame storage iff the model has
             been fit in Spark.
             Current supported options:
@@ -405,11 +401,7 @@ def log_model(
             Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
-
+        metadata: {{ metadata }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
             Additionally, for models that have been fit in Spark, the following supported
             configuration options are available to set.
@@ -481,9 +473,6 @@ class _DivinerModelWrapper:
                 Will generate 30 days of forecasted values for each group that the model
                 was trained on.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             A Pandas DataFrame containing the forecasted values for each group key that was

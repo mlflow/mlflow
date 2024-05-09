@@ -253,6 +253,32 @@ service MlflowService {
     };
   }
 
+  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  rpc setTraceTag(SetTraceTag) returns (SetTraceTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{request_id}/tags"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Trace Tag",
+    };
+  }
+
+  // Delete a tag from a trace.
+  rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{request_id}/tags"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Trace Tag",
+    };
+  }
+
   // Delete a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
@@ -426,6 +452,72 @@ service MlflowService {
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Log Inputs",
+    };
+  }
+
+  // Start a new trace within an experiment.
+  rpc startTrace(StartTrace) returns (StartTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Start Trace",
+    };
+  }
+
+  // End a trace within an experiment.
+  rpc endTrace(EndTrace) returns (EndTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{request_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "End Trace",
+    };
+  }
+
+  // Get metadata of a trace.
+  rpc getTraceInfo (GetTraceInfo) returns (GetTraceInfo.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{request_id}/info"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get TraceInfo",
+    };
+  }
+
+  // Search for traces that satisfy specified filters
+  // (e.g. ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``), and retrieve the traces
+  // in a specified ordering (e.g. ``["timestamp_ms DESC"]``).
+  rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces"
+        since { major: 2, minor: 0 }
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search Traces",
+    };
+  }
+
+  rpc deleteTraces(DeleteTraces) returns (DeleteTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/delete-traces"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Traces",
     };
   }
 }
@@ -1174,5 +1266,202 @@ message GetExperimentByName {
   message Response {
     // Experiment details.
     optional Experiment experiment = 1;
+  }
+}
+
+// TraceInfo. Represents metadata of a trace.
+message TraceInfo {
+  // Unique identifier for the trace.
+  optional string request_id = 1;
+
+  // The ID of the experiment that contains the trace.
+  optional string experiment_id = 2;
+
+  // Unix timestamp of when the trace started in milliseconds.
+  optional int64 timestamp_ms = 3;
+
+  // Unix timestamp of the duration of the trace in milliseconds.
+  optional int64 execution_time_ms = 4;
+
+  // Overall status of the operation being traced (OK, error, etc.).
+  optional TraceStatus status = 5;
+
+  // Other trace metadata.
+  repeated TraceRequestMetadata request_metadata = 6;
+
+  // Tags for the trace.
+  repeated TraceTag tags = 7;
+}
+
+message TraceRequestMetadata{
+  // Key identifying this metadata.
+  optional string key = 1;
+
+  // Value identifying this metadata.
+  optional string value = 2;
+}
+
+message TraceTag {
+  // Key identifying this trace tag.
+  optional string key = 1;
+
+  // Value associated with this trace tag.
+  optional string value = 2;
+}
+
+enum TraceStatus {
+  TRACE_STATUS_UNSPECIFIED = 0;
+
+  // The operation being traced was successful.
+  OK = 1;
+
+  // The operation being traced failed.
+  ERROR = 2;
+
+  // The operation being traced is still in progress.
+  IN_PROGRESS = 3;
+}
+
+message StartTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the associated experiment.
+  optional string experiment_id = 1;
+
+  // Unix timestamp of when the trace started in milliseconds.
+  optional int64 timestamp_ms = 2;
+
+  // Metadata about the request that initiated the trace.
+  repeated TraceRequestMetadata request_metadata = 3;
+
+  // Tags for the trace.
+  repeated TraceTag tags = 4;
+
+  message Response {
+    // The newly created trace.
+    optional TraceInfo trace_info = 1;
+  }
+}
+
+message EndTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace to end.
+  optional string request_id = 1;
+
+  // Unix timestamp of when the trace ended in milliseconds.
+  optional int64 timestamp_ms = 2;
+
+  // Overall status of the operation being traced (OK, error, etc).
+  optional TraceStatus status = 3;
+
+  // Additional metadata about the operation being traced.
+  repeated TraceRequestMetadata request_metadata = 4;
+
+  // Additional tags to add to the trace.
+  repeated TraceTag tags = 5;
+
+  message Response {
+    // The updated trace.
+    optional TraceInfo trace_info = 1;
+  }
+}
+
+message GetTraceInfo {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string request_id = 1;
+
+  message Response {
+    // Metadata of the requested trace.
+    optional TraceInfo trace_info = 1;
+  }
+}
+
+message SearchTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // List of experiment IDs to search over.
+  repeated string experiment_ids = 1;
+
+  // A filter expression over trace attributes and tags that allows returning a subset of
+  // traces. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
+  optional string filter = 2;
+
+  // Maximum number of traces desired. Max threshold is 500.
+  optional int32 max_results = 3 [default = 100];
+
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
+  repeated string order_by = 4;
+
+  // Token indicating the page of traces to fetch.
+  optional string page_token = 5;
+
+  message Response {
+    // Information about traces that match the search criteria.
+    repeated TraceInfo traces = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+message DeleteTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the associated experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion
+  // The maximum timestamp in milliseconds since the UNIX epoch for deleting traces.
+  optional int64 max_timestamp_millis = 2;
+
+  // The maximum number of traces to delete.
+  optional int32 max_traces = 3;
+
+  // Case 2: request_ids must be specified for ID-based deletion
+  // A set of request IDs to delete
+  repeated string request_ids = 4;
+
+  message Response {
+    optional int32 traces_deleted = 1;
+  }
+}
+
+message SetTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace on which to set a tag.
+  optional string request_id = 1;
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2;
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string value = 3;
+
+  message Response {
+  }
+}
+
+message DeleteTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace from which to delete the tag.
+  optional string request_id = 1;
+
+  // Name of the tag to delete.
+  optional string key = 2;
+
+  message Response {
   }
 }

@@ -76,7 +76,6 @@ Getting Started with the MLflow LangChain Flavor - Tutorials and Guides
     :hidden:
 
     notebooks/langchain-quickstart.ipynb
-    notebooks/langchain-agent.ipynb
     notebooks/langchain-retriever.ipynb
 
 Introductory Tutorial
@@ -115,16 +114,6 @@ exploring these more advanced use cases.
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="notebooks/langchain-agent.html">
-                    <div class="header">
-                        LangChain Agents
-                    </div>
-                    <p>
-                        Learn how to build a LangChain agent that can query a web search engine and perform calculations based on complex questions using MLflow.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
                 <a href="notebooks/langchain-retriever.html">
                     <div class="header">
                         RAG tutorial with LangChain
@@ -156,6 +145,27 @@ To learn more about the details of the MLflow LangChain flavor, read the detaile
 FAQ
 ---
 
+I can't load my chain!
+^^^^^^^^^^^^^^^^^^^^^^
+
+- **Allowing for Dangerous Deserialization**: Pickle opt-in logic in LangChain will prevent components from being loaded via MLflow. You might see an error like this:
+
+    .. code-block:: text
+
+        ValueError: This code relies on the pickle module. You will need to set allow_dangerous_deserialization=True if you want to opt-in to 
+        allow deserialization of data using pickle. Data can be compromised by a malicious actor if not handled properly to include a malicious 
+        payload that when deserialized with pickle can execute arbitrary code on your machine. 
+
+    A change within LangChain that `forces users to opt-in to pickle deserialization <https://github.com/langchain-ai/langchain/pull/18696>`_ can create 
+    some issues with loading chains, vector stores, retrievers, and agents that have been logged using MLflow. Because the option is not exposed per component
+    to set this argument on the loader function, you will need to ensure that you are setting this option directly within the defined loader function when 
+    logging the model. LangChain components that do not set this value will be saved without issue, but a ``ValueError`` will be raised when loading if unset. 
+
+    To fix this, simply re-log your model, specifying the option ``allow_dangerous_deserialization=True`` in your defined loader function. See the tutorial 
+    `for LangChain retrievers <notebooks/langchain-retriever.html#Establishing-RetrievalQA-Chain-and-Logging-with-MLflow>`_ for an example of specifying this
+    option when logging a ``FAISS`` vector store instance within a ``loader_fn`` declaration.
+
+
 I can't save my chain, agent, or retriever with MLflow.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -174,6 +184,9 @@ I can't save my chain, agent, or retriever with MLflow.
 - **Keeping Up with New Features in MLflow**: MLflow might not immediately support the latest LangChain features immediately. 
 
     If a new feature is not supported in MLflow, consider `filing a feature request on the MLflow GitHub issues page <https://github.com/mlflow/mlflow/issues>`_. 
+    With the rapid pace of changes in libraries that are in heavy active development (such as `LangChain's release velocity <https://pypi.org/project/langchain/#history>`_),
+    breaking changes, API refactoring, and fundamental functionality support for even existing features can cause integration issues. If there is a chain, agent,
+    retriever, or any future structure within LangChain that you'd like to see supported, please let us know!
 
 I'm getting an AttributeError when saving my model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -200,7 +213,22 @@ I can't load the model logged by mlflow langchain autologging
     As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in 
     `retriever_chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_
 
-- **Can't pickle certain objects**: Try manually log the model.
+- **Can't pickle certain objects**: Try manually logging the model.
 
-    For certain models that langchain does not support native saving/loading, we pickle the object and save it, while it requires cloudpickle version to be 
-    consistent when saving/loading the model, as well as PyDantic version to be 2.x. Try manually log the model with ``mlflow.langchain.log_model`` API.
+    For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be 
+    consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
+    environment has `pydantic` installed with at least version 2. 
+
+How does MLflow langchain autologging interact with callbacks?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Model inference with default callbacks**:
+
+    If you invoke a langchain model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions directly, MLflow autologging will inject
+    a callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
+
+- **Model inference with user-specified callbacks**:
+
+    If your inference call already includes callbacks in the config, e.g. `model.invoke(input, config=RunnableConfig(callbacks=customer_callbacks))`, then MLflow autologging
+    still preserves your callbacks and appends a callback after them. `RunnableConfig callbacks parameter <https://api.python.langchain.com/en/latest/runnables/langchain_core.runnables.config.RunnableConfig.html#langchain_core.runnables.config.RunnableConfig>`_ 
+    supports both `BaseCallbackManager` or `List[BaseCallbackHandler]`, in either case MLflow autologging appends a callback to collect metrics and artifacts.

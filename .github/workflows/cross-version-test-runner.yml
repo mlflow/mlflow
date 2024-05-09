@@ -1,0 +1,30 @@
+name: Cross version test runner
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event.issue.pull_request && github.event.comment.body }}
+    permissions:
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/github-script@v7
+        id: get-ref
+        with:
+          result-encoding: string
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const runner = require('./.github/workflows/cross-version-test-runner.js');
+            await runner.main({ context, github });
