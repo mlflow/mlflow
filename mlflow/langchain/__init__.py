@@ -46,7 +46,6 @@ from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
-    _get_temp_file_with_content,
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
@@ -59,7 +58,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _convert_llm_input_data, _save_example
+from mlflow.models.utils import _convert_llm_input_data, _get_temp_file_with_content, _save_example
 from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -89,7 +88,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _validate_and_copy_model_code_and_config_paths,
+    _validate_and_copy_file_path,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -266,16 +265,7 @@ def save_model(
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
-
-        if os.path.exists(lc_model):
-            model_code_path = lc_model
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                "file path or a databricks notebook file path containing the code for defining "
-                "the chain instance."
-            )
-
+        model_code_path = lc_model
         if isinstance(model_config, dict):
             model_config_path = _get_temp_file_with_content(
                 "config.yml", yaml.dump(model_config), "w"
@@ -299,7 +289,8 @@ def save_model(
             if model_config_path
             else _load_model_code_path(model_code_path)
         )
-        _validate_and_copy_model_code_and_config_paths(model_code_path, model_config_path, path)
+        _validate_and_copy_file_path(model_code_path, path, "code")
+        _validate_and_copy_file_path(model_config_path, path, "config")
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -370,7 +361,6 @@ def save_model(
         )
         model_data_kwargs = {}
 
-    # TODO: Pass model_config to pyfunc
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -380,6 +370,7 @@ def save_model(
         predict_stream_fn="predict_stream",
         streamable=streamable,
         model_code_path=model_code_path,
+        model_config=model_config,
         **model_data_kwargs,
     )
 

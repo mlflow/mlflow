@@ -255,6 +255,7 @@ def _save_model_with_class_artifacts_params(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    model_code_path=None,
 ):
     """
     Args:
@@ -280,6 +281,7 @@ def _save_model_with_class_artifacts_params(
         mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
         model_config: The model configuration for the flavor. Model configuration is available
             during model loading time.
+        model_code_path: The path to the code that is being logged as a PyFunc model.
 
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.
@@ -394,6 +396,7 @@ def _save_model_with_class_artifacts_params(
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
         streamable=streamable,
+        model_code_path=model_code_path,
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):
