@@ -26,7 +26,7 @@ from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,
@@ -421,16 +421,16 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
     mlflow.langchain.save_model(model, path=model_path)
     loaded_model = mlflow.pyfunc.load_model(model_path)
 
-    request_id = "eval-123"
+    eval_request_id = "eval-123"
     with mlflow.start_run(run_name="eval-run") as run:
         run_id = run.info.run_id
-        with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
+        with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
             with _mock_request(return_value=_mock_chat_completion_response()):
                 response = loaded_model.predict({"product": "MLflow"})
 
     assert response == ["test"]
-    trace = mlflow.get_trace(request_id)
-    assert trace.info.request_id == request_id
+    trace = mlflow.get_trace(eval_request_id)
+    assert trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID) == eval_request_id
     assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
 
     # Trace should not be displayed in the notebook cell if it is in evaluation
