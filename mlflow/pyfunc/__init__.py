@@ -980,7 +980,9 @@ def load_model(
         conf.update({MODEL_CONFIG: model_config})
 
     try:
-        if MODEL_CODE_PATH in conf:
+        if "langchain" in conf[MAIN]:
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+        elif "pyfunc" in conf[MAIN] and MODEL_CODE_PATH in conf:
             flavor_code_path = conf.get(MODEL_CODE_PATH)
             code_path = os.path.join(local_path, os.path.basename(flavor_code_path))
 
