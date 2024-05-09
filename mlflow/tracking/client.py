@@ -69,7 +69,10 @@ from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pi
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
-from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.databricks_utils import (
+    get_databricks_run_url,
+    is_in_databricks_model_serving_environment,
+)
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
@@ -571,10 +574,15 @@ class MlflowClient:
             if attributes:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
-            # Update trace tags both in store and in-memory trace manager
-            self._tracking_client.set_trace_tags(request_id, tags or {})
-            trace_info = self._tracking_client.get_trace_info(request_id)
-            trace_manager.update_trace_info(trace_info)
+            if is_in_databricks_model_serving_environment():
+                # Update trace tags for trace in in-memory trace manager
+                with trace_manager.get_trace(request_id) as trace:
+                    trace.info.tags.update(tags or {})
+            else:
+                # Update trace tags in store and in-memory if tracking client is available
+                self._tracking_client.set_trace_tags(request_id, tags or {})
+                trace_info = self._tracking_client.get_trace_info(request_id)
+                trace_manager.update_trace_info(trace_info)
             # Register new span in the in-memory trace manager
             trace_manager.register_span(mlflow_span)
 
