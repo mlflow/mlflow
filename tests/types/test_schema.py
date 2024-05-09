@@ -1811,6 +1811,13 @@ def test_convert_dataclass_to_object():
         ]
     )
 
+    obj = convert_dataclass_to_object(rag_signatures.StringResponse())
+    assert obj == Object(
+        properties=[
+            Property(name="content", dtype=DataType.string),
+        ]
+    )
+
 
 # def test_convert_dataclass_to_schema_basic():
 #     schema = convert_dataclass_to_schema(rag_signatures.Message())
