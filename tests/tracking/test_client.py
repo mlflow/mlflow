@@ -362,13 +362,15 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     assert len(traces) == 1
     trace_info = traces[0].info
     assert trace_info.request_id is not None
-    assert trace_info.experiment_id == model._exp_id
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
     if with_active_run:
         assert trace_info.request_metadata["mlflow.sourceRun"] == run_id
+        assert trace_info.experiment_id == run.info.experiment_id
+    else:
+        assert trace_info.experiment_id == model._exp_id
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 1, "y": 2}'

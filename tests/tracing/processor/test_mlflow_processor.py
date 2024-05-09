@@ -153,6 +153,40 @@ def test_on_start_during_model_evaluation(clear_singleton):
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
 
 
+def test_on_start_during_run(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+
+    span = create_mock_otel_span(
+        trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
+    )
+
+    env_experiment_name = "env_experiment_id"
+    run_experiment_name = "run_experiment_id"
+
+    mlflow.create_experiment(env_experiment_name)
+    run_experiment_id = mlflow.create_experiment(run_experiment_name)
+
+    mlflow.set_experiment(experiment_name=env_experiment_name)
+    trace_info = create_test_trace_info(_REQUEST_ID)
+    mock_client = mock.MagicMock()
+    mock_client._start_tracked_trace.return_value = trace_info
+    processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
+
+    with mlflow.start_run(experiment_id=run_experiment_id) as run:
+        processor.on_start(span)
+        expected_run_id = run.info.run_id
+
+    mock_client._start_tracked_trace.assert_called_once_with(
+        # expect experiment id to be from the run, not from the environment
+        experiment_id=run_experiment_id,
+        timestamp_ms=5,
+        # expect run id to be set
+        request_metadata={"mlflow.sourceRun": expected_run_id},
+        tags=mock.ANY,
+    )
+
+
 def test_on_end(clear_singleton):
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     trace_manager = InMemoryTraceManager.get_instance()
