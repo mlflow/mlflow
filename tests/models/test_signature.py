@@ -290,14 +290,9 @@ def test_signature_with_errors():
 
 
 def test_signature_for_rag():
-    chat_completions_request_schema = convert_dataclass_to_schema(
-        rag_signatures.ChatCompletionRequest()
-    )
-    chat_completions_response_schema = convert_dataclass_to_schema(
-        rag_signatures.ChatCompletionResponse()
-    )
     signature = ModelSignature(
-        inputs=chat_completions_request_schema, outputs=chat_completions_response_schema
+        inputs=rag_signatures.ChatCompletionRequest(),
+        outputs=rag_signatures.ChatCompletionResponse(),
     )
     signature_dict = signature.to_dict()
     assert signature_dict == {

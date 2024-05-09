@@ -4,6 +4,7 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
+from dataclasses import dataclass, is_dataclass
 import inspect
 import logging
 import re
@@ -22,7 +23,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.types.schema import ParamSchema, Schema
+from mlflow.types.schema import ParamSchema, Schema, convert_dataclass_to_schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
 
@@ -57,7 +58,17 @@ class ModelSignature:
     :py:class:`ParamSchema <mlflow.types.ParamSchema>`.
     """
 
-    def __init__(self, inputs: Schema = None, outputs: Schema = None, params: ParamSchema = None):
+    def __init__(
+        self,
+        inputs: Union[Schema, dataclass] = None,
+        outputs: Union[Schema, dataclass] = None,
+        params: ParamSchema = None,
+    ):
+        if is_dataclass(inputs) and is_dataclass(outputs):
+            self.inputs = convert_dataclass_to_schema(inputs)
+            self.outputs = convert_dataclass_to_schema(outputs)
+            self.params = params
+            return
         if inputs and not isinstance(inputs, Schema):
             raise TypeError(
                 "inputs must be either None or mlflow.models.signature.Schema, "
