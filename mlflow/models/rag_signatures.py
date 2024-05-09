@@ -48,8 +48,7 @@ class ChatCompletionResponse:
     choices: Union[List[ChainCompletionChoice],] = field(
         default_factory=lambda: [ChainCompletionChoice()]
     )
-
-    # TODO: union
+    # TODO: support ChainCompletionChunk in the future
 
 
 @dataclass
