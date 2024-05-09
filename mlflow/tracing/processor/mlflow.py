@@ -69,13 +69,12 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span._start_time = time.time_ns()
 
     def _start_trace(self, span: OTelSpan) -> TraceInfo:
-        metadata = {}
-
         experiment_id = (
             get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
         )
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
+        metadata = {}
         if run := mlflow.active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
             # if we're inside a run, the run's experiment id should
