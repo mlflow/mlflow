@@ -1,5 +1,4 @@
 import json
-from unittest import mock
 
 import openai
 import pytest
@@ -138,7 +137,7 @@ def test_completions_autolog_streaming(client, monkeypatch):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_loaded_completions_completions_autolog(client, monkeypatch):
+def test_loaded_completions_autolog(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     with mlflow.start_run() as run:
         client.completions.create(
@@ -162,6 +161,52 @@ def test_loaded_completions_completions_autolog(client, monkeypatch):
     pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
     # expected output from mock_openai
     assert pyfunc_model.predict("test") == ["test"]
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_embeddings_autolog_artifacts(client, monkeypatch):
+    mlflow.openai.autolog(log_models=True)
+    with mlflow.start_run() as run:
+        client.embeddings.session_id = "test_session_id"
+        client.embeddings.create(
+            input="test",
+            model="text-embedding-ada-002",
+        )
+
+    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
+    with open(f"{artifact_dir}/input.json") as f:
+        assert json.load(f)["input"] == "test"
+
+    with open(f"{artifact_dir}/output.json") as f:
+        assert len(json.load(f)["data"][0]["embedding"]) == 1536
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_loaded_embeddings_autolog(client, monkeypatch):
+    mlflow.openai.autolog(log_models=True)
+    with mlflow.start_run() as run:
+        client.embeddings.create(
+            input="test",
+            model="text-embedding-ada-002",
+        )
+
+    loaded_model = mlflow.openai.load_model(f"runs:/{run.info.run_id}/model")
+    assert loaded_model == {
+        "model": "text-embedding-ada-002",
+        "task": "embeddings",
+    }
+
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": client.base_url,
+        }
+    )
+    pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+    # expected output from mock_openai
+    output = pyfunc_model.predict("test")
+    assert len(output) == 1
+    assert len(output[0]) == 1536
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
