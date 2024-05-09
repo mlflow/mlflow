@@ -55,6 +55,34 @@ def test_chat_completions_autolog_artifacts(client, monkeypatch):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_chat_completions_autolog_streaming(client, monkeypatch):
+    mlflow.openai.autolog(log_models=True)
+    messages = [{"role": "user", "content": "test"}]
+    with mlflow.start_run() as run:
+        client.chat.completions.session_id = "test_session_id"
+        stream = client.chat.completions.create(
+            messages=messages,
+            model="gpt-3.5-turbo",
+            temperature=0,
+            stream=True,
+        )
+        for _ in stream:
+            pass
+
+    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
+    with open(f"{artifact_dir}/input.json") as f:
+        assert json.load(f)["messages"] == messages
+
+    with open(f"{artifact_dir}/output.json") as f:
+        output = json.load(f)
+        assert len(output) == 2
+        assert output[0]["id"] == "chatcmpl-123"
+        assert output[0]["choices"][0]["delta"]["content"] == "Hello"
+        assert output[1]["id"] == "chatcmpl-123"
+        assert output[1]["choices"][0]["delta"]["content"] == " world"
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
 def test_loaded_chat_completions_autolog(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     messages = [{"role": "user", "content": "test"}]

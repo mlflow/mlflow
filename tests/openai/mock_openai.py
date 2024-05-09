@@ -3,6 +3,7 @@ from typing import List, Union
 
 import fastapi
 from pydantic import BaseModel
+from starlette.responses import StreamingResponse
 
 app = fastapi.FastAPI()
 
@@ -19,10 +20,10 @@ class Message(BaseModel):
 
 class ChatPayload(BaseModel):
     messages: List[Message]
+    stream: bool = False
 
 
-@app.post("/chat/completions")
-async def chat(payload: ChatPayload):
+def chat_response(payload: ChatPayload):
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion",
@@ -46,6 +47,46 @@ async def chat(payload: ChatPayload):
             "total_tokens": 21,
         },
     }
+
+
+def _make_chat_stream_chunk(content):
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-3.5-turbo-0613",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [
+            {
+                "delta": {
+                    "content": content,
+                    "function_call": None,
+                    "role": None,
+                    "tool_calls": None,
+                },
+                "finish_reason": None,
+                "index": 0,
+                "logprobs": None,
+            }
+        ],
+    }
+
+
+async def chat_response_stream():
+    yield _make_chat_stream_chunk("Hello")
+    yield _make_chat_stream_chunk(" world")
+
+
+@app.post("/chat/completions")
+async def chat(payload: ChatPayload):
+    if payload.stream:
+        # SSE stream
+        return StreamingResponse(
+            (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream()),
+            media_type="text/event-stream",
+        )
+    else:
+        return chat_response(payload)
 
 
 class CompletionsPayload(BaseModel):
