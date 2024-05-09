@@ -32,4 +32,4 @@ print(output)
 model_name = "openai_model"
 model_version = 1
 loaded_model = mlflow.pyfunc.load_model(f"models:/{model_name}/{model_version}")
-print(loaded_model.predict(messages))
+print(loaded_model.predict("what is the capital of France?"))
