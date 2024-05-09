@@ -4,11 +4,11 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
-from dataclasses import dataclass, is_dataclass
 import inspect
 import logging
 import re
 from copy import deepcopy
+from dataclasses import dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hints
 
 import numpy as np

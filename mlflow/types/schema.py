@@ -1336,7 +1336,8 @@ def convert_dataclass_to_schema(dataclass):
     """
     Create a Schema object from a dataclass. The dataclass should have type hints
     for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
-    Only the top-level fields become ColSpecs directly. Lower-level fields are converted into nested Object types.
+    Only the top-level fields become ColSpecs directly. Lower-level fields are converted into
+    nested Object types.
     """
     field_type_mapping = {
         str: "string",
@@ -1407,7 +1408,8 @@ def convert_dataclass_to_nested_object(dataclass):
 
 def convert_field_to_property(field_name, field_type):
     """
-    Helper function to convert a single field to a Property object suitable for inclusion in an Object.
+    Helper function to convert a single field to a Property object suitable for inclusion in an
+    Object.
     """
     field_type_mapping = {
         str: "string",

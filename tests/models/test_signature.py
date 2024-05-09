@@ -18,7 +18,6 @@ from mlflow.types.schema import (
     ParamSpec,
     Schema,
     TensorSpec,
-    convert_dataclass_to_schema,
 )
 
 
@@ -296,7 +295,20 @@ def test_signature_for_rag():
     )
     signature_dict = signature.to_dict()
     assert signature_dict == {
-        "inputs": '[{"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string", "required": true}, "role": {"type": "string", "required": true}}}, "name": "messages", "required": true}]',
-        "outputs": '[{"type": "array", "items": {"type": "object", "properties": {"finish_reason": {"type": "string", "required": true}, "index": {"type": "integer", "required": true}, "message": {"type": "object", "properties": {"content": {"type": "string", "required": true}, "role": {"type": "string", "required": true}}, "required": true}}}, "name": "choices", "required": true}]',
+        "inputs": (
+            '[{"type": "array", "items": {"type": "object", "properties": '
+            '{"content": {"type": "string", "required": true}, '
+            '"role": {"type": "string", "required": true}}}, '
+            '"name": "messages", "required": true}]'
+        ),
+        "outputs": (
+            '[{"type": "array", "items": {"type": "object", "properties": '
+            '{"finish_reason": {"type": "string", "required": true}, '
+            '"index": {"type": "integer", "required": true}, '
+            '"message": {"type": "object", "properties": '
+            '{"content": {"type": "string", "required": true}, '
+            '"role": {"type": "string", "required": true}}, '
+            '"required": true}}}, "name": "choices", "required": true}]'
+        ),
         "params": None,
     }
