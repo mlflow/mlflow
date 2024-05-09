@@ -24,7 +24,7 @@ class SpanAttributeKey:
 MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS = 250
 TRUNCATION_SUFFIX = "..."
 
-# Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
+# Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID.
 TRACE_REQUEST_ID_PREFIX = "tr-"
 
 # Schema version of traces and spans.
