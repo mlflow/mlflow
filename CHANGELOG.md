@@ -34,7 +34,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#11928, @apurva-koti; #11910, #11915, #11864, #11893, #11875, #11744, @BenWilson2; #11913, #11918, #11869, #11873, #11867, @sunishsheth2009; #11916, #11879, #11877, #11860, #11843, #11844, #11817, #11841, @annzhang-db; #11822, #11861, @serena-ruan; #11890, #11819, #11794, #11774, @B-Step62; #11880, @prithvikannan; #11833, #11818, @harupy; #11831, @dbczumar; #11812, #11816, #11800, @daniellok-db; #11788, @smurching; #11756, @IgorMilavec; #11627, @jessechancy
+#11928, @apurva-koti; #11910, #11915, #11864, #11893, #11875, #11744, @BenWilson2; #11913, #11918, #11869, #11873, #11867, @sunishsheth2009; #11916, #11879, #11877, #11860, #11843, #11844, #11817, #11841, @annzhang-db; #11822, #11861, @serena-ruan; #11890, #11819, #11794, #11774, @B-Step62; #11880, @prithvikannan; #11833, #11818, #11954, @harupy; #11831, @dbczumar; #11812, #11816, #11800, @daniellok-db; #11788, @smurching; #11756, @IgorMilavec; #11627, @jessechancy
 
 ## 2.12.1 (2024-04-17)
 
