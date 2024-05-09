@@ -91,10 +91,10 @@ async def chat(payload: ChatPayload):
 
 class CompletionsPayload(BaseModel):
     prompt: Union[str, List[str]]
+    stream: bool = False
 
 
-@app.post("/completions")
-def completions(payload: CompletionsPayload):
+def completions_response(payload: CompletionsPayload):
     return {
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
@@ -111,6 +111,35 @@ def completions(payload: CompletionsPayload):
         ],
         "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
     }
+
+
+def _make_completions_stream_chunk(content):
+    return {
+        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "gpt-3.5-turbo-instruct",
+        "choices": [{"finish_reason": None, "index": 0, "logprobs": None, "text": content}],
+        "system_fingerprint": None,
+        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    }
+
+
+async def completions_response_stream():
+    yield _make_completions_stream_chunk("Hello")
+    yield _make_completions_stream_chunk(" world")
+
+
+@app.post("/completions")
+def completions(payload: CompletionsPayload):
+    if payload.stream:
+        # SSE stream
+        return StreamingResponse(
+            (f"data: {json.dumps(d)}\n\n" async for d in completions_response_stream()),
+            media_type="text/event-stream",
+        )
+    else:
+        return completions_response(payload)
 
 
 class EmbeddingsPayload(BaseModel):

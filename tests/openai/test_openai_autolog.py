@@ -111,6 +111,98 @@ def test_loaded_chat_completions_autolog(client, monkeypatch):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_completions_autolog(client):
+    mlflow.openai.autolog(log_models=True)
+    with mock.patch("mlflow.openai.log_model") as log_model_mock, mock.patch(
+        "mlflow.tracking.MlflowClient.log_text"
+    ) as log_text_mock:
+        output = client.completions.create(
+            prompt="test",
+            model="gpt-3.5-turbo",
+            temperature=0,
+        )
+        # ensure openai is mocked
+        assert output.id == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+        log_model_mock.assert_called_once()
+        assert log_text_mock.call_count == 2
+        assert log_text_mock.call_args_list[0].artifact_path.endswith("input.json")
+        assert log_text_mock.call_args_list[1].artifact_path.endswith("output.json")
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_completions_autolog_artifacts(client, monkeypatch):
+    mlflow.openai.autolog(log_models=True)
+    with mlflow.start_run() as run:
+        client.completions.session_id = "test_session_id"
+        client.completions.create(
+            prompt="test",
+            model="gpt-3.5-turbo",
+            temperature=0,
+        )
+
+    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
+    with open(f"{artifact_dir}/input.json") as f:
+        assert json.load(f)["prompt"] == "test"
+
+    with open(f"{artifact_dir}/output.json") as f:
+        assert json.load(f)["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_completions_autolog_streaming(client, monkeypatch):
+    mlflow.openai.autolog(log_models=True)
+    with mlflow.start_run() as run:
+        client.completions.session_id = "test_session_id"
+        stream = client.completions.create(
+            prompt="test",
+            model="gpt-3.5-turbo",
+            temperature=0,
+            stream=True,
+        )
+        for _ in stream:
+            pass
+
+    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
+    with open(f"{artifact_dir}/input.json") as f:
+        assert json.load(f)["prompt"] == "test"
+
+    with open(f"{artifact_dir}/output.json") as f:
+        output = json.load(f)
+        assert len(output) == 2
+        assert output[0]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+        assert output[0]["choices"][0]["text"] == "Hello"
+        assert output[1]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+        assert output[1]["choices"][0]["text"] == " world"
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
+def test_loaded_completions_completions_autolog(client, monkeypatch):
+    mlflow.openai.autolog(log_models=True)
+    with mlflow.start_run() as run:
+        client.completions.create(
+            prompt="test",
+            model="gpt-3.5-turbo-instruct",
+            temperature=0,
+        )
+
+    loaded_model = mlflow.openai.load_model(f"runs:/{run.info.run_id}/model")
+    assert loaded_model == {
+        "model": "gpt-3.5-turbo-instruct",
+        "task": "completions",
+    }
+
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": client.base_url,
+        }
+    )
+    pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+    # expected output from mock_openai
+    assert pyfunc_model.predict("test") == ["test"]
+
+
+@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
 def test_autolog_with_registered_model_name(client):
     registered_model_name = "test_model"
     mlflow.openai.autolog(log_models=True, registered_model_name=registered_model_name)
