@@ -276,18 +276,18 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # Set current working directory to `tests/pyfunc` before running
+          `test_inferred_data_path.py` so that `infer_code_paths` won't capture
+          all modules under MLflow code repo.
+          cd tests/pyfunc
+          pytest test_inferred_data_path.py
+          
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py \
             --ignore tests/pyfunc/test_inferred_data_path.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
-          
-          # Set current working directory to `tests/pyfunc` before running
-          `test_inferred_data_path.py` so that `infer_code_paths` won't capture
-          all modules under MLflow code repo.
-          cd tests/pyfunc
-          pytest test_inferred_data_path.py
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
