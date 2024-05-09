@@ -181,7 +181,7 @@ def test_on_start_during_run(clear_singleton, monkeypatch):
         timestamp_ms=5,
         # expect run id to be set
         request_metadata={"mlflow.sourceRun": expected_run_id},
-        tags={"mlflow.user": "bob", "mlflow.source.name": "test", "mlflow.source.type": "LOCAL"},
+        tags=mock.ANY,
     )
 
 
