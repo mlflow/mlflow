@@ -262,7 +262,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
         ),
     ]
     mock_store.search_traces.return_value = (mock_traces, None)
-
+    mock_artifact_repo.download_trace_data.return_value = {}
     MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
 
     mock_store.search_traces.assert_called_once_with(
@@ -1342,3 +1342,14 @@ def test_enable_async_logging(mock_store, setup_async_logging):
 
     MlflowClient().log_metric(run_id="run_id", key="key", value="val", step=1, timestamp=1)
     mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))
+
+
+@pytest.mark.notrackingurimock
+def test_file_store_download_upload_trace_data(clear_singleton):
+    client = MlflowClient()
+    span = client.start_trace("test", inputs={"test": 1})
+    client.end_trace(span.request_id, outputs={"result": 2})
+    trace = mlflow.get_trace(span.request_id)
+    trace_data = client.get_trace(span.request_id).data
+    assert trace_data.request == trace.data.request
+    assert trace_data.response == trace.data.response

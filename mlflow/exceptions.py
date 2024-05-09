@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Optional
 
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
@@ -172,14 +173,20 @@ class _UnsupportedMultipartUploadException(MlflowException):
 class MlflowTraceDataNotFound(MlflowException):
     """Exception thrown when trace data is not found"""
 
-    def __init__(self, request_id: str):
-        self.request_id = request_id
-        super().__init__(f"Trace data not found for {request_id}", error_code=NOT_FOUND)
+    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+        if request_id:
+            super().__init__(f"Trace data not found for {request_id}", error_code=NOT_FOUND)
+        elif artifact_path:
+            super().__init__(f"Trace data not found at path: {artifact_path}", error_code=NOT_FOUND)
 
 
 class MlflowTraceDataCorrupted(MlflowException):
     """Exception thrown when trace data is corrupted"""
 
-    def __init__(self, request_id: str):
-        self.request_id = request_id
-        super().__init__(f"Trace data is corrupted for {request_id}", error_code=INVALID_STATE)
+    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+        if request_id:
+            super().__init__(f"Trace data is corrupted for {request_id}", error_code=INVALID_STATE)
+        elif artifact_path:
+            super().__init__(
+                f"Trace data is corrupted at path: {artifact_path}", error_code=INVALID_STATE
+            )

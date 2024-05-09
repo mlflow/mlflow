@@ -39,7 +39,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
-from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
@@ -753,7 +753,12 @@ class TrackingServiceClient:
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
-        artifact_uri = next(v for k, v in trace_info.tags.items() if k == "mlflow.artifactLocation")
+        if MLFLOW_ARTIFACT_LOCATION not in trace_info.tags:
+            raise MlflowException(
+                "Trace artifact location not specified, please specify it with "
+                f"tag '{MLFLOW_ARTIFACT_LOCATION}' in the trace."
+            )
+        artifact_uri = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 

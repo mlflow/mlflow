@@ -3,12 +3,11 @@ import json
 import logging
 import os
 import posixpath
-import tempfile
 import uuid
-from pathlib import Path
 from typing import Any, Dict
 
 import requests
+from typing_extensions import override
 
 import mlflow.tracking
 from mlflow.azure.client import (
@@ -41,6 +40,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
 )
 from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
+from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
@@ -227,6 +227,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
+    @override
     def download_trace_data(self) -> Dict[str, Any]:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
@@ -256,13 +257,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         return res.credential_info
 
+    @override
     def upload_trace_data(self, trace_data: str) -> None:
         cred = self._get_upload_trace_data_cred_info()
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_file = Path(temp_dir, "traces.json")
-            with temp_file.open("w") as f:
-                f.write(trace_data)
-
+        with write_local_temp_trace_data_file(trace_data) as temp_file:
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 self._azure_adls_gen2_upload_file(
                     credentials=cred,
