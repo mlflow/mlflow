@@ -1,9 +1,7 @@
-import importlib
 import subprocess
 import sys
 import time
 
-import openai
 import pytest
 import requests
 from packaging.version import Version
@@ -44,18 +42,3 @@ def mock_openai():
 
         yield base_url
         proc.kill()
-
-
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
-    if is_v1:
-        openai.base_url = mock_openai
-    else:
-        importlib.reload(openai)

@@ -1,3 +1,4 @@
+import importlib
 import json
 from unittest import mock
 
@@ -34,6 +35,21 @@ def completions():
 
 def embeddings():
     return openai.embeddings if is_v1 else openai.Embedding
+
+
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch, mock_openai):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_TESTING": "true",
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
+        }
+    )
+    if is_v1:
+        openai.base_url = mock_openai
+    else:
+        importlib.reload(openai)
 
 
 def test_log_model():
