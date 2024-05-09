@@ -1817,16 +1817,3 @@ def test_convert_dataclass_to_object():
             Property(name="content", dtype=DataType.string),
         ]
     )
-
-
-# def test_convert_dataclass_to_schema_basic():
-#     schema = convert_dataclass_to_schema(rag_signatures.Message())
-#     print(schema)
-#     assert False
-
-# def test_convert_dataclass_to_schema():
-#     schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
-#     print(schema)
-#     assert False
-
-# def test_convert_dataclass_to_schema_composition():
