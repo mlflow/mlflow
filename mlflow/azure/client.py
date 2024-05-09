@@ -71,6 +71,7 @@ def patch_adls_file_upload(sas_url, local_file, start_byte, size, position, head
         "patch", request_url, data=data, headers=request_headers
     ) as response:
         rest_utils.augmented_raise_for_status(response)
+        response.close()
 
 
 def patch_adls_flush(sas_url, position, headers):
