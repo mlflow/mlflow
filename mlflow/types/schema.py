@@ -1332,20 +1332,21 @@ class ParamSchema:
         return repr(self.params)
 
 
-def convert_dataclass_to_object(cls):
+def convert_dataclass_to_schema(dataclass):
     """
-    Create an Object object from a dataclass. The dataclass should have type hints
+    Create a Schema object from a dataclass. The dataclass should have type hints
     for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
+    Only the top-level fields become ColSpecs directly. Lower-level fields are converted into nested Object types.
     """
     field_type_mapping = {
-        str: DataType.string,
-        int: DataType.integer,
-        bool: DataType.boolean,
+        str: "string",
+        int: "integer",
+        bool: "boolean",
     }
 
-    properties = []
+    inputs = []
 
-    for field_name, field_type in cls.__annotations__.items():
+    for field_name, field_type in dataclass.__annotations__.items():
         # Determine the type and handle Optional and List correctly
         is_optional = False
         effective_type = field_type
@@ -1359,44 +1360,84 @@ def convert_dataclass_to_object(cls):
             # It's a list, check the type within the list
             list_type = get_args(effective_type)[0]
             if is_dataclass(list_type):
-                dtype = convert_dataclass_to_object(list_type)
-                properties.append(
-                    Property(name=field_name, dtype=Array(dtype=dtype), required=not is_optional)
+                dtype = convert_dataclass_to_nested_object(list_type)  # Convert to nested Object
+                inputs.append(
+                    ColSpec(type=Array(dtype=dtype), name=field_name, required=not is_optional)
                 )
             else:
-                properties.append(
-                    Property(
+                inputs.append(
+                    ColSpec(
+                        type=Array(dtype=field_type_mapping[list_type]),
                         name=field_name,
-                        dtype=Array(dtype=field_type_mapping[list_type]),
                         required=not is_optional,
                     )
                 )
         elif is_dataclass(effective_type):
             # It's a nested dataclass
-            properties.append(
-                Property(
+            dtype = convert_dataclass_to_nested_object(effective_type)  # Convert to nested Object
+            inputs.append(
+                ColSpec(
+                    type=dtype,
                     name=field_name,
-                    dtype=convert_dataclass_to_object(effective_type),
                     required=not is_optional,
                 )
             )
         else:
             # It's a basic type
-            properties.append(
-                Property(
+            inputs.append(
+                ColSpec(
+                    type=field_type_mapping[effective_type],
                     name=field_name,
-                    dtype=field_type_mapping[effective_type],
                     required=not is_optional,
                 )
             )
 
+    return Schema(inputs=inputs)
+
+
+def convert_dataclass_to_nested_object(dataclass):
+    """
+    Convert a nested dataclass to an Object type used within a ColSpec.
+    """
+    properties = []
+    for field_name, field_type in dataclass.__annotations__.items():
+        properties.append(convert_field_to_property(field_name, field_type))
     return Object(properties=properties)
 
 
-# def convert_dataclass_to_schema(dataclass):
-#     """
-#     Create a Schema object from a dataclass. The dataclass should have type hints
-#     for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
+def convert_field_to_property(field_name, field_type):
+    """
+    Helper function to convert a single field to a Property object suitable for inclusion in an Object.
+    """
+    field_type_mapping = {
+        str: "string",
+        int: "integer",
+        bool: "boolean",
+    }
 
-#     The Schema object should be composed of ColSpec objects for each field in the dataclass.
-#     """
+    is_optional = False
+    effective_type = field_type
+
+    if get_origin(field_type) == Union and type(None) in get_args(field_type):
+        is_optional = True
+        effective_type = next(t for t in get_args(field_type) if t is not type(None))
+
+    if get_origin(effective_type) == list:
+        list_type = get_args(effective_type)[0]
+        return Property(
+            name=field_name,
+            dtype=Array(dtype=field_type_mapping.get(list_type, "object")),
+            required=not is_optional,
+        )
+    elif is_dataclass(effective_type):
+        return Property(
+            name=field_name,
+            dtype=convert_dataclass_to_nested_object(effective_type),
+            required=not is_optional,
+        )
+    else:
+        return Property(
+            name=field_name,
+            dtype=field_type_mapping.get(effective_type, "object"),
+            required=not is_optional,
+        )

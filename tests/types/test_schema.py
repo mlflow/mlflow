@@ -24,10 +24,8 @@ from mlflow.types.schema import (
     Property,
     Schema,
     TensorSpec,
-    convert_dataclass_to_object,
+    convert_dataclass_to_schema,
 )
-
-# convert_dataclass_to_schema,
 from mlflow.types.utils import (
     _get_tensor_shape,
     _infer_colspec_type,
@@ -1740,80 +1738,45 @@ def test_repr_of_objects():
     assert repr(arr) == f"Array({obj_repr})"
 
 
-def test_convert_dataclass_to_object():
-    obj = convert_dataclass_to_object(rag_signatures.Message())
-    assert obj == Object(
-        properties=[
-            Property(name="role", dtype=DataType.string),
-            Property(name="content", dtype=DataType.string),
-        ]
-    )
+def test_convert_dataclass_to_schema():
+    schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    schema_dict = schema.to_dict()
+    assert schema_dict == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "required": True},
+                    "role": {"type": "string", "required": True},
+                },
+            },
+            "name": "messages",
+            "required": True,
+        }
+    ]
 
-    obj = convert_dataclass_to_object(rag_signatures.ChatCompletionRequest())
-    assert obj == Object(
-        properties=[
-            Property(
-                name="messages",
-                dtype=Array(
-                    Object(
-                        properties=[
-                            Property(name="role", dtype=DataType.string),
-                            Property(name="content", dtype=DataType.string),
-                        ]
-                    )
-                ),
-            )
-        ]
-    )
-
-    obj = convert_dataclass_to_object(rag_signatures.ChatCompletionResponse())
-    assert obj == Object(
-        properties=[
-            Property(
-                name="choices",
-                dtype=Array(
-                    Object(
-                        properties=[
-                            Property(name="index", dtype=DataType.integer),
-                            Property(
-                                name="message",
-                                dtype=Object(
-                                    properties=[
-                                        Property(name="role", dtype=DataType.string),
-                                        Property(name="content", dtype=DataType.string),
-                                    ]
-                                ),
-                            ),
-                            Property(name="finish_reason", dtype=DataType.string),
-                        ]
-                    )
-                ),
-            )
-        ]
-    )
-
-    obj = convert_dataclass_to_object(rag_signatures.MultiturnChatRequest())
-    assert obj == Object(
-        properties=[
-            Property(name="query", dtype=DataType.string),
-            Property(
-                name="history",
-                dtype=Array(
-                    Object(
-                        properties=[
-                            Property(name="role", dtype=DataType.string),
-                            Property(name="content", dtype=DataType.string),
-                        ]
-                    )
-                ),
-                required=False,
-            ),
-        ]
-    )
-
-    obj = convert_dataclass_to_object(rag_signatures.StringResponse())
-    assert obj == Object(
-        properties=[
-            Property(name="content", dtype=DataType.string),
-        ]
-    )
+    schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    schema_dict = schema.to_dict()
+    assert schema_dict == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "finish_reason": {"type": "string", "required": True},
+                    "index": {"type": "integer", "required": True},
+                    "message": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string", "required": True},
+                            "role": {"type": "string", "required": True},
+                        },
+                        "required": True,
+                    },
+                },
+            },
+            "name": "choices",
+            "required": True,
+        }
+    ]

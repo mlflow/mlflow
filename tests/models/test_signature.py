@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, infer_signature, set_signature
+from mlflow.models import Model, ModelSignature, infer_signature, rag_signatures, set_signature
 from mlflow.models.model import get_model_info
 from mlflow.types import DataType
 from mlflow.types.schema import (
@@ -18,6 +18,7 @@ from mlflow.types.schema import (
     ParamSpec,
     Schema,
     TensorSpec,
+    convert_dataclass_to_schema,
 )
 
 
@@ -286,3 +287,21 @@ def test_signature_with_errors():
         ValueError, match=r"At least one of inputs, outputs or params must be provided"
     ):
         ModelSignature()
+
+
+def test_signature_for_rag():
+    chat_completions_request_schema = convert_dataclass_to_schema(
+        rag_signatures.ChatCompletionRequest()
+    )
+    chat_completions_response_schema = convert_dataclass_to_schema(
+        rag_signatures.ChatCompletionResponse()
+    )
+    signature = ModelSignature(
+        inputs=chat_completions_request_schema, outputs=chat_completions_response_schema
+    )
+    signature_dict = signature.to_dict()
+    assert signature_dict == {
+        "inputs": '[{"type": "array", "items": {"type": "object", "properties": {"content": {"type": "string", "required": true}, "role": {"type": "string", "required": true}}}, "name": "messages", "required": true}]',
+        "outputs": '[{"type": "array", "items": {"type": "object", "properties": {"finish_reason": {"type": "string", "required": true}, "index": {"type": "integer", "required": true}, "message": {"type": "object", "properties": {"content": {"type": "string", "required": true}, "role": {"type": "string", "required": true}}, "required": true}}}, "name": "choices", "required": true}]',
+        "params": None,
+    }
