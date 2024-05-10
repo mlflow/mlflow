@@ -177,14 +177,14 @@ class MlflowTraceDataException(MlflowException):
         self, error_code: str, request_id: Optional[str] = None, artifact_path: Optional[str] = None
     ):
         if request_id:
-            self.msg = f"request_id={request_id}"
+            self.ctx = f"request_id={request_id}"
         elif artifact_path:
-            self.msg = f"path={artifact_path}"
+            self.ctx = f"path={artifact_path}"
 
         if error_code == NOT_FOUND:
-            super().__init__(f"Trace data not found for {self.msg}", error_code=error_code)
+            super().__init__(f"Trace data not found for {self.ctx}", error_code=error_code)
         elif error_code == INVALID_STATE:
-            super().__init__(f"Trace data is corrupted for {self.msg}", error_code=error_code)
+            super().__init__(f"Trace data is corrupted for {self.ctx}", error_code=error_code)
 
 
 class MlflowTraceDataNotFound(MlflowTraceDataException):

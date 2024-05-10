@@ -318,7 +318,7 @@ class TrackingServiceClient:
                 trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
                 _logger.debug(
-                    f"Failed to download trace data for trace with {e.msg}",
+                    f"Failed to download trace data for trace with {e.ctx}",
                     trace_info.request_id,
                     exc_info=True,
                 )
