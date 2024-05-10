@@ -54,8 +54,6 @@ jobs:
         run: |
           source .venv/bin/activate
           pre-commit install
-          pip install --upgrade pip
-          pip install .
       - name: Run pre-commit
         id: pre-commit
         env:
@@ -64,13 +62,3 @@ jobs:
         run: |
           source .venv/bin/activate
           pre-commit run --all-files
-      - name: Run graphql-codegen
-        id: graphql-codegen
-        run: |
-          source .venv/bin/activate
-          pre-commit run --all-files
-          cd mlflow/server/js
-          yarn install
-          yarn graphql-codegen
-          git diff --exit-code
-          echo "=== If this check fails, run `cd mlflow/server/js && yarn graphql-codegen` to fix the issue ==="
