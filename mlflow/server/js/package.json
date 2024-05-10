@@ -19,7 +19,7 @@
     "i18n:check": "yarn i18n --lint",
     "graphql-codegen": "cd ../../.. && python ./dev/proto_to_graphql/code_generator.py && cd mlflow/server/js && yarn graphql-codegen:clean && yarn graphql-codegen:base",
     "graphql-codegen:base": "graphql-codegen --config ./src/graphql/graphql-codegen.ts",
-    "graphql-codegen:check": "cd ../../.. && python ./dev/proto_to_graphql/code_generator.py && ./src/graphql/codegen-check.sh \"find . -path '**/__generated__/*.ts' -print0\" \"yarn graphql-codegen:base\"",
+    "graphql-codegen:check": "cd ../../.. && python ./dev/proto_to_graphql/code_generator.py && cd mlflow/server/js && ./src/graphql/codegen-check.sh \"find . -path '**/__generated__/*.ts' -print0\" \"yarn graphql-codegen:base\"",
     "graphql-codegen:clean": "find . -path '**/__generated__/*.ts' | xargs rm"
   },
   "dependencies": {

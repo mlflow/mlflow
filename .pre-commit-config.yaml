@@ -21,6 +21,14 @@ repos:
         stages: [commit]
         require_serial: true
 
+      # - id: graphql-codegen
+      #   name: graphql-codegen
+      #   entry: python dev/ruff.py
+      #   language: system
+      #   types_or: [python, jupyter]
+      #   stages: [commit]
+      #   require_serial: true
+
       - id: format
         name: format
         entry: python dev/format.py
