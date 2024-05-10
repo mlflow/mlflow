@@ -213,8 +213,8 @@ def start_run_by_name(
     will be logged. The return value can be used as a context manager within a ``with`` block;
     otherwise, you must call ``end_run()`` to terminate the current run.
 
-    When you pass a ``run_name``, ``start_run_by_name`` attempts to resume a run with the specified run name
-    other parameters (except ``tags`` and ``description``) are ignored.
+    When you pass a ``run_name``, ``start_run_by_name`` attempts to resume a run.
+    When run is found, other parameters (except ``tags`` and ``description``) are ignored.
     ``run_name`` takes precedence over ``MLFLOW_RUN_ID``.
     If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
     In case there are no runs with the specified run_name a new run is started.
