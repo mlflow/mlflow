@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -212,7 +213,7 @@ def start_run_by_name(
     will be logged. The return value can be used as a context manager within a ``with`` block;
     otherwise, you must call ``end_run()`` to terminate the current run.
 
-    When you pass a ``run_name``, ``start_run_by_name`` attempts to resume a run with the specified run name and
+    When you pass a ``run_name``, ``start_run_by_name`` attempts to resume a run with the specified run name
     other parameters (except ``tags`` and ``description``) are ignored.
     ``run_name`` takes precedence over ``MLFLOW_RUN_ID``.
     If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
@@ -254,7 +255,7 @@ def start_run_by_name(
 
         # Resume an existing run
         experiment_id = mlflow.create_experiment("experiment1")
-        old_run  = mlflow.start_run_by_name(run_name="My Test Run")
+        old_run = mlflow.start_run_by_name(run_name="My Test Run")
         mlflow.end_run()
 
         resumed_run = mlflow.start_run_by_name(run_name="My Test Run")
@@ -290,8 +291,9 @@ def start_run_by_name(
         return start_run(run_id=runs[0].info.run_id, tags=tags, description=description)
     else:
         raise MlflowException(
-            message="More than one run_id with {} run_name. "
-                    "start_run_by_name can only be used for runs with unique run_names".format(run_name))
+            message=f"More than one run_id with {run_name} run_name. "
+            "start_run_by_name can only be used for runs with unique run_names"
+        )
 
 
 def start_run(

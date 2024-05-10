@@ -919,6 +919,7 @@ def test_get_run():
         run = get_run(run_id)
         assert run.info.user_id == "my_user_id"
 
+
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
 def test_start_run_by_name_run_resume():
     run = mlflow.start_run()
@@ -926,6 +927,7 @@ def test_start_run_by_name_run_resume():
     restarted_run = mlflow.start_run_by_name(run.info.run_name)
     assert run.info.run_id == restarted_run.info.run_id
     assert run.info.run_name == restarted_run.info.run_name
+
 
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
 def test_start_run_by_name_run_resume_add_description():
@@ -952,8 +954,10 @@ def test_start_run_by_name_duplicated_runs():
     mlflow.end_run()
     mlflow.start_run(run_name=run_name)
     mlflow.end_run()
-    match = ("More than one run_id with {} run_name. "
-             "start_run_by_name can only be used for runs with unique run_names").format(run_name)
+    match = (
+        f"More than one run_id with {run_name} run_name. "
+        "start_run_by_name can only be used for runs with unique run_names"
+    )
     with pytest.raises(MlflowException, match=match):
         mlflow.start_run_by_name(run_name=run_name)
 
