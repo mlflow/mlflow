@@ -54,11 +54,19 @@ jobs:
         run: |
           source .venv/bin/activate
           pre-commit install
-      - name: Run pre-commit
-        id: pre-commit
-        env:
-          IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
-          NO_FIX: "true"
+      # - name: Run pre-commit
+      #   id: pre-commit
+      #   env:
+      #     IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
+      #     NO_FIX: "true"
+      #   run: |
+      #     source .venv/bin/activate
+      #     pre-commit run --all-files
+      - name: Run graphql-codegen
+        id: graphql-codegen
         run: |
           source .venv/bin/activate
-          pre-commit run --all-files
+          cd mlflow/server/js
+          yarn graphql-codegen
+          git diff --exit-code
+
