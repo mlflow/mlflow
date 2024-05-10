@@ -6,6 +6,74 @@ handling the complexities of the machine learning process. MLflow focuses on the
 machine learning projects, ensuring that each phase is manageable, traceable, and reproducible.
 
 
+.. raw:: html
+
+    <section>
+    <article class="content-card">
+        <h1>
+        <a href="https://mlflow.org/docs/latest/getting-started/index.html">Getting Started with MLflow</a>
+        </h1>
+        <div class="separator">
+        View the tutorials and guides
+        </div>
+        <div class="content-grid">
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">MLflow Quickstart</a>
+            </div>
+        </div>
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">MLflow New User Guide</a>
+            </div>
+        </div>
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">Autologging Quickstart</a>
+            </div>
+        </div>
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">Deployment Quickstart</a>
+            </div>
+        </div>
+        </div>
+    </article>
+    </section>
+    .. TODO: div encapsulation element for these sections, fix links, and adjust CSS content. Also, logo display links.
+    <section>
+    <article class="content-card">
+        <h1>
+        <a href="https://mlflow.org/docs/latest/getting-started/index.html">GenAI with MLflow</a>
+        </h1>
+        <div class="separator">
+        View the tutorials and guides
+        </div>
+        <div class="content-grid">
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">MLflow Quickstart</a>
+            </div>
+        </div>
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">MLflow New User Guide</a>
+            </div>
+        </div>
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">Autologging Quickstart</a>
+            </div>
+        </div>
+        <div class="link-card">
+            <div class="header">
+            <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">Deployment Quickstart</a>
+            </div>
+        </div>
+        </div>
+    </article>
+    </section>
+
 In each of the sections below, you will find overviews, guides, and step-by-step tutorials to walk you through 
 the features of MLflow and how they can be leveraged to solve real-world MLOps problems. 
 
