@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ex
 
+pwd
+
 FIND_GENERATED_COMMAND=${1:-"find . -path '**/__generated__/*.ts' -print0"}
 FIND_GENERATED_TEST_COMMAND=$(echo "$FIND_GENERATED_COMMAND" | sed s@__generated__@__generated_test__@)
 CODEGEN_COMMAND=${2:-"yarn apollo-codegen:base"}
