@@ -53,7 +53,7 @@ CREATE TABLE datasets (
 	dataset_schema VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	dataset_profile VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
-	CONSTRAINT "FK__datasets__experi__6477ECF3" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT "FK__datasets__experi__71D1E811" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -198,7 +198,7 @@ CREATE TABLE trace_request_metadata (
 CREATE TABLE trace_tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	request_id VARCHAR(50)COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
 	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
 )

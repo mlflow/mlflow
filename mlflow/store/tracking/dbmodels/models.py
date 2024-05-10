@@ -260,7 +260,7 @@ class SqlExperimentTag(Base):
     """
     Value associated with tag: `String` (limit 5000 characters). Could be *null*.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"))
     """
     Experiment ID to which this tag belongs: *Foreign Key* into ``experiments`` table.
     """
