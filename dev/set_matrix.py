@@ -460,6 +460,11 @@ def apply_changed_files(changed_files, matrix):
         if (__file__ in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
+
+    # Run langchain tests if any tracing files have been changed
+    if any(f.startswith("mlflow/tracing/") for f in changed_files):
+        changed_flavors.add("langchain")
+
     return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 

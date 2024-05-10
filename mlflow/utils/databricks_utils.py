@@ -119,11 +119,14 @@ def _get_extra_context(context_key):
 
 
 def _get_context_tag(context_tag_key):
-    tag_opt = _get_command_context().tags().get(context_tag_key)
-    if tag_opt.isDefined():
-        return tag_opt.get()
-    else:
-        return None
+    try:
+        tag_opt = _get_command_context().tags().get(context_tag_key)
+        if tag_opt.isDefined():
+            return tag_opt.get()
+    except Exception:
+        pass
+
+    return None
 
 
 @_use_repl_context_if_available("aclPathOfAclRoot")

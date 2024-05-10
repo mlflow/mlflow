@@ -223,6 +223,31 @@ def langchain_local_model_dir(tmp_path):
 
 
 @pytest.fixture
+def langchain_local_model_dir_with_resources(tmp_path):
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
+    )
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+        "resources": {
+            "databricks": {
+                "serving_endpoint": [
+                    {"name": "embedding_endpoint"},
+                    {"name": "llm_endpoint"},
+                    {"name": "chat_endpoint"},
+                ],
+                "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+            }
+        },
+    }
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+    return tmp_path
+
+
+@pytest.fixture
 def langchain_local_model_dir_no_dependencies(tmp_path):
     fake_signature = ModelSignature(
         inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
@@ -288,6 +313,70 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
+        )
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        )
+
+
+def test_create_model_version_with_resources(store, langchain_local_model_dir_with_resources):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(langchain_local_model_dir_with_resources)
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+    ]
+
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ) as optimized_s3_artifact_repo_class_mock, mock.patch.dict("sys.modules", {"boto3": {}}):
+        store.create_model_version(name=model_name, source=source, tags=tags)
+        # Verify that s3 artifact repo mock was called with expected args
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
+            artifact_uri=storage_location,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -344,6 +433,7 @@ def test_create_model_version_with_langchain_no_dependencies(
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -925,6 +1015,7 @@ def test_create_model_version_aws(store, local_model_dir):
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -1101,7 +1192,9 @@ def test_create_model_version_azure(store, local_model_dir):
     ) as adls_artifact_repo_class_mock:
         store.create_model_version(name=model_name, source=source, tags=tags)
         adls_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location, credential=ANY
+            artifact_uri=storage_location,
+            credential=ANY,
+            credential_refresh_def=ANY,
         )
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
@@ -1533,7 +1626,9 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
             name=model_version.name, version=model_version.version
         )
         get_repo_mock.assert_called_once_with(
-            storage_location=model_version.storage_location, scoped_token=creds
+            storage_location=model_version.storage_location,
+            scoped_token=creds,
+            base_credential_refresh_def=ANY,
         )
 
 

@@ -339,7 +339,7 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
 
 
 def _infer_signature_from_input_example(
-    input_example: ModelInputExample, wrapped_model
+    input_example: ModelInputExample, wrapped_model, return_prediction=False
 ) -> Optional[ModelSignature]:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
@@ -372,8 +372,19 @@ def _infer_signature_from_input_example(
             and prediction.ndim == 1
         ):
             prediction = pd.Series(prediction)
-        output_schema = _infer_schema(prediction)
-        return ModelSignature(input_schema, output_schema, params_schema)
+        try:
+            output_schema = _infer_schema(prediction)
+        except Exception as e:
+            _logger.warning(
+                "Failed to infer model output schema from prediction "
+                f"result {prediction}. Detailed exception: {e}"
+            )
+            signature = ModelSignature(inputs=input_schema, params=params_schema)
+        else:
+            signature = ModelSignature(input_schema, output_schema, params_schema)
+        if return_prediction:
+            return signature, prediction
+        return signature
     except Exception as e:
         if environment_variables._MLFLOW_TESTING.get():
             raise

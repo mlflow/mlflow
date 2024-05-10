@@ -30,7 +30,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_TRACE_IN_SERVING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
@@ -55,10 +55,12 @@ from mlflow.langchain.utils import (
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.model_config import _set_model_config
+from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _convert_llm_input_data, _save_example
+from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
@@ -68,6 +70,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     safe_patch,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -95,8 +98,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-_MODEL_CODE_CONFIG = "model_config"
-_MODEL_CODE_PATH = "model_code_path"
 
 
 def get_default_pip_requirements():
@@ -118,6 +119,20 @@ def get_default_conda_env():
         :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def _infer_signature_from_input_example_for_lc_model(input_example, wrapped_model):
+    from mlflow.langchain.api_request_parallel_processor import _ChatResponse
+
+    signature, prediction = _infer_signature_from_input_example(
+        input_example, wrapped_model, return_prediction=True
+    )
+    # try assign output schema if failing to infer it from prediction
+    if signature.outputs is None:
+        if isinstance(prediction, _ChatResponse):
+            signature.outputs = prediction.get_schema()
+
+    return signature
 
 
 @experimental
@@ -291,7 +306,9 @@ def save_model(
     if signature is None:
         if input_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
-            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+            signature = _infer_signature_from_input_example_for_lc_model(
+                input_example, wrapped_model
+            )
         else:
             if hasattr(lc_model, "input_keys"):
                 input_columns = [
@@ -347,9 +364,9 @@ def save_model(
         # can use that path instead of the config.yml path when the model is loaded
         # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: model_code_path}
+            {MODEL_CONFIG: model_config_path, MODEL_CODE_PATH: model_code_path}
             if model_config_path
-            else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: model_code_path}
+            else {MODEL_CONFIG: None, MODEL_CODE_PATH: model_code_path}
         )
         model_data_kwargs = {}
 
@@ -367,8 +384,12 @@ def save_model(
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        if databricks_dependency := _detect_databricks_dependencies(lc_model):
+        (databricks_dependency, databricks_resources) = _detect_databricks_dependencies(lc_model)
+        if databricks_dependency:
             flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
+        if databricks_resources:
+            serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
+            mlflow_model.resources = serialized_databricks_resources
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -620,11 +641,24 @@ class _LangChainModelWrapper:
         Returns:
             Model predictions.
         """
-        from mlflow.langchain.api_request_parallel_processor import process_api_requests
+        # TODO: We don't automatically turn tracing on in OSS model serving, because we haven't
+        # implemented storage option for traces in OSS model serving (counterpart to the
+        # Inference Table in Databricks model serving).
+        if is_in_databricks_model_serving_environment() and MLFLOW_ENABLE_TRACE_IN_SERVING.get():
+            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
-        messages, return_first_element = self._prepare_predict_messages(data)
-        results = process_api_requests(lc_model=self.lc_model, requests=messages)
-        return results[0] if return_first_element else results
+            callbacks = [MlflowLangchainTracer()]
+        elif (context := get_prediction_context()) and context.is_evaluate:
+            # NB: We enable traces automatically for the model evaluation. Note that we have to
+            #   manually pass the context instance to callback, because LangChain callback may be
+            #   invoked asynchronously and it doesn't correctly propagate the thread-local context.
+            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
+            callbacks = [MlflowLangchainTracer(prediction_context=context)]
+        else:
+            callbacks = None
+
+        return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
     @experimental
     def _predict_with_callbacks(
@@ -823,8 +857,8 @@ def _load_pyfunc(path):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if _MODEL_CODE_PATH in flavor_conf:
-        flavor_config_path = flavor_conf.get(_MODEL_CODE_CONFIG, None)
+    if MODEL_CODE_PATH in flavor_conf:
+        flavor_config_path = flavor_conf.get(MODEL_CONFIG, None)
         if flavor_config_path is not None:
             config_path = os.path.join(
                 local_model_path,
@@ -833,7 +867,7 @@ def _load_model_from_local_fs(local_model_path):
         else:
             config_path = None
 
-        flavor_code_path = flavor_conf.get(_MODEL_CODE_PATH)
+        flavor_code_path = flavor_conf.get(MODEL_CODE_PATH)
         code_path = os.path.join(
             local_model_path,
             os.path.basename(flavor_code_path),
@@ -950,7 +984,11 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inputs_outputs=True,
+    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
+    # the LangChain autologging, as it is a common use case to log input/output table for
+    # evaluation. Once tracing is fully launched, this should be supported by the tracer
+    # but we should design it to be compatible with the existing UJ.
+    log_inputs_outputs=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -983,7 +1021,7 @@ def autolog(
         log_inputs_outputs: If ``True``, inference data and results are combined into a single
             pandas DataFrame and logged to MLflow Tracking as an artifact.
             If ``False``, inference data and results are not logged.
-            Default to ``True``.
+            Default to ``False``.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

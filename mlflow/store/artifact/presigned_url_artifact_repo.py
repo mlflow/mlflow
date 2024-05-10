@@ -12,7 +12,7 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     FilesystemService,
     ListDirectoryResponse,
 )
-from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
+from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository, _retry_with_new_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.request_utils import augmented_raise_for_status, cloud_storage_http_request
@@ -48,7 +48,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         self._upload_to_cloud(
             cloud_credential_info=cloud_credentials,
             src_file_path=local_file,
-            artifact_file_path=None,
+            artifact_file_path=artifact_file_path,
         )
 
     def _get_write_credential_infos(self, remote_file_paths):
@@ -75,14 +75,22 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
         # artifact_file_path is unused in this implementation because the presigned URL
         # and local file path are sufficient for upload to cloud storage
-        presigned_url = cloud_credential_info.signed_uri
-        headers = {header.name: header.value for header in cloud_credential_info.headers}
-        with open(src_file_path, "rb") as source_file:
-            data = source_file.read()
-            with cloud_storage_http_request(
-                "put", presigned_url, data=data, headers=headers
-            ) as response:
-                augmented_raise_for_status(response)
+        def try_func(creds):
+            presigned_url = creds.signed_uri
+            headers = {header.name: header.value for header in creds.headers}
+            with open(src_file_path, "rb") as source_file:
+                data = source_file.read()
+                with cloud_storage_http_request(
+                    "put", presigned_url, data=data, headers=headers
+                ) as response:
+                    augmented_raise_for_status(response)
+
+        def creds_func():
+            return self._get_write_credential_infos(remote_file_paths=[artifact_file_path])[0]
+
+        _retry_with_new_creds(
+            try_func=try_func, creds_func=creds_func, og_creds=cloud_credential_info
+        )
 
     def list_artifacts(self, path=""):
         infos = []
@@ -122,12 +130,17 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         return credential_infos
 
     def _download_from_cloud(self, remote_file_path, local_path):
-        resp = self._get_download_presigned_url_and_headers(remote_file_path)
-        presigned_url = resp.url
-        headers = {header.name: header.value for header in resp.headers}
-        download_file_using_http_uri(
-            http_uri=presigned_url, download_path=local_path, headers=headers
-        )
+        def creds_func():
+            return self._get_download_presigned_url_and_headers(remote_file_path)
+
+        def try_func(creds):
+            presigned_url = creds.url
+            headers = {header.name: header.value for header in creds.headers}
+            download_file_using_http_uri(
+                http_uri=presigned_url, download_path=local_path, headers=headers
+            )
+
+        _retry_with_new_creds(try_func=try_func, creds_func=creds_func)
 
     def _get_download_presigned_url_and_headers(self, remote_file_path):
         remote_file_full_path = posixpath.join(self.artifact_uri, remote_file_path)

@@ -1,7 +1,13 @@
 import os
 import shutil
+from typing import Any, Dict
 
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
+from mlflow.store.artifact.artifact_repo import (
+    TRACE_DATA_FILE_NAME,
+    ArtifactRepository,
+    try_read_trace_data,
+    verify_artifact_path,
+)
 from mlflow.utils.file_utils import (
     get_file_info,
     list_all,
@@ -117,3 +123,17 @@ class LocalArtifactRepository(ArtifactRepository):
 
         if os.path.exists(artifact_path):
             shutil.rmtree(artifact_path)
+
+    def download_trace_data(self) -> Dict[str, Any]:
+        """
+        Download the trace data.
+
+        Returns:
+            The trace data as a dictionary.
+
+        Raises:
+            - `MlflowTraceDataNotFound`: The trace data is not found.
+            - `MlflowTraceDataCorrupted`: The trace data is corrupted.
+        """
+        trace_data_path = os.path.join(self.artifact_dir, TRACE_DATA_FILE_NAME)
+        return try_read_trace_data(trace_data_path)

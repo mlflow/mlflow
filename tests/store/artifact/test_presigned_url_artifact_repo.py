@@ -1,5 +1,7 @@
 import json
 import os
+import random
+import string
 from unittest import mock
 from unittest.mock import ANY
 
@@ -17,6 +19,7 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     HttpHeader,
     ListDirectoryResponse,
 )
+from mlflow.store.artifact.cloud_artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.presigned_url_artifact_repo import (
     DIRECTORIES_ENDPOINT,
     FILESYSTEM_METHOD_TO_INFO,
@@ -263,7 +266,9 @@ def test_log_artifact():
         artifact_repo.log_artifact(local_file, artifact_path)
         mock_request.assert_called_once_with(remote_file_paths=[total_remote_path])
         mock_upload.assert_called_once_with(
-            cloud_credential_info=creds, src_file_path=local_file, artifact_file_path=None
+            cloud_credential_info=creds,
+            src_file_path=local_file,
+            artifact_file_path=total_remote_path,
         )
 
 
@@ -311,3 +316,39 @@ def test_upload_to_cloud_fail():
 
     assert exc_info.value.error_code == exc_code
     assert str(exc_info.value) == f"{exc_code}: {exc_message}"
+
+
+@pytest.mark.parametrize("throw", [True, False])
+@pytest.mark.parametrize("use_og_creds", [True, False])
+@pytest.mark.parametrize("status_code", [401, 403])
+def test_retry_refresh_creds_no_creds(throw, use_og_creds, status_code):
+    credentials = "og_creds"
+    called = False
+
+    def creds_func():
+        nonlocal credentials
+        credentials = "".join(random.choices(string.ascii_lowercase, k=10))
+        return credentials
+
+    def try_func(creds):
+        nonlocal called, credentials
+        assert creds == credentials
+        resp = requests.Response()
+        resp.status_code = status_code
+        if throw and not called:
+            called = True
+            raise requests.HTTPError(response=resp)
+
+    mock_creds = mock.Mock(side_effect=creds_func)
+    mock_func = mock.Mock(side_effect=try_func)
+    if use_og_creds:
+        _retry_with_new_creds(try_func=mock_func, creds_func=mock_creds, og_creds=credentials)
+    else:
+        _retry_with_new_creds(try_func=mock_func, creds_func=mock_creds)
+
+    if throw:
+        assert mock_func.call_count == 2
+        assert mock_creds.call_count == 1 if use_og_creds else 2
+    else:
+        assert mock_func.call_count == 1
+        assert mock_creds.call_count == 0 if use_og_creds else 1

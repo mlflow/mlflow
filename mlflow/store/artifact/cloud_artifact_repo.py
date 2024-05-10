@@ -10,8 +10,8 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
-    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -62,6 +62,24 @@ def _complete_futures(futures_dict, file):
                 errors[key] = repr(e)
 
     return results, errors
+
+
+def _retry_with_new_creds(try_func, creds_func, og_creds=None):
+    """
+    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
+    credentials using creds_func. If the try_func throws, then try again with new credentials
+    provided by creds_func.
+    """
+    try:
+        first_creds = creds_func() if og_creds is None else og_creds
+        return try_func(first_creds)
+    except Exception as e:
+        _logger.info(
+            "Failed to complete request, possibly due to credential expiration."
+            f" Refreshing credentials and trying again... (Error: {e})"
+        )
+        new_creds = creds_func()
+        return try_func(new_creds)
 
 
 StagedArtifactUpload = namedtuple(
@@ -241,7 +259,7 @@ class CloudArtifactRepository(ArtifactRepository):
         if (
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
-            or file_size < MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+            or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get()
             or is_fuse_or_uc_volumes_uri(local_path)
         ):
             self._download_from_cloud(remote_file_path, local_path)
