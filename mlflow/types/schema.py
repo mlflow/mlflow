@@ -1332,6 +1332,18 @@ class ParamSchema:
         return repr(self.params)
 
 
+def _map_field_type(field):
+    field_type_mapping = {
+        bool: "boolean",
+        int: "integer",
+        builtins.float: "float",
+        str: "string",
+        bytes: "binary",
+        dt.date: "datetime",
+    }
+    return field_type_mapping.get(field)
+
+
 def convert_dataclass_to_schema(dataclass):
     """
     Create a Schema object from a dataclass. The dataclass should have type hints
@@ -1339,11 +1351,6 @@ def convert_dataclass_to_schema(dataclass):
     Only the top-level fields become ColSpecs directly. Lower-level fields are converted into
     nested Object types.
     """
-    field_type_mapping = {
-        str: "string",
-        int: "integer",
-        bool: "boolean",
-    }
 
     inputs = []
 
@@ -1352,10 +1359,15 @@ def convert_dataclass_to_schema(dataclass):
         is_optional = False
         effective_type = field_type
 
-        if get_origin(field_type) == Union and type(None) in get_args(field_type):
-            # This is an Optional type; determine the effective type excluding None
-            is_optional = True
-            effective_type = next(t for t in get_args(field_type) if t is not type(None))
+        if get_origin(field_type) == Union:
+            if type(None) in get_args(field_type) and len(get_args(field_type)) == 2:
+                # This is an Optional type; determine the effective type excluding None
+                is_optional = True
+                effective_type = next(t for t in get_args(field_type) if t is not type(None))
+            else:
+                raise MlflowException(
+                    "Only Optional[...] is supported as a Union type in dataclass fields"
+                )
 
         if get_origin(effective_type) == list:
             # It's a list, check the type within the list
@@ -1368,7 +1380,7 @@ def convert_dataclass_to_schema(dataclass):
             else:
                 inputs.append(
                     ColSpec(
-                        type=Array(dtype=field_type_mapping[list_type]),
+                        type=Array(dtype=_map_field_type(list_type)),
                         name=field_name,
                         required=not is_optional,
                     )
@@ -1383,14 +1395,19 @@ def convert_dataclass_to_schema(dataclass):
                     required=not is_optional,
                 )
             )
-        else:
+        # confirm the effective type is a basic type
+        elif _map_field_type(effective_type):
             # It's a basic type
             inputs.append(
                 ColSpec(
-                    type=field_type_mapping[effective_type],
+                    type=_map_field_type(effective_type),
                     name=field_name,
                     required=not is_optional,
                 )
+            )
+        else:
+            raise MlflowException(
+                f"Unsupported field type {effective_type} in dataclass {dataclass.__name__}"
             )
 
     return Schema(inputs=inputs)
@@ -1411,11 +1428,6 @@ def convert_field_to_property(field_name, field_type):
     Helper function to convert a single field to a Property object suitable for inclusion in an
     Object.
     """
-    field_type_mapping = {
-        str: "string",
-        int: "integer",
-        bool: "boolean",
-    }
 
     is_optional = False
     effective_type = field_type
@@ -1428,7 +1440,7 @@ def convert_field_to_property(field_name, field_type):
         list_type = get_args(effective_type)[0]
         return Property(
             name=field_name,
-            dtype=Array(dtype=field_type_mapping.get(list_type, "object")),
+            dtype=Array(dtype=_map_field_type(list_type)),
             required=not is_optional,
         )
     elif is_dataclass(effective_type):
@@ -1440,6 +1452,6 @@ def convert_field_to_property(field_name, field_type):
     else:
         return Property(
             name=field_name,
-            dtype=field_type_mapping.get(effective_type, "object"),
+            dtype=_map_field_type(effective_type),
             required=not is_optional,
         )

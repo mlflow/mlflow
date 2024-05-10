@@ -2,6 +2,8 @@ import datetime
 import json
 import math
 import re
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -1738,7 +1740,7 @@ def test_repr_of_objects():
     assert repr(arr) == f"Array({obj_repr})"
 
 
-def test_convert_dataclass_to_schema():
+def test_convert_dataclass_to_schema_for_rag():
     schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
     schema_dict = schema.to_dict()
     assert schema_dict == [
@@ -1780,3 +1782,67 @@ def test_convert_dataclass_to_schema():
             "required": True,
         }
     ]
+
+
+def test_convert_dataclass_to_schema_complex():
+    @dataclass
+    class Settings:
+        baz: Optional[bool] = True
+
+    @dataclass
+    class Config:
+        bar: int = 2
+        config_settings: Settings = field(default_factory=Settings)
+
+    @dataclass
+    class MainTask:
+        foo: str = "1"
+        process_configs: List[Config] = field(default_factory=lambda: [Config()])
+
+    schema = convert_dataclass_to_schema(MainTask)
+    schema_dict = schema.to_dict()
+    assert schema_dict == [
+        {"type": "string", "name": "foo", "required": True},
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "bar": {"type": "integer", "required": True},
+                    "config_settings": {
+                        "type": "object",
+                        "properties": {"baz": {"type": "boolean", "required": False}},
+                        "required": True,
+                    },
+                },
+            },
+            "name": "process_configs",
+            "required": True,
+        },
+    ]
+
+
+def test_convert_dataclass_to_schema_invalid():
+    # Invalid dataclass with Union
+    @dataclass
+    class InvalidDataclassWithUnion:
+        foo: Union[str, int] = "1"
+
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(r"Only Optional[...] is supported as a Union type in dataclass fields"),
+    ):
+        convert_dataclass_to_schema(InvalidDataclassWithUnion)
+
+    # Invalid dataclass with Dict
+    @dataclass
+    class InvalidDataclassWithDict:
+        foo: Dict[str, int] = field(default_factory=dict)
+
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            r"Unsupported field type typing.Dict[str, int] in dataclass InvalidDataclass"
+        ),
+    ):
+        convert_dataclass_to_schema(InvalidDataclassWithDict)
