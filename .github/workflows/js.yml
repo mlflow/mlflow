@@ -68,6 +68,8 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           yarn install --immutable
+          pip install --upgrade pip wheel
+          pip install .
       - name: Run lint
         run: |
           yarn lint
