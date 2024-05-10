@@ -62,7 +62,6 @@ def test_json_deserialization(clear_singleton, monkeypatch):
                 "mlflow.traceName": "predict",
                 "mlflow.source.name": "test",
                 "mlflow.source.type": "LOCAL",
-                "mlflow.user": "bob",  # only exclude this tag for rest store
             },
         },
         "data": {

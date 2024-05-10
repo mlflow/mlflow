@@ -620,10 +620,12 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    assert trace.info.tags["mlflow.traceName"] == "test"
-    assert trace.info.tags["foo"] == "bar"
-    assert trace.info.tags["mlflow.source.name"] == "test"
-    assert trace.info.tags["mlflow.source.type"] == "LOCAL"
+    assert trace.info.tags == {
+        "mlflow.traceName": "test",
+        "foo": "bar",
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+    }
 
 
 def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
@@ -642,10 +644,12 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    assert trace.info.tags["baz"] == "qux"
-    assert trace.info.tags["mlflow.traceName"] == "test"
-    assert trace.info.tags["mlflow.source.name"] == "test"
-    assert trace.info.tags["mlflow.source.type"] == "LOCAL"
+    assert trace.info.tags == {
+        "baz": "qux",
+        "mlflow.traceName": "test",  # Added by MLflow
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+    }
 
 
 def test_delete_trace_tag_on_logged_trace(mock_store, clear_singleton):

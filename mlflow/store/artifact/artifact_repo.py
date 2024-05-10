@@ -327,8 +327,6 @@ class ArtifactRepository:
         """
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-            # temp_file always exists, so we raise exception if
-            # trace data is empty as well
             self._download_file(TRACE_DATA_FILE_NAME, temp_file)
             return try_read_trace_data(temp_file)
 
@@ -347,8 +345,7 @@ class ArtifactRepository:
 def write_local_temp_trace_data_file(trace_data: str):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-        with temp_file.open("w") as f:
-            f.write(trace_data)
+        temp_file.write_text(trace_data)
         yield temp_file
 
 
@@ -358,7 +355,7 @@ def try_read_trace_data(trace_data_path):
     with open(trace_data_path) as f:
         data = f.read()
     if not data:
-        raise MlflowException("Trace data is empty")
+        raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
     try:
         return json.loads(data)
     except json.decoder.JSONDecodeError as e:

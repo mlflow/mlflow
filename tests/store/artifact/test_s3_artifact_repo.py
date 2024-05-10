@@ -432,7 +432,7 @@ def test_trace_data(s3_artifact_root):
     with pytest.raises(Exception, match=r"Not Found"):
         repo.download_trace_data()
     repo.upload_trace_data("invalid data")
-    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted at path"):
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
         repo.download_trace_data()
 
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}

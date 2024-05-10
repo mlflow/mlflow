@@ -400,14 +400,14 @@ def test_complete_multipart_upload(mock_client, tmp_path):
 
 def test_trace_data(mock_client, tmp_path):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
-    with pytest.raises(MlflowException, match=r"Trace data is empty"):
+    with pytest.raises(MlflowException, match=r"Trace data not found for path="):
         repo.download_trace_data()
     trace_data_path = tmp_path.joinpath("traces.json")
     trace_data_path.write_text("invalid data")
     with mock.patch(
         "mlflow.store.artifact.artifact_repo.try_read_trace_data",
         side_effect=lambda x: try_read_trace_data(trace_data_path),
-    ), pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted at path"):
+    ), pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
         repo.download_trace_data()
 
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}

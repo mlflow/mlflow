@@ -209,10 +209,10 @@ def test_download_artifacts_invalid_remote_file_path(local_artifact_repo):
 
 
 def test_trace_data(local_artifact_repo):
-    with pytest.raises(MlflowTraceDataNotFound, match=r"Trace data not found at path"):
+    with pytest.raises(MlflowTraceDataNotFound, match=r"Trace data not found for path="):
         local_artifact_repo.download_trace_data()
     local_artifact_repo.upload_trace_data("invalid data")
-    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted at path"):
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
         local_artifact_repo.download_trace_data()
 
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
