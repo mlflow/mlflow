@@ -297,8 +297,8 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
                 modules_to_reload.add(loaded_module)
 
     # invalidate these modules cache, to ensure they are reloaded when loading model.
-    for module in modules_to_reload:
-        sys.modules.pop(module)
+    # for module in modules_to_reload:
+    #     sys.modules.pop(module)
 
 
 def _validate_onnx_session_options(onnx_session_options):
