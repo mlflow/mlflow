@@ -118,7 +118,7 @@ def test_store_generated_schema_matches_base(tmp_path, db_url):
     # `diff` contains several `remove_index` operations because `Base.metadata` does not contain
     # index metadata but `mc` does. Note this doesn't mean the MLflow database is missing indexes
     # as tested in `test_create_index_on_run_uuid`.
-    # `remove_fk` index operation is from cascading deletion when an experiment is deleted as
+    # `remove_fk` operations are from cascading deletion when an experiment is deleted as
     # `experiment_id` is a foreign key in the `datasets` and `experiment_tags` tables.
     diff = [d for d in diff if (d[0] not in ["remove_index", "add_index", "add_fk", "remove_fk"])]
     assert len(diff) == 0
