@@ -67,6 +67,7 @@ jobs:
         run: |
           source .venv/bin/activate
           cd mlflow/server/js
+          yarn install
           yarn graphql-codegen
           git diff --exit-code
 
