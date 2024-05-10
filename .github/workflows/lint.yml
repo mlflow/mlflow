@@ -72,4 +72,5 @@ jobs:
           yarn install
           yarn graphql-codegen
           git diff --exit-code
+          echo "If this check fails, run: cd mlflow/server/js && yarn graphql-codegen"
 
