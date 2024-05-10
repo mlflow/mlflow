@@ -1348,8 +1348,8 @@ def test_enable_async_logging(mock_store, setup_async_logging):
     mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))
 
 
-@pytest.mark.notrackingurimock
-def test_file_store_download_upload_trace_data(clear_singleton):
+def test_file_store_download_upload_trace_data(clear_singleton, tmp_path):
+    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
     client = MlflowClient()
     span = client.start_trace("test", inputs={"test": 1})
     client.end_trace(span.request_id, outputs={"result": 2})

@@ -2,8 +2,6 @@ import os
 import shutil
 from typing import Any, Dict
 
-from typing_extensions import override
-
 from mlflow.store.artifact.artifact_repo import (
     TRACE_DATA_FILE_NAME,
     ArtifactRepository,
@@ -126,7 +124,6 @@ class LocalArtifactRepository(ArtifactRepository):
         if os.path.exists(artifact_path):
             shutil.rmtree(artifact_path)
 
-    @override
     def download_trace_data(self) -> Dict[str, Any]:
         """
         Download the trace data.

@@ -7,7 +7,6 @@ import uuid
 from typing import Any, Dict
 
 import requests
-from typing_extensions import override
 
 import mlflow.tracking
 from mlflow.azure.client import (
@@ -227,7 +226,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetCredentialsForWrite, self.run_id, run_relative_remote_paths
         )
 
-    @override
     def download_trace_data(self) -> Dict[str, Any]:
         cred = self._call_endpoint(
             DatabricksMlflowArtifactsService,
@@ -257,7 +255,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         return res.credential_info
 
-    @override
     def upload_trace_data(self, trace_data: str) -> None:
         cred = self._get_upload_trace_data_cred_info()
         with write_local_temp_trace_data_file(trace_data) as temp_file:
