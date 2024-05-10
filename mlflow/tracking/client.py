@@ -58,7 +58,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFA
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_otel_attribute
+from mlflow.tracing.utils import exclude_immutable_tags, get_otel_attribute
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -574,13 +574,14 @@ class MlflowClient:
             if attributes:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
+            tags = exclude_immutable_tags(tags or {})
             if is_in_databricks_model_serving_environment():
                 # Update trace tags for trace in in-memory trace manager
                 with trace_manager.get_trace(request_id) as trace:
-                    trace.info.tags.update(tags or {})
+                    trace.info.tags.update(tags)
             else:
                 # Update trace tags in store and in-memory if tracking client is available
-                self._tracking_client.set_trace_tags(request_id, tags or {})
+                self._tracking_client.set_trace_tags(request_id, tags)
                 trace_info = self._tracking_client.get_trace_info(request_id)
                 trace_manager.update_trace_info(trace_info)
             # Register new span in the in-memory trace manager

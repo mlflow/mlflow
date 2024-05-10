@@ -71,6 +71,7 @@ from mlflow.utils.file_utils import (
     write_yaml,
 )
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
@@ -1328,6 +1329,14 @@ class FileStore(AbstractStore):
 
         return _read_helper(root, file_name, attempts_remaining=retries)
 
+    def _get_traces_artifact_dir(self, experiment_id, request_id):
+        return append_to_uri_path(
+            self.get_experiment(experiment_id).artifact_location,
+            FileStore.TRACES_FOLDER_NAME,
+            request_id,
+            FileStore.ARTIFACTS_FOLDER_NAME,
+        )
+
     def start_trace(
         self,
         experiment_id: str,
@@ -1356,6 +1365,8 @@ class FileStore(AbstractStore):
         traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
         mkdir(traces_dir, request_id)
         trace_dir = os.path.join(traces_dir, request_id)
+        artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
+        tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
         trace_info = TraceInfo(
             request_id=request_id,
             experiment_id=experiment_id,
