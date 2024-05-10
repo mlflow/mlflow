@@ -93,7 +93,7 @@ Job Statuses
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AStale+event%3Aschedule
 .. |push-images| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/push-images.yml.svg?event=release&label=push-images&logo=github&style=for-the-badge
     :target: https://github.com/mlflow/mlflow/actions/workflows/push-images.yml?query=event%3Arelease
-.. |slow-tests| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/slow-tests.yml.svg?branch=master&event=schedule&label=slow-tests&logo=github&style=for-the-badge
+.. |slow-tests| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/slow-tests.yml.svg?branch=master&event=schedule&label=slow-tests&logo=github&style=for-the-badge
     :target: https://github.com/mlflow-automation/mlflow/actions/workflows/slow-tests.yml?query=event%3Aschedule
 
 Installing
