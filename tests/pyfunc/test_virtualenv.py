@@ -192,6 +192,23 @@ def test_environment_is_removed_when_package_installation_fails(
     with pytest.raises(AssertionError, match="scoring process died"):
         serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     assert len(list(temp_mlflow_env_root.iterdir())) == 0
+        # Check response content for error message
+    resp = pyfunc_serve_and_score_model(model_info.model_uri, sklearn_model.X_pred)
+    assert resp["status"] == "failure"
+    assert "Subprocess error" in resp["error_message"]
+    assert "mlflow==999.999.999" in resp["error_message"]
+    assert "pip._internal.cli.base_command.CommandError" in resp["traceback"]
+    assert len(list(temp_mlflow_env_root.iterdir())) == 0
+
+def test_successful_serve_and_score(sklearn_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sklearn_model.model,
+            artifact_path="model",
+            pip_requirements=["scikit-learn=={}".format(sklearn.__version__)],
+        )
+    resp = pyfunc_serve_and_score_model(model_info.model_uri, sklearn_model.X_pred)
+    assert resp["status"] == "success"
 
 
 @use_temp_mlflow_env_root
