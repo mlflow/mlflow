@@ -68,8 +68,10 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           yarn install --immutable
+          cd ../../..
           pip install --upgrade pip wheel
           pip install .
+          cd mlflow/server/js
       - name: Run lint
         run: |
           yarn lint
