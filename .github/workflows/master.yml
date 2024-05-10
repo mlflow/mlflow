@@ -279,8 +279,7 @@ jobs:
           # Set current working directory to `tests/pyfunc` before running
           # `test_inferred_data_path.py` so that `infer_code_paths` won't capture
           # all modules under MLflow code repo.
-          cd tests/pyfunc
-          pytest test_inferred_data_path.py
+          pushd tests/pyfunc && pytest test_inferred_data_path.py && popd
           
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py \
