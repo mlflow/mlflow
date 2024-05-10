@@ -22,6 +22,8 @@ class TraceData:
 
     @classmethod
     def from_dict(cls, d):
+        if not isinstance(d, dict):
+            raise TypeError(f"TraceData.from_dict() expects a dictionary. Got: {type(d).__name__}")
         return cls(
             request=d.get("request"),
             response=d.get("response"),

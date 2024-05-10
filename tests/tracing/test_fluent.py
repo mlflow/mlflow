@@ -280,7 +280,10 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
 
     model = TestModel()
 
-    with mlflow.start_run() as run:
+    # mock _upload_trace_data to avoid generating trace data file
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+    ), mlflow.start_run() as run:
         run_id = run.info.run_id
         request_id_1 = "tr-eval-123"
         with set_prediction_context(Context(request_id=request_id_1, is_evaluate=True)):
@@ -307,8 +310,7 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
     assert trace.info.tags == {**expected_tags, **{TraceTagKey.EVAL_REQUEST_ID: request_id_2}}
 
     assert mock_store.start_trace.call_count == 2
-    # uncomment this after upload_trace_data is implemented for sqlstore
-    # assert mock_store.end_trace.call_count == 2
+    assert mock_store.end_trace.call_count == 2
 
 
 def test_trace_handle_exception_during_prediction(clear_singleton):

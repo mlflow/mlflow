@@ -93,7 +93,7 @@ def test_download_trace_data(tmp_path, mock_store):
         tags={"mlflow.artifactLocation": "test"},
     )
     with mock.patch(
-        "mlflow.store.artifact.artifact_repo.ArtifactRepository.download_trace_data",
+        "mlflow.store.artifact.local_artifact_repo.LocalArtifactRepository.download_trace_data",
         return_value={"spans": []},
     ) as mock_download_trace_data:
         client = TrackingServiceClient(tmp_path.as_uri())
