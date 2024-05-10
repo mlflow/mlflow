@@ -1,3 +1,5 @@
+import pytest
+
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -5,6 +7,8 @@ from mlflow.entities.model_registry import (
     RegisteredModelAlias,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
+from mlflow.entities.model_registry.registered_model_search import RegisteredModelSearch
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
@@ -23,7 +27,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.utils._unity_catalog_utils import (
     model_version_from_uc_proto,
+    model_version_search_from_uc_proto,
     registered_model_from_uc_proto,
+    registered_model_search_from_uc_proto,
 )
 
 
@@ -69,6 +75,51 @@ def test_model_version_from_uc_proto():
     assert actual_model_version == expected_model_version
 
 
+def test_model_version_search_from_uc_proto():
+    expected_model_version = ModelVersionSearch(
+        name="name",
+        version="1",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        user_id="user_id",
+        source="source",
+        run_id="run_id",
+        status="READY",
+        status_message="status_message",
+        aliases=[],
+        tags=[],
+    )
+    uc_proto = ProtoModelVersion(
+        name="name",
+        version="1",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        user_id="user_id",
+        source="source",
+        run_id="run_id",
+        status=ProtoModelVersionStatus.Value("READY"),
+        status_message="status_message",
+        aliases=[
+            ProtoRegisteredModelAlias(alias="alias1", version="1"),
+            ProtoRegisteredModelAlias(alias="alias2", version="2"),
+        ],
+        tags=[
+            ProtoModelVersionTag(key="key1", value="value"),
+            ProtoModelVersionTag(key="key2", value=""),
+        ],
+    )
+    actual_model_version = model_version_search_from_uc_proto(uc_proto)
+    assert actual_model_version == expected_model_version
+
+    with pytest.raises(Exception):  # noqa: PT011
+        actual_model_version.tags()
+
+    with pytest.raises(Exception):  # noqa: PT011
+        actual_model_version.aliases()
+
+
 def test_registered_model_from_uc_proto():
     expected_registered_model = RegisteredModel(
         name="name",
@@ -100,3 +151,36 @@ def test_registered_model_from_uc_proto():
     )
     actual_registered_model = registered_model_from_uc_proto(uc_proto)
     assert actual_registered_model == expected_registered_model
+
+
+def test_registered_model_search_from_uc_proto():
+    expected_registered_model = RegisteredModelSearch(
+        name="name",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        aliases=[],
+        tags=[],
+    )
+    uc_proto = ProtoRegisteredModel(
+        name="name",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        aliases=[
+            ProtoRegisteredModelAlias(alias="alias1", version="1"),
+            ProtoRegisteredModelAlias(alias="alias2", version="2"),
+        ],
+        tags=[
+            ProtoRegisteredModelTag(key="key1", value="value"),
+            ProtoRegisteredModelTag(key="key2", value=""),
+        ],
+    )
+    actual_registered_model = registered_model_search_from_uc_proto(uc_proto)
+    assert actual_registered_model == expected_registered_model
+
+    with pytest.raises(Exception):  # noqa: PT011
+        actual_registered_model.tags()
+
+    with pytest.raises(Exception):  # noqa: PT011
+        actual_registered_model.aliases()
