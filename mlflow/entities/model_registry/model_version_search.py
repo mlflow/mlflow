@@ -13,6 +13,6 @@ class ModelVersionSearch(ModelVersion):
 
     def aliases(self):
         raise Exception(
-            "UC Model Versions gathered through search_registered_models do not have aliases. "
+            "UC Model Versions gathered through search_model_versions do not have aliases. "
             "Please use get_model_version to obtain an individual version's aliases."
         )
