@@ -1009,7 +1009,7 @@ def _normalize_evaluators_and_evaluator_config_args(
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if len(evaluator_name_list) > 1:
-            _logger.info(
+            _logger.debug(
                 f"Multiple registered evaluators have been configured: {evaluator_name_list}. "
                 "Each evaluator will be used for evaluation if the specified model type is "
                 "compatible with the evaluator definition. If you are intending to override "
@@ -1297,7 +1297,7 @@ def _evaluate(
 
         _last_failed_evaluator = evaluator_name
         if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
-            _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
+            _logger.debug(f"Evaluating the model with the {evaluator_name} evaluator.")
             eval_result = evaluator.evaluate(
                 model=model,
                 model_type=model_type,
