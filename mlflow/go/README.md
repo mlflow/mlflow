@@ -49,7 +49,25 @@ We do not generate any Go code based on the database schema. Gorm has generation
 
 ## Testing strategy
 
-To ensure parity with the existing Python integration tests, we are investigating to re-use the Python integration tests.
+The Python integration tests have been adapted to also run against the Go implementation. Just run them as usual, e.g.
+
+```bash
+pytest tests/tracking/test_rest_tracking.py
+```
+
+To run only the tests targetting the Go implementation, you can use the `-k` flag:
+
+```bash
+pytest tests/tracking/test_rest_tracking.py -k '[go-'
+```
+
+If you'd like to run a specific test and see its output 'live', you can use the `-s` flag:
+
+```bash
+pytest -s "tests/tracking/test_rest_tracking.py::test_create_experiment_validation[go-postgresql]"
+```
+
+See the [pytest documentation](https://docs.pytest.org/en/8.2.x/how-to/usage.html#specifying-which-tests-to-run) for more details.
 
 ## Supported endpoints
 
