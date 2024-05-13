@@ -100,7 +100,8 @@ def generate_dockerfile(
         jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
         setup_java_steps = (
             "# Setup Java\n"
-            f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
+            f"RUN apt-get install -y --no-install-recommends maven\n"
+            f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk\n"
             f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
         )
 
