@@ -26,6 +26,12 @@ mlflow server --backend-store-uri postgresql://postgres:postgres@localhost:5432/
 This will launch the python process as usual. Within Python, a random port is chosen to start the existing server and a Go child process is spawned. The Go server will use the user specified port (5000 by default) and spawn the actual Python server as its own child process (`gunicorn` or `waitress`).
 Any incoming requests the Go server cannot process will be proxied to the existing Python server.
 
+Any Go-specific options can be passed with `--experimental-go-opts`, which takes a comma-separated list of key-value pairs.
+
+```bash
+mlflow server --backend-store-uri postgresql://postgres:postgres@localhost:5432/postgres --experimental-go LogLevel=debug,ShutdownTimeout=5s
+```
+
 ## Request validation
 
 We use [Go validator](https://github.com/go-playground/validator) to validate all incoming request structs.

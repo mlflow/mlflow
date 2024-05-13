@@ -1,15 +1,14 @@
 import importlib
 import importlib.metadata
 import json
-import logging
 import os
-import pathlib
 import shlex
 import socket
 import sys
 import textwrap
 import types
 
+import importlib_resources
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
@@ -230,6 +229,57 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
+def _build_go_command(builder, experimental_go_opts, host, port, env_map):
+    """
+    Builds the command to run the Go implementation of the server.
+
+    Args:
+        builder: A function that builds the command to run the Python server.
+        experimental_go_opts: Additional options passed to the Go server.
+        host: The host to bind the server to.
+        port: The port to bind the server to.
+        env_map: A dictionary of environment variables to pass to the server, which will get mutated
+        to add the Go configuration to it.
+
+    Returns:
+        The command to run the Go server.
+    """
+
+    # convert opts into dict
+    opts = {}
+    if experimental_go_opts:
+        for opt in experimental_go_opts.split(","):
+            key, value = opt.split("=", 1)
+            opts[key] = value
+
+    # initialize Go server configuration
+    go_config = {
+        "Address": f"{host}:{port}",
+        "LogLevel": opts.get("LogLevel", "INFO"),
+        "PythonEnv": [f"{k}={v}" for k, v in env_map.items()],
+        "ShutdownTimeout": opts.get("ShutdownTimeout", "1m"),
+        "StaticFolder": importlib_resources.files("mlflow.server")
+        .joinpath(REL_STATIC_DIR)
+        .as_posix(),
+        "StoreUrl": env_map[BACKEND_STORE_URI_ENV_VAR],
+        "Version": VERSION,
+    }
+
+    # assign a random port for the Python server
+    host = "127.0.0.1"
+    port = _get_safe_port()
+    go_config["PythonAddress"] = f"{host}:{port}"
+    go_config["PythonCommand"] = builder(host, port)
+
+    # set the Go server configuration
+    env_map["MLFLOW_GO_CONFIG"] = json.dumps(go_config)
+
+    # Use the pre-built go server if it exists, otherwise run the go code directly
+    pkg = importlib_resources.files("mlflow").joinpath("go")
+    server = opts.get("ServerPath", pkg.joinpath("server"))
+    return [server] if os.path.isfile(server) else ["go", "run", pkg]
+
+
 def _get_safe_port():
     """Returns an ephemeral port that is very likely to be free to bind to."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -255,6 +305,7 @@ def _run_server(
     expose_prometheus=None,
     app_name=None,
     experimental_go=False,
+    experimental_go_opts=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
@@ -295,35 +346,17 @@ def _run_server(
         # Instead, we need to use the `--call` flag.
         app = f"{app}()" if (not is_windows() and is_factory) else app
 
-    if experimental_go:
-        log_level = logging.getLevelName(logging.getLogger(__name__).getEffectiveLevel())
-        if log_level == "CRITICAL":
-            log_level = "FATAL"
-        go_config = {
-            "Address": f"{host}:{port}",
-            "LogLevel": log_level,
-            "PythonEnv": [f"{k}={v}" for k, v in env_map.items()],
-            "ShutdownTimeout": "1m",
-            "StaticFolder": os.path.join(os.path.dirname(__file__), REL_STATIC_DIR),
-            "StoreUrl": file_store_path,
-            "Version": VERSION,
-        }
-        host = "127.0.0.1"
-        port = _get_safe_port()
-        go_config["PythonAddress"] = f"{host}:{port}"
+    def python_command_builder(host, port):
+        # TODO: eventually may want waitress on non-win32
+        if sys.platform == "win32":
+            return _build_waitress_command(waitress_opts, host, port, app, is_factory)
+        else:
+            return _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
 
-    # TODO: eventually may want waitress on non-win32
-    if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port, app, is_factory)
-    else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
+    def go_command_builder(host, port):
+        return _build_go_command(python_command_builder, experimental_go_opts, host, port, env_map)
 
-    if experimental_go:
-        go_config["PythonCommand"] = full_command
-        env_map = {"MLFLOW_GO_CONFIG": json.dumps(go_config)}
-        pkg = pathlib.Path(os.path.join(os.path.dirname(__file__), "..", "go")).resolve()
-        server = os.path.join(pkg, "server")
-        # Use the pre-built go server if it exists, otherwise run the go code directly
-        full_command = [server] if os.path.exists(server) else ["go", "run", pkg]
+    command_builder = go_command_builder if experimental_go else python_command_builder
+    full_command = command_builder(host, port)
 
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)
