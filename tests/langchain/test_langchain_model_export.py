@@ -3056,8 +3056,12 @@ def test_save_load_langchain_binding(fake_chat_model):
     }
 
 
-@pytest.fixture
-def generate_callback():
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
+    from langchain_core.output_parsers import StrOutputParser
+
     class CustomCallbackHandler(BaseCallbackHandler):
         def __init__(self):
             self.count = 0
@@ -3070,17 +3074,8 @@ def generate_callback():
         def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
             self.count += 1
 
-    return CustomCallbackHandler()
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
-def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model, generate_callback):
-    from langchain_core.output_parsers import StrOutputParser
-
     model = fake_chat_model | StrOutputParser()
-    callback = generate_callback
+    callback = CustomCallbackHandler()
     model = model.with_config(run_name="test_run", callbacks=[callback]).with_types(
         input_type=str, output_type=str
     )

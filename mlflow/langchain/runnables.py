@@ -100,11 +100,10 @@ def _load_model_from_path(path: str, model_config=None):
 
 
 def _validate_path(file_path: Union[str, Path]):
-    # Convert file to Path object.
     load_path = Path(file_path)
     if not load_path.exists() or not load_path.is_dir():
         raise MlflowException(
-            f"File {load_path} must exist and must be a directory in order to load model."
+            f"Path {load_path} must be an existing directory in order to load model."
         )
     return load_path
 
@@ -228,7 +227,7 @@ def _load_runnable_binding(file_path: Union[Path, str]):
 
     model_conf = _load_from_yaml(load_path / _RUNNABLE_BINDING_CONF_FILE_NAME)
     for field, value in model_conf.items():
-        if is_basic_types(value):
+        if _is_json_primitive(value):
             model_conf[field] = value
         # value is dictionary
         else:
@@ -399,8 +398,12 @@ def _save_runnable_assign(model, file_path, loader_fn=None, persist_dir=None):
     _save_runnable_with_steps(model.mapper, mapper_path, loader_fn, persist_dir)
 
 
-def is_basic_types(value):
-    return value is None or isinstance(value, (str, int, float, bool))
+def _is_json_primitive(value):
+    return (
+        value is None
+        or isinstance(value, (str, int, float, bool))
+        or (isinstance(value, list) and all(_is_json_primitive(v) for v in value))
+    )
 
 
 def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
@@ -413,7 +416,7 @@ def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
 
     # save other fields
     for field, value in model.dict().items():
-        if is_basic_types(value):
+        if _is_json_primitive(value):
             model_config[field] = value
         elif field != "bound":
             model_config[field] = {
