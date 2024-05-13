@@ -46,7 +46,6 @@ _BRANCHES_FOLDER_NAME = "branches"
 _MAPPER_FOLDER_NAME = "mapper"
 _RUNNABLE_BRANCHES_FILE_NAME = "branches.yaml"
 _DEFAULT_BRANCH_NAME = "default"
-_RUNNABLE_BINDING_BOUND_FOLDER_NAME = "bound"
 _RUNNABLE_BINDING_CONF_FILE_NAME = "binding_conf.yaml"
 
 
@@ -100,6 +99,16 @@ def _load_model_from_path(path: str, model_config=None):
     raise MlflowException(f"Unsupported model load key {model_load_fn}")
 
 
+def _validate_path(file_path: Union[str, Path]):
+    # Convert file to Path object.
+    load_path = Path(file_path)
+    if not load_path.exists() or not load_path.is_dir():
+        raise MlflowException(
+            f"File {load_path} must exist and must be a directory in order to load model."
+        )
+    return load_path
+
+
 def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
     """Load the model
 
@@ -109,13 +118,7 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
     """
     from langchain.schema.runnable import RunnableParallel, RunnableSequence
 
-    # Convert file to Path object.
-    load_path = Path(file_path)
-    if not load_path.exists() or not load_path.is_dir():
-        raise MlflowException(
-            f"File {load_path} must exist and must be a directory "
-            "in order to load runnable with steps."
-        )
+    load_path = _validate_path(file_path)
 
     steps_conf_file = load_path / _RUNNABLE_STEPS_FILE_NAME
     if not steps_conf_file.exists():
@@ -124,11 +127,7 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
         )
     steps_conf = _load_from_yaml(steps_conf_file)
     steps_path = load_path / _STEPS_FOLDER_NAME
-    if not steps_path.exists() or not steps_path.is_dir():
-        raise MlflowException(
-            f"Folder {steps_path} must exist and must be a directory "
-            "in order to load runnable with steps."
-        )
+    _validate_path(steps_path)
 
     steps = {}
     # ignore hidden files
@@ -168,13 +167,7 @@ def _load_runnable_branch(file_path: Union[Path, str]):
     """
     from langchain.schema.runnable import RunnableBranch
 
-    # Convert file to Path object.
-    load_path = Path(file_path)
-    if not load_path.exists() or not load_path.is_dir():
-        raise MlflowException(
-            f"File {load_path} must exist and must be a directory "
-            "in order to load runnable with steps."
-        )
+    load_path = _validate_path(file_path)
 
     branches_conf_file = load_path / _RUNNABLE_BRANCHES_FILE_NAME
     if not branches_conf_file.exists():
@@ -183,11 +176,7 @@ def _load_runnable_branch(file_path: Union[Path, str]):
         )
     branches_conf = _load_from_yaml(branches_conf_file)
     branches_path = load_path / _BRANCHES_FOLDER_NAME
-    if not branches_path.exists() or not branches_path.is_dir():
-        raise MlflowException(
-            f"Folder {branches_path} must exist and must be a directory "
-            "in order to load runnable with steps."
-        )
+    _validate_path(branches_path)
 
     branches = []
     for branch in os.listdir(branches_path):
@@ -221,19 +210,10 @@ def _load_runnable_assign(file_path: Union[Path, str]):
     """
     from langchain.schema.runnable.passthrough import RunnableAssign
 
-    # Convert file to Path object.
-    load_path = Path(file_path)
-    if not load_path.exists() or not load_path.is_dir():
-        raise MlflowException(
-            f"File {load_path} must exist and must be a directory in order to load runnable."
-        )
+    load_path = _validate_path(file_path)
 
     mapper_file = load_path / _MAPPER_FOLDER_NAME
-    if not mapper_file.exists() or not mapper_file.is_dir():
-        raise MlflowException(
-            f"Folder {mapper_file} must exist and must be a directory "
-            "in order to load runnable assign with mapper."
-        )
+    _validate_path(mapper_file)
     mapper = _load_runnable_with_steps(mapper_file, "RunnableParallel")
     return RunnableAssign(mapper)
 
@@ -244,25 +224,15 @@ def _load_runnable_binding(file_path: Union[Path, str]):
     """
     from langchain.schema.runnable import RunnableBinding
 
-    load_path = Path(file_path)
-    if not load_path.exists() or not load_path.is_dir():
-        raise MlflowException(
-            f"File {load_path} must exist and must be a directory in order to load runnable."
-        )
+    load_path = _validate_path(file_path)
 
     model_conf = _load_from_yaml(load_path / _RUNNABLE_BINDING_CONF_FILE_NAME)
     for field, value in model_conf.items():
-        if value is None or isinstance(value, (str, int, float, bool)):
+        if is_basic_types(value):
             model_conf[field] = value
         # value is dictionary
-        elif field == "bound":
-            model_conf[field] = _load_runnables(
-                load_path / _RUNNABLE_BINDING_BOUND_FOLDER_NAME, model_conf[field]
-            )
         else:
-            model_conf[field] = _load_from_pickle(
-                os.path.join(load_path, model_conf[field][_MODEL_DATA_KEY])
-            )
+            model_conf[field] = _load_model_from_path(load_path, value)
     return RunnableBinding(**model_conf)
 
 
@@ -429,19 +399,21 @@ def _save_runnable_assign(model, file_path, loader_fn=None, persist_dir=None):
     _save_runnable_with_steps(model.mapper, mapper_path, loader_fn, persist_dir)
 
 
+def is_basic_types(value):
+    return value is None or isinstance(value, (str, int, float, bool))
+
+
 def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
     save_path = Path(file_path)
     save_path.mkdir(parents=True, exist_ok=True)
     model_config = {}
 
-    # save runnableBinding bound into a folder
-    bound_path = save_path / _RUNNABLE_BINDING_BOUND_FOLDER_NAME
-    bound_path.mkdir(parents=True, exist_ok=True)
-    model_config["bound"] = _save_runnables(model.bound, bound_path, loader_fn, persist_dir)
+    # runnableBinding bound is the real runnable to be invoked
+    model_config["bound"] = _save_runnables(model.bound, save_path, loader_fn, persist_dir)
 
     # save other fields
     for field, value in model.dict().items():
-        if value is None or isinstance(value, (str, int, float, bool)):
+        if is_basic_types(value):
             model_config[field] = value
         elif field != "bound":
             model_config[field] = {
@@ -488,7 +460,7 @@ def _save_runnables(model, path, loader_fn=None, persist_dir=None):
         raise MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
         )
-    model_data_kwargs.update({_MODEL_DATA_KEY: model_data_path})
+    model_data_kwargs[_MODEL_DATA_KEY] = model_data_path
     return model_data_kwargs
 
 
