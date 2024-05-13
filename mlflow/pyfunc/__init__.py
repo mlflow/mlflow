@@ -2712,7 +2712,7 @@ def _save_model_with_loader_module_and_data_path(
     code_dir_subpath = _validate_infer_and_copy_code_paths(
         code_paths, path, infer_code_paths, FLAVOR_NAME
     )
-    mlflow_model.code = code_dir_subpath
+    mlflow_model.flavors[FLAVOR_NAME][CODE] = code_dir_subpath
 
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))

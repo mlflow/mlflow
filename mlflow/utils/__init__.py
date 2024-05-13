@@ -298,5 +298,5 @@ class AttrDict(dict):
         return value
 
 
-def get_parent_module(_module):
-    return _module[0: _module.rindex(".")]
+def get_parent_module(module):
+    return module[0: module.rindex(".")]

@@ -40,7 +40,8 @@ def _walk_dir(path):
             yield str(rel_path)
 
 
-def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path):
+def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path, monkeypatch):
+    monkeypatch.chdir(os.path.dirname(__file__))
     sk_model_path = tmp_path / "knn.pkl"
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
@@ -95,7 +96,8 @@ def get_model_class():
     return CustomSklearnModel
 
 
-def test_python_model_save_load(sklearn_knn_model, iris_data, tmp_path):
+def test_python_model_save_load(sklearn_knn_model, iris_data, tmp_path, monkeypatch):
+    monkeypatch.chdir(os.path.dirname(__file__))
     sklearn_model_path = tmp_path / "sklearn_model"
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 

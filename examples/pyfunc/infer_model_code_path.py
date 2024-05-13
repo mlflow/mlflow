@@ -33,12 +33,12 @@ with mlflow.start_run(run_name="test_pyfunc") as run:
     )
 
     # start a child run to create custom imagine model
-    with mlflow.start_run(run_name="test_custom_model", nested=True):
+    with mlflow.start_run(run_name="test_custom_model_with_inferred_code_paths", nested=True):
         print(f"Pyfunc run ID: {run.info.run_id}")
         # log a custom model
         mlflow.pyfunc.log_model(
             artifact_path="artifacts",
-            code_paths=[os.getcwd()],
+            infer_code_paths=True,
             artifacts={"custom_model": model_info.model_uri},
             python_model=CustomPredict(),
             signature=signature,

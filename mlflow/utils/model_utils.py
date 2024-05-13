@@ -198,7 +198,7 @@ def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
             src_file_name = code_path.name
             dest_dir_path = Path(path) / default_subpath / src_dir_path
             dest_file_path = dest_dir_path / src_file_name
-            os.makedirs(dest_dir_path, exist_ok=True)
+            dest_dir_path.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(code_path, dest_file_path)
         return default_subpath
 
