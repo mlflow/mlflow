@@ -82,7 +82,11 @@ MLFLOW_CLASS_NAME = Rule(
 NO_TIMEOUT = Rule(
     "Z0004",
     "no-timeout",
-    "Blocking future operations (e.g., `Future.result()`) must have a timeout to prevent hangs.",
+    (
+        "Any operation that blocks future tasks (such as `Future.result()`) should have a timeout "
+        "set to avoid indefinite hangs. You may ignore this lint warning if it's certain that "
+        "the future task has already completed."
+    ),
 )
 
 
