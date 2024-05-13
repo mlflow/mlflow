@@ -303,9 +303,10 @@ limitations, see the
     credential token strings, otherwise they might be included in the automatic inferred code path files
     and be logged to MLflow artifact repository.
     
-    If your custom python module reads config files with a relative path to the module code file path,
-    the config file can't be automatically inferred as the code path file. To address this issue,
-    you should put all used config files outside your custom code directory.
+    If your custom python module reads resource files (e.g. a config file) with a relative path
+    to the module code file path, the resource files can't be automatically inferred as the
+    code path file. To address this issue, you should put all used resource files outside
+    your custom code directory.
 
 .. Note:: Experimental: This parameter may change or be removed in a future release without warning.
 """
