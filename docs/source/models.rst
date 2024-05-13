@@ -209,14 +209,14 @@ Once a model is loaded, it can be scored in two primary ways:
         predict(data: Union[pandas.Series, pandas.DataFrame, numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
                 params: Optional[Dict[str, Any]] = None) → Union[pandas.Series, pandas.DataFrame, numpy.ndarray, list, str]
 
-2. **Asynchronous Streaming Scoring**
+2. **Synchronous Streaming Scoring**
 
     .. note:: 
         ``predict_stream`` is a new interface that was added to MLflow in the 2.12.2 release. Previous versions of MLflow will not support this interface.
         In order to utilize ``predict_stream`` in a custom Python Function Model, you must implement the ``predict_stream`` method in your model class and 
         return a generator type.
 
-    For models that support asynchronous data processing, :py:func:`predict_stream <mlflow.pyfunc.PyFuncModel.predict_stream>` 
+    For models that support streaming data processing, :py:func:`predict_stream <mlflow.pyfunc.PyFuncModel.predict_stream>` 
     method is available. This method returns a ``generator``, which yields a stream of responses, allowing for efficient processing of 
     large datasets or continuous data streams. Note that the ``predict_stream`` method is not available for all model types. 
     The usage involves iterating over the generator to consume the responses::

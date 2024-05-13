@@ -147,8 +147,8 @@ LangChain is designed to work seamlessly with any LLM that offers streaming outp
 like OpenAI (e.g., specific versions of ChatGPT), as well as other LLMs from different vendors that support similar functionalities.
 
 Using ``predict_stream`` for Streaming Outputs
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ``predict_stream`` method in LangChain is designed to handle synchronous inputs and provide outputs in a streaming manner. This method is particularly 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``predict_stream`` method within the Mlflow pyfunc LangChain flavor is designed to handle synchronous inputs and provide outputs in a streaming manner. This method is particularly 
 useful for maintaining an engaging user experience by delivering parts of the model's response as they become available, rather than waiting for the 
 entire completion of the response generation.
 
@@ -159,10 +159,24 @@ the real-time response generation:
 
 .. code-block:: python
 
-    # Assuming the model is already logged in MLflow and loaded
-    loaded_model = mlflow.pyfunc.load_model(
-        model_uri="models:/your-langchain-model/Production"
+    from langchain.chains import LLMChain
+    from langchain.prompts import PromptTemplate
+    from langchain_openai import OpenAI
+    import mlflow
+
+
+    template_instructions = "Provide brief answers to technical questions about {topic} and do not answer non-technical questions."
+    prompt = PromptTemplate(
+        input_variables=["topic"],
+        template=template_instructions,
     )
+    chain = LLMChain(llm=OpenAI(temperature=0.05), prompt=prompt)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "tech_chain")
+
+    # Assuming the model is already logged in MLflow and loaded
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
     # Simulate a single synchronous input
     input_data = "Hello, can you explain streaming outputs?"
@@ -191,7 +205,6 @@ functionality by allowing actions to be triggered during the streaming process, 
     handler = StdOutCallbackHandler()
 
     # Attach callback to enhance the streaming process
-    enhancer = StreamingEnhancer()
     response_stream = loaded_model.predict_stream(input_data, callback_handlers=[handler])
     for enhanced_response in response_stream:
         print("Enhanced Streaming Response:", enhanced_response)
