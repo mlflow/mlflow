@@ -90,6 +90,14 @@ def _set_api_key_env_var(client):
         os.environ.pop("OPENAI_API_KEY")
 
 
+class _OpenAIJsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError:
+            return str(o)
+
+
 def patched_call(original, self, *args, **kwargs):
     from openai import Stream
 
@@ -117,15 +125,6 @@ def patched_call(original, self, *args, **kwargs):
 
     with disable_autologging():
         result = original(self, *args, **kwargs)
-
-    class _OpenAIJsonEncoder(json.JSONEncoder):
-        def default(self, o):
-            from openai._types import NotGiven
-
-            if isinstance(o, NotGiven):
-                return str(o)
-
-            return super().default(o)
 
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
