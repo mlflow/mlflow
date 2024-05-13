@@ -80,7 +80,8 @@ def build_docker(
         base_image: Base image for the Docker image. If not specified, the default image is either
             UBUNTU_BASE_IMAGE = "ubuntu:20.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
             Note: If custom image is used, there are no guarantees that the image will work. You
-            may find greater compatibility by building your image on top of the ubuntu images.
+            may find greater compatibility by building your image on top of the ubuntu images. In
+            addition, you must install Java and virtualenv to have the image work properly.
     """
     get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
