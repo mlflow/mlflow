@@ -48,7 +48,9 @@ To achieve joins, follow the steps below:
 
 ### How to generate typescript types for a GraphQL operation
 
-To generate typescript types, you would first write your new query or mutation in the mlflow/server/js/src folder, after that run the following commands:
+To generate typescript types, first make sure the generated schema is up-to-date by running `python ./dev/proto_to_graphql/code_generator.py`
+
+Then write your new query or mutation in the mlflow/server/js/src folder, after that run the following commands:
 - cd mlflow/server/js
 - yarn graphql-codegen
 
