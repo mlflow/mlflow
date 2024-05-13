@@ -11,8 +11,8 @@ from mlflow.metrics.genai import EvaluationExample, model_utils
 from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
     _format_args_string,
-    make_genai_metric_from_prompt,
     make_genai_metric,
+    make_genai_metric_from_prompt,
 )
 from mlflow.metrics.genai.metric_definitions import (
     answer_correctness,
