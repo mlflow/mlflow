@@ -342,11 +342,10 @@ class UcModelRegistryStore(BaseRestStore):
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        _raise_unsupported_method(
-            method="rename_registered_model",
-            message="Use the Databricks Python SDK or Unity Catalog REST API to "
-            "rename registered models in Unity Catalog",
-        )
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(UpdateRegisteredModelRequest(name=full_name, new_name=new_name))
+        response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
+        return registered_model_from_uc_proto(response_proto.registered_model)
 
     def delete_registered_model(self, name):
         """
