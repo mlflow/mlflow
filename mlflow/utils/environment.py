@@ -769,7 +769,7 @@ def _get_pip_install_mlflow():
     if mlflow_home:  # dev version
         return f"pip install -e {mlflow_home} 1>&2"
     else:
-        return f"pip install mlflow=={VERSION} 1>&2"
+        return "pip install git+https://github.com/daniellok-db/mlflow.git@fix-slow-test 1>&2"
 
 
 def _get_requirements_from_file(

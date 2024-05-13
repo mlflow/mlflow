@@ -26,7 +26,6 @@ from mlflow.utils import env_manager as em
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.file_utils import read_yaml
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
-from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
@@ -113,7 +112,7 @@ def _install_pyfunc_deps(
         install_mlflow_cmd = [
             "pip install /opt/mlflow/."
             if _container_includes_mlflow_source()
-            else f"pip install mlflow=={MLFLOW_VERSION}"
+            else "pip install git+https://github.com/daniellok-db/mlflow.git@fix-slow-test"
         ]
         if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
             raise Exception("Failed to install mlflow into the model environment.")

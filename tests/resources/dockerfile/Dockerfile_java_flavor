@@ -27,7 +27,7 @@ ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 WORKDIR /opt/mlflow
 
 # Install MLflow
-RUN pip install mlflow==${{ MLFLOW_VERSION }}
+RUN pip install git+https://github.com/daniellok-db/mlflow.git@fix-slow-test
 
 # Install Java mlflow-scoring from Maven Central
 RUN mvn --batch-mode dependency:copy -Dartifact=org.mlflow:mlflow-scoring:${{ MLFLOW_VERSION }}:pom -DoutputDirectory=/opt/java 
