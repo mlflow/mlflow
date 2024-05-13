@@ -148,7 +148,7 @@ like OpenAI (e.g., specific versions of ChatGPT), as well as other LLMs from dif
 
 Using ``predict_stream`` for Streaming Outputs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ``predict_stream`` method within the Mlflow pyfunc LangChain flavor is designed to handle synchronous inputs and provide outputs in a streaming manner. This method is particularly 
+The ``predict_stream`` method within the MLflow pyfunc LangChain flavor is designed to handle synchronous inputs and provide outputs in a streaming manner. This method is particularly 
 useful for maintaining an engaging user experience by delivering parts of the model's response as they become available, rather than waiting for the 
 entire completion of the response generation.
 
