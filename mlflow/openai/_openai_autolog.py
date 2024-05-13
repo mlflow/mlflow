@@ -59,7 +59,7 @@ def _convert_data_to_dict(data, key):
         return {key: data}
     if isinstance(data, str):
         return {key: [data]}
-    raise MlflowException("Unsupported data type.")
+    raise MlflowException(f"Unsupported data type: {type(data).__name__}")
 
 
 def _combine_input_and_output(input, output):
