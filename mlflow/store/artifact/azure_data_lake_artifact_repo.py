@@ -214,7 +214,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             use_single_part_upload = num_chunks == 1
 
             def upload_fn(index):
-                start_byte = index * chunk_size.get()
+                start_byte = index * chunk_size
                 return self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
@@ -222,7 +222,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                     sas_url=credentials.signed_uri,
                     local_file=src_file_path,
                     start_byte=start_byte,
-                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
+                    size=chunk_size,
                     position=start_byte,
                     headers=headers,
                     is_single=use_single_part_upload,

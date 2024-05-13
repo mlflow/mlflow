@@ -6,7 +6,7 @@ from typing import Any, Callable, List, Optional, Union
 
 from mlflow.environment_variables import (
     MLFLOW_MULTIPART_CHUNK_UPLOAD_MAX_RETRIES,
-    MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT,
+    MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT_SECONDS,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
 )
 from mlflow.exceptions import MlflowException
@@ -33,7 +33,7 @@ def _upload_chunks_with_retry(
         num_chunks: Number of chunks to upload.
         filename: The file being uploaded.
         timeout: Timeout for each chunk upload. If None, defaults to the value of
-            MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT.
+            MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT_SECONDS.
         max_retries: Maximum number of retries for each chunk upload. If None, defaults to the value
             of MLFLOW_MULTIPART_CHUNK_UPLOAD_MAX_RETRIES.
 
@@ -41,7 +41,7 @@ def _upload_chunks_with_retry(
         List of results of the upload_fn calls, in order of chunk index.
     """
     results = {}
-    timeout = MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT.get() if timeout is None else timeout
+    timeout = MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT_SECONDS.get() if timeout is None else timeout
     max_retries = (
         MLFLOW_MULTIPART_CHUNK_UPLOAD_MAX_RETRIES.get() if max_retries is None else max_retries
     )
