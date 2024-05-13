@@ -71,8 +71,11 @@ def _serve(env_manager):
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
+    _logger.warning("@@@ MODEL", str(m))
+
     # Older versions of mlflow may not specify a deployment configuration
     serving_flavor = MLFLOW_DEPLOYMENT_FLAVOR_NAME.get() or pyfunc.FLAVOR_NAME
+    _logger.warning("@@@ SERVING FLAVOR", serving_flavor)
 
     if serving_flavor == mleap.FLAVOR_NAME:
         _serve_mleap()
