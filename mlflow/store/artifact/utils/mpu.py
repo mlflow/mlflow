@@ -55,7 +55,7 @@ def _upload_chunks_with_retry(
             timed_out_chunks = []
             errors = {}
             for f, index in futures.items():
-                _logger.debug("Uploading chunk %s", index)
+                _logger.debug("Uploading chunk %s upload", index)
                 try:
                     res = f.result(timeout=timeout)
                 except concurrent.futures.TimeoutError as e:
