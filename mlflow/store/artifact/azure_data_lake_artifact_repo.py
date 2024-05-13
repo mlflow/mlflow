@@ -17,10 +17,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
-    _complete_futures,
     _compute_num_chunks,
     _retry_with_new_creds,
 )
+from mlflow.store.artifact.utils.mpu import _upload_chunks_with_retry
 
 
 def _parse_abfss_uri(uri):
@@ -208,15 +208,14 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 headers=headers,
             )
             # next try to append the file
-            futures = {}
             file_size = os.path.getsize(src_file_path)
-            num_chunks = _compute_num_chunks(
-                src_file_path, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-            )
+            chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+            num_chunks = _compute_num_chunks(src_file_path, chunk_size)
             use_single_part_upload = num_chunks == 1
-            for index in range(num_chunks):
-                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-                future = self.chunk_thread_pool.submit(
+
+            def upload_fn(index):
+                start_byte = index * chunk_size.get()
+                return self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
                     artifact_file_path=artifact_file_path,
@@ -228,13 +227,13 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                     headers=headers,
                     is_single=use_single_part_upload,
                 )
-                futures[future] = index
 
-            _, errors = _complete_futures(futures, src_file_path)
-            if errors:
-                raise MlflowException(
-                    f"Failed to upload at least one part of {artifact_file_path}. Errors: {errors}"
-                )
+            _upload_chunks_with_retry(
+                thread_pool=self.chunk_thread_pool,
+                filename=src_file_path,
+                upload_fn=upload_fn,
+                num_chunks=num_chunks,
+            )
 
             # finally try to flush the file
             if not use_single_part_upload:

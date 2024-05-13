@@ -4,14 +4,12 @@ import os
 import posixpath
 from abc import abstractmethod
 from collections import namedtuple
-from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
-    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -36,32 +34,6 @@ def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
     Computes the number of chunks to use for a multipart upload of the specified file.
     """
     return math.ceil(os.path.getsize(local_file) / chunk_size)
-
-
-def _complete_futures(futures_dict, file):
-    """
-    Waits for the completion of all the futures in the given dictionary and returns
-    a tuple of two dictionaries. The first dictionary contains the results of the
-    futures (unordered) and the second contains the errors (unordered) that occurred
-    during the execution of the futures.
-    """
-    results = {}
-    errors = {}
-
-    with ArtifactProgressBar.chunks(
-        os.path.getsize(file),
-        f"Uploading {file}",
-        MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-    ) as pbar:
-        for future in as_completed(futures_dict):
-            key = futures_dict[future]
-            try:
-                results[key] = future.result()
-                pbar.update()
-            except Exception as e:
-                errors[key] = repr(e)
-
-    return results, errors
 
 
 def _retry_with_new_creds(try_func, creds_func, og_creds=None):

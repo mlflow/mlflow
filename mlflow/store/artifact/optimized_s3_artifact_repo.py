@@ -16,10 +16,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
-    _complete_futures,
     _retry_with_new_creds,
 )
 from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
+from mlflow.store.artifact.utils.mpu import _upload_chunks_with_retry
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -222,29 +222,29 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
             )
 
+        chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+
+        def upload_fn(index):
+            start_byte = index * chunk_size
+            return _upload_part(
+                part_number=index + 1,
+                local_file=local_file,
+                start_byte=start_byte,
+                size=chunk_size,
+            )
+
         try:
             # Upload each part with retries
-            futures = {}
-            for index in range(num_parts):
-                part_number = index + 1
-                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-                future = self.chunk_thread_pool.submit(
-                    _upload_part,
-                    part_number=part_number,
-                    local_file=local_file,
-                    start_byte=start_byte,
-                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-                )
-                futures[future] = part_number
+            results = _upload_chunks_with_retry(
+                thread_pool=self.chunk_thread_pool,
+                filename=local_file,
+                upload_fn=upload_fn,
+                num_chunks=num_parts,
+            )
 
-            results, errors = _complete_futures(futures, local_file)
-            if errors:
-                raise MlflowException(
-                    f"Failed to upload at least one part of {local_file}. Errors: {errors}"
-                )
             parts = [
-                {"PartNumber": part_number, "ETag": results[part_number]}
-                for part_number in sorted(results)
+                {"PartNumber": part_number, "ETag": etag}
+                for part_number, etag in enumerate(results, start=1)
             ]
 
             # Complete multipart upload

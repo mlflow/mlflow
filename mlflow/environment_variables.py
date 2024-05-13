@@ -316,6 +316,18 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
 # Specifies whether or not to use multipart upload when uploading large artifacts.
 MLFLOW_ENABLE_MULTIPART_UPLOAD = _BooleanEnvironmentVariable("MLFLOW_ENABLE_MULTIPART_UPLOAD", True)
 
+#: Specifies the timeout for multipart upload chunk requests.
+#: (default: ``None``)
+MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT", float, None
+)
+
+#: Specifies the maximum number of attempts for multipart upload chunk requests.
+#: (default: ``0``)
+MLFLOW_MULTIPART_CHUNK_UPLOAD_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_CHUNK_UPLOAD_MAX_RETRIES", int, 0
+)
+
 #: Specifies whether or not to use multipart upload for proxied artifact access.
 #: (default: ``False``)
 MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(

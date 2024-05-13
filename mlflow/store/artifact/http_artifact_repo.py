@@ -16,13 +16,14 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
-from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
+from mlflow.exceptions import _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
     verify_artifact_path,
 )
-from mlflow.store.artifact.cloud_artifact_repo import _complete_futures, _compute_num_chunks
+from mlflow.store.artifact.cloud_artifact_repo import _compute_num_chunks
+from mlflow.store.artifact.utils.mpu import _upload_chunks_with_retry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -34,6 +35,10 @@ _logger = logging.getLogger(__name__)
 
 class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """Stores artifacts in a remote artifact storage using HTTP requests"""
+
+    def __init__(self, artifact_uri):
+        super().__init__(artifact_uri)
+        self.chunk_thread_pool = self._create_thread_pool()
 
     @property
     def _host_creds(self):
@@ -193,24 +198,21 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             raise
 
         try:
-            futures = {}
-            for i, credential in enumerate(create.credentials):
-                future = self.thread_pool.submit(
-                    self._upload_part,
-                    credential=credential,
+
+            def upload_fn(index):
+                return self._upload_part(
+                    credential=create.credentials[index],
                     local_file=local_file,
                     size=chunk_size,
-                    start_byte=chunk_size * i,
-                )
-                futures[future] = credential.part_number
-
-            parts, errors = _complete_futures(futures, local_file)
-            if errors:
-                raise MlflowException(
-                    f"Failed to upload at least one part of {local_file}. Errors: {errors}"
+                    start_byte=chunk_size * index,
                 )
 
-            parts = sorted(parts.values(), key=lambda part: part.part_number)
+            parts = _upload_chunks_with_retry(
+                thread_pool=self.chunk_thread_pool,
+                filename=local_file,
+                upload_fn=upload_fn,
+                num_chunks=num_parts,
+            )
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
         except Exception as e:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
