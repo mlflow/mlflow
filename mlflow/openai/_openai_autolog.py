@@ -44,11 +44,11 @@ def _get_input_from_model(model, kwargs):
         )
     else:
         input_example_exc = MlflowException(
-            f"Unsupported OpenAI task. Only support {list(model_class_param_name_mapping.keys())}."
+            "Unsupported OpenAI task. Only support chat completions, completions and embeddings."
         )
     _logger.warning(
         f"Failed to gather input example of model {model.__class__.__name__} "
-        f"due to error: {input_example_exc}."
+        f"due to error: {input_example_exc}"
     )
 
 
@@ -183,7 +183,7 @@ def patched_call(original, self, *args, **kwargs):
                         run_id=run_id,
                     )
         except Exception as e:
-            _logger.warning(f"Failed to log model due to error: {e}.")
+            _logger.warning(f"Failed to log model due to error: {e}")
         self._mlflow_model_logged = True
 
     # Even if the model is not logged, we keep a single run per model
