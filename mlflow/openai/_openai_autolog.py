@@ -93,7 +93,7 @@ def _set_api_key_env_var(client):
 def patched_call(original, self, *args, **kwargs):
     from openai import Stream
 
-    run_id = getattr(self, "run_id", None)
+    run_id = getattr(self, "_mlflow_run_id", None)
     active_run = mlflow.active_run()
     mlflow_client = mlflow.MlflowClient()
     if run_id is None:
@@ -129,8 +129,8 @@ def patched_call(original, self, *args, **kwargs):
 
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
-    session_id = getattr(self, "session_id", uuid.uuid4().hex)
-    inference_id = getattr(self, "inference_id", 0)
+    session_id = getattr(self, "_mlflow_session_id", uuid.uuid4().hex)
+    inference_id = getattr(self, "_mlflow_inference_id", 0)
 
     # log input and output as artifacts
     call_args = inspect.getcallargs(original, self, *args, **kwargs)
@@ -177,7 +177,7 @@ def patched_call(original, self, *args, **kwargs):
         mlflow.openai.FLAVOR_NAME, "log_model_signatures", False
     )
     input_example = None
-    if log_models and not hasattr(self, "model_logged"):
+    if log_models and not hasattr(self, "_mlflow_model_logged"):
         if log_input_examples:
             input_example = deepcopy(_get_input_from_model(self, kwargs))
             if not log_model_signatures:
@@ -208,14 +208,14 @@ def patched_call(original, self, *args, **kwargs):
                     )
         except Exception as e:
             _logger.warning(f"Failed to log model due to error: {e}.")
-        self.model_logged = True
+        self._mlflow_model_logged = True
 
     # Even if the model is not logged, we keep a single run per model
-    if not hasattr(self, "run_id"):
-        self.run_id = run_id
-    if not hasattr(self, "session_id"):
-        self.session_id = session_id
-    self.inference_id = inference_id + 1
+    if not hasattr(self, "_mlflow_run_id"):
+        self._mlflow_run_id = run_id
+    if not hasattr(self, "_mlflow_session_id"):
+        self._mlflow_session_id = session_id
+    self._mlflow_inference_id = inference_id + 1
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != run_id:
