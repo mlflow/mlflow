@@ -86,6 +86,10 @@ NO_TIMEOUT = Rule(
 )
 
 
+def _is_none(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value is None
+
+
 class Linter(ast.NodeVisitor):
     def __init__(self, path: str, ignore: dict[str, set[int]]):
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
@@ -127,7 +131,7 @@ class Linter(ast.NodeVisitor):
             isinstance(node.func, ast.Attribute)
             and node.func.attr == "result"
             and isinstance(node.func.value, ast.Name)
-            and not any(kw.arg == "timeout" for kw in node.keywords)
+            and not any(kw.arg == "timeout" and not _is_none(kw.value) for kw in node.keywords)
         ):
             self._check(node, NO_TIMEOUT)
 
