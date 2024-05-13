@@ -81,7 +81,7 @@ def _set_api_key_env_var(client):
     Gets the API key from the client and temporarily set it as an environment variable
     """
     api_key = client.api_key
-    original = os.environ.pop("OPENAI_API_KEY", None)
+    original = os.environ.get("OPENAI_API_KEY", None)
     os.environ["OPENAI_API_KEY"] = api_key
     yield
     if original is not None:
