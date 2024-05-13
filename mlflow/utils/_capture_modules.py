@@ -33,6 +33,11 @@ class _CaptureImportedModules:
     """
     A context manager to capture imported modules by temporarily applying a patch to
     `builtins.__import__` and `importlib.import_module`.
+
+    If `record_full_module` is set to `False`, it only captures top level modules
+    for inferring python package purpose.
+    If `record_full_module` is set to `True`, it captures full module name for all
+    imported modules and sub-modules. This is used in automatic model code path inference.
     """
 
     def __init__(self, record_full_module=False):
@@ -45,8 +50,7 @@ class _CaptureImportedModules:
         @functools.wraps(original)
         def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
             is_absolute_import = level == 0
-            if not self.record_full_module:
-                if is_absolute_import:
+            if not self.record_full_module and is_absolute_import:
                     self._record_imported_module(name)
 
             result = original(name, globals, locals, fromlist, level)

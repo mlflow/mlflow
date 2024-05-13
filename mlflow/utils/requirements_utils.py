@@ -345,7 +345,8 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                 error_file,
                 "--sys-path",
                 json.dumps(sys.path),
-            ] + record_full_module_args,
+                *record_full_module_args,
+            ],
             timeout_seconds=process_timeout,
             env=main_env,
         )

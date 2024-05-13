@@ -43,7 +43,6 @@ CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
-FLAVOR_NAME = "python_function"
 
 
 _logger = logging.getLogger(__name__)
@@ -401,7 +400,7 @@ def _save_model_with_class_artifacts_params(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     saved_code_subpath = _validate_infer_and_copy_code_paths(
-        code_paths, path, infer_code_paths, FLAVOR_NAME,
+        code_paths, path, infer_code_paths, mlflow.pyfunc.FLAVOR_NAME,
     )
     mlflow_model.code = saved_code_subpath
 

@@ -302,6 +302,8 @@ limitations, see the
     Please ensure that the custom python module code does not contain sensitive data such as
     credential token strings, otherwise they might be included in the automatic inferred code path files
     and be logged to MLflow artifact repository.
+
+.. Note:: Experimental: This parameter may change or be removed in a future release without warning.
 """
         ),
         "save_pretrained": (
