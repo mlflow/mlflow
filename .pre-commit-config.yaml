@@ -11,6 +11,10 @@ repos:
         files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
+  - repo: https://github.com/golangci/golangci-lint
+    rev: "v1.57.2"
+    hooks:
+      - id: golangci-lint
   - repo: local
     hooks:
       - id: ruff
@@ -90,11 +94,3 @@ repos:
         stages: [commit]
         require_serial: true
         pass_filenames: false
-
-      - id: golangci-lint
-        name: golangci-lint
-        entry: golangci-lint run
-        language: system
-        types: [go]
-        stages: [commit]
-        require_serial: true

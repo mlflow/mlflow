@@ -182,7 +182,6 @@ func (m MlflowService) SetTraceTag(input *protos.SetTraceTag) (*protos.SetTraceT
 // DeleteTraceTag implements MlflowService.
 func (m MlflowService) DeleteTraceTag(input *protos.DeleteTraceTag) (*protos.DeleteTraceTag_Response, *contract.MlflowError) {
 	return &protos.DeleteTraceTag_Response{}, &contract.MlflowError{ErrorCode: protos.ErrorCode_NOT_IMPLEMENTED}
-
 }
 
 // UpdateExperiment implements MlflowService.
