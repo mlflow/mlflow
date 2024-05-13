@@ -17,6 +17,7 @@ from mlflow.langchain.utils import (
     _MODEL_DATA_YAML_FILE_NAME,
     _MODEL_LOAD_KEY,
     _MODEL_TYPE_KEY,
+    _PICKLE_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
     _UNSUPPORTED_MODEL_ERROR_MESSAGE,
     _load_base_lcs,
@@ -29,6 +30,7 @@ from mlflow.langchain.utils import (
     base_lc_types,
     custom_type_to_loader_dict,
     lc_runnable_assign_types,
+    lc_runnable_binding_types,
     lc_runnable_branch_types,
     lc_runnable_with_steps_types,
     lc_runnables_types,
@@ -44,6 +46,8 @@ _BRANCHES_FOLDER_NAME = "branches"
 _MAPPER_FOLDER_NAME = "mapper"
 _RUNNABLE_BRANCHES_FILE_NAME = "branches.yaml"
 _DEFAULT_BRANCH_NAME = "default"
+_RUNNABLE_BINDING_BOUND_FOLDER_NAME = "bound"
+_RUNNABLE_BINDING_CONF_FILE_NAME = "binding_conf.yaml"
 
 
 def _load_model_from_config(path, model_config):
@@ -91,6 +95,8 @@ def _load_model_from_path(path: str, model_config=None):
         return _load_base_lcs(path, model_config)
     if model_load_fn == _CONFIG_LOAD_KEY:
         return _load_model_from_config(path, model_config)
+    if model_load_fn == _PICKLE_LOAD_KEY:
+        return _load_from_pickle(os.path.join(path, model_config.get(_MODEL_DATA_KEY)))
     raise MlflowException(f"Unsupported model load key {model_load_fn}")
 
 
@@ -230,6 +236,34 @@ def _load_runnable_assign(file_path: Union[Path, str]):
         )
     mapper = _load_runnable_with_steps(mapper_file, "RunnableParallel")
     return RunnableAssign(mapper)
+
+
+def _load_runnable_binding(file_path: Union[Path, str]):
+    """
+    Load runnable binding model from the path
+    """
+    from langchain.schema.runnable import RunnableBinding
+
+    load_path = Path(file_path)
+    if not load_path.exists() or not load_path.is_dir():
+        raise MlflowException(
+            f"File {load_path} must exist and must be a directory in order to load runnable."
+        )
+
+    model_conf = _load_from_yaml(load_path / _RUNNABLE_BINDING_CONF_FILE_NAME)
+    for field, value in model_conf.items():
+        if value is None or isinstance(value, (str, int, float, bool)):
+            model_conf[field] = value
+        # value is dictionary
+        elif field == "bound":
+            model_conf[field] = _load_runnables(
+                load_path / _RUNNABLE_BINDING_BOUND_FOLDER_NAME, model_conf[field]
+            )
+        else:
+            model_conf[field] = _load_from_pickle(
+                os.path.join(load_path, model_conf[field][_MODEL_DATA_KEY])
+            )
+    return RunnableBinding(**model_conf)
 
 
 def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
@@ -395,7 +429,33 @@ def _save_runnable_assign(model, file_path, loader_fn=None, persist_dir=None):
     _save_runnable_with_steps(model.mapper, mapper_path, loader_fn, persist_dir)
 
 
-def _save_picklable_runnable(model, path):
+def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
+    save_path = Path(file_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+    model_config = {}
+
+    # save runnableBinding bound into a folder
+    bound_path = save_path / _RUNNABLE_BINDING_BOUND_FOLDER_NAME
+    bound_path.mkdir(parents=True, exist_ok=True)
+    model_config["bound"] = _save_runnables(model.bound, bound_path, loader_fn, persist_dir)
+
+    # save other fields
+    for field, value in model.dict().items():
+        if value is None or isinstance(value, (str, int, float, bool)):
+            model_config[field] = value
+        elif field != "bound":
+            model_config[field] = {
+                _MODEL_LOAD_KEY: _PICKLE_LOAD_KEY,
+                _MODEL_DATA_KEY: f"{field}.pkl",
+            }
+            _pickle_object(value, os.path.join(save_path, f"{field}.pkl"))
+
+    # save fields configs
+    with save_path.joinpath(_RUNNABLE_BINDING_CONF_FILE_NAME).open("w") as f:
+        yaml.dump(model_config, f, default_flow_style=False)
+
+
+def _pickle_object(model, path: str):
     if not path.endswith(".pkl"):
         raise ValueError(f"File path must end with .pkl, got {path}.")
     with open(path, "wb") as f:
@@ -403,7 +463,10 @@ def _save_picklable_runnable(model, path):
 
 
 def _save_runnables(model, path, loader_fn=None, persist_dir=None):
-    model_data_kwargs = {_MODEL_LOAD_KEY: _RUNNABLE_LOAD_KEY}
+    model_data_kwargs = {
+        _MODEL_LOAD_KEY: _RUNNABLE_LOAD_KEY,
+        _MODEL_TYPE_KEY: model.__class__.__name__,
+    }
     if isinstance(model, lc_runnable_with_steps_types()):
         model_data_path = _MODEL_DATA_FOLDER_NAME
         _save_runnable_with_steps(
@@ -411,13 +474,16 @@ def _save_runnables(model, path, loader_fn=None, persist_dir=None):
         )
     elif isinstance(model, picklable_runnable_types()):
         model_data_path = _MODEL_DATA_PKL_FILE_NAME
-        _save_picklable_runnable(model, os.path.join(path, model_data_path))
+        _pickle_object(model, os.path.join(path, model_data_path))
     elif isinstance(model, lc_runnable_branch_types()):
         model_data_path = _MODEL_DATA_FOLDER_NAME
         _save_runnable_branch(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
     elif isinstance(model, lc_runnable_assign_types()):
         model_data_path = _MODEL_DATA_FOLDER_NAME
         _save_runnable_assign(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
+    elif isinstance(model, lc_runnable_binding_types()):
+        model_data_path = _MODEL_DATA_FOLDER_NAME
+        _save_runnable_binding(model, os.path.join(path, model_data_path), loader_fn, persist_dir)
     else:
         raise MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
@@ -440,6 +506,8 @@ def _load_runnables(path, conf):
         return _load_runnable_branch(os.path.join(path, model_data))
     if model_type in (x.__name__ for x in lc_runnable_assign_types()):
         return _load_runnable_assign(os.path.join(path, model_data))
+    if model_type in (x.__name__ for x in lc_runnable_binding_types()):
+        return _load_runnable_binding(os.path.join(path, model_data))
     raise MlflowException.invalid_parameter_value(
         _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=model_type)
     )
