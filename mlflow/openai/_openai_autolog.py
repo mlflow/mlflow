@@ -62,19 +62,6 @@ def _convert_data_to_dict(data, key):
     raise MlflowException(f"Unsupported data type: {type(data).__name__}")
 
 
-def _combine_input_and_output(input, output):
-    """
-    Combine input and output into a single dictionary
-    """
-    result = {}
-    if input:
-        result.update(_convert_data_to_dict(input, "input"))
-    if output:
-        output = [output.model_dump(mode="json")]
-        result.update(_convert_data_to_dict(output, "output"))
-    return result
-
-
 @contextmanager
 def _set_api_key_env_var(client):
     """
