@@ -43,7 +43,7 @@ func (p *parser) advance() lexer.Token {
 
 func (p *parser) parseIdentifier() (Identifier, error) {
 	if p.hasTokens() && p.currentTokenKind() != lexer.IDENTIFIER {
-		return nil, fmt.Errorf("Expected identifier, got %s", p.printCurrentToken())
+		return Identifier{}, fmt.Errorf("Expected identifier, got %s", p.printCurrentToken())
 	}
 
 	identToken := p.advance()
@@ -53,16 +53,16 @@ func (p *parser) parseIdentifier() (Identifier, error) {
 		switch p.currentTokenKind() {
 		case lexer.IDENTIFIER:
 			column := p.advance().Value
-			return LongIdentifierExpr{Table: identToken.Value, Column: column}, nil
+			return Identifier{Identifier: identToken.Value, Key: column}, nil
 		case lexer.STRING:
 			column := p.advance().Value
 			column = column[1 : len(column)-1] // Remove quotes
-			return LongIdentifierExpr{Table: identToken.Value, Column: column}, nil
+			return Identifier{Identifier: identToken.Value, Key: column}, nil
 		default:
-			return nil, fmt.Errorf("Expected IDENTIFIER or STRING, got %s", p.printCurrentToken())
+			return Identifier{}, fmt.Errorf("Expected IDENTIFIER or STRING, got %s", p.printCurrentToken())
 		}
 	} else {
-		return IdentifierExpr{Value: identToken.Value}, nil
+		return Identifier{Key: identToken.Value}, nil
 	}
 }
 
@@ -106,7 +106,7 @@ func (p *parser) parseValue() (Value, error) {
 	}
 }
 
-func (p *parser) parseInSetExpr(ident Identifier) (Expr, error) {
+func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 	if p.currentTokenKind() != lexer.OPEN_PAREN {
 		return nil, fmt.Errorf("Expected '(', got %s", p.printCurrentToken())
 	}
@@ -135,10 +135,10 @@ func (p *parser) parseInSetExpr(ident Identifier) (Expr, error) {
 
 	p.advance() // Consume the CLOSE_PAREN
 
-	return InSetExpr{Identifier: ident, Set: set}, nil
+	return &CompareExpr{Left: ident, Operator: IN, Right: StringListExpr{Values: set}}, nil
 }
 
-func (p *parser) parseExpression() (Expr, error) {
+func (p *parser) parseExpression() (*CompareExpr, error) {
 	ident, err := p.parseIdentifier()
 	if err != nil {
 		return nil, err
@@ -158,12 +158,8 @@ func (p *parser) parseExpression() (Expr, error) {
 				return nil, err
 			}
 
-			switch e := expr.(type) {
-			case InSetExpr:
-				return NotInSetExpr{Identifier: e.Identifier, Set: e.Set}, nil
-			default:
-				return nil, fmt.Errorf("Expected InSetExpr, got %T", expr)
-			}
+			expr.Operator = NOT_IN
+			return expr, nil
 		}
 
 	} else {
@@ -177,12 +173,12 @@ func (p *parser) parseExpression() (Expr, error) {
 			return nil, err
 		}
 
-		return BinaryExpr{Left: ident, Operator: operator, Right: value}, nil
+		return &CompareExpr{Left: ident, Operator: operator, Right: value}, nil
 	}
 }
 
 func (p *parser) parse() (AndExpr, error) {
-	exprs := make([]Expr, 0)
+	exprs := make([]*CompareExpr, 0)
 	leftExpr, err := p.parseExpression()
 	if err != nil {
 		return AndExpr{}, err

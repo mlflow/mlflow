@@ -20,35 +20,25 @@ type StringExpr struct {
 
 func (n StringExpr) value() {}
 
+type StringListExpr struct {
+	Values []string
+}
+
+func (n StringListExpr) value() {}
+
 //-----------------------
 // Identifier Expressions
 // ----------------------
 
-type Identifier interface {
-	identifier()
+// indentifier.key expression, like metric.foo
+type Identifier struct {
+	Identifier string
+	Key        string
 }
-
-type IdentifierExpr struct {
-	Value string
-}
-
-func (n IdentifierExpr) identifier() {}
-
-// foo.bar expression
-type LongIdentifierExpr struct {
-	Table  string
-	Column string
-}
-
-func (n LongIdentifierExpr) identifier() {}
 
 // --------------------
-// Operator Expressions
+// Comparison Expression
 // --------------------
-
-type Expr interface {
-	expr()
-}
 
 type OperatorKind int
 
@@ -61,34 +51,18 @@ const (
 	GREATER_EQUALS
 	LIKE
 	ILIKE
+	IN
+	NOT_IN
 )
 
 // a operator b
-type BinaryExpr struct {
+type CompareExpr struct {
 	Left     Identifier
 	Operator OperatorKind
 	Right    Value
 }
 
-func (n BinaryExpr) expr() {}
-
-// a IN (b, c, d)
-type InSetExpr struct {
-	Identifier Identifier
-	Set        []string
-}
-
-// a NOT IN (b, c, d)
-type NotInSetExpr struct {
-	Identifier Identifier
-	Set        []string
-}
-
-func (n NotInSetExpr) expr() {}
-
-func (n InSetExpr) expr() {}
-
 // AND
 type AndExpr struct {
-	Exprs []Expr
+	Exprs []*CompareExpr
 }
