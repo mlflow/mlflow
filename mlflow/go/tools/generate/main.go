@@ -14,8 +14,7 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
-
-	"github.com/mlflow/mlflow/mlflow/go/pkg/server"
+	"github.com/mlflow/mlflow/mlflow/go/tools/generate/discovery"
 )
 
 func mkImportSpec(value string) *ast.ImportSpec {
@@ -55,12 +54,12 @@ func mkField(typ ast.Expr) *ast.Field {
 	}
 }
 
-func mkMethodInfoInputPointerType(methodInfo server.MethodInfo) *ast.StarExpr {
+func mkMethodInfoInputPointerType(methodInfo discovery.MethodInfo) *ast.StarExpr {
 	return mkStarExpr(mkSelectorExpr(methodInfo.PackageName, methodInfo.Input))
 }
 
 // Generate a method declaration on an service interface
-func mkServiceInterfaceMethod(methodInfo server.MethodInfo) *ast.Field {
+func mkServiceInterfaceMethod(methodInfo discovery.MethodInfo) *ast.Field {
 	return &ast.Field{
 		Names: []*ast.Ident{ast.NewIdent(strcase.ToCamel(methodInfo.Name))},
 		Type: &ast.FuncType{
@@ -80,9 +79,9 @@ func mkServiceInterfaceMethod(methodInfo server.MethodInfo) *ast.Field {
 }
 
 // Generate a service interface declaration
-func mkServiceInterfaceNode(serviceInfo server.ServiceInfo) *ast.GenDecl {
+func mkServiceInterfaceNode(serviceInfo discovery.ServiceInfo) *ast.GenDecl {
 	// We add one method to validate any of the input structs
-	methods := make([]*ast.Field, len(serviceInfo.Methods)+1)
+	methods := make([]*ast.Field, 1, len(serviceInfo.Methods)+1)
 
 	methods[0] = &ast.Field{
 		Names: []*ast.Ident{ast.NewIdent("Validate")},
@@ -100,8 +99,11 @@ func mkServiceInterfaceNode(serviceInfo server.ServiceInfo) *ast.GenDecl {
 		},
 	}
 
-	for idx := range len(serviceInfo.Methods) {
-		methods[idx+1] = mkServiceInterfaceMethod(serviceInfo.Methods[idx])
+	for _, method := range serviceInfo.Methods {
+		endpointName := fmt.Sprintf("%s_%s", serviceInfo.Name, method.Name)
+		if _, ok := ImplementedEndpoints[endpointName]; ok {
+			methods = append(methods, mkServiceInterfaceMethod(method))
+		}
 	}
 
 	// Create an interface declaration
@@ -211,7 +213,7 @@ func mkKeyValueExpr(key string, value ast.Expr) *ast.KeyValueExpr {
 	}
 }
 
-func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
+func mkAppRoute(method discovery.MethodInfo, endpoint discovery.Endpoint) ast.Stmt {
 	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"/api/2.0%s"`, endpoint.GetFiberPath())}
 
 	// input := &protos.SearchExperiments
@@ -330,12 +332,16 @@ func mkAppRoute(method server.MethodInfo, endpoint server.Endpoint) ast.Stmt {
 	}
 }
 
-func mkRouteRegistrationFunction(serviceInfo server.ServiceInfo) *ast.FuncDecl {
+func mkRouteRegistrationFunction(serviceInfo discovery.ServiceInfo) *ast.FuncDecl {
 	routes := make([]ast.Stmt, 0, len(serviceInfo.Methods))
 
 	for _, method := range serviceInfo.Methods {
 		for _, endpoint := range method.Endpoints {
-			routes = append(routes, mkAppRoute(method, endpoint))
+			endpointName := fmt.Sprintf("%s_%s", serviceInfo.Name, method.Name)
+			if _, ok := ImplementedEndpoints[endpointName]; ok {
+				routes = append(routes, mkAppRoute(method, endpoint))
+			}
+
 		}
 	}
 
@@ -359,7 +365,7 @@ func mkRouteRegistrationFunction(serviceInfo server.ServiceInfo) *ast.FuncDecl {
 func generateServices(pkgFolder string) error {
 	decls := []ast.Decl{importStatements}
 
-	services := server.GetServiceInfos()
+	services := discovery.GetServiceInfos()
 	for _, serviceInfo := range services {
 		decls = append(decls, mkServiceInterfaceNode(serviceInfo))
 	}
@@ -416,7 +422,7 @@ func addQueryAnnotation(generatedGoFile string) error {
 			hasQuery := strings.Contains(tagValue, "query:")
 			hasValidate := strings.Contains(tagValue, "validate:")
 			validationKey := fmt.Sprintf("%s_%s", ts.Name, field.Names[0])
-			validationRule, needsValidation := validations[validationKey]
+			validationRule, needsValidation := Validations[validationKey]
 
 			if hasQuery && (!needsValidation || needsValidation && hasValidate) {
 				continue
