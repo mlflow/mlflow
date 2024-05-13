@@ -130,7 +130,7 @@ def test_build_image_and_serve(flavor, request):
     )
 
     # Wait for the container to start
-    iteration_limit = 240 if flavor in ["h2o", "spark"] else 30
+    iteration_limit = 480 if flavor in ["h2o", "spark"] else 30
     for _ in range(iteration_limit):
         try:
             response = requests.get(url=f"http://localhost:{port}/ping")
