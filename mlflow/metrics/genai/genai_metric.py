@@ -180,7 +180,7 @@ def _get_aggregate_results(scores, aggregations):
 
 
 @experimental
-def make_custom_genai_metric(
+def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: Optional[str] = None,
     model: Optional[str] = _get_default_model(),
@@ -228,9 +228,9 @@ def make_custom_genai_metric(
         :test:
         :caption: Example for creating a genai metric
 
-        from mlflow.metrics.genai import make_custom_genai_metric
+        from mlflow.metrics.genai import make_genai_metric_from_prompt
 
-        metric = make_custom_genai_metric(
+        metric = make_genai_metric_from_prompt(
             name="ease_of_understanding",
             judge_prompt=(
                 "You must evaluate the output of a bot based on how easy it is to "

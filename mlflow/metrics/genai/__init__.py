@@ -1,5 +1,5 @@
 from mlflow.metrics.genai.base import EvaluationExample
-from mlflow.metrics.genai.genai_metric import make_custom_genai_metric, make_genai_metric
+from mlflow.metrics.genai.genai_metric import make_genai_metric, make_genai_metric_from_prompt
 from mlflow.metrics.genai.metric_definitions import (
     answer_correctness,
     answer_relevance,
@@ -11,7 +11,7 @@ from mlflow.metrics.genai.metric_definitions import (
 __all__ = [
     "EvaluationExample",
     "make_genai_metric",
-    "make_custom_genai_metric",
+    "make_genai_metric_from_prompt",
     "answer_similarity",
     "answer_correctness",
     "faithfulness",
