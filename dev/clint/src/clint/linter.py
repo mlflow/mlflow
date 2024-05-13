@@ -94,6 +94,10 @@ def _is_none(node: ast.AST) -> bool:
     return isinstance(node, ast.Constant) and node.value is None
 
 
+def _looks_like_future(name: str) -> bool:
+    return "future" in name or name in ("f", "fut")
+
+
 class Linter(ast.NodeVisitor):
     def __init__(self, path: str, ignore: dict[str, set[int]]):
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
@@ -133,8 +137,9 @@ class Linter(ast.NodeVisitor):
     def _no_timeout(self, node: ast.Call) -> None:
         if (
             isinstance(node.func, ast.Attribute)
-            and node.func.attr == "result"
             and isinstance(node.func.value, ast.Name)
+            and _looks_like_future(node.func.value.id)
+            and node.func.attr == "result"
             and not any(kw.arg == "timeout" and not _is_none(kw.value) for kw in node.keywords)
         ):
             self._check(node, NO_TIMEOUT)
