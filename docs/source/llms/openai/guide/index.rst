@@ -122,8 +122,7 @@ OpenAI Autologging
 ------------------
 
 .. attention::
-    Autologging is only supported for OpenAI >= 1.0. If you are using an older version,
-    enabling autologging will raise a :class:`~mlflow.exceptions.MlflowException`.
+    Autologging is only supported for OpenAI >= 1.17.
 
 OpenAI autologging integration allows for seamless logging of OpenAI models within MLflow.
 MLflow will automatically log a model upon calling the OpenAI API.
