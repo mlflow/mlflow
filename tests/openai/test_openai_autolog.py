@@ -19,7 +19,7 @@ def test_chat_completions_autolog_artifacts(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     messages = [{"role": "user", "content": "test"}]
     with mlflow.start_run() as run:
-        client.chat.completions.session_id = "test_session_id"
+        client.chat.completions._mlflow_session_id = "test_session_id"
         client.chat.completions.create(
             messages=messages,
             model="gpt-3.5-turbo",
@@ -39,7 +39,7 @@ def test_chat_completions_autolog_streaming(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     messages = [{"role": "user", "content": "test"}]
     with mlflow.start_run() as run:
-        client.chat.completions.session_id = "test_session_id"
+        client.chat.completions._mlflow_session_id = "test_session_id"
         stream = client.chat.completions.create(
             messages=messages,
             model="gpt-3.5-turbo",
@@ -94,7 +94,7 @@ def test_loaded_chat_completions_autolog(client, monkeypatch):
 def test_completions_autolog_artifacts(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     with mlflow.start_run() as run:
-        client.completions.session_id = "test_session_id"
+        client.completions._mlflow_session_id = "test_session_id"
         client.completions.create(
             prompt="test",
             model="gpt-3.5-turbo",
@@ -113,7 +113,7 @@ def test_completions_autolog_artifacts(client, monkeypatch):
 def test_completions_autolog_streaming(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     with mlflow.start_run() as run:
-        client.completions.session_id = "test_session_id"
+        client.completions._mlflow_session_id = "test_session_id"
         stream = client.completions.create(
             prompt="test",
             model="gpt-3.5-turbo",
@@ -167,7 +167,7 @@ def test_loaded_completions_autolog(client, monkeypatch):
 def test_embeddings_autolog_artifacts(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     with mlflow.start_run() as run:
-        client.embeddings.session_id = "test_session_id"
+        client.embeddings._mlflow_session_id = "test_session_id"
         client.embeddings.create(
             input="test",
             model="text-embedding-ada-002",
