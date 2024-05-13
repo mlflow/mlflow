@@ -34,10 +34,7 @@ def sklearn_knn_model(iris_data):
 
 
 def _walk_dir(path):
-    for sub_path in path.glob('**/*'):
-        if sub_path.is_file():
-            rel_path = sub_path.relative_to(path)
-            yield str(rel_path)
+    return {str(p.relative_to(path)) for p in path.rglob("*") if p.is_file()}
 
 
 def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path, monkeypatch):
@@ -57,7 +54,7 @@ def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, m
 
     reloaded_model_config = Model.load(model_path / "MLmodel")
 
-    assert set(_walk_dir(model_path / "code")) == {
+    assert _walk_dir(model_path / "code") == {
         'custom_model/loader.py',
         'custom_model/mod1/__init__.py',
         'custom_model/mod1/mod2/__init__.py',
@@ -81,47 +78,35 @@ def get_model_class():
     from custom_model.mod1 import mod2
 
     class CustomSklearnModel(mlflow.pyfunc.PythonModel):
-        def __init__(self, predict_fn):
-            self.predict_fn = predict_fn
+        def __init__(self):
             self.mod2 = mod2
 
-        def load_context(self, context):
-            super().load_context(context)
-
-            self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
-
         def predict(self, context, model_input, params=None):
-            return self.predict_fn(self.model, model_input)
+            return [x + 10 for x in model_input]
 
     return CustomSklearnModel
 
 
-def test_python_model_save_load(sklearn_knn_model, iris_data, tmp_path, monkeypatch):
+def test_python_model_save_load(tmp_path, monkeypatch):
     monkeypatch.chdir(os.path.dirname(__file__))
-    sklearn_model_path = tmp_path / "sklearn_model"
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     model_class = get_model_class()
-
-    def test_predict(sk_model, model_input):
-        return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = tmp_path / "pyfunc_model"
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
-        artifacts={"sk_model": str(sklearn_model_path)},
-        python_model=model_class(test_predict),
+        python_model=model_class(),
         infer_code_paths=True,
     )
 
-    assert set(_walk_dir(pyfunc_model_path / "code")) == {
+    assert _walk_dir(pyfunc_model_path / "code") == {
         'custom_model/mod1/__init__.py',
         'custom_model/mod1/mod2/__init__.py',
         'custom_model/mod1/mod4.py'
     }
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
     np.testing.assert_array_equal(
-        loaded_pyfunc_model.predict(iris_data[0]),
-        test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
+        loaded_pyfunc_model.predict([1, 2, 3]),
+        [11, 12, 13],
     )
