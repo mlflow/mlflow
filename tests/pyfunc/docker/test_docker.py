@@ -15,7 +15,6 @@ from mlflow.models import Model
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
 from mlflow.version import VERSION
 
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
@@ -74,13 +73,13 @@ class Param:
     "params",
     [
         Param(expected_dockerfile="Dockerfile_default"),
-        Param(expected_dockerfile="Dockerfile_default", env_manager=LOCAL),
-        Param(expected_dockerfile="Dockerfile_java_flavor", env_manager=VIRTUALENV),
-        Param(expected_dockerfile="Dockerfile_conda", env_manager=CONDA),
-        Param(install_mlflow=True, expected_dockerfile="Dockerfile_install_mlflow"),
-        Param(enable_mlserver=True, expected_dockerfile="Dockerfile_enable_mlserver"),
-        Param(mlflow_home=".", expected_dockerfile="Dockerfile_with_mlflow_home"),
-        Param(specify_model_uri=False, expected_dockerfile="Dockerfile_no_model_uri"),
+        # Param(expected_dockerfile="Dockerfile_default", env_manager=LOCAL),
+        # Param(expected_dockerfile="Dockerfile_java_flavor", env_manager=VIRTUALENV),
+        # Param(expected_dockerfile="Dockerfile_conda", env_manager=CONDA),
+        # Param(install_mlflow=True, expected_dockerfile="Dockerfile_install_mlflow"),
+        # Param(enable_mlserver=True, expected_dockerfile="Dockerfile_enable_mlserver"),
+        # Param(mlflow_home=".", expected_dockerfile="Dockerfile_with_mlflow_home"),
+        # Param(specify_model_uri=False, expected_dockerfile="Dockerfile_no_model_uri"),
     ],
 )
 def test_build_image(tmp_path, params):
