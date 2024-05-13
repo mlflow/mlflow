@@ -40,7 +40,6 @@ def _upload_chunks_with_retry(
     Returns:
         List of results of the upload_fn calls, in order of chunk index.
     """
-    futures = {thread_pool.submit(upload_fn, i): i for i in range(num_chunks)}
     results = {}
     timeout = MLFLOW_MULTIPART_CHUNK_UPLOAD_TIMEOUT.get() if timeout is None else timeout
     max_retries = (
@@ -48,9 +47,11 @@ def _upload_chunks_with_retry(
     )
     max_attempts = max_retries + 1
     chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+
     with ArtifactProgressBar.chunks(
         os.path.getsize(filename), f"Uploading {filename}", chunk_size
     ) as pbar:
+        futures = {thread_pool.submit(upload_fn, i): i for i in range(num_chunks)}
         for attempt in range(max_attempts):
             timed_out_chunks = []
             errors = {}
