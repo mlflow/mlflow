@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"path/filepath"
 	"time"
 
@@ -48,6 +50,21 @@ func launchServer(ctx context.Context, cfg config.Config) error {
 			logrus.Errorf("Failed to gracefully shutdown MLflow experimental Go server: %v", err)
 		}
 	}()
+
+	// Wait until the Python server is ready
+	for {
+		dialer := &net.Dialer{}
+		conn, err := dialer.DialContext(ctx, "tcp", cfg.PythonAddress)
+		if err == nil {
+			conn.Close()
+			break
+		}
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
+		time.Sleep(1 * time.Second)
+	}
+	logrus.Debugf("Python server is ready")
 
 	return app.Listen(cfg.Address)
 }
