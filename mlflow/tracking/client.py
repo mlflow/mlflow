@@ -390,6 +390,7 @@ class MlflowClient:
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
+    @experimental
     def delete_traces(
         self,
         experiment_id: str,
@@ -420,6 +421,7 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
+    @experimental
     def get_trace(self, request_id: str) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
@@ -443,6 +445,7 @@ class MlflowClient:
         get_display_handler().display_traces([trace])
         return trace
 
+    @experimental
     def search_traces(
         self,
         experiment_ids: List[str],
@@ -594,6 +597,7 @@ class MlflowClient:
                 raise
             return NoOpSpan()
 
+    @experimental
     def end_trace(
         self,
         request_id: str,
@@ -638,6 +642,7 @@ class MlflowClient:
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
 
+    @experimental
     def start_span(
         self,
         name: str,
@@ -789,6 +794,7 @@ class MlflowClient:
                 raise
             return NoOpSpan()
 
+    @experimental
     def end_span(
         self,
         request_id: str,
@@ -878,6 +884,7 @@ class MlflowClient:
             tags=trace_info.tags or {},
         )
 
+    @experimental
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -919,6 +926,7 @@ class MlflowClient:
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
 
+    @experimental
     def delete_trace_tag(self, request_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.

@@ -32,6 +32,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ TRACE_BUFFER = TTLCache(
 )
 
 
+@experimental
 def trace(
     func: Optional[Callable] = None,
     name: Optional[str] = None,
@@ -127,6 +129,7 @@ def trace(
     return decorator(func) if func else decorator
 
 
+@experimental
 @contextlib.contextmanager
 def start_span(
     name: str = "span",
@@ -214,6 +217,7 @@ def start_span(
         mlflow_span.end()
 
 
+@experimental
 def get_trace(request_id: str) -> Trace:
     """
     Get a trace by the given request ID.
@@ -224,6 +228,7 @@ def get_trace(request_id: str) -> Trace:
     return TRACE_BUFFER.get(request_id, None)
 
 
+@experimental
 def search_traces(
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
@@ -327,6 +332,7 @@ def search_traces(
     return traces_df
 
 
+@experimental
 def get_current_active_span():
     """
     Get the current active span in the global context.
