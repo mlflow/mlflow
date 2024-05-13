@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/sirupsen/logrus"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
@@ -27,6 +30,13 @@ func launchServer(ctx context.Context, cfg config.Config) error {
 		DisableStartupMessage: true,
 		// ErrorHandler: func(c *fiber.Ctx, err error) error {},
 	})
+
+	app.Use(compress.New())
+	app.Use(recover.New(recover.Config{EnableStackTrace: true}))
+	app.Use(logger.New(logger.Config{
+		Format: "${status} - ${latency} ${method} ${path}\n",
+		Output: logrus.StandardLogger().Writer(),
+	}))
 
 	mlflowService, err := NewMlflowService(cfg.StoreUrl)
 	if err != nil {
