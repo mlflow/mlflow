@@ -79,6 +79,11 @@ MLFLOW_CLASS_NAME = Rule(
     "mlflow-class-name",
     "Should use `Mlflow` in class name, not `MLflow` or `MLFlow`.",
 )
+NO_TIMEOUT = Rule(
+    "Z0004",
+    "no-timeout",
+    "Blocking future operations (e.g., `Future.result()`) must have a timeout to prevent hangs.",
+)
 
 
 class Linter(ast.NodeVisitor):
@@ -117,6 +122,15 @@ class Linter(ast.NodeVisitor):
         if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(node, MLFLOW_CLASS_NAME)
 
+    def _no_timeout(self, node: ast.Call) -> None:
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "result"
+            and isinstance(node.func.value, ast.Name)
+            and not any(kw.arg == "timeout" for kw in node.keywords)
+        ):
+            self._check(node, NO_TIMEOUT)
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
@@ -146,6 +160,10 @@ class Linter(ast.NodeVisitor):
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
             self._check(node, LAZY_BUILTIN_IMPORT)
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        self._no_timeout(node)
         self.generic_visit(node)
 
 
