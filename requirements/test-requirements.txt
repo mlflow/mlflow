@@ -13,6 +13,8 @@ azure-identity>=1.6.1
 pillow
 plotly
 kaleido
+testcontainers
+psycopg2-binary
 # Required by tuning tests
 hyperopt
 # Required by recipes tests

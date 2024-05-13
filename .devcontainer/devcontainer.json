@@ -11,7 +11,8 @@
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.22",
       "golangciLintVersion": "1.57.2"
-    }
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   "customizations": {
     "vscode": {
