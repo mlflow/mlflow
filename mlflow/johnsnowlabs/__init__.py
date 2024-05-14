@@ -57,7 +57,10 @@ import yaml
 
 import mlflow
 from mlflow import mleap, pyfunc
-from mlflow.environment_variables import MLFLOW_DFS_TMP
+from mlflow.environment_variables import (
+    MLFLOW_DFS_TMP,
+    MLFLOW_JOHNSNOWLABS_MODEL_REUSE_SPARK_SESSION,
+)
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
@@ -762,7 +765,6 @@ def _load_pyfunc(path, spark=None):
     """
     return _PyFuncModelWrapper(
         _load_model(model_uri=path),
-        spark or _get_or_create_sparksession(path),
     )
 
 
@@ -787,6 +789,10 @@ def _get_or_create_sparksession(model_path=None):
     _validate_env_vars()
 
     spark = _get_active_spark_session()
+    if not MLFLOW_JOHNSNOWLABS_MODEL_REUSE_SPARK_SESSION.get():
+        spark.stop()
+        spark = None
+
     if spark is None:
         spark_conf = {}
         spark_conf["spark.python.worker.reuse"] = "true"
@@ -862,10 +868,8 @@ class _PyFuncModelWrapper:
     def __init__(
         self,
         spark_model,
-        spark=None,
     ):
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
-        self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
