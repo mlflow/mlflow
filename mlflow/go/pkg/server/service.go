@@ -19,7 +19,7 @@ import (
 
 type MlflowService struct {
 	config    *config.Config
-	Store     store.MlflowStore
+	store     store.MlflowStore
 	validator *validator.Validate
 }
 
@@ -63,7 +63,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 		input.ArtifactLocation = &artifactLocation
 	}
 
-	experimentId, err := m.Store.CreateExperiment(input)
+	experimentId, err := m.store.CreateExperiment(input)
 	if err != nil {
 		return nil, &contract.MlflowError{
 			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,
@@ -88,7 +88,7 @@ func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetEx
 		}
 	}
 
-	experiment, err := m.Store.GetExperiment(int32(id))
+	experiment, err := m.store.GetExperiment(int32(id))
 	if err != nil {
 		return nil, &contract.MlflowError{
 			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,
@@ -117,6 +117,6 @@ func NewMlflowService(config *config.Config) (contract.MlflowService, error) {
 	return MlflowService{
 		config:    config,
 		validator: validator,
-		Store:     store,
+		store:     store,
 	}, nil
 }

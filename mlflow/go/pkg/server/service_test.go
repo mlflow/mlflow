@@ -1,10 +1,9 @@
-package server_test
+package server
 
 import (
 	"testing"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
-	"github.com/mlflow/mlflow/mlflow/go/pkg/server"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 )
 
@@ -36,8 +35,8 @@ func TestRelativeArtifactLocation(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			var store store.MlflowStore = FakeStore{}
-			service := server.MlflowService{
-				Store: store,
+			service := MlflowService{
+				store: store,
 			}
 			var input protos.CreateExperiment = protos.CreateExperiment{
 				ArtifactLocation: toPtr(scenario.input),
