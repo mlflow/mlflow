@@ -3,6 +3,7 @@ package server
 import (
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -21,7 +22,7 @@ func NewValidator() *validator.Validate {
 	})
 
 	// Verify that the input string, if present, is a Url without fragment or query parameters
-	validate.RegisterValidation("uriWithoutFragmentsOrParams", func(fl validator.FieldLevel) bool {
+	validate.RegisterValidation("uriWithoutFragmentsOrParamsOrDotDotInQuery", func(fl validator.FieldLevel) bool {
 		valueStr := fl.Field().String()
 		if valueStr == "" {
 			return true
@@ -32,7 +33,7 @@ func NewValidator() *validator.Validate {
 			return false
 		}
 
-		return u.Fragment == "" && u.RawQuery == ""
+		return u.Fragment == "" && u.RawQuery == "" && !strings.Contains(u.RawQuery, "..")
 	})
 
 	return validate

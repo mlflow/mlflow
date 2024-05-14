@@ -48,7 +48,7 @@ func TestStringAsPositiveInteger(t *testing.T) {
 }
 
 type UrlWithoutFragmentsOrParams struct {
-	Value string `validate:"uriWithoutFragmentsOrParams"`
+	Value string `validate:"uriWithoutFragmentsOrParamsOrDotDotInQuery"`
 }
 
 func TestUriWithoutFragmentsOrParams(t *testing.T) {
@@ -58,6 +58,7 @@ func TestUriWithoutFragmentsOrParams(t *testing.T) {
 		{name: "url with fragment", input: UrlWithoutFragmentsOrParams{Value: "http://example.com#fragment"}, shouldTrigger: true},
 		{name: "url with query parameters", input: UrlWithoutFragmentsOrParams{Value: "http://example.com?query=param"}, shouldTrigger: true},
 		{name: "unparsable url", input: UrlWithoutFragmentsOrParams{Value: ":invalid-url"}, shouldTrigger: true},
+		{name: ".. in query", input: UrlWithoutFragmentsOrParams{Value: "http://example.com?query=./.."}, shouldTrigger: true},
 	}
 
 	runScenarios(t, scenarios)

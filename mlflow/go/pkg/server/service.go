@@ -2,7 +2,10 @@ package server
 
 import (
 	"fmt"
+	"net/url"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 
@@ -35,6 +38,27 @@ func (m MlflowService) Validate(input interface{}) []string {
 
 // CreateExperiment implements MlflowService.
 func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *contract.MlflowError) {
+	artifactLocation := strings.TrimRight(*input.ArtifactLocation, "/")
+	if artifactLocation != "" {
+		// We don't check the validation here as this was already covered in the validator.
+		u, _ := url.Parse(artifactLocation)
+		switch u.Scheme {
+		case "s3":
+			artifactLocation = strings.TrimRight(u.String(), "/")
+		default:
+			p, err := filepath.Abs(u.Path)
+			if err != nil {
+				return nil, &contract.MlflowError{
+					ErrorCode: protos.ErrorCode_INVALID_PARAMETER_VALUE,
+					Message:   "error getting absolute path",
+				}
+			}
+			u.Path = p
+			artifactLocation = u.String()
+		}
+	}
+	input.ArtifactLocation = &artifactLocation
+
 	experimentId, err := m.store.CreateExperiment(input)
 	if err != nil {
 		return nil, &contract.MlflowError{
