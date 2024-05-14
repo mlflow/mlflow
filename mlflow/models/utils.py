@@ -1463,7 +1463,7 @@ def _validate_model_code_from_notebook(code):
                 raise ValueError(error_message)
         # Prefix any line containing MAGIC commands with a comment. When there is better support
         # for the Databricks workspace export API, we can get rid of this.
-        if line.startswith(b"%"):
+        if line[:1] == b"%":
             output_code_list.append(b"# MAGIC " + line)
         else:
             output_code_list.append(line)
