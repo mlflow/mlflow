@@ -51,7 +51,15 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        request_id = _get_flask_request().headers.get(_HEADER_REQUEST_ID_KEY)
+        # If this is invoked outside of a flask request, it raises error about
+        # outside of request context. We should avoid this by skipping the trace processing
+        try:
+            request_id = _get_flask_request().headers.get(_HEADER_REQUEST_ID_KEY)
+        except Exception as e:
+            _logger.debug(
+                f"Failed to get request ID from the request headers: {e}. Skipping trace processing"
+            )
+            request_id = None
         if not request_id:
             _logger.debug("Request ID not found in the request headers. Skipping trace processing.")
             return
