@@ -37,8 +37,9 @@ def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs)
 
 def get_flavor_backend(model_uri, **kwargs):
     if model_uri:
-        with TempDir() as tmp:
-            if ModelsArtifactRepository.is_models_uri(model_uri) and not is_databricks_unity_catalog_uri(model_uri):
+        with (TempDir() as tmp):
+            from mlflow import get_registry_uri
+            if ModelsArtifactRepository.is_models_uri(model_uri) and not is_databricks_unity_catalog_uri(get_registry_uri()):
                 underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
             else:
                 underlying_model_uri = model_uri
