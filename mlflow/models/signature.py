@@ -64,19 +64,14 @@ class ModelSignature:
         outputs: Union[Schema, dataclass] = None,
         params: ParamSchema = None,
     ):
-        if is_dataclass(inputs) and is_dataclass(outputs):
-            self.inputs = convert_dataclass_to_schema(inputs)
-            self.outputs = convert_dataclass_to_schema(outputs)
-            self.params = params
-            return
-        if inputs and not isinstance(inputs, Schema):
+        if inputs and not isinstance(inputs, Schema) and not is_dataclass(inputs):
             raise TypeError(
-                "inputs must be either None or mlflow.models.signature.Schema, "
+                "inputs must be either None, mlflow.models.signature.Schema, or a dataclass,"
                 f"got '{type(inputs).__name__}'"
             )
-        if outputs and not isinstance(outputs, Schema):
+        if outputs and not isinstance(outputs, Schema) and not is_dataclass(outputs):
             raise TypeError(
-                "outputs must be either None or mlflow.models.signature.Schema, "
+                "outputs must be either None, mlflow.models.signature.Schema, or a dataclass,"
                 f"got '{type(outputs).__name__}'"
             )
         if params and not isinstance(params, ParamSchema):
@@ -86,8 +81,14 @@ class ModelSignature:
             )
         if all(x is None for x in [inputs, outputs, params]):
             raise ValueError("At least one of inputs, outputs or params must be provided")
-        self.inputs = inputs
-        self.outputs = outputs
+        if is_dataclass(inputs):
+            self.inputs = convert_dataclass_to_schema(inputs)
+        else:
+            self.inputs = inputs
+        if is_dataclass(outputs):
+            self.outputs = convert_dataclass_to_schema(outputs)
+        else:
+            self.outputs = outputs
         self.params = params
 
     def to_dict(self) -> Dict[str, Any]:
