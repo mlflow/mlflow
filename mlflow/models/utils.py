@@ -1467,17 +1467,17 @@ def _validate_model_code_from_notebook(code):
             output_code_list.append("# MAGIC " + line)
         else:
             output_code_list.append(line)
-    output_code_decoded = "\n".join(output_code_list)
-    output_code = output_code_decoded.encode("utf-8")
+    output_code = "\n".join(output_code_list)
 
     magic_regex = r"^# MAGIC %\S+.*"
-    if re.search(magic_regex, output_code_decoded, re.MULTILINE):
+    if re.search(magic_regex, output_code, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
             "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
-    return output_code
+    
+    return output_code.encode("utf-8")
 
 
 # Convert llm input data:
