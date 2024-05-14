@@ -1,6 +1,5 @@
 import os
 import pickle
-import sys
 
 import numpy as np
 import pytest
@@ -9,8 +8,6 @@ import sklearn.neighbors
 
 import mlflow
 from mlflow.models import Model
-
-sys.path.insert(0, ".")
 
 
 @pytest.fixture
@@ -46,6 +43,7 @@ def test_loader_module_model_save_load(
     sklearn_knn_model, iris_data, tmp_path, model_path, monkeypatch
 ):
     monkeypatch.chdir(os.path.dirname(__file__))
+    monkeypatch.syspath_prepend(".")
     sk_model_path = tmp_path / "knn.pkl"
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
@@ -96,6 +94,7 @@ def get_model_class():
 
 def test_python_model_save_load(tmp_path, monkeypatch):
     monkeypatch.chdir(os.path.dirname(__file__))
+    monkeypatch.syspath_prepend(".")
 
     model_class = get_model_class()
 
