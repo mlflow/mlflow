@@ -608,7 +608,7 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
 
 #: Whether to reuse existing active spark session for loading johnsnowlabs model.
 #: If False, the existing spark session is killed and
-#: a new spark session is created. Default value is True.
+#: a new spark session is created. Default value is False.
 MLFLOW_JOHNSNOWLABS_MODEL_REUSE_SPARK_SESSION = _BooleanEnvironmentVariable(
-    "MLFLOW_JOHNSNOWLABS_MODEL_REUSE_SPARK_SESSION", True
+    "MLFLOW_JOHNSNOWLABS_MODEL_REUSE_SPARK_SESSION", False
 )
