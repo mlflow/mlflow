@@ -93,7 +93,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "your environment using `mlflow.set_experiment()` API."
             )
         default_tags = resolve_tags()
-        default_tags.update({TRACE_SCHEMA_VERSION_KEY: TRACE_SCHEMA_VERSION})
+        default_tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the

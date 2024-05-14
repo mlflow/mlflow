@@ -55,7 +55,12 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_ID_PREFIX,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import exclude_immutable_tags, get_otel_attribute
@@ -578,6 +583,7 @@ class MlflowClient:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
             tags = exclude_immutable_tags(tags or {})
+            tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
             if is_in_databricks_model_serving_environment():
                 # Update trace tags for trace in in-memory trace manager
                 with trace_manager.get_trace(request_id) as trace:
