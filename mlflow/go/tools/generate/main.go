@@ -213,7 +213,7 @@ func mkKeyValueExpr(key string, value ast.Expr) *ast.KeyValueExpr {
 }
 
 func mkAppRoute(method discovery.MethodInfo, endpoint discovery.Endpoint) ast.Stmt {
-	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"/api/2.0%s"`, endpoint.GetFiberPath())}
+	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"%s"`, endpoint.GetFiberPath())}
 
 	// input := &protos.SearchExperiments
 	inputExpr := mkAssignStmt(

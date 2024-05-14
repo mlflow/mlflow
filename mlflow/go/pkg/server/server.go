@@ -43,9 +43,11 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	contract.RegisterMlflowServiceRoutes(mlflowService, app)
-	contract.RegisterModelRegistryServiceRoutes(modelRegistryService, app)
-	contract.RegisterMlflowArtifactsServiceRoutes(mlflowArtifactsService, app)
+	apiMount := fiber.New()
+	contract.RegisterMlflowServiceRoutes(mlflowService, apiMount)
+	contract.RegisterModelRegistryServiceRoutes(modelRegistryService, apiMount)
+	contract.RegisterMlflowArtifactsServiceRoutes(mlflowArtifactsService, apiMount)
+	app.Mount("/api/2.0", apiMount)
 
 	app.Static("/static-files", cfg.StaticFolder)
 	app.Get("/", func(c *fiber.Ctx) error {

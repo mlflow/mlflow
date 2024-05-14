@@ -24,7 +24,7 @@ type MlflowArtifactsService interface {
 }
 
 func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
-	app.Post("/api/2.0/mlflow/experiments/create", func(ctx *fiber.Ctx) error {
+	app.Post("/mlflow/experiments/create", func(ctx *fiber.Ctx) error {
 		input := &protos.CreateExperiment{}
 		if err := ctx.BodyParser(input); err != nil {
 			return err
@@ -42,7 +42,7 @@ func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
 		}
 		return ctx.JSON(&output)
 	})
-	app.Get("/api/2.0/mlflow/experiments/get", func(ctx *fiber.Ctx) error {
+	app.Get("/mlflow/experiments/get", func(ctx *fiber.Ctx) error {
 		input := &protos.GetExperiment{}
 		if err := ctx.QueryParser(input); err != nil {
 			return err
