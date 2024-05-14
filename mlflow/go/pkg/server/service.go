@@ -40,7 +40,11 @@ func (m MlflowService) Validate(input interface{}) []string {
 
 // CreateExperiment implements MlflowService.
 func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *contract.MlflowError) {
-	artifactLocation := strings.TrimRight(*input.ArtifactLocation, "/")
+	var artifactLocation string
+	if input.ArtifactLocation != nil {
+		artifactLocation = strings.TrimRight(*input.ArtifactLocation, "/")
+	}
+
 	if artifactLocation != "" {
 		// We don't check the validation here as this was already covered in the validator.
 		u, _ := url.Parse(artifactLocation)

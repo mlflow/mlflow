@@ -1,6 +1,9 @@
 package sql
 
 import (
+	"path/filepath"
+	"strconv"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -27,9 +30,24 @@ func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
 }
 
 func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, error) {
-	experiment := model.NewExperimentFromProto(input)
-	err := s.db.Create(&experiment).Error
-	return *experiment.ExperimentID, err
+	var experiment model.Experiment
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		experiment = model.NewExperimentFromProto(input)
+		err := tx.Create(&experiment).Error
+		if err != nil {
+			return err
+		}
+
+		if experiment.ArtifactLocation == "" {
+			experiment.ArtifactLocation = filepath.Join(s.config.DefaultArtifactRoot, strconv.Itoa(int(experiment.ExperimentID)))
+			return tx.Model(&experiment).UpdateColumn("artifact_location", experiment.ArtifactLocation).Error
+		}
+
+		return nil
+	})
+
+	return experiment.ExperimentID, err
 }
 
 func NewSqlStore(config *config.Config) (store.MlflowStore, error) {
