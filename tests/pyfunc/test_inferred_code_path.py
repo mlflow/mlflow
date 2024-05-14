@@ -35,7 +35,11 @@ def sklearn_knn_model(iris_data):
 
 
 def _walk_dir(path):
-    return {str(p.relative_to(path)) for p in path.rglob("*") if p.is_file()}
+    return {
+        str(p.relative_to(path))
+        for p in path.rglob("*")
+        if p.is_file() and p.parent.name != "__pycache__"
+    }
 
 
 def test_loader_module_model_save_load(
