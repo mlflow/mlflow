@@ -23,9 +23,6 @@ def model_path(tmp_path):
     model_path = tmp_path.joinpath("model")
     yield model_path
 
-    # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
-    # by default. This is useful for debugging during local testing, but in CI it just wastes the
-    # disk space.
     if os.getenv("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
 
@@ -42,39 +39,30 @@ def embed_model():
 
 
 @pytest.fixture
-def callback_manager():
+def _callback_manager():
     return CallbackManager([TokenCountingHandler()])
 
 
-@pytest.fixture
-def mock_tokenizer():
-    def _mock_tokenizer(text: str) -> List[str]:
-        """Mock tokenizer."""
-        tokens = re.split(r"[ \n]", text)
-        result = []
-        for token in tokens:
-            if token.strip() == "":
-                continue
-            result.append(token.strip())
-        return result
-
-    return _mock_tokenizer
+def _mock_tokenizer(text: str) -> List[str]:
+    """Mock tokenizer."""
+    tokens = re.split(r"[ \n]", text)
+    result = []
+    for token in tokens:
+        if token.strip() == "":
+            continue
+        result.append(token.strip())
+    return result
 
 
 @pytest.fixture
-def sentence_splitter():
-    return SentenceSplitter(chunk_size=1024)
-
-
-@pytest.fixture
-def settings(llm, embed_model, callback_manager, mock_tokenizer, sentence_splitter):
+def settings(llm, embed_model):
     Settings.llm = llm
     Settings.embed_model = embed_model
-    Settings.callback_manager = callback_manager
-    Settings._tokenizer = mock_tokenizer  # must bypass setter
+    Settings.callback_manager = CallbackManager([TokenCountingHandler()])
+    Settings._tokenizer = _mock_tokenizer  # must bypass setter
     Settings.context_window = 4096  # this enters the _prompt_helper field
-    Settings.node_parser = sentence_splitter
-    Settings.transformations = [sentence_splitter]
+    Settings.node_parser = SentenceSplitter(chunk_size=1024)
+    Settings.transformations = [SentenceSplitter(chunk_size=1024)]
 
     assert all(Settings.__dict__.values())  # ensure the full object is populated
     return Settings
@@ -82,17 +70,17 @@ def settings(llm, embed_model, callback_manager, mock_tokenizer, sentence_splitt
 
 #### Indexes ####
 @pytest.fixture
-def single_index():
+def single_index(settings):
     return VectorStoreIndex(nodes=[Document.example()], embed_model=MockEmbedding(embed_dim=1))
 
 
 @pytest.fixture
-def multi_index():
+def multi_index(settings):
     return VectorStoreIndex(nodes=[Document.example()] * 5, embed_model=MockEmbedding(embed_dim=1))
 
 
 @pytest.fixture
-def single_graph():
+def single_graph(settings):
     return KnowledgeGraphIndex.from_documents([Document.example()])
 
 

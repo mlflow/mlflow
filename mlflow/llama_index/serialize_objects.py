@@ -9,9 +9,6 @@ from llama_index.core import PromptTemplate, Settings
 _logger = logging.getLogger(__name__)
 
 _SUPPORTED_SERIALIZATION_METHODS = ["to_dict", "dict"]
-_SUPPORTED_SETTINGS = ["llm", "embed_model"]
-
-# TODO: whitelisting of supported types
 
 
 def _extract_constructor_from_object(o: object) -> Callable:
@@ -112,7 +109,7 @@ def _sanitize_kwargs(o: object, o_state_as_dict: Dict[str, any]) -> Dict[str, an
         )
 
     if _has_kwarg_unpacking(o_callable) or _has_arg_unpacking(o_callable):
-        # If there is argument unpacking, we can't condense the payload to kawrgs in the constructor
+        # If there is argument unpacking, we can't condense the payload to kwargs in the constructor
         return o_state_as_dict
     else:
         return {k: v for k, v in o_state_as_dict.items() if k in required_kwargs + optional_kwargs}
