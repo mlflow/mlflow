@@ -53,8 +53,8 @@ func NewExperimentFromProto(proto *protos.CreateExperiment) Experiment {
 		Name:             proto.Name,
 		ArtifactLocation: proto.ArtifactLocation,
 		LifecycleStage:   utils.PtrTo("active"),
-		CreationTime:     utils.PtrTo(time.Now().Unix()),
-		LastUpdateTime:   utils.PtrTo(time.Now().Unix()),
+		CreationTime:     utils.PtrTo(time.Now().UnixMilli()),
+		LastUpdateTime:   utils.PtrTo(time.Now().UnixMilli()),
 		ExperimentTags:   tags,
 	}
 }
