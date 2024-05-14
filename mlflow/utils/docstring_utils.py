@@ -296,7 +296,8 @@ limitations, see the
         "infer_code_paths": (
             """If set to ``True``, MLflow automatically infers model code paths. The inferred
             code path files only include necessary python module files. Only python code files
-            under current working directory is automatic inferrable. Default value is ``False``.
+            under current working directory are automatically inferrable. Default value is
+            ``False``.
 
 .. warning::
     Please ensure that the custom python module code does not contain sensitive data such as
