@@ -292,7 +292,7 @@ func mkRouteRegistrationFunction(serviceInfo discovery.ServiceInfo) *ast.FuncDec
 			Params: &ast.FieldList{
 				List: []*ast.Field{
 					mkNamedField("service", ast.NewIdent(serviceInfo.Name)),
-					mkNamedField("parser", ast.NewIdent("Parser")),
+					mkNamedField("parser", ast.NewIdent("HttpRequestParser")),
 					mkNamedField("app", mkStarExpr(ast.NewIdent("fiber.App"))),
 				},
 			},

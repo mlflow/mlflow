@@ -16,7 +16,7 @@ type ModelRegistryService interface {
 type MlflowArtifactsService interface {
 }
 
-func RegisterMlflowServiceRoutes(service MlflowService, parser Parser, app *fiber.App) {
+func RegisterMlflowServiceRoutes(service MlflowService, parser HttpRequestParser, app *fiber.App) {
 	app.Post("/mlflow/experiments/create", func(ctx *fiber.Ctx) error {
 		input := &protos.CreateExperiment{}
 		if err := parser.ParseBody(ctx, input); err != nil {
@@ -40,7 +40,7 @@ func RegisterMlflowServiceRoutes(service MlflowService, parser Parser, app *fibe
 		return ctx.JSON(output)
 	})
 }
-func RegisterModelRegistryServiceRoutes(service ModelRegistryService, parser Parser, app *fiber.App) {
+func RegisterModelRegistryServiceRoutes(service ModelRegistryService, parser HttpRequestParser, app *fiber.App) {
 }
-func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, parser Parser, app *fiber.App) {
+func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, parser HttpRequestParser, app *fiber.App) {
 }

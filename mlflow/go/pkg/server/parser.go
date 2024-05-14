@@ -13,17 +13,17 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
-type Parser struct {
+type HttpRequestParser struct {
 	validator *validator.Validate
 }
 
-func NewParser() *Parser {
-	return &Parser{
+func NewHttpRequestParser() *HttpRequestParser {
+	return &HttpRequestParser{
 		validator: NewValidator(),
 	}
 }
 
-func (p *Parser) ParseBody(ctx *fiber.Ctx, input interface{}) *contract.Error {
+func (p *HttpRequestParser) ParseBody(ctx *fiber.Ctx, input interface{}) *contract.Error {
 	if err := ctx.BodyParser(input); err != nil {
 		switch err := err.(type) {
 		case *json.UnmarshalTypeError:
@@ -45,7 +45,7 @@ func (p *Parser) ParseBody(ctx *fiber.Ctx, input interface{}) *contract.Error {
 	return nil
 }
 
-func (p *Parser) ParseQuery(ctx *fiber.Ctx, input interface{}) *contract.Error {
+func (p *HttpRequestParser) ParseQuery(ctx *fiber.Ctx, input interface{}) *contract.Error {
 	if err := ctx.QueryParser(input); err != nil {
 		return contract.NewError(protos.ErrorCode_BAD_REQUEST, err.Error())
 	}

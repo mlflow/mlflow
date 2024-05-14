@@ -124,7 +124,7 @@ func newApiApp(cfg *config.Config) (*fiber.App, error) {
 		},
 	})
 
-	parser := NewParser()
+	parser := NewHttpRequestParser()
 
 	mlflowService, err := NewMlflowService(cfg)
 	if err != nil {
