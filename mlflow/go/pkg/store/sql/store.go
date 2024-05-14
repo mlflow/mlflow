@@ -30,10 +30,9 @@ func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
 }
 
 func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, error) {
-	var experiment model.Experiment
+	experiment := model.NewExperimentFromProto(input)
 
-	err := s.db.Transaction(func(tx *gorm.DB) error {
-		experiment = model.NewExperimentFromProto(input)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		err := tx.Create(&experiment).Error
 		if err != nil {
 			return err
@@ -46,9 +45,11 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return -1, err
+	}
 
-	return *experiment.ExperimentID, err
+	return *experiment.ExperimentID, nil
 }
 
 func NewSqlStore(config *config.Config) (store.MlflowStore, error) {
