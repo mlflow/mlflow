@@ -525,7 +525,6 @@ def _patch_loader(loader_func: Callable) -> Callable:
         # access to the tracking server), it is safe to set this flag to True.
         def patched_loader(*args, **kwargs):
             return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
-
     else:
 
         def patched_loader(*args, **kwargs):
@@ -647,7 +646,7 @@ def patch_langchain_type_to_cls_dict():
     for module_name in modules_to_patch:
         try:
             module = importlib.import_module(module_name)
-            originals[module_name] = module.get_type_to_cls_dict # Record original impl for cleanup
+            originals[module_name] = module.get_type_to_cls_dict  # Record original impl for cleanup
         except (ImportError, AttributeError):
             continue
         module.get_type_to_cls_dict = _patched_get_type_to_cls_dict(originals[module_name])
