@@ -303,10 +303,15 @@ limitations, see the
     credential token strings, otherwise they might be included in the automatic inferred code path files
     and be logged to MLflow artifact repository.
     
-    If your custom python module reads resource files (e.g. a config file) with a relative path
+    If your custom python module depends on resource files (e.g. a config file) with a relative path
     to the module code file path, the resource files can't be automatically inferred as the
     code path file. To address this issue, you should put all used resource files outside
     your custom code directory.
+    
+    If a python code file is loaded as the python ``__main__`` module, then this code file can't be
+    inferred as the code path file. If your model depends on classes / functions defined in ``__main__``
+    module, you should use `cloudpickle` to dump your model instance in order to pickle
+    classes / functions in ``__main__``.
 
 .. Note:: Experimental: This parameter may change or be removed in a future release without warning.
 """
