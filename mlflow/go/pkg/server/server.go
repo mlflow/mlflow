@@ -19,7 +19,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 )
 
-func launchServer(ctx context.Context, cfg config.Config) error {
+func launchServer(ctx context.Context, cfg *config.Config) error {
 	app := fiber.New(fiber.Config{
 		BodyLimit:             16 * 1024 * 1024,
 		ReadBufferSize:        16384,
@@ -38,7 +38,7 @@ func launchServer(ctx context.Context, cfg config.Config) error {
 		Output: logrus.StandardLogger().Writer(),
 	}))
 
-	mlflowService, err := NewMlflowService(cfg.StoreUrl)
+	mlflowService, err := NewMlflowService(cfg)
 	if err != nil {
 		return err
 	}

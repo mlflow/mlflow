@@ -263,6 +263,7 @@ def _build_go_command(builder, experimental_go_opts, host, port, env_map):
         .as_posix(),
         "StoreUrl": env_map[BACKEND_STORE_URI_ENV_VAR],
         "Version": VERSION,
+        "DefaultArtifactRoot": env_map[ARTIFACT_ROOT_ENV_VAR],
     }
 
     # assign a random port for the Python server

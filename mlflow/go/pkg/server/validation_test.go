@@ -12,13 +12,13 @@ type PositiveInteger struct {
 	Value string `validate:"stringAsPositiveInteger"`
 }
 
-type Scenario struct {
+type validationScenario struct {
 	name          string
 	input         any
 	shouldTrigger bool
 }
 
-func runScenarios(t *testing.T, scenarios []Scenario) {
+func runscenarios(t *testing.T, scenarios []validationScenario) {
 	t.Helper()
 
 	for _, scenario := range scenarios {
@@ -37,14 +37,14 @@ func runScenarios(t *testing.T, scenarios []Scenario) {
 }
 
 func TestStringAsPositiveInteger(t *testing.T) {
-	scenarios := []Scenario{
+	scenarios := []validationScenario{
 		{name: "positive integer", input: PositiveInteger{Value: "1"}, shouldTrigger: false},
 		{name: "zero", input: PositiveInteger{Value: "0"}, shouldTrigger: true},
 		{name: "negative integer", input: PositiveInteger{Value: "-1"}, shouldTrigger: true},
 		{name: "alphabet", input: PositiveInteger{Value: "a"}, shouldTrigger: true},
 	}
 
-	runScenarios(t, scenarios)
+	runscenarios(t, scenarios)
 }
 
 type UrlWithoutFragmentsOrParams struct {
@@ -52,7 +52,7 @@ type UrlWithoutFragmentsOrParams struct {
 }
 
 func TestUriWithoutFragmentsOrParams(t *testing.T) {
-	scenarios := []Scenario{
+	scenarios := []validationScenario{
 		{name: "valid url", input: UrlWithoutFragmentsOrParams{Value: "http://example.com"}, shouldTrigger: false},
 		{name: "only trigger when url is not empty", input: UrlWithoutFragmentsOrParams{Value: ""}, shouldTrigger: false},
 		{name: "url with fragment", input: UrlWithoutFragmentsOrParams{Value: "http://example.com#fragment"}, shouldTrigger: true},
@@ -61,5 +61,5 @@ func TestUriWithoutFragmentsOrParams(t *testing.T) {
 		{name: ".. in query", input: UrlWithoutFragmentsOrParams{Value: "http://example.com?query=./.."}, shouldTrigger: true},
 	}
 
-	runScenarios(t, scenarios)
+	runscenarios(t, scenarios)
 }

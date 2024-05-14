@@ -8,14 +8,14 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 )
 
-func Launch(ctx context.Context, cfg config.Config) error {
+func Launch(ctx context.Context, cfg *config.Config) error {
 	if len(cfg.PythonCommand) > 0 {
 		return launchCommandAndServer(ctx, cfg)
 	}
 	return launchServer(ctx, cfg)
 }
 
-func launchCommandAndServer(ctx context.Context, cfg config.Config) error {
+func launchCommandAndServer(ctx context.Context, cfg *config.Config) error {
 	var errs []error
 	var wg sync.WaitGroup
 

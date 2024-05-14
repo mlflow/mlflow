@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql/model"
@@ -12,7 +13,8 @@ import (
 )
 
 type Store struct {
-	db *gorm.DB
+	config *config.Config
+	db     *gorm.DB
 }
 
 func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
@@ -30,13 +32,13 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 	return *experiment.ExperimentID, err
 }
 
-func NewSqlStore(url string) (store.MlflowStore, error) {
-	db, err := gorm.Open(postgres.Open(url), &gorm.Config{
+func NewSqlStore(config *config.Config) (store.MlflowStore, error) {
+	db, err := gorm.Open(postgres.Open(config.StoreUrl), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &Store{db: db}, nil
+	return &Store{config: config, db: db}, nil
 }

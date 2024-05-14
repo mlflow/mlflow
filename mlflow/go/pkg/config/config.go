@@ -32,13 +32,14 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 }
 
 type Config struct {
-	Address         string
-	LogLevel        string
-	PythonAddress   string
-	PythonCommand   []string
-	PythonEnv       []string
-	ShutdownTimeout Duration
-	StaticFolder    string
-	StoreUrl        string
-	Version         string
+	Address             string
+	LogLevel            string
+	PythonAddress       string
+	PythonCommand       []string
+	PythonEnv           []string
+	ShutdownTimeout     Duration
+	StaticFolder        string
+	StoreUrl            string
+	Version             string
+	DefaultArtifactRoot string
 }

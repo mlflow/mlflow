@@ -13,7 +13,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 )
 
-func launchCommand(ctx context.Context, cfg config.Config) error {
+func launchCommand(ctx context.Context, cfg *config.Config) error {
 	cmd := exec.CommandContext(ctx, cfg.PythonCommand[0], cfg.PythonCommand[1:]...)
 	cmd.Env = append(os.Environ(), cfg.PythonEnv...)
 	cmd.Stdout = logrus.StandardLogger().Writer()

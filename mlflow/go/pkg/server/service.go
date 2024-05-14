@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
+	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
@@ -16,7 +17,8 @@ import (
 )
 
 type MlflowService struct {
-	store     store.MlflowStore
+	config    *config.Config
+	Store     store.MlflowStore
 	validator *validator.Validate
 }
 
@@ -43,9 +45,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 		// We don't check the validation here as this was already covered in the validator.
 		u, _ := url.Parse(artifactLocation)
 		switch u.Scheme {
-		case "s3":
-			artifactLocation = strings.TrimRight(u.String(), "/")
-		default:
+		case "file", "":
 			p, err := filepath.Abs(u.Path)
 			if err != nil {
 				return nil, &contract.MlflowError{
@@ -59,7 +59,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 	}
 	input.ArtifactLocation = &artifactLocation
 
-	experimentId, err := m.store.CreateExperiment(input)
+	experimentId, err := m.Store.CreateExperiment(input)
 	if err != nil {
 		return nil, &contract.MlflowError{
 			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,
@@ -84,7 +84,7 @@ func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetEx
 		}
 	}
 
-	experiment, err := m.store.GetExperiment(int32(id))
+	experiment, err := m.Store.GetExperiment(int32(id))
 	if err != nil {
 		return nil, &contract.MlflowError{
 			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,
@@ -103,15 +103,16 @@ var (
 	mlflowArtifactsService contract.MlflowArtifactsService
 )
 
-func NewMlflowService(storeUrl string) (contract.MlflowService, error) {
-	store, err := sql.NewSqlStore(storeUrl)
+func NewMlflowService(config *config.Config) (contract.MlflowService, error) {
+	store, err := sql.NewSqlStore(config)
 	if err != nil {
 		return nil, err
 	}
 
 	validator := NewValidator()
 	return MlflowService{
+		config:    config,
 		validator: validator,
-		store:     store,
+		Store:     store,
 	}, nil
 }
