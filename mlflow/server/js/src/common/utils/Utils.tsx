@@ -81,6 +81,7 @@ class Utils {
   static loggedModelsTag = 'mlflow.log-model.history';
   static pipelineProfileNameTag = 'mlflow.pipeline.profile.name';
   static pipeLineStepNameTag = 'mlflow.pipeline.step.name';
+  static runDescriptionTag = 'mlflow.note.content';
 
   static formatMetric(value: any) {
     if (value === 0) {
@@ -661,6 +662,14 @@ class Utils {
     const runNameTag = runTags[Utils.runNameTag];
     if (runNameTag) {
       return runNameTag.value;
+    }
+    return '';
+  }
+
+  static getRunDescriptionFromTags(runTags: any) {
+    const runDescriptionTag = runTags[Utils.runDescriptionTag];
+    if (runDescriptionTag) {
+      return runDescriptionTag.value;
     }
     return '';
   }

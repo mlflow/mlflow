@@ -6,6 +6,7 @@ import Utils from '../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, ATTRIBUTE_COLUMN_SORT_KEY, COLUMN_TYPES } from '../../../constants';
 import { ColumnHeaderCell } from '../components/runs/cells/ColumnHeaderCell';
 import { DateCellRenderer } from '../components/runs/cells/DateCellRenderer';
+import { RunDescriptionCellRenderer } from '../components/runs/cells/RunDescriptionCellRenderer';
 import { ExperimentNameCellRenderer } from '../components/runs/cells/ExperimentNameCellRenderer';
 import { ModelsCellRenderer } from '../components/runs/cells/ModelsCellRenderer';
 import { SourceCellRenderer } from '../components/runs/cells/SourceCellRenderer';
@@ -84,6 +85,7 @@ export const getFrameworkComponents = () => ({
   VersionCellRenderer,
   DateCellRenderer,
   ExperimentNameCellRenderer,
+  RunDescriptionCellRenderer,
   RowActionsCellRenderer,
   RowActionsHeaderCellRenderer,
   RunNameCellRenderer,
@@ -100,6 +102,7 @@ export const TAGS_TO_COLUMNS_MAP = {
   [ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Run Name'),
   [ATTRIBUTE_COLUMN_SORT_KEY.SOURCE]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Source'),
   [ATTRIBUTE_COLUMN_SORT_KEY.VERSION]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Version'),
+  [ATTRIBUTE_COLUMN_SORT_KEY.DESCRIPTION]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Description'),
 };
 
 /**
@@ -147,6 +150,7 @@ export const getAdjustableAttributeColumns = (isComparingExperiments = false) =>
     ATTRIBUTE_COLUMN_LABELS.VERSION,
     ATTRIBUTE_COLUMN_LABELS.MODELS,
     ATTRIBUTE_COLUMN_LABELS.DATASET,
+    ATTRIBUTE_COLUMN_LABELS.DESCRIPTION,
   ];
 
   if (isComparingExperiments) {
@@ -386,6 +390,15 @@ export const useRunsColumnDefinitions = ({
       cellRenderer: 'ModelsCellRenderer',
       initialWidth: 200,
       equals: (models1 = {}, models2 = {}) => isEqual(models1, models2),
+      initialHide: true,
+    });
+
+    columns.push({
+      headerName: ATTRIBUTE_COLUMN_LABELS.DESCRIPTION,
+      colId: TAGS_TO_COLUMNS_MAP[ATTRIBUTE_COLUMN_SORT_KEY.DESCRIPTION],
+      field: 'tags',
+      cellRenderer: 'RunDescriptionCellRenderer',
+      initialWidth: 300,
       initialHide: true,
     });
 
