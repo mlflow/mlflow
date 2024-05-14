@@ -42,6 +42,7 @@ def get_flavor_backend(model_uri, **kwargs):
                 underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
             else:
                 underlying_model_uri = model_uri
+            print("uri = "+underlying_model_uri)
             local_path = _download_artifact_from_uri(
                 append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
             )
