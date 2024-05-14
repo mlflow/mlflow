@@ -45,7 +45,7 @@ def get_flavor_backend(model_uri, **kwargs):
                 underlying_model_uri = model_uri
             print("underlying uri = "+underlying_model_uri)
             print("model_uri = "+model_uri)
-            print("is_databricks_unity_catalog_uri? "+str(is_databricks_unity_catalog_uri(model_uri)))
+            print("is_databricks_unity_catalog_uri? "+str(is_databricks_unity_catalog_uri(get_registry_uri())))
             local_path = _download_artifact_from_uri(
                 append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
             )
