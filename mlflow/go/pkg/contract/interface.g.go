@@ -3,65 +3,44 @@
 package contract
 
 import (
-	"strings"
 	"github.com/gofiber/fiber/v2"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
 type MlflowService interface {
-	Validate(input interface {
-	}) []string
-	CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *MlflowError)
-	GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *MlflowError)
+	CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *Error)
+	GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *Error)
 }
 type ModelRegistryService interface {
-	Validate(input interface {
-	}) []string
 }
 type MlflowArtifactsService interface {
-	Validate(input interface {
-	}) []string
 }
 
-func RegisterMlflowServiceRoutes(service MlflowService, app *fiber.App) {
+func RegisterMlflowServiceRoutes(service MlflowService, parser Parser, app *fiber.App) {
 	app.Post("/mlflow/experiments/create", func(ctx *fiber.Ctx) error {
 		input := &protos.CreateExperiment{}
-		if err := ctx.BodyParser(input); err != nil {
+		if err := parser.ParseBody(ctx, input); err != nil {
 			return err
-		}
-		validationErrors := service.Validate(input)
-		if len(validationErrors) > 0 {
-			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.CreateExperiment(input)
 		if err != nil {
-			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
-				return ctx.Next()
-			}
 			return err
 		}
-		return ctx.JSON(&output)
+		return ctx.JSON(output)
 	})
 	app.Get("/mlflow/experiments/get", func(ctx *fiber.Ctx) error {
 		input := &protos.GetExperiment{}
-		if err := ctx.QueryParser(input); err != nil {
+		if err := parser.ParseQuery(ctx, input); err != nil {
 			return err
-		}
-		validationErrors := service.Validate(input)
-		if len(validationErrors) > 0 {
-			return &fiber.Error{Code: fiber.ErrBadRequest.Code, Message: strings.Join(validationErrors, " and ")}
 		}
 		output, err := service.GetExperiment(input)
 		if err != nil {
-			if err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
-				return ctx.Next()
-			}
 			return err
 		}
-		return ctx.JSON(&output)
+		return ctx.JSON(output)
 	})
 }
-func RegisterModelRegistryServiceRoutes(service ModelRegistryService, app *fiber.App) {
+func RegisterModelRegistryServiceRoutes(service ModelRegistryService, parser Parser, app *fiber.App) {
 }
-func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, app *fiber.App) {
+func RegisterMlflowArtifactsServiceRoutes(service MlflowArtifactsService, parser Parser, app *fiber.App) {
 }

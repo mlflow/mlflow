@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
-
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
@@ -18,29 +16,12 @@ import (
 )
 
 type MlflowService struct {
-	config    *config.Config
-	store     store.MlflowStore
-	validator *validator.Validate
-}
-
-func (m MlflowService) Validate(input interface{}) []string {
-	validationErrors := make([]string, 0)
-	errs := m.validator.Struct(input)
-
-	if errs != nil {
-		for _, err := range errs.(validator.ValidationErrors) {
-			field := err.Field()
-			tag := err.Tag()
-			value := err.Value()
-			validationErrors = append(validationErrors, fmt.Sprintf("%s should be %s, got %v", field, tag, value))
-		}
-	}
-
-	return validationErrors
+	config *config.Config
+	store  store.MlflowStore
 }
 
 // CreateExperiment implements MlflowService.
-func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *contract.MlflowError) {
+func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *contract.Error) {
 
 	if utils.IsNotNilOrEmptyString(input.ArtifactLocation) {
 		artifactLocation := strings.TrimRight(*input.ArtifactLocation, "/")
@@ -51,10 +32,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 		case "file", "":
 			p, err := filepath.Abs(u.Path)
 			if err != nil {
-				return nil, &contract.MlflowError{
-					ErrorCode: protos.ErrorCode_INVALID_PARAMETER_VALUE,
-					Message:   "error getting absolute path",
-				}
+				return nil, contract.NewError(protos.ErrorCode_INVALID_PARAMETER_VALUE, fmt.Sprintf("error getting absolute path: %v", err))
 			}
 			u.Path = p
 			artifactLocation = u.String()
@@ -65,9 +43,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 
 	experimentId, err := m.store.CreateExperiment(input)
 	if err != nil {
-		return nil, &contract.MlflowError{
-			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,
-		}
+		return nil, contract.NewError(protos.ErrorCode_INTERNAL_ERROR, fmt.Sprintf("error creating experiment: %v", err))
 	}
 
 	id := strconv.Itoa(int(experimentId))
@@ -80,19 +56,15 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 }
 
 // GetExperiment implements MlflowService.
-func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *contract.MlflowError) {
+func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *contract.Error) {
 	id, err := strconv.Atoi(*input.ExperimentId)
 	if err != nil {
-		return nil, &contract.MlflowError{
-			ErrorCode: protos.ErrorCode_INVALID_PARAMETER_VALUE,
-		}
+		return nil, contract.NewError(protos.ErrorCode_INVALID_PARAMETER_VALUE, fmt.Sprintf("error parsing experiment id: %v", err))
 	}
 
 	experiment, err := m.store.GetExperiment(int32(id))
 	if err != nil {
-		return nil, &contract.MlflowError{
-			ErrorCode: protos.ErrorCode_INTERNAL_ERROR,
-		}
+		return nil, contract.NewError(protos.ErrorCode_INTERNAL_ERROR, fmt.Sprintf("error getting experiment: %v", err))
 	}
 
 	response := protos.GetExperiment_Response{
@@ -113,10 +85,8 @@ func NewMlflowService(config *config.Config) (contract.MlflowService, error) {
 		return nil, err
 	}
 
-	validator := NewValidator()
 	return MlflowService{
-		config:    config,
-		validator: validator,
-		store:     store,
+		config: config,
+		store:  store,
 	}, nil
 }

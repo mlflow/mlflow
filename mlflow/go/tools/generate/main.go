@@ -24,7 +24,6 @@ func mkImportSpec(value string) *ast.ImportSpec {
 var importStatements = &ast.GenDecl{
 	Tok: token.IMPORT,
 	Specs: []ast.Spec{
-		mkImportSpec(`"strings"`),
 		mkImportSpec(`"github.com/gofiber/fiber/v2"`),
 		mkImportSpec(`"github.com/mlflow/mlflow/mlflow/go/pkg/protos"`),
 	},
@@ -70,7 +69,7 @@ func mkServiceInterfaceMethod(methodInfo discovery.MethodInfo) *ast.Field {
 			Results: &ast.FieldList{
 				List: []*ast.Field{
 					mkField(mkStarExpr(mkSelectorExpr(methodInfo.PackageName, methodInfo.Output))),
-					mkField(mkStarExpr(ast.NewIdent("MlflowError"))),
+					mkField(mkStarExpr(ast.NewIdent("Error"))),
 				},
 			},
 		},
@@ -80,23 +79,7 @@ func mkServiceInterfaceMethod(methodInfo discovery.MethodInfo) *ast.Field {
 // Generate a service interface declaration
 func mkServiceInterfaceNode(serviceInfo discovery.ServiceInfo) *ast.GenDecl {
 	// We add one method to validate any of the input structs
-	methods := make([]*ast.Field, 1, len(serviceInfo.Methods)+1)
-
-	methods[0] = &ast.Field{
-		Names: []*ast.Ident{ast.NewIdent("Validate")},
-		Type: &ast.FuncType{
-			Params: &ast.FieldList{
-				List: []*ast.Field{
-					mkNamedField("input", &ast.InterfaceType{Methods: &ast.FieldList{}}),
-				},
-			},
-			Results: &ast.FieldList{
-				List: []*ast.Field{
-					mkField(&ast.ArrayType{Elt: ast.NewIdent("string")}),
-				},
-			},
-		},
-	}
+	methods := make([]*ast.Field, 0, len(serviceInfo.Methods))
 
 	for _, method := range serviceInfo.Methods {
 		endpointName := fmt.Sprintf("%s_%s", serviceInfo.Name, method.Name)
@@ -224,49 +207,18 @@ func mkAppRoute(method discovery.MethodInfo, endpoint discovery.Endpoint) ast.St
 			}),
 		})
 
-	// if err := ctx.QueryParser(&input); err != nil {
+	// if err := parser.ParseQuery(ctx, input); err != nil { return err }
+	// if err := parser.ParseBody(ctx, input); err != nil { return err }
 	var extractModel ast.Expr
 	if endpoint.Method == "GET" {
-		extractModel = mkCallExpr(mkSelectorExpr("ctx", "QueryParser"), ast.NewIdent("input"))
+		extractModel = mkCallExpr(mkSelectorExpr("parser", "ParseQuery"), ast.NewIdent("ctx"), ast.NewIdent("input"))
 	} else {
-		extractModel = mkCallExpr(mkSelectorExpr("ctx", "BodyParser"), ast.NewIdent("input"))
+		extractModel = mkCallExpr(mkSelectorExpr("parser", "ParseBody"), ast.NewIdent("ctx"), ast.NewIdent("input"))
 	}
-
-	// validationErrors := service.Validate(input)
-	validationErrors := mkAssignStmt(
-		[]ast.Expr{ast.NewIdent("validationErrors")},
-		[]ast.Expr{mkCallExpr(mkSelectorExpr("service", "Validate"), ast.NewIdent("input"))},
-	)
-
-	// if len(validationErrors) > 0 { return &fiber.Error{} )
-	validationErrorsCheck := mkIfStmt(
-		nil,
-		mkBinaryExpr(
-			mkCallExpr(ast.NewIdent("len"), ast.NewIdent("validationErrors")),
-			token.GTR,
-			ast.NewIdent("0"),
-		),
-		mkBlockStmt(
-			mkReturnStmt(
-				mkAmpExpr(
-					&ast.CompositeLit{
-						Type: mkSelectorExpr("fiber", "Error"),
-						Elts: []ast.Expr{
-							mkKeyValueExpr("Code", mkSelectorExpr("fiber.ErrBadRequest", "Code")),
-							mkKeyValueExpr(
-								"Message",
-								mkCallExpr(
-									mkSelectorExpr("strings", "Join"),
-									ast.NewIdent("validationErrors"),
-									&ast.BasicLit{Value: `" and "`})),
-						},
-					},
-				))),
-	)
 
 	inputErrorCheck := mkIfStmt(mkAssignStmt([]ast.Expr{ast.NewIdent("err")}, []ast.Expr{extractModel}), errNotEqualNil, mkBlockStmt(returnErr))
 
-	// output, err := service.SearchExperiments(input)
+	// output, err := service.Method(input)
 	outputExpr := mkAssignStmt([]ast.Expr{
 		ast.NewIdent("output"),
 		ast.NewIdent("err"),
@@ -274,27 +226,19 @@ func mkAppRoute(method discovery.MethodInfo, endpoint discovery.Endpoint) ast.St
 		mkCallExpr(mkSelectorExpr("service", strcase.ToCamel(method.Name)), ast.NewIdent("input")),
 	})
 
-	// if err != nil && err.ErrorCode == protos.ErrorCode_NOT_IMPLEMENTED {
-	//     return ctx.Next()
+	// if err != nil {
+	//     return err
 	// }
-	notImplentedCheck := mkIfStmt(
+	errorCheck := mkIfStmt(
 		nil,
 		errNotEqualNil,
 		mkBlockStmt(
-			mkIfStmt(
-				nil,
-				mkBinaryExpr(
-					mkSelectorExpr("err", "ErrorCode"),
-					token.EQL,
-					mkSelectorExpr("protos", "ErrorCode_NOT_IMPLEMENTED"),
-				),
-				mkBlockStmt(mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "Next")))),
-			),
-			mkReturnStmt(ast.NewIdent("err"))),
+			mkReturnStmt(ast.NewIdent("err")),
+		),
 	)
 
-	// return ctx.JSON(&output)
-	returnExpr := mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "JSON"), mkAmpExpr(ast.NewIdent("output"))))
+	// return ctx.JSON(output)
+	returnExpr := mkReturnStmt(mkCallExpr(mkSelectorExpr("ctx", "JSON"), ast.NewIdent("output")))
 
 	// func(ctx *fiber.Ctx) error { .. }
 	funcExpr := &ast.FuncLit{
@@ -314,17 +258,15 @@ func mkAppRoute(method discovery.MethodInfo, endpoint discovery.Endpoint) ast.St
 			List: []ast.Stmt{
 				inputExpr,
 				inputErrorCheck,
-				validationErrors,
-				validationErrorsCheck,
 				outputExpr,
-				notImplentedCheck,
+				errorCheck,
 				returnExpr,
 			},
 		},
 	}
 
 	return &ast.ExprStmt{
-		// app.Get("/api/v2.0/mlflow/experiments/search", func(ctx *fiber.Ctx) error { .. })
+		// app.Get("/mlflow/experiments/search", func(ctx *fiber.Ctx) error { .. })
 		X: mkCallExpr(
 			mkSelectorExpr("app", strcase.ToCamel(endpoint.Method)), urlExpr, funcExpr,
 		),
@@ -350,6 +292,7 @@ func mkRouteRegistrationFunction(serviceInfo discovery.ServiceInfo) *ast.FuncDec
 			Params: &ast.FieldList{
 				List: []*ast.Field{
 					mkNamedField("service", ast.NewIdent(serviceInfo.Name)),
+					mkNamedField("parser", ast.NewIdent("Parser")),
 					mkNamedField("app", mkStarExpr(ast.NewIdent("fiber.App"))),
 				},
 			},

@@ -1,12 +1,64 @@
 package contract
 
-import "github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+import (
+	"encoding/json"
+	"fmt"
 
-type MlflowError struct {
-	ErrorCode protos.ErrorCode
-	Message   string
+	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+)
+
+type ErrorCode protos.ErrorCode
+
+func (e ErrorCode) String() string {
+	return protos.ErrorCode(e).String()
 }
 
-func (e *MlflowError) Error() string {
-	return "MlflowError"
+// Custom json marshalling for ErrorCode
+func (e ErrorCode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.String())
+}
+
+type Error struct {
+	Code    ErrorCode `json:"error_code"`
+	Message string    `json:"message"`
+}
+
+func NewError(code protos.ErrorCode, message string) *Error {
+	return &Error{
+		Code:    ErrorCode(code),
+		Message: message,
+	}
+}
+
+func (e *Error) Error() string {
+	return fmt.Sprintf("[%s] %s", e.Code.String(), e.Message)
+}
+
+func (e *Error) StatusCode() int {
+	switch protos.ErrorCode(e.Code) {
+	case protos.ErrorCode_BAD_REQUEST, protos.ErrorCode_INVALID_PARAMETER_VALUE, protos.ErrorCode_RESOURCE_ALREADY_EXISTS:
+		return 400
+	case protos.ErrorCode_CUSTOMER_UNAUTHORIZED, protos.ErrorCode_UNAUTHENTICATED:
+		return 401
+	case protos.ErrorCode_PERMISSION_DENIED:
+		return 403
+	case protos.ErrorCode_ENDPOINT_NOT_FOUND, protos.ErrorCode_NOT_FOUND, protos.ErrorCode_RESOURCE_DOES_NOT_EXIST:
+		return 404
+	case protos.ErrorCode_ABORTED, protos.ErrorCode_ALREADY_EXISTS, protos.ErrorCode_RESOURCE_CONFLICT:
+		return 409
+	case protos.ErrorCode_RESOURCE_EXHAUSTED, protos.ErrorCode_RESOURCE_LIMIT_EXCEEDED:
+		return 429
+	case protos.ErrorCode_CANCELLED:
+		return 499
+	case protos.ErrorCode_DATA_LOSS, protos.ErrorCode_INTERNAL_ERROR, protos.ErrorCode_INVALID_STATE:
+		return 500
+	case protos.ErrorCode_NOT_IMPLEMENTED:
+		return 501
+	case protos.ErrorCode_TEMPORARILY_UNAVAILABLE:
+		return 503
+	case protos.ErrorCode_DEADLINE_EXCEEDED:
+		return 504
+	default:
+		return 500
+	}
 }
