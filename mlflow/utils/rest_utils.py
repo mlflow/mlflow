@@ -352,7 +352,7 @@ class MlflowHostCreds:
 
     def __init__(
         self,
-        host,
+        host=None,
         username=None,
         password=None,
         token=None,
@@ -361,6 +361,7 @@ class MlflowHostCreds:
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
+        databricks_workspace_client=None,
     ):
         if not host:
             raise MlflowException(
