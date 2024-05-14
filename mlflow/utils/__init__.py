@@ -292,7 +292,10 @@ class AttrDict(dict):
     """
 
     def __getattr__(self, attr):
-        value = self[attr]
+        try:
+            value = self[attr]
+        except KeyError:
+            raise AttributeError(f"No attribute '{attr}' found in instance.")
         if isinstance(value, dict):
             return AttrDict(value)
         return value
