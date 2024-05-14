@@ -255,6 +255,7 @@ def _build_go_command(builder, experimental_go_opts, host, port, env_map):
     # initialize Go server configuration
     go_config = {
         "Address": f"{host}:{port}",
+        "DefaultArtifactRoot": env_map[ARTIFACT_ROOT_ENV_VAR],
         "LogLevel": opts.get("LogLevel", "INFO"),
         "PythonEnv": [f"{k}={v}" for k, v in env_map.items()],
         "ShutdownTimeout": opts.get("ShutdownTimeout", "1m"),
@@ -263,7 +264,6 @@ def _build_go_command(builder, experimental_go_opts, host, port, env_map):
         .as_posix(),
         "StoreUrl": env_map[BACKEND_STORE_URI_ENV_VAR],
         "Version": VERSION,
-        "DefaultArtifactRoot": env_map[ARTIFACT_ROOT_ENV_VAR],
     }
 
     # assign a random port for the Python server
