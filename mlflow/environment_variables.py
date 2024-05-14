@@ -605,4 +605,5 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
 )
 
+#: Whether the current context is in databricks rag serving.
 DATABRICKS_RAG_SERVING = _BooleanEnvironmentVariable("DATABRICKS_RAG_SERVING", False)

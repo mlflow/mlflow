@@ -73,6 +73,7 @@ from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
     is_in_databricks_model_serving_environment,
 )
+from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
@@ -592,7 +593,7 @@ class MlflowClient:
 
             return mlflow_span
         except Exception as e:
-            _logger.warning(f"Failed to start span {name}: {e}")
+            _logger.warning(f"Failed to start trace {name}: {get_stacktrace(e)}")
             if _MLFLOW_TESTING.get():
                 raise
             return NoOpSpan()
@@ -789,7 +790,7 @@ class MlflowClient:
             trace_manager.register_span(span)
             return span
         except Exception as e:
-            _logger.warning(f"Failed to start span {name}: {e}")
+            _logger.warning(f"Failed to start span {name}: {get_stacktrace(e)}")
             if _MLFLOW_TESTING.get():
                 raise
             return NoOpSpan()

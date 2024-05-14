@@ -28,7 +28,7 @@ from mlflow.langchain.utils import (
     get_databricks_vector_search_key,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.fluent import get_trace
+from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 return o.isoformat()
             raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
 
-        trace = get_trace(self._request_id)
+        trace = pop_trace(self._request_id)
         return json.dumps(trace, default=_default_converter)
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
@@ -104,25 +104,25 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[Dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
-        parent = self._get_parent_span(parent_run_id)
-        if parent:
-            span = self._mlflow_client.start_span(
-                name=span_name,
-                request_id=parent.request_id,
-                parent_id=parent.span_id,
-                span_type=span_type,
-                inputs=inputs,
-                attributes=attributes,
-            )
-        else:
-            # When parent_run_id is None, this is root component so start trace
-            with set_prediction_context(self._prediction_context):
+        with set_prediction_context(self._prediction_context):
+            parent = self._get_parent_span(parent_run_id)
+            if parent:
+                span = self._mlflow_client.start_span(
+                    name=span_name,
+                    request_id=parent.request_id,
+                    parent_id=parent.span_id,
+                    span_type=span_type,
+                    inputs=inputs,
+                    attributes=attributes,
+                )
+            else:
+                # When parent_run_id is None, this is root component so start trace
                 span = self._mlflow_client.start_trace(
                     name=span_name, span_type=span_type, inputs=inputs, attributes=attributes
                 )
                 self._request_id = span.request_id
 
-        self._run_span_mapping[str(run_id)] = span
+            self._run_span_mapping[str(run_id)] = span
         return span
 
     def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
