@@ -183,6 +183,8 @@ def store_imported_modules(
             # because `pyfunc_conf[MAIN]` might also be a module loaded from
             # code_paths.
             with cap_cm:
+                # `mlflow.pyfunc.load_model` interanlly invokes
+                # `importlib.import_module(pyfunc_conf[MAIN])`
                 mlflow.pyfunc.load_model(model_path)
         else:
             loader_module = importlib.import_module(pyfunc_conf[MAIN])
