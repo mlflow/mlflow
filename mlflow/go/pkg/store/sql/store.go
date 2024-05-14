@@ -39,15 +39,16 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 			return err
 		}
 
-		if experiment.ArtifactLocation == "" {
-			experiment.ArtifactLocation = filepath.Join(s.config.DefaultArtifactRoot, strconv.Itoa(int(experiment.ExperimentID)))
-			return tx.Model(&experiment).UpdateColumn("artifact_location", experiment.ArtifactLocation).Error
+		if utils.IsNilOrEmptyString(experiment.ArtifactLocation) {
+			artifactLocation := filepath.Join(s.config.DefaultArtifactRoot, strconv.Itoa(int(*experiment.ExperimentID)))
+			experiment.ArtifactLocation = &artifactLocation
+			return tx.Model(&experiment).UpdateColumn("artifact_location", artifactLocation).Error
 		}
 
 		return nil
 	})
 
-	return experiment.ExperimentID, err
+	return *experiment.ExperimentID, err
 }
 
 func NewSqlStore(config *config.Config) (store.MlflowStore, error) {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
 
 // Experiment mapped from table <experiments>
@@ -49,11 +50,11 @@ func NewExperimentFromProto(proto *protos.CreateExperiment) Experiment {
 	}
 
 	return Experiment{
-		Name:             *proto.Name,
-		ArtifactLocation: *proto.ArtifactLocation,
-		LifecycleStage:   "active",
-		CreationTime:     time.Now().Unix(),
-		LastUpdateTime:   time.Now().Unix(),
+		Name:             proto.Name,
+		ArtifactLocation: proto.ArtifactLocation,
+		LifecycleStage:   utils.PtrTo("active"),
+		CreationTime:     utils.PtrTo(time.Now().Unix()),
+		LastUpdateTime:   utils.PtrTo(time.Now().Unix()),
 		ExperimentTags:   tags,
 	}
 }
