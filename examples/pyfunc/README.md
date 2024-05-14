@@ -28,7 +28,7 @@ $ python train.py
 or train and log the model using inferred code paths
 
 ```
-$ python infer_model_code_path.py
+$ python infer_model_code_paths.py
 ```
 
 2. Serve the pyfunc model
