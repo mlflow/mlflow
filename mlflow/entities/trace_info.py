@@ -6,6 +6,11 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+
+
+def default_request_metadata_factory():
+    return {TRACE_SCHEMA_VERSION_KEY: TRACE_SCHEMA_VERSION}
 
 
 @dataclass
@@ -27,7 +32,7 @@ class TraceInfo(_MlflowObject):
     timestamp_ms: int
     execution_time_ms: Optional[int]
     status: TraceStatus
-    request_metadata: Dict[str, str] = field(default_factory=dict)
+    request_metadata: Dict[str, str] = field(default_factory=default_request_metadata_factory)
     tags: Dict[str, str] = field(default_factory=dict)
 
     def __eq__(self, other):
