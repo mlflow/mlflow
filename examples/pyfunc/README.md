@@ -24,6 +24,7 @@ to act as a custom inference logic layer in inference time.
 ```
 $ python train.py
 ```
+
 or train and log the model using inferred code paths
 
 ```
