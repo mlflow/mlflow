@@ -1,13 +1,14 @@
-import pickle
-import mlflow
 import os
-from mlflow.models import Model
+import pickle
+import sys
+
 import numpy as np
 import pytest
-import sklearn.neighbors
 import sklearn.datasets
-import sys
-from pathlib import Path
+import sklearn.neighbors
+
+import mlflow
+from mlflow.models import Model
 
 sys.path.insert(0, ".")
 
@@ -37,7 +38,9 @@ def _walk_dir(path):
     return {str(p.relative_to(path)) for p in path.rglob("*") if p.is_file()}
 
 
-def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path, monkeypatch):
+def test_loader_module_model_save_load(
+    sklearn_knn_model, iris_data, tmp_path, model_path, monkeypatch
+):
     monkeypatch.chdir(os.path.dirname(__file__))
     sk_model_path = tmp_path / "knn.pkl"
     with open(sk_model_path, "wb") as f:
@@ -55,10 +58,10 @@ def test_loader_module_model_save_load(sklearn_knn_model, iris_data, tmp_path, m
     reloaded_model_config = Model.load(model_path / "MLmodel")
 
     assert _walk_dir(model_path / "code") == {
-        'custom_model/loader.py',
-        'custom_model/mod1/__init__.py',
-        'custom_model/mod1/mod2/__init__.py',
-        'custom_model/mod1/mod4.py'
+        "custom_model/loader.py",
+        "custom_model/mod1/__init__.py",
+        "custom_model/mod1/mod2/__init__.py",
+        "custom_model/mod1/mod4.py",
     }
     assert model_config.__dict__ == reloaded_model_config.__dict__
     assert mlflow.pyfunc.FLAVOR_NAME in reloaded_model_config.flavors
@@ -101,9 +104,9 @@ def test_python_model_save_load(tmp_path, monkeypatch):
     )
 
     assert _walk_dir(pyfunc_model_path / "code") == {
-        'custom_model/mod1/__init__.py',
-        'custom_model/mod1/mod2/__init__.py',
-        'custom_model/mod1/mod4.py'
+        "custom_model/mod1/__init__.py",
+        "custom_model/mod1/mod2/__init__.py",
+        "custom_model/mod1/mod4.py",
     }
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
     np.testing.assert_array_equal(

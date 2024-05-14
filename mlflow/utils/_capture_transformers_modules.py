@@ -65,8 +65,7 @@ def main():
             )
 
     cap_cm = _CaptureImportedModulesForHF(
-        module_to_throw,
-        record_full_module=args.record_full_module
+        module_to_throw, record_full_module=args.record_full_module
     )
     store_imported_modules(cap_cm, model_path, flavor, output_file)
 

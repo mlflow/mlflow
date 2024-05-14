@@ -2,8 +2,8 @@ import json
 import os
 import shutil
 import sys
-from typing import Any, Dict
 from pathlib import Path
+from typing import Any, Dict
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model

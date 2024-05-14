@@ -299,4 +299,4 @@ class AttrDict(dict):
 
 
 def get_parent_module(module):
-    return module[0: module.rindex(".")]
+    return module[0 : module.rindex(".")]

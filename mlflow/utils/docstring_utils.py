@@ -294,23 +294,23 @@ limitations, see the
 """
         ),
         "infer_code_paths": (
-            """If set to ``True``, MLflow automatically infers model code paths. The inferred code path files only
-            include necessary python module files. Only python code files under current working directory
-            is automatic inferrable. Default value is ``False``.
+            """If set to ``True``, MLflow automatically infers model code paths. The inferred
+            code path files only include necessary python module files. Only python code files
+            under current working directory is automatic inferrable. Default value is ``False``.
 
 .. warning::
     Please ensure that the custom python module code does not contain sensitive data such as
-    credential token strings, otherwise they might be included in the automatic inferred code path files
-    and be logged to MLflow artifact repository.
-    
+    credential token strings, otherwise they might be included in the automatic inferred code
+    path files and be logged to MLflow artifact repository.
+
     If your custom python module depends on resource files (e.g. a config file) with a relative path
     to the module code file path, the resource files can't be automatically inferred as the
     code path file. To address this issue, you should put all used resource files outside
     your custom code directory.
-    
+
     If a python code file is loaded as the python ``__main__`` module, then this code file can't be
-    inferred as the code path file. If your model depends on classes / functions defined in ``__main__``
-    module, you should use `cloudpickle` to dump your model instance in order to pickle
+    inferred as the code path file. If your model depends on classes / functions defined in
+    ``__main__`` module, you should use `cloudpickle` to dump your model instance in order to pickle
     classes / functions in ``__main__``.
 
 .. Note:: Experimental: This parameter may change or be removed in a future release without warning.
@@ -349,7 +349,7 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     base model weights are not saved but the reference to the HuggingFace repository and
     its commit hash are logged instead.
 """
-        )
+        ),
     }
 )
 

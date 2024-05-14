@@ -400,7 +400,10 @@ def _save_model_with_class_artifacts_params(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     saved_code_subpath = _validate_infer_and_copy_code_paths(
-        code_paths, path, infer_code_paths, mlflow.pyfunc.FLAVOR_NAME,
+        code_paths,
+        path,
+        infer_code_paths,
+        mlflow.pyfunc.FLAVOR_NAME,
     )
     mlflow_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.CODE] = saved_code_subpath
 

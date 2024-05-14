@@ -51,7 +51,7 @@ class _CaptureImportedModules:
         def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
             is_absolute_import = level == 0
             if not self.record_full_module and is_absolute_import:
-                    self._record_imported_module(name)
+                self._record_imported_module(name)
 
             result = original(name, globals, locals, fromlist, level)
 
@@ -148,8 +148,7 @@ def parse_args():
 
 
 def store_imported_modules(
-        cap_cm, model_path, flavor, output_file, error_file=None,
-        record_full_module=False
+    cap_cm, model_path, flavor, output_file, error_file=None, record_full_module=False
 ):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
@@ -229,7 +228,11 @@ def main():
 
     cap_cm = _CaptureImportedModules(record_full_module=args.record_full_module)
     store_imported_modules(
-        cap_cm, model_path, flavor, output_file, error_file,
+        cap_cm,
+        model_path,
+        flavor,
+        output_file,
+        error_file,
         record_full_module=args.record_full_module,
     )
 

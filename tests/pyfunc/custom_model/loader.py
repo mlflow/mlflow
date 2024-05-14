@@ -1,5 +1,4 @@
 import pickle
-from custom_model.mod1 import mod2
 
 
 def _load_pyfunc(path):
