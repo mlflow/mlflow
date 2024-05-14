@@ -140,3 +140,19 @@ def test_random_name_generation():
     names = [name_utils._generate_random_name() for i in range(1000)]
     assert all(len(name) <= 20 for name in names)
     assert all(name[-1].isnumeric() for name in names)
+
+
+def test_attr_dict():
+    from mlflow.utils import AttrDict
+
+    d = {"a": 1, "b": {"c": 2}}
+    attr_d = AttrDict(d)
+    assert attr_d.a == 1
+    assert attr_d.b.c == 2
+
+
+def test_attr_dict_hasattr():
+    from mlflow.utils import AttrDict
+    d = {"a": 1, "b": {"c": 2}}
+    attr_d = AttrDict(d)
+    assert not hasattr(attr_d, "nonexistent")
