@@ -22,7 +22,6 @@ type MlflowService struct {
 
 // CreateExperiment implements MlflowService.
 func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *contract.Error) {
-
 	if utils.IsNotNilOrEmptyString(input.ArtifactLocation) {
 		artifactLocation := strings.TrimRight(*input.ArtifactLocation, "/")
 
