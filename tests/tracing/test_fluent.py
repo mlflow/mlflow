@@ -657,7 +657,6 @@ def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch):
     df = mlflow.search_traces()
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
-    # request metadata has trace schema version by default
     assert df["request_metadata"].tolist() == [{}]
 
 
