@@ -51,7 +51,7 @@ jobs:
           pip install pyspark
       - name: Run tests
         run: |
-          pytest tests/recipes -s
+          pytest tests/recipes
 
   recipes-windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

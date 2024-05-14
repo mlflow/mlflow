@@ -25,7 +25,6 @@ def transformer_fn(estimator_params=None):
     return None
 """
     )
-    print("DBG: dummy_transform_step, root path ", tmp_recipe_root_path)
     monkeypatch.syspath_prepend(str(tmp_recipe_root_path))
 
 
@@ -119,7 +118,6 @@ def test_transform_steps_work_without_step_config(tmp_recipe_root_path, recipe):
 
 def test_transform_empty_step(tmp_recipe_root_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_recipe_root_path))
-    print("DBG test_transform_empty_step tmp_recipe_root_path ", tmp_recipe_root_path)
     with mock.patch("steps.transform.transformer_fn", return_value=None):
         transform_step, transform_step_output_dir, split_step_output_dir = set_up_transform_step(
             tmp_recipe_root_path, "transformer_fn"
