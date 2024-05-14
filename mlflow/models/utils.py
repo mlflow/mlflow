@@ -1456,21 +1456,22 @@ def _validate_model_code_from_notebook(code):
     )
 
     output_code_list = []
-    for line in code.splitlines():
+    for line in code.decode().splitlines():
         for match in re.finditer(r"\bdbutils\b", line):
             start = match.start()
             if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
                 raise ValueError(error_message)
         # Prefix any line containing MAGIC commands with a comment. When there is better support
         # for the Databricks workspace export API, we can get rid of this.
-        if line[:1] == b"%":
-            output_code_list.append(b"# MAGIC " + bytes(line))
+        if line.startswith("%"):
+            output_code_list.append("# MAGIC " + line)
         else:
-            output_code_list.append(bytes(line))
-    output_code = b"\n".join(output_code_list)
+            output_code_list.append(line)
+    output_code_decoded = "\n".join(output_code_list)
+    output_code = output_code_decoded.encode()
 
     magic_regex = r"^# MAGIC %\S+.*"
-    if re.search(magic_regex, code, re.MULTILINE):
+    if re.search(magic_regex, output_code, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
             "functions correctly, make sure that it does not rely on these magic commands for "
