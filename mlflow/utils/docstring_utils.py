@@ -303,9 +303,9 @@ limitations, see the
     credential token strings, otherwise they might be included in the automatic inferred code
     path files and be logged to MLflow artifact repository.
 
-    If your custom python module depends on resource files (e.g. a config file) with a relative path
-    to the module code file path, the resource files can't be automatically inferred as the
-    code path file. To address this issue, you should put all used resource files outside
+    If your custom python module depends on non-python files (e.g. a config file) with a relative
+    path to the module code file path, the non-python files can't be automatically inferred as the
+    code path file. To address this issue, you should put all used non-python files outside
     your custom code directory.
 
     If a python code file is loaded as the python ``__main__`` module, then this code file can't be
