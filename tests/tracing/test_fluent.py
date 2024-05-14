@@ -20,7 +20,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 
 from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
 
@@ -145,6 +150,7 @@ def test_trace_with_databricks_tracking_uri(
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data
@@ -299,6 +305,7 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
         "mlflow.artifactLocation": "test",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace = mlflow.get_trace(request_id_1)

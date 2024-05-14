@@ -9,7 +9,13 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_trace_id
@@ -41,7 +47,12 @@ def test_on_start(clear_singleton, monkeypatch):
         experiment_id="0",
         timestamp_ms=5,
         request_metadata={},
-        tags={"mlflow.user": "bob", "mlflow.source.name": "test", "mlflow.source.type": "LOCAL"},
+        tags={
+            "mlflow.user": "bob",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -103,7 +114,12 @@ def test_on_start_with_experiment_id(clear_singleton, monkeypatch):
         experiment_id=experiment_id,
         timestamp_ms=5,
         request_metadata={},
-        tags={"mlflow.user": "bob", "mlflow.source.name": "test", "mlflow.source.type": "LOCAL"},
+        tags={
+            "mlflow.user": "bob",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -127,7 +143,12 @@ def test_on_start_fallback_to_client_side_request_id(clear_singleton, monkeypatc
         experiment_id="0",
         timestamp_ms=5,
         request_metadata={},
-        tags={"mlflow.user": "bob", "mlflow.source.name": "test", "mlflow.source.type": "LOCAL"},
+        tags={
+            "mlflow.user": "bob",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
     )
     # When the backend returns an error, the request_id is generated at client side from trace_id
     expected_request_id = encode_trace_id(_TRACE_ID)

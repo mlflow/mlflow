@@ -9,6 +9,7 @@ import mlflow
 import mlflow.tracking.context.default_context
 from mlflow.entities import SpanType
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
@@ -62,6 +63,7 @@ def test_json_deserialization(clear_singleton, monkeypatch):
                 "mlflow.traceName": "predict",
                 "mlflow.source.name": "test",
                 "mlflow.source.type": "LOCAL",
+                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
             },
         },
         "data": {
