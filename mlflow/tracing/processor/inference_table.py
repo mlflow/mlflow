@@ -56,12 +56,14 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         try:
             request_id = _get_flask_request().headers.get(_HEADER_REQUEST_ID_KEY)
         except Exception as e:
-            _logger.debug(
+            _logger.warning(
                 f"Failed to get request ID from the request headers: {e}. Skipping trace processing"
             )
             request_id = None
         if not request_id:
-            _logger.debug("Request ID not found in the request headers. Skipping trace processing.")
+            _logger.warning(
+                "Request ID not found in the request headers. Skipping trace processing."
+            )
             return
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
