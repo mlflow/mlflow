@@ -1,3 +1,3 @@
-from . import mod2
+from . import mod2  # noqa
 
 __all__ = ["mod2"]

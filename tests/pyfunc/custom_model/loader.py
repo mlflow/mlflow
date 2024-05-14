@@ -1,6 +1,6 @@
 import pickle
-from custom_model.mod1 import mod2
 
+from custom_model.mod1 import mod2
 
 __all__ = ["mod2"]
 
