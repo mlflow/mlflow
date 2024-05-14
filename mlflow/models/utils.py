@@ -1456,7 +1456,7 @@ def _validate_model_code_from_notebook(code):
     )
 
     output_code_list = []
-    for line in code.decode().splitlines():
+    for line in code.splitlines():
         for match in re.finditer(r"\bdbutils\b", line):
             start = match.start()
             if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
@@ -1468,7 +1468,7 @@ def _validate_model_code_from_notebook(code):
         else:
             output_code_list.append(line)
     output_code_decoded = "\n".join(output_code_list)
-    output_code = output_code_decoded.encode()
+    output_code = output_code_decoded.encode("utf-8")
 
     magic_regex = r"^# MAGIC %\S+.*"
     if re.search(magic_regex, output_code, re.MULTILINE):
