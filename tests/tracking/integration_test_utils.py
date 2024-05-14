@@ -8,7 +8,7 @@ from subprocess import Popen
 
 import mlflow
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR, _build_go_command
-from mlflow.server.handlers import initialize_backend_stores
+from mlflow.server.handlers import TrackingStoreRegistryWrapper
 
 from tests.helper_functions import LOCALHOST, get_safe_port
 
@@ -66,11 +66,8 @@ def _init_server(
         ]
 
     def go_command_builder(host, port):
-        initialize_backend_stores(
-            backend_store_uri=backend_uri,
-            registry_store_uri=None,
-            default_artifact_root=root_artifact_uri,
-        )
+        # Make sure the database is initialized by the Python code first
+        TrackingStoreRegistryWrapper().get_store(backend_uri, root_artifact_uri)
         return _build_go_command(
             python_command_builder,
             f"LogLevel=debug,ShutdownTimeout=1s,ServerPath={go_server_path}",

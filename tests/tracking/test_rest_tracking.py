@@ -83,16 +83,16 @@ def postgres_url():
 def backend_uri(request, tmp_path, postgres_url):
     """Provides a backend URI for the tracking server."""
     if request.param == "file":
-        yield tmp_path.joinpath("file").as_uri()
+        return tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlite":
         path = tmp_path.joinpath("sqlite.db").as_uri()
-        yield ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+        return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
     elif request.param == "postgresql":
-        yield postgres_url
         engine = sqlalchemy.create_engine(postgres_url)
         with engine.begin() as connection:
             connection.execute(sqlalchemy.text("DROP SCHEMA public CASCADE"))
             connection.execute(sqlalchemy.text("CREATE SCHEMA public"))
+        return postgres_url
 
 
 @pytest.fixture(params=["python", "go"])
