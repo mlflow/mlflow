@@ -14,6 +14,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     get_otel_attribute,
+    maybe_get_request_id,
 )
 
 _logger = logging.getLogger(__name__)
@@ -51,20 +52,23 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        # If this is invoked outside of a flask request, it raises error about
-        # outside of request context. We should avoid this by skipping the trace processing
-        try:
-            request_id = _get_flask_request().headers.get(_HEADER_REQUEST_ID_KEY)
-        except Exception as e:
-            _logger.warning(
-                f"Failed to get request ID from the request headers: {e}. Skipping trace processing"
-            )
-            request_id = None
-        if not request_id:
-            _logger.warning(
-                "Request ID not found in the request headers. Skipping trace processing."
-            )
-            return
+        request_id = maybe_get_request_id()
+        if request_id is None:
+            # If this is invoked outside of a flask request, it raises error about
+            # outside of request context. We should avoid this by skipping the trace processing
+            try:
+                request_id = _get_flask_request().headers.get(_HEADER_REQUEST_ID_KEY)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to get request ID from the request headers: {e} "
+                    "Skipping trace processing."
+                )
+                request_id = None
+            if not request_id:
+                _logger.warning(
+                    "Request ID not found in the request headers. Skipping trace processing."
+                )
+                return
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
         if span._parent is None:

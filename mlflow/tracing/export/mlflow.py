@@ -10,7 +10,7 @@ from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import maybe_get_evaluation_request_id
+from mlflow.tracing.utils import maybe_get_request_id
 from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class MlflowSpanExporter(SpanExporter):
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
                 TRACE_BUFFER[eval_request_id] = trace
 
-            if not maybe_get_evaluation_request_id():
+            if not maybe_get_request_id(is_evaluate=True):
                 # Display the trace in the UI if the trace is not generated from within
                 # an MLflow model evaluation context
                 self._display_handler.display_traces([trace])

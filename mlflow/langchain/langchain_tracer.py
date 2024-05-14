@@ -1,6 +1,5 @@
 import json
 import logging
-from contextvars import Context
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -28,7 +27,7 @@ from mlflow.langchain.utils import (
     DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY,
     get_databricks_vector_search_key,
 )
-from mlflow.pyfunc.context import set_prediction_context
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.fluent import get_trace
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
