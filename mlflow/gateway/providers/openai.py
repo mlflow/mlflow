@@ -127,12 +127,107 @@ class OpenAIProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
 
-        resp = await send_request(
-            headers=self._request_headers,
-            base_url=self._request_base_url,
-            path="chat/completions",
-            payload=self._add_model_to_payload_if_necessary(payload),
-        )
+        class Function:
+            def __init__(self, metadata, impl):
+                self.metadata = metadata
+                self.impl = impl
+
+        def get_current_weather(location, unit="fahrenheit"):
+            """Get the current weather in a given location"""
+            if "tokyo" in location.lower():
+                return json.dumps({"location": "Tokyo", "temperature": "10", "unit": unit})
+            elif "san francisco" in location.lower():
+                return json.dumps({"location": "San Francisco", "temperature": "72", "unit": unit})
+            elif "paris" in location.lower():
+                return json.dumps({"location": "Paris", "temperature": "22", "unit": unit})
+            else:
+                return json.dumps({"location": location, "temperature": "unknown"})
+
+        class Function:
+            def __init__(self, metadata, impl):
+                self.metadata = metadata
+                self.impl = impl
+
+        def catalog(name):
+            return {
+                "get_current_weather": Function(
+                    metadata={
+                        "name": name,
+                        "description": "Get the current weather in a given location",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "location": {
+                                    "type": "string",
+                                    "description": "The city and state, e.g. San Francisco, CA",
+                                },
+                                "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                            },
+                            "required": ["location"],
+                        },
+                    },
+                    impl=get_current_weather,
+                )
+            }.get(name)
+
+        if (tools := payload.get("tools")) and any(list(t["function"]) == ["name"] for t in tools):
+            # Fetch tool metadata
+            tools = [
+                {
+                    "type": "function",
+                    "function": catalog(t["function"]["name"]).metadata,
+                }
+                for t in tools
+            ]
+            payload["tools"] = tools
+
+            # Get tool response
+            tool_resp = await send_request(
+                headers=self._request_headers,
+                base_url=self._request_base_url,
+                path="chat/completions",
+                payload=self._add_model_to_payload_if_necessary(payload),
+            )
+            tool_msg = tool_resp["choices"][0]["message"]
+
+            # Add tool results
+            messages = payload.get("messages", [])
+            if tool_calls := tool_msg.get("tool_calls"):
+                messages.append(tool_msg)
+                for tool_call in tool_calls:
+                    function_name = tool_call["function"]["name"]
+
+                    # TODO: Replace this
+                    func = catalog(function_name)
+
+                    # TODO: Replace this
+                    function_args = json.loads(tool_call["function"]["arguments"])
+                    function_response = func.impl(**function_args)
+
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call["id"],
+                            "role": "tool",
+                            "name": function_name,
+                            "content": function_response,
+                        }
+                    )
+            payload["messages"] = messages
+
+            payload.pop("tools", None)
+            resp = await send_request(
+                headers=self._request_headers,
+                base_url=self._request_base_url,
+                path="chat/completions",
+                payload=self._add_model_to_payload_if_necessary(payload),
+            )
+        else:
+            resp = await send_request(
+                headers=self._request_headers,
+                base_url=self._request_base_url,
+                path="chat/completions",
+                payload=self._add_model_to_payload_if_necessary(payload),
+            )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
         # {
