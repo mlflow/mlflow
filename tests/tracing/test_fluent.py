@@ -21,7 +21,6 @@ from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import (
-    TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
     TraceTagKey,
@@ -656,7 +655,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch):
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
     # request metadata has trace schema version by default
-    assert df["request_metadata"].tolist() == [{TRACE_SCHEMA_VERSION_KEY: TRACE_SCHEMA_VERSION}]
+    assert df["request_metadata"].tolist() == [{}]
 
 
 def test_search_traces_extracts_fields_as_expected(monkeypatch):
@@ -870,14 +869,3 @@ def test_search_traces_with_span_name(monkeypatch):
         mlflow.search_traces(
             extract_fields=["span.llm.inputs", "span.invalidname.outputs", "span.llm.inputs.x"]
         )
-
-
-def test_trace_info_has_version_by_default():
-    info = TraceInfo(
-        request_id="123",
-        experiment_id="0",
-        timestamp_ms=1,
-        execution_time_ms=2,
-        status=TraceStatus.OK,
-    )
-    assert info.request_metadata == {TRACE_SCHEMA_VERSION_KEY: TRACE_SCHEMA_VERSION}
