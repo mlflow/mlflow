@@ -1,7 +1,10 @@
+import json
 import sys
 import time
 import traceback
+import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Dict
 
 from opentelemetry.util.types import AttributeValue
@@ -57,3 +60,30 @@ class SpanEvent(_MlflowObject):
             return (msg + "\n\n".join(tb)).strip()
         except Exception:
             return msg
+
+    def json(self):
+        return {
+            "name": self.name,
+            "timestamp": self.timestamp,
+            "attributes": json.dumps(self.attributes, cls=CustomEncoder)
+            if self.attributes
+            else None,
+        }
+
+
+class CustomEncoder(json.JSONEncoder):
+    """
+    Custom encoder to handle json serialization.
+    """
+
+    def default(self, o):
+        # convert datetime to string format by default
+        if isinstance(o, datetime):
+            return o.isoformat()
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        try:
+            return super().default(o)
+        # convert object direct to string to avoid error in serialization
+        except TypeError:
+            return str(o)
