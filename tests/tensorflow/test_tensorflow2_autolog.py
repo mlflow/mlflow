@@ -79,7 +79,7 @@ def _create_model_for_dict_mapping():
         "c": tf.keras.Input(shape=(1,), name="c"),
         "d": tf.keras.Input(shape=(1,), name="d"),
     }
-    concatenated = layers.Concatenate()(inputs.values())
+    concatenated = layers.Concatenate()(list(inputs.values()))
     x = layers.Dense(16, activation="relu", input_shape=(4,))(concatenated)
     outputs = layers.Dense(3, activation="softmax")(x)
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
