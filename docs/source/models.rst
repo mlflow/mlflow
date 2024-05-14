@@ -189,17 +189,86 @@ documentation <custom-python-models>`.
 
 How To Load And Score Python Function Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-You can load ``python_function`` models in Python by calling the :py:func:`mlflow.pyfunc.load_model()`
-function. Note that the ``load_model`` function assumes that all dependencies are already available
-and *will not* check nor install any dependencies (
-see :ref:`model deployment section <built-in-deployment>` for tools to deploy models with
-automatic dependency management).
 
-Once loaded, you can score the model by calling the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
-method, which has the following signature::
+Loading Models
+##############
 
-  predict(data: Union[pandas.(Series | DataFrame), numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
-          params: Optional[Dict[str, Any]] = None) → Union[pandas.(Series | DataFrame), numpy.ndarray, list, str]
+You can load ``python_function`` models in Python by using the :py:func:`mlflow.pyfunc.load_model()` function. It is important 
+to note that ``load_model`` assumes all dependencies are already available and *will not* perform any checks or installations 
+of dependencies. For deployment options that handle dependencies, refer to the :ref:`model deployment section <built-in-deployment>`.
+
+Scoring Models
+##############
+
+Once a model is loaded, it can be scored in two primary ways:
+
+1. **Synchronous Scoring**
+   The standard method for scoring is using the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` method, which supports various
+   input types and returns a scalar or collection based on the input data. The method signature is::
+
+        predict(data: Union[pandas.Series, pandas.DataFrame, numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
+                params: Optional[Dict[str, Any]] = None) → Union[pandas.Series, pandas.DataFrame, numpy.ndarray, list, str]
+
+2. **Synchronous Streaming Scoring**
+
+    .. note:: 
+        ``predict_stream`` is a new interface that was added to MLflow in the 2.12.2 release. Previous versions of MLflow will not support this interface.
+        In order to utilize ``predict_stream`` in a custom Python Function Model, you must implement the ``predict_stream`` method in your model class and 
+        return a generator type.
+
+    For models that support streaming data processing, :py:func:`predict_stream <mlflow.pyfunc.PyFuncModel.predict_stream>` 
+    method is available. This method returns a ``generator``, which yields a stream of responses, allowing for efficient processing of 
+    large datasets or continuous data streams. Note that the ``predict_stream`` method is not available for all model types. 
+    The usage involves iterating over the generator to consume the responses::
+
+        predict_stream(data: Any, params: Optional[Dict[str, Any]] = None) → GeneratorType
+
+Demonstrating ``predict_stream()``
+##################################
+
+Below is an example demonstrating how to define, save, load, and use a streamable model with the `predict_stream()` method:
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+
+    # Define a custom model that supports streaming
+    class StreamableModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            # Regular predict method implementation (optional for this demo)
+            return "regular-predict-output"
+
+        def predict_stream(self, context, model_input, params=None):
+            # Yielding elements one at a time
+            for element in ["a", "b", "c", "d", "e"]:
+                yield element
+
+
+    # Save the model to a directory
+    tmp_path = "/tmp/test_model"
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+    python_model = StreamableModel()
+    mlflow.pyfunc.save_model(path=pyfunc_model_path, python_model=python_model)
+
+    # Load the model
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
+    # Use predict_stream to get a generator
+    stream_output = loaded_pyfunc_model.predict_stream("single-input")
+
+    # Consuming the generator using next
+    print(next(stream_output))  # Output: 'a'
+    print(next(stream_output))  # Output: 'b'
+
+    # Alternatively, consuming the generator using a for-loop
+    for response in stream_output:
+        print(response)  # This will print 'c', 'd', 'e'
+
+
+Python Function Model Interfaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
 DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
