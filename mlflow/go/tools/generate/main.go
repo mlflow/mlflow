@@ -27,7 +27,6 @@ var importStatements = &ast.GenDecl{
 		mkImportSpec(`"strings"`),
 		mkImportSpec(`"github.com/gofiber/fiber/v2"`),
 		mkImportSpec(`"github.com/mlflow/mlflow/mlflow/go/pkg/protos"`),
-		mkImportSpec(`"github.com/mlflow/mlflow/mlflow/go/pkg/protos/artifacts"`),
 	},
 }
 

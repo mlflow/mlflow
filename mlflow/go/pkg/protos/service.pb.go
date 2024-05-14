@@ -1194,7 +1194,7 @@ type CreateExperiment struct {
 	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty" query:"name" validate:"required"`
 	// Location where all artifacts for the experiment are stored.
 	// If not provided, the remote server will select an appropriate default.
-	ArtifactLocation *string `protobuf:"bytes,2,opt,name=artifact_location,json=artifactLocation" json:"artifact_location,omitempty" query:"artifact_location" validate:"uriWithoutFragmentsOrParams"`
+	ArtifactLocation *string `protobuf:"bytes,2,opt,name=artifact_location,json=artifactLocation" json:"artifact_location,omitempty" query:"artifact_location" validate:"omitempty,uriWithoutFragmentsOrParams"`
 	// A collection of tags to set on the experiment. Maximum tag size and number of tags per request
 	// depends on the storage backend. All storage backends are guaranteed to support tag keys up
 	// to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
