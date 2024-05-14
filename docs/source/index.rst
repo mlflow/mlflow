@@ -18,19 +18,51 @@ enhance your learning in area-specific guides and tutorials.
     <div class="main-container">
         <h3>Learn about the core components of MLflow</h3>
         <div class="sub-container-two-columns">
-            <div class="text-box">    
-                <ul>
-                    <li><a href="getting-started/intro-quickstart/index.html">MLflow Tracking Quickstart</a></li>
-                    <li><a href="getting-started/logging-first-model/index.html">Introduction to MLflow</a></li>
-                    <li><a href="tracking/autolog.html">Autologging Quickstart</a></li>
-                    <li><a href="getting-started/quickstart-2/index.html">Model Deployment Quickstart</a></li>
-                </ul>
+            <div class="text-box">
+                <h4>Quickstarts</h4>
+                <p>
+                    Learning environment setup <a href="getting-started/running-notebooks/index.html">quickstart guide</a>
+                </p>
+                <p>
+                    MLflow Tracking <a href="getting-started/intro-quickstart/index.html">5-minute tutorial</a>
+                </p> 
+                <h4>Guides</h4>
+                <p>
+                    Learn the core components of MLflow with <a href="getting-started/logging-first-model/index.html">this in-depth guide to Tracking</a>
+                </p>
             </div>
             <div class="image-box">
                 <img src="_static/images/intro/learn-core-components.png" alt="Core Components">
             </div>
         </div>
     </div>
+
+.. |starting-guides| raw:: html
+
+      <div class="main-container">
+        <h3>Learn how to perform common tasks in MLflow</h3>
+        <div class="sub-container-two-columns">
+            <div class="text-box">
+                <h4>Guides</h4>
+                <p>
+                    <a href="tracking/autolog.html">Autologging tutorial</a> for effortless model tracking
+                </p>
+                <p>
+                    <a href="getting-started/quickstart-2/index.html">Model Deployment Quickstart</a>
+                </p>
+                <p>
+                    Overview on defining and using <a href="traditional-ml/creating-custom-pyfunc/index.html">Custom Python Models</a>
+                </p>
+                <p>
+                    <a>Guide to hyperparameter tuning</a> with MLflow
+                </p>
+            </div>
+            <div class="image-box">
+                <img src="_static/images/intro/learn-core-components.png" alt="Core Components">
+            </div>
+        </div>
+    </div>
+
 
 .. container:: intro
 
@@ -39,13 +71,22 @@ enhance your learning in area-specific guides and tutorials.
         .. tab:: Learn about MLflow
 
             |getting-started|
+        
+        .. tab:: MLflow basics
+
+            |starting-guides|
 
 
 TAB 1 - How to run notebooks, intro to tracking, intro to mlflow guide (3 links)
 3 separate h4 sections with links to the guides
 
 TAB 2 "Common tasks with MLflow"
-Autologging Quickstart, Model Deployment Quickstart, hyperparameter tuning?
+Autologging Quickstart, Model Deployment Quickstart, 
+
+Link to model signatures
+Link to custom pyfunc intro
+Link to hyperparameter tuning guide
+
 
 TAB 3 - Intro to GenAI with MLflow
 Quickstarts for Transformers, LangChain, OpenAI, etc.
