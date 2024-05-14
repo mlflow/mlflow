@@ -462,5 +462,7 @@ def test_model_code_validation():
     code_with_magic_command = "# Comment\n%pip install test\nvalid_python_code = 'valid'"
     expected_validated_code = "# Comment\n# MAGIC %pip install test\nvalid_python_code = 'valid'"
 
-    validated_code_with_magic_command = _validate_model_code_from_notebook(code_with_magic_command).decode("utf-8")
+    validated_code_with_magic_command = _validate_model_code_from_notebook(
+        code_with_magic_command
+    ).decode("utf-8")
     assert validated_code_with_magic_command == expected_validated_code
