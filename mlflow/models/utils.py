@@ -1471,7 +1471,7 @@ def _validate_model_code_from_notebook(code):
     output_code = output_code_decoded.encode("utf-8")
 
     magic_regex = r"^# MAGIC %\S+.*"
-    if re.search(magic_regex, output_code, re.MULTILINE):
+    if re.search(magic_regex, output_code_decoded, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
             "functions correctly, make sure that it does not rely on these magic commands for "
