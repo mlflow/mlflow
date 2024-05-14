@@ -47,6 +47,8 @@ Initially, we want to focus on supporting Postgres SQL. We chose [Gorm](https://
 
 We do not generate any Go code based on the database schema. Gorm has generation capabilities but they didn't fit our needs. The plan would be to eventually assert the current code stil matches the database schema via an intergration test.
 
+All the models use pointers for their fields. We do this for performance reasons and to distinguish between zero values and null values.
+
 ## Testing strategy
 
 The Python integration tests have been adapted to also run against the Go implementation. Just run them as usual, e.g.

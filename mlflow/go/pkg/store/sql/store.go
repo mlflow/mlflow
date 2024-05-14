@@ -8,6 +8,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql/model"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
 
 type Store struct {
@@ -15,7 +16,7 @@ type Store struct {
 }
 
 func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
-	experiment := model.Experiment{ExperimentID: id}
+	experiment := model.Experiment{ExperimentID: utils.PtrTo(id)}
 	if err := s.db.Preload("ExperimentTags").First(&experiment).Error; err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
 func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, error) {
 	experiment := model.NewExperimentFromProto(input)
 	err := s.db.Create(&experiment).Error
-	return experiment.ExperimentID, err
+	return *experiment.ExperimentID, err
 }
 
 func NewSqlStore(url string) (store.MlflowStore, error) {
