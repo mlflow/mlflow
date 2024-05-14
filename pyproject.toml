@@ -213,20 +213,19 @@ select = [
   "SIM115",  # open-file-with-context-handler
   "SIM210",  # if-expr-with-true-false
   "SIM910",  # dict-get-with-none-default
-  # "T20",     # flake8-print
-  "TID251", # banned-api
-  "TID252", # relative-improt
-  "TRY302", # useless-try-except
-  "UP004",  # useless-object-inheritance
-  "UP008",  # super-call-with-parameters
-  "UP011",  # lru-cache-without-parameters
-  "UP012",  # unecessary-encode-utf8
-  "UP015",  # redundant-open-modes
-  "UP030",  # format-literals
-  "UP031",  # printf-string-format
-  "UP032",  # f-string
-  "UP034",  # extraneous-parenthesis
-  "W",      # warning
+  "TID251",  # banned-api
+  "TID252",  # relative-improt
+  "TRY302",  # useless-try-except
+  "UP004",   # useless-object-inheritance
+  "UP008",   # super-call-with-parameters
+  "UP011",   # lru-cache-without-parameters
+  "UP012",   # unecessary-encode-utf8
+  "UP015",   # redundant-open-modes
+  "UP030",   # format-literals
+  "UP031",   # printf-string-format
+  "UP032",   # f-string
+  "UP034",   # extraneous-parenthesis
+  "W",       # warning
 ]
 ignore = [
   "E402", # module-import-not-at-top-of-file
