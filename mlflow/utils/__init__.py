@@ -295,7 +295,7 @@ class AttrDict(dict):
         try:
             value = self[attr]
         except KeyError:
-            raise AttributeError(f"No attribute '{attr}' found in instance.")
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
         if isinstance(value, dict):
             return AttrDict(value)
         return value

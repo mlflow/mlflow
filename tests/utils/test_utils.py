@@ -157,7 +157,7 @@ def test_nested_attribute_access():
 
 def test_non_existent_attribute():
     d = AttrDict({"a": 1, "b": 2})
-    with pytest.raises(AttributeError, match="No attribute 'c' found in instance"):
+    with pytest.raises(AttributeError, match="'AttrDict' object has no attribute 'c'"):
         _ = d.c
 
 
@@ -168,3 +168,17 @@ def test_hasattr():
     assert not hasattr(d, "e")
     assert hasattr(d.b, "c")
     assert not hasattr(d.b, "e")
+
+
+def test_subclass_hasattr():
+    class SubAttrDict(AttrDict):
+        pass
+
+    d = SubAttrDict({"a": 1, "b": {"c": 3, "d": 4}})
+    assert hasattr(d, "a")
+    assert not hasattr(d, "e")
+    assert hasattr(d.b, "c")
+    assert not hasattr(d.b, "e")
+
+    with pytest.raises(AttributeError, match="'SubAttrDict' object has no attribute 'g'"):
+        _ = d.g
