@@ -33,6 +33,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 type Config struct {
 	Address             string
+	DefaultArtifactRoot string
 	LogLevel            string
 	PythonAddress       string
 	PythonCommand       []string
@@ -41,5 +42,4 @@ type Config struct {
 	StaticFolder        string
 	StoreUrl            string
 	Version             string
-	DefaultArtifactRoot string
 }
