@@ -1,6 +1,8 @@
+import json
 import logging
 from contextvars import Context
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 
@@ -18,7 +20,7 @@ from tenacity import RetryCallState
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType, Trace
+from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.environment_variables import DATABRICKS_RAG_SERVING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils import (
@@ -74,12 +76,19 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._prediction_context = prediction_context
         self._request_id = None
 
-    def _get_trace(self) -> Union[Trace, Dict[str, Any]]:
+    def _dump_trace(self) -> str:
         """
-        This method is used to get the trace data from the buffer.
-        If in databricks serving, it should return the trace in dictionary format.
+        This method is only used to get the trace data from the buffer in databricks
+        serving, it should return the trace in dictionary format and then dump to string.
         """
-        return get_trace(self._request_id)
+
+        def _default_converter(o):
+            if isinstance(o, datetime):
+                return o.isoformat()
+            raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+        trace = get_trace(self._request_id)
+        return json.dumps(trace, default=_default_converter)
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span := self._run_span_mapping.get(str(run_id)):
