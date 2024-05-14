@@ -6,6 +6,69 @@ handling the complexities of the machine learning process. MLflow focuses on the
 machine learning projects, ensuring that each phase is manageable, traceable, and reproducible.
 
 
+MLflow Getting Started Resources
+--------------------------------
+
+If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is 
+getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
+enhance your learning in area-specific guides and tutorials. 
+
+.. |getting-started| raw:: html
+
+    <div class="main-container">
+        <h3>Learn about the core components of MLflow</h3>
+        <div class="sub-container-two-columns">
+            <div class="text-box">    
+                <ul>
+                    <li><a href="getting-started/intro-quickstart/index.html">MLflow Tracking Quickstart</a></li>
+                    <li><a href="getting-started/logging-first-model/index.html">Introduction to MLflow</a></li>
+                    <li><a href="tracking/autolog.html">Autologging Quickstart</a></li>
+                    <li><a href="getting-started/quickstart-2/index.html">Model Deployment Quickstart</a></li>
+                </ul>
+            </div>
+            <div class="image-box">
+                <img src="_static/images/intro/learn-core-components.png" alt="Core Components">
+            </div>
+        </div>
+    </div>
+
+.. container:: intro
+
+    .. tabs::
+
+        .. tab:: Learn about MLflow
+
+            |getting-started|
+
+
+TAB 1 - How to run notebooks, intro to tracking, intro to mlflow guide (3 links)
+3 separate h4 sections with links to the guides
+
+TAB 2 "Common tasks with MLflow"
+Autologging Quickstart, Model Deployment Quickstart, hyperparameter tuning?
+
+TAB 3 - Intro to GenAI with MLflow
+Quickstarts for Transformers, LangChain, OpenAI, etc.
+
+TAB 4 - DL - TF, Keras, Torch quickstart links
+
+TAB 5 - Traditional ML ?
+
+
+
+
+GenAI and MLflow
+----------------
+
+TAB 1 - 
+
+
+Core MLflow Features
+--------------------
+
+
+
+
 .. raw:: html
 
     <section>

@@ -96,6 +96,39 @@ background-color: rgb(50, 50, 50);
 }
 
 /*
+ * Main Landing page Tab display panes
+ */
+
+.main-container {
+    margin: 1rem;
+    text-align: left;
+}
+
+.main-container h3 {
+    margin-bottom: 30px;
+}
+
+.sub-container-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+}
+.text-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Center content vertically */
+}
+
+.image-box {
+    flex: 0 1 400px;
+}
+
+.image-box img {
+    width: 100%;
+    height: auto;
+}
+
+/*
  * Additional Custom CSS
  */
 
