@@ -153,6 +153,7 @@ def test_attr_dict():
 
 def test_attr_dict_hasattr():
     from mlflow.utils import AttrDict
+
     d = {"a": 1, "b": {"c": 2}}
     attr_d = AttrDict(d)
     assert not hasattr(attr_d, "nonexistent")
