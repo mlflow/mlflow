@@ -12,7 +12,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.uri import append_to_uri_path, is_databricks_unity_catalog_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs)
 def get_flavor_backend(model_uri, **kwargs):
     if model_uri:
         with TempDir() as tmp:
-            if ModelsArtifactRepository.is_models_uri(model_uri):
+            if ModelsArtifactRepository.is_models_uri(model_uri) and not is_databricks_unity_catalog_uri(model_uri):
                 underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
             else:
                 underlying_model_uri = model_uri
