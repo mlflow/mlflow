@@ -165,8 +165,7 @@ def _coerce_to_pandas_df(input_ex):
         # We need to be compatible with infer_schema's behavior, where
         # it infers each value's type directly.
         if all(
-            isinstance(x, str)
-            or (isinstance(x, list) and all(_is_scalar(y) for y in x))
+            isinstance(x, str) or (isinstance(x, list) and all(_is_scalar(y) for y in x))
             for x in input_ex.values()
         ):
             # e.g.
@@ -342,15 +341,10 @@ class _Example:
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         if self._inference_params is not None:
-            data = {
-                EXAMPLE_DATA_KEY: self.data,
-                EXAMPLE_PARAMS_KEY: self._inference_params,
-            }
+            data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
         else:
             data = self.data
-        with open(
-            os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w"
-        ) as f:
+        with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
             json.dump(data, f, cls=NumpyEncoder)
 
     @property
@@ -379,10 +373,7 @@ def _contains_params(input_example):
 
 
 def _save_example(
-    mlflow_model: Model,
-    input_example: ModelInputExample,
-    path: str,
-    no_conversion=False,
+    mlflow_model: Model, input_example: ModelInputExample, path: str, no_conversion=False
 ):
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
@@ -441,9 +432,7 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
         "sparse_matrix_csr",
         "json_object",
     ]:
-        raise MlflowException(
-            f"This version of mlflow can not load example of type {example_type}"
-        )
+        raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     with open(path) as handle:
         return json.load(handle)
@@ -467,9 +456,7 @@ def _read_example(mlflow_model: Model, path: str):
         return None
 
     example_type = mlflow_model.saved_input_example_info["type"]
-    input_schema = (
-        mlflow_model.signature.inputs if mlflow_model.signature is not None else None
-    )
+    input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     if mlflow_model.saved_input_example_info.get(EXAMPLE_PARAMS_KEY, None):
         input_example = input_example[EXAMPLE_DATA_KEY]
     if example_type == "json_object":
@@ -478,9 +465,7 @@ def _read_example(mlflow_model: Model, path: str):
         return _read_tensor_input_from_json(input_example, schema=input_schema)
     if example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
         return _read_sparse_matrix_from_json(input_example, example_type)
-    return dataframe_from_parsed_json(
-        input_example, pandas_orient="split", schema=input_schema
-    )
+    return dataframe_from_parsed_json(input_example, pandas_orient="split", schema=input_schema)
 
 
 def _read_example_params(mlflow_model: Model, path: str):
@@ -523,9 +508,7 @@ def _read_sparse_matrix_from_json(path_or_data, example_type):
         return csr_matrix((data, indices, indptr), shape=shape)
 
 
-def plot_lines(
-    data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None, title=None
-):
+def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None, title=None):
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
@@ -559,11 +542,7 @@ def _enforce_tensor_spec(
     # This logic is for handling "ragged" arrays. The first check is for a standard numpy shape
     # representation of a ragged array. The second is for handling a more manual specification
     # of shape while support an input which is a ragged array.
-    if (
-        len(expected_shape) == 1
-        and expected_shape[0] == -1
-        and expected_type == np.dtype("O")
-    ):
+    if len(expected_shape) == 1 and expected_shape[0] == -1 and expected_type == np.dtype("O"):
         # Sample spec: Tensor('object', (-1,))
         # Will pass on any provided input
         return values
@@ -643,9 +622,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # ignore precision when matching datetime columns.
         return values.astype(np.dtype("datetime64[ns]"))
 
-    if t == DataType.datetime and (
-        values.dtype == object or values.dtype == t.to_python()
-    ):
+    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
@@ -748,15 +725,12 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
             else:
                 continue
         if isinstance(input_type, DataType):
-            new_pf_input[name] = _enforce_mlflow_datatype(
-                name, pf_input[name], input_type
-            )
+            new_pf_input[name] = _enforce_mlflow_datatype(name, pf_input[name], input_type)
         # If the input_type is objects/arrays/maps, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[name] = pd.Series(
-                [_enforce_type(obj, input_type, required) for obj in pf_input[name]],
-                name=name,
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
             )
     return pd.DataFrame(new_pf_input)
 
@@ -773,8 +747,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         for shape in [(-1,), (-1, 1)]:
             if tensor_spec.shape == shape:
                 return _enforce_tensor_spec(
-                    np.array(pd_series, dtype=tensor_spec.type).reshape(shape),
-                    tensor_spec,
+                    np.array(pd_series, dtype=tensor_spec.type).reshape(shape), tensor_spec
                 )
         raise MlflowException(
             f"The input pandas dataframe column '{name}' contains scalar "
@@ -814,9 +787,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             # Because numpy array includes precise type information, so we don't convert type
             # here, so that in following schema validation we can have strict type check on
             # numpy array column.
-            reshaped_numpy_arr = np.vstack(pd_series.tolist()).reshape(
-                tensor_spec.shape
-            )
+            reshaped_numpy_arr = np.vstack(pd_series.tolist()).reshape(tensor_spec.shape)
         except ValueError:
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         if len(reshaped_numpy_arr) != len(pd_series):
@@ -844,9 +815,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     if input_schema.has_input_names():
         if isinstance(pf_input, dict):
             new_pf_input = {}
-            for col_name, tensor_spec in zip(
-                input_schema.input_names(), input_schema.inputs
-            ):
+            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
                 if not isinstance(pf_input[col_name], np.ndarray):
                     raise MlflowException(
                         "This model contains a tensor-based model signature with input names,"
@@ -854,14 +823,10 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                         f" array, but a dict with value type {type(pf_input[col_name])} was found.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                new_pf_input[col_name] = _enforce_tensor_spec(
-                    pf_input[col_name], tensor_spec
-                )
+                new_pf_input[col_name] = _enforce_tensor_spec(pf_input[col_name], tensor_spec)
         elif isinstance(pf_input, pd.DataFrame):
             new_pf_input = {}
-            for col_name, tensor_spec in zip(
-                input_schema.input_names(), input_schema.inputs
-            ):
+            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
                 pd_series = pf_input[col_name]
                 new_pf_input[col_name] = _reshape_and_cast_pandas_column_values(
                     col_name, pd_series, tensor_spec
@@ -910,9 +875,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(
-    pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None
-):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -942,14 +905,10 @@ def _enforce_schema(
         elif isinstance(pf_input, dict):
             # keys are column names
             if any(
-                isinstance(col_spec.type, (Array, Object))
-                for col_spec in input_schema.inputs
+                isinstance(col_spec.type, (Array, Object)) for col_spec in input_schema.inputs
             ) or all(
                 _is_scalar(value)
-                or (
-                    isinstance(value, list)
-                    and all(isinstance(item, str) for item in value)
-                )
+                or (isinstance(value, list) and all(isinstance(item, str) for item in value))
                 for value in pf_input.values()
             ):
                 pf_input = pd.DataFrame([pf_input])
@@ -986,9 +945,7 @@ def _enforce_schema(
                             {
                                 key: (
                                     value.tolist()
-                                    if (
-                                        isinstance(value, np.ndarray) and value.ndim > 1
-                                    )
+                                    if (isinstance(value, np.ndarray) and value.ndim > 1)
                                     else value
                                 )
                                 for key, value in pf_input.items()
@@ -1009,9 +966,7 @@ def _enforce_schema(
             for field in original_pf_input.schema.fields:
                 if isinstance(field.dataType, (StructType, ArrayType)):
                     pf_input[field.name] = pf_input[field.name].apply(
-                        lambda row: convert_complex_types_pyspark_to_pandas(
-                            row, field.dataType
-                        )
+                        lambda row: convert_complex_types_pyspark_to_pandas(row, field.dataType)
                     )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
@@ -1052,9 +1007,7 @@ def _enforce_schema(
                 "Model inference is missing inputs. The model signature declares "
                 "{} inputs  but the provided value only has "
                 "{} inputs. Note: the inputs were not named in the signature so we can "
-                "only verify their count.".format(
-                    len(input_schema.inputs), num_actual_columns
-                )
+                "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
@@ -1096,9 +1049,7 @@ def _enforce_pyspark_dataframe_schema(
         New PySpark DataFrame that conforms to the model's input schema.
     """
     if not HAS_PYSPARK:
-        raise MlflowException(
-            "PySpark is not installed. Cannot handle a PySpark DataFrame."
-        )
+        raise MlflowException("PySpark is not installed. Cannot handle a PySpark DataFrame.")
     new_pf_input = original_pf_input.alias("pf_input_copy")
     if input_schema.has_input_names():
         _enforce_named_col_schema(pf_input_as_pandas, input_schema)
@@ -1131,9 +1082,7 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
         return None
 
     if not isinstance(dtype, DataType):
-        raise MlflowException(
-            f"Expected dtype to be DataType, got {type(dtype).__name__}"
-        )
+        raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
     if not np.isscalar(data):
         raise MlflowException(f"Expected data to be scalar, got {type(data).__name__}")
     # Reuse logic in _enforce_mlflow_datatype for type conversion
@@ -1152,9 +1101,7 @@ def _enforce_array(data: Any, arr: Array, required=True):
         return None
 
     if not isinstance(data, (list, np.ndarray)):
-        raise MlflowException(
-            f"Expected data to be list or numpy array, got {type(data).__name__}"
-        )
+        raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
     data_enforced = [_enforce_type(x, arr.dtype) for x in data]
 
@@ -1218,9 +1165,7 @@ def _enforce_map(data: Any, map_type: Map, required=True):
     return {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
 
 
-def _enforce_type(
-    data: Any, data_type: Union[DataType, Array, Object, Map], required=True
-):
+def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
     if isinstance(data_type, DataType):
         return _enforce_datatype(data, data_type, required=required)
     if isinstance(data_type, Array):
@@ -1364,17 +1309,14 @@ def get_model_version_from_model_uri(model_uri):
     from mlflow import MlflowClient
 
     databricks_profile_uri = (
-        get_databricks_profile_uri_from_artifact_uri(model_uri)
-        or mlflow.get_registry_uri()
+        get_databricks_profile_uri_from_artifact_uri(model_uri) or mlflow.get_registry_uri()
     )
     client = MlflowClient(registry_uri=databricks_profile_uri)
     (name, version) = get_model_name_and_version(client, model_uri)
     return client.get_model_version(name, version)
 
 
-def _enforce_params_schema(
-    params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]
-):
+def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
     if schema is None:
         if params in [None, {}]:
             return params
@@ -1451,15 +1393,12 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
         return None
     if isinstance(dataType, StructType):
         return {
-            field.name: convert_complex_types_pyspark_to_pandas(
-                value[field.name], field.dataType
-            )
+            field.name: convert_complex_types_pyspark_to_pandas(value[field.name], field.dataType)
             for field in dataType.fields
         }
     elif isinstance(dataType, ArrayType):
         return [
-            convert_complex_types_pyspark_to_pandas(elem, dataType.elementType)
-            for elem in value
+            convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
         ]
     converter = type_mapping.get(type(dataType))
     if converter:
@@ -1494,9 +1433,7 @@ def _is_in_string_only(line, search_string):
 
     # Concatenate the patterns using the OR operator '|'
     # This will matches left to right - on quotes first, search_string last
-    pattern = (
-        double_quotes_regex + r"|" + single_quotes_regex + r"|" + search_string_regex
-    )
+    pattern = double_quotes_regex + r"|" + single_quotes_regex + r"|" + search_string_regex
 
     # Iterate through all matches in the line
     for match in re.finditer(pattern, line):
@@ -1522,9 +1459,7 @@ def _validate_model_code_from_notebook(code):
     for line in code.splitlines():
         for match in re.finditer(r"\bdbutils\b", line):
             start = match.start()
-            if not _is_in_comment(line, start) and not _is_in_string_only(
-                line, "dbutils"
-            ):
+            if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
                 raise ValueError(error_message)
         # Prefix any line containing MAGIC commands with a comment. When there is better support
         # for the Databricks workspace export API, we can get rid of this.
