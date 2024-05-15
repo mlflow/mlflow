@@ -20,7 +20,7 @@ from tenacity import RetryCallState
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
-from mlflow.environment_variables import DATABRICKS_RAG_SERVING
+from mlflow.environment_variables import _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils import (
     DATABRICKS_VECTOR_SEARCH_DOC_URI,
@@ -203,7 +203,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when LLM (non-chat models) starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
-        if DATABRICKS_RAG_SERVING.get():
+        if _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING.get():
             prompts = convert_llm_inputs(prompts)
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "llm"),
@@ -269,7 +269,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
         outputs = response.dict()
-        if DATABRICKS_RAG_SERVING.get():
+        if _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING.get():
             outputs = convert_llm_outputs(outputs)
         self._end_span(llm_span, outputs=outputs)
 
@@ -409,7 +409,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_retriever_end(self, documents: Sequence[Document], *, run_id: UUID, **kwargs: Any):
         """Run when Retriever ends running."""
         retriever_span = self._get_span_by_run_id(run_id)
-        if DATABRICKS_RAG_SERVING.get():
+        if _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING.get():
             documents = convert_retriever_outputs(documents)
         self._end_span(retriever_span, outputs=documents)
 

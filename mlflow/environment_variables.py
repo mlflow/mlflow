@@ -605,5 +605,9 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
 )
 
-#: Whether the current context is in databricks rag serving.
-DATABRICKS_RAG_SERVING = _BooleanEnvironmentVariable("DATABRICKS_RAG_SERVING", False)
+#: Private configuration option.
+#: Whether to use mlflow langchain tracer for rag tracing. This should be set in model
+#: serving for rag models.
+_USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING = _BooleanEnvironmentVariable(
+    "USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING", False
+)
