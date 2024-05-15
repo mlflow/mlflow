@@ -535,7 +535,7 @@ def _hash_array_like_obj_as_bytes(data):
                 return _hash_data_as_bytes(v)
             try:
                 # Attempt to hash the value, if it fails, return an empty byte string
-                hash(pd.util.hash_array(np.array([v])))
+                pd.util.hash_pandas_object(data)
                 return v
             except TypeError:
                 return b""  # Skip unhashable types by returning an empty byte string
