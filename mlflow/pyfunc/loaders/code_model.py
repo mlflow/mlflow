@@ -18,15 +18,15 @@ def _load_pyfunc(local_path: str, model_config: Optional[Dict[str, Any]] = None)
 
 @experimental
 class _CodeModelPyfuncWrapper:
-    def __init__(self, model_path, context, signature):
+    def __init__(self, model, context, signature):
         """
         Args:
-            model_path: TODO description
+            model: An instance of a subclass of :class:`~PythonModel`.
             context: A :class:`~PythonModelContext` instance containing artifacts that
                         ``chat_model`` may use when performing inference.
             signature: :class:`~ModelSignature` instance describing model input and output.
         """
-        self.model_path = model_path
+        self.python_model = model
         self.context = context
         self.signature = signature
 

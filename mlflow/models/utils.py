@@ -1583,21 +1583,13 @@ def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
         _set_model_config(None)
 
 
-# TODO: clear this up
-# In the Python's module caching mechanism, which by default, prevents the
-# re-importation of previously loaded modules. This is particularly
-# problematic in contexts where it's necessary to reload a module (in this case,
-# the `model code path` module) multiple times within the same Python
-# runtime environment.
-# The issue at hand arises from the desire to import the `model code path` module
-# multiple times during a single runtime session. Normally, once a module is
-# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
-# the cached module rather than re-importing it.
-# To address this, the function dynamically imports the `model code path` module
-# under unique, dynamically generated module names. This is achieved by creating
-# a unique name for each import using a combination of the original module name
-# and a randomly generated UUID. This approach effectively bypasses the caching
-# mechanism, as each import is considered as a separate module by the Python interpreter.
+# Python's module caching mechanism prevents the re-importation of previously loaded modules by 
+# default. Once a module is imported, it's added to `sys.modules`, and subsequent import attempts 
+# retrieve the cached module rather than re-importing it.
+# Here, we want to import the `code path` module multiple times during a single runtime session. 
+# This function addresses this by dynamically importing the `code path` module under a unique, 
+# dynamically generated module name. This bypasses the caching mechanism, as each import is 
+# considered a separate module by the Python interpreter.
 def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
     with _config_context(config):
         try:
@@ -1607,7 +1599,6 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             sys.modules[new_module_name] = module
             spec.loader.exec_module(module)
         except ImportError as e:
-            # TODO: type of model?
-            raise MlflowException("Failed to import model.") from e
+            raise MlflowException(f"Failed to import model from {code_path}.") from e
 
     return mlflow.models.model.__mlflow_model__
