@@ -979,38 +979,14 @@ def load_model(
         conf.update({MODEL_CONFIG: model_config})
 
     try:
-        if "pyfunc" in conf[MAIN] and MODEL_CODE_PATH in conf:
-            flavor_code_path = conf.get(MODEL_CODE_PATH)
-            code_path = os.path.join(local_path, os.path.basename(flavor_code_path))
-
-            model = _load_model_code_path(code_path, model_config)
-
-            artifacts = {}
-            for saved_artifact_name, saved_artifact_info in conf.get(
-                CONFIG_KEY_ARTIFACTS, {}
-            ).items():
-                artifacts[saved_artifact_name] = os.path.join(
-                    data_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
-                )
-
-            context = PythonModelContext(artifacts=artifacts, model_config=model_config)
-            model.load_context(context=context)
-            signature = mlflow.models.Model.load(data_path).signature
-
-            model_impl = _PythonModelPyfuncWrapper(
-                python_model=model,
-                context=context,
-                signature=signature,
+        # currently, we do not support loading langchain with model_config like this
+        # langchain model_config must be specified using ModelConfig() class in code
+        if model_config and "langchain" not in conf[MAIN]:
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
+                data_path, model_config
             )
         else:
-            # currently, we do not support loading langchain with model_config like this
-            # langchain model_config must be specified using ModelConfig() class in code
-            if model_config and "langchain" not in conf[MAIN]:
-                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
-                    data_path, model_config
-                )
-            else:
-                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     except ModuleNotFoundError as e:
         # This error message is particularly for the case when the error is caused by module
         # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
