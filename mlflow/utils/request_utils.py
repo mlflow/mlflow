@@ -235,7 +235,7 @@ def cloud_storage_http_request(
     backoff_factor=2,
     backoff_jitter=1.0,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=(60, None),
+    timeout=(30, None),
     **kwargs,
 ):
     """Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
