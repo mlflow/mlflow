@@ -157,13 +157,17 @@ class FileStore(AbstractStore):
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
     DATASETS_FOLDER_NAME = "datasets"
     INPUTS_FOLDER_NAME = "inputs"
-    RESERVED_EXPERIMENT_FOLDERS = [EXPERIMENT_TAGS_FOLDER_NAME, DATASETS_FOLDER_NAME]
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
     TRACE_INFO_FILE_NAME = "trace_info.yaml"
     TRACES_FOLDER_NAME = "traces"
     TRACE_TAGS_FOLDER_NAME = "tags"
     TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
+    RESERVED_EXPERIMENT_FOLDERS = [
+        EXPERIMENT_TAGS_FOLDER_NAME,
+        DATASETS_FOLDER_NAME,
+        TRACES_FOLDER_NAME,
+    ]
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -909,9 +913,11 @@ class FileStore(AbstractStore):
                 if LifecycleStage.matches_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
             except MissingConfigException as rnfe:
-                # trap malformed run exception and log warning
+                # trap malformed run exception and log
+                # this is at debug level because if the same store is used for
+                # artifact storage, it's common the folder is not a run folder
                 r_id = os.path.basename(r_dir)
-                logging.warning(
+                logging.debug(
                     "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True
                 )
         return run_infos
