@@ -21,7 +21,7 @@ def config():
                 "model": {
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
-                    "config": {"openai_api_key": "$OPENAI_API_KEY"},
+                    "config": {"openai_api_key": "test"},
                 },
             },
             {
@@ -30,7 +30,7 @@ def config():
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
-                    "config": {"openai_api_key": "$OPENAI_API_KEY"},
+                    "config": {"openai_api_key": "test"},
                 },
             },
             {
@@ -40,7 +40,7 @@ def config():
                     "provider": "openai",
                     "name": "text-embedding-ada-002",
                     "config": {
-                        "openai_api_key": "$OPENAI_API_KEY",
+                        "openai_api_key": "test",
                     },
                 },
             },
