@@ -271,7 +271,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE + "{endpoint_name}")
     async def get_endpoint(endpoint_name: str) -> Endpoint:
         if matched := app.get_dynamic_route(endpoint_name):
-            return matched.to_route().to_endpoint()
+            return matched.to_endpoint()
 
         raise HTTPException(
             status_code=404,
@@ -297,7 +297,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         end_idx = start_idx + MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
-        result = {"endpoints": [route.to_endpoint() for route in routes[start_idx:end_idx]]}
+        result = {
+            "endpoints": [route.to_route().to_endpoint() for route in routes[start_idx:end_idx]]
+        }
         if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
             result["next_page_token"] = next_page_token.encode()
