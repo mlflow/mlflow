@@ -437,7 +437,8 @@ def test_model_code_validation():
     invalid_code = "dbutils.library.restartPython()\nsome_python_variable = 5"
 
     with pytest.raises(
-        ValueError, match="The model file uses 'dbutils' command which is not supported."
+        ValueError,
+        match="The model file uses 'dbutils' command which is not supported."
     ):
         _validate_model_code_from_notebook(invalid_code)
 
