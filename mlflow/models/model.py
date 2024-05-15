@@ -925,7 +925,7 @@ def set_model(model):
             from mlflow.langchain import _validate_and_wrap_lc_model
 
             # If its not a PyFuncModel, then it should be a Langchain model
-            _validate_and_wrap_lc_model(model, None)
+            model = _validate_and_wrap_lc_model(model, None)
         except Exception as e:
             raise mlflow.MlflowException(
                 "Model should either be an instance of PyFuncModel or Langchain type."

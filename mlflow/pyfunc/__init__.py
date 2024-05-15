@@ -2103,9 +2103,10 @@ Compound types:
 
 
 def _validate_function_python_model(python_model):
-    if not (isinstance(python_model, (str, Path, PythonModel)) or callable(python_model)):
+    if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
-            "`python_model` must be a PythonModel instance, filepath, or a callable object",
+            "`python_model` must be a PythonModel instance, callable object, or filepath that ",
+            "uses set_model() to set a PythonModel instance or callable object."
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -2298,6 +2299,15 @@ def save_model(
         if isinstance(model_config, str):
             model_config = _validate_and_get_model_config_from_file(model_config)
 
+        model_code_path = None
+        if isinstance(python_model, Path):
+            python_model = os.fspath(python_model)
+
+        if isinstance(python_model, str):
+            model_code_path = _validate_and_get_model_code_path(python_model)
+            _validate_and_copy_file_path(model_code_path, path, "code")
+            python_model = _load_model_code_path(model_code_path, model_config)
+
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2359,14 +2369,6 @@ def save_model(
         mlflow_model = Model()
 
     hints = None
-    model_code_path = None
-    if isinstance(python_model, Path):
-        python_model = os.fspath(python_model)
-
-    if isinstance(python_model, str):
-        model_code_path = _validate_and_get_model_code_path(python_model)
-        _validate_and_copy_file_path(model_code_path, path, "code")
-        python_model = _load_model_code_path(model_code_path, model_config)
 
     if signature is not None:
         if isinstance(python_model, ChatModel):
