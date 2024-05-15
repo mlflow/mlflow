@@ -500,7 +500,7 @@ def _hash_data_as_bytes(data):
         if np.isscalar(data):
             return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
     finally:
-        return b''  # Skip unsupported types by returning an empty byte string
+        return b""  # Skip unsupported types by returning an empty byte string
 
 
 def _hash_dict_as_bytes(data_dict):
@@ -538,8 +538,7 @@ def _hash_array_like_obj_as_bytes(data):
                 hash(pd.util.hash_array(np.array([v])))
                 return v
             except TypeError:
-                return b''  # Skip unhashable types by returning an empty byte string
-
+                return b""  # Skip unhashable types by returning an empty byte string
 
         if Version(pd.__version__) >= Version("2.1.0"):
             data = data.map(_hash_array_like_element_as_bytes)
