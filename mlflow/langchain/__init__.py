@@ -273,7 +273,6 @@ def save_model(
             )
         elif isinstance(model_config, str):
             if os.path.exists(model_config):
-                model_config_path = model_config
                 model_config = _load_from_yaml(model_config)
             else:
                 raise mlflow.MlflowException.invalid_parameter_value(
@@ -283,7 +282,6 @@ def save_model(
 
         lc_model = _load_model_code_path(model_code_path, model_config)
         _validate_and_copy_file_path(model_code_path, path, "code")
-        _validate_and_copy_file_path(model_config_path, path, "config")
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -904,37 +902,6 @@ def _config_path_context(config: Optional[Dict[str, Any]] = None):
         _set_model_config(None)
 
 
-<<<<<<< HEAD
-=======
-# In the Python's module caching mechanism, which by default, prevents the
-# re-importation of previously loaded modules. This is particularly
-# problematic in contexts where it's necessary to reload a module (in this case,
-# the `model code path` module) multiple times within the same Python
-# runtime environment.
-# The issue at hand arises from the desire to import the `model code path` module
-# multiple times during a single runtime session. Normally, once a module is
-# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
-# the cached module rather than re-importing it.
-# To address this, the function dynamically imports the `model code path` module
-# under unique, dynamically generated module names. This is achieved by creating
-# a unique name for each import using a combination of the original module name
-# and a randomly generated UUID. This approach effectively bypasses the caching
-# mechanism, as each import is considered as a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, config: Optional[Dict[str, Any]] = None):
-    with _config_path_context(config):
-        try:
-            new_module_name = f"code_model_{uuid.uuid4().hex}"
-            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[new_module_name] = module
-            spec.loader.exec_module(module)
-        except ImportError as e:
-            raise mlflow.MlflowException("Failed to import LangChain model.") from e
-
-    return mlflow.models.model.__mlflow_model__
-
-
->>>>>>> upstream/master
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
