@@ -74,7 +74,7 @@ class GatewayAPI(FastAPI):
             self.dynamic_routes[route.name] = route
 
     def get_dynamic_route(self, route_name: str) -> Optional[Route]:
-        return self.dynamic_routes.get(route_name).to_route()
+        return r.to_route() if (r := self.dynamic_routes.get(route_name)) else None
 
 
 def _create_chat_endpoint(config: RouteConfig):

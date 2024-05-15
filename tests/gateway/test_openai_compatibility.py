@@ -58,7 +58,7 @@ def server(config, tmp_path):
 
 @pytest.fixture
 def client(server) -> openai.OpenAI:
-    return openai.OpenAI(base_url=f"{server.url}/v1")
+    return openai.OpenAI(base_url=f"{server.url}/v1", api_key="test")
 
 
 def test_chat(client):
