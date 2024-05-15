@@ -39,7 +39,7 @@ enhance your learning in area-specific guides and tutorials.
 
 .. |starting-guides| raw:: html
 
-      <div class="main-container">
+    <div class="main-container">
         <h3>Learn how to perform common tasks in MLflow</h3>
         <div class="sub-container-two-columns">
             <div class="text-box">
@@ -48,21 +48,93 @@ enhance your learning in area-specific guides and tutorials.
                     <a href="tracking/autolog.html">Autologging tutorial</a> for effortless model tracking
                 </p>
                 <p>
+                    <a href="model/signatures.html">Model Signatures</a> and type validation in MLflow
+                </p>
+                <p>
                     <a href="getting-started/quickstart-2/index.html">Model Deployment Quickstart</a>
                 </p>
                 <p>
-                    Overview on defining and using <a href="traditional-ml/creating-custom-pyfunc/index.html">Custom Python Models</a>
-                </p>
-                <p>
-                    <a>Guide to hyperparameter tuning</a> with MLflow
+                    <a href="traditional-ml/hyperparameter-tuning-with-child-runs/index.html">Hyperparameter tuning</a> with MLflow
                 </p>
             </div>
             <div class="image-box">
-                <img src="_static/images/intro/learn-core-components.png" alt="Core Components">
+                <img src="_static/images/intro/model-dev-lifecycle.png" alt="Model Development Lifecycle">
             </div>
         </div>
     </div>
 
+.. |model-topics| raw:: html
+
+    <div class="main-container">
+        <h3>Learn about MLflow Model-related topics</h3>
+        <div class="sub-container-two-columns">
+            <div class="text-box">
+                <h4>Guides</h4>
+                <p>
+                    Introduction to <a href="traditional-ml/creating-custom-pyfunc/index.html">Custom Python Models</a>
+                </p>
+                <p>
+                    <a href="model/dependencies.html">Model dependency management</a> in MLflow
+                </p>
+                <p>
+                    <a href="model/signatures.html">Model Signatures</a> and type validation
+                </p>
+            </div>
+            <div class="image-box">
+                <img src="_static/images/intro/model-topics.png" alt="MLflow Model Topics">
+            </div>
+        </div>
+    </div>
+
+.. |genai-quickstarts| raw:: html
+
+    <div class="main-container">
+        <h3>Get started with MLflow's GenAI integrations</h3>
+        <div class="sub-container-two-columns">
+            <div class="text-box">
+                <h4>Quickstarts</h4>
+                <p>
+                    <a href="llms/transformers/tutorials/text-generation/text-generation.html">Transformers</a> Text Generation
+                </p>
+                <p>
+                    <a href="llms/langchain/notebooks/langchain-quickstart.html">LangChain</a> Introductory Tutorial
+                </p>
+                <p>
+                    <a href="llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart.html">Sentence Transformers</a> Basic Embedding Tutorial
+                </p>
+                <p>
+                    <a href="llms/openai/notebooks/openai-quickstart.html">OpenAI</a> Quickstart Tutorial
+                </p>
+            </div>
+            <div class="image-box">
+                <img src="_static/images/intro/genai-integrations.png" alt="GenAI with MLflow">
+            </div>
+        </div>
+    </div>
+
+.. |dl-quickstarts| raw:: html
+
+    <div class="main-container">
+        <h3>Get started with MLflow's Deep Learning Library integrations</h3>
+        <div class="sub-container-two-columns">
+            <div class="text-box">
+                <h4>Quickstarts</h4>
+                <p>
+                    <a href="deep-learning/tensorflow/quickstart/quickstart_tensorflow.html">TensorFlow</a>
+                </p>
+                <p>
+                    <a href="deep-learning/pytorch/quickstart/pytorch_quickstart.html">PyTorch</a>
+                </p>
+                <p>
+                    <a href="deep-learning/keras/quickstart/quickstart_keras.html">Keras</a>
+                </p>
+            </div>
+            <div class="image-box">
+                <img src="_static/images/intro/mlflow-deep-learning.png" alt="Deep Learning with MLflow">
+            </div>
+        </div>
+    </div>
+    
 
 .. container:: intro
 
@@ -72,40 +144,100 @@ enhance your learning in area-specific guides and tutorials.
 
             |getting-started|
         
-        .. tab:: MLflow basics
+        .. tab:: MLflow Basics
 
             |starting-guides|
+        
+        .. tab:: MLflow Models Introduction
 
+            |model-topics|
+        
+        .. tab:: GenAI Quickstarts
 
-TAB 1 - How to run notebooks, intro to tracking, intro to mlflow guide (3 links)
-3 separate h4 sections with links to the guides
+            |genai-quickstarts|
+        
+        .. tab:: Deep Learning Quickstarts
 
-TAB 2 "Common tasks with MLflow"
-Autologging Quickstart, Model Deployment Quickstart, 
-
-Link to model signatures
-Link to custom pyfunc intro
-Link to hyperparameter tuning guide
-
-
-TAB 3 - Intro to GenAI with MLflow
-Quickstarts for Transformers, LangChain, OpenAI, etc.
-
-TAB 4 - DL - TF, Keras, Torch quickstart links
-
-TAB 5 - Traditional ML ?
-
-
+            |dl-quickstarts|
 
 
 GenAI and MLflow
 ----------------
 
-TAB 1 - 
+Explore the comprehensive GenAI-focused support in MLflow. From **MLflow Deployments for LLMs** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
+**open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the 
+benefits of these powerful models, services, and applications.  
+You'll learn how MLflow simplifies both using LLMs and developing solutions that leverage LLMs. Important tasks such as prompt development, evaluation of prompts, comparison of  
+foundation models, fine-tuning and logging LLMs, and setting up production-grade interface servers are all covered by MLflow. 
+
+Explore the guides and tutorials below to start your journey!
+
+.. |genai-flavors| raw:: html
+
+    <div class="main-container">
+        <h3>Explore the Native MLflow GenAI Integrations</h3>
+        <div class="icon-container">
+            <div class="icon-box">
+                <a href="llms/transformers/index.html">
+                    <img src="_static/images/logos/huggingface-logo.svg" alt="Hugging Face Transformers"/>
+                </a>
+                <p>Transformers</p>
+            </div>
+            <div class="icon-box">
+                <a href="llms/openai/index.html">
+                    <img src="_static/images/logos/openai-logo.png" alt="OpenAI"/>
+                </a>
+                <p>OpenAI</p>
+            </div>
+            <div class="icon-box">
+                <a href="llms/langchain/index.html">
+                    <img src="_static/images/logos/langchain-logo.png" alt="LangChain"/>
+                </a>
+                <p>LangChain</p>
+            </div>
+            <div class="icon-box">
+                <a href="llms/sentence-transformers/index.html">
+                    <img src="_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers"/>
+                </a>
+                <p>Sentence Transformers</p>
+            </div>
+        </div>
+    </div>
+
+
+.. container:: genai
+
+    .. tabs::
+
+        .. tab:: GenAI Integrations
+
+            |genai-flavors|
+
+
+TAB 1 - Main Flavors (icon links)
+
+TAB 2 - Deployments Server 
+
+TAB 3 - LLM Evaluate
+
+TAB 4 - Prompt Engineering 
+
+TAB 5 - Advanced Topics 
+- Tracking
+- Custom Pyfunc
+
 
 
 Core MLflow Features
 --------------------
+
+TAB 1 - DL support (Icon links)
+
+TAB 2 - Traditional ML support (Icon links)
+
+TAB 3 - Model Registry
+
+TAB 4 - Model Deployment
 
 
 
