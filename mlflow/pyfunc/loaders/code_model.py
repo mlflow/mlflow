@@ -1,16 +1,12 @@
 import inspect
 import logging
-
 from typing import Any, Dict, Optional
 
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
     _log_warning_if_params_not_in_predict_signature,
 )
 from mlflow.utils.annotations import experimental
-
 
 _logger = logging.getLogger(__name__)
 
@@ -45,9 +41,7 @@ class _CodeModelPyfuncWrapper:
             dict or string. Chunk dict fields are determined by the model implementation.
         """
         if inspect.signature(self.python_model.predict).parameters.get("params"):
-            return self.python_model.predict(
-                self.context, model_input, params=params
-            )
+            return self.python_model.predict(self.context, model_input, params=params)
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, model_input)
 

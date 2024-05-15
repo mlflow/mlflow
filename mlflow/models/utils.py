@@ -9,16 +9,16 @@ import re
 import sys
 import tempfile
 import uuid
-from copy import deepcopy
 from contextlib import contextmanager
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
-from mlflow.models.model import __mlflow_model__
 from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
@@ -1610,4 +1610,4 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             # TODO: type of model?
             raise MlflowException("Failed to import model.") from e
 
-    return __mlflow_model__
+    return mlflow.models.model.__mlflow_model__

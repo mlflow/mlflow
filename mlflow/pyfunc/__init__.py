@@ -432,9 +432,9 @@ from mlflow.models.utils import (
     _convert_llm_input_data,
     _enforce_params_schema,
     _enforce_schema,
+    _load_model_code_path,
     _save_example,
     _validate_and_get_model_code_path,
-    _load_model_code_path
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -448,8 +448,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     Notebook,
 )
 from mlflow.pyfunc.model import (
-    CONFIG_KEY_ARTIFACT_RELATIVE_PATH,
-    CONFIG_KEY_ARTIFACTS,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -973,9 +971,7 @@ def load_model(
         # currently, we do not support loading langchain with model_config like this
         # langchain model_config must be specified using ModelConfig() class in code
         if model_config and "langchain" not in conf[MAIN]:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
-                data_path, model_config
-            )
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
         else:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     except ModuleNotFoundError as e:
@@ -2107,7 +2103,7 @@ Compound types:
 
 
 def _validate_function_python_model(python_model):
-    if not (isinstance(python_model, str) or isinstance(python_model, Path) or isinstance(python_model, PythonModel) or callable(python_model)):
+    if not (isinstance(python_model, (str, Path, PythonModel)) or callable(python_model)):
         raise MlflowException(
             "`python_model` must be a PythonModel instance, filepath, or a callable object",
             error_code=INVALID_PARAMETER_VALUE,
@@ -2296,7 +2292,7 @@ def save_model(
     if python_model:
         # new code
         if isinstance(model_config, Path):
-            model_config = os.fspath(python_model)
+            model_config = os.fspath(model_config)
 
         if isinstance(model_config, str):
             _validate_and_copy_file_path(model_config, path, "config")
@@ -2365,6 +2361,7 @@ def save_model(
         mlflow_model = Model()
 
     hints = None
+    model_code_path = None
     if signature is not None:
         if isinstance(python_model, ChatModel):
             raise MlflowException(
@@ -2375,7 +2372,6 @@ def save_model(
             )
         mlflow_model.signature = signature
     elif python_model is not None:
-        model_code_path = None
         if isinstance(python_model, Path):
             python_model = os.fspath(python_model)
 
@@ -2383,7 +2379,7 @@ def save_model(
             model_code_path = _validate_and_get_model_code_path(python_model)
             _validate_and_copy_file_path(model_code_path, path, "code")
             python_model = _load_model_code_path(model_code_path, model_config)
-        
+
         if callable(python_model):
             input_arg_index = 0  # first argument
             if signature := _infer_signature_from_type_hints(
