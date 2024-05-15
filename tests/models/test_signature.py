@@ -278,7 +278,8 @@ def test_signature_construction():
 
 def test_signature_with_errors():
     with pytest.raises(
-        TypeError, match=r"inputs must be either None or mlflow.models.signature.Schema"
+        TypeError,
+        match=r"inputs must be either None, mlflow.models.signature.Schema, or a dataclass",
     ):
         ModelSignature(inputs=1)
 

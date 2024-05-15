@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional
 
 
 @dataclass
@@ -45,9 +45,7 @@ class ChainCompletionChunk:
 
 @dataclass
 class ChatCompletionResponse:
-    choices: Union[List[ChainCompletionChoice],] = field(
-        default_factory=lambda: [ChainCompletionChoice()]
-    )
+    choices: List[ChainCompletionChoice] = field(default_factory=lambda: [ChainCompletionChoice()])
     # TODO: support ChainCompletionChunk in the future
 
 

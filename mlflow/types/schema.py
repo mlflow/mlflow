@@ -1346,10 +1346,10 @@ def _map_field_type(field):
 
 def convert_dataclass_to_schema(dataclass):
     """
-    Create a Schema object from a dataclass. The dataclass should have type hints
-    for each field. Fields in the dataclass can be composed of basic types or other dataclasses.
-    Only the top-level fields become ColSpecs directly. Lower-level fields are converted into
-    nested Object types.
+    Converts a given dataclass into a Schema object. The dataclass must include type hints
+    for all its fields. Fields can be of basic types, other dataclasses, or Lists/Optional of
+    these types. Union types are not supported. Only the top-level fields are directly converted
+    to ColSpecs, while nested fields are converted into nested Object types.
     """
 
     inputs = []
@@ -1378,13 +1378,19 @@ def convert_dataclass_to_schema(dataclass):
                     ColSpec(type=Array(dtype=dtype), name=field_name, required=not is_optional)
                 )
             else:
-                inputs.append(
-                    ColSpec(
-                        type=Array(dtype=_map_field_type(list_type)),
-                        name=field_name,
-                        required=not is_optional,
+                if _map_field_type(list_type):
+                    inputs.append(
+                        ColSpec(
+                            type=Array(dtype=_map_field_type(list_type)),
+                            name=field_name,
+                            required=not is_optional,
+                        )
                     )
-                )
+                else:
+                    raise MlflowException(
+                        f"List field type {list_type} is not supported in dataclass"
+                        f" {dataclass.__name__}"
+                    )
         elif is_dataclass(effective_type):
             # It's a nested dataclass
             dtype = convert_dataclass_to_nested_object(effective_type)  # Convert to nested Object
