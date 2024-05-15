@@ -3,8 +3,6 @@ from typing import Any, Dict, Optional, Union
 
 import yaml
 
-import mlflow
-
 __mlflow_model_config__ = None
 
 
@@ -17,9 +15,6 @@ class ModelConfig:
 
     def __init__(self, *, development_config: Optional[Union[str, Dict[str, Any]]] = None):
         config = globals().get("__mlflow_model_config__", None)
-        # backwards compatibility
-        rag_config = getattr(mlflow.langchain._rag_utils, "__databricks_rag_config_path__", None)
-
         # Here mlflow_model_config have 3 states:
         # 1. None, this means if the mlflow_model_config is None, use development_config if
         # available
@@ -29,8 +24,6 @@ class ModelConfig:
         # model so use that path
         if config is not None:
             self.config = config
-        elif rag_config is not None:
-            self.config = rag_config
         else:
             self.config = development_config
 

@@ -11,8 +11,8 @@ from mlflow.metrics.genai import EvaluationExample, model_utils
 from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
     _format_args_string,
-    make_custom_genai_metric,
     make_genai_metric,
+    make_genai_metric_from_prompt,
 )
 from mlflow.metrics.genai.metric_definitions import (
     answer_correctness,
@@ -1066,7 +1066,7 @@ def test_make_genai_metric_metric_metadata():
 def test_make_custom_judge_prompt_genai_metric():
     custom_judge_prompt = "This is a custom judge prompt that uses {input} and {output}"
 
-    custom_judge_prompt_metric = make_custom_genai_metric(
+    custom_judge_prompt_metric = make_genai_metric_from_prompt(
         name="custom",
         judge_prompt=custom_judge_prompt,
         metric_metadata={"metadata_field": "metadata_value"},
@@ -1120,7 +1120,7 @@ def test_make_custom_judge_prompt_genai_metric():
 def test_make_custom_prompt_genai_metric_validates_input_kwargs():
     custom_judge_prompt = "This is a custom judge prompt that uses {input} and {output}"
 
-    custom_judge_prompt_metric = make_custom_genai_metric(
+    custom_judge_prompt_metric = make_genai_metric_from_prompt(
         name="custom",
         judge_prompt=custom_judge_prompt,
     )

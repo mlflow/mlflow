@@ -11,7 +11,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
@@ -93,7 +93,7 @@ def test_download_trace_data(tmp_path, mock_store):
         tags={"mlflow.artifactLocation": "test"},
     )
     with mock.patch(
-        "mlflow.store.artifact.artifact_repo.ArtifactRepository.download_trace_data",
+        "mlflow.store.artifact.local_artifact_repo.LocalArtifactRepository.download_trace_data",
         return_value={"spans": []},
     ) as mock_download_trace_data:
         client = TrackingServiceClient(tmp_path.as_uri())
@@ -406,7 +406,7 @@ def test_search_traces_with_filestore(tmp_path):
                 exp_id,
                 i * 1000,
                 {SpanAttributeKey.REQUEST_ID: f"request_id_{i}"},
-                {},
+                {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
             )
         )
 

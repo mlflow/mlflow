@@ -32,14 +32,14 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
-from mlflow.tracking._tracking_service.utils import _register
+from mlflow.tracking._tracking_service.utils import _register, _use_tracking_uri
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -262,7 +262,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
         ),
     ]
     mock_store.search_traces.return_value = (mock_traces, None)
-
+    mock_artifact_repo.download_trace_data.return_value = {}
     MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
 
     mock_store.search_traces.assert_called_once_with(
@@ -563,6 +563,7 @@ def test_log_trace_with_databricks_tracking_uri(
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "tag": "tag_value",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data
@@ -620,10 +621,13 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    assert trace.info.tags["mlflow.traceName"] == "test"
-    assert trace.info.tags["foo"] == "bar"
-    assert trace.info.tags["mlflow.source.name"] == "test"
-    assert trace.info.tags["mlflow.source.type"] == "LOCAL"
+    assert trace.info.tags == {
+        "mlflow.traceName": "test",
+        "foo": "bar",
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+    }
 
 
 def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
@@ -642,10 +646,13 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    assert trace.info.tags["baz"] == "qux"
-    assert trace.info.tags["mlflow.traceName"] == "test"
-    assert trace.info.tags["mlflow.source.name"] == "test"
-    assert trace.info.tags["mlflow.source.type"] == "LOCAL"
+    assert trace.info.tags == {
+        "baz": "qux",
+        "mlflow.traceName": "test",  # Added by MLflow
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+    }
 
 
 def test_delete_trace_tag_on_logged_trace(mock_store, clear_singleton):
@@ -1342,3 +1349,14 @@ def test_enable_async_logging(mock_store, setup_async_logging):
 
     MlflowClient().log_metric(run_id="run_id", key="key", value="val", step=1, timestamp=1)
     mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))
+
+
+def test_file_store_download_upload_trace_data(clear_singleton, tmp_path):
+    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
+        client = MlflowClient()
+        span = client.start_trace("test", inputs={"test": 1})
+        client.end_trace(span.request_id, outputs={"result": 2})
+        trace = mlflow.get_trace(span.request_id)
+        trace_data = client.get_trace(span.request_id).data
+        assert trace_data.request == trace.data.request
+        assert trace_data.response == trace.data.response

@@ -8,6 +8,7 @@ import inspect
 import logging
 import re
 from copy import deepcopy
+from dataclasses import dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hints
 
 import numpy as np
@@ -22,7 +23,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.types.schema import ParamSchema, Schema
+from mlflow.types.schema import ParamSchema, Schema, convert_dataclass_to_schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
 
@@ -57,15 +58,20 @@ class ModelSignature:
     :py:class:`ParamSchema <mlflow.types.ParamSchema>`.
     """
 
-    def __init__(self, inputs: Schema = None, outputs: Schema = None, params: ParamSchema = None):
-        if inputs and not isinstance(inputs, Schema):
+    def __init__(
+        self,
+        inputs: Union[Schema, dataclass] = None,
+        outputs: Union[Schema, dataclass] = None,
+        params: ParamSchema = None,
+    ):
+        if inputs and not isinstance(inputs, Schema) and not is_dataclass(inputs):
             raise TypeError(
-                "inputs must be either None or mlflow.models.signature.Schema, "
+                "inputs must be either None, mlflow.models.signature.Schema, or a dataclass,"
                 f"got '{type(inputs).__name__}'"
             )
-        if outputs and not isinstance(outputs, Schema):
+        if outputs and not isinstance(outputs, Schema) and not is_dataclass(outputs):
             raise TypeError(
-                "outputs must be either None or mlflow.models.signature.Schema, "
+                "outputs must be either None, mlflow.models.signature.Schema, or a dataclass,"
                 f"got '{type(outputs).__name__}'"
             )
         if params and not isinstance(params, ParamSchema):
@@ -75,8 +81,14 @@ class ModelSignature:
             )
         if all(x is None for x in [inputs, outputs, params]):
             raise ValueError("At least one of inputs, outputs or params must be provided")
-        self.inputs = inputs
-        self.outputs = outputs
+        if is_dataclass(inputs):
+            self.inputs = convert_dataclass_to_schema(inputs)
+        else:
+            self.inputs = inputs
+        if is_dataclass(outputs):
+            self.outputs = convert_dataclass_to_schema(outputs)
+        else:
+            self.outputs = outputs
         self.params = params
 
     def to_dict(self) -> Dict[str, Any]:

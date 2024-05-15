@@ -75,7 +75,9 @@ from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
     model_version_from_uc_proto,
+    model_version_search_from_uc_proto,
     registered_model_from_uc_proto,
+    registered_model_search_from_uc_proto,
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
@@ -340,11 +342,10 @@ class UcModelRegistryStore(BaseRestStore):
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        _raise_unsupported_method(
-            method="rename_registered_model",
-            message="Use the Databricks Python SDK or Unity Catalog REST API to "
-            "rename registered models in Unity Catalog",
-        )
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(UpdateRegisteredModelRequest(name=full_name, new_name=new_name))
+        response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
+        return registered_model_from_uc_proto(response_proto.registered_model)
 
     def delete_registered_model(self, name):
         """
@@ -391,7 +392,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         response_proto = self._call_endpoint(SearchRegisteredModelsRequest, req_body)
         registered_models = [
-            registered_model_from_uc_proto(registered_model)
+            registered_model_search_from_uc_proto(registered_model)
             for registered_model in response_proto.registered_models
         ]
         return PagedList(registered_models, response_proto.next_page_token)
@@ -903,7 +904,9 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
-        model_versions = [model_version_from_uc_proto(mvd) for mvd in response_proto.model_versions]
+        model_versions = [
+            model_version_search_from_uc_proto(mvd) for mvd in response_proto.model_versions
+        ]
         return PagedList(model_versions, response_proto.next_page_token)
 
     def set_model_version_tag(self, name, version, tag):

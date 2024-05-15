@@ -55,10 +55,15 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_ID_PREFIX,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_otel_attribute
+from mlflow.tracing.utils import exclude_immutable_tags, get_otel_attribute
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -390,6 +395,7 @@ class MlflowClient:
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
+    @experimental
     def delete_traces(
         self,
         experiment_id: str,
@@ -420,6 +426,7 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
+    @experimental
     def get_trace(self, request_id: str) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
@@ -443,6 +450,7 @@ class MlflowClient:
         get_display_handler().display_traces([trace])
         return trace
 
+    @experimental
     def search_traces(
         self,
         experiment_ids: List[str],
@@ -574,13 +582,15 @@ class MlflowClient:
             if attributes:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
+            tags = exclude_immutable_tags(tags or {})
+            tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
             if is_in_databricks_model_serving_environment():
                 # Update trace tags for trace in in-memory trace manager
                 with trace_manager.get_trace(request_id) as trace:
-                    trace.info.tags.update(tags or {})
+                    trace.info.tags.update(tags)
             else:
                 # Update trace tags in store and in-memory if tracking client is available
-                self._tracking_client.set_trace_tags(request_id, tags or {})
+                self._tracking_client.set_trace_tags(request_id, tags)
                 trace_info = self._tracking_client.get_trace_info(request_id)
                 trace_manager.update_trace_info(trace_info)
             # Register new span in the in-memory trace manager
@@ -593,6 +603,7 @@ class MlflowClient:
                 raise
             return NoOpSpan()
 
+    @experimental
     def end_trace(
         self,
         request_id: str,
@@ -637,6 +648,7 @@ class MlflowClient:
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
 
+    @experimental
     def start_span(
         self,
         name: str,
@@ -788,6 +800,7 @@ class MlflowClient:
                 raise
             return NoOpSpan()
 
+    @experimental
     def end_span(
         self,
         request_id: str,
@@ -877,6 +890,7 @@ class MlflowClient:
             tags=trace_info.tags or {},
         )
 
+    @experimental
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -918,6 +932,7 @@ class MlflowClient:
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
 
+    @experimental
     def delete_trace_tag(self, request_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.

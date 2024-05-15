@@ -20,7 +20,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 
 from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
 
@@ -145,6 +150,7 @@ def test_trace_with_databricks_tracking_uri(
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data
@@ -280,7 +286,10 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
 
     model = TestModel()
 
-    with mlflow.start_run() as run:
+    # mock _upload_trace_data to avoid generating trace data file
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+    ), mlflow.start_run() as run:
         run_id = run.info.run_id
         request_id_1 = "tr-eval-123"
         with set_prediction_context(Context(request_id=request_id_1, is_evaluate=True)):
@@ -296,6 +305,7 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
         "mlflow.artifactLocation": "test",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace = mlflow.get_trace(request_id_1)
@@ -307,8 +317,7 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
     assert trace.info.tags == {**expected_tags, **{TraceTagKey.EVAL_REQUEST_ID: request_id_2}}
 
     assert mock_store.start_trace.call_count == 2
-    # uncomment this after upload_trace_data is implemented for sqlstore
-    # assert mock_store.end_trace.call_count == 2
+    assert mock_store.end_trace.call_count == 2
 
 
 def test_trace_handle_exception_during_prediction(clear_singleton):

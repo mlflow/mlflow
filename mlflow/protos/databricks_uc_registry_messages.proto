@@ -203,6 +203,9 @@ message UpdateRegisteredModelRequest {
   // Registered model unique name identifier.
   optional string name = 1 [(validate_required) = true];
 
+  // If provided, will rename this ``registered_model`` to the new name provided.
+  optional string new_name = 3;
+
   // If provided, updates the description for this ``registered_model``.
   optional string description = 2;
 }

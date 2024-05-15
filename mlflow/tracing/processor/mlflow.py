@@ -13,6 +13,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
     SpanAttributeKey,
     TraceMetadataKey,
@@ -91,6 +93,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "your environment using `mlflow.set_experiment()` API."
             )
         default_tags = resolve_tags()
+        default_tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the

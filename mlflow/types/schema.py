@@ -5,8 +5,9 @@ import json
 import string
 import warnings
 from copy import deepcopy
+from dataclasses import is_dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union, get_args, get_origin
 
 import numpy as np
 
@@ -1329,3 +1330,134 @@ class ParamSchema:
 
     def __repr__(self) -> str:
         return repr(self.params)
+
+
+def _map_field_type(field):
+    field_type_mapping = {
+        bool: "boolean",
+        int: "integer",
+        builtins.float: "float",
+        str: "string",
+        bytes: "binary",
+        dt.date: "datetime",
+    }
+    return field_type_mapping.get(field)
+
+
+def convert_dataclass_to_schema(dataclass):
+    """
+    Converts a given dataclass into a Schema object. The dataclass must include type hints
+    for all its fields. Fields can be of basic types, other dataclasses, or Lists/Optional of
+    these types. Union types are not supported. Only the top-level fields are directly converted
+    to ColSpecs, while nested fields are converted into nested Object types.
+    """
+
+    inputs = []
+
+    for field_name, field_type in dataclass.__annotations__.items():
+        # Determine the type and handle Optional and List correctly
+        is_optional = False
+        effective_type = field_type
+
+        if get_origin(field_type) == Union:
+            if type(None) in get_args(field_type) and len(get_args(field_type)) == 2:
+                # This is an Optional type; determine the effective type excluding None
+                is_optional = True
+                effective_type = next(t for t in get_args(field_type) if t is not type(None))
+            else:
+                raise MlflowException(
+                    "Only Optional[...] is supported as a Union type in dataclass fields"
+                )
+
+        if get_origin(effective_type) == list:
+            # It's a list, check the type within the list
+            list_type = get_args(effective_type)[0]
+            if is_dataclass(list_type):
+                dtype = convert_dataclass_to_nested_object(list_type)  # Convert to nested Object
+                inputs.append(
+                    ColSpec(type=Array(dtype=dtype), name=field_name, required=not is_optional)
+                )
+            else:
+                if dtype := _map_field_type(list_type):
+                    inputs.append(
+                        ColSpec(
+                            type=Array(dtype=dtype),
+                            name=field_name,
+                            required=not is_optional,
+                        )
+                    )
+                else:
+                    raise MlflowException(
+                        f"List field type {list_type} is not supported in dataclass"
+                        f" {dataclass.__name__}"
+                    )
+        elif is_dataclass(effective_type):
+            # It's a nested dataclass
+            dtype = convert_dataclass_to_nested_object(effective_type)  # Convert to nested Object
+            inputs.append(
+                ColSpec(
+                    type=dtype,
+                    name=field_name,
+                    required=not is_optional,
+                )
+            )
+        # confirm the effective type is a basic type
+        elif dtype := _map_field_type(effective_type):
+            # It's a basic type
+            inputs.append(
+                ColSpec(
+                    type=dtype,
+                    name=field_name,
+                    required=not is_optional,
+                )
+            )
+        else:
+            raise MlflowException(
+                f"Unsupported field type {effective_type} in dataclass {dataclass.__name__}"
+            )
+
+    return Schema(inputs=inputs)
+
+
+def convert_dataclass_to_nested_object(dataclass):
+    """
+    Convert a nested dataclass to an Object type used within a ColSpec.
+    """
+    properties = []
+    for field_name, field_type in dataclass.__annotations__.items():
+        properties.append(convert_field_to_property(field_name, field_type))
+    return Object(properties=properties)
+
+
+def convert_field_to_property(field_name, field_type):
+    """
+    Helper function to convert a single field to a Property object suitable for inclusion in an
+    Object.
+    """
+
+    is_optional = False
+    effective_type = field_type
+
+    if get_origin(field_type) == Union and type(None) in get_args(field_type):
+        is_optional = True
+        effective_type = next(t for t in get_args(field_type) if t is not type(None))
+
+    if get_origin(effective_type) == list:
+        list_type = get_args(effective_type)[0]
+        return Property(
+            name=field_name,
+            dtype=Array(dtype=_map_field_type(list_type)),
+            required=not is_optional,
+        )
+    elif is_dataclass(effective_type):
+        return Property(
+            name=field_name,
+            dtype=convert_dataclass_to_nested_object(effective_type),
+            required=not is_optional,
+        )
+    else:
+        return Property(
+            name=field_name,
+            dtype=_map_field_type(effective_type),
+            required=not is_optional,
+        )
