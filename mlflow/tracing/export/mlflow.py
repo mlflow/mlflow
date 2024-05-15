@@ -5,6 +5,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.fluent import TRACE_BUFFER
@@ -58,29 +59,24 @@ class MlflowSpanExporter(SpanExporter):
 
             # Add the trace to the in-memory buffer
             TRACE_BUFFER[trace.info.request_id] = trace
+            # Add evaluation trace to the in-memory buffer with eval_request_id key
+            if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
+                TRACE_BUFFER[eval_request_id] = trace
 
-            # If the trace is created in the context of MLflow model evaluation, we don't display
-            # the trace here or log it to MLflow backend. The trace will be extracted from the
-            # buffer by the caller and logged as a part of the evaluation table.
-            if maybe_get_evaluation_request_id() is not None:
-                return
-
-            # Display the trace in the UI
-            self._display_handler.display_traces([trace])
+            if not maybe_get_evaluation_request_id():
+                # Display the trace in the UI if the trace is not generated from within
+                # an MLflow model evaluation context
+                self._display_handler.display_traces([trace])
 
             # Log the trace to MLflow
             self._log_trace(trace)
 
     def _log_trace(self, trace: Trace):
         # TODO: Make this async
+        # The trace is already updated in processor.on_end method
+        # so we just log to backend store here
         try:
             self._client._upload_trace_data(trace.info, trace.data)
-            self._client._upload_ended_trace_info(
-                request_id=trace.info.request_id,
-                timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
-                status=trace.info.status,
-                request_metadata=trace.info.request_metadata,
-                tags=trace.info.tags,
-            )
+            self._client._upload_ended_trace_info(trace.info)
         except Exception as e:
             _logger.debug(f"Failed to log trace to MLflow backend: {e}", exc_info=True)

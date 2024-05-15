@@ -4,10 +4,18 @@ from unittest import mock
 
 import pytest
 
+import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_trace_id
@@ -19,7 +27,10 @@ _TRACE_ID = 12345
 _REQUEST_ID = f"tr-{_TRACE_ID}"
 
 
-def test_on_start(clear_singleton):
+def test_on_start(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+
     # Root span should create a new trace on start
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
@@ -33,7 +44,15 @@ def test_on_start(clear_singleton):
     processor.on_start(span)
 
     mock_client._start_tracked_trace.assert_called_once_with(
-        experiment_id="0", timestamp_ms=5, request_metadata={}
+        experiment_id="0",
+        timestamp_ms=5,
+        request_metadata={},
+        tags={
+            "mlflow.user": "bob",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -50,7 +69,8 @@ def test_on_start(clear_singleton):
 
 
 @pytest.mark.skipif(is_windows(), reason="Timestamp is not precise enough on Windows")
-def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singleton):
+def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singleton, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     mock_client = mock.MagicMock()
 
@@ -64,6 +84,8 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singlet
     original_start_time = time.time_ns()
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1, start_time=original_start_time)
 
+    # make sure _start_tracked_trace is invoked
+    assert processor._trace_manager.get_request_id_from_trace_id(span.context.trace_id) is None
     processor.on_start(span)
 
     assert span.start_time > original_start_time
@@ -71,7 +93,10 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singlet
     assert time.time_ns() - span.start_time < 100_000_000  # 0.1 second
 
 
-def test_on_start_with_experiment_id(clear_singleton):
+def test_on_start_with_experiment_id(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+
     experiment_id = "test_experiment_id"
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
@@ -89,12 +114,21 @@ def test_on_start_with_experiment_id(clear_singleton):
         experiment_id=experiment_id,
         timestamp_ms=5,
         request_metadata={},
+        tags={
+            "mlflow.user": "bob",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
 
 
-def test_on_start_fallback_to_client_side_request_id(clear_singleton):
+def test_on_start_fallback_to_client_side_request_id(clear_singleton, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
     )
@@ -106,7 +140,15 @@ def test_on_start_fallback_to_client_side_request_id(clear_singleton):
     processor.on_start(span)
 
     mock_client._start_tracked_trace.assert_called_once_with(
-        experiment_id="0", timestamp_ms=5, request_metadata={}
+        experiment_id="0",
+        timestamp_ms=5,
+        request_metadata={},
+        tags={
+            "mlflow.user": "bob",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
     )
     # When the backend returns an error, the request_id is generated at client side from trace_id
     expected_request_id = encode_trace_id(_TRACE_ID)
@@ -122,13 +164,48 @@ def test_on_start_during_model_evaluation(clear_singleton):
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)
     mock_client = mock.MagicMock()
+    mock_client._start_tracked_trace.return_value = create_test_trace_info(_REQUEST_ID, 0)
     processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
 
     with set_prediction_context(Context(request_id=_REQUEST_ID, is_evaluate=True)):
         processor.on_start(span)
 
-    mock_client._start_tracked_trace.assert_not_called()
+    mock_client._start_tracked_trace.assert_called_once()
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
+
+
+def test_on_start_during_run(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+
+    span = create_mock_otel_span(
+        trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
+    )
+
+    env_experiment_name = "env_experiment_id"
+    run_experiment_name = "run_experiment_id"
+
+    mlflow.create_experiment(env_experiment_name)
+    run_experiment_id = mlflow.create_experiment(run_experiment_name)
+
+    mlflow.set_experiment(experiment_name=env_experiment_name)
+    trace_info = create_test_trace_info(_REQUEST_ID)
+    mock_client = mock.MagicMock()
+    mock_client._start_tracked_trace.return_value = trace_info
+    processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
+
+    with mlflow.start_run(experiment_id=run_experiment_id) as run:
+        processor.on_start(span)
+        expected_run_id = run.info.run_id
+
+    mock_client._start_tracked_trace.assert_called_once_with(
+        # expect experiment id to be from the run, not from the environment
+        experiment_id=run_experiment_id,
+        timestamp_ms=5,
+        # expect run id to be set
+        request_metadata={"mlflow.sourceRun": expected_run_id},
+        tags=mock.ANY,
+    )
 
 
 def test_on_end(clear_singleton):

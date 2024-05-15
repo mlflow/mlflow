@@ -254,7 +254,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor):
+def _capture_imported_modules(model_uri, flavor, record_full_module=False):
     """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
@@ -286,6 +286,8 @@ def _capture_imported_modules(model_uri, flavor):
         if is_in_databricks_runtime():
             main_env.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
 
+        record_full_module_args = ["--record-full-module"] if record_full_module else []
+
         if flavor == mlflow.transformers.FLAVOR_NAME:
             # Lazily import `_capture_transformers_module` here to avoid circular imports.
             from mlflow.utils import _capture_transformers_modules
@@ -314,6 +316,7 @@ def _capture_imported_modules(model_uri, flavor):
                             json.dumps(sys.path),
                             "--module-to-throw",
                             module_to_throw,
+                            *record_full_module_args,
                         ],
                         timeout_seconds=process_timeout,
                         env={**main_env, **transformer_env},
@@ -342,6 +345,7 @@ def _capture_imported_modules(model_uri, flavor):
                 error_file,
                 "--sys-path",
                 json.dumps(sys.path),
+                *record_full_module_args,
             ],
             timeout_seconds=process_timeout,
             env=main_env,

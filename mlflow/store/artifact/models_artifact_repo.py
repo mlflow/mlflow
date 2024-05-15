@@ -159,7 +159,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             ensure_yaml_extension=False,
         )
 
-    def download_artifacts(self, artifact_path, dst_path=None):
+    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
@@ -181,7 +181,13 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         from mlflow.models.model import MLMODEL_FILE_NAME
 
-        model_path = self.repo.download_artifacts(artifact_path, dst_path)
+        # Pass lineage header info if model is registered in UC
+        if isinstance(self.repo, UnityCatalogModelsArtifactRepository):
+            model_path = self.repo.download_artifacts(
+                artifact_path, dst_path, lineage_header_info=lineage_header_info
+            )
+        else:
+            model_path = self.repo.download_artifacts(artifact_path, dst_path)
         # NB: only add the registered model metadata iff the artifact path is at the root model
         # directory. For individual files or subdirectories within the model directory, do not
         # create the metadata file.

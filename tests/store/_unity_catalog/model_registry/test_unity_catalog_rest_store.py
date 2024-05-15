@@ -604,10 +604,13 @@ def test_download_model_weights_if_not_saved(
 def test_update_registered_model_name(mock_http, store):
     name = "model_1"
     new_name = "model_2"
-    with pytest.raises(
-        MlflowException, match=_expected_unsupported_method_error_message("rename_registered_model")
-    ):
-        store.rename_registered_model(name=name, new_name=new_name)
+    store.rename_registered_model(name=name, new_name=new_name)
+    _verify_requests(
+        mock_http,
+        "registered-models/update",
+        "PATCH",
+        UpdateRegisteredModelRequest(name=name, new_name=new_name),
+    )
 
 
 @mock_http_200

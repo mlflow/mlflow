@@ -14,7 +14,6 @@ from langchain_core.outputs import (
     LLMResult,
 )
 from tenacity import RetryCallState
-from typing_extensions import override
 
 import mlflow
 from mlflow import MlflowClient
@@ -137,7 +136,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def _assign_span_name(self, serialized: Dict[str, Any], default_name="unknown") -> str:
         return serialized.get("name", serialized.get("id", [default_name])[-1])
 
-    @override
     def on_chat_model_start(
         self,
         serialized: Dict[str, Any],
@@ -156,14 +154,12 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
-            # we use LLM for chat models as well
-            span_type=SpanType.LLM,
+            span_type=SpanType.CHAT_MODEL,
             run_id=run_id,
             inputs=messages,
             attributes=kwargs,
         )
 
-    @override
     def on_llm_start(
         self,
         serialized: Dict[str, Any],
@@ -188,7 +184,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             attributes=kwargs,
         )
 
-    @override
     def on_llm_new_token(
         self,
         token: str,
@@ -210,7 +205,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             )
         )
 
-    @override
     def on_retry(
         self,
         retry_state: RetryCallState,
@@ -241,13 +235,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             )
         )
 
-    @override
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any):
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
         self._end_span(llm_span, outputs=response.dict())
 
-    @override
     def on_llm_error(
         self,
         error: BaseException,
@@ -260,7 +252,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         llm_span.add_event(SpanEvent.from_exception(error))
         self._end_span(llm_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
-    @override
     def on_chain_start(
         self,
         serialized: Dict[str, Any],
@@ -287,7 +278,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             attributes=kwargs,
         )
 
-    @override
     def on_chain_end(
         self,
         outputs: Dict[str, Any],
@@ -302,7 +292,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             chain_span.set_inputs(inputs)
         self._end_span(chain_span, outputs=outputs)
 
-    @override
     def on_chain_error(
         self,
         error: BaseException,
@@ -318,7 +307,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         chain_span.add_event(SpanEvent.from_exception(error))
         self._end_span(chain_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
-    @override
     def on_tool_start(
         self,
         serialized: Dict[str, Any],
@@ -344,13 +332,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             attributes=kwargs,
         )
 
-    @override
     def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any):
         """Run when tool ends running."""
         tool_span = self._get_span_by_run_id(run_id)
         self._end_span(tool_span, outputs=str(output))
 
-    @override
     def on_tool_error(
         self,
         error: BaseException,
@@ -363,7 +349,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         tool_span.add_event(SpanEvent.from_exception(error))
         self._end_span(tool_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
-    @override
     def on_retriever_start(
         self,
         serialized: Dict[str, Any],
@@ -388,13 +373,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             attributes=kwargs,
         )
 
-    @override
     def on_retriever_end(self, documents: Sequence[Document], *, run_id: UUID, **kwargs: Any):
         """Run when Retriever ends running."""
         retriever_span = self._get_span_by_run_id(run_id)
         self._end_span(retriever_span, outputs=documents)
 
-    @override
     def on_retriever_error(
         self,
         error: BaseException,
@@ -407,7 +390,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         retriever_span.add_event(SpanEvent.from_exception(error))
         self._end_span(retriever_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
 
-    @override
     def on_agent_action(
         self,
         action: AgentAction,
@@ -433,7 +415,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             )
         )
 
-    @override
     def on_agent_finish(
         self,
         finish: AgentFinish,
@@ -450,7 +431,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             )
         )
 
-    @override
     def on_text(
         self,
         text: str,

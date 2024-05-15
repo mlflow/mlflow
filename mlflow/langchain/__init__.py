@@ -36,7 +36,6 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path
 from mlflow.langchain.databricks_dependencies import (
     _DATABRICKS_DEPENDENCY_KEY,
     _detect_databricks_dependencies,
@@ -55,7 +54,7 @@ from mlflow.langchain.utils import (
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -85,7 +84,6 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
-    FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -98,8 +96,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-_MODEL_CODE_CONFIG = "model_config"
-_MODEL_CODE_PATH = "model_code_path"
 
 
 def get_default_pip_requirements():
@@ -290,11 +286,6 @@ def save_model(
                     f"Model config path '{model_config}' provided is not a valid file path. "
                     "Please provide a valid model configuration."
                 )
-        elif not model_config:
-            # If the model_config is not provided we fallback to getting the config path
-            # from code_paths so that is backwards compatible.
-            if code_paths and len(code_paths) == 1 and os.path.exists(code_paths[0]):
-                model_config_path = code_paths[0]
 
         lc_model = (
             _load_model_code_path(model_code_path, model_config_path)
@@ -364,11 +355,10 @@ def save_model(
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
-        # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {_MODEL_CODE_CONFIG: model_config_path, _MODEL_CODE_PATH: model_code_path}
+            {MODEL_CONFIG: model_config_path, MODEL_CODE_PATH: model_code_path}
             if model_config_path
-            else {_MODEL_CODE_CONFIG: None, _MODEL_CODE_PATH: model_code_path}
+            else {MODEL_CONFIG: None, MODEL_CODE_PATH: model_code_path}
         )
         model_data_kwargs = {}
 
@@ -859,8 +849,8 @@ def _load_pyfunc(path):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if _MODEL_CODE_PATH in flavor_conf:
-        flavor_config_path = flavor_conf.get(_MODEL_CODE_CONFIG, None)
+    if MODEL_CODE_PATH in flavor_conf:
+        flavor_config_path = flavor_conf.get(MODEL_CONFIG, None)
         if flavor_config_path is not None:
             config_path = os.path.join(
                 local_model_path,
@@ -869,30 +859,9 @@ def _load_model_from_local_fs(local_model_path):
         else:
             config_path = None
 
-        flavor_code_path = flavor_conf.get(_MODEL_CODE_PATH)
+        flavor_code_path = flavor_conf.get(MODEL_CODE_PATH)
         code_path = os.path.join(
             local_model_path,
-            os.path.basename(flavor_code_path),
-        )
-
-        return _load_model_code_path(code_path, config_path)
-    # Code for backwards compatibility, relies on RAG utils - remove in the future
-    elif _CODE_CONFIG in flavor_conf:
-        path = flavor_conf.get(_CODE_CONFIG)
-        flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
-        if path is not None:
-            config_path = os.path.join(
-                local_model_path,
-                flavor_code_config,
-                os.path.basename(path),
-            )
-        else:
-            config_path = None
-
-        flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
-        code_path = os.path.join(
-            local_model_path,
-            flavor_code_config,
             os.path.basename(flavor_code_path),
         )
 
@@ -939,14 +908,10 @@ def _config_path_context(config_path: Optional[str] = None):
         config_path = ""
 
     _set_model_config(config_path)
-    # set rag utils global for backwards compatibility
-    _set_config_path(config_path)
     try:
         yield
     finally:
         _set_model_config(None)
-        # unset rag utils global for backwards compatibility
-        _set_config_path(None)
 
 
 # In the Python's module caching mechanism, which by default, prevents the
@@ -974,9 +939,7 @@ def _load_model_code_path(code_path: str, config_path: Optional[str] = None):
         except ImportError as e:
             raise mlflow.MlflowException("Failed to import LangChain model.") from e
 
-    return (
-        mlflow.models.model.__mlflow_model__ or mlflow.langchain._rag_utils.__databricks_rag_chain__
-    )
+    return mlflow.models.model.__mlflow_model__
 
 
 @experimental

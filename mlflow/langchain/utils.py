@@ -45,6 +45,7 @@ _MODEL_TYPE_KEY = "model_type"
 _RUNNABLE_LOAD_KEY = "runnable_load"
 _BASE_LOAD_KEY = "base_load"
 _CONFIG_LOAD_KEY = "config_load"
+_PICKLE_LOAD_KEY = "pickle_load"
 _MODEL_LOAD_KEY = "model_load"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports subclasses of "
@@ -162,12 +163,22 @@ def lc_runnable_branch_types():
         return ()
 
 
+def lc_runnable_binding_types():
+    try:
+        from langchain.schema.runnable import RunnableBinding
+
+        return (RunnableBinding,)
+    except ImportError:
+        return ()
+
+
 def lc_runnables_types():
     return (
         picklable_runnable_types()
         + lc_runnable_with_steps_types()
         + lc_runnable_branch_types()
         + lc_runnable_assign_types()
+        + lc_runnable_binding_types()
     )
 
 

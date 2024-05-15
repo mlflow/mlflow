@@ -227,6 +227,7 @@ class AbstractStore:
 
         """
 
+    # TODO: rename this to create_trace_info
     def start_trace(
         self,
         experiment_id: str,
@@ -248,6 +249,8 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    # TODO: rename this to update_trace_info
+    # can we pass in execution_time_ms instead of timestamp_ms directly?
     def end_trace(
         self,
         request_id: str,

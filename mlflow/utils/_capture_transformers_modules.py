@@ -22,8 +22,8 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
     Used for 'transformers' flavor only.
     """
 
-    def __init__(self, module_to_throw):
-        super().__init__()
+    def __init__(self, module_to_throw, record_full_module=False):
+        super().__init__(record_full_module=record_full_module)
         self.module_to_throw = module_to_throw
 
     def _record_imported_module(self, full_module_name):
@@ -64,7 +64,9 @@ def main():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    cap_cm = _CaptureImportedModulesForHF(module_to_throw)
+    cap_cm = _CaptureImportedModulesForHF(
+        module_to_throw, record_full_module=args.record_full_module
+    )
     store_imported_modules(cap_cm, model_path, flavor, output_file)
 
 
