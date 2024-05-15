@@ -1360,27 +1360,3 @@ def test_file_store_download_upload_trace_data(clear_singleton, tmp_path):
         trace_data = client.get_trace(span.request_id).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
-
-
-def test_traces_not_listed_as_runs(clear_singleton, tmp_path):
-    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
-        client = MlflowClient()
-        with mlflow.start_run() as run:
-            client.start_trace("test")
-            table_dict = {
-                "inputs": ["What is MLflow?", "What is Databricks?"],
-                "outputs": ["MLflow is ...", "Databricks is ..."],
-                "toxicity": [0.0, 0.0],
-            }
-
-            mlflow.log_table(
-                data=table_dict, artifact_file="qabot_eval_results.json", run_id=run.info.run_id
-            )
-
-        with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
-            mlflow.load_table(
-                "qabot_eval_results.json",
-                run_ids=[run.info.run_id],
-                extra_columns=["run_id"],
-            )
-            mock_debug.assert_not_called()

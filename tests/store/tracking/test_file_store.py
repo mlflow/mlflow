@@ -42,6 +42,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri, read_yaml, write_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
@@ -51,6 +52,7 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
+from tests.tracing.conftest import clear_singleton  # noqa: F401
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
@@ -3109,25 +3111,25 @@ def test_search_traces_pagination(generate_trace_infos):
     assert token is None
 
 
-def test_traces_not_listed_as_runs(tmp_path):
-    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
-    client = mlflow.MlflowClient()
-    with mlflow.start_run() as run:
-        client.start_trace("test")
-        table_dict = {
-            "inputs": ["What is MLflow?", "What is Databricks?"],
-            "outputs": ["MLflow is ...", "Databricks is ..."],
-            "toxicity": [0.0, 0.0],
-        }
+def test_traces_not_listed_as_runs(clear_singleton, tmp_path):
+    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
+        client = mlflow.MlflowClient()
+        with mlflow.start_run() as run:
+            client.start_trace("test")
+            table_dict = {
+                "inputs": ["What is MLflow?", "What is Databricks?"],
+                "outputs": ["MLflow is ...", "Databricks is ..."],
+                "toxicity": [0.0, 0.0],
+            }
 
-        mlflow.log_table(
-            data=table_dict, artifact_file="qabot_eval_results.json", run_id=run.info.run_id
-        )
+            mlflow.log_table(
+                data=table_dict, artifact_file="qabot_eval_results.json", run_id=run.info.run_id
+            )
 
-    with mock.patch("mlflow.store.tracking.file_store.logging.warning") as mock_warning:
-        mlflow.load_table(
-            "qabot_eval_results.json",
-            run_ids=[run.info.run_id],
-            extra_columns=["run_id"],
-        )
-        mock_warning.assert_not_called()
+        with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
+            mlflow.load_table(
+                "qabot_eval_results.json",
+                run_ids=[run.info.run_id],
+                extra_columns=["run_id"],
+            )
+            mock_debug.assert_not_called()
