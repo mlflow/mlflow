@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
@@ -40,12 +39,10 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 		input.ArtifactLocation = &artifactLocation
 	}
 
-	experimentId, err := m.store.CreateExperiment(input)
+	id, err := m.store.CreateExperiment(input)
 	if err != nil {
-		return nil, contract.NewError(protos.ErrorCode_INTERNAL_ERROR, fmt.Sprintf("error creating experiment: %v", err))
+		return nil, err
 	}
-
-	id := strconv.Itoa(int(experimentId))
 
 	response := protos.CreateExperiment_Response{
 		ExperimentId: &id,
@@ -56,14 +53,9 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 
 // GetExperiment implements MlflowService.
 func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *contract.Error) {
-	id, err := strconv.Atoi(*input.ExperimentId)
-	if err != nil {
-		return nil, contract.NewError(protos.ErrorCode_INVALID_PARAMETER_VALUE, fmt.Sprintf("error parsing experiment id: %v", err))
-	}
-
-	experiment, err := m.store.GetExperiment(int32(id))
-	if err != nil {
-		return nil, contract.NewError(protos.ErrorCode_INTERNAL_ERROR, fmt.Sprintf("error getting experiment: %v", err))
+	experiment, cErr := m.store.GetExperiment(*input.ExperimentId)
+	if cErr != nil {
+		return nil, cErr
 	}
 
 	response := protos.GetExperiment_Response{

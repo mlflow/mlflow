@@ -23,13 +23,21 @@ type Store struct {
 	db     *gorm.DB
 }
 
-func (s Store) GetExperiment(id int32) (*protos.Experiment, *contract.Error) {
-	experiment := model.Experiment{ExperimentID: utils.PtrTo(id)}
+func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
+	idInt, err := strconv.ParseInt(id, 10, 32)
+	if err != nil {
+		return nil, contract.NewError(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf("failed to convert experiment id to int: %v", err),
+		)
+	}
+
+	experiment := model.Experiment{ExperimentID: utils.PtrTo(int32(idInt))}
 	if err := s.db.Preload("ExperimentTags").First(&experiment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, contract.NewError(
 				protos.ErrorCode_RESOURCE_DOES_NOT_EXIST,
-				fmt.Sprintf("No Experiment with id=%d exists", id),
+				fmt.Sprintf("No Experiment with id=%d exists", idInt),
 			)
 		}
 		return nil, contract.NewErrorWith(
@@ -42,7 +50,7 @@ func (s Store) GetExperiment(id int32) (*protos.Experiment, *contract.Error) {
 	return experiment.ToProto(), nil
 }
 
-func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, *contract.Error) {
+func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contract.Error) {
 	experiment := model.NewExperimentFromProto(input)
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -64,16 +72,15 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 		return nil
 	}); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return -1, contract.NewError(
+			return "", contract.NewError(
 				protos.ErrorCode_RESOURCE_ALREADY_EXISTS,
 				fmt.Sprintf("Experiment(name=%s) already exists.", *experiment.Name),
 			)
 		} else {
-			return -1, contract.NewErrorWith(protos.ErrorCode_INTERNAL_ERROR, "failed to create experiment", err)
+			return "", contract.NewErrorWith(protos.ErrorCode_INTERNAL_ERROR, "failed to create experiment", err)
 		}
 	}
-
-	return *experiment.ExperimentID, nil
+	return strconv.Itoa(int(*experiment.ExperimentID)), nil
 }
 
 func NewSqlStore(config *config.Config) (store.MlflowStore, error) {

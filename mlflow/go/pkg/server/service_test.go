@@ -3,18 +3,19 @@ package server
 import (
 	"testing"
 
+	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 )
 
 type FakeStore struct{}
 
-func (f FakeStore) GetExperiment(id int32) (*protos.Experiment, error) {
+func (f FakeStore) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 	return nil, nil
 }
 
-func (f FakeStore) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, error) {
-	return 1, nil
+func (f FakeStore) CreateExperiment(input *protos.CreateExperiment) (string, *contract.Error) {
+	return "", nil
 }
 
 func toPtr(s string) *string {
