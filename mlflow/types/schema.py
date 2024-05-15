@@ -1402,7 +1402,7 @@ def convert_dataclass_to_schema(dataclass):
                 )
             )
         # confirm the effective type is a basic type
-        elif dtype := _map_field_type(list_type):
+        elif dtype := _map_field_type(effective_type):
             # It's a basic type
             inputs.append(
                 ColSpec(
