@@ -790,8 +790,9 @@ def _get_or_create_sparksession(model_path=None):
 
     spark = _get_active_spark_session()
     if not MLFLOW_JOHNSNOWLABS_MODEL_REUSE_SPARK_SESSION.get():
-        spark.stop()
-        spark = None
+        if spark is not None:
+            spark.stop()
+            spark = None
 
     if spark is None:
         spark_conf = {}
