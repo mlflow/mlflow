@@ -785,6 +785,7 @@ def _get_or_create_sparksession(model_path=None):
     from johnsnowlabs import nlp
 
     from mlflow.utils._spark_utils import _get_active_spark_session
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     _validate_env_vars()
 
@@ -799,6 +800,10 @@ def _get_or_create_sparksession(model_path=None):
         spark_conf["spark.python.worker.reuse"] = "true"
         os.environ["PYSPARK_PYTHON"] = sys.executable
         os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+
+        if is_in_databricks_runtime():
+            os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
+
         if model_path:
             jar_paths, license_path = _fetch_deps_from_path(model_path)
             # jar_paths += get_mleap_jars().split(',')  # TODO when to load MLleap Jars
