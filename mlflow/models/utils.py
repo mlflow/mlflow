@@ -1,12 +1,16 @@
 import base64
 import datetime as dt
 import decimal
+import importlib
 import json
 import logging
 import os
 import re
+import sys
 import tempfile
+import uuid
 from copy import deepcopy
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -14,6 +18,8 @@ import pandas as pd
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
+from mlflow.models.model import __mlflow_model__
+from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Map, Object, Property
@@ -1560,3 +1566,48 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
 
         _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
         return _get_temp_file_with_content("model.py", decoded_content, "wb")
+
+
+@contextmanager
+def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
+    # Check if config_path is None and set it to "" so when loading the model
+    # the config_path is set to "" so the ModelConfig can correctly check if the
+    # config is set or not
+    if config is None:
+        config = ""
+
+    _set_model_config(config)
+    try:
+        yield
+    finally:
+        _set_model_config(None)
+
+
+# TODO: clear this up
+# In the Python's module caching mechanism, which by default, prevents the
+# re-importation of previously loaded modules. This is particularly
+# problematic in contexts where it's necessary to reload a module (in this case,
+# the `model code path` module) multiple times within the same Python
+# runtime environment.
+# The issue at hand arises from the desire to import the `model code path` module
+# multiple times during a single runtime session. Normally, once a module is
+# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
+# the cached module rather than re-importing it.
+# To address this, the function dynamically imports the `model code path` module
+# under unique, dynamically generated module names. This is achieved by creating
+# a unique name for each import using a combination of the original module name
+# and a randomly generated UUID. This approach effectively bypasses the caching
+# mechanism, as each import is considered as a separate module by the Python interpreter.
+def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
+    with _config_context(config):
+        try:
+            new_module_name = f"code_model_{uuid.uuid4().hex}"
+            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[new_module_name] = module
+            spec.loader.exec_module(module)
+        except ImportError as e:
+            # TODO: type of model?
+            raise MlflowException("Failed to import model.") from e
+
+    return __mlflow_model__

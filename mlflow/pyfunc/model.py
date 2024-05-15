@@ -18,8 +18,9 @@ import mlflow.pyfunc
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.signature import _extract_type_hints
+from mlflow.models.utils import _load_model_code_path
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
@@ -444,29 +445,34 @@ def _load_context_model_and_signature(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
 
-    python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
-    if python_model_cloudpickle_version is None:
-        mlflow.pyfunc._logger.warning(
-            "The version of CloudPickle used to save the model could not be found in the MLmodel"
-            " configuration"
-        )
-    elif python_model_cloudpickle_version != cloudpickle.__version__:
-        # CloudPickle does not have a well-defined cross-version compatibility policy. Micro version
-        # releases have been known to cause incompatibilities. Therefore, we match on the full
-        # library version
-        mlflow.pyfunc._logger.warning(
-            "The version of CloudPickle that was used to save the model, `CloudPickle %s`, differs"
-            " from the version of CloudPickle that is currently running, `CloudPickle %s`, and may"
-            " be incompatible",
-            python_model_cloudpickle_version,
-            cloudpickle.__version__,
-        )
+    if MODEL_CODE_PATH in pyfunc_config:
+        conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
+        model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
+        python_model = _load_model_code_path(model_code_path, model_config)
+    else:
+        python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
+        if python_model_cloudpickle_version is None:
+            mlflow.pyfunc._logger.warning(
+                "The version of CloudPickle used to save the model could not be found in the MLmodel"
+                " configuration"
+            )
+        elif python_model_cloudpickle_version != cloudpickle.__version__:
+            # CloudPickle does not have a well-defined cross-version compatibility policy. Micro version
+            # releases have been known to cause incompatibilities. Therefore, we match on the full
+            # library version
+            mlflow.pyfunc._logger.warning(
+                "The version of CloudPickle that was used to save the model, `CloudPickle %s`, differs"
+                " from the version of CloudPickle that is currently running, `CloudPickle %s`, and may"
+                " be incompatible",
+                python_model_cloudpickle_version,
+                cloudpickle.__version__,
+            )
 
-    python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
-    if python_model_subpath is None:
-        raise MlflowException("Python model path was not specified in the model configuration")
-    with open(os.path.join(model_path, python_model_subpath), "rb") as f:
-        python_model = cloudpickle.load(f)
+        python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
+        if python_model_subpath is None:
+            raise MlflowException("Python model path was not specified in the model configuration")
+        with open(os.path.join(model_path, python_model_subpath), "rb") as f:
+            python_model = cloudpickle.load(f)
 
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
@@ -585,4 +591,7 @@ class _PythonModelPyfuncWrapper:
 def _get_pyfunc_loader_module(python_model):
     if isinstance(python_model, ChatModel):
         return mlflow.pyfunc.loaders.chat_model.__name__
-    return __name__
+    elif isinstance(python_model, str):
+        return mlflow.pyfunc.loaders.code_model.__name__
+    else:
+        return __name__

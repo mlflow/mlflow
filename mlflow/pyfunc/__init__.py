@@ -392,9 +392,7 @@ import subprocess
 import sys
 import tempfile
 import threading
-import uuid
 import warnings
-from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
@@ -421,7 +419,6 @@ from mlflow.models.model import (
     MODEL_CODE_PATH,
     MODEL_CONFIG,
 )
-from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
@@ -437,6 +434,7 @@ from mlflow.models.utils import (
     _enforce_schema,
     _save_example,
     _validate_and_get_model_code_path,
+    _load_model_code_path
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -896,7 +894,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: Optional[str] = None,
-    model_config: Optional[Union[str, Dict[str, Any]]] = None,
+    model_config: Optional[Union[str, Path, Dict[str, Any]]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -922,7 +920,8 @@ def load_model(
             This directory must already exist. If unspecified, a local output
             path will be created.
         model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+            is available during model loading. The configuration can be passed as a file path,
+            or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
@@ -980,9 +979,7 @@ def load_model(
         conf.update({MODEL_CONFIG: model_config})
 
     try:
-        if "langchain" in conf[MAIN]:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-        elif "pyfunc" in conf[MAIN] and MODEL_CODE_PATH in conf:
+        if "pyfunc" in conf[MAIN] and MODEL_CODE_PATH in conf:
             flavor_code_path = conf.get(MODEL_CODE_PATH)
             code_path = os.path.join(local_path, os.path.basename(flavor_code_path))
 
@@ -1006,7 +1003,9 @@ def load_model(
                 signature=signature,
             )
         else:
-            if model_config:
+            # currently, we do not support loading langchain with model_config like this
+            # langchain model_config must be specified using ModelConfig() class in code
+            if model_config and "langchain" not in conf[MAIN]:
                 model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
                     data_path, model_config
                 )
@@ -2329,10 +2328,17 @@ def save_model(
 
     if python_model:
         model_code_path = None
+        if isinstance(python_model, Path):
+            python_model = os.fspath(python_model)
+
         if isinstance(python_model, str):
             model_code_path = _validate_and_get_model_code_path(python_model)
             _validate_and_copy_file_path(model_code_path, path, "code")
             python_model = _load_model_code_path(model_code_path, model_config)
+
+
+        if isinstance(model_config, Path):
+            model_config = os.fspath(python_model)
 
         if isinstance(model_config, str):
             _validate_and_copy_file_path(model_config, path, "config")
@@ -2499,37 +2505,6 @@ def save_model(
             streamable=streamable,
             model_code_path=model_code_path,
         )
-
-
-# TODO: move to models.utils to share across langchain and pyfunc
-@contextmanager
-def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
-    # Check if config_path is None and set it to "" so when loading the model
-    # the config_path is set to "" so the ModelConfig can correctly check if the
-    # config is set or not
-    if config is None:
-        config = ""
-
-    _set_model_config(config)
-    try:
-        yield
-    finally:
-        _set_model_config(None)
-
-
-# TODO: move to models.utils to share across langchain and pyfunc
-def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
-    with _config_context(config):
-        try:
-            new_module_name = f"code_model_{uuid.uuid4().hex}"
-            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[new_module_name] = module
-            spec.loader.exec_module(module)
-        except ImportError as e:
-            raise mlflow.MlflowException("Failed to import pyfunc model.") from e
-
-    return mlflow.models.model.__mlflow_model__
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))

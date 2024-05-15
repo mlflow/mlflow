@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
@@ -324,12 +325,12 @@ def _validate_and_get_model_config_from_file(model_config):
                 return yaml.safe_load(file)
             except yaml.YAMLError as e:
                 raise yaml.YAMLError(
-                    f"The provided ``model_config`` file '{model_config}' is not a valid YAML "
+                    f"The provided `model_config` file '{model_config}' is not a valid YAML "
                     f"file: {e}"
                 )
     else:
         raise MlflowException.invalid_parameter_value(
-            "An invalid ``model_config`` structure was passed. The provided ``model_config`` "
+            "An invalid `model_config` file was passed. The provided `model_config` "
             f"file '{model_config}'is not a valid file path."
         )
 
@@ -343,7 +344,9 @@ def _validate_pyfunc_model_config(model_config):
     if not model_config:
         return
 
-    if isinstance(model_config, str):
+    if isinstance(model_config, Path):
+        _validate_and_get_model_config_from_file(os.fspath(model_config))
+    elif isinstance(model_config, str):
         _validate_and_get_model_config_from_file(model_config)
     elif isinstance(model_config, dict) and all(isinstance(key, str) for key in model_config):
         try:

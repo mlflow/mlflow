@@ -58,7 +58,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _convert_llm_input_data, _get_temp_file_with_content, _save_example
+from mlflow.models.utils import _convert_llm_input_data, _get_temp_file_with_content, _save_example, _load_model_code_path
 from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -936,36 +936,6 @@ def _config_path_context(config_path: Optional[str] = None):
         _set_model_config(None)
         # unset rag utils global for backwards compatibility
         _set_config_path(None)
-
-
-# In the Python's module caching mechanism, which by default, prevents the
-# re-importation of previously loaded modules. This is particularly
-# problematic in contexts where it's necessary to reload a module (in this case,
-# the `model code path` module) multiple times within the same Python
-# runtime environment.
-# The issue at hand arises from the desire to import the `model code path` module
-# multiple times during a single runtime session. Normally, once a module is
-# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
-# the cached module rather than re-importing it.
-# To address this, the function dynamically imports the `model code path` module
-# under unique, dynamically generated module names. This is achieved by creating
-# a unique name for each import using a combination of the original module name
-# and a randomly generated UUID. This approach effectively bypasses the caching
-# mechanism, as each import is considered as a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, config_path: Optional[str] = None):
-    with _config_path_context(config_path):
-        try:
-            new_module_name = f"code_model_{uuid.uuid4().hex}"
-            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[new_module_name] = module
-            spec.loader.exec_module(module)
-        except ImportError as e:
-            raise mlflow.MlflowException("Failed to import LangChain model.") from e
-
-    return (
-        mlflow.models.model.__mlflow_model__ or mlflow.langchain._rag_utils.__databricks_rag_chain__
-    )
 
 
 @experimental
