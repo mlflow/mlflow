@@ -1,6 +1,8 @@
 import json
 import os
+import shutil
 import sys
+from pathlib import Path
 from typing import Any, Dict
 
 from mlflow.exceptions import MlflowException
@@ -15,8 +17,10 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import get_parent_module
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.requirements_utils import _capture_imported_modules
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
@@ -154,6 +158,66 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     return code_dir_subpath
 
 
+def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
+    # Capture all imported modules with full module name during loading model.
+    modules = _capture_imported_modules(path, flavor, record_full_module=True)
+
+    all_modules = set(modules)
+
+    for module in modules:
+        parent_module = module
+        while "." in parent_module:
+            parent_module = get_parent_module(parent_module)
+            all_modules.add(parent_module)
+
+    # Generate code_paths set from the imported modules full name list.
+    # It only picks necessary files, because:
+    #  1. Reduce risk of logging files containing user credentials to MLflow
+    #     artifact repository.
+    #  2. In databricks runtime, notebook files might exist under a code_path directory,
+    #     if logging the whole directory to MLflow artifact repository, these
+    #     notebook files are not accessible and trigger exceptions. On the other
+    #     hand, these notebook files are not used as code_paths modules because
+    #     code in notebook files are loaded into python `__main__` module.
+    code_paths = set()
+    for full_module_name in all_modules:
+        relative_path_str = full_module_name.replace(".", os.sep)
+        relative_path = Path(relative_path_str)
+        if relative_path.is_dir():
+            init_file_path = relative_path / "__init__.py"
+            if init_file_path.exists():
+                code_paths.add(init_file_path)
+
+        py_module_path = Path(relative_path_str + ".py")
+        if py_module_path.is_file():
+            code_paths.add(py_module_path)
+
+    if code_paths:
+        for code_path in code_paths:
+            src_dir_path = code_path.parent
+            src_file_name = code_path.name
+            dest_dir_path = Path(path) / default_subpath / src_dir_path
+            dest_file_path = dest_dir_path / src_file_name
+            dest_dir_path.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(code_path, dest_file_path)
+        return default_subpath
+
+    return None
+
+
+def _validate_infer_and_copy_code_paths(
+    code_paths, path, infer_code_paths, flavor, default_subpath="code"
+):
+    if infer_code_paths:
+        if code_paths:
+            raise MlflowException(
+                "If 'infer_code_path' is set to True, 'code_paths' param cannot be set."
+            )
+        return _infer_and_copy_code_paths(flavor, path, default_subpath)
+    else:
+        return _validate_and_copy_code_paths(code_paths, path, default_subpath)
+
+
 def _validate_path_exists(path, name):
     if path and not os.path.exists(path):
         raise MlflowException(
@@ -221,6 +285,7 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
             By default this is FLAVOR_CONFIG_CODE.
     """
     assert isinstance(conf, dict), "`conf` argument must be a dict."
+
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)

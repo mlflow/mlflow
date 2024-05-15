@@ -34,7 +34,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration, _validate_and_copy_code_paths
+from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -255,6 +255,7 @@ def _save_model_with_class_artifacts_params(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    infer_code_paths=False,
 ):
     """
     Args:
@@ -381,15 +382,13 @@ def _save_model_with_class_artifacts_params(
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
-    saved_code_subpath = _validate_and_copy_code_paths(code_paths, path)
-
     if streamable is None:
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
         loader_module=_get_pyfunc_loader_module(python_model),
-        code=saved_code_subpath,
+        code=None,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
@@ -398,6 +397,17 @@ def _save_model_with_class_artifacts_params(
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    saved_code_subpath = _validate_infer_and_copy_code_paths(
+        code_paths,
+        path,
+        infer_code_paths,
+        mlflow.pyfunc.FLAVOR_NAME,
+    )
+    mlflow_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.CODE] = saved_code_subpath
+
+    # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
