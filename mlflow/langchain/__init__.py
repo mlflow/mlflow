@@ -57,7 +57,6 @@ from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _convert_llm_input_data,
-    _get_temp_file_with_content,
     _load_model_code_path,
     _save_example,
 )
