@@ -235,7 +235,7 @@ def cloud_storage_http_request(
     backoff_factor=2,
     backoff_jitter=1.0,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=None,
+    timeout=(60, None),
     **kwargs,
 ):
     """Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
@@ -250,7 +250,8 @@ def cloud_storage_http_request(
         backoff_jitter: A random jitter to add to the backoff interval.
         retry_codes: a list of HTTP response error codes that qualifies for retry.
         timeout: wait for timeout seconds for response from remote server for connect and
-            read request. Default to None owing to long duration operation in read / write.
+            read request. Default to (60, None) which means 60 seconds for connect and no timeout
+            for read.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`.
 
     Returns:
@@ -258,6 +259,7 @@ def cloud_storage_http_request(
     """
     if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
+
     return _get_http_response_with_retries(
         method,
         url,
