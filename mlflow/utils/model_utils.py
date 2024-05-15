@@ -2,9 +2,10 @@ import json
 import os
 import shutil
 import sys
-import yaml
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+import yaml
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -157,10 +158,6 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     else:
         code_dir_subpath = None
     return code_dir_subpath
-
-
-def _validate_path_exists(path: str, name: str):
-    if not os.path.exists(path):
 
 
 def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):

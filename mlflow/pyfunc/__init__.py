@@ -502,7 +502,6 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
-    _validate_and_copy_code_paths,
     _validate_and_copy_file_path,
     _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
@@ -2293,16 +2292,12 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if python_model:
-        # new code
         if isinstance(model_config, Path):
             model_config = os.fspath(model_config)
 
         if isinstance(model_config, str):
-            _validate_and_copy_file_path(model_config, path, "config")
-            model_config_dict = _validate_and_get_model_config_from_file(model_config)
-        else:
-            model_config_dict = model_config
-        # end new code
+            model_config = _validate_and_get_model_config_from_file(model_config)
+
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2403,7 +2398,7 @@ def save_model(
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
-            context = PythonModelContext(artifacts, model_config_dict)
+            context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
             output = python_model.predict(context, messages, params)
             if not isinstance(output, ChatResponse):
