@@ -1378,10 +1378,10 @@ def convert_dataclass_to_schema(dataclass):
                     ColSpec(type=Array(dtype=dtype), name=field_name, required=not is_optional)
                 )
             else:
-                if _map_field_type(list_type):
+                if dtype := _map_field_type(list_type):
                     inputs.append(
                         ColSpec(
-                            type=Array(dtype=_map_field_type(list_type)),
+                            type=Array(dtype=dtype),
                             name=field_name,
                             required=not is_optional,
                         )
@@ -1402,11 +1402,11 @@ def convert_dataclass_to_schema(dataclass):
                 )
             )
         # confirm the effective type is a basic type
-        elif _map_field_type(effective_type):
+        elif dtype := _map_field_type(list_type):
             # It's a basic type
             inputs.append(
                 ColSpec(
-                    type=_map_field_type(effective_type),
+                    type=dtype,
                     name=field_name,
                     required=not is_optional,
                 )
