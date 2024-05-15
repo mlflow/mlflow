@@ -279,11 +279,7 @@ def save_model(
                     "Please provide a valid model configuration."
                 )
 
-        lc_model = (
-            _load_model_code_path(model_code_path, model_config_path)
-            if model_config_path
-            else _load_model_code_path(model_code_path)
-        )
+        lc_model = _load_model_code_path(model_code_path, model_config_path)
         _validate_and_copy_file_path(model_code_path, path, "code")
         _validate_and_copy_file_path(model_config_path, path, "config")
 
