@@ -495,8 +495,8 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
-    _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
+    _validate_infer_and_copy_code_paths,
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
@@ -2107,6 +2107,7 @@ def save_model(
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     mlflow_model=None,
     python_model=None,
@@ -2152,6 +2153,7 @@ def save_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
@@ -2414,6 +2416,7 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            infer_code_paths=infer_code_paths,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -2429,6 +2432,7 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            infer_code_paths=infer_code_paths,
         )
 
 
@@ -2439,6 +2443,7 @@ def log_model(
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     python_model=None,
     artifacts=None,
@@ -2480,6 +2485,7 @@ def log_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
@@ -2640,6 +2646,7 @@ def log_model(
         example_no_conversion=example_no_conversion,
         streamable=streamable,
         resources=resources,
+        infer_code_paths=infer_code_paths,
     )
 
 
@@ -2654,6 +2661,7 @@ def _save_model_with_loader_module_and_data_path(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    infer_code_paths=False,
 ):
     """
     Export model as a generic Python function model.
@@ -2683,8 +2691,6 @@ def _save_model_with_loader_module_and_data_path(
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
         data = model_file
 
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -2692,7 +2698,7 @@ def _save_model_with_loader_module_and_data_path(
     mlflow.pyfunc.add_to_model(
         mlflow_model,
         loader_module=loader_module,
-        code=code_dir_subpath,
+        code=None,
         data=data,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
@@ -2701,6 +2707,14 @@ def _save_model_with_loader_module_and_data_path(
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    code_dir_subpath = _validate_infer_and_copy_code_paths(
+        code_paths, path, infer_code_paths, FLAVOR_NAME
+    )
+    mlflow_model.flavors[FLAVOR_NAME][CODE] = code_dir_subpath
+
+    # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
