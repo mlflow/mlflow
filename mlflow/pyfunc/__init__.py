@@ -2105,7 +2105,7 @@ Compound types:
 def _validate_function_python_model(python_model):
     if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
-            "`python_model` must be a PythonModel instance, callable object, or filepath that ",
+            "`python_model` must be a PythonModel instance, callable object, or filepath that "
             "uses set_model() to set a PythonModel instance or callable object.",
             error_code=INVALID_PARAMETER_VALUE,
         )
