@@ -349,7 +349,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         if route.route_type != RouteType.LLM_V1_CHAT:
             raise HTTPException(
                 status_code=400,
-                detail=f"Route {route.name!r} is not a chat endpoint.",
+                detail=f"Endpoint {route.name!r} is not a chat endpoint.",
             )
 
         prov = get_provider(route.model.provider)(route)
@@ -367,7 +367,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         if route.route_type != RouteType.LLM_V1_COMPLETIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Route {route.name!r} is not a completions endpoint.",
+                detail=f"Endpoint {route.name!r} is not a completions endpoint.",
             )
 
         prov = get_provider(route.model.provider)(route)
@@ -385,7 +385,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         if route.route_type != RouteType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Route {route.name!r} is not an embeddings endpoint.",
+                detail=f"Endpoint {route.name!r} is not an embeddings endpoint.",
             )
 
         prov = get_provider(route.model.provider)(route)
