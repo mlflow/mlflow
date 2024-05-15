@@ -259,7 +259,6 @@ def cloud_storage_http_request(
     """
     if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
-
     return _get_http_response_with_retries(
         method,
         url,
