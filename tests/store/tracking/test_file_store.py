@@ -3109,8 +3109,8 @@ def test_search_traces_pagination(generate_trace_infos):
     assert token is None
 
 
-@pytest.mark.notrackingurimock
-def test_traces_not_listed_as_runs():
+def test_traces_not_listed_as_runs(tmp_path):
+    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
     client = mlflow.MlflowClient()
     with mlflow.start_run() as run:
         client.start_trace("test")
