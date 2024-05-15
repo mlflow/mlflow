@@ -51,7 +51,7 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        self.dynamic_routes: Dict[str, Route] = {}
+        self.dynamic_routes: Dict[str, RouteConfig] = {}
         self.set_dynamic_routes(config, limiter)
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
@@ -71,10 +71,10 @@ class GatewayAPI(FastAPI):
                 methods=["POST"],
                 include_in_schema=False,
             )
-            self.dynamic_routes[route.name] = route.to_route()
+            self.dynamic_routes[route.name] = route
 
     def get_dynamic_route(self, route_name: str) -> Optional[Route]:
-        return self.dynamic_routes.get(route_name)
+        return self.dynamic_routes.get(route_name).to_route()
 
 
 def _create_chat_endpoint(config: RouteConfig):
@@ -271,7 +271,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE + "{endpoint_name}")
     async def get_endpoint(endpoint_name: str) -> Endpoint:
         if matched := app.get_dynamic_route(endpoint_name):
-            return matched.to_endpoint()
+            return matched.to_route().to_endpoint()
 
         raise HTTPException(
             status_code=404,
@@ -329,6 +329,49 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.post(MLFLOW_GATEWAY_LIMITS_BASE, include_in_schema=False)
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
+
+    def _look_up_route(name: str) -> Optional[Route]:
+        if r := app.dynamic_routes.get(name):
+            return r
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Route {name} not found in the configuration.",
+        )
+
+    # OpenAI compatible endpoints
+    @app.post("/chat/completions")
+    async def chat_completions_handler(
+        request: Request, payload: chat.RequestPayload
+    ) -> chat.ResponsePayload:
+        route = _look_up_route(payload.model)
+        prov = get_provider(route.model.provider)(route)
+        payload.model = None
+        if payload.stream:
+            return await make_streaming_response(prov.chat_stream(payload))
+        else:
+            return await prov.chat(payload)
+
+    @app.post("/completions")
+    async def completions_handler(
+        request: Request, payload: completions.RequestPayload
+    ) -> chat.ResponsePayload:
+        route = _look_up_route(payload.model)
+        prov = get_provider(route.model.provider)(route)
+        payload.model = None
+        if payload.stream:
+            return await make_streaming_response(prov.completions_stream(payload))
+        else:
+            return await prov.completions(payload)
+
+    @app.post("/embeddings")
+    async def embeddings_handler(
+        request: Request, payload: embeddings.RequestPayload
+    ) -> chat.ResponsePayload:
+        route = _look_up_route(payload.model)
+        prov = get_provider(route.model.provider)(route)
+        payload.model = None
+        return await make_streaming_response(prov.embeddings(payload))
 
     return app
 
