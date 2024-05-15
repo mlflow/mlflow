@@ -75,8 +75,11 @@ def go_server_path(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def postgres_url():
-    with PostgresContainer().with_env("LC_COLLATE", "POSIX") as container:
-        yield container.get_connection_url().replace("+psycopg2", "", 1)
+    try:
+        with PostgresContainer().with_env("LC_COLLATE", "POSIX") as container:
+            yield container.get_connection_url().replace("+psycopg2", "", 1)
+    except Exception:
+        yield ""
 
 
 @pytest.fixture(params=["file", "sqlite", "postgresql"])
@@ -88,6 +91,8 @@ def backend_uri(request, tmp_path, postgres_url):
         path = tmp_path.joinpath("sqlite.db").as_uri()
         return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
     elif request.param == "postgresql":
+        if not postgres_url:
+            pytest.skip("PostgreSQL is not available - is Docker installed?")
         engine = sqlalchemy.create_engine(postgres_url)
         with engine.begin() as connection:
             connection.execute(sqlalchemy.text("DROP SCHEMA public CASCADE"))

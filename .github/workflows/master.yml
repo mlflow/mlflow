@@ -74,6 +74,7 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-go
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
@@ -211,6 +212,7 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-go
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -267,6 +269,7 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-go
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -318,6 +321,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-go
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
       - name: Install python dependencies

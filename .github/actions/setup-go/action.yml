@@ -1,0 +1,15 @@
+name: "setup-go"
+description: "Setup Go"
+outputs:
+  go-version:
+    description: "The installed Go version"
+    value: ${{ steps.setup-go.outputs.go-version }}
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-go@v5
+      id: setup-go
+      with:
+        go-version: "1.22"
+        check-latest: true
+        cache: false
