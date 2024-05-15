@@ -295,6 +295,9 @@ def _save_model_with_class_artifacts_params(
     if mlflow_model is None:
         mlflow_model = Model()
 
+    if python_model is None:
+        _logger.warning("The provided Python model is None. The model will be saved as None.")
+
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }

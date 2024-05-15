@@ -2106,7 +2106,7 @@ def _validate_function_python_model(python_model):
     if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
             "`python_model` must be a PythonModel instance, callable object, or filepath that ",
-            "uses set_model() to set a PythonModel instance or callable object."
+            "uses set_model() to set a PythonModel instance or callable object.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -2292,6 +2292,7 @@ def save_model(
     _validate_pyfunc_model_config(model_config)
     _validate_and_prepare_target_save_path(path)
 
+    model_code_path = None
     if python_model:
         if isinstance(model_config, Path):
             model_config = os.fspath(model_config)
@@ -2299,7 +2300,6 @@ def save_model(
         if isinstance(model_config, str):
             model_config = _validate_and_get_model_config_from_file(model_config)
 
-        model_code_path = None
         if isinstance(python_model, Path):
             python_model = os.fspath(python_model)
 
