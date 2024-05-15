@@ -391,9 +391,14 @@ def _save_model_with_class_artifacts_params(
     if streamable is None:
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
+    if model_code_path:
+        loader_module = mlflow.pyfunc.loaders.code_model.__name__
+    else:
+        loader_module = _get_pyfunc_loader_module(python_model)
+
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
-        loader_module=_get_pyfunc_loader_module(python_model),
+        loader_module=loader_module,
         code=None,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
@@ -604,7 +609,5 @@ class _PythonModelPyfuncWrapper:
 def _get_pyfunc_loader_module(python_model):
     if isinstance(python_model, ChatModel):
         return mlflow.pyfunc.loaders.chat_model.__name__
-    elif isinstance(python_model, str):
-        return mlflow.pyfunc.loaders.code_model.__name__
     else:
         return __name__
