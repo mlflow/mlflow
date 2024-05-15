@@ -351,7 +351,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             )
 
         prov = get_provider(route.model.provider)(route)
-        payload.model = None
+        payload.model = None  # provider rejects a request with model field, must be removed
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
         else:
@@ -360,7 +360,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.post("/v1/completions")
     async def openai_completions_handler(
         request: Request, payload: completions.RequestPayload
-    ) -> chat.ResponsePayload:
+    ) -> completions.ResponsePayload:
         route = _look_up_route(payload.model)
         if route.route_type != RouteType.LLM_V1_COMPLETIONS:
             raise HTTPException(
@@ -369,7 +369,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             )
 
         prov = get_provider(route.model.provider)(route)
-        payload.model = None
+        payload.model = None  # provider rejects a request with model field, must be removed
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
         else:
@@ -387,7 +387,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             )
 
         prov = get_provider(route.model.provider)(route)
-        payload.model = None
+        payload.model = None  # provider rejects a request with model field, must be removed
         return await prov.embeddings(payload)
 
     return app
