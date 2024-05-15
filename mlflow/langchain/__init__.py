@@ -260,18 +260,13 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    model_config_path = None
     model_code_path = None
     if isinstance(lc_model, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
         model_code_path = lc_model
-        if isinstance(model_config, dict):
-            model_config_path = _get_temp_file_with_content(
-                "config.yml", yaml.dump(model_config), "w"
-            )
-        elif isinstance(model_config, str):
+        if isinstance(model_config, str):
             if os.path.exists(model_config):
                 model_config = _load_from_yaml(model_config)
             else:
@@ -282,7 +277,6 @@ def save_model(
 
         lc_model = _load_model_code_path(model_code_path, model_config)
         _validate_and_copy_file_path(model_code_path, path, "code")
-        _validate_and_copy_file_path(model_config_path, path, "config")
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
