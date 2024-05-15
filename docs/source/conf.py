@@ -43,13 +43,7 @@ extensions = [
     "testcode_block",
     "nbsphinx",
     "sphinx_reredirects",
-    "sphinx.ext.intersphinx",
 ]
-
-# Add intersphinx mapping for Python standard library
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-}
 
 # Redirects definition in the form of ``("source", "target")``.
 # Note that the target is relative to the path of the source and that the
