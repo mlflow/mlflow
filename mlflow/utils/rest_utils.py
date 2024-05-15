@@ -287,22 +287,36 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
-    call_kwargs = {
-        "host_creds": host_creds,
-        "endpoint": endpoint,
-        "method": method,
-    }
-    if extra_headers is not None:
-        call_kwargs["extra_headers"] = extra_headers
-    if method == "GET":
-        call_kwargs["params"] = json_body
-        response = http_request(**call_kwargs)
-    else:
-        call_kwargs["json"] = json_body
-        response = http_request(**call_kwargs)
 
-    response = verify_rest_response(response, endpoint)
-    js_dict = json.loads(response.text)
+    if host_creds.databricks_workspace_client:
+        try:
+            js_dict = host_creds.databricks_workspace_client.api_client.do(
+                method=method,
+                path=endpoint,
+                body=json_body,
+            )
+        except Exception as e:
+            raise MlflowException(
+                f"API request to endpoint '{endpoint}' failed with exception {e}"
+            )
+    else:
+        call_kwargs = {
+            "host_creds": host_creds,
+            "endpoint": endpoint,
+            "method": method,
+        }
+        if extra_headers is not None:
+            call_kwargs["extra_headers"] = extra_headers
+        if method == "GET":
+            call_kwargs["params"] = json_body
+            response = http_request(**call_kwargs)
+        else:
+            call_kwargs["json"] = json_body
+            response = http_request(**call_kwargs)
+
+        response = verify_rest_response(response, endpoint)
+        js_dict = json.loads(response.text)
+
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
@@ -363,9 +377,10 @@ class MlflowHostCreds:
         server_cert_path=None,
         databricks_workspace_client=None,
     ):
-        if not host:
+        if not host and not databricks_workspace_client:
             raise MlflowException(
-                message="host is a required parameter for MlflowHostCreds",
+                message="Either 'host' or 'databricks_workspace_client' is required for "
+                        "MlflowHostCreds",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if ignore_tls_verification and (server_cert_path is not None):
@@ -388,6 +403,7 @@ class MlflowHostCreds:
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path
+        self.databricks_workspace_client = databricks_workspace_client
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

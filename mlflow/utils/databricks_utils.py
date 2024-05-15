@@ -14,6 +14,8 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
     DatabricksConfigProvider,
     DatabricksModelServingConfigProvider,
+    EnvironmentVariableConfigProvider,
+    ProfileConfigProvider,
     DefaultConfigProvider,
     ProfileConfigProvider,
     get_config,
@@ -76,10 +78,10 @@ class MlflowCredentialContext:
         self.db_utils = _get_dbutils()
 
     def __enter__(self):
-        db_creds = get_databricks_host_creds(self.databricks_profile_url)
+        db_creds = _get_databricks_creds_config(self.databricks_profile_url)
         self.db_utils.notebook.entry_point.putMlflowProperties(
             db_creds.host,
-            db_creds.ignore_tls_verification,
+            db_creds.insecure,
             db_creds.token,
             db_creds.username,
             db_creds.password,
@@ -443,11 +445,14 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
     return None, None
 
 
-def _fail_malformed_databricks_auth(profile):
+def _fail_malformed_databricks_auth(tracking_uri):
     raise MlflowException(
-        "Got malformed Databricks CLI profile '%s'. Please make sure the "
-        "Databricks CLI is properly configured as described at "
-        "https://github.com/databricks/databricks-cli." % profile
+        f"Reading databricks credential configuration failed using.tracking URI {tracking_uri}"
+        "Please ensure that you installed 'databricks-sdk' library, set correct tracking "
+        "URI and set up databricks authentication configuration file locally via databricks-cli "
+        "command tool. The available tracking URI can be either 'databricks' "
+        "(using DEFAULT authentication profile) or 'databricks://{profile}' or "
+        "'databricks://{scope}:{key-prefix}'."
     )
 
 
@@ -470,11 +475,36 @@ def get_model_dependency_oauth_token(should_retry=True):
             ) from e
 
 
-def _get_databricks_host_creds_v1(server_uri=None):
+class TrackingURIConfigProvider(DatabricksConfigProvider):
+    """
+    TrackingURIConfigProvider extracts `scope` and `key_prefix` from tracking URI
+    of format like `databricks://scope:key_prefix`,
+    then read host and token value from dbutils secrets by key
+    "{key_prefix}-host" and "{key_prefix}-token"
+    """
+
+    def __init__(self, tracking_uri):
+        self.tracking_uri = tracking_uri
+
+    def get_config(self):
+        scope, key_prefix = get_db_info_from_uri(self.tracking_uri)
+
+        if scope and key_prefix:
+            dbutils = _get_dbutils()
+            if dbutils:
+                # Prefix differentiates users and is provided as path information in the URI
+                host = dbutils.secrets.get(scope=scope, key=key_prefix + "-host")
+                token = dbutils.secrets.get(scope=scope, key=key_prefix + "-token")
+                return DatabricksConfig.from_token(host=host, token=token, insecure=False)
+
+        return None
+
+
+def get_databricks_host_creds(server_uri=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
-    uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
-    If no Databricks CLI profile is found corresponding to the server URI, this function
+    uses Databricks SDK workspace client API,
+    If no available credential configuration is found to the server URI, this function
     will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
     the server URI will need to be of the following format: "databricks://scope:prefix". In the
     Databricks Secret Manager, we will query for a secret in the scope "<scope>" for secrets with
@@ -487,50 +517,22 @@ def _get_databricks_host_creds_v1(server_uri=None):
             requests.
 
     Returns:
-        MlflowHostCreds which includes the hostname and authentication information necessary to
+        MlflowHostCreds which includes the constructed Databricks SDK workspace client instance,
+        or the hostname and authentication information necessary to
         talk to the Databricks server.
     """
-    profile, path = get_db_info_from_uri(server_uri)
-    config = ProfileConfigProvider(profile).get_config() if profile else get_config()
-    # if a path is specified, that implies a Databricks tracking URI of the form:
-    # databricks://profile-name:path-specifier
-    if (not config or not config.host) and path:
-        dbutils = _get_dbutils()
-        if dbutils:
-            # Prefix differentiates users and is provided as path information in the URI
-            key_prefix = path
-            host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
-            token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
-            if host and token:
-                config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
-    if not config or not config.host:
-        _fail_malformed_databricks_auth(profile)
 
-    insecure = hasattr(config, "insecure") and config.insecure
-
-    if config.username is not None and config.password is not None:
-        return MlflowHostCreds(
-            config.host,
-            username=config.username,
-            password=config.password,
-            ignore_tls_verification=insecure,
-        )
-    elif config.token:
-        return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
-    _fail_malformed_databricks_auth(profile)
-
-
-def _get_databricks_host_creds_v2(server_uri=None):
     from databricks.sdk import WorkspaceClient
 
-    profile, path = get_db_info_from_uri(server_uri)
+    profile, _ = get_db_info_from_uri(server_uri)
     try:
         # Using databricks-sdk to create Databricks WorkspaceClient instance,
         # If authentication is failed, exception is raised.
-        # databricks-sdk supporting authentication of the following ways:
-        # 1. parse relevant environment variables (such as DATABRICKS_HOST and DATABRICKS_TOKEN)
+        # databricks-sdk supports reading authentication tokens by the following ways:
+        # 1. Read dynamic generated token via databricks `dbutils`.
+        # 2. parse relevant environment variables (such as DATABRICKS_HOST and DATABRICKS_TOKEN)
         #    to get credential information
-        # 2. parse ~/.databrickscfg file (generated by databricks CLI tool)
+        # 3. parse ~/.databrickscfg file (generated by databricks-CLI command-line tool)
         #    to get credential information.
         #    Oauth authentication is supported in this way.
         # databricks-sdk is designed to hide authentication details and
@@ -541,39 +543,23 @@ def _get_databricks_host_creds_v2(server_uri=None):
         return MlflowHostCreds(databricks_workspace_client=ws_client)
     except Exception as e:
         _logger.info(f"Creating databricks SDK workspace client failed, error: {repr(e)}")
-        # There are a few cases that databricks-sdk hasn't supported yet,
-        # we handle them here.
-        fallback_config = None
+        # There are a few other ways to read credentials that databricks-sdk hasn't supported yet,
+        # we handle them here as the fallback approaches.
+        config = None
 
-        if path:
-            # if a path is specified, that implies a Databricks tracking URI of the form:
-            # databricks://scope:key_prefix
-            scope = profile
-            key_prefix = path
-            dbutils = _get_dbutils()
-            if dbutils:
-                # Prefix differentiates users and is provided as path information in the URI
-                host = dbutils.secrets.get(scope=scope, key=key_prefix + "-host")
-                token = dbutils.secrets.get(scope=scope, key=key_prefix + "-token")
-                if host and token:
-                    fallback_config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
+        for provider in [
+            TrackingURIConfigProvider(server_uri),
+            SparkTaskContextConfigProvider(),
+            DatabricksModelServingConfigProvider(),
+        ]:
+            _config = provider.get_config()
+            if _config is not None and _config.is_valid:
+                config = _config
+                break
 
-        if not fallback_config:
-            for provider in [
-                SparkTaskContextConfigProvider(),
-                DatabricksModelServingConfigProvider(),
-            ]:
-                config = provider.get_config()
-                if config is not None and config.is_valid:
-                    fallback_config = config
-                    break
+        if not config or not config.host:
+            _fail_malformed_databricks_auth(profile)
 
-        if not fallback_config:
-            raise MlflowException(
-                "Reading databricks credential configuration failed. Please ensure that you "
-                "installed 'databricks-sdk' library, and configure databricks credentials "
-                "properly."
-            )
         insecure = hasattr(config, "insecure") and config.insecure
 
         if config.username is not None and config.password is not None:
@@ -585,11 +571,7 @@ def _get_databricks_host_creds_v2(server_uri=None):
             )
         elif config.token:
             return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
-        _fail_malformed_databricks_auth("DEFAULT")
-
-
-def get_databricks_host_creds(server_uri=None):
-    return _get_databricks_host_creds_v2()
+        _fail_malformed_databricks_auth(profile)
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
@@ -825,11 +807,40 @@ def _construct_databricks_model_version_url(
     return model_version_url
 
 
+def _get_databricks_creds_config(tracking_uri):
+    # Note:
+    # `_get_databricks_creds_config` reads credential token values or password and
+    # generates environmental variables.
+    # Databricks-SDK API doesn't support reading credential token values,
+    # so that in this function we still have to use
+    # configuration providers defined in legacy Databricks CLI python library to
+    # read token values.
+    profile, _ = get_db_info_from_uri(tracking_uri)
+    for provider in [
+        _dynamic_token_config_provider,
+        ProfileConfigProvider(profile),
+        SparkTaskContextConfigProvider(),
+        EnvironmentVariableConfigProvider(),
+        DatabricksModelServingConfigProvider(),
+        TrackingURIConfigProvider(tracking_uri),
+    ]:
+        if provider:
+            _config = provider.get_config()
+            if _config is not None and _config.is_valid:
+                config = _config
+                break
+
+    if not config or not config.host:
+        _fail_malformed_databricks_auth(tracking_uri)
+
+    return config
+
+
 def get_databricks_env_vars(tracking_uri):
     if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
         return {}
 
-    config = get_databricks_host_creds(tracking_uri)
+    config = _get_databricks_creds_config(tracking_uri)
     # We set these via environment variables so that only the current profile is exposed, rather
     # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
     # part of ~/.databrickscfg into the container
@@ -842,8 +853,8 @@ def get_databricks_env_vars(tracking_uri):
         env_vars["DATABRICKS_PASSWORD"] = config.password
     if config.token:
         env_vars["DATABRICKS_TOKEN"] = config.token
-    if config.ignore_tls_verification:
-        env_vars["DATABRICKS_INSECURE"] = str(config.ignore_tls_verification)
+    if config.insecure:
+        env_vars["DATABRICKS_INSECURE"] = str(config.insecure)
 
     workspace_info = get_databricks_workspace_info_from_uri(tracking_uri)
     if workspace_info is not None:
@@ -879,13 +890,18 @@ def get_databricks_runtime_major_minor_version():
     return DatabricksRuntimeVersion.parse()
 
 
-def _init_databricks_cli_config_provider(entry_point):
+_dynamic_token_config_provider = None
+
+
+def _init_databricks_dynamic_token_config_provider(entry_point):
     """
     set a custom DatabricksConfigProvider with the hostname and token of the
     user running the current command (achieved by looking at
     PythonAccessibleThreadLocals.commandContext, via the already-exposed
     NotebookUtils.getContext API)
     """
+    global _dynamic_token_config_provider
+
     notebook_utils = entry_point.getDbutils().notebook()
 
     dbr_version = get_databricks_runtime_major_minor_version()
@@ -936,9 +952,8 @@ def _init_databricks_cli_config_provider(entry_point):
 
                 ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
 
-                # Fallback to the default behavior if we were unable to find a token.
                 if api_token is None or api_url is None:
-                    return DefaultConfigProvider().get_config()
+                    return None
 
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
@@ -968,9 +983,8 @@ def _init_databricks_cli_config_provider(entry_point):
                 api_url_option = notebook_utils.getContext().apiUrl()
                 ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
 
-                # Fallback to the default behavior if we were unable to find a token.
                 if not api_token_option.isDefined() or not api_url_option.isDefined():
-                    return DefaultConfigProvider().get_config()
+                    return None
 
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
@@ -986,21 +1000,20 @@ def _init_databricks_cli_config_provider(entry_point):
                 api_url_option = notebook_utils.getContext().apiUrl()
                 ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
 
-                # Fallback to the default behavior if we were unable to find a token.
                 if not api_token_option.isDefined() or not api_url_option.isDefined():
-                    return DefaultConfigProvider().get_config()
+                    return None
 
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
 
-    set_config_provider(DynamicConfigProvider())
+    _dynamic_token_config_provider = DynamicConfigProvider()
 
 
 if is_in_databricks_runtime():
     try:
         dbutils = _get_dbutils()
-        _init_databricks_cli_config_provider(dbutils.entry_point)
+        _init_databricks_dynamic_token_config_provider(dbutils.entry_point)
     except _NoDbutilsError:
         # If there is no dbutils available, it means it is run in databricks driver local suite,
         # in this case, we don't need to initialize databricks token because
