@@ -37,7 +37,7 @@ func runscenarios(t *testing.T, scenarios []validationScenario) {
 func TestStringAsPositiveInteger(t *testing.T) {
 	scenarios := []validationScenario{
 		{name: "positive integer", input: PositiveInteger{Value: "1"}, shouldTrigger: false},
-		{name: "zero", input: PositiveInteger{Value: "0"}, shouldTrigger: true},
+		{name: "zero", input: PositiveInteger{Value: "0"}, shouldTrigger: false},
 		{name: "negative integer", input: PositiveInteger{Value: "-1"}, shouldTrigger: true},
 		{name: "alphabet", input: PositiveInteger{Value: "a"}, shouldTrigger: true},
 	}

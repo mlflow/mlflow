@@ -28,7 +28,7 @@ func NewValidator() *validator.Validate {
 		if err != nil {
 			return false
 		}
-		return value > 0
+		return value > -1
 	})
 
 	// Verify that the input string, if present, is a Url without fragment or query parameters
