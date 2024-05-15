@@ -216,3 +216,32 @@ def test_registered_model_search_from_uc_proto():
 
     with pytest.raises(Exception):  # noqa: PT011
         actual_registered_model.aliases()
+
+
+def test_registered_model_and_registered_model_search_equality():
+    kwargs = {
+        "name": "name",
+        "creation_timestamp": 1,
+        "last_updated_timestamp": 2,
+        "description": "description",
+        "aliases": [
+            RegisteredModelAlias(alias="alias1", version="1"),
+            RegisteredModelAlias(alias="alias2", version="2"),
+        ],
+        "tags": [
+            RegisteredModelTag(key="key1", value="value"),
+            RegisteredModelTag(key="key2", value=""),
+        ],
+    }
+    registered_model = RegisteredModel(**kwargs)
+    registered_model_search = RegisteredModelSearch(**kwargs)
+
+    assert registered_model != registered_model_search
+
+    kwargs["tags"] = []
+    kwargs["aliases"] = []
+
+    registered_model_2 = RegisteredModel(**kwargs)
+    registered_model_search_2 = RegisteredModelSearch(**kwargs)
+
+    assert registered_model_2 == registered_model_search_2
