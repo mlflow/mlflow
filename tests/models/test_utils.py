@@ -460,8 +460,13 @@ def test_model_code_validation():
     assert validated_code == valid_code
 
     # Test uncommented magic commands
-    code_with_magic_command = "valid_python_code = 'valid'\n%pip install sqlparse\nvalid_python_code = 'valid'\n# Comment"
-    expected_validated_code = "valid_python_code = 'valid'\n# MAGIC %pip install sqlparse\nvalid_python_code = 'valid'\n# Comment"
+    code_with_magic_command = (
+        "valid_python_code = 'valid'\n%pip install sqlparse\nvalid_python_code = 'valid'\n# Comment"
+    )
+    expected_validated_code = (
+        "valid_python_code = 'valid'\n# MAGIC %pip install sqlparse\nvalid_python_code = "
+        "'valid'\n# Comment"
+    )
 
     validated_code_with_magic_command = _validate_model_code_from_notebook(
         code_with_magic_command
