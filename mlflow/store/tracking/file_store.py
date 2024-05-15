@@ -912,8 +912,14 @@ class FileStore(AbstractStore):
                     continue
                 if LifecycleStage.matches_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
-            except MissingConfigException:
-                pass
+            except MissingConfigException as rnfe:
+                # trap malformed run exception and log
+                # this is at debug level because if the same store is used for
+                # artifact storage, it's common the folder is not a run folder
+                r_id = os.path.basename(r_dir)
+                logging.warning(
+                    "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True
+                )
         return run_infos
 
     def _search_runs(

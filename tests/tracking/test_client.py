@@ -39,7 +39,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
-from mlflow.tracking._tracking_service.utils import _register
+from mlflow.tracking._tracking_service.utils import _register, _use_tracking_uri
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -1352,11 +1352,35 @@ def test_enable_async_logging(mock_store, setup_async_logging):
 
 
 def test_file_store_download_upload_trace_data(clear_singleton, tmp_path):
-    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
-    client = MlflowClient()
-    span = client.start_trace("test", inputs={"test": 1})
-    client.end_trace(span.request_id, outputs={"result": 2})
-    trace = mlflow.get_trace(span.request_id)
-    trace_data = client.get_trace(span.request_id).data
-    assert trace_data.request == trace.data.request
-    assert trace_data.response == trace.data.response
+    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
+        client = MlflowClient()
+        span = client.start_trace("test", inputs={"test": 1})
+        client.end_trace(span.request_id, outputs={"result": 2})
+        trace = mlflow.get_trace(span.request_id)
+        trace_data = client.get_trace(span.request_id).data
+        assert trace_data.request == trace.data.request
+        assert trace_data.response == trace.data.response
+
+
+def test_traces_not_listed_as_runs(clear_singleton, tmp_path):
+    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
+        client = MlflowClient()
+        with mlflow.start_run() as run:
+            client.start_trace("test")
+            table_dict = {
+                "inputs": ["What is MLflow?", "What is Databricks?"],
+                "outputs": ["MLflow is ...", "Databricks is ..."],
+                "toxicity": [0.0, 0.0],
+            }
+
+            mlflow.log_table(
+                data=table_dict, artifact_file="qabot_eval_results.json", run_id=run.info.run_id
+            )
+
+        with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
+            mlflow.load_table(
+                "qabot_eval_results.json",
+                run_ids=[run.info.run_id],
+                extra_columns=["run_id"],
+            )
+            mock_debug.assert_not_called()
