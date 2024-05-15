@@ -353,7 +353,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             )
 
         prov = get_provider(route.model.provider)(route)
-        payload.model = None  # provider rejects a request with model field, must be removed
+        payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
         else:
@@ -371,7 +371,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             )
 
         prov = get_provider(route.model.provider)(route)
-        payload.model = None  # provider rejects a request with model field, must be removed
+        payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
         else:
@@ -389,7 +389,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             )
 
         prov = get_provider(route.model.provider)(route)
-        payload.model = None  # provider rejects a request with model field, must be removed
+        payload.model = None  # provider rejects a request with model field, must be set to None
         return await prov.embeddings(payload)
 
     return app
