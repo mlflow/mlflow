@@ -15,7 +15,6 @@ import urllib.parse
 from unittest import mock
 
 import flask
-import importlib_resources
 import pandas as pd
 import pytest
 import requests
@@ -68,7 +67,7 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(scope="session")
 def go_server_path(tmp_path_factory):
     path = tmp_path_factory.mktemp("go").joinpath("server")
-    pkg = importlib_resources.files("mlflow").joinpath("go")
+    pkg = pathlib.Path(mlflow.__file__).parent.joinpath("go").resolve()
     subprocess.check_call(["go", "build", "-o", path, pkg])
     return path
 

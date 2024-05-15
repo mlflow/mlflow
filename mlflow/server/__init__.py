@@ -2,13 +2,13 @@ import importlib
 import importlib.metadata
 import json
 import os
+import pathlib
 import shlex
 import socket
 import sys
 import textwrap
 import types
 
-import importlib_resources
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
@@ -259,9 +259,7 @@ def _build_go_command(builder, experimental_go_opts, host, port, env_map):
         "LogLevel": opts.get("LogLevel", "INFO"),
         "PythonEnv": [f"{k}={v}" for k, v in env_map.items()],
         "ShutdownTimeout": opts.get("ShutdownTimeout", "1m"),
-        "StaticFolder": importlib_resources.files("mlflow.server")
-        .joinpath(REL_STATIC_DIR)
-        .as_posix(),
+        "StaticFolder": pathlib.Path(__file__).parent.joinpath(REL_STATIC_DIR).resolve().as_posix(),
         "StoreUrl": env_map[BACKEND_STORE_URI_ENV_VAR],
         "Version": VERSION,
     }
@@ -276,7 +274,7 @@ def _build_go_command(builder, experimental_go_opts, host, port, env_map):
     env_map["MLFLOW_GO_CONFIG"] = json.dumps(go_config)
 
     # Use the pre-built go server if it exists, otherwise run the go code directly
-    pkg = importlib_resources.files("mlflow").joinpath("go")
+    pkg = pathlib.Path(__file__).parent.parent.joinpath("go")
     server = opts.get("ServerPath", pkg.joinpath("server"))
     return [server] if os.path.isfile(server) else ["go", "run", pkg]
 
