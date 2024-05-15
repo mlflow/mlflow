@@ -13,6 +13,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities import (
     Dataset,
     DatasetInput,
@@ -3106,3 +3107,27 @@ def test_search_traces_pagination(generate_trace_infos):
     traces, token = store.search_traces([exp_id], None, max_results=5, page_token=token)
     assert traces == trace_infos[::-1][5:]
     assert token is None
+
+
+@pytest.mark.notrackingurimock
+def test_traces_not_listed_as_runs():
+    client = mlflow.MlflowClient()
+    with mlflow.start_run() as run:
+        client.start_trace("test")
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+
+        mlflow.log_table(
+            data=table_dict, artifact_file="qabot_eval_results.json", run_id=run.info.run_id
+        )
+
+    with mock.patch("mlflow.store.tracking.file_store.logging.warning") as mock_warning:
+        mlflow.load_table(
+            "qabot_eval_results.json",
+            run_ids=[run.info.run_id],
+            extra_columns=["run_id"],
+        )
+        mock_warning.assert_not_called()
