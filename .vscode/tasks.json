@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Stop Python server",
+      "type": "shell",
+      "command": "pkill -f 'gunicorn -b 127.0.0.1:5001'",
+      "hide": true,
+      "presentation": {
+        "reveal": "silent"
+      }
+    }
+  ]
+}
