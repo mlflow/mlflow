@@ -282,6 +282,7 @@ def save_model(
 
         lc_model = _load_model_code_path(model_code_path, model_config)
         _validate_and_copy_file_path(model_code_path, path, "code")
+        _validate_and_copy_file_path(model_config_path, path, "config")
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
