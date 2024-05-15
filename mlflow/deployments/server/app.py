@@ -341,10 +341,14 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
     # OpenAI compatible endpoints
     @app.post("/chat/completions")
-    async def chat_completions_handler(
-        request: Request, payload: chat.RequestPayload
-    ) -> chat.ResponsePayload:
+    async def chat_handler(request: Request, payload: chat.RequestPayload) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
+        if route.route_type != RouteType.LLM_V1_CHAT:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Route {route.name} is not a chat route.",
+            )
+
         prov = get_provider(route.model.provider)(route)
         payload.model = None
         if payload.stream:
@@ -357,6 +361,12 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: completions.RequestPayload
     ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
+        if route.route_type != RouteType.LLM_V1_COMPLETIONS:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Route {route.name} is not a completions route.",
+            )
+
         prov = get_provider(route.model.provider)(route)
         payload.model = None
         if payload.stream:
@@ -369,6 +379,12 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: embeddings.RequestPayload
     ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
+        if route.route_type != RouteType.LLM_V1_EMBEDDINGS:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Route {route.name} is not an embeddings route.",
+            )
+
         prov = get_provider(route.model.provider)(route)
         payload.model = None
         return await make_streaming_response(prov.embeddings(payload))
