@@ -2308,7 +2308,6 @@ def save_model(
             _validate_and_copy_file_path(model_code_path, path, "code")
             python_model = _load_model_code_path(model_code_path, model_config)
 
-        print(type(python_model))
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
