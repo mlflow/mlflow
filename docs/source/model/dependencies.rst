@@ -188,10 +188,6 @@ Saving Extra Code dependencies with an MLflow Model - Automatic inference
     Automatic code dependency inference is currently supported for Python Function Models only. Support for additional named model flavors will be coming in 
     future releases of MLflow.
 
-.. warning::
-    Before using dependency inference, ensure that your dependent code modules do not have sensitive data hard-coded within the modules (e.g., passwords, 
-    access tokens, or secrets). Code inference does not obfuscate sensitive information and will capture and log (save) the module, regardless of what it contains. 
-
 In the MLflow 2.13.0 release, a new method of including custom dependent code was introduced that expands on the existing feature of declaring ``code_paths`` when 
 saving or logging a model. This new feature utilizes import dependency analysis to automatically infer the code dependencies required by the model by checking which 
 modules are imported within the references of a Python Model's definition. 
@@ -249,11 +245,36 @@ With ``infer_code_paths`` set to ``True``, the dependency of ``map_iris_types`` 
 the ``custom_code.py`` module, and the code reference within ``custom_code.py`` will be stored along with the model artifact. Note that defining the 
 external code dependency by using the ``code_paths`` argument (discussed in the next section) is not needed.
 
-.. warning::
-    Only modules that are within the current working directory as accessible. Dependency inference will not work across module boundaries or if your 
+.. tip::
+    Only modules that are within the current working directory are accessible. Dependency inference will not work across module boundaries or if your 
     custom code is defined in an entirely different library. If your code base is structured in such a way that common modules are entirely external to 
-    the path that your model logging code is executing in, the original ``code_paths`` option is required in order to capture these dependencies, as 
-    dependency inference will not capture those requirements. 
+    the path that your model logging code is executing within, the original ``code_paths`` option is required in order to log these dependencies, as 
+    ``infer_code_paths`` dependency inference will not capture those requirements. 
+
+Restrictions with ``infer_code_paths``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+    Before using dependency inference via ``infer_code_paths``, ensure that your dependent code modules do not have sensitive data hard-coded within the modules (e.g., passwords, 
+    access tokens, or secrets). Code inference does not obfuscate sensitive information and will capture and log (save) the module, regardless of what it contains.
+
+An important aspect to note about code structure when using ``infer_code_paths`` is to avoid defining dependencies within a main entry point to your code. 
+When a Python code file is loaded as the ``__main__`` module, it cannot be inferred as a code path file. This means that if you run your script directly 
+(e.g., using ``python script.py``), the functions and classes defined in that script will be part of the ``__main__`` module and not easily accessible by
+other modules.
+
+If your model depends on these classes or functions, this can pose a problem because they are not part of the standard module namespace and thus not
+straightforward to serialize. To handle this situation, you should use ``cloudpickle`` to serialize your model instance. ``cloudpickle`` is an
+extended version of Python's ``pickle`` module that can serialize a wider range of Python objects, including functions and classes defined in
+the ``__main__`` module.
+
+**Why This Matters**:
+    - **Code Path Inference**: MLflow uses the code path to understand and log the code associated with your model. When the script is executed as ``__main__``, the code path cannot be inferred, which complicates the tracking and reproducibility of your MLflow experiments.
+    - **Serialization**: Standard serialization methods like ``pickle`` may not work with ``__main__`` module objects, leading to issues when trying to save and load models. ``cloudpickle`` provides a workaround by enabling the serialization of these objects, ensuring that your model can be correctly saved and restored.
+
+**Best Practices**:
+    - Avoid defining critical functions and classes in the ``__main__`` module. Instead, place them in separate module files that can be imported as needed.
+    - If you must define functions and classes in the ``__main__`` module, use ``cloudpickle`` to serialize your model to ensure that all dependencies are correctly handled.
 
 
 Saving Extra Code with an MLflow Model - Legacy Manual Declaration
