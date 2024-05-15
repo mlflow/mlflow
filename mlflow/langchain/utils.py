@@ -348,8 +348,8 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
                     "the chain instance."
                 )
 
-            _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-            return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
+            validated_content = _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+            return _get_temp_file_with_content("lc_model.py", validated_content, "wb")
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
