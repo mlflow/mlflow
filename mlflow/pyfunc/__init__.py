@@ -2360,6 +2360,14 @@ def save_model(
 
     hints = None
     model_code_path = None
+    if isinstance(python_model, Path):
+        python_model = os.fspath(python_model)
+
+    if isinstance(python_model, str):
+        model_code_path = _validate_and_get_model_code_path(python_model)
+        _validate_and_copy_file_path(model_code_path, path, "code")
+        python_model = _load_model_code_path(model_code_path, model_config)
+
     if signature is not None:
         if isinstance(python_model, ChatModel):
             raise MlflowException(
@@ -2370,14 +2378,6 @@ def save_model(
             )
         mlflow_model.signature = signature
     elif python_model is not None:
-        if isinstance(python_model, Path):
-            python_model = os.fspath(python_model)
-
-        if isinstance(python_model, str):
-            model_code_path = _validate_and_get_model_code_path(python_model)
-            _validate_and_copy_file_path(model_code_path, path, "code")
-            python_model = _load_model_code_path(model_code_path, model_config)
-
         if callable(python_model):
             input_arg_index = 0  # first argument
             if signature := _infer_signature_from_type_hints(
