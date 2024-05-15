@@ -339,9 +339,10 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             detail=f"Route {name} not found in the configuration.",
         )
 
-    # OpenAI compatible endpoints
     @app.post("/v1/chat/completions")
-    async def chat_handler(request: Request, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def openai_chat_handler(
+        request: Request, payload: chat.RequestPayload
+    ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
         if route.route_type != RouteType.LLM_V1_CHAT:
             raise HTTPException(
@@ -357,7 +358,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             return await prov.chat(payload)
 
     @app.post("/v1/completions")
-    async def completions_handler(
+    async def openai_completions_handler(
         request: Request, payload: completions.RequestPayload
     ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
@@ -375,7 +376,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             return await prov.completions(payload)
 
     @app.post("/v1/embeddings")
-    async def embeddings_handler(
+    async def openai_embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
         route = _look_up_route(payload.model)
