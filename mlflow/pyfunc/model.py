@@ -386,6 +386,7 @@ def _save_model_with_class_artifacts_params(
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if streamable is None:
+        _logger.warning("python model is ", python_model)
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
     mlflow.pyfunc.add_to_model(
