@@ -3116,20 +3116,7 @@ def test_traces_not_listed_as_runs(clear_singleton, tmp_path):
         client = mlflow.MlflowClient()
         with mlflow.start_run() as run:
             client.start_trace("test")
-            table_dict = {
-                "inputs": ["What is MLflow?", "What is Databricks?"],
-                "outputs": ["MLflow is ...", "Databricks is ..."],
-                "toxicity": [0.0, 0.0],
-            }
-
-            mlflow.log_table(
-                data=table_dict, artifact_file="qabot_eval_results.json", run_id=run.info.run_id
-            )
 
         with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
-            mlflow.load_table(
-                "qabot_eval_results.json",
-                run_ids=[run.info.run_id],
-                extra_columns=["run_id"],
-            )
+            client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
             mock_debug.assert_not_called()
