@@ -1,12 +1,8 @@
-package server_test
+package server
 
 import (
 	"testing"
-
-	"github.com/mlflow/mlflow/mlflow/go/pkg/server"
 )
-
-var validator = server.NewValidator()
 
 type PositiveInteger struct {
 	Value string `validate:"stringAsPositiveInteger"`
@@ -20,6 +16,8 @@ type validationScenario struct {
 
 func runscenarios(t *testing.T, scenarios []validationScenario) {
 	t.Helper()
+
+	validator := NewValidator()
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {

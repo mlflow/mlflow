@@ -1,20 +1,18 @@
-package discovery_test
+package discovery
 
 import (
 	"testing"
-
-	"github.com/mlflow/mlflow/mlflow/go/tools/generate/discovery"
 )
 
 func TestPatternt(t *testing.T) {
 	scenarios := []struct {
 		name     string
-		endpoint discovery.Endpoint
+		endpoint Endpoint
 		expected string
 	}{
-		{name: "simple GET", endpoint: discovery.Endpoint{Method: "GET", Path: "/mlflow/experiments/get-by-name"}, expected: "/mlflow/experiments/get-by-name"},
-		{name: "simple POST", endpoint: discovery.Endpoint{Method: "POST", Path: "/mlflow/experiments/create"}, expected: "/mlflow/experiments/create"},
-		{name: "PUT with route parameter", endpoint: discovery.Endpoint{Method: "PUT", Path: "/mlflow-artifacts/artifacts/<path:artifact_path>"}, expected: "/mlflow-artifacts/artifacts/:path"},
+		{name: "simple GET", endpoint: Endpoint{Method: "GET", Path: "/mlflow/experiments/get-by-name"}, expected: "/mlflow/experiments/get-by-name"},
+		{name: "simple POST", endpoint: Endpoint{Method: "POST", Path: "/mlflow/experiments/create"}, expected: "/mlflow/experiments/create"},
+		{name: "PUT with route parameter", endpoint: Endpoint{Method: "PUT", Path: "/mlflow-artifacts/artifacts/<path:artifact_path>"}, expected: "/mlflow-artifacts/artifacts/:path"},
 	}
 
 	for _, scenario := range scenarios {
