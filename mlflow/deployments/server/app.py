@@ -377,7 +377,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.post("/embeddings")
     async def embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
-    ) -> chat.ResponsePayload:
+    ) -> embeddings.ResponsePayload:
         route = _look_up_route(payload.model)
         if route.route_type != RouteType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
@@ -387,7 +387,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         prov = get_provider(route.model.provider)(route)
         payload.model = None
-        return await make_streaming_response(prov.embeddings(payload))
+        return await prov.embeddings(payload)
 
     return app
 
