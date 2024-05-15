@@ -21,17 +21,31 @@ func (e ErrorCode) MarshalJSON() ([]byte, error) {
 type Error struct {
 	Code    ErrorCode `json:"error_code"`
 	Message string    `json:"message"`
+	Inner   error     `json:"-"`
 }
 
 func NewError(code protos.ErrorCode, message string) *Error {
+	return NewErrorWith(code, message, nil)
+}
+
+func NewErrorWith(code protos.ErrorCode, message string, err error) *Error {
 	return &Error{
 		Code:    ErrorCode(code),
 		Message: message,
+		Inner:   err,
 	}
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("[%s] %s", e.Code.String(), e.Message)
+	msg := fmt.Sprintf("[%s] %s", e.Code.String(), e.Message)
+	if e.Inner != nil {
+		return fmt.Sprintf("%s: %s", msg, e.Inner)
+	}
+	return msg
+}
+
+func (e *Error) Unwrap() error {
+	return e.Inner
 }
 
 func (e *Error) StatusCode() int {

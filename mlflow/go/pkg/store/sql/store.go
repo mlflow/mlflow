@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql/model"
@@ -21,22 +23,31 @@ type Store struct {
 	db     *gorm.DB
 }
 
-func (s Store) GetExperiment(id int32) (*protos.Experiment, error) {
+func (s Store) GetExperiment(id int32) (*protos.Experiment, *contract.Error) {
 	experiment := model.Experiment{ExperimentID: utils.PtrTo(id)}
 	if err := s.db.Preload("ExperimentTags").First(&experiment).Error; err != nil {
-		return nil, fmt.Errorf("failed to get experiment with id %d: %w", id, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, contract.NewError(
+				protos.ErrorCode_RESOURCE_DOES_NOT_EXIST,
+				fmt.Sprintf("No Experiment with id=%d exists", id),
+			)
+		}
+		return nil, contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			"failed to get experiment",
+			err,
+		)
 	}
 
 	return experiment.ToProto(), nil
 }
 
-func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, error) {
+func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.ExperimentId, *contract.Error) {
 	experiment := model.NewExperimentFromProto(input)
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
-		err := tx.Create(&experiment).Error
-		if err != nil {
-			return err
+		if err := tx.Create(&experiment).Error; err != nil {
+			return fmt.Errorf("failed to insert experiment: %w", err)
 		}
 
 		if utils.IsNilOrEmptyString(experiment.ArtifactLocation) {
@@ -45,12 +56,21 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 				return fmt.Errorf("failed to join artifact location: %w", err)
 			}
 			experiment.ArtifactLocation = &artifactLocation
-			return tx.Model(&experiment).UpdateColumn("artifact_location", artifactLocation).Error
+			if err := tx.Model(&experiment).UpdateColumn("artifact_location", artifactLocation).Error; err != nil {
+				return fmt.Errorf("failed to update experiment artifact location: %w", err)
+			}
 		}
 
 		return nil
 	}); err != nil {
-		return -1, fmt.Errorf("failed to create experiment: %w", err)
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return -1, contract.NewError(
+				protos.ErrorCode_RESOURCE_ALREADY_EXISTS,
+				fmt.Sprintf("Experiment(name=%s) already exists.", *experiment.Name),
+			)
+		} else {
+			return -1, contract.NewErrorWith(protos.ErrorCode_INTERNAL_ERROR, "failed to create experiment", err)
+		}
 	}
 
 	return *experiment.ExperimentID, nil
@@ -58,7 +78,8 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 
 func NewSqlStore(config *config.Config) (store.MlflowStore, error) {
 	db, err := gorm.Open(postgres.Open(config.StoreUrl), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		TranslateError: true,
+		Logger:         logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database %q: %w", config.StoreUrl, err)
