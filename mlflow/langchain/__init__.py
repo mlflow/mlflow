@@ -43,6 +43,7 @@ from mlflow.langchain.utils import (
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
+    _load_from_yaml,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
@@ -273,13 +274,14 @@ def save_model(
         elif isinstance(model_config, str):
             if os.path.exists(model_config):
                 model_config_path = model_config
+                model_config = _load_from_yaml(model_config)
             else:
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"Model config path '{model_config}' provided is not a valid file path. "
                     "Please provide a valid model configuration."
                 )
 
-        lc_model = _load_model_code_path(model_code_path, model_config_path)
+        lc_model = _load_model_code_path(model_code_path, model_config)
         _validate_and_copy_file_path(model_code_path, path, "code")
         _validate_and_copy_file_path(model_config_path, path, "config")
 
@@ -345,8 +347,8 @@ def save_model(
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
         flavor_conf = (
-            {MODEL_CONFIG: model_config_path, MODEL_CODE_PATH: model_code_path}
-            if model_config_path
+            {MODEL_CONFIG: model_config, MODEL_CODE_PATH: model_code_path}
+            if model_config
             else {MODEL_CONFIG: None, MODEL_CODE_PATH: model_code_path}
         )
         model_data_kwargs = {}
@@ -839,14 +841,13 @@ def _load_pyfunc(path):
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     if MODEL_CODE_PATH in flavor_conf:
-        flavor_config_path = flavor_conf.get(MODEL_CONFIG, None)
-        if flavor_config_path is not None:
+        model_config = flavor_conf.get(MODEL_CONFIG, None)
+        if isinstance(model_config, str):
             config_path = os.path.join(
                 local_model_path,
-                os.path.basename(flavor_config_path),
+                os.path.basename(model_config),
             )
-        else:
-            config_path = None
+            model_config = _load_from_yaml(config_path)
 
         flavor_code_path = flavor_conf.get(MODEL_CODE_PATH)
         code_path = os.path.join(
@@ -854,7 +855,7 @@ def _load_model_from_local_fs(local_model_path):
             os.path.basename(flavor_code_path),
         )
 
-        return _load_model_code_path(code_path, config_path)
+        return _load_model_code_path(code_path, model_config)
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         with patch_langchain_type_to_cls_dict():
@@ -889,20 +890,51 @@ def load_model(model_uri, dst_path=None):
 
 
 @contextmanager
-def _config_path_context(config_path: Optional[str] = None):
+def _config_path_context(config: Optional[Dict[str, Any]] = None):
     # Check if config_path is None and set it to "" so when loading the model
     # the config_path is set to "" so the ModelConfig can correctly check if the
     # config is set or not
-    if config_path is None:
-        config_path = ""
+    if config is None:
+        config = ""
 
-    _set_model_config(config_path)
+    _set_model_config(config)
     try:
         yield
     finally:
         _set_model_config(None)
 
 
+<<<<<<< HEAD
+=======
+# In the Python's module caching mechanism, which by default, prevents the
+# re-importation of previously loaded modules. This is particularly
+# problematic in contexts where it's necessary to reload a module (in this case,
+# the `model code path` module) multiple times within the same Python
+# runtime environment.
+# The issue at hand arises from the desire to import the `model code path` module
+# multiple times during a single runtime session. Normally, once a module is
+# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
+# the cached module rather than re-importing it.
+# To address this, the function dynamically imports the `model code path` module
+# under unique, dynamically generated module names. This is achieved by creating
+# a unique name for each import using a combination of the original module name
+# and a randomly generated UUID. This approach effectively bypasses the caching
+# mechanism, as each import is considered as a separate module by the Python interpreter.
+def _load_model_code_path(code_path: str, config: Optional[Dict[str, Any]] = None):
+    with _config_path_context(config):
+        try:
+            new_module_name = f"code_model_{uuid.uuid4().hex}"
+            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[new_module_name] = module
+            spec.loader.exec_module(module)
+        except ImportError as e:
+            raise mlflow.MlflowException("Failed to import LangChain model.") from e
+
+    return mlflow.models.model.__mlflow_model__
+
+
+>>>>>>> upstream/master
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
