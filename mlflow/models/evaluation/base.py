@@ -492,13 +492,15 @@ def _hash_ndarray_as_bytes(nd_array):
 
 
 def _hash_data_as_bytes(data):
-    if isinstance(data, (list, np.ndarray)):
-        return _hash_ndarray_as_bytes(data)
-    if isinstance(data, dict):
-        return _hash_dict_as_bytes(data)
-    if np.isscalar(data):
-        return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
-    raise MlflowException(f"Unsupported data type for hashing: `{type(data)}`")
+    try:
+        if isinstance(data, (list, np.ndarray)):
+            return _hash_ndarray_as_bytes(data)
+        if isinstance(data, dict):
+            return _hash_dict_as_bytes(data)
+        if np.isscalar(data):
+            return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
+    finally:
+        return b""  # Skip unsupported types by returning an empty byte string
 
 
 def _hash_dict_as_bytes(data_dict):
@@ -531,7 +533,13 @@ def _hash_array_like_obj_as_bytes(data):
                     return _hash_ndarray_as_bytes(v.toArray())
             if isinstance(v, (dict, list, np.ndarray)):
                 return _hash_data_as_bytes(v)
-            return v
+
+            try:
+                # Attempt to hash the value, if it fails, return an empty byte string
+                pd.util.hash_array(np.array([v]))
+                return v
+            except TypeError:
+                return b""  # Skip unhashable types by returning an empty byte string
 
         if Version(pd.__version__) >= Version("2.1.0"):
             data = data.map(_hash_array_like_element_as_bytes)
