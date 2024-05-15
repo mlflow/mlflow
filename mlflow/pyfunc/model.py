@@ -591,7 +591,7 @@ class _PythonModelPyfuncWrapper:
 def _get_pyfunc_loader_module(python_model):
     if isinstance(python_model, ChatModel):
         return mlflow.pyfunc.loaders.chat_model.__name__
-    elif isinstance(python_model, str):
+    elif isinstance(python_model, str): # or path
         return mlflow.pyfunc.loaders.code_model.__name__
     else:
         return __name__

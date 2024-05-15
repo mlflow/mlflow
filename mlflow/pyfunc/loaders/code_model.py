@@ -32,7 +32,7 @@ class _CodeModelPyfuncWrapper:
         """
         self.model_path = model_path
         self.context = context
-        self.signature = signature     
+        self.signature = signature
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
         """

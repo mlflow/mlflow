@@ -854,11 +854,7 @@ class PyFuncModel:
     @property
     def model_config(self):
         """Model's flavor configuration"""
-        model_config = self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
-        if isinstance(model_config, str):
-            return _validate_and_get_model_config_from_file(model_config)
-        else:
-            return model_config
+        return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
 
     @experimental
     @property
@@ -969,15 +965,10 @@ def load_model(
     if isinstance(model_config, str):
         model_config = _validate_and_get_model_config_from_file(model_config)
 
-    conf_model_config = conf.get(MODEL_CONFIG, None)
-    if isinstance(conf_model_config, str):
-        conf_model_config_path = os.path.join(local_path, os.path.basename(conf_model_config))
-        conf_model_config = _validate_and_get_model_config_from_file(conf_model_config_path)
-
-    model_config = _get_overridden_pyfunc_model_config(conf_model_config, model_config, _logger)
-    if model_config:
-        conf.update({MODEL_CONFIG: model_config})
-
+    # conf.get(MODEL_CONFIG) this should ALWAYS be a dict (no more saving as file!)
+    model_config = _get_overridden_pyfunc_model_config(
+        conf.get(MODEL_CONFIG, None), model_config, _logger
+    )
     try:
         # currently, we do not support loading langchain with model_config like this
         # langchain model_config must be specified using ModelConfig() class in code
@@ -2116,7 +2107,7 @@ Compound types:
 
 
 def _validate_function_python_model(python_model):
-    if not (isinstance(python_model, PythonModel) or callable(python_model)):
+    if not (isinstance(python_model, str) or isinstance(python_model, Path) or isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
             "`python_model` must be a PythonModel instance, filepath, or a callable object",
             error_code=INVALID_PARAMETER_VALUE,
@@ -2303,16 +2294,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if python_model:
-        model_code_path = None
-        if isinstance(python_model, Path):
-            python_model = os.fspath(python_model)
-
-        if isinstance(python_model, str):
-            model_code_path = _validate_and_get_model_code_path(python_model)
-            _validate_and_copy_file_path(model_code_path, path, "code")
-            python_model = _load_model_code_path(model_code_path, model_config)
-
-
+        # new code
         if isinstance(model_config, Path):
             model_config = os.fspath(python_model)
 
@@ -2321,6 +2303,7 @@ def save_model(
             model_config_dict = _validate_and_get_model_config_from_file(model_config)
         else:
             model_config_dict = model_config
+        # end new code
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2392,6 +2375,15 @@ def save_model(
             )
         mlflow_model.signature = signature
     elif python_model is not None:
+        model_code_path = None
+        if isinstance(python_model, Path):
+            python_model = os.fspath(python_model)
+
+        if isinstance(python_model, str):
+            model_code_path = _validate_and_get_model_code_path(python_model)
+            _validate_and_copy_file_path(model_code_path, path, "code")
+            python_model = _load_model_code_path(model_code_path, model_config)
+        
         if callable(python_model):
             input_arg_index = 0  # first argument
             if signature := _infer_signature_from_type_hints(
