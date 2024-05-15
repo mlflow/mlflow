@@ -1,7 +1,7 @@
 package sql
 
 import (
-	"path/filepath"
+	"net/url"
 	"strconv"
 
 	"gorm.io/driver/postgres"
@@ -39,7 +39,10 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (store.Experimen
 		}
 
 		if utils.IsNilOrEmptyString(experiment.ArtifactLocation) {
-			artifactLocation := filepath.Join(s.config.DefaultArtifactRoot, strconv.Itoa(int(*experiment.ExperimentID)))
+			artifactLocation, err := url.JoinPath(s.config.DefaultArtifactRoot, strconv.Itoa(int(*experiment.ExperimentID)))
+			if err != nil {
+				return err
+			}
 			experiment.ArtifactLocation = &artifactLocation
 			return tx.Model(&experiment).UpdateColumn("artifact_location", artifactLocation).Error
 		}
