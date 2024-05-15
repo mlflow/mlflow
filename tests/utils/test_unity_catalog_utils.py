@@ -120,6 +120,38 @@ def test_model_version_search_from_uc_proto():
         actual_model_version.aliases()
 
 
+def test_model_version_and_model_version_search_equality():
+    kwargs = {
+        "name": "name",
+        "version": "1",
+        "creation_timestamp": 1,
+        "last_updated_timestamp": 2,
+        "description": "description",
+        "user_id": "user_id",
+        "source": "source",
+        "run_id": "run_id",
+        "status": "READY",
+        "status_message": "status_message",
+        "aliases": ["alias1", "alias2"],
+        "tags": [
+            ModelVersionTag(key="key1", value="value"),
+            ModelVersionTag(key="key2", value=""),
+        ],
+    }
+    model_version = ModelVersion(**kwargs)
+    model_version_search = ModelVersionSearch(**kwargs)
+
+    assert model_version != model_version_search
+
+    kwargs["tags"] = []
+    kwargs["aliases"] = []
+
+    model_version_2 = ModelVersion(**kwargs)
+    model_version_search_2 = ModelVersionSearch(**kwargs)
+
+    assert model_version_2 == model_version_search_2
+
+
 def test_registered_model_from_uc_proto():
     expected_registered_model = RegisteredModel(
         name="name",
@@ -184,3 +216,32 @@ def test_registered_model_search_from_uc_proto():
 
     with pytest.raises(Exception):  # noqa: PT011
         actual_registered_model.aliases()
+
+
+def test_registered_model_and_registered_model_search_equality():
+    kwargs = {
+        "name": "name",
+        "creation_timestamp": 1,
+        "last_updated_timestamp": 2,
+        "description": "description",
+        "aliases": [
+            RegisteredModelAlias(alias="alias1", version="1"),
+            RegisteredModelAlias(alias="alias2", version="2"),
+        ],
+        "tags": [
+            RegisteredModelTag(key="key1", value="value"),
+            RegisteredModelTag(key="key2", value=""),
+        ],
+    }
+    registered_model = RegisteredModel(**kwargs)
+    registered_model_search = RegisteredModelSearch(**kwargs)
+
+    assert registered_model != registered_model_search
+
+    kwargs["tags"] = []
+    kwargs["aliases"] = []
+
+    registered_model_2 = RegisteredModel(**kwargs)
+    registered_model_search_2 = RegisteredModelSearch(**kwargs)
+
+    assert registered_model_2 == registered_model_search_2
