@@ -54,8 +54,7 @@ class ModelSignature:
 
     ModelSignature can be :py:func:`inferred <mlflow.models.infer_signature>` from training
     dataset, model predictions using and params for inference, or constructed by hand by
-    passing an input and output :py:class:`Schema <mlflow.types.Schema>` or
-    :py:class:`dataclass <dataclasses.dataclass>`, and params
+    passing an input and output :py:class:`Schema <mlflow.types.Schema>`, and params
     :py:class:`ParamSchema <mlflow.types.ParamSchema>`.
     """
 
