@@ -340,7 +340,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     # OpenAI compatible endpoints
-    @app.post("/chat/completions")
+    @app.post("/v1/chat/completions")
     async def chat_handler(request: Request, payload: chat.RequestPayload) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
         if route.route_type != RouteType.LLM_V1_CHAT:
@@ -356,7 +356,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         else:
             return await prov.chat(payload)
 
-    @app.post("/completions")
+    @app.post("/v1/completions")
     async def completions_handler(
         request: Request, payload: completions.RequestPayload
     ) -> chat.ResponsePayload:
@@ -374,7 +374,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         else:
             return await prov.completions(payload)
 
-    @app.post("/embeddings")
+    @app.post("/v1/embeddings")
     async def embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
