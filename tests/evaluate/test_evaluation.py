@@ -704,10 +704,22 @@ def test_dataset_hash(
 def test_trace_dataset_hash():
     # Validates that a dataset containing Traces can be hashed.
     df = pd.DataFrame(
-        {"trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))]}
+        {
+            "request": ["Hello"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
     )
     dataset = EvaluationDataset(data=df)
-    assert dataset.hash == "0f29dc5255bd62a2b1d26832bc08dfd4"
+    assert dataset.hash == "757c14bf38aa42d36b93ccd70b1ea719"
+    # Hash of a dataset with a different column should be different
+    df2 = pd.DataFrame(
+        {
+            "request": ["Hi"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset2 = EvaluationDataset(data=df2)
+    assert dataset2.hash != dataset.hash
 
 
 def test_dataset_with_pandas_dataframe():
