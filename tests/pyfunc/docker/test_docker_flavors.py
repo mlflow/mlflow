@@ -110,6 +110,9 @@ def start_container(port: int):
                     break
             except requests.exceptions.ConnectionError:
                 time.sleep(5)
+
+            if container.status != "running":
+                raise Exception("Container stopped unexpectedly")
         else:
             raise TimeoutError("Failed to start server.")
 
