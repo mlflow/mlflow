@@ -17,7 +17,6 @@ import functools
 import logging
 import os
 import warnings
-from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 import cloudpickle
@@ -52,7 +51,6 @@ from mlflow.langchain.utils import (
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
@@ -882,21 +880,6 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
-
-
-@contextmanager
-def _config_path_context(config: Optional[Dict[str, Any]] = None):
-    # Check if config_path is None and set it to "" so when loading the model
-    # the config_path is set to "" so the ModelConfig can correctly check if the
-    # config is set or not
-    if config is None:
-        config = ""
-
-    _set_model_config(config)
-    try:
-        yield
-    finally:
-        _set_model_config(None)
 
 
 @experimental
