@@ -35,6 +35,24 @@ _REST_API_PATH_PREFIX = "/api/2.0"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 
 
+class _DatabricksSdkAPIResponse:
+    def __init__(
+        self,
+        status_code,
+        text,
+    ):
+        self._status_code = status_code
+        self._text = text
+
+    @property
+    def status_code(self):
+        return self._status_code
+
+    @property
+    def text(self):
+        return self._text
+
+
 def http_request(
     host_creds,
     endpoint,
@@ -77,6 +95,35 @@ def http_request(
     Returns:
         requests.Response object.
     """
+    if host_creds.databricks_workspace_client:
+        try:
+            if method == "GET":
+                extra_kwargs = {"query", kwargs["params"]}
+            else:
+                extra_kwargs = {"body", kwargs["json"]}
+            js_dict = host_creds.databricks_workspace_client.api_client.do(
+                method=method,
+                path=endpoint,
+                headers=extra_headers,
+                **extra_kwargs,
+            )
+            return _DatabricksSdkAPIResponse(
+                status_code=200,
+                text=json.dumps(js_dict)
+            )
+        except Exception as e:
+            if hasattr(e, "error_code"):
+                return _DatabricksSdkAPIResponse(
+                    status_code=ErrorCode.Value(e.error_code),
+                    text=json.dumps({
+                        "error_code": e.error_code,
+                        "message": str(e),
+                    })
+                )
+            raise MlflowException(
+                f"API request to endpoint '{endpoint}' failed with exception {e}"
+            ) from e
+
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
@@ -288,34 +335,22 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     if json_body:
         json_body = json.loads(json_body)
 
-    if host_creds.databricks_workspace_client:
-        try:
-            js_dict = host_creds.databricks_workspace_client.api_client.do(
-                method=method,
-                path=endpoint,
-                body=json_body,
-            )
-        except Exception as e:
-            raise MlflowException(
-                f"API request to endpoint '{endpoint}' failed with exception {e}"
-            )
+    call_kwargs = {
+        "host_creds": host_creds,
+        "endpoint": endpoint,
+        "method": method,
+    }
+    if extra_headers is not None:
+        call_kwargs["extra_headers"] = extra_headers
+    if method == "GET":
+        call_kwargs["params"] = json_body
+        response = http_request(**call_kwargs)
     else:
-        call_kwargs = {
-            "host_creds": host_creds,
-            "endpoint": endpoint,
-            "method": method,
-        }
-        if extra_headers is not None:
-            call_kwargs["extra_headers"] = extra_headers
-        if method == "GET":
-            call_kwargs["params"] = json_body
-            response = http_request(**call_kwargs)
-        else:
-            call_kwargs["json"] = json_body
-            response = http_request(**call_kwargs)
+        call_kwargs["json"] = json_body
+        response = http_request(**call_kwargs)
 
-        response = verify_rest_response(response, endpoint)
-        js_dict = json.loads(response.text)
+    response = verify_rest_response(response, endpoint)
+    js_dict = json.loads(response.text)
 
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
