@@ -2,7 +2,6 @@ import json
 import logging
 from typing import Optional
 
-import flask
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -28,7 +27,8 @@ _HEADER_REQUEST_ID_KEY = "X-Request-Id"
 def _get_flask_request():
     import flask
 
-    return flask.request
+    if flask.has_request_context():
+        return flask.request
 
 
 class InferenceTableSpanProcessor(SimpleSpanProcessor):
@@ -57,8 +57,8 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         if request_id is None:
             # If this is invoked outside of a flask request, it raises error about
             # outside of request context. We should avoid this by skipping the trace processing
-            if flask.has_request_context():
-                request_id = flask.request.headers.get(_HEADER_REQUEST_ID_KEY)
+            if flask_request := _get_flask_request():
+                request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
                 if not request_id:
                     _logger.warning(
                         "Request ID not found in the request headers. Skipping trace processing."

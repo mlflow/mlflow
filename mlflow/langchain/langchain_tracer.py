@@ -572,7 +572,15 @@ def convert_llm_outputs(
     {
         # generations is List[List[Generation]] because
         # each input could have multiple candidate generations.
-        "generations": [[{"text": "...", "generation_info": {...}, "type": "Generation"}]],
+        "generations": [
+            [
+                {
+                    "text": "...",
+                    "generation_info": {...},
+                    "type": "Generation"
+                }
+            ]
+        ],
         "llm_output": {...},
         "run": [{"run_id": "..."}],
     }

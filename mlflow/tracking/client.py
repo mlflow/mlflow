@@ -593,7 +593,7 @@ class MlflowClient:
             return mlflow_span
         except Exception as e:
             _logger.warning(f"Failed to start trace {name}: {e}")
-            _logger.debug("", exc_info=True)
+            _logger.debug("Showing full traceback: ", exc_info=True)
             return NoOpSpan()
 
     @experimental
@@ -789,7 +789,7 @@ class MlflowClient:
             return span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
-            _logger.debug("", exc_info=True)
+            _logger.debug("Showing full traceback: ", exc_info=True)
             return NoOpSpan()
 
     @experimental
