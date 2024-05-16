@@ -20,7 +20,7 @@ var ImplementedEndpoints = map[string]any{
 	// "MlflowService_deleteTraceTag",
 	// "MlflowService_deleteTag",
 	// "MlflowService_getRun",
-	// "MlflowService_searchRuns",
+	"MlflowService_searchRuns": nil,
 	// "MlflowService_listArtifacts",
 	// "MlflowService_getMetricHistory",
 	// "MlflowService_getMetricHistoryBulkInterval",
