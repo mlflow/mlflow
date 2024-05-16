@@ -95,7 +95,7 @@ def _resolve_tracking_uri(tracking_uri=None, client: Optional[MlflowClient] = No
     """Resolve the tracking URI.
 
     This resolves using the following hierarchy:
-    1. The specified `tracking_uri`.
+    1. The specified ``tracking_uri``.
     2. The tracking URI used by a provided MLflow client.
     3. The global tracking URI.
 
