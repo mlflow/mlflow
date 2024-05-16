@@ -884,14 +884,14 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
     assert mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS not in pyfunc_conf
 
 
-def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmp_path):
+def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(tmp_path):
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance, filepath, or a callable object"
+        MlflowException, match="must be a PythonModel instance, callable object, or filepath"
     ):
         mlflow.pyfunc.save_model(path=os.path.join(tmp_path, "model1"), python_model=5)
 
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance, filepath, or a callable object"
+        MlflowException, match="must be a PythonModel instance, callable object, or filepath"
     ):
         mlflow.pyfunc.save_model(
             path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
