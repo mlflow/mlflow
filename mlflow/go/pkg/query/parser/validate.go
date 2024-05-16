@@ -1,6 +1,12 @@
 package parser
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+)
 
 /*
 
@@ -113,9 +119,12 @@ var searchableRunAttributes = []string{
 }
 
 var (
+	builtinNumericAttributes   = []string{"start time", "end time"}
 	alternateNumericAttributes = []string{"created", "Created"}
 	alternateStringAttributes  = []string{"run name", "Run name", "Run Name"}
 )
+
+var numericAttributes = append(builtinNumericAttributes, alternateNumericAttributes...)
 
 var datasetAttributes = []string{"name", "digest", "context"}
 
@@ -172,16 +181,58 @@ otherwise string
 
 */
 
+// Port of _get_value in search_utils.py
 func validateValue(expression *CompareExpr) error {
 	switch expression.Left.Identifier {
 	case metricIdentifier:
 		if _, ok := expression.Right.(NumberExpr); !ok {
-			return fmt.Errorf("Expected numeric value type for metric. Found %v", expression.Right)
+			return fmt.Errorf("Expected numeric value type for metric. Found %s", expression.Right)
 		}
 	case parameterIdentifier, tagIdentifier:
 		if _, ok := expression.Right.(StringExpr); !ok {
-			return fmt.Errorf("Expected string value type for %s. Found %v", expression.Left.Identifier, expression.Right)
+			return fmt.Errorf(
+				"Expected a quoted string value for %s. Found %s",
+				expression.Left.Identifier, expression.Right,
+			)
 		}
+	case attributeIdentifier:
+		if contains(numericAttributes, expression.Left.Key) {
+			if _, ok := expression.Right.(NumberExpr); !ok {
+				return fmt.Errorf(
+					"Expected numeric value type for numeric attribute: %s. Found %s",
+					expression.Left.Key,
+					expression.Right,
+				)
+			}
+		}
+
+		if _, ok := expression.Right.(StringListExpr); expression.Left.Key != "run_name" && ok {
+			return fmt.Errorf(
+				"Only the 'run_id' attribute supports comparison with a list of quoted string values.",
+			)
+		}
+	case datasetIdentifier:
+		if !contains(datasetAttributes, expression.Left.Key) {
+			return fmt.Errorf(
+				"Expected dataset attribute key to be one of %s. Found %s",
+				strings.Join(datasetAttributes, ", "),
+				expression.Left.Key,
+			)
+		}
+
+		if _, ok := expression.Right.(NumberExpr); ok {
+			return fmt.Errorf(
+				"Expected dataset.%s to be either a string or list of strings. Found %s",
+				expression.Left.Key,
+				expression.Right,
+			)
+		}
+	default:
+		return fmt.Errorf(
+			"Invalid identifier type %s. Expected one of %s",
+			expression.Left.Identifier,
+			strings.Join(identifiers, ", "),
+		)
 	}
 
 	return nil
@@ -192,15 +243,23 @@ func validateValue(expression *CompareExpr) error {
 // Not every identifier is valid according to the mlflow domain.
 // The same for the value part.
 // The identifier is sanitized and will be mutated to use the standard identifier.
-func ValidateExpression(expression *CompareExpr) error {
+func ValidateExpression(expression *CompareExpr) *contract.Error {
 	err := validatedIdentifier(expression.Left)
 	if err == nil {
-		return err
+		return contract.NewErrorWith(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf("Error on parsing filter expression: %s", expression),
+			err,
+		)
 	}
 
 	err = validateValue(expression)
 	if err != nil {
-		return err
+		return contract.NewErrorWith(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf("Error on parsing filter expression: %s", expression),
+			err,
+		)
 	}
 
 	return nil
