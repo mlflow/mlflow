@@ -42,6 +42,7 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 	app.Mount("/api/2.0", apiApp)
+	app.Mount("/ajax-api/2.0", apiApp)
 
 	app.Static("/static-files", cfg.StaticFolder)
 	app.Get("/", func(c *fiber.Ctx) error {
