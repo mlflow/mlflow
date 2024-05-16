@@ -64,6 +64,7 @@ databricks = [
   "google-cloud-storage>=1.30.0",
   "boto3>1",
   "botocore",
+  "databricks-sdk>=0.2.0",
 ]
 gateway = [
   "pydantic<3,>=1.0",
