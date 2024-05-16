@@ -72,4 +72,4 @@ jobs:
       - name: Run tests
         run: |
           source .venv/bin/activate
-          pytest 'tests/pyfunc/docker
+          pytest tests/pyfunc/docker
