@@ -688,6 +688,8 @@ class PyFuncModel:
         # to predict method, we shouldn't validate its schema
         if self.loader_module == "mlflow.langchain":
             convert_chat_responses = params.pop("convert_chat_responses") if params else None
+        else:
+            convert_chat_responses = None
         params = _validate_params(params, self.metadata)
         if convert_chat_responses is not None:
             params["convert_chat_responses"] = convert_chat_responses
