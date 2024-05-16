@@ -263,7 +263,7 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
         {
             "name": "event",
             "timestamp": 0,
-            "attributes": {"foo": "bar"},
+            "attributes": '{"foo": "bar"}',
         }
     ]
 

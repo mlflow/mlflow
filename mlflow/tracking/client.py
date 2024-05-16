@@ -38,7 +38,7 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -598,9 +598,11 @@ class MlflowClient:
 
             return mlflow_span
         except Exception as e:
-            _logger.warning(f"Failed to start span {name}: {e}")
-            if _MLFLOW_TESTING.get():
-                raise
+            _logger.warning(
+                f"Failed to start trace {name}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
             return NoOpSpan()
 
     @experimental
@@ -795,9 +797,11 @@ class MlflowClient:
             trace_manager.register_span(span)
             return span
         except Exception as e:
-            _logger.warning(f"Failed to start span {name}: {e}")
-            if _MLFLOW_TESTING.get():
-                raise
+            _logger.warning(
+                f"Failed to start span {name}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
             return NoOpSpan()
 
     @experimental

@@ -13,7 +13,7 @@ import types
 import warnings
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import Callable, NamedTuple
+from typing import Callable, List, NamedTuple, Optional
 
 import cloudpickle
 import yaml
@@ -740,3 +740,51 @@ def register_pydantic_v1_serializer_cm():
         yield
     finally:
         unregister_pydantic_serializer()
+
+
+DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY = "__databricks_vector_search_primary_key__"
+DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN = "__databricks_vector_search_text_column__"
+DATABRICKS_VECTOR_SEARCH_DOC_URI = "__databricks_vector_search_doc_uri__"
+DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS = "__databricks_vector_search_other_columns__"
+
+
+def set_vector_search_schema(
+    primary_key: str,
+    text_column: str = "",
+    doc_uri: str = "",
+    other_columns: Optional[List[str]] = None,
+):
+    """
+    After defining your vector store in a Python file or notebook, call
+    set_vector_search_schema() so that we can correctly map the vector index
+    columns. These columns would be used during tracing and in the review UI.
+
+    Args:
+        primary_key: The primary key of the vector index.
+        text_column: The name of the text column to use for the embeddings.
+        doc_uri: The name of the column that contains the document URI.
+        other_columns: A list of other columns that are part of the vector index
+                          that need to be retrieved during trace logging.
+        Note: Make sure the text column specified is in the index.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.langchain.utils import set_vector_search_schema
+
+            set_vector_search_schema(
+                primary_key="chunk_id",
+                text_column="chunk_text",
+                doc_uri="doc_uri",
+                other_columns=["title"],
+            )
+    """
+    globals()[DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY] = primary_key
+    globals()[DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN] = text_column
+    globals()[DATABRICKS_VECTOR_SEARCH_DOC_URI] = doc_uri
+    globals()[DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS] = other_columns or []
+
+
+def get_databricks_vector_search_key(key):
+    return globals().get(key)

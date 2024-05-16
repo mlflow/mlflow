@@ -87,7 +87,7 @@ class InferenceTableSpanExporter(SpanExporter):
         string instead of a dictionary. Therefore, the attributes are converted from
         Dict[str, str(json)] to str(json).
         """
-        span_dict = mlflow_span.to_dict()
+        span_dict = mlflow_span.to_dict(dump_events=True)
         attributes = span_dict["attributes"]
         # deserialize each attribute value and then serialize the whole dictionary
         attributes = {k: self._decode_attribute(v) for k, v in attributes.items()}

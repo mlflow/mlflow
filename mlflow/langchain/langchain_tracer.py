@@ -1,5 +1,7 @@
+import json
 import logging
-from contextvars import Context
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 
@@ -18,11 +20,21 @@ from tenacity import RetryCallState
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.environment_variables import _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.context import set_prediction_context
+from mlflow.langchain.utils import (
+    DATABRICKS_VECTOR_SEARCH_DOC_URI,
+    DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY,
+    get_databricks_vector_search_key,
+)
+from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
+# Vector Search index column names
+VS_INDEX_ID_COL = "chunk_id"
+VS_INDEX_DOC_URL_COL = "doc_uri"
 
 
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
@@ -61,6 +73,21 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._parent_span = parent_span
         self._run_span_mapping: Dict[str, LiveSpan] = {}
         self._prediction_context = prediction_context
+        self._request_id = None
+
+    def _dump_trace(self) -> str:
+        """
+        This method is only used to get the trace data from the buffer in databricks
+        serving, it should return the trace in dictionary format and then dump to string.
+        """
+
+        def _default_converter(o):
+            if isinstance(o, datetime):
+                return o.isoformat()
+            raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+        trace = pop_trace(self._request_id)
+        return json.dumps(trace, default=_default_converter)
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span := self._run_span_mapping.get(str(run_id)):
@@ -77,24 +104,25 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[Dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
-        parent = self._get_parent_span(parent_run_id)
-        if parent:
-            span = self._mlflow_client.start_span(
-                name=span_name,
-                request_id=parent.request_id,
-                parent_id=parent.span_id,
-                span_type=span_type,
-                inputs=inputs,
-                attributes=attributes,
-            )
-        else:
-            # When parent_run_id is None, this is root component so start trace
-            with set_prediction_context(self._prediction_context):
+        with set_prediction_context(self._prediction_context):
+            parent = self._get_parent_span(parent_run_id)
+            if parent:
+                span = self._mlflow_client.start_span(
+                    name=span_name,
+                    request_id=parent.request_id,
+                    parent_id=parent.span_id,
+                    span_type=span_type,
+                    inputs=inputs,
+                    attributes=attributes,
+                )
+            else:
+                # When parent_run_id is None, this is root component so start trace
                 span = self._mlflow_client.start_trace(
                     name=span_name, span_type=span_type, inputs=inputs, attributes=attributes
                 )
+                self._request_id = span.request_id
 
-        self._run_span_mapping[str(run_id)] = span
+            self._run_span_mapping[str(run_id)] = span
         return span
 
     def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
@@ -175,6 +203,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when LLM (non-chat models) starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
+        if _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING.get():
+            prompts = convert_llm_inputs(prompts)
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "llm"),
             parent_run_id=parent_run_id,
@@ -238,7 +268,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any):
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
-        self._end_span(llm_span, outputs=response.dict())
+        outputs = response.dict()
+        if _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING.get():
+            outputs = convert_llm_outputs(outputs)
+        self._end_span(llm_span, outputs=outputs)
 
     def on_llm_error(
         self,
@@ -376,6 +409,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_retriever_end(self, documents: Sequence[Document], *, run_id: UUID, **kwargs: Any):
         """Run when Retriever ends running."""
         retriever_span = self._get_span_by_run_id(run_id)
+        if _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING.get():
+            documents = convert_retriever_outputs(documents)
         self._end_span(retriever_span, outputs=documents)
 
     def on_retriever_error(
@@ -457,3 +492,108 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             self._reset()
         except Exception as e:
             _logger.debug(f"Failed to flush MLflow tracer due to error {e}.")
+
+
+@dataclass
+class Chunk:
+    chunk_id: Optional[str] = None
+    doc_uri: Optional[str] = None
+    content: Optional[str] = None
+
+
+def convert_retriever_outputs(
+    documents: List[Document],
+) -> Dict[str, List[Dict[str, str]]]:
+    """
+    Convert Retriever outputs format from
+    [
+        Document(page_content="...", metadata={...}, type="Document"),
+        ...
+    ]
+    to
+    {
+        "chunks": [
+            {
+                "chunk_id": "...",
+                "doc_uri": "...",
+                "content": "...",
+            },
+            ...
+        ]
+    }
+    """
+    chunk_id_col = (
+        get_databricks_vector_search_key(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY) or VS_INDEX_ID_COL
+    )
+    doc_uri_col = (
+        get_databricks_vector_search_key(DATABRICKS_VECTOR_SEARCH_DOC_URI) or VS_INDEX_DOC_URL_COL
+    )
+    return {
+        "chunks": [
+            asdict(
+                Chunk(
+                    chunk_id=doc.metadata.get(chunk_id_col),
+                    doc_uri=doc.metadata.get(doc_uri_col),
+                    content=doc.page_content,
+                )
+            )
+            for doc in documents
+        ]
+    }
+
+
+# TODO: multiple prompts is not supported for now
+# we should update once rag eval supports it.
+def convert_llm_inputs(
+    prompts: List[str],
+) -> Dict[str, str]:
+    """
+    Convert LLM inputs format from
+    ["prompt1"...]
+    to
+    {"prompt": "prompt1"}
+    """
+    if len(prompts) == 0:
+        prompt = ""
+    elif len(prompts) == 1:
+        prompt = prompts[0]
+    else:
+        raise NotImplementedError(f"Multiple prompts not supported yet. Got: {prompts}")
+    return {"prompt": prompt}
+
+
+# TODO: This assumes we are not in batch situation where we have multiple generations per
+# input, we should handle that case once rag eval supports it.
+def convert_llm_outputs(
+    outputs: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Convert LLM outputs format from
+    {
+        # generations is List[List[Generation]] because
+        # each input could have multiple candidate generations.
+        "generations": [
+            [
+                {
+                    "text": "...",
+                    "generation_info": {...},
+                    "type": "Generation"
+                }
+            ]
+        ],
+        "llm_output": {...},
+        "run": [{"run_id": "..."}],
+    }
+    to
+    {
+        # Convert to str by extracting first text field of Generation
+        "generated_text": "generated_text1",
+    }
+    """
+    generated_text = ""
+    if "generations" in outputs:
+        generations: List[List[Dict[str, Any]]] = outputs["generations"]
+        if len(generations) > 0 and len(generations[0]) > 0:
+            first_generation: Dict[str, Any] = generations[0][0]
+            generated_text = first_generation.get("text", "")
+    return {"generated_text": generated_text}
