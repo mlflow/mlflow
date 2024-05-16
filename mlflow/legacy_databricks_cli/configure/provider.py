@@ -29,6 +29,8 @@ REFRESH_TOKEN = "refresh_token"
 INSECURE = "insecure"
 JOBS_API_VERSION = "jobs-api-version"
 DEFAULT_SECTION = "DEFAULT"
+CLIENT_ID = "client_id"
+CLIENT_SECRET = "client_secret"
 
 # User-provided override for the DatabricksConfigProvider
 _config_provider = None
@@ -297,8 +299,11 @@ class ProfileConfigProvider(DatabricksConfigProvider):
         refresh_token = _get_option_if_exists(raw_config, self.profile, REFRESH_TOKEN)
         insecure = _get_option_if_exists(raw_config, self.profile, INSECURE)
         jobs_api_version = _get_option_if_exists(raw_config, self.profile, JOBS_API_VERSION)
+        client_id = _get_option_if_exists(raw_config, self.profile, CLIENT_ID)
+        client_secret = _get_option_if_exists(raw_config, self.profile, CLIENT_SECRET)
         config = DatabricksConfig(
-            host, username, password, token, refresh_token, insecure, jobs_api_version
+            host, username, password, token, refresh_token, insecure, jobs_api_version,
+            client_id=client_id, client_secret=client_secret,
         )
         if config.is_valid:
             return config

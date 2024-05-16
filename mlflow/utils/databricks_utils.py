@@ -16,10 +16,6 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksModelServingConfigProvider,
     EnvironmentVariableConfigProvider,
     ProfileConfigProvider,
-    DefaultConfigProvider,
-    ProfileConfigProvider,
-    get_config,
-    set_config_provider,
     SparkTaskContextConfigProvider,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
