@@ -9,6 +9,7 @@ import { ReduxState } from '../../../../redux-types';
 import { EvaluationCellEvaluateButton } from './EvaluationCellEvaluateButton';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import { JsonPreview } from '../../../../common/components/JsonFormatting';
 
 // Truncate the text in the cell, it doesn't make sense to populate
 // more data into the DOM since cells have hidden overflow anyway
@@ -79,6 +80,15 @@ export const EvaluationTextCellRenderer = ({
       ? theme.colors.backgroundSecondary
       : theme.colors.backgroundPrimary;
 
+  const structuredJSONValue = React.useMemo(() => {
+    try {
+      const objectData = JSON.parse(value);
+      return objectData;
+    } catch (e) {
+      return null;
+    }
+  }, [value]);
+
   return (
     <div
       css={{
@@ -105,6 +115,8 @@ export const EvaluationTextCellRenderer = ({
                 description="Experiment page > artifact compare view > results table > no result (empty cell)"
               />
             </Typography.Text>
+          ) : structuredJSONValue ? (
+            <JsonPreview json={JSON.stringify(structuredJSONValue, null, 2)} />
           ) : (
             <span
               css={{
@@ -117,8 +129,15 @@ export const EvaluationTextCellRenderer = ({
             >
               {isGroupByColumn && context.highlightedText ? (
                 <HighlightedText text={value} highlight={context.highlightedText} />
-              ) : (
+              ) : typeof value === 'string' ? (
                 value.substring(0, MAX_TEXT_LENGTH)
+              ) : (
+                /**
+                 * There is a transient state when this value is an object used
+                 * for EvaluationImageCellRenderer. This will prevent displaying
+                 * [object Object] in the cell and cause AgGrid errors.
+                 */
+                typeof value !== 'object' && value
               )}
             </span>
           )}

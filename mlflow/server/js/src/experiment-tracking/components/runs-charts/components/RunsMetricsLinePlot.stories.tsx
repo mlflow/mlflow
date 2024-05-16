@@ -42,8 +42,8 @@ const createMockMetricsData = (
       uuid: `id-for-run-${runName}`,
       displayName: runName,
       runInfo: {
-        run_uuid: `id-for-run-${runName}`,
-        run_name: runName,
+        runUuid: `id-for-run-${runName}`,
+        runName: runName,
       } as RunInfoEntity,
       metricsHistory: { metric1: metricsHistory },
       color: chartColors[index % chartColors.length],

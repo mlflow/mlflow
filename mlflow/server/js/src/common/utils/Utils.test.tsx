@@ -584,10 +584,10 @@ test('getSearchUrlFromState', () => {
 });
 
 test('compareExperiments', () => {
-  const exp0 = { experiment_id: '0' };
-  const exp1 = { experiment_id: '1' };
-  const expA = { experiment_id: 'A' };
-  const expB = { experiment_id: 'B' };
+  const exp0 = { experimentId: '0' };
+  const exp1 = { experimentId: '1' };
+  const expA = { experimentId: 'A' };
+  const expB = { experimentId: 'B' };
 
   expect(Utils.compareExperiments(exp0, exp1)).toEqual(-1);
   expect(Utils.compareExperiments(exp1, exp0)).toEqual(1);

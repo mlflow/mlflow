@@ -1,11 +1,5 @@
-/**
- * shouldUsePathRouting() evaluation is stable so we omit
- * `react-hooks/rules-of-hooks` rule for hooks in this file
- */
-/* eslint-disable react-hooks/rules-of-hooks */
 import React from 'react';
 import { UNSAFE_NavigationContext } from '../../common/utils/RoutingUtils';
-import { shouldUsePathRouting } from '../utils/FeatureUtils';
 
 const useNavigationBlock = () => {
   return (React.useContext(UNSAFE_NavigationContext) as any).navigator.block;

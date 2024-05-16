@@ -1,14 +1,12 @@
 import React from 'react';
-import { Tooltip } from '@databricks/design-system';
-import { TrimmedText } from '../../../../../../common/components/TrimmedText';
-import loggedModelSvg from '../../../../../../common/static/logged-model.svg';
-import registeredModelSvg from '../../../../../../common/static/registered-model.svg';
+import { ModelsIcon, Overflow, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import Utils from '../../../../../../common/utils/Utils';
 import { ModelRegistryRoutes } from '../../../../../../model-registry/routes';
 import Routes from '../../../../../routes';
 import { RunRowModelsInfo } from '../../../utils/experimentPage.row-types';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
-import { shouldUsePathRouting } from '../../../../../../common/utils/FeatureUtils';
+import { ReactComponent as RegisteredModelOkIcon } from '../../../../../../common/static/registered-model-grey-ok.svg';
+import { FormattedMessage } from 'react-intl';
 
 const EMPTY_CELL_PLACEHOLDER = '-';
 
@@ -16,73 +14,105 @@ export interface ModelsCellRendererProps {
   value: RunRowModelsInfo;
 }
 
+/**
+ * Backfill Typescript type for the value returned from Utils.mergeLoggedAndRegisteredModels
+ */
+interface CombinedModelType {
+  registeredModelName?: string;
+  isUc?: string;
+  registeredModelVersion?: string;
+  artifactPath?: string;
+  flavors?: string[];
+}
+
+/**
+ * Icon, label and link for a single model
+ */
+const ModelLink = ({
+  model: { isUc, registeredModelName, registeredModelVersion, flavors, artifactPath } = {},
+  experimentId,
+  runUuid,
+}: {
+  model?: CombinedModelType;
+  experimentId: string;
+  runUuid: string;
+}) => {
+  const { theme } = useDesignSystemTheme();
+
+  // Renders a model name based on whether it's a registered model or not
+  const renderModelName = () => {
+    const displayFullName = `${registeredModelName} v${registeredModelVersion}`;
+    if (registeredModelName) {
+      return (
+        <Tooltip title={displayFullName} placement="topLeft">
+          <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
+          <Tag css={{ marginRight: 0, verticalAlign: 'middle' }}>v{registeredModelVersion}</Tag>
+        </Tooltip>
+      );
+    }
+
+    const firstFlavorName = flavors?.[0];
+
+    return (
+      firstFlavorName || (
+        <FormattedMessage
+          defaultMessage="Model"
+          description="Experiment page > runs table > models column > default label for no specific model"
+        />
+      )
+    );
+  };
+
+  // Renders a link to either the model registry or the run artifacts page
+  const renderModelLink = () => {
+    if (registeredModelName && registeredModelVersion) {
+      return ModelRegistryRoutes.getModelVersionPageRoute(registeredModelName, registeredModelVersion);
+    }
+    return Routes.getRunPageRoute(experimentId, runUuid, artifactPath);
+  };
+
+  // Renders an icon based on whether it's a registered model or not
+  const renderModelIcon = () => {
+    if (registeredModelName) {
+      return <RegisteredModelOkIcon css={{ color: theme.colors.actionPrimaryBackgroundDefault }} />;
+    }
+    return <ModelsIcon css={{ color: theme.colors.actionPrimaryBackgroundDefault }} />;
+  };
+
+  return (
+    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, overflow: 'hidden' }}>
+      <div css={{ width: 20, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexShrink: 0 }}>
+        {renderModelIcon()}
+      </div>
+      <Link
+        to={renderModelLink()}
+        target="_blank"
+        css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}
+      >
+        {renderModelName()}
+      </Link>
+    </div>
+  );
+};
+
 export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) => {
   if (!props.value) {
     return <>{EMPTY_CELL_PLACEHOLDER}</>;
   }
   const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
-  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels);
+  const models: CombinedModelType[] = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels) as any[];
 
   if (models && models.length) {
-    // TODO: type is wrongly inferred as boolean
-    const modelToRender = models[0] as any;
-    let modelDiv;
-    if (modelToRender.registeredModelName) {
-      const { registeredModelName, registeredModelVersion } = modelToRender;
-      // eslint-disable-next-line prefer-const
-      let mvPageRoute = Utils.getIframeCorrectedRoute(
-        ModelRegistryRoutes.getModelVersionPageRoute(registeredModelName, registeredModelVersion),
-      );
-      // eslint-disable-next-line prefer-const
-      let displayName = registeredModelName;
-      const displayFullName = `${registeredModelName} version ${registeredModelVersion}`;
-      modelDiv = (
-        <>
-          <img data-test-id="registered-model-icon" alt="" title="Registered Model" src={registeredModelSvg} />
-          <Tooltip title={displayFullName}>
-            {shouldUsePathRouting() ? (
-              <Link to={mvPageRoute} target="_blank" className="registered-model-link" rel="noreferrer">
-                <TrimmedText text={displayName} maxSize={10} className="model-name" />
-                {`/${registeredModelVersion}`}
-              </Link>
-            ) : (
-              <a href={mvPageRoute} className="registered-model-link" target="_blank" rel="noreferrer">
-                <TrimmedText text={displayName} maxSize={10} className="model-name" />
-                {`/${registeredModelVersion}`}
-              </a>
-            )}
-          </Tooltip>
-        </>
-      );
-    } else if (modelToRender.flavors) {
-      const loggedModelFlavorText = modelToRender.flavors ? modelToRender.flavors[0] : 'Model';
-      const loggedModelLink = Routes.getRunPageRoute(experimentId, runUuid, modelToRender.artifactPath);
-      modelDiv = (
-        <>
-          <img data-test-id="logged-model-icon" alt="" title="Logged Model" src={loggedModelSvg} />
-          <Link to={loggedModelLink} target="_blank" className="logged-model-link">
-            {loggedModelFlavorText}
-          </Link>
-        </>
-      );
-    }
-
     return (
-      <div className="logged-model-cell" css={styles.imageWrapper}>
-        {modelDiv}
-        {loggedModels.length > 1 ? `, ${loggedModels.length - 1} more` : ''}
+      // <Overflow /> component does not ideally fit within ag-grid cell so we need to override its styles a bit
+      <div css={{ width: '100%', '&>div': { maxWidth: '100%', display: 'flex' } }}>
+        <Overflow>
+          {models.map((model, index) => (
+            <ModelLink model={model} key={model.artifactPath || index} experimentId={experimentId} runUuid={runUuid} />
+          ))}
+        </Overflow>
       </div>
     );
   }
   return <>{EMPTY_CELL_PLACEHOLDER}</>;
 });
-
-const styles = {
-  imageWrapper: {
-    img: {
-      height: '15px',
-      position: 'relative' as const,
-      marginRight: '4px',
-    },
-  },
-};

@@ -78,7 +78,7 @@ export const RunViewMetricChart = ({
     onDrop: onReorderWith,
   });
 
-  const runUuidsArray = useMemo(() => [runInfo.run_uuid], [runInfo]);
+  const runUuidsArray = useMemo(() => [runInfo.runUuid], [runInfo]);
   const metricKeys = useMemo(() => [metricKey], [metricKey]);
   const [xRange, setRange] = useState<[number | string, number | string] | undefined>(undefined);
   const { theme } = useDesignSystemTheme();
@@ -86,7 +86,7 @@ export const RunViewMetricChart = ({
   const [stepRange, setStepRange] = useState<[number, number] | undefined>(undefined);
 
   const fullMetricHistoryForRun = useSelector(
-    (state: ReduxState) => state.entities.sampledMetricsByRunUuid[runInfo.run_uuid]?.[metricKey],
+    (state: ReduxState) => state.entities.sampledMetricsByRunUuid[runInfo.runUuid]?.[metricKey],
   );
 
   const { elementRef, isInViewport } = useIsInViewport();
@@ -99,7 +99,7 @@ export const RunViewMetricChart = ({
     maxResults: 320,
   });
 
-  const { metricsHistory, error } = resultsByRunUuid[runInfo.run_uuid]?.[metricKey] || {};
+  const { metricsHistory, error } = resultsByRunUuid[runInfo.runUuid]?.[metricKey] || {};
 
   const isSingleMetricEntry = !isLoading && metricsHistory?.length === 1;
 

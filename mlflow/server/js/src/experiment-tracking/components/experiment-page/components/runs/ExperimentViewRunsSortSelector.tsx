@@ -16,17 +16,10 @@ import { middleTruncateStr } from '../../../../../common/utils/StringUtils';
 import { COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC, SORT_DELIMITER_SYMBOL } from '../../../../constants';
 import { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 
 export const ExperimentViewRunsSortSelector = React.memo(
-  (props: {
-    orderByKey: string;
-    orderByAsc: boolean;
-    sortOptions: ExperimentRunSortOption[];
-    onSortKeyChanged: (valueContainer: any) => void;
-  }) => {
-    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+  (props: { orderByKey: string; orderByAsc: boolean; sortOptions: ExperimentRunSortOption[] }) => {
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
     const updateUIState = useUpdateExperimentViewUIState();
     const intl = useIntl();
@@ -34,27 +27,24 @@ export const ExperimentViewRunsSortSelector = React.memo(
     const { sortOptions } = props;
     const { orderByKey, orderByAsc } = props;
 
-    // In the new view state model, manipulate URL search facets directly instead of using the callback
-    const onSortKeyChanged = usingNewViewStateModel
-      ? ({ value }: { value: string }) => {
-          const [newOrderBy, newOrderAscending] = value.split(SORT_DELIMITER_SYMBOL);
+    const onSortKeyChanged = ({ value }: { value: string }) => {
+      const [newOrderBy, newOrderAscending] = value.split(SORT_DELIMITER_SYMBOL);
 
-          setUrlSearchFacets({
-            orderByAsc: newOrderAscending === COLUMN_SORT_BY_ASC,
-            orderByKey: newOrderBy,
-          });
+      setUrlSearchFacets({
+        orderByAsc: newOrderAscending === COLUMN_SORT_BY_ASC,
+        orderByKey: newOrderBy,
+      });
 
-          updateUIState((currentUIState) => {
-            if (!currentUIState.selectedColumns.includes(newOrderBy)) {
-              return {
-                ...currentUIState,
-                selectedColumns: [...currentUIState.selectedColumns, newOrderBy],
-              };
-            }
-            return currentUIState;
-          });
+      updateUIState((currentUIState) => {
+        if (!currentUIState.selectedColumns.includes(newOrderBy)) {
+          return {
+            ...currentUIState,
+            selectedColumns: [...currentUIState.selectedColumns, newOrderBy],
+          };
         }
-      : props.onSortKeyChanged;
+        return currentUIState;
+      });
+    };
 
     // Currently used canonical "sort by" value in form of "COLUMN_NAME***DIRECTION", e.g. "metrics.`metric`***DESCENDING"
     const currentSortSelectValue = useMemo(

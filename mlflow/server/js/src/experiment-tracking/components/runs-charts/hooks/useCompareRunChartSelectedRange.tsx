@@ -14,14 +14,14 @@ import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
  * @param runUuids List of run UUIDs in compare chart
  */
 export const useCompareRunChartSelectedRange = (
+  range: [number | string, number | string] | undefined,
   xAxisKey: RunsChartsLineChartXAxisType,
   metricKey: string,
   sampledMetricsByRunUuid: SampledMetricsByRunUuidState,
   runUuids: string[],
+  scaleType: 'linear' | 'log' = 'linear',
 ) => {
-  const [range, setRange] = useState<[number | string, number | string] | undefined>(undefined);
   const [offsetTimestamp, setOffsetTimestamp] = useState<[number, number] | undefined>(undefined);
-
   const stepRange = useMemo<[number, number] | undefined>(() => {
     if (!range) {
       return undefined;
@@ -55,21 +55,17 @@ export const useCompareRunChartSelectedRange = (
 
     if (xAxisKey === RunsChartsLineChartXAxisType.STEP && isNumber(range[0]) && isNumber(range[1])) {
       // If we're dealing with step-based chart axis, use those steps but incremented/decremented
-      const lowerBound = Math.floor(range[0]);
-      const upperBound = Math.ceil(range[1]);
+      const lowerBound = Math.floor(scaleType === 'log' ? 10 ** range[0] : range[0]);
+      const upperBound = Math.ceil(scaleType === 'log' ? 10 ** range[1] : range[1]);
       return lowerBound && upperBound ? [lowerBound - 1, upperBound + 1] : undefined;
     }
 
     // return undefined for xAxisKey === 'metric' because there isn't
     // necessarily a mapping between value range and step range
     return undefined;
-  }, [xAxisKey, metricKey, range, sampledMetricsByRunUuid, runUuids, offsetTimestamp]);
+  }, [xAxisKey, metricKey, range, sampledMetricsByRunUuid, runUuids, offsetTimestamp, scaleType]);
 
   return {
-    /**
-     * Sets actually selected range in chart (can be timestamp, seconds range or step range)
-     */
-    setRange,
     /**
      * If there's an offset timestamp calculated from relative runs, set it using this function
      */
@@ -78,9 +74,5 @@ export const useCompareRunChartSelectedRange = (
      * Resulting step range
      */
     stepRange,
-    /**
-     * Actual raw range to be passed down to the chart component
-     */
-    range,
   };
 };

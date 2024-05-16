@@ -1,0 +1,8 @@
+# go/metadata
+# proto-file: devtools/metadata/src/proto/metadata.proto
+# proto-message: MetadataSpecification
+
+description: "eng-ml-development-team"
+
+owner_team: "eng-ml-development-team"
+

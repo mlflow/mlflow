@@ -20,12 +20,12 @@ import {
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
 } from '../runs-charts.types';
-import { normalizeMetricChartTooltipValue } from '../../../utils/MetricsUtils';
 import {
   type RunsCompareMultipleTracesTooltipData,
   type RunsMetricsSingleTraceTooltipData,
 } from './RunsMetricsLinePlot';
 import { RunsMultipleTracesTooltipBody } from './RunsMultipleTracesTooltipBody';
+import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
 
 interface RunsChartsContextMenuContentDataType {
   runs: RunsChartsRunData[];
@@ -45,7 +45,7 @@ const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun:
 
   return (
     <div css={styles.value}>
-      <strong>{metric.key}:</strong> {normalizeMetricChartTooltipValue(metric.value)}
+      <strong>{metric.key}:</strong> {metric.value}
     </div>
   );
 };
@@ -63,12 +63,12 @@ const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, ac
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {normalizeMetricChartTooltipValue(xValue)}
+          <strong>X ({xKey}):</strong> {xValue}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {normalizeMetricChartTooltipValue(yValue)}
+          <strong>Y ({yKey}):</strong> {yValue}
         </div>
       )}
     </>
@@ -91,21 +91,44 @@ const createContourChartValuesBox = (cardConfig: RunsChartsContourCardConfig, ac
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {normalizeMetricChartTooltipValue(xValue)}
+          <strong>X ({xKey}):</strong> {xValue}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {normalizeMetricChartTooltipValue(yValue)}
+          <strong>Y ({yKey}):</strong> {yValue}
         </div>
       )}
       {zValue && (
         <div css={styles.value}>
-          <strong>Z ({zKey}):</strong> {normalizeMetricChartTooltipValue(zValue)}
+          <strong>Z ({zKey}):</strong> {zValue}
         </div>
       )}
     </>
   );
+};
+
+const normalizeRelativeTimeChartTooltipValue = (value: string | number) => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  return value.split(' ')[1] || '00:00:00';
+};
+
+const getTooltipXValue = (
+  hoverData: RunsMetricsSingleTraceTooltipData | undefined,
+  xAxisKey: RunsChartsLineChartXAxisType,
+) => {
+  if (xAxisKey === RunsChartsLineChartXAxisType.METRIC) {
+    return hoverData?.xValue ?? '';
+  }
+
+  if (shouldEnableRelativeTimeDateAxis() && xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE) {
+    return normalizeRelativeTimeChartTooltipValue(hoverData?.xValue ?? '');
+  }
+
+  // Default return for other cases
+  return hoverData?.xValue;
 };
 
 const createLineChartValuesBox = (
@@ -124,10 +147,7 @@ const createLineChartValuesBox = (
     return null;
   }
 
-  const xValue =
-    xAxisKey === RunsChartsLineChartXAxisType.METRIC
-      ? normalizeMetricChartTooltipValue(hoverData?.xValue ?? '')
-      : hoverData?.xValue;
+  const xValue = getTooltipXValue(hoverData, xAxisKey);
 
   return (
     <>
@@ -137,7 +157,7 @@ const createLineChartValuesBox = (
         </div>
       )}
       <div css={styles.value}>
-        <strong>{metricKey}:</strong> {normalizeMetricChartTooltipValue(metricValue)}
+        <strong>{metricKey}:</strong> {metricValue}
       </div>
     </>
   );
@@ -154,7 +174,7 @@ const createParallelChartValuesBox = (
     if (param) {
       return (
         <div key={paramKey}>
-          <strong>{param.key}:</strong> {normalizeMetricChartTooltipValue(param.value)}
+          <strong>{param.key}:</strong> {param.value}
         </div>
       );
     }
@@ -165,7 +185,7 @@ const createParallelChartValuesBox = (
     if (metric) {
       return (
         <div key={metricKey}>
-          <strong>{metric.key}:</strong> {normalizeMetricChartTooltipValue(metric.value)}
+          <strong>{metric.key}:</strong> {metric.value}
         </div>
       );
     }
