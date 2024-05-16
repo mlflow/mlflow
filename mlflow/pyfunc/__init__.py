@@ -48,7 +48,7 @@ loaded.
 
             import pandas as pd
 
-            x_new = pd.DataFrame(dict(x1=[1,2,3], x2=[4,5,6]))
+            x_new = pd.DataFrame(dict(x1=[1, 2, 3], x2=[4, 5, 6]))
             model.predict(x_new)
 
     * - ``numpy.ndarray``
@@ -57,7 +57,7 @@ loaded.
 
             import numpy as np
 
-            x_new = np.array([[1, 4] [2, 5], [3, 6]])
+            x_new = np.array([[1, 4][2, 5], [3, 6]])
             model.predict(x_new)
 
     * - ``scipy.sparse.csc_matrix`` or ``scipy.sparse.csr_matrix``
@@ -94,8 +94,8 @@ loaded.
 
             spark = SparkSession.builder.getOrCreate()
 
-            data = [(1,4), (2,5), (3,6)]  # List of tuples
-            x_new = spark.createDataFrame(data, ["x1","x2"])  # Specify column name
+            data = [(1, 4), (2, 5), (3, 6)]  # List of tuples
+            x_new = spark.createDataFrame(data, ["x1", "x2"])  # Specify column name
             model.predict(x_new)
 
 .. _pyfunc-filesystem-format:
@@ -318,9 +318,11 @@ can simply log a predict method via the keyword argument ``python_model``.
     import mlflow
     import pandas as pd
 
+
     # Define a simple function to log
     def predict(model_input):
         return model_input.apply(lambda x: x * 2)
+
 
     # Save the function as a model
     with mlflow.start_run():
@@ -329,7 +331,7 @@ can simply log a predict method via the keyword argument ``python_model``.
 
     # Load the model from the tracking server and perform inference
     model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
-    x_new = pd.Series([1,2,3])
+    x_new = pd.Series([1, 2, 3])
 
     prediction = model.predict(x_new)
     print(prediction)
@@ -350,13 +352,17 @@ we would recommend using the functional-based Model instead for this simple case
     import mlflow
     import pandas as pd
 
+
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
-            return [x*2 for x in model_input]
+            return [x * 2 for x in model_input]
+
 
     # Save the function as a model
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=MyModel(), pip_requirements=["pandas"])
+        mlflow.pyfunc.log_model(
+            "model", python_model=MyModel(), pip_requirements=["pandas"]
+        )
         run_id = mlflow.active_run().info.run_id
 
     # Load the model from the tracking server and perform inference
@@ -396,6 +402,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 import numpy as np
 import pandas
 import yaml
+from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc.loaders
@@ -407,7 +414,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME
+from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME, MODEL_CONFIG
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
@@ -427,6 +434,12 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    Entity,
+    Job,
+    LineageHeaderInfo,
+    Notebook,
 )
 from mlflow.pyfunc.model import (
     ChatModel,
@@ -451,6 +464,7 @@ from mlflow.utils import (
     PYTHON_VERSION,
     _is_in_ipython_notebook,
     check_port_connectivity,
+    databricks_utils,
     find_free_port,
     get_major_minor_py_version,
     insecure_hash,
@@ -482,8 +496,8 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
-    _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
+    _validate_infer_and_copy_code_paths,
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
@@ -506,7 +520,6 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
-MODEL_CONFIG = "config"
 
 _MODEL_DATA_SUBPATH = "data"
 
@@ -898,7 +911,26 @@ def load_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
     """
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+
+    lineage_header_info = None
+    if databricks_utils.is_in_databricks_runtime() and (
+        databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()
+    ):
+        entity_list = []
+        # Get notebook id and job id, pack them into lineage_header_info
+        if notebook_id := databricks_utils.get_notebook_id():
+            notebook_entity = Notebook(id=notebook_id)
+            entity_list.append(Entity(notebook=notebook_entity))
+
+        if job_id := databricks_utils.get_job_id():
+            job_entity = Job(id=job_id)
+            entity_list.append(Entity(job=job_entity))
+
+        lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
+
+    local_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
+    )
 
     if not suppress_warnings:
         model_requirements = _get_pip_requirements_from_model_path(local_path)
@@ -1786,10 +1818,10 @@ Compound types:
                     args = args[: len(names)]
                 if len(args) < len(required_names):
                     raise MlflowException(
-                        "Model input is missing required columns. Expected {} required"
-                        " input columns {}, but the model received only {} unnamed input columns"
-                        " (Since the columns were passed unnamed they are expected to be in"
-                        " the order specified by the schema).".format(len(names), names, len(args))
+                        f"Model input is missing required columns. Expected {len(names)} required"
+                        f" input columns {names}, but the model received only {len(args)} "
+                        "unnamed input columns (Since the columns were passed unnamed they are"
+                        " expected to be in the order specified by the schema)."
                     )
             pdf = pandas.DataFrame(
                 data={
@@ -1848,7 +1880,10 @@ Compound types:
             )
 
         if type(elem_type) == StringType:
-            result = result.applymap(str)
+            if Version(pandas.__version__) >= Version("2.1.0"):
+                result = result.map(str)
+            else:
+                result = result.applymap(str)
 
         if type(result_type) == ArrayType:
             return pandas.Series(result.to_numpy().tolist())
@@ -2035,11 +2070,9 @@ Compound types:
                 else:
                     raise MlflowException(
                         message="Cannot apply udf because no column names specified. The udf "
-                        "expects {} columns with types: {}. Input column names could not be "
-                        "inferred from the model signature (column names not found).".format(
-                            len(input_schema.inputs),
-                            input_schema.inputs,
-                        ),
+                        f"expects {len(input_schema.inputs)} columns with types: "
+                        "{input_schema.inputs}. Input column names could not be inferred from the"
+                        " model signature (column names not found).",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
@@ -2078,6 +2111,7 @@ def save_model(
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     mlflow_model=None,
     python_model=None,
@@ -2123,6 +2157,7 @@ def save_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
@@ -2283,14 +2318,10 @@ def save_model(
     if first_argument_set_specified and second_argument_set_specified:
         raise MlflowException(
             message=(
-                "The following sets of parameters cannot be specified together: {first_set_keys}"
-                " and {second_set_keys}. All parameters in one set must be `None`. Instead, found"
-                " the following values: {first_set_entries} and {second_set_entries}".format(
-                    first_set_keys=first_argument_set.keys(),
-                    second_set_keys=second_argument_set.keys(),
-                    first_set_entries=first_argument_set,
-                    second_set_entries=second_argument_set,
-                )
+                f"The following sets of parameters cannot be specified together:"
+                f" {first_argument_set.keys()}  and {second_argument_set.keys()}."
+                " All parameters in one set must be `None`. Instead, found"
+                f" the following values: {first_argument_set} and {second_argument_set}"
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -2389,6 +2420,7 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            infer_code_paths=infer_code_paths,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -2404,6 +2436,7 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            infer_code_paths=infer_code_paths,
         )
 
 
@@ -2414,6 +2447,7 @@ def log_model(
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     python_model=None,
     artifacts=None,
@@ -2456,6 +2490,7 @@ def log_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
@@ -2616,6 +2651,7 @@ def log_model(
         example_no_conversion=example_no_conversion,
         streamable=streamable,
         resources=resources,
+        infer_code_paths=infer_code_paths,
         client=client,
     )
 
@@ -2631,6 +2667,7 @@ def _save_model_with_loader_module_and_data_path(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    infer_code_paths=False,
 ):
     """
     Export model as a generic Python function model.
@@ -2660,8 +2697,6 @@ def _save_model_with_loader_module_and_data_path(
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
         data = model_file
 
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -2669,7 +2704,7 @@ def _save_model_with_loader_module_and_data_path(
     mlflow.pyfunc.add_to_model(
         mlflow_model,
         loader_module=loader_module,
-        code=code_dir_subpath,
+        code=None,
         data=data,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
@@ -2678,6 +2713,14 @@ def _save_model_with_loader_module_and_data_path(
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    code_dir_subpath = _validate_infer_and_copy_code_paths(
+        code_paths, path, infer_code_paths, FLAVOR_NAME
+    )
+    mlflow_model.flavors[FLAVOR_NAME][CODE] = code_dir_subpath
+
+    # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

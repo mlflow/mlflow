@@ -505,6 +505,12 @@ MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
 )
 
+#: Specifies the minimum file size in bytes to use multipart download when downloading artifacts
+#: (default: ``524_288_000`` (500 MB))
+MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
+)
+
 #: Specifies the chunk size in bytes to use when performing multipart upload
 #: (default: ``104_857_60`` (10 MB))
 MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
@@ -590,4 +596,11 @@ MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
 #: (default: ``False``)
 _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
     "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
+)
+
+#: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
+#: a model's dependency inference. If set to True, an exception will be raised if requirements
+#: inference or the process of capturing imported modules encounters any errors.
+MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
+    "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
 )

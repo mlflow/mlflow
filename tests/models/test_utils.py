@@ -433,16 +433,16 @@ def test_enforce_array_with_errors():
 
 
 def test_model_code_validation():
+    # Invalid code with dbutils
     invalid_code = "dbutils.library.restartPython()\nsome_python_variable = 5"
-
-    warning_code = "# dbutils.library.restartPython()\n# MAGIC %run ../wheel_installer"
-
-    valid_code = "some_valid_python_code = 'valid'"
 
     with pytest.raises(
         ValueError, match="The model file uses 'dbutils' command which is not supported."
     ):
         _validate_model_code_from_notebook(invalid_code)
+
+    # Code with commended magic commands displays warning
+    warning_code = "# dbutils.library.restartPython()\n# MAGIC %run ../wheel_installer"
 
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         _validate_model_code_from_notebook(warning_code)
@@ -452,4 +452,22 @@ def test_model_code_validation():
             "correctness."
         )
 
-    _validate_model_code_from_notebook(valid_code)
+    # Test valid code
+    valid_code = "some_valid_python_code = 'valid'"
+
+    validated_code = _validate_model_code_from_notebook(valid_code).decode("utf-8")
+    assert validated_code == valid_code
+
+    # Test uncommented magic commands
+    code_with_magic_command = (
+        "valid_python_code = 'valid'\n%pip install sqlparse\nvalid_python_code = 'valid'\n# Comment"
+    )
+    expected_validated_code = (
+        "valid_python_code = 'valid'\n# MAGIC %pip install sqlparse\nvalid_python_code = "
+        "'valid'\n# Comment"
+    )
+
+    validated_code_with_magic_command = _validate_model_code_from_notebook(
+        code_with_magic_command
+    ).decode("utf-8")
+    assert validated_code_with_magic_command == expected_validated_code

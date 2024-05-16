@@ -340,6 +340,7 @@ nitpick_ignore = [
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
     # Suppress warnings for missing references in type annotations
+    ("py:class", "dataclasses.dataclass"),
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
     ("py:class", "pandas.core.series.Series"),

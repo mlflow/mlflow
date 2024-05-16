@@ -313,6 +313,7 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -375,6 +376,7 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -431,6 +433,7 @@ def test_create_model_version_with_langchain_no_dependencies(
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -601,10 +604,13 @@ def test_download_model_weights_if_not_saved(
 def test_update_registered_model_name(mock_http, store):
     name = "model_1"
     new_name = "model_2"
-    with pytest.raises(
-        MlflowException, match=_expected_unsupported_method_error_message("rename_registered_model")
-    ):
-        store.rename_registered_model(name=name, new_name=new_name)
+    store.rename_registered_model(name=name, new_name=new_name)
+    _verify_requests(
+        mock_http,
+        "registered-models/update",
+        "PATCH",
+        UpdateRegisteredModelRequest(name=name, new_name=new_name),
+    )
 
 
 @mock_http_200
@@ -1012,6 +1018,7 @@ def test_create_model_version_aws(store, local_model_dir):
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             session_token=session_token,
+            credential_refresh_def=ANY,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -1188,7 +1195,9 @@ def test_create_model_version_azure(store, local_model_dir):
     ) as adls_artifact_repo_class_mock:
         store.create_model_version(name=model_name, source=source, tags=tags)
         adls_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location, credential=ANY
+            artifact_uri=storage_location,
+            credential=ANY,
+            credential_refresh_def=ANY,
         )
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
@@ -1620,7 +1629,9 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
             name=model_version.name, version=model_version.version
         )
         get_repo_mock.assert_called_once_with(
-            storage_location=model_version.storage_location, scoped_token=creds
+            storage_location=model_version.storage_location,
+            scoped_token=creds,
+            base_credential_refresh_def=ANY,
         )
 
 

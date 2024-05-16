@@ -192,8 +192,9 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         (container, _, remote_root_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
+        blob = container_client.download_blob(remote_full_path)
         with open(local_path, "wb") as file:
-            container_client.download_blob(remote_full_path).readinto(file)
+            blob.readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")

@@ -25,19 +25,21 @@ from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
-from mlflow.tracking._tracking_service.utils import _register
+from mlflow.tracking._tracking_service.utils import _register, _use_tracking_uri
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -260,7 +262,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
         ),
     ]
     mock_store.search_traces.return_value = (mock_traces, None)
-
+    mock_artifact_repo.download_trace_data.return_value = {}
     MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
 
     mock_store.search_traces.assert_called_once_with(
@@ -296,13 +298,14 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     class TestModel:
         def __init__(self):
             self._client = MlflowClient()
+            self._exp_id = self._client.create_experiment("test_experiment")
 
         def predict(self, x, y):
             root_span = self._client.start_trace(
                 name="predict",
                 inputs={"x": x, "y": y},
                 tags={"tag": "tag_value"},
-                experiment_id="test_experiment",
+                experiment_id=self._exp_id,
             )
             request_id = root_span.request_id
 
@@ -359,13 +362,15 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     assert len(traces) == 1
     trace_info = traces[0].info
     assert trace_info.request_id is not None
-    assert trace_info.experiment_id == "test_experiment"
     assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace_info.status == TraceStatus.OK
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
     if with_active_run:
         assert trace_info.request_metadata["mlflow.sourceRun"] == run_id
+        assert trace_info.experiment_id == run.info.experiment_id
+    else:
+        assert trace_info.experiment_id == model._exp_id
 
     trace_data = traces[0].data
     assert trace_data.request == '{"x": 1, "y": 2}'
@@ -378,7 +383,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
     assert root_span.parent_id is None
     assert root_span.attributes == {
-        "mlflow.experimentId": "test_experiment",
+        "mlflow.experimentId": model._exp_id,
         "mlflow.traceRequestId": trace_info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"x": 1, "y": 2},
@@ -479,6 +484,9 @@ def test_log_trace_with_databricks_tracking_uri(
     clear_singleton, mock_store_for_tracing, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
     monkeypatch.setattr(
@@ -523,9 +531,21 @@ def test_log_trace_with_databricks_tracking_uri(
 
     model = TestModel()
 
+    def _mock_update_trace_info(trace_info):
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace("tr-12345") as trace:
+            trace.info.tags.update({"tag": "tag_value"})
+
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-    ) as mock_upload_trace_data:
+    ) as mock_upload_trace_data, mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tags",
+    ), mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
+    ), mock.patch(
+        "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
+        side_effect=_mock_update_trace_info,
+    ):
         model.predict(1, 2)
 
     traces = get_traces()
@@ -540,7 +560,10 @@ def test_log_trace_with_databricks_tracking_uri(
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
         "mlflow.user": "bob",
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
         "tag": "tag_value",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data
@@ -586,7 +609,10 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
         mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
 
 
-def test_set_and_delete_trace_tag_on_active_trace(clear_singleton):
+def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
     client = mlflow.tracking.MlflowClient()
 
     root_span = client.start_trace(name="test")
@@ -595,7 +621,13 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton):
     client.end_trace(request_id)
 
     trace = get_traces()[0]
-    assert trace.info.tags == {"mlflow.traceName": "test", "foo": "bar"}
+    assert trace.info.tags == {
+        "mlflow.traceName": "test",
+        "foo": "bar",
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+    }
 
 
 def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
@@ -603,7 +635,10 @@ def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
     mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
 
 
-def test_delete_trace_tag_on_active_trace(clear_singleton):
+def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
     client = mlflow.tracking.MlflowClient()
     root_span = client.start_trace(name="test", tags={"foo": "bar", "baz": "qux"})
     request_id = root_span.request_id
@@ -614,6 +649,9 @@ def test_delete_trace_tag_on_active_trace(clear_singleton):
     assert trace.info.tags == {
         "baz": "qux",
         "mlflow.traceName": "test",  # Added by MLflow
+        "mlflow.source.name": "test",
+        "mlflow.source.type": "LOCAL",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
 
@@ -1311,3 +1349,14 @@ def test_enable_async_logging(mock_store, setup_async_logging):
 
     MlflowClient().log_metric(run_id="run_id", key="key", value="val", step=1, timestamp=1)
     mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))
+
+
+def test_file_store_download_upload_trace_data(clear_singleton, tmp_path):
+    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
+        client = MlflowClient()
+        span = client.start_trace("test", inputs={"test": 1})
+        client.end_trace(span.request_id, outputs={"result": 2})
+        trace = mlflow.get_trace(span.request_id)
+        trace_data = client.get_trace(span.request_id).data
+        assert trace_data.request == trace.data.request
+        assert trace_data.response == trace.data.response

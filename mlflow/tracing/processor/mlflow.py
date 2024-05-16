@@ -9,17 +9,18 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 import mlflow
-from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
     SpanAttributeKey,
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_trace_id,
@@ -27,6 +28,7 @@ from mlflow.tracing.utils import (
     maybe_get_evaluation_request_id,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
 
@@ -71,6 +73,15 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         experiment_id = (
             get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID) or _get_experiment_id()
         )
+
+        # If the span is started within an active MLflow run, we should record it as a trace tag
+        metadata = {}
+        if run := mlflow.active_run():
+            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
+            # if we're inside a run, the run's experiment id should
+            # take precendence over the environment experiment id
+            experiment_id = run.info.experiment_id
+
         if experiment_id == DEFAULT_EXPERIMENT_ID:
             _logger.warning(
                 "Creating a trace within the default experiment with id "
@@ -81,40 +92,43 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "To avoid performance and disambiguation issues, set the experiment for "
                 "your environment using `mlflow.set_experiment()` API."
             )
-        metadata = {}
-
-        # If the span is started within an active MLflow run, we should record it as a trace tag
-        if run := mlflow.active_run():
-            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
+        default_tags = resolve_tags()
+        default_tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
         if request_id := maybe_get_evaluation_request_id():
-            trace_info = self._create_trace_info(request_id, span, experiment_id, metadata)
-        else:
-            try:
-                trace_info = self._client._start_tracked_trace(
-                    experiment_id=experiment_id,
-                    # TODO: This timestamp is not accurate because it is not adjusted to exclude the
-                    #   latency of the backend API call. We do this adjustment for span start time
-                    #   above, but can't do it for trace start time until the backend API supports
-                    #   updating the trace start time.
-                    timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-                    request_metadata=metadata,
-                )
+            default_tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
+        try:
+            trace_info = self._client._start_tracked_trace(
+                experiment_id=experiment_id,
+                # TODO: This timestamp is not accurate because it is not adjusted to exclude the
+                #   latency of the backend API call. We do this adjustment for span start time
+                #   above, but can't do it for trace start time until the backend API supports
+                #   updating the trace start time.
+                timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
+                request_metadata=metadata,
+                tags=default_tags,
+            )
 
-            # TODO: This catches all exceptions from the tracking server so the in-memory tracing
-            # still works if the backend APIs are not ready. Once backend is ready, we should
-            # catch more specific exceptions and handle them accordingly.
-            except Exception:
-                _logger.debug(
-                    "Failed to start a trace in the tracking server. This may be because the "
-                    "backend APIs are not available. Fallback to client-side generation",
-                    exc_info=True,
-                )
-                request_id = encode_trace_id(span.context.trace_id)
-                trace_info = self._create_trace_info(request_id, span, experiment_id, metadata)
+        # TODO: This catches all exceptions from the tracking server so the in-memory tracing
+        # still works if the backend APIs are not ready. Once backend is ready, we should
+        # catch more specific exceptions and handle them accordingly.
+        except Exception:
+            _logger.debug(
+                "Failed to start a trace in the tracking server. This may be because the "
+                "backend APIs are not available. Fallback to client-side generation",
+                exc_info=True,
+            )
+            request_id = encode_trace_id(span.context.trace_id)
+            trace_info = self._create_trace_info(
+                request_id,
+                span,
+                experiment_id,
+                metadata,
+                tags=default_tags,
+            )
 
         return trace_info
 
@@ -140,8 +154,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
         super().on_end(span)
 
-    def _update_trace_info(self, trace: Trace, root_span: OTelReadableSpan):
+    def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
+        # Q: Why do we need to update timestamp_ms here? We already saved it when start
         trace.info.timestamp_ms = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000_000
         trace.info.status = TraceStatus.from_otel_status(root_span.status)
@@ -178,6 +193,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span: OTelSpan,
         experiment_id: Optional[str] = None,
         request_metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[Dict[str, str]] = None,
     ) -> TraceInfo:
         return TraceInfo(
             request_id=request_id,
@@ -186,4 +202,5 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             execution_time_ms=None,
             status=TraceStatus.IN_PROGRESS,
             request_metadata=request_metadata or {},
+            tags=tags or {},
         )

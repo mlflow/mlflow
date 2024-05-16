@@ -39,8 +39,7 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
-from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -57,10 +56,15 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_ID_PREFIX,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_otel_attribute
+from mlflow.tracing.utils import exclude_immutable_tags, get_otel_attribute
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -71,10 +75,12 @@ from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pi
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
-from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.databricks_utils import (
+    get_databricks_run_url,
+    is_in_databricks_model_serving_environment,
+)
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
-    IMMUTABLE_TAGS,
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
@@ -390,6 +396,7 @@ class MlflowClient:
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
+    @experimental
     def delete_traces(
         self,
         experiment_id: str,
@@ -406,7 +413,7 @@ class MlflowClient:
         Args:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
-                deleting traces.
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
             max_traces: The maximum number of traces to delete.
             request_ids: A set of request IDs to delete.
 
@@ -420,6 +427,7 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
+    @experimental
     def get_trace(self, request_id: str) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
@@ -443,6 +451,7 @@ class MlflowClient:
         get_display_handler().display_traces([trace])
         return trace
 
+    @experimental
     def search_traces(
         self,
         experiment_ids: List[str],
@@ -561,6 +570,8 @@ class MlflowClient:
 
         try:
             # Create new trace and a root span
+            # Once OTel span is created, SpanProcessor.on_start is invoked
+            # TraceInfo is created and logged into backend store inside on_start method
             otel_span = mlflow.tracing.provider.start_detached_span(
                 name, experiment_id=experiment_id
             )
@@ -572,17 +583,28 @@ class MlflowClient:
             if attributes:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
-            with trace_manager.get_trace(request_id) as trace:
-                trace.info.tags.update(self._exclude_immutable_tags(tags or {}))
+            tags = exclude_immutable_tags(tags or {})
+            tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
+            if is_in_databricks_model_serving_environment():
+                # Update trace tags for trace in in-memory trace manager
+                with trace_manager.get_trace(request_id) as trace:
+                    trace.info.tags.update(tags)
+            else:
+                # Update trace tags in store and in-memory if tracking client is available
+                self._tracking_client.set_trace_tags(request_id, tags)
+                trace_info = self._tracking_client.get_trace_info(request_id)
+                trace_manager.update_trace_info(trace_info)
             # Register new span in the in-memory trace manager
             trace_manager.register_span(mlflow_span)
 
             return mlflow_span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
-            raise e
+            if _MLFLOW_TESTING.get():
+                raise
             return NoOpSpan()
 
+    @experimental
     def end_trace(
         self,
         request_id: str,
@@ -627,6 +649,7 @@ class MlflowClient:
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
 
+    @experimental
     def start_span(
         self,
         name: str,
@@ -774,8 +797,11 @@ class MlflowClient:
             return span
         except Exception as e:
             _logger.warning(f"Failed to start span {name}: {e}")
+            if _MLFLOW_TESTING.get():
+                raise
             return NoOpSpan()
 
+    @experimental
     def end_span(
         self,
         request_id: str,
@@ -841,45 +867,31 @@ class MlflowClient:
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=self._exclude_immutable_tags(tags or {}),
+            tags=tags or {},
         )
 
     def _upload_ended_trace_info(
         self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        trace_info: TraceInfo,
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
         Args:
-            request_id: Unique string identifier of the trace.
-            timestamp_ms: int, end time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: TraceStatus, status of the trace.
-            request_metadata: dict, metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: dict, tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
+            trace_info: Updated TraceInfo object to be stored in the backend store.
 
         Returns:
             The updated TraceInfo object.
         """
         return self._tracking_client.end_trace(
-            request_id=request_id,
-            timestamp_ms=timestamp_ms,
-            status=status,
-            request_metadata=request_metadata or {},
-            tags=self._exclude_immutable_tags(tags or {}),
+            request_id=trace_info.request_id,
+            timestamp_ms=trace_info.timestamp_ms + trace_info.execution_time_ms,
+            status=trace_info.status,
+            request_metadata=trace_info.request_metadata,
+            tags=trace_info.tags or {},
         )
 
-    def _exclude_immutable_tags(self, tags: Dict[str, str]) -> Dict[str, str]:
-        """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
-        return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
-
+    @experimental
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -921,6 +933,7 @@ class MlflowClient:
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
 
+    @experimental
     def delete_trace_tag(self, request_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.
@@ -2323,6 +2336,15 @@ class MlflowClient:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
+    def _read_from_file(self, artifact_path):
+        import pandas as pd
+
+        if artifact_path.endswith(".json"):
+            return pd.read_json(artifact_path, orient="split")
+        if artifact_path.endswith(".parquet"):
+            return pd.read_parquet(artifact_path)
+        raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
+
     @experimental
     def log_table(
         self,
@@ -2397,11 +2419,11 @@ class MlflowClient:
         import pandas as pd
 
         self._check_artifact_file_string(artifact_file)
-        if not artifact_file.endswith(".json"):
+        if not artifact_file.endswith((".json", ".parquet")):
             raise ValueError(
-                f"The provided artifact file '{artifact_file}' does not have "
-                "the required '.json' extension. Please ensure the file you are trying "
-                "to log as a table is a JSON file with the '.json' extension. "
+                f"Invalid artifact file path '{artifact_file}'. Please ensure the file you are "
+                "trying to log as a table has a file name with either '.json' "
+                "or '.parquet' extension."
             )
 
         if not isinstance(data, (pd.DataFrame, dict)):
@@ -2464,6 +2486,12 @@ class MlflowClient:
                     # Save files to artifact storage
                     data[column] = data[column].map(lambda x: process_image(x))
 
+        def write_to_file(data, artifact_path):
+            if artifact_path.endswith(".json"):
+                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
+            elif artifact_path.endswith(".parquet"):
+                data.to_parquet(artifact_path, index=False)
+
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
@@ -2473,7 +2501,7 @@ class MlflowClient:
                 downloaded_artifact_path = mlflow.artifacts.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.info(
                 "Appending new table to already existing artifact "
@@ -2482,7 +2510,7 @@ class MlflowClient:
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             try:
-                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
+                write_to_file(data, artifact_path)
             except Exception as e:
                 raise MlflowException(
                     f"Failed to save {data} as table as the data is not JSON serializable. "
@@ -2616,7 +2644,7 @@ class MlflowClient:
                         artifact_path=artifact_file,
                         dst_path=tmpdir,
                     )
-                    existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                    existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:
                         for column in extra_columns:
                             if column in existing_predictions:
