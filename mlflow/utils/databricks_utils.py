@@ -822,6 +822,9 @@ def _get_databricks_creds_config(tracking_uri):
     # configuration providers defined in legacy Databricks CLI python library to
     # read token values.
     profile, _ = get_db_info_from_uri(tracking_uri)
+
+    config = None
+
     for provider in [
         _dynamic_token_config_provider,
         ProfileConfigProvider(profile),
