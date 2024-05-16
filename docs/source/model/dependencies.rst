@@ -278,7 +278,7 @@ the ``__main__`` module.
 
 
 Saving Extra Code with an MLflow Model - Manual Declaration
-------------------------------------------------------------------
+-----------------------------------------------------------
 MLflow also supports saving your custom Python code as dependencies to the model. This is particularly useful
 when you want to deploy your custom modules that are required for prediction with the model.
 To do so, specify **code_paths** when logging the model. For example, if you have the following file structure in your project:
