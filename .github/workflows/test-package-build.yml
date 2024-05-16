@@ -33,12 +33,18 @@ jobs:
     strategy:
       matrix:
         type: ["full", "skinny"]
+        goos: ["darwin", "linux", "windows"]
+        goarch: ["amd64", "arm64"]
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-go
       - uses: actions/setup-node@v3
         with:
           node-version: "16"
@@ -104,6 +110,7 @@ jobs:
           python -c "import mlflow; print(mlflow.__version__)"
 
       - name: Test installation from wheel
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: |
           pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
           python -c "import mlflow; print(mlflow.__version__)"
