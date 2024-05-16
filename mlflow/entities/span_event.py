@@ -13,8 +13,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 
 @dataclass
 class SpanEvent(_MlflowObject):
-    """
-    An event that records a specific occurrences or moments in time
+    """:meta private: An event that records a specific occurrences or moments in time
     during a span, such as an exception being thrown. Compatible with OpenTelemetry.
 
     Args:
@@ -71,9 +70,7 @@ class SpanEvent(_MlflowObject):
 
 
 class CustomEncoder(json.JSONEncoder):
-    """
-    Custom encoder to handle json serialization.
-    """
+    """:meta private: Custom encoder to handle json serialization."""
 
     def default(self, o):
         try:

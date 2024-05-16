@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 class MlflowSpanExporter(SpanExporter):
-    """
+    """:meta private:
     An exporter implementation that logs the traces to MLflow.
 
     MLflow backend (will) only support logging the complete trace, not incremental updates

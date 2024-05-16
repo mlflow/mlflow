@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 def start_span_in_context(name: str) -> trace.Span:
-    """
+    """:meta private:
     Start a new OpenTelemetry span in the current context.
 
     Note that this function doesn't set the started span as the active span in the context. To do
@@ -35,7 +35,7 @@ def start_span_in_context(name: str) -> trace.Span:
 def start_detached_span(
     name: str, parent: Optional[trace.Span] = None, experiment_id: Optional[str] = None
 ) -> Optional[Tuple[str, trace.Span]]:
-    """
+    """:meta private:
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
     explicit parent span ID if provided.
 
@@ -89,7 +89,7 @@ def _setup_tracer_provider():
 
 
 def disable():
-    """
+    """:meta private:
     Disable tracing by setting the global tracer provider to NoOpTracerProvider.
     """
     if isinstance(trace.get_tracer_provider(), trace.NoOpTracerProvider):
@@ -103,7 +103,7 @@ def disable():
 
 
 def enable():
-    """
+    """:meta private:
     Enable tracing by setting the global tracer provider to the actual tracer provider.
     """
     from mlflow.tracing.provider import _setup_tracer_provider

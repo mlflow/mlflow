@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 
 
 def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
-    """
+    """:meta private:
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
     """
@@ -41,7 +41,7 @@ _TRACE_BUFFER = _initialize_trace_buffer()
 
 
 class InferenceTableSpanExporter(SpanExporter):
-    """
+    """:meta private:
     An exporter implementation that logs the traces to Inference Table.
 
     Currently the Inference Table does not use collector to receive the traces,
