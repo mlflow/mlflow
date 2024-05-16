@@ -250,7 +250,7 @@ def cloud_storage_http_request(
         backoff_jitter: A random jitter to add to the backoff interval.
         retry_codes: a list of HTTP response error codes that qualifies for retry.
         timeout: wait for timeout seconds for response from remote server for connect and
-            read request. Default to (60, None) which means 60 seconds for connect and no timeout
+            read request. Default to (30, None) which means 30 seconds for connect and no timeout
             for read.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`.
 
