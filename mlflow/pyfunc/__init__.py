@@ -968,8 +968,8 @@ def load_model(
         conf.get(MODEL_CONFIG, None), model_config, _logger
     )
     try:
-        # currently, we do not support loading langchain with model_config like this
-        # langchain model_config must be specified using ModelConfig() class in code
+        # currently, langchain model_config must be specified using ModelConfig() class in code
+        # TODO: support loading langchain with model_config using _load_pyfunc
         if model_config and "langchain" not in conf[MAIN]:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
         else:
@@ -2426,6 +2426,11 @@ def save_model(
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
+
+    # We loaded the code from model_code_path into python_model to infer the signature, but we
+    # don't want to save this python_model since the module won't be able to be imported.
+    if model_code_path:
+        python_model = None
 
     if input_example is not None:
         _save_example(mlflow_model, input_example, path, example_no_conversion)

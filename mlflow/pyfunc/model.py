@@ -283,7 +283,8 @@ def _save_model_with_class_artifacts_params(
         mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
         model_config: The model configuration for the flavor. Model configuration is available
             during model loading time.
-        model_code_path: The path to the code that is being logged as a PyFunc model.
+        model_code_path: The path to the code that is being logged as a PyFunc model. Can be used
+            to load python_model when python_model is None.
 
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.
@@ -294,9 +295,6 @@ def _save_model_with_class_artifacts_params(
     """
     if mlflow_model is None:
         mlflow_model = Model()
-
-    if python_model is None:
-        _logger.warning("The provided Python model is None. The model will be saved as None.")
 
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
@@ -388,13 +386,17 @@ def _save_model_with_class_artifacts_params(
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
-    if streamable is None:
+    if python_model and streamable is None:
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
-    if model_code_path:
+    if python_model:
+        loader_module = _get_pyfunc_loader_module(python_model)
+    elif model_code_path:
         loader_module = mlflow.pyfunc.loaders.code_model.__name__
     else:
-        loader_module = _get_pyfunc_loader_module(python_model)
+        raise MlflowException(
+            "Either `python_model` or `model_code_path` must be provided to save the model."
+        )
 
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
