@@ -1344,6 +1344,7 @@ def _map_field_type(field):
     return field_type_mapping.get(field)
 
 
+@experimental
 def convert_dataclass_to_schema(dataclass):
     """
     Converts a given dataclass into a Schema object. The dataclass must include type hints
@@ -1373,7 +1374,7 @@ def convert_dataclass_to_schema(dataclass):
             # It's a list, check the type within the list
             list_type = get_args(effective_type)[0]
             if is_dataclass(list_type):
-                dtype = convert_dataclass_to_nested_object(list_type)  # Convert to nested Object
+                dtype = _convert_dataclass_to_nested_object(list_type)  # Convert to nested Object
                 inputs.append(
                     ColSpec(type=Array(dtype=dtype), name=field_name, required=not is_optional)
                 )
@@ -1393,7 +1394,7 @@ def convert_dataclass_to_schema(dataclass):
                     )
         elif is_dataclass(effective_type):
             # It's a nested dataclass
-            dtype = convert_dataclass_to_nested_object(effective_type)  # Convert to nested Object
+            dtype = _convert_dataclass_to_nested_object(effective_type)  # Convert to nested Object
             inputs.append(
                 ColSpec(
                     type=dtype,
@@ -1419,17 +1420,17 @@ def convert_dataclass_to_schema(dataclass):
     return Schema(inputs=inputs)
 
 
-def convert_dataclass_to_nested_object(dataclass):
+def _convert_dataclass_to_nested_object(dataclass):
     """
     Convert a nested dataclass to an Object type used within a ColSpec.
     """
     properties = []
     for field_name, field_type in dataclass.__annotations__.items():
-        properties.append(convert_field_to_property(field_name, field_type))
+        properties.append(_convert_field_to_property(field_name, field_type))
     return Object(properties=properties)
 
 
-def convert_field_to_property(field_name, field_type):
+def _convert_field_to_property(field_name, field_type):
     """
     Helper function to convert a single field to a Property object suitable for inclusion in an
     Object.
@@ -1452,7 +1453,7 @@ def convert_field_to_property(field_name, field_type):
     elif is_dataclass(effective_type):
         return Property(
             name=field_name,
-            dtype=convert_dataclass_to_nested_object(effective_type),
+            dtype=_convert_dataclass_to_nested_object(effective_type),
             required=not is_optional,
         )
     else:
