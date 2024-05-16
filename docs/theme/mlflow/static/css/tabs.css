@@ -115,6 +115,13 @@ background-color: rgb(50, 50, 50);
     gap: 20px;
 }
 
+@media (max-width: 600px) {
+    .sub-container-two-columns {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
 .text-box {
     display: flex;
     flex-direction: column;
