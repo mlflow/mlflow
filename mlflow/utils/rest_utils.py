@@ -98,9 +98,10 @@ def http_request(
     if host_creds.databricks_workspace_client:
         try:
             if method == "GET":
-                extra_kwargs = {"query", kwargs["params"]}
+                extra_kwargs = {"query": kwargs["params"]}
             else:
-                extra_kwargs = {"body", kwargs["json"]}
+                extra_kwargs = {"body": kwargs["json"]}
+
             js_dict = host_creds.databricks_workspace_client.api_client.do(
                 method=method,
                 path=endpoint,
@@ -120,6 +121,7 @@ def http_request(
                         "message": str(e),
                     })
                 )
+
             raise MlflowException(
                 f"API request to endpoint '{endpoint}' failed with exception {e}"
             ) from e
