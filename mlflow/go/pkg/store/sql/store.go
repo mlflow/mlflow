@@ -86,6 +86,17 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 	return strconv.Itoa(int(*experiment.ExperimentID)), nil
 }
 
+func (s Store) SearchRuns(
+	experimentIDs []string,
+	filter *string,
+	runViewType *protos.ViewType,
+	maxResults *int32,
+	orderBy []string,
+	pageToken *string,
+) ([]*protos.Run, *string, *contract.Error) {
+	panic("implement me")
+}
+
 func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
 	uri, err := url.Parse(config.StoreURL)
 	if err != nil {

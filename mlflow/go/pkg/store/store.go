@@ -11,4 +11,13 @@ type MlflowStore interface {
 	GetExperiment(id string) (*protos.Experiment, *contract.Error)
 
 	CreateExperiment(input *protos.CreateExperiment) (string, *contract.Error)
+
+	SearchRuns(
+		experimentIDs []string,
+		filter *string,
+		runViewType *protos.ViewType,
+		maxResults *int32,
+		orderBy []string,
+		pageToken *string,
+	) (runs []*protos.Run, nextPageToken *string, err *contract.Error)
 }
