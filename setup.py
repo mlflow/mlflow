@@ -7,6 +7,14 @@ from typing import List, Tuple
 from setuptools import Distribution, setup
 
 
+def _is_go_installed() -> bool:
+    try:
+        subprocess.check_call(["go", "version"])
+        return True
+    except Exception:
+        return False
+
+
 def _get_platform() -> str:
     os = subprocess.check_output(["go", "env", "GOOS"]).strip().decode("utf-8")
     arch = subprocess.check_output(["go", "env", "GOARCH"]).strip().decode("utf-8")
@@ -28,20 +36,23 @@ def _get_platform() -> str:
 
 
 def finalize_distribution_options(dist: Distribution) -> None:
-    dist.has_ext_modules = lambda: True
+    go_installed = _is_go_installed()
 
-    bdist_wheel_base_class = dist.get_command_class("bdist_wheel")
+    dist.has_ext_modules = lambda: super(Distribution, dist).has_ext_modules() or go_installed
 
     # this allows us to set the tag for the wheel based on GOOS and GOARCH
-    class bdist_wheel_go(bdist_wheel_base_class):
-        def get_tag(self) -> Tuple[str, str, str]:
-            return "py3", "none", _get_platform()
+    if go_installed:
+        bdist_wheel_base_class = dist.get_command_class("bdist_wheel")
 
-    dist.cmdclass["bdist_wheel"] = bdist_wheel_go
+        class bdist_wheel_go(bdist_wheel_base_class):
+            def get_tag(self) -> Tuple[str, str, str]:
+                return "py3", "none", _get_platform()
 
+        dist.cmdclass["bdist_wheel"] = bdist_wheel_go
+
+    # this allows us to build the go binary and add the Go source files to the sdist
     build_base_class = dist.get_command_class("build")
 
-    # this allows us to build the go binary
     class build_go(build_base_class):
         def initialize_options(self) -> None:
             self.editable_mode = False
@@ -53,17 +64,18 @@ def finalize_distribution_options(dist: Distribution) -> None:
         def run(self) -> None:
             if not self.editable_mode:
                 shutil.rmtree(os.path.join(self.build_lib, "mlflow", "go"), ignore_errors=True)
-                subprocess.check_call(
-                    [
-                        "go",
-                        "build",
-                        "-ldflags",
-                        "-w -s",
-                        "-o",
-                        os.path.join(self.build_lib, "mlflow", "go", "server"),
-                        "./mlflow/go",
-                    ]
-                )
+                if go_installed:
+                    subprocess.check_call(
+                        [
+                            "go",
+                            "build",
+                            "-ldflags",
+                            "-w -s",
+                            "-o",
+                            os.path.join(self.build_lib, "mlflow", "go", "server"),
+                            "./mlflow/go",
+                        ]
+                    )
 
         def get_source_files(self) -> List[str]:
             return ["go.mod", "go.sum", *glob("mlflow/go/**/*.go", recursive=True)]
