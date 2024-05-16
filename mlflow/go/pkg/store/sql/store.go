@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
+	"github.com/ncruces/go-sqlite3/gormlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -16,6 +18,8 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql/model"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
+
+	_ "github.com/ncruces/go-sqlite3/embed" // embed sqlite3 driver
 )
 
 type Store struct {
@@ -83,7 +87,21 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 }
 
 func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
-	db, err := gorm.Open(postgres.Open(config.StoreURL), &gorm.Config{
+	uri, err := url.Parse(config.StoreURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse store URL %q: %w", config.StoreURL, err)
+	}
+
+	var dialector gorm.Dialector
+	switch uri.Scheme {
+	case "postgres", "postgresql":
+		dialector = postgres.Open(config.StoreURL)
+	case "sqlite":
+		dialector = gormlite.Open(strings.TrimPrefix(config.StoreURL, "sqlite:///"))
+	default:
+		return nil, fmt.Errorf("unsupported store URL scheme %q", uri.Scheme)
+	}
+	db, err := gorm.Open(dialector, &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.Default.LogMode(logger.Info),
 	})

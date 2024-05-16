@@ -103,8 +103,8 @@ def backend_uri(request, tmp_path, postgres_url):
 def mlflow_client(request, tmp_path, backend_uri, go_server_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if request.param == "go":
-        if not backend_uri.startswith("postgresql"):
-            pytest.skip("Go server currently only supports PostgreSQL backend")
+        if backend_uri.startswith("file"):
+            pytest.skip("Go server does not currently support the file backend")
 
     with _init_server(
         backend_uri,
