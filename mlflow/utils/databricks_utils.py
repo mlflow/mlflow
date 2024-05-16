@@ -549,7 +549,6 @@ def get_databricks_host_creds(server_uri=None):
         config = None
 
         for provider in [
-            _dynamic_token_config_provider,
             TrackingURIConfigProvider(server_uri),
             SparkTaskContextConfigProvider(),
             DatabricksModelServingConfigProvider(),
