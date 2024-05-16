@@ -641,7 +641,7 @@ class _LangChainModelWrapper:
         if is_in_databricks_model_serving_environment() and MLFLOW_ENABLE_TRACE_IN_SERVING.get():
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
-            callbacks = [MlflowLangchainTracer()]
+            callbacks = [MlflowLangchainTracer(prediction_context=get_prediction_context())]
         elif (context := get_prediction_context()) and context.is_evaluate:
             # NB: We enable traces automatically for the model evaluation. Note that we have to
             #   manually pass the context instance to callback, because LangChain callback may be
