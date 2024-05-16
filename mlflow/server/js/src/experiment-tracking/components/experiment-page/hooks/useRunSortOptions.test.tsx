@@ -58,6 +58,16 @@ describe('useRunSortOptions', () => {
         value: 'tags.`mlflow.source.git.commit`***DESCENDING',
         order: 'DESCENDING',
       },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***ASCENDING',
+        order: 'ASCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***DESCENDING',
+        order: 'DESCENDING',
+      },
     ]);
   });
 
