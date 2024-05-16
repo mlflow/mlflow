@@ -277,7 +277,7 @@ the ``__main__`` module.
     - If you must define functions and classes in the ``__main__`` module, use ``cloudpickle`` to serialize your model to ensure that all dependencies are correctly handled.
 
 
-Saving Extra Code with an MLflow Model - Legacy Manual Declaration
+Saving Extra Code with an MLflow Model - Manual Declaration
 ------------------------------------------------------------------
 MLflow also supports saving your custom Python code as dependencies to the model. This is particularly useful
 when you want to deploy your custom modules that are required for prediction with the model.
