@@ -139,7 +139,7 @@ class InMemoryTraceManager:
         """
         return self._trace_id_to_request_id.get(trace_id)
 
-    def get_mlflow_trace_from_trace(self, request_id: int) -> Optional[Trace]:
+    def get_mlflow_trace(self, request_id: int) -> Optional[Trace]:
         """
         Get the trace data for the given trace ID and return it as a ready-to-publish Trace object.
         """
