@@ -236,6 +236,7 @@ describe('ExperimentViewRunsTable', () => {
       'attributes.`Version`',
       'attributes.`Models`',
       'attributes.`Dataset`',
+      'attributes.`Description`',
     ];
 
     simpleExperimentsWrapper.setProps({
