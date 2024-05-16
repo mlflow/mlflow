@@ -760,7 +760,7 @@ def set_vector_search_schema(
 
         .. code-block:: python
 
-            from databricks.rag import set_vector_search_schema
+            from mlflow.langchain.utils import set_vector_search_schema
 
             set_vector_search_schema(
                 primary_key="chunk_id",

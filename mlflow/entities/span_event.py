@@ -2,7 +2,6 @@ import json
 import sys
 import time
 import traceback
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict
@@ -77,13 +76,11 @@ class CustomEncoder(json.JSONEncoder):
     """
 
     def default(self, o):
-        # convert datetime to string format by default
-        if isinstance(o, datetime):
-            return o.isoformat()
-        if isinstance(o, uuid.UUID):
-            return str(o)
         try:
             return super().default(o)
-        # convert object direct to string to avoid error in serialization
         except TypeError:
+            # convert datetime to string format by default
+            if isinstance(o, datetime):
+                return o.isoformat()
+            # convert object direct to string to avoid error in serialization
             return str(o)
