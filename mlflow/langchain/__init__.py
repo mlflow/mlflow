@@ -652,7 +652,10 @@ class _LangChainModelWrapper:
         else:
             callbacks = None
 
-        return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
+        convert_chat_responses = params.pop("convert_chat_responses", False)
+        return self._predict_with_callbacks(
+            data, params, callback_handlers=callbacks, convert_chat_responses=convert_chat_responses
+        )
 
     @experimental
     def _predict_with_callbacks(

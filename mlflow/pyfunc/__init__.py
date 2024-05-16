@@ -684,7 +684,13 @@ class PyFuncModel:
                     f"Error: {e}",
                 )
 
+        # temp workaround for rag model in model serving passing convert_chat_responses
+        # to predict method, we shouldn't validate its schema
+        if self.loader_module == "mlflow.langchain":
+            convert_chat_responses = params.pop("convert_chat_responses") if params else None
         params = _validate_params(params, self.metadata)
+        if convert_chat_responses:
+            params["convert_chat_responses"] = convert_chat_responses
         if HAS_PYSPARK and isinstance(data, SparkDataFrame):
             _logger.warning(
                 "Input data is a Spark DataFrame. Note that behaviour for "
