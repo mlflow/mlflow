@@ -3,7 +3,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import yaml
 
@@ -232,19 +232,17 @@ def _validate_path_exists(path, name):
         )
 
 
-def _validate_and_copy_file_path(file_path: Optional[str], path: str, name: str):
-    """Copies the file at file_path to a directory.
+def _validate_and_copy_file_to_directory(file_path: str, dir_path: str, name: str):
+    """Copies the file at file_path to the directory at dir_path.
 
     Args:
         file_path: A file that should be logged as an artifact.
-        path: The local model path.
+        dir_path: The path of the directory to save the file to.
         name: The name for the kind of file being copied.
     """
-    if not file_path:
-        return
     _validate_path_exists(file_path, name)
     try:
-        _copy_file_or_tree(src=file_path, dst=path)
+        _copy_file_or_tree(src=file_path, dst=dir_path)
     except OSError as e:
         # A common error is code-paths includes Databricks Notebook. We include it in error
         # message when running in Databricks, but not in other envs tp avoid confusion.
@@ -388,14 +386,16 @@ def _validate_and_get_model_config_from_file(model_config):
             try:
                 return yaml.safe_load(file)
             except yaml.YAMLError as e:
-                raise yaml.YAMLError(
+                raise MlflowException(
                     f"The provided `model_config` file '{model_config}' is not a valid YAML "
-                    f"file: {e}"
+                    f"file: {e}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
     else:
-        raise MlflowException.invalid_parameter_value(
+        raise MlflowException(
             "An invalid `model_config` file was passed. The provided `model_config` "
-            f"file '{model_config}'is not a valid file path."
+            f"file '{model_config}'is not a valid file path.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
 
@@ -418,10 +418,12 @@ def _validate_pyfunc_model_config(model_config):
         except (TypeError, OverflowError):
             raise MlflowException(
                 "Values in the provided ``model_config`` are of an unsupported type. Only "
-                "JSON-serializable data types can be provided as values."
+                "JSON-serializable data types can be provided as values.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     else:
         raise MlflowException(
             "An invalid ``model_config`` structure was passed. ``model_config`` must be a "
-            "valid file path or of type ``dict`` with string keys."
+            "valid file path or of type ``dict`` with string keys.",
+            error_code=INVALID_PARAMETER_VALUE,
         )

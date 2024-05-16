@@ -5,6 +5,7 @@ import os
 import sys
 import types
 import uuid
+from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Tuple
 from unittest import mock
@@ -886,12 +887,12 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
 
 def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(tmp_path):
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance, callable object, or filepath"
+        MlflowException, match="must be a PythonModel instance, callable object, or path to a"
     ):
         mlflow.pyfunc.save_model(path=os.path.join(tmp_path, "model1"), python_model=5)
 
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance, callable object, or filepath"
+        MlflowException, match="must be a PythonModel instance, callable object, or path to a"
     ):
         mlflow.pyfunc.save_model(
             path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
@@ -1663,10 +1664,23 @@ def test_model_log_with_resources(tmp_path):
     assert reloaded_model.resources == expected_resources
 
 
-def test_pyfunc_as_code_log_and_load(tmp_path):
+def test_pyfunc_as_code_log_and_load():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model="tests/pyfunc/pyfunc_sample_code.py",
+            artifact_path="model",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_with_path():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=Path("tests/pyfunc/pyfunc_sample_code.py"),
             artifact_path="model",
         )
 
@@ -1685,6 +1699,23 @@ def test_pyfunc_as_code_with_config(tmp_path):
             python_model="tests/pyfunc/pyfunc_sample_code_with_config.py",
             artifact_path="model",
             model_config=str(temp_file),
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_path_config(tmp_path):
+    temp_file = tmp_path / "config.yml"
+    temp_file.write_text("timeout: 400")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/pyfunc_sample_code_with_config.py",
+            artifact_path="model",
+            model_config=temp_file,
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)

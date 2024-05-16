@@ -287,7 +287,8 @@ def _get_supported_llms():
     return supported_llms
 
 
-def _validate_and_wrap_lc_model(lc_model, loader_fn):
+def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn):
+    """ """
     import langchain.agents.agent
     import langchain.chains.base
     import langchain.chains.llm

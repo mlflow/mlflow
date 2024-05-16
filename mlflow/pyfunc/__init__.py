@@ -502,7 +502,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
-    _validate_and_copy_file_path,
+    _validate_and_copy_file_to_directory,
     _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
     _validate_infer_and_copy_code_paths,
@@ -963,14 +963,11 @@ def load_model(
     if isinstance(model_config, str):
         model_config = _validate_and_get_model_config_from_file(model_config)
 
-    # conf.get(MODEL_CONFIG) this should ALWAYS be a dict (no more saving as file!)
     model_config = _get_overridden_pyfunc_model_config(
         conf.get(MODEL_CONFIG, None), model_config, _logger
     )
     try:
-        # currently, langchain model_config must be specified using ModelConfig() class in code
-        # TODO: support loading langchain with model_config using _load_pyfunc
-        if model_config and "langchain" not in conf[MAIN]:
+        if model_config:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
         else:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
@@ -2105,8 +2102,8 @@ Compound types:
 def _validate_function_python_model(python_model):
     if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
-            "`python_model` must be a PythonModel instance, callable object, or filepath that "
-            "uses set_model() to set a PythonModel instance or callable object.",
+            "`python_model` must be a PythonModel instance, callable object, or path to a script "
+            "that uses set_model() to set a PythonModel instance or callable object.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -2305,7 +2302,7 @@ def save_model(
 
         if isinstance(python_model, str):
             model_code_path = _validate_and_get_model_code_path(python_model)
-            _validate_and_copy_file_path(model_code_path, path, "code")
+            _validate_and_copy_file_to_directory(model_code_path, path, "code")
             python_model = _load_model_code_path(model_code_path, model_config)
 
         _validate_function_python_model(python_model)
@@ -2426,11 +2423,6 @@ def save_model(
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
-
-    # We loaded the code from model_code_path into python_model to infer the signature, but we
-    # don't want to save this python_model since the module won't be able to be imported.
-    if model_code_path:
-        python_model = None
 
     if input_example is not None:
         _save_example(mlflow_model, input_example, path, example_no_conversion)

@@ -23,7 +23,7 @@ class _CodeModelPyfuncWrapper:
         Args:
             model: An instance of a subclass of :class:`~PythonModel`.
             context: A :class:`~PythonModelContext` instance containing artifacts that
-                        ``chat_model`` may use when performing inference.
+                        ``_CodeModelPyfuncWrapper`` may use when performing inference.
             signature: :class:`~ModelSignature` instance describing model input and output.
         """
         self.python_model = model

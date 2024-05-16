@@ -45,7 +45,7 @@ from mlflow.langchain.utils import (
     _load_base_lcs,
     _load_from_yaml,
     _save_base_lcs,
-    _validate_and_wrap_lc_model,
+    _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
     patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
@@ -88,7 +88,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _validate_and_copy_file_path,
+    _validate_and_copy_file_to_directory,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -252,7 +252,7 @@ def save_model(
     import langchain
     from langchain.schema import BaseRetriever
 
-    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
+    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -260,11 +260,11 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     model_code_path = None
-    if isinstance(lc_model, str):
+    if isinstance(lc_model_or_path, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
-        model_code_path = lc_model
+        model_code_path = lc_model_or_path
         if isinstance(model_config, str):
             if os.path.exists(model_config):
                 model_config = _load_from_yaml(model_config)
@@ -275,7 +275,9 @@ def save_model(
                 )
 
         lc_model = _load_model_code_path(model_code_path, model_config)
-        _validate_and_copy_file_path(model_code_path, path, "code")
+        _validate_and_copy_file_to_directory(model_code_path, path, "code")
+    else:
+        lc_model = lc_model_or_path
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -535,7 +537,7 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
+    lc_model = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
 
     return Model.log(
         artifact_path=artifact_path,
@@ -820,7 +822,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         return result
 
 
-def _load_pyfunc(path):
+# TODO: Support loading langchain with model_config. For now, this is a no-op.
+def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:

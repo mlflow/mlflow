@@ -21,6 +21,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.signature import _extract_type_hints
 from mlflow.models.utils import _load_model_code_path
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
@@ -283,6 +284,10 @@ def _save_model_with_class_artifacts_params(
         mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
         model_config: The model configuration for the flavor. Model configuration is available
             during model loading time.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future release
+                without warning.
+
         model_code_path: The path to the code that is being logged as a PyFunc model. Can be used
             to load python_model when python_model is None.
 
@@ -303,33 +308,36 @@ def _save_model_with_class_artifacts_params(
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
-    try:
-        with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-            cloudpickle.dump(python_model, out)
-    except Exception as e:
-        # cloudpickle sometimes raises TypeError instead of PicklingError.
-        # catching generic Exception and checking message to handle both cases.
-        if "cannot pickle" in str(e).lower():
-            raise MlflowException(
-                "Failed to serialize Python model. Please audit your "
-                "class variables (e.g. in `__init__()`) for any "
-                "unpicklable objects. If you're trying to save an external model "
-                "in your custom pyfunc, Please use the `artifacts` parameter "
-                "in `mlflow.pyfunc.save_model()`, and load your external model "
-                "in the `load_context()` method instead. For example:\n\n"
-                "class MyModel(mlflow.pyfunc.PythonModel):\n"
-                "    def load_context(self, context):\n"
-                "        model_path = context.artifacts['my_model_path']\n"
-                "        // custom load logic here\n"
-                "        self.model = load_model(model_path)\n\n"
-                "For more information, see our full tutorial at: "
-                "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
-                f"\n\nFull serialization error: {e}"
-            ) from None
-        else:
-            raise e
+    # If model_code_path is defined, we load the model into python_model, but we don't want to
+    # pickle/save the python_model since the module won't be able to be imported.
+    if not model_code_path:
+        try:
+            with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
+                cloudpickle.dump(python_model, out)
+        except Exception as e:
+            # cloudpickle sometimes raises TypeError instead of PicklingError.
+            # catching generic Exception and checking message to handle both cases.
+            if "cannot pickle" in str(e).lower():
+                raise MlflowException(
+                    "Failed to serialize Python model. Please audit your "
+                    "class variables (e.g. in `__init__()`) for any "
+                    "unpicklable objects. If you're trying to save an external model "
+                    "in your custom pyfunc, Please use the `artifacts` parameter "
+                    "in `mlflow.pyfunc.save_model()`, and load your external model "
+                    "in the `load_context()` method instead. For example:\n\n"
+                    "class MyModel(mlflow.pyfunc.PythonModel):\n"
+                    "    def load_context(self, context):\n"
+                    "        model_path = context.artifacts['my_model_path']\n"
+                    "        // custom load logic here\n"
+                    "        self.model = load_model(model_path)\n\n"
+                    "For more information, see our full tutorial at: "
+                    "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
+                    f"\n\nFull serialization error: {e}"
+                ) from None
+            else:
+                raise e
 
-    custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
+        custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
 
     if artifacts:
         saved_artifacts_config = {}
@@ -386,16 +394,17 @@ def _save_model_with_class_artifacts_params(
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
-    if python_model and streamable is None:
+    if streamable is None:
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
-    if python_model:
-        loader_module = _get_pyfunc_loader_module(python_model)
-    elif model_code_path:
+    if model_code_path:
         loader_module = mlflow.pyfunc.loaders.code_model.__name__
+    elif python_model:
+        loader_module = _get_pyfunc_loader_module(python_model)
     else:
         raise MlflowException(
-            "Either `python_model` or `model_code_path` must be provided to save the model."
+            "Either `python_model` or `model_code_path` must be provided to save the model.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     mlflow.pyfunc.add_to_model(
