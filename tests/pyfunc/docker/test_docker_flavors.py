@@ -98,7 +98,7 @@ def start_container(port: int):
             sys.stdout.write(line.decode("utf-8"))
 
     # Start a thread to stream logs from the container
-    thread = threading.Thread(target=log_stream)
+    thread = threading.Thread(target=log_stream, daemon=True)
     thread.start()
 
     try:
