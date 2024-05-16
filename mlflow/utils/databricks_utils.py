@@ -857,6 +857,10 @@ def get_databricks_env_vars(tracking_uri):
         env_vars["DATABRICKS_TOKEN"] = config.token
     if config.insecure:
         env_vars["DATABRICKS_INSECURE"] = str(config.insecure)
+    if config.client_id:
+        env_vars["DATABRICKS_CLIENT_ID"] = config.client_id
+    if config.client_secret:
+        env_vars["DATABRICKS_CLIENT_SECRET"] = config.client_secret
 
     workspace_info = get_databricks_workspace_info_from_uri(tracking_uri)
     if workspace_info is not None:
