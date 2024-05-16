@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import sys
+import threading
 import time
 from operator import itemgetter
 
@@ -90,10 +91,19 @@ def start_container(port: int):
         detach=True,
     )
 
+    stream = container.logs(stream=True)
+
+    def log_stream():
+        for line in stream:
+            sys.stdout.write(line.decode("utf-8"))
+
+    # Start a thread to stream logs from the container
+    thread = threading.Thread(target=log_stream)
+    thread.start()
+
     try:
         # Wait for the server to start
         for _ in range(30):
-            sys.stdout.write(container.logs().decode("utf-8"))
             try:
                 response = requests.get(url=f"http://localhost:{port}/ping")
                 if response.ok:
@@ -107,6 +117,7 @@ def start_container(port: int):
     finally:
         container.stop()
         container.remove()
+        thread.join(timeout=5)
 
 
 @pytest.mark.parametrize(
