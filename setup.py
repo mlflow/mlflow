@@ -9,7 +9,9 @@ from setuptools import Distribution, setup
 
 def _is_go_installed() -> bool:
     try:
-        subprocess.check_call(["go", "version"])
+        subprocess.check_call(
+            ["go", "version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
         return True
     except Exception:
         return False
