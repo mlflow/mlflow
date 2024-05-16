@@ -144,22 +144,6 @@ jobs:
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
 
-  go:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13] # macos-13 for x86_x64 arch
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-go
-      - name: Run tests
-        run: go test -v ./mlflow/go/...
-
   java:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
