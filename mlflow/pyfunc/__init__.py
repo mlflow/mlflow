@@ -689,7 +689,7 @@ class PyFuncModel:
         if self.loader_module == "mlflow.langchain":
             convert_chat_responses = params.pop("convert_chat_responses") if params else None
         params = _validate_params(params, self.metadata)
-        if convert_chat_responses:
+        if convert_chat_responses is not None:
             params["convert_chat_responses"] = convert_chat_responses
         if HAS_PYSPARK and isinstance(data, SparkDataFrame):
             _logger.warning(
@@ -726,7 +726,7 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-
+        logging.warning(f"data before schema validation:\ndata={data}\nparams={params}\n")
         data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
