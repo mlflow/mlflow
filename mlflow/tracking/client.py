@@ -594,9 +594,9 @@ class MlflowClient:
         except Exception as e:
             _logger.warning(
                 f"Failed to start trace {name}: {e}. "
-                "For full traceback, set logging level to debug."
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-            _logger.debug("Showing full traceback: ", exc_info=True)
             return NoOpSpan()
 
     @experimental
@@ -793,9 +793,9 @@ class MlflowClient:
         except Exception as e:
             _logger.warning(
                 f"Failed to start span {name}: {e}. "
-                "For full traceback, set logging level to debug."
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-            _logger.debug("Showing full traceback: ", exc_info=True)
             return NoOpSpan()
 
     @experimental
