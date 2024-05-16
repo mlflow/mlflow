@@ -88,8 +88,6 @@ def start_container(port: int):
         image=TEST_IMAGE_NAME,
         ports={8080: port},
         detach=True,
-        stdout=True,
-        stderr=True,
     )
 
     try:
