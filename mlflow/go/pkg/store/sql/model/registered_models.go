@@ -1,6 +1,6 @@
 package model
 
-// RegisteredModel mapped from table <registered_models>
+// RegisteredModel mapped from table <registered_models>.
 type RegisteredModel struct {
 	Name            *string `db:"name"              gorm:"column:name;primaryKey"`
 	CreationTime    *int64  `db:"creation_time"     gorm:"column:creation_time"`

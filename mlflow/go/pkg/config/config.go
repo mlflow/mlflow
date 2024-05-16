@@ -40,6 +40,6 @@ type Config struct {
 	PythonEnv           []string
 	ShutdownTimeout     Duration
 	StaticFolder        string
-	StoreUrl            string
+	StoreURL            string
 	Version             string
 }

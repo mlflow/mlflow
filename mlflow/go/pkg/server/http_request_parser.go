@@ -13,17 +13,21 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
-type HttpRequestParser struct {
+type HTTPRequestParser struct {
 	validator *validator.Validate
 }
 
-func NewHttpRequestParser() *HttpRequestParser {
-	return &HttpRequestParser{
-		validator: NewValidator(),
+func NewHTTPRequestParser() (*HTTPRequestParser, error) {
+	v, err := NewValidator()
+	if err != nil {
+		return nil, err
 	}
+	return &HTTPRequestParser{
+		validator: v,
+	}, nil
 }
 
-func (p *HttpRequestParser) ParseBody(ctx *fiber.Ctx, input interface{}) *contract.Error {
+func (p *HTTPRequestParser) ParseBody(ctx *fiber.Ctx, input interface{}) *contract.Error {
 	if err := ctx.BodyParser(input); err != nil {
 		switch err := err.(type) {
 		case *json.UnmarshalTypeError:
@@ -32,7 +36,10 @@ func (p *HttpRequestParser) ParseBody(ctx *fiber.Ctx, input interface{}) *contra
 			if value == "" {
 				value = result.Raw
 			}
-			return contract.NewError(protos.ErrorCode_INVALID_PARAMETER_VALUE, fmt.Sprintf("Invalid value %s for parameter '%s'", value, err.Field))
+			return contract.NewError(
+				protos.ErrorCode_INVALID_PARAMETER_VALUE,
+				fmt.Sprintf("Invalid value %s for parameter '%s'", value, err.Field),
+			)
 		default:
 			return contract.NewError(protos.ErrorCode_BAD_REQUEST, err.Error())
 		}
@@ -45,7 +52,7 @@ func (p *HttpRequestParser) ParseBody(ctx *fiber.Ctx, input interface{}) *contra
 	return nil
 }
 
-func (p *HttpRequestParser) ParseQuery(ctx *fiber.Ctx, input interface{}) *contract.Error {
+func (p *HTTPRequestParser) ParseQuery(ctx *fiber.Ctx, input interface{}) *contract.Error {
 	if err := ctx.QueryParser(input); err != nil {
 		return contract.NewError(protos.ErrorCode_BAD_REQUEST, err.Error())
 	}

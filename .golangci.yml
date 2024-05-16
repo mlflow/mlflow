@@ -1,18 +1,24 @@
 linters:
+  enable:
+    - errcheck
+    - gosimple
+    - lll
+  disable:
+    - depguard
   presets:
     # - bugs
-    # - comment
+    - comment
     # - complexity
     # - error
     - format
-    # - import
-    # - metalinter
-    # - module
-    # - performance
-    # - sql
+    - import
+    - metalinter
+    - module
+    - performance
+    - sql
     # - style
     # - test
-    # - unused
+    - unused
 
 linters-settings:
   gci:

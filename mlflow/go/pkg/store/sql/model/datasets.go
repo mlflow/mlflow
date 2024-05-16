@@ -1,6 +1,6 @@
 package model
 
-// Dataset mapped from table <datasets>
+// Dataset mapped from table <datasets>.
 type Dataset struct {
 	DatasetUUID       *string `db:"dataset_uuid"        gorm:"column:dataset_uuid;not null"`
 	ExperimentID      *int32  `db:"experiment_id"       gorm:"column:experiment_id;primaryKey"`

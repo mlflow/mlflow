@@ -8,7 +8,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
 
-// Experiment mapped from table <experiments>
+// Experiment mapped from table <experiments>.
 type Experiment struct {
 	ExperimentID     *int32          `gorm:"column:experiment_id;primaryKey;autoIncrement:true" json:"experiment_id"`
 	Name             *string         `gorm:"column:name;not null"                               json:"name"`

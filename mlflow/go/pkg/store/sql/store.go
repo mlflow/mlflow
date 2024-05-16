@@ -76,20 +76,19 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 				protos.ErrorCode_RESOURCE_ALREADY_EXISTS,
 				fmt.Sprintf("Experiment(name=%s) already exists.", *experiment.Name),
 			)
-		} else {
-			return "", contract.NewErrorWith(protos.ErrorCode_INTERNAL_ERROR, "failed to create experiment", err)
 		}
+		return "", contract.NewErrorWith(protos.ErrorCode_INTERNAL_ERROR, "failed to create experiment", err)
 	}
 	return strconv.Itoa(int(*experiment.ExperimentID)), nil
 }
 
-func NewSqlStore(config *config.Config) (store.MlflowStore, error) {
-	db, err := gorm.Open(postgres.Open(config.StoreUrl), &gorm.Config{
+func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
+	db, err := gorm.Open(postgres.Open(config.StoreURL), &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database %q: %w", config.StoreUrl, err)
+		return nil, fmt.Errorf("failed to connect to database %q: %w", config.StoreURL, err)
 	}
 
 	return &Store{config: config, db: db}, nil

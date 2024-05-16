@@ -1,6 +1,6 @@
 package model
 
-// Param mapped from table <params>
+// Param mapped from table <params>.
 type Param struct {
 	Key     *string `db:"key"      gorm:"column:key;primaryKey"`
 	Value   *string `db:"value"    gorm:"column:value;not null"`

@@ -1,6 +1,6 @@
 package model
 
-// Metric mapped from table <metrics>
+// Metric mapped from table <metrics>.
 type Metric struct {
 	Key       *string  `db:"key"       gorm:"column:key;primaryKey"`
 	Value     *float64 `db:"value"     gorm:"column:value;primaryKey"`

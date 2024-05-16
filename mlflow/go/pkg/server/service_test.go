@@ -10,11 +10,11 @@ import (
 
 type FakeStore struct{}
 
-func (f FakeStore) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
+func (f FakeStore) GetExperiment(_ string) (*protos.Experiment, *contract.Error) {
 	return nil, nil
 }
 
-func (f FakeStore) CreateExperiment(input *protos.CreateExperiment) (string, *contract.Error) {
+func (f FakeStore) CreateExperiment(_ *protos.CreateExperiment) (string, *contract.Error) {
 	return "", nil
 }
 

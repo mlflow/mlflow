@@ -1,6 +1,6 @@
 package model
 
-// LatestMetric mapped from table <latest_metrics>
+// LatestMetric mapped from table <latest_metrics>.
 type LatestMetric struct {
 	Key       *string  `db:"key"       gorm:"column:key;primaryKey"`
 	Value     *float64 `db:"value"     gorm:"column:value;not null"`

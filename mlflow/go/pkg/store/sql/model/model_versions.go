@@ -1,6 +1,8 @@
 package model
 
-// ModelVersion mapped from table <model_versions>
+// ModelVersion mapped from table <model_versions>.
+//
+//revive:disable:exported
 type ModelVersion struct {
 	Name            *string `db:"name"              gorm:"column:name;primaryKey"`
 	Version         *int32  `db:"version"           gorm:"column:version;primaryKey"`

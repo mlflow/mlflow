@@ -1,6 +1,6 @@
 package model
 
-// Run mapped from table <runs>
+// Run mapped from table <runs>.
 type Run struct {
 	RunUUID        *string `db:"run_uuid"         gorm:"column:run_uuid;primaryKey"`
 	Name           *string `db:"name"             gorm:"column:name"`

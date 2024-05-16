@@ -32,13 +32,13 @@ type Endpoint struct {
 
 var routeParameterRegex = regexp.MustCompile(`<[^>]+:([^>]+)>`)
 
-// Get the safe path to use in Fiber registration
+// Get the safe path to use in Fiber registration.
 func (e Endpoint) GetFiberPath() string {
 	// e.Path cannot be trusted, it could be something like /mlflow-artifacts/artifacts/<path:artifact_path>
 	// Which would need to converted to /mlflow-artifacts/artifacts/:path
 	path := routeParameterRegex.ReplaceAllStringFunc(e.Path, func(s string) string {
 		parts := strings.Split(s, ":")
-		return fmt.Sprintf(":%s", strings.Trim(parts[0], "< "))
+		return ":" + strings.Trim(parts[0], "< ")
 	})
 	return path
 }
@@ -78,7 +78,9 @@ func GetServiceInfos() []ServiceInfo {
 			}
 
 			output := fmt.Sprintf("%s_%s", string(method.Output().Parent().Name()), string(method.Output().Name()))
-			methodInfo := MethodInfo{string(method.Name()), service.PackageName, string(method.Input().Name()), output, endpoints}
+			methodInfo := MethodInfo{
+				string(method.Name()), service.PackageName, string(method.Input().Name()), output, endpoints,
+			}
 			serviceInfo.Methods = append(serviceInfo.Methods, methodInfo)
 		}
 

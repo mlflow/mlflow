@@ -1,6 +1,8 @@
 package model
 
-// ModelVersionTag mapped from table <model_version_tags>
+// ModelVersionTag mapped from table <model_version_tags>.
+//
+//revive:disable:exported
 type ModelVersionTag struct {
 	Key     *string `db:"key"     gorm:"column:key;primaryKey"`
 	Value   *string `db:"value"   gorm:"column:value"`

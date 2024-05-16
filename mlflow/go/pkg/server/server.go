@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"path/filepath"
 	"time"
@@ -27,7 +26,7 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 		ReadTimeout:           5 * time.Second,
 		WriteTimeout:          600 * time.Second,
 		IdleTimeout:           120 * time.Second,
-		ServerHeader:          fmt.Sprintf("mlflow/%s", cfg.Version),
+		ServerHeader:          "mlflow/" + cfg.Version,
 		DisableStartupMessage: true,
 	})
 
@@ -38,7 +37,7 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 		Output: logrus.StandardLogger().Writer(),
 	}))
 
-	apiApp, err := newApiApp(cfg)
+	apiApp, err := newAPIApp(cfg)
 	if err != nil {
 		return err
 	}
@@ -83,7 +82,7 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	return app.Listen(cfg.Address)
 }
 
-func newApiApp(cfg *config.Config) (*fiber.App, error) {
+func newAPIApp(cfg *config.Config) (*fiber.App, error) {
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			var e *contract.Error
@@ -124,7 +123,10 @@ func newApiApp(cfg *config.Config) (*fiber.App, error) {
 		},
 	})
 
-	parser := NewHttpRequestParser()
+	parser, err := NewHTTPRequestParser()
+	if err != nil {
+		return nil, err
+	}
 
 	mlflowService, err := NewMlflowService(cfg)
 	if err != nil {

@@ -39,6 +39,7 @@ func main() {
 	}()
 
 	logrus.Infof("Starting MLflow experimental Go server on http://%s", config.Address)
+
 	if err := server.Launch(ctx, &config); err != nil {
 		logrus.Fatal(err)
 	}

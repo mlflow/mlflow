@@ -20,7 +20,9 @@ type MlflowService struct {
 }
 
 // CreateExperiment implements MlflowService.
-func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos.CreateExperiment_Response, *contract.Error) {
+func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (
+	*protos.CreateExperiment_Response, *contract.Error,
+) {
 	if utils.IsNotNilOrEmptyString(input.ArtifactLocation) {
 		artifactLocation := strings.TrimRight(*input.ArtifactLocation, "/")
 
@@ -30,7 +32,10 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (*protos
 		case "file", "":
 			p, err := filepath.Abs(u.Path)
 			if err != nil {
-				return nil, contract.NewError(protos.ErrorCode_INVALID_PARAMETER_VALUE, fmt.Sprintf("error getting absolute path: %v", err))
+				return nil, contract.NewError(
+					protos.ErrorCode_INVALID_PARAMETER_VALUE,
+					fmt.Sprintf("error getting absolute path: %v", err),
+				)
 			}
 			u.Path = p
 			artifactLocation = u.String()
@@ -71,7 +76,7 @@ var (
 )
 
 func NewMlflowService(config *config.Config) (contract.MlflowService, error) {
-	store, err := sql.NewSqlStore(config)
+	store, err := sql.NewSQLStore(config)
 	if err != nil {
 		return nil, err
 	}

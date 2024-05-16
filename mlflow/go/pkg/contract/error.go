@@ -13,7 +13,7 @@ func (e ErrorCode) String() string {
 	return protos.ErrorCode(e).String()
 }
 
-// Custom json marshalling for ErrorCode
+// Custom json marshalling for ErrorCode.
 func (e ErrorCode) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.String())
 }

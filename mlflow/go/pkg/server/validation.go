@@ -9,7 +9,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-func NewValidator() *validator.Validate {
+func NewValidator() (*validator.Validate, error) {
 	validate := validator.New()
 
 	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
@@ -22,29 +22,39 @@ func NewValidator() *validator.Validate {
 	})
 
 	// Verify that the input string is a positive integer.
-	validate.RegisterValidation("stringAsPositiveInteger", func(fl validator.FieldLevel) bool {
-		valueStr := fl.Field().String()
-		value, err := strconv.Atoi(valueStr)
-		if err != nil {
-			return false
-		}
-		return value > -1
-	})
+	if err := validate.RegisterValidation(
+		"stringAsPositiveInteger",
+		func(fl validator.FieldLevel) bool {
+			valueStr := fl.Field().String()
+			value, err := strconv.Atoi(valueStr)
+			if err != nil {
+				return false
+			}
+			return value > -1
+		},
+	); err != nil {
+		return nil, err
+	}
 
 	// Verify that the input string, if present, is a Url without fragment or query parameters
-	validate.RegisterValidation("uriWithoutFragmentsOrParamsOrDotDotInQuery", func(fl validator.FieldLevel) bool {
-		valueStr := fl.Field().String()
-		if valueStr == "" {
-			return true
-		}
+	if err := validate.RegisterValidation(
+		"uriWithoutFragmentsOrParamsOrDotDotInQuery",
+		func(fl validator.FieldLevel) bool {
+			valueStr := fl.Field().String()
+			if valueStr == "" {
+				return true
+			}
 
-		u, err := url.Parse(valueStr)
-		if err != nil {
-			return false
-		}
+			u, err := url.Parse(valueStr)
+			if err != nil {
+				return false
+			}
 
-		return u.Fragment == "" && u.RawQuery == "" && !strings.Contains(u.RawQuery, "..")
-	})
+			return u.Fragment == "" && u.RawQuery == "" && !strings.Contains(u.RawQuery, "..")
+		},
+	); err != nil {
+		return nil, err
+	}
 
-	return validate
+	return validate, nil
 }
