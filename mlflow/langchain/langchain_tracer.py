@@ -582,7 +582,7 @@ def convert_llm_outputs(
         "generated_text": "generated_text1",
     }
     """
-    generated_text: str = ""
+    generated_text = ""
     if "generations" in outputs:
         generations: List[List[Dict[str, Any]]] = outputs["generations"]
         if len(generations) > 0 and len(generations[0]) > 0:

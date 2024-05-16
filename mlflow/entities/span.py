@@ -183,7 +183,7 @@ class Span:
             "parent_id": self.parent_id,
             "start_time": self.start_time_ns,
             "end_time": self.end_time_ns,
-            "status_code": str(self.status.status_code.value),
+            "status_code": self.status.status_code.value,
             "status_message": self.status.description,
             "attributes": dict(self._span.attributes),
             "events": events,

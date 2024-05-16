@@ -739,8 +739,8 @@ DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS = "__databricks_vector_search_other_colum
 
 def set_vector_search_schema(
     primary_key: str,
-    text_column: Optional[str] = "",
-    doc_uri: Optional[str] = "",
+    text_column: str = "",
+    doc_uri: str = "",
     other_columns: Optional[List[str]] = None,
 ):
     """
