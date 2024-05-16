@@ -447,12 +447,16 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
 
 def _fail_malformed_databricks_auth(tracking_uri):
     raise MlflowException(
-        f"Reading databricks credential configuration failed using.tracking URI {tracking_uri}"
+        f"Reading databricks credential configuration failed using tracking URI {tracking_uri}"
         "Please ensure that you installed 'databricks-sdk' library, set correct tracking "
-        "URI and set up databricks authentication configuration file locally via databricks-cli "
+        "URI and set up databricks authentication configuration correctly. "
         "command tool. The available tracking URI can be either 'databricks' "
-        "(using DEFAULT authentication profile) or 'databricks://{profile}' or "
-        "'databricks://{scope}:{key-prefix}'."
+        "(using 'DEFAULT' authentication profile) or 'databricks://{profile}'. "
+        "To set up databricks authentication configuration, you can set environmental "
+        "variables DATABRICKS_HOST + DATABRICKS_TOKEN, or set environmental variables "
+        "DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET, or you can "
+        "edit '~/.databrickscfg' file to set host + token or host + client_id + client_secret "
+        "for specific profile section."
     )
 
 
