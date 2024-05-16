@@ -25,7 +25,7 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_trace_id,
     get_otel_attribute,
-    maybe_get_evaluation_request_id,
+    maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
@@ -98,7 +98,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
-        if request_id := maybe_get_evaluation_request_id():
+        if request_id := maybe_get_request_id(is_evaluate=True):
             default_tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
         try:
             trace_info = self._client._start_tracked_trace(

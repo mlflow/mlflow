@@ -166,10 +166,14 @@ class Span:
         """
         return self._attributes.get(key)
 
-    def to_dict(self):
+    def to_dict(self, dump_events=False):
         # NB: OpenTelemetry Span has to_json() method, but it will write many fields that
         #  we don't use e.g. links, kind, resource, trace_state, etc. So we manually
         #  cherry-pick the fields we need here.
+        if dump_events:
+            events = [event.json() for event in self.events]
+        else:
+            events = [asdict(event) for event in self.events]
         return {
             "name": self.name,
             "context": {
@@ -179,10 +183,10 @@ class Span:
             "parent_id": self.parent_id,
             "start_time": self.start_time_ns,
             "end_time": self.end_time_ns,
-            "status_code": self.status.status_code,
+            "status_code": self.status.status_code.value,
             "status_message": self.status.description,
             "attributes": dict(self._span.attributes),
-            "events": [asdict(event) for event in self.events],
+            "events": events,
         }
 
     @classmethod
