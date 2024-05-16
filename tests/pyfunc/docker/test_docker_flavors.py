@@ -104,13 +104,15 @@ def start_container(port: int):
     try:
         # Wait for the server to start
         for _ in range(30):
-            sys.stdout.write(f"Container status: {container.status}\n")
             try:
                 response = requests.get(url=f"http://localhost:{port}/ping")
                 if response.ok:
                     break
             except requests.exceptions.ConnectionError:
                 time.sleep(5)
+
+            container.reload()
+            sys.stdout.write(f"Container status: {container.status}\n")
 
         else:
             raise TimeoutError("Failed to start server.")
