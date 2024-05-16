@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 import shutil
 import sys
@@ -289,6 +290,19 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
+
+        code_path = Path(code_path)
+        modules_to_reload = set()
+        for loaded_module in sys.modules:
+            mod_path = code_path / loaded_module.replace('.', os.sep)
+
+            if mod_path.is_dir() or mod_path.with_name(mod_path.name + ".py").is_file():
+                # this is a module loaded from code path
+                modules_to_reload.add(loaded_module)
+
+        # invalidate these modules cache, to ensure they are reloaded when loading model.
+        for module in modules_to_reload:
+            sys.modules.pop(module)
 
 
 def _validate_onnx_session_options(onnx_session_options):
