@@ -14,13 +14,13 @@ import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
  * @param runUuids List of run UUIDs in compare chart
  */
 export const useCompareRunChartSelectedRange = (
-  range: [number | string, number | string] | undefined,
   xAxisKey: RunsChartsLineChartXAxisType,
   metricKey: string,
   sampledMetricsByRunUuid: SampledMetricsByRunUuidState,
   runUuids: string[],
   scaleType: 'linear' | 'log' = 'linear',
 ) => {
+  const [range, setRange] = useState<[number | string, number | string] | undefined>(undefined);
   const [offsetTimestamp, setOffsetTimestamp] = useState<[number, number] | undefined>(undefined);
   const stepRange = useMemo<[number, number] | undefined>(() => {
     if (!range) {
@@ -67,6 +67,10 @@ export const useCompareRunChartSelectedRange = (
 
   return {
     /**
+     * Sets actually selected range in chart (can be timestamp, seconds range or step range)
+     */
+    setRange,
+    /**
      * If there's an offset timestamp calculated from relative runs, set it using this function
      */
     setOffsetTimestamp,
@@ -74,5 +78,9 @@ export const useCompareRunChartSelectedRange = (
      * Resulting step range
      */
     stepRange,
+    /**
+     * Actual raw range to be passed down to the chart component
+     */
+    range,
   };
 };

@@ -10,17 +10,14 @@ import {
   SegmentedControlGroup,
   SegmentedControlButton,
   InfoIcon,
-  Input,
-  FormUI,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCallback, useEffect, useState } from 'react';
-import type { ChartRange, RunsChartsCardConfig, RunsChartsLineCardConfig } from '../../runs-charts.types';
+import type { RunsChartsCardConfig, RunsChartsLineCardConfig } from '../../runs-charts.types';
 import { RunsChartsConfigureField, RunsChartsRunNumberSelect } from './RunsChartsConfigure.common';
 import { shouldEnableDeepLearningUIPhase3 } from 'common/utils/FeatureUtils';
 import { RunsChartsLineChartXAxisType } from 'experiment-tracking/components/runs-charts/components/RunsCharts.common';
 import { LineSmoothSlider } from 'experiment-tracking/components/LineSmoothSlider';
-import { isUndefined } from 'lodash';
 
 const renderMetricSelectorV1 = ({
   metricKeyList,
@@ -150,23 +147,6 @@ const renderXAxisMetricSelector = ({
   );
 };
 
-const safeLog = (x: number | undefined) => {
-  if (isUndefined(x)) {
-    return x;
-  }
-  if (x <= 0) {
-    return undefined;
-  }
-  return Math.log10(x);
-};
-
-const safePow = (x: number | undefined) => {
-  if (isUndefined(x)) {
-    return x;
-  }
-  return Math.pow(10, x);
-};
-
 /**
  * Form containing configuration controls for runs compare charts.
  */
@@ -183,13 +163,6 @@ export const RunsChartsConfigureLineChart = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const runSelectOptions = [5, 10, 20, 50, 100];
-
-  const [localAxisRange, setLocalAxisRange] = useState<ChartRange>({
-    xMin: state.xAxisScaleType === 'log' ? safePow(state.range?.xMin) : state.range?.xMin,
-    xMax: state.xAxisScaleType === 'log' ? safePow(state.range?.xMax) : state.range?.xMax,
-    yMin: state.scaleType === 'log' ? safePow(state.range?.yMin) : state.range?.yMin,
-    yMax: state.scaleType === 'log' ? safePow(state.range?.yMax) : state.range?.yMax,
-  });
 
   /**
    * Callback for updating metric key
@@ -214,60 +187,23 @@ export const RunsChartsConfigureLineChart = ({
 
   const updateXAxisKey = useCallback(
     (xAxisKey: RunsChartsLineCardConfig['xAxisKey']) => {
-      onStateChange((current) => {
-        const config = current as RunsChartsLineCardConfig;
-        return {
-          ...config,
-          xAxisKey,
-          selectedXAxisMetricKey: '',
-          range: {
-            ...config.range,
-            xMin: undefined,
-            xMax: undefined,
-          },
-        };
-      });
+      onStateChange((current) => ({
+        ...(current as RunsChartsLineCardConfig),
+        xAxisKey,
+        selectedXAxisMetricKey: '',
+      }));
     },
     [onStateChange],
   );
 
-  const isInvalidLogValue = (value: number | undefined) => !isUndefined(value) && value <= 0;
-
   const updateXAxisScaleType = useCallback(
     (isLogType: boolean) => {
-      onStateChange((current) => {
-        const config = current as RunsChartsLineCardConfig;
-
-        let newXMin = isLogType ? safeLog(localAxisRange.xMin) : localAxisRange.xMin;
-        let newXMax = isLogType ? safeLog(localAxisRange.xMax) : localAxisRange.xMax;
-        if (isLogType && isInvalidLogValue(localAxisRange.xMin) && localAxisRange.xMax && localAxisRange.xMax > 1) {
-          // when switching to log type, if only xMin is invalid, set xMin to 1.
-          setLocalAxisRange((prev) => ({
-            ...prev,
-            xMin: 1,
-          }));
-          newXMin = 0;
-        } else if (isLogType && (isInvalidLogValue(localAxisRange.xMin) || isInvalidLogValue(localAxisRange.xMax))) {
-          setLocalAxisRange((prev) => ({
-            ...prev,
-            xMin: undefined,
-            xMax: undefined,
-          }));
-          newXMin = undefined;
-          newXMax = undefined;
-        }
-        return {
-          ...config,
-          xAxisScaleType: isLogType ? 'log' : 'linear',
-          range: {
-            ...config.range,
-            xMin: newXMin,
-            xMax: newXMax,
-          },
-        };
-      });
+      onStateChange((current) => ({
+        ...(current as RunsChartsLineCardConfig),
+        xAxisScaleType: isLogType ? 'log' : 'linear',
+      }));
     },
-    [onStateChange, localAxisRange.xMin, localAxisRange.xMax],
+    [onStateChange],
   );
 
   const updateSelectedXAxisMetricKey = useCallback(
@@ -283,38 +219,11 @@ export const RunsChartsConfigureLineChart = ({
 
   const updateYAxisType = useCallback(
     (isLogType: boolean) =>
-      onStateChange((current) => {
-        const config = current as RunsChartsLineCardConfig;
-
-        let newYMin = isLogType ? safeLog(localAxisRange.yMin) : localAxisRange.yMin;
-        let newYMax = isLogType ? safeLog(localAxisRange.yMax) : localAxisRange.yMax;
-        if (isLogType && isInvalidLogValue(localAxisRange.yMin) && localAxisRange.yMax && localAxisRange.yMax > 1) {
-          // when switching to log type, if only yMin is invalid, set yMin to 1.
-          setLocalAxisRange((prev) => ({
-            ...prev,
-            yMin: 1,
-          }));
-          newYMin = 0; // This is the logged value of 1.
-        } else if (isLogType && (isInvalidLogValue(localAxisRange.yMin) || isInvalidLogValue(localAxisRange.yMax))) {
-          setLocalAxisRange((prev) => ({
-            ...prev,
-            yMin: undefined,
-            yMax: undefined,
-          }));
-          newYMin = undefined;
-          newYMax = undefined;
-        }
-        return {
-          ...config,
-          scaleType: isLogType ? 'log' : 'linear',
-          range: {
-            ...config.range,
-            yMin: newYMin,
-            yMax: newYMax,
-          },
-        };
-      }),
-    [onStateChange, localAxisRange.yMin, localAxisRange.yMax],
+      onStateChange((current) => ({
+        ...(current as RunsChartsLineCardConfig),
+        scaleType: isLogType ? 'log' : 'linear',
+      })),
+    [onStateChange],
   );
 
   const updateSmoothing = useCallback(
@@ -353,96 +262,10 @@ export const RunsChartsConfigureLineChart = ({
   // for backwards compatibility, if selectedMetricKeys
   // is not present, set it using metricKey.
   useEffect(() => {
-    if (isUndefined(state.selectedMetricKeys) && !isUndefined(state.metricKey) && state.metricKey !== '') {
+    if (state.selectedMetricKeys === undefined && state.metricKey !== undefined && state.metricKey !== '') {
       updateSelectedMetrics([state.metricKey]);
     }
   }, [state.selectedMetricKeys, state.metricKey, updateSelectedMetrics]);
-
-  const updateXAxisWhenConfirmed = (xMin: number | undefined, xMax: number | undefined) => {
-    if (inTransitionState(xMin, xMax)) {
-      return;
-    }
-    onStateChange((current) => {
-      const config = current as RunsChartsLineCardConfig;
-      return {
-        ...config,
-        range: {
-          ...config.range,
-          xMin: config.xAxisScaleType === 'log' ? safeLog(xMin) : xMin,
-          xMax: config.xAxisScaleType === 'log' ? safeLog(xMax) : xMax,
-        },
-      };
-    });
-  };
-
-  const updateYAxisWhenConfirmed = (yMin: number | undefined, yMax: number | undefined) => {
-    if (inTransitionState(yMin, yMax)) {
-      return;
-    }
-    onStateChange((current) => {
-      const config = current as RunsChartsLineCardConfig;
-      return {
-        ...config,
-        range: {
-          ...config.range,
-          yMin: config.scaleType === 'log' ? safeLog(yMin) : yMin,
-          yMax: config.scaleType === 'log' ? safeLog(yMax) : yMax,
-        },
-      };
-    });
-  };
-
-  const updateXAxisScaleMin = (xMin: string) => {
-    const newXMin = xMin ? Number(xMin) : undefined;
-    setLocalAxisRange((prev) => ({ ...prev, xMin: newXMin }));
-    updateXAxisWhenConfirmed(newXMin, localAxisRange.xMax);
-  };
-  const updateXAxisScaleMax = (xMax: string) => {
-    const newXMax = xMax ? Number(xMax) : undefined;
-    setLocalAxisRange((prev) => ({ ...prev, xMax: newXMax }));
-    updateXAxisWhenConfirmed(localAxisRange.xMin, newXMax);
-  };
-  const updateYAxisScaleMin = (yMin: string) => {
-    const newYMin = yMin ? Number(yMin) : undefined;
-    setLocalAxisRange((prev) => ({ ...prev, yMin: newYMin }));
-    updateYAxisWhenConfirmed(newYMin, localAxisRange.yMax);
-  };
-  const updateYAxisScaleMax = (yMax: string) => {
-    const newYMax = yMax ? Number(yMax) : undefined;
-    setLocalAxisRange((prev) => ({ ...prev, yMax: newYMax }));
-    updateYAxisWhenConfirmed(localAxisRange.yMin, newYMax);
-  };
-
-  const inTransitionState = (a: number | undefined, b: number | undefined) => {
-    if (isUndefined(a) && isUndefined(b)) {
-      return false;
-    } else if (!isUndefined(a) && !isUndefined(b)) {
-      return false;
-    } else {
-      return true;
-    }
-  };
-
-  const hintAndInvalidMessage = (
-    scaleType: 'log' | 'linear' | undefined,
-    value: number | undefined,
-    hintTitle: string,
-  ) => {
-    if (scaleType === 'log' && isInvalidLogValue(value)) {
-      return (
-        <FormUI.Message
-          message={
-            <FormattedMessage
-              defaultMessage="Invalid log value"
-              description="Experiment tracking > runs charts > line chart configuration > invalid log value message"
-            />
-          }
-          type="warning"
-        />
-      );
-    }
-    return <FormUI.Hint>{hintTitle}</FormUI.Hint>;
-  };
 
   return (
     <>
@@ -511,82 +334,12 @@ export const RunsChartsConfigureLineChart = ({
         </Radio.Group>
       </RunsChartsConfigureField>
       {state.xAxisKey === RunsChartsLineChartXAxisType.STEP && (
-        <>
-          <RunsChartsConfigureField title="X-axis scale">
-            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-              <div>
-                <Input
-                  componentId="mlflow.charts.line_chart_configure.x_axis_min"
-                  aria-label="x-axis-min"
-                  name="min"
-                  type="number"
-                  value={localAxisRange.xMin}
-                  onChange={(e) => updateXAxisScaleMin(e.target.value)}
-                  max={localAxisRange.xMax}
-                />
-                {hintAndInvalidMessage(state.xAxisScaleType, localAxisRange.xMin, 'Min')}
-              </div>
-              <div>
-                <Input
-                  componentId="mlflow.charts.line_chart_configure.x_axis_max"
-                  aria-label="x-axis-max"
-                  name="max"
-                  type="number"
-                  value={localAxisRange.xMax}
-                  onChange={(e) => updateXAxisScaleMax(e.target.value)}
-                  min={localAxisRange.xMin}
-                />
-                {hintAndInvalidMessage(state.xAxisScaleType, localAxisRange.xMax, 'Max')}
-              </div>
-            </div>
-          </RunsChartsConfigureField>
-          <RunsChartsConfigureField title="X-axis log scale">
-            <Switch
-              aria-label="x-axis-log"
-              checked={state.xAxisScaleType === 'log'}
-              onChange={updateXAxisScaleType}
-              label="Enabled"
-            />
-          </RunsChartsConfigureField>
-        </>
+        <RunsChartsConfigureField title="X-axis log scale">
+          <Switch checked={state.xAxisScaleType === 'log'} onChange={updateXAxisScaleType} label="Enabled" />
+        </RunsChartsConfigureField>
       )}
-
-      <RunsChartsConfigureField title="Y-axis scale">
-        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-          <div>
-            <Input
-              componentId="mlflow.charts.line_chart_configure.y_axis_min"
-              aria-label="y-axis-min"
-              name="min"
-              type="number"
-              value={localAxisRange.yMin}
-              onChange={(e) => updateYAxisScaleMin(e.target.value)}
-              max={localAxisRange.yMax}
-            />
-            {hintAndInvalidMessage(state.scaleType, localAxisRange.yMin, 'Min')}
-          </div>
-          <div>
-            <Input
-              componentId="mlflow.charts.line_chart_configure.y_axis_max"
-              aria-label="y-axis-max"
-              name="max"
-              type="number"
-              value={localAxisRange.yMax}
-              onChange={(e) => updateYAxisScaleMax(e.target.value)}
-              min={localAxisRange.yMin}
-            />
-            {hintAndInvalidMessage(state.scaleType, localAxisRange.yMax, 'Max')}
-          </div>
-        </div>
-      </RunsChartsConfigureField>
-
       <RunsChartsConfigureField title="Y-axis log scale">
-        <Switch
-          aria-label="y-axis-log"
-          checked={state.scaleType === 'log'}
-          onChange={updateYAxisType}
-          label="Enabled"
-        />
+        <Switch checked={state.scaleType === 'log'} onChange={updateYAxisType} label="Enabled" />
       </RunsChartsConfigureField>
       <RunsChartsConfigureField
         title={intl.formatMessage({

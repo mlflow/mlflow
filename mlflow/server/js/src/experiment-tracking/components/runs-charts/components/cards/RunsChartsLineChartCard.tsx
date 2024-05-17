@@ -1,9 +1,9 @@
 import { LegacySkeleton } from '@databricks/design-system';
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import { RunsChartsRunData, RunsChartsLineChartXAxisType } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import type { ChartRange, RunsChartsCardConfig, RunsChartsLineCardConfig } from '../../runs-charts.types';
+import type { RunsChartsCardConfig, RunsChartsLineCardConfig } from '../../runs-charts.types';
 import {
   type RunsChartCardReorderProps,
   RunsChartCardWrapper,
@@ -11,7 +11,7 @@ import {
   ChartRunsCountIndicator,
 } from './ChartCard.common';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
-import { compact, isEqual, isUndefined, pick, uniq } from 'lodash';
+import { compact, isEqual, pick, uniq } from 'lodash';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
   shouldEnableDeepLearningUIPhase3,
@@ -28,7 +28,6 @@ import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimen
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartMetricHistoryCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
-import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
 
 const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
   if (!cardConfig.selectedMetricKeys || cardConfig.selectedMetricKeys.length === 0) {
@@ -128,34 +127,20 @@ export const RunsChartsLineChartCard = ({
     shallowEqual,
   );
 
-  /**
-   * We set a local state for changes because full screen and non-full screen charts are
-   * different components - this prevents having to sync them.
-   *
-   * The local state is the chart config state on initial render.
-   */
-  const [xRangeLocal, setXRangeLocal] = useState<[number, number] | undefined>(() => {
-    if (config.range && !isUndefined(config.range.xMin) && !isUndefined(config.range.xMax)) {
-      return [config.range.xMin, config.range.xMax];
-    }
-    return undefined;
-  });
-
-  const [yRangeLocal, setYRangeLocal] = useState<[number, number] | undefined>(() => {
-    if (config.range && !isUndefined(config.range.yMin) && !isUndefined(config.range.yMax)) {
-      return [config.range.yMin, config.range.yMax];
-    }
-    return undefined;
-  });
-
-  const { setOffsetTimestamp, stepRange } = useCompareRunChartSelectedRange(
-    xRangeLocal,
+  const {
+    range: xRange,
+    setRange,
+    setOffsetTimestamp,
+    stepRange,
+  } = useCompareRunChartSelectedRange(
     config.xAxisKey,
     config.metricKey,
     sampledMetricsByRunUuid,
     runUuidsToFetch,
     config.xAxisKey === RunsChartsLineChartXAxisType.STEP ? config.xAxisScaleType : 'linear',
   );
+  // Memoizes last Y-axis range. Does't use stateful value, used only in the last immediate render dowstream.
+  const yRange = useRef<[number, number] | undefined>(undefined);
 
   const { resultsByRunUuid, isLoading, isRefreshing } = useSampledMetricHistory({
     runUuids: runUuidsToFetch,
@@ -167,33 +152,35 @@ export const RunsChartsLineChartCard = ({
   });
 
   const chartLayoutUpdated = ({ layout }: Readonly<Figure>) => {
-    let yAxisMin = config.range?.yMin;
-    let yAxisMax = config.range?.yMax;
-    let xAxisMin = config.range?.xMin;
-    let xAxisMax = config.range?.xMax;
-
-    const { autorange: yAxisAutorange, range: newYRange } = layout.yaxis || {};
-    const yRangeChanged = !isEqual(newYRange, [yAxisMin, yAxisMax]);
+    const { range: newYRange } = layout.yaxis || {};
+    const yRangeChanged = !isEqual(newYRange, yRange.current);
 
     if (yRangeChanged) {
       // When user zoomed in/out or changed the Y range manually, hide the tooltip
       destroyTooltip();
     }
 
-    if (yAxisAutorange) {
-      yAxisMin = undefined;
-      yAxisMax = undefined;
-    } else if (newYRange) {
-      yAxisMin = newYRange[0];
-      yAxisMax = newYRange[1];
-    }
+    // Save the last Y range value (copy the values since plotly works on mutable arrays)
+    yRange.current = [...(newYRange as [number, number])];
 
-    const { autorange: xAxisAutorange, range: newXRange } = layout.xaxis || {};
-    if (xAxisAutorange) {
+    // Make sure that the x-axis is initialized
+    if (!layout.xaxis) {
+      return;
+    }
+    const { autorange, range: newXRange } = layout.xaxis;
+    if (autorange) {
       // Remove saved range if chart is back to default viewport
-      xAxisMin = undefined;
-      xAxisMax = undefined;
-    } else if (newXRange) {
+      setRange(undefined);
+      return;
+    }
+    if (isEqual(newXRange, xRange)) {
+      // If it's the same as previous, do nothing.
+      // Note: we're doing deep comparison here because the range has
+      // to be cloned due to plotly handling values in mutable way.
+      return;
+    }
+    // If the custom range is used, memoize it
+    if (!autorange && newXRange) {
       const ungroupedRunUuids = compact(slicedRuns.map(({ runInfo }) => runInfo?.runUuid));
       const groupedRunUuids = slicedRuns.flatMap(({ groupParentInfo }) => groupParentInfo?.runUuids ?? []);
 
@@ -215,18 +202,7 @@ export const RunsChartsLineChartCard = ({
       } else {
         setOffsetTimestamp(undefined);
       }
-      xAxisMin = newXRange[0];
-      xAxisMax = newXRange[1];
-    }
-
-    if (
-      !isEqual(
-        { xMin: xRangeLocal?.[0], xMax: xRangeLocal?.[1], yMin: yRangeLocal?.[0], yMax: yRangeLocal?.[1] },
-        { xMin: xAxisMin, xMax: xAxisMax, yMin: yAxisMin, yMax: yAxisMax },
-      )
-    ) {
-      setXRangeLocal(isUndefined(xAxisMin) || isUndefined(xAxisMax) ? undefined : [xAxisMin, xAxisMax]);
-      setYRangeLocal(isUndefined(yAxisMin) || isUndefined(yAxisMax) ? undefined : [yAxisMin, yAxisMax]);
+      setRange([...(newXRange as [number, number])]);
     }
   };
 
@@ -295,8 +271,11 @@ export const RunsChartsLineChartCard = ({
           onUnhover={resetTooltip}
           selectedRunUuid={selectedRunUuid}
           onUpdate={chartLayoutUpdated}
-          xRange={xRangeLocal}
-          yRange={yRangeLocal}
+          // X-axis is stateful since it's used for sampling recalculation. For Y-axis,
+          // the immediate value is sufficient. It will not kick off rerender, but in those
+          // cases the plotly will use last known range.
+          xRange={xRange}
+          yRange={yRange.current}
           fullScreen={fullScreen}
           displayPoints={config.displayPoints}
           onSetDownloadHandler={setImageDownloadHandler}

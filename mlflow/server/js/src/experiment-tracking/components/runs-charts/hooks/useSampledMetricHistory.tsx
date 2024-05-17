@@ -110,7 +110,7 @@ export const useSampledMetricHistory = (params: {
 
     // Base fetching function, used for both initial call and subsequent auto-refresh calls
     const fetchMetricsFn = async (isAutoRefreshing = false) => {
-      const runUuids = runUuidsSerialized.split(',').filter((runUuid: string) => runUuid !== '');
+      const runUuids = runUuidsSerialized.split(',');
       await Promise.all(
         metricKeys.map(async (metricKey) =>
           Promise.all(

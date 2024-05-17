@@ -446,13 +446,6 @@ export class RunsChartsScatterCardConfig extends RunsChartsCardConfig {
   runsCountToCompare = 100;
 }
 
-export interface ChartRange {
-  xMin?: number;
-  xMax?: number;
-  yMin?: number;
-  yMax?: number;
-}
-
 // TODO: add configuration fields relevant to line chart
 export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   type: RunsChartType.LINE = RunsChartType.LINE;
@@ -482,16 +475,6 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
    * Y axis mode
    */
   scaleType: 'linear' | 'log' = 'linear';
-
-  /**
-   * Range of Y axis, X axis.
-   */
-  range?: ChartRange = {
-    xMin: undefined,
-    xMax: undefined,
-    yMin: undefined,
-    yMax: undefined,
-  };
 
   /**
    * Choose X axis mode - numeric step, relative time in seconds or absolute time value

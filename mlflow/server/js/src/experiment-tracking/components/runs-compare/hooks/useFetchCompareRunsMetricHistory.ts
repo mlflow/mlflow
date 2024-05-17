@@ -89,6 +89,7 @@ export const useFetchCompareRunsMetricHistory = (
       if (!runUuidsToFetch.length) {
         continue;
       }
+
       // Register request for history in the internal state
       addRequests(runUuidsToFetch, metricKey);
 
