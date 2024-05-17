@@ -1551,6 +1551,22 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     assert list(stream_result) == ["test1", "test2"]
 
 
+def test_streamable_model_save_load(tmp_path):
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        python_model="tests/pyfunc/sample_code/streamable_model_code.py",
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
+    stream_result = loaded_pyfunc_model.predict_stream("single-input")
+    assert isinstance(stream_result, types.GeneratorType)
+
+    assert list(stream_result) == ["test1", "test2"]
+
+
 def test_model_save_load_with_resources(tmp_path):
     pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     pyfunc_model_path_2 = os.path.join(tmp_path, "pyfunc_model_2")
