@@ -7,7 +7,6 @@ from collections import namedtuple
 from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
