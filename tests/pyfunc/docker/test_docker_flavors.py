@@ -8,10 +8,12 @@ To run this test, run the following command manually
     $ pytest tests/pyfunc/test_docker_flavors.py
 
 """
-
+import contextlib
 import json
 import os
 import shutil
+import sys
+import threading
 import time
 from operator import itemgetter
 
@@ -81,6 +83,48 @@ def model_path(tmp_path):
         shutil.rmtree(model_path, ignore_errors=True)
 
 
+@contextlib.contextmanager
+def start_container(port: int):
+    container = docker_client.containers.run(
+        image=TEST_IMAGE_NAME,
+        ports={8080: port},
+        detach=True,
+    )
+
+    def stream_logs():
+        for line in container.logs(stream=True):
+            sys.stdout.write(line.decode("utf-8"))
+
+    # Start a thread to stream logs from the container
+    t = threading.Thread(target=stream_logs, daemon=True)
+    t.start()
+
+    try:
+        # Wait for the server to start
+        for _ in range(30):
+            try:
+                response = requests.get(url=f"http://localhost:{port}/ping")
+                if response.ok:
+                    break
+            except requests.exceptions.ConnectionError:
+                time.sleep(5)
+
+            container.reload()  # update container status
+            if container.status == "exited":
+                raise Exception("Container exited unexpectedly.")
+
+            sys.stdout.write(f"Container status: {container.status}\n")
+
+        else:
+            raise TimeoutError("Failed to start server.")
+
+        yield container
+    finally:
+        container.stop()
+        container.remove()
+        t.join(timeout=5)
+
+
 @pytest.mark.parametrize(
     ("flavor"),
     [
@@ -123,40 +167,23 @@ def test_build_image_and_serve(flavor, request):
 
     # Run a container
     port = get_safe_port()
-    docker_client.containers.run(
-        image=TEST_IMAGE_NAME,
-        ports={8080: port},
-        detach=True,
-    )
+    with start_container(port):
+        # Make a scoring request with a saved input example
+        with open(os.path.join(model_path, "input_example.json")) as f:
+            input_example = json.load(f)
 
-    # Wait for the container to start
-    iteration_limit = 60 if flavor in ["h2o", "spark"] else 30
-    for _ in range(iteration_limit):
-        try:
-            response = requests.get(url=f"http://localhost:{port}/ping")
-            if response.ok:
-                break
-        except requests.exceptions.ConnectionError:
-            time.sleep(5)
-    else:
-        raise TimeoutError("Failed to start server.")
+        # Wrap Pandas dataframe in a proper payload format
+        if "columns" in input_example or "data" in input_example:
+            input_example = {"dataframe_split": input_example}
 
-    # Make a scoring request with a saved input example
-    with open(os.path.join(model_path, "input_example.json")) as f:
-        input_example = json.load(f)
+        response = requests.post(
+            url=f"http://localhost:{port}/invocations",
+            data=json.dumps(input_example),
+            headers={"Content-Type": "application/json"},
+        )
 
-    # Wrap Pandas dataframe in a proper payload format
-    if "columns" in input_example or "data" in input_example:
-        input_example = {"dataframe_split": input_example}
-
-    response = requests.post(
-        url=f"http://localhost:{port}/invocations",
-        data=json.dumps(input_example),
-        headers={"Content-Type": "application/json"},
-    )
-
-    assert response.status_code == 200, f"Response: {response.text}"
-    assert "predictions" in response.json(), f"Response: {response.text}"
+        assert response.status_code == 200, f"Response: {response.text}"
+        assert "predictions" in response.json(), f"Response: {response.text}"
 
 
 @pytest.fixture

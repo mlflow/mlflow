@@ -6,7 +6,7 @@ on:
     paths:
       # Run this workflow in PR when relevant files change
       - ".github/workflows/slow-tests.yml"
-      - "tests/pyfunc/docker/test_docker.py"
+      - "tests/pyfunc/docker/**"
   workflow_dispatch:
     inputs:
       repository:
