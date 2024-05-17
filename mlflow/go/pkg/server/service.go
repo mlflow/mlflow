@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
@@ -36,6 +37,10 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (
 					protos.ErrorCode_INVALID_PARAMETER_VALUE,
 					fmt.Sprintf("error getting absolute path: %v", err),
 				)
+			}
+			if runtime.GOOS == "windows" {
+				u.Scheme = "file"
+				p = "/" + strings.ReplaceAll(p, "\\", "/")
 			}
 			u.Path = p
 			artifactLocation = u.String()
