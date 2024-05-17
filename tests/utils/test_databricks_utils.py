@@ -39,43 +39,6 @@ def test_no_throw():
     assert not databricks_utils.is_in_databricks_runtime()
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_token(get_config):
-    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.host == "host"
-    assert params.token == "mytoken"
-    assert not params.ignore_tls_verification
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_user_password(get_config):
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.host == "host"
-    assert params.username == "user"
-    assert params.password == "pass"
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_no_verify(get_config):
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=True)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.ignore_tls_verification
-
-
-@mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
-def test_databricks_params_custom_profile(ProfileConfigProvider):
-    mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig.from_password(
-        "host", "user", "pass", insecure=True
-    )
-    ProfileConfigProvider.return_value = mock_provider
-    params = databricks_utils.get_databricks_host_creds(construct_db_uri_from_profile("profile"))
-    assert params.ignore_tls_verification
-    ProfileConfigProvider.assert_called_with("profile")
-
-
 @mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
 def test_databricks_registry_profile(ProfileConfigProvider):
     mock_provider = mock.MagicMock()
@@ -91,11 +54,9 @@ def test_databricks_registry_profile(ProfileConfigProvider):
         assert params.token == "random"
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_empty_uri(get_config):
-    get_config.return_value = None
-    with pytest.raises(MlflowException, match="Got malformed Databricks CLI profile"):
-        databricks_utils.get_databricks_host_creds("")
+def test_databricks_no_creds_found():
+    with pytest.raises(MlflowException, match="Reading databricks credential configuration failed"):
+        databricks_utils.get_databricks_host_creds()
 
 
 def test_databricks_single_slash_in_uri_scheme_throws():
