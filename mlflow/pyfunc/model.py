@@ -18,8 +18,10 @@ import mlflow.pyfunc
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.signature import _extract_type_hints
+from mlflow.models.utils import _load_model_code_path
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
@@ -255,6 +257,7 @@ def _save_model_with_class_artifacts_params(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    model_code_path=None,
     infer_code_paths=False,
 ):
     """
@@ -285,6 +288,12 @@ def _save_model_with_class_artifacts_params(
             .. Note:: Experimental: This parameter may change or be removed in a future release
                 without warning.
 
+        model_code_path: The path to the code that is being logged as a PyFunc model. Can be used
+            to load python_model when python_model is None.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future release
+                without warning.
+
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
@@ -299,33 +308,36 @@ def _save_model_with_class_artifacts_params(
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
-    try:
-        with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-            cloudpickle.dump(python_model, out)
-    except Exception as e:
-        # cloudpickle sometimes raises TypeError instead of PicklingError.
-        # catching generic Exception and checking message to handle both cases.
-        if "cannot pickle" in str(e).lower():
-            raise MlflowException(
-                "Failed to serialize Python model. Please audit your "
-                "class variables (e.g. in `__init__()`) for any "
-                "unpicklable objects. If you're trying to save an external model "
-                "in your custom pyfunc, Please use the `artifacts` parameter "
-                "in `mlflow.pyfunc.save_model()`, and load your external model "
-                "in the `load_context()` method instead. For example:\n\n"
-                "class MyModel(mlflow.pyfunc.PythonModel):\n"
-                "    def load_context(self, context):\n"
-                "        model_path = context.artifacts['my_model_path']\n"
-                "        // custom load logic here\n"
-                "        self.model = load_model(model_path)\n\n"
-                "For more information, see our full tutorial at: "
-                "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
-                f"\n\nFull serialization error: {e}"
-            ) from None
-        else:
-            raise e
+    # If model_code_path is defined, we load the model into python_model, but we don't want to
+    # pickle/save the python_model since the module won't be able to be imported.
+    if not model_code_path:
+        try:
+            with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
+                cloudpickle.dump(python_model, out)
+        except Exception as e:
+            # cloudpickle sometimes raises TypeError instead of PicklingError.
+            # catching generic Exception and checking message to handle both cases.
+            if "cannot pickle" in str(e).lower():
+                raise MlflowException(
+                    "Failed to serialize Python model. Please audit your "
+                    "class variables (e.g. in `__init__()`) for any "
+                    "unpicklable objects. If you're trying to save an external model "
+                    "in your custom pyfunc, Please use the `artifacts` parameter "
+                    "in `mlflow.pyfunc.save_model()`, and load your external model "
+                    "in the `load_context()` method instead. For example:\n\n"
+                    "class MyModel(mlflow.pyfunc.PythonModel):\n"
+                    "    def load_context(self, context):\n"
+                    "        model_path = context.artifacts['my_model_path']\n"
+                    "        // custom load logic here\n"
+                    "        self.model = load_model(model_path)\n\n"
+                    "For more information, see our full tutorial at: "
+                    "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
+                    f"\n\nFull serialization error: {e}"
+                ) from None
+            else:
+                raise e
 
-    custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
+        custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
 
     if artifacts:
         saved_artifacts_config = {}
@@ -385,14 +397,25 @@ def _save_model_with_class_artifacts_params(
     if streamable is None:
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
+    if model_code_path:
+        loader_module = mlflow.pyfunc.loaders.code_model.__name__
+    elif python_model:
+        loader_module = _get_pyfunc_loader_module(python_model)
+    else:
+        raise MlflowException(
+            "Either `python_model` or `model_code_path` must be provided to save the model.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
-        loader_module=_get_pyfunc_loader_module(python_model),
+        loader_module=loader_module,
         code=None,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
         streamable=streamable,
+        model_code_path=model_code_path,
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):
@@ -451,29 +474,34 @@ def _load_context_model_and_signature(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
 
-    python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
-    if python_model_cloudpickle_version is None:
-        mlflow.pyfunc._logger.warning(
-            "The version of CloudPickle used to save the model could not be found in the MLmodel"
-            " configuration"
-        )
-    elif python_model_cloudpickle_version != cloudpickle.__version__:
-        # CloudPickle does not have a well-defined cross-version compatibility policy. Micro version
-        # releases have been known to cause incompatibilities. Therefore, we match on the full
-        # library version
-        mlflow.pyfunc._logger.warning(
-            "The version of CloudPickle that was used to save the model, `CloudPickle %s`, differs"
-            " from the version of CloudPickle that is currently running, `CloudPickle %s`, and may"
-            " be incompatible",
-            python_model_cloudpickle_version,
-            cloudpickle.__version__,
-        )
+    if MODEL_CODE_PATH in pyfunc_config:
+        conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
+        model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
+        python_model = _load_model_code_path(model_code_path, model_config)
+    else:
+        python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
+        if python_model_cloudpickle_version is None:
+            mlflow.pyfunc._logger.warning(
+                "The version of CloudPickle used to save the model could not be found in the "
+                "MLmodel configuration"
+            )
+        elif python_model_cloudpickle_version != cloudpickle.__version__:
+            # CloudPickle does not have a well-defined cross-version compatibility policy. Micro
+            # version releases have been known to cause incompatibilities. Therefore, we match on
+            # the full library version
+            mlflow.pyfunc._logger.warning(
+                "The version of CloudPickle that was used to save the model, `CloudPickle %s`, "
+                "differs from the version of CloudPickle that is currently running, `CloudPickle "
+                "%s`, and may be incompatible",
+                python_model_cloudpickle_version,
+                cloudpickle.__version__,
+            )
 
-    python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
-    if python_model_subpath is None:
-        raise MlflowException("Python model path was not specified in the model configuration")
-    with open(os.path.join(model_path, python_model_subpath), "rb") as f:
-        python_model = cloudpickle.load(f)
+        python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
+        if python_model_subpath is None:
+            raise MlflowException("Python model path was not specified in the model configuration")
+        with open(os.path.join(model_path, python_model_subpath), "rb") as f:
+            python_model = cloudpickle.load(f)
 
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(

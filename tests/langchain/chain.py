@@ -10,7 +10,7 @@ from langchain.vectorstores import FAISS
 
 from mlflow.models import ModelConfig, set_model
 
-base_config = ModelConfig(development_config="tests/langchain/config.yaml")
+base_config = ModelConfig(development_config="tests/langchain/config.yml")
 
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
