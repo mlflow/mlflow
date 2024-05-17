@@ -29,28 +29,41 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+from requests.exceptions import HTTPError
+
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 
 
-class _DatabricksSdkAPIResponse:
+class _DatabricksSdkAPIErrorResponse:
     def __init__(
         self,
         status_code,
+        reason,
         text,
     ):
         self._status_code = status_code
+        self._reason = reason
         self._text = text
+        self.request = None
+        self.response = None
 
     @property
     def status_code(self):
         return self._status_code
 
     @property
+    def reason(self):
+        return self._reason
+
+    @property
     def text(self):
         return self._text
+
+    def raise_for_status(self):
+        raise HTTPError(self.reason)
 
 
 def http_request(
@@ -102,20 +115,19 @@ def http_request(
             else:
                 extra_kwargs = {"body": kwargs["json"]}
 
-            js_dict = host_creds.databricks_workspace_client.api_client.do(
+            raw_response = host_creds.databricks_workspace_client.api_client.do(
                 method=method,
                 path=endpoint,
                 headers=extra_headers,
+                raw=True,
                 **extra_kwargs,
             )
-            return _DatabricksSdkAPIResponse(
-                status_code=200,
-                text=json.dumps(js_dict)
-            )
+            return raw_response["contents"]._response
         except Exception as e:
             if hasattr(e, "error_code"):
-                return _DatabricksSdkAPIResponse(
+                return _DatabricksSdkAPIErrorResponse(
                     status_code=ErrorCode.Value(e.error_code),
+                    reason=str(e),
                     text=json.dumps({
                         "error_code": e.error_code,
                         "message": str(e),

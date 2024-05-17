@@ -446,7 +446,7 @@ def _fail_malformed_databricks_auth(tracking_uri):
         f"Reading databricks credential configuration failed using tracking URI {tracking_uri}"
         "Please ensure that you installed 'databricks-sdk' library, set correct tracking "
         "URI and set up databricks authentication configuration correctly. "
-        "command tool. The available tracking URI can be either 'databricks' "
+        "The available tracking URI can be either 'databricks' "
         "(using 'DEFAULT' authentication profile) or 'databricks://{profile}'. "
         "To set up databricks authentication configuration, you can set environmental "
         "variables DATABRICKS_HOST + DATABRICKS_TOKEN, or set environmental variables "
