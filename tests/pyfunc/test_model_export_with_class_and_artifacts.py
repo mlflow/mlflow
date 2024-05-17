@@ -1667,7 +1667,7 @@ def test_model_log_with_resources(tmp_path):
 def test_pyfunc_as_code_log_and_load():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model="tests/pyfunc/pyfunc_sample_code.py",
+            python_model="tests/pyfunc/sample_code/code.py",
             artifact_path="model",
         )
 
@@ -1680,7 +1680,7 @@ def test_pyfunc_as_code_log_and_load():
 def test_pyfunc_as_code_log_and_load_with_path():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=Path("tests/pyfunc/pyfunc_sample_code.py"),
+            python_model=Path("tests/pyfunc/sample_code/code.py"),
             artifact_path="model",
         )
 
@@ -1696,7 +1696,7 @@ def test_pyfunc_as_code_with_config(tmp_path):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model="tests/pyfunc/pyfunc_sample_code_with_config.py",
+            python_model="tests/pyfunc/sample_code/code_with_config.py",
             artifact_path="model",
             model_config=str(temp_file),
         )
@@ -1713,7 +1713,7 @@ def test_pyfunc_as_code_with_path_config(tmp_path):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model="tests/pyfunc/pyfunc_sample_code_with_config.py",
+            python_model="tests/pyfunc/sample_code/code_with_config.py",
             artifact_path="model",
             model_config=temp_file,
         )
@@ -1727,7 +1727,7 @@ def test_pyfunc_as_code_with_path_config(tmp_path):
 def test_pyfunc_as_code_with_dict_config():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model="tests/pyfunc/pyfunc_sample_code_with_config.py",
+            python_model="tests/pyfunc/sample_code/code_with_config.py",
             artifact_path="model",
             model_config={"timeout": 400},
         )
@@ -1735,6 +1735,20 @@ def test_pyfunc_as_code_with_dict_config():
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "input"
     expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_with_code_paths():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_using_utils.py",
+            artifact_path="model",
+            code_paths=["tests/pyfunc/sample_code/utils.py"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"My utils function received this input: {model_input}"
     assert loaded_model.predict(model_input) == expected_output
 
 

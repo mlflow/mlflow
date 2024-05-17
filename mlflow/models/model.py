@@ -924,7 +924,8 @@ def set_model(model):
         try:
             from mlflow.langchain import _validate_and_prepare_lc_model_or_path
 
-            # If its not a PyFuncModel, then it should be a Langchain model, and not a path
+            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
+            # Check this since the validation function does not
             if isinstance(model, str):
                 raise mlflow.MlflowException(
                     "Model should either be an instance of PyFuncModel or Langchain type."

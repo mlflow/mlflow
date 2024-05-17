@@ -1,7 +1,7 @@
 from mlflow.models import ModelConfig, set_model
 from mlflow.pyfunc import PythonModel
 
-base_config = ModelConfig(development_config="tests/pyfunc/pyfunc_sample_config.yml")
+base_config = ModelConfig(development_config="tests/pyfunc/sample_code/config.yml")
 
 
 class MyModel(PythonModel):

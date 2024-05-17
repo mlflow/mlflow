@@ -24,7 +24,7 @@ def model_config():
 
 @pytest.fixture
 def model_config_path():
-    return "tests/pyfunc/pyfunc_sample_config.yml"
+    return "tests/pyfunc/sample_code/config.yml"
 
 
 def _load_pyfunc(path):
