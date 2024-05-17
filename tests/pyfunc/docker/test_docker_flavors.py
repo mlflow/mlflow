@@ -91,15 +91,13 @@ def start_container(port: int):
         detach=True,
     )
 
-    stream = container.logs(stream=True)
-
-    def log_stream():
-        for line in stream:
+    def stream_logs():
+        for line in container.logs(stream=True):
             sys.stdout.write(line.decode("utf-8"))
 
     # Start a thread to stream logs from the container
-    thread = threading.Thread(target=log_stream, daemon=True)
-    thread.start()
+    t = threading.Thread(target=stream_logs, daemon=True)
+    t.start()
 
     try:
         # Wait for the server to start
@@ -124,7 +122,7 @@ def start_container(port: int):
     finally:
         container.stop()
         container.remove()
-        thread.join(timeout=5)
+        t.join(timeout=5)
 
 
 @pytest.mark.parametrize(
