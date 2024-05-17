@@ -112,7 +112,7 @@ def start_container(port: int):
                 time.sleep(5)
 
             container.reload()
-            if container.status != "exited":
+            if container.status == "exited":
                 raise Exception("Container exited unexpectedly.")
 
             sys.stdout.write(f"Container status: {container.status}\n")
