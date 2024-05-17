@@ -26,7 +26,7 @@ class SimpleModel(mlflow.pyfunc.PythonModel):
 
 @pytest.fixture
 def store(mock_databricks_uc_host_creds):
-    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
@@ -69,7 +69,7 @@ def test_downstream_notebook_job_lineage(tmp_path, is_in_notebook, is_in_job, no
     expected_lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     # Mock out all necessary dependency
-    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
+    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"), mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_notebook",
         return_value=is_in_notebook,
     ), mock.patch(

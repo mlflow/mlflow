@@ -98,9 +98,7 @@ def test_databricks_empty_uri(get_config):
         databricks_utils.get_databricks_host_creds("")
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_single_slash_in_uri_scheme_throws(get_config):
-    get_config.return_value = None
+def test_databricks_single_slash_in_uri_scheme_throws():
     with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 

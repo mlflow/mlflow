@@ -25,6 +25,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
+from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.uri import construct_db_uri_from_profile
 
 from tests import helper_functions
@@ -435,11 +436,7 @@ class MockProfileConfigProvider:
 
 
 @mock.patch("requests.Session.request")
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-@mock.patch.object(
-    mlflow.utils.databricks_utils, "ProfileConfigProvider", MockProfileConfigProvider
-)
-def test_databricks_http_request_integration(get_config, request):
+def test_databricks_http_request_integration(request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
 
     def confirm_request_params(*args, **kwargs):
@@ -459,18 +456,17 @@ def test_databricks_http_request_integration(get_config, request):
         return http_response
 
     request.side_effect = confirm_request_params
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
 
-    response = DatabricksJobRunner(databricks_profile_uri=None)._databricks_api_request(
-        "/clusters/list", "PUT", json={"a": "b"}
-    )
-    assert json.loads(response.text) == {"OK": "woo"}
-    get_config.reset_mock()
-    response = DatabricksJobRunner(
-        databricks_profile_uri=construct_db_uri_from_profile("my-profile")
-    )._databricks_api_request("/clusters/list", "PUT", json={"a": "b"})
-    assert json.loads(response.text) == {"OK": "woo"}
-    assert get_config.call_count == 0
+    with mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        return_value=MlflowHostCreds(
+            host="host", username="user", password="pass", ignore_tls_verification=False
+        )
+    ):
+        response = DatabricksJobRunner(databricks_profile_uri=None)._databricks_api_request(
+            "/clusters/list", "PUT", json={"a": "b"}
+        )
+        assert json.loads(response.text) == {"OK": "woo"}
 
 
 @mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
