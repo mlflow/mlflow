@@ -23,6 +23,7 @@ import os
 import posixpath
 import re
 import shutil
+import time
 from typing import Any, Dict, Optional
 
 import pandas as pd
@@ -1110,6 +1111,7 @@ def autolog(disable=False, silent=False):
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
 
+        time.sleep(1)
         _listen_for_spark_activity(self._sc)
 
     safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
