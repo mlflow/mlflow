@@ -109,7 +109,7 @@ def start_container(port: int):
             except requests.exceptions.ConnectionError:
                 time.sleep(5)
 
-            container.reload()
+            container.reload()  # update container status
             if container.status == "exited":
                 raise Exception("Container exited unexpectedly.")
 
