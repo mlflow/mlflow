@@ -2,6 +2,8 @@ import base64
 import json
 
 import requests
+from dataclasses import dataclass
+from requests.exceptions import HTTPError
 
 from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
@@ -29,7 +31,6 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
-from requests.exceptions import HTTPError
 
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
@@ -37,30 +38,13 @@ _REST_API_PATH_PREFIX = "/api/2.0"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 
 
+@dataclass
 class _DatabricksSdkAPIErrorResponse:
-    def __init__(
-        self,
-        status_code,
-        reason,
-        text,
-    ):
-        self._status_code = status_code
-        self._reason = reason
-        self._text = text
-        self.request = None
-        self.response = None
-
-    @property
-    def status_code(self):
-        return self._status_code
-
-    @property
-    def reason(self):
-        return self._reason
-
-    @property
-    def text(self):
-        return self._text
+    status_code: int
+    reason: str
+    text: str
+    request = None
+    response = None
 
     def raise_for_status(self):
         raise HTTPError(self.reason)
