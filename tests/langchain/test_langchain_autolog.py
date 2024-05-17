@@ -935,3 +935,22 @@ def test_langchain_autolog_extra_log_classes_no_duplicate_patching():
         assert model.invoke("test") == "test"
         mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
         assert mock_debug.call_count == 1
+
+
+def test_langchain_autolog_extra_log_classes_warning():
+    from langchain.schema.runnable import Runnable
+
+    class NotARunnable:
+        def __init__(self, x):
+            self.x = x
+
+    with mock.patch("mlflow.langchain.logger.warning") as mock_warning:
+        mlflow.langchain.autolog(extra_log_classes=[NotARunnable])
+        mock_warning.assert_called_once_with(
+            "Unsupported classes found in extra_log_classes: ['NotARunnable']. "
+            "Only subclasses of Runnable are supported."
+        )
+        mock_warning.reset_mock()
+
+        mlflow.langchain.autolog(extra_log_classes=[Runnable])
+        mock_warning.assert_not_called()
