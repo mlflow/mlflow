@@ -1,6 +1,7 @@
 from mlflow.models import set_model
 from mlflow.pyfunc import PythonModel
 
+
 class StreamableModel(PythonModel):
     def __init__(self):
         pass
@@ -12,5 +13,5 @@ class StreamableModel(PythonModel):
         yield "test1"
         yield "test2"
 
-set_model(StreamableModel())
 
+set_model(StreamableModel())
