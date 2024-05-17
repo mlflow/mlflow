@@ -20,7 +20,7 @@ export const Prompt = ({ when, message }: PromptProps) => {
   React.useEffect(() => {
     if (!when) return;
 
-    const unblock = block(() => {
+    const unblock = block?.(() => {
       // eslint-disable-next-line no-alert
       return window.confirm(message);
     });
