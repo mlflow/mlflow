@@ -11,7 +11,7 @@ export const shouldDisableLegacyRunCompareCharts = () => false;
  * Enables features related to deep learning: Phase 3
  * Includes improved runs visibility controls, reworked hover tooltip and improved handling of charts on run details page.
  */
-export const shouldEnableDeepLearningUIPhase3 = () => false;
+export const shouldEnableDeepLearningUIPhase3 = () => true;
 
 export const shouldUseUnifiedRunCharts = () => false;
 
