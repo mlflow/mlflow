@@ -445,7 +445,14 @@ class _SpanAttributesRegistry:
 
     def get(self, key: str):
         serialized_value = self._span.attributes.get(key)
-        return json.loads(serialized_value) if serialized_value else None
+        if serialized_value:
+            try:
+                return json.loads(serialized_value)
+            except Exception as e:
+                _logger.warning(
+                    f"Fail to get value for key {key}, make sure you set the attribute "
+                    f"on mlflow Span class instead of directly to the OpenTelemetry span. {e}"
+                )
 
     def set(self, key: str, value: Any):
         if not isinstance(key, str):

@@ -27,7 +27,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 
-from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
+from tests.tracing.helper import _dump_attributes, create_test_trace_info, create_trace, get_traces
 
 
 class DefaultTestModel:
@@ -220,45 +220,52 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
     assert response.json["prediction"] == 64
 
     trace = response.json["trace"]
-    assert trace[TRACE_SCHEMA_VERSION_KEY] == 2
-    assert len(trace["spans"]) == 3
+    trace_info = trace["info"]
+    assert trace_info["tags"][TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert len(trace["data"]["spans"]) == 3
 
-    span_name_to_span = {span["name"]: span for span in trace["spans"]}
+    span_name_to_span = {span["name"]: span for span in trace["data"]["spans"]}
     root_span = span_name_to_span["predict"]
     assert isinstance(root_span["context"]["trace_id"], str)
     assert isinstance(root_span["context"]["span_id"], str)
-    assert root_span["parent_id"] is None
+
     assert isinstance(root_span["start_time"], int)
     assert isinstance(root_span["end_time"], int)
     assert root_span["status_code"] == "OK"
     assert root_span["status_message"] == ""
-    assert json.loads(root_span["attributes"]) == {
-        "mlflow.traceRequestId": databricks_request_id,
-        "mlflow.spanType": SpanType.UNKNOWN,
-        "mlflow.spanFunctionName": "predict",
-        "mlflow.spanInputs": {"x": 2, "y": 5},
-        "mlflow.spanOutputs": 64,
-    }
+    assert root_span["attributes"] == _dump_attributes(
+        {
+            "mlflow.traceRequestId": databricks_request_id,
+            "mlflow.spanType": SpanType.UNKNOWN,
+            "mlflow.spanFunctionName": "predict",
+            "mlflow.spanInputs": {"x": 2, "y": 5},
+            "mlflow.spanOutputs": 64,
+        }
+    )
     assert root_span["events"] == []
 
     child_span_1 = span_name_to_span["custom"]
     assert child_span_1["parent_id"] == root_span["context"]["span_id"]
-    assert json.loads(child_span_1["attributes"]) == {
-        "delta": 1,
-        "mlflow.traceRequestId": databricks_request_id,
-        "mlflow.spanType": SpanType.LLM,
-        "mlflow.spanFunctionName": "add_one",
-        "mlflow.spanInputs": {"z": 7},
-        "mlflow.spanOutputs": 8,
-    }
+    assert child_span_1["attributes"] == _dump_attributes(
+        {
+            "delta": 1,
+            "mlflow.traceRequestId": databricks_request_id,
+            "mlflow.spanType": SpanType.LLM,
+            "mlflow.spanFunctionName": "add_one",
+            "mlflow.spanInputs": {"z": 7},
+            "mlflow.spanOutputs": 8,
+        }
+    )
     assert child_span_1["events"] == []
 
     child_span_2 = span_name_to_span["square"]
     assert child_span_2["parent_id"] == root_span["context"]["span_id"]
-    assert json.loads(child_span_2["attributes"]) == {
-        "mlflow.traceRequestId": databricks_request_id,
-        "mlflow.spanType": SpanType.UNKNOWN,
-    }
+    assert child_span_2["attributes"] == _dump_attributes(
+        {
+            "mlflow.traceRequestId": databricks_request_id,
+            "mlflow.spanType": SpanType.UNKNOWN,
+        }
+    )
     assert child_span_2["events"] == [
         {
             "name": "event",

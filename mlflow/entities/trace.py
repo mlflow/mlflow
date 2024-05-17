@@ -21,8 +21,8 @@ class Trace(_MlflowObject):
     info: TraceInfo
     data: TraceData
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {"info": self.info.to_dict(), "data": self.data.to_dict()}
+    def to_dict(self, dump_events=False) -> Dict[str, Any]:
+        return {"info": self.info.to_dict(), "data": self.data.to_dict(dump_events=dump_events)}
 
     def to_json(self) -> str:
         from mlflow.tracing.utils import TraceJSONEncoder

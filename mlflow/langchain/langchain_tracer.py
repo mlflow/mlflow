@@ -1,6 +1,4 @@
-import json
 import logging
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 
@@ -21,7 +19,6 @@ from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -67,20 +64,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._run_span_mapping: Dict[str, LiveSpan] = {}
         self._prediction_context = prediction_context
         self._request_id = None
-
-    def _dump_trace(self) -> str:
-        """
-        This method is only used to get the trace data from the buffer in databricks
-        serving, it should return the trace in dictionary format and then dump to string.
-        """
-
-        def _default_converter(o):
-            if isinstance(o, datetime):
-                return o.isoformat()
-            raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
-
-        trace = pop_trace(self._request_id)
-        return json.dumps(trace, default=_default_converter)
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span := self._run_span_mapping.get(str(run_id)):
