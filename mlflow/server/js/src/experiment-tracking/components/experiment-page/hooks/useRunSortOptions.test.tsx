@@ -87,16 +87,6 @@ describe('useRunSortOptions', () => {
         order: 'DESCENDING',
       },
       {
-        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
-        value: 'tags.`mlflow.note.content`***ASCENDING',
-        order: 'ASCENDING',
-      },
-      {
-        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
-        value: 'tags.`mlflow.note.content`***DESCENDING',
-        order: 'DESCENDING',
-      },
-      {
         label: ATTRIBUTE_COLUMN_SORT_LABEL.USER,
         value: 'tags.`mlflow.user`***ASCENDING',
         order: 'ASCENDING',
@@ -134,6 +124,16 @@ describe('useRunSortOptions', () => {
       {
         label: ATTRIBUTE_COLUMN_SORT_LABEL.VERSION,
         value: 'tags.`mlflow.source.git.commit`***DESCENDING',
+        order: 'DESCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***ASCENDING',
+        order: 'ASCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***DESCENDING',
         order: 'DESCENDING',
       },
       {
