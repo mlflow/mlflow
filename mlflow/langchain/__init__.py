@@ -32,10 +32,7 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain.databricks_dependencies import (
-    _DATABRICKS_DEPENDENCY_KEY,
-    _detect_databricks_dependencies,
-)
+from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
@@ -359,10 +356,7 @@ def save_model(
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        (databricks_dependency, databricks_resources) = _detect_databricks_dependencies(lc_model)
-        if databricks_dependency:
-            flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
-        if databricks_resources:
+        if databricks_resources := _detect_databricks_dependencies(lc_model):
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
 
