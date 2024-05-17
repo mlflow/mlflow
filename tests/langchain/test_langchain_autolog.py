@@ -893,3 +893,45 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, generate_con
         assert callbacks.handlers[0].logs == expected_logs
     else:
         assert callbacks[0].logs == expected_logs
+
+
+def test_langchain_tracer_injection_for_arbitrary_runnables():
+    from langchain.schema.runnable import RouterRunnable, RunnableLambda
+
+    mlflow.langchain.autolog()
+
+    add = RunnableLambda(func=lambda x: x + 1)
+    square = RunnableLambda(func=lambda x: x**2)
+    model = RouterRunnable(runnables={"add": add, "square": square})
+
+    with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
+        model.invoke({"key": "square", "input": 3})
+        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+
+
+def test_langchain_autolog_extra_log_classes_no_duplicate_patching():
+    from langchain.schema.runnable import Runnable
+
+    class CustomRunnable(Runnable):
+        def invoke(self, input, config=None):
+            return "test"
+
+        def _type(self):
+            return "CHAIN"
+
+    class AnotherRunnable(CustomRunnable):
+        def invoke(self, input, config=None):
+            return super().invoke(input)
+
+        def _type(self):
+            return "CHAT_MODEL"
+
+    mlflow.langchain.autolog(extra_log_classes=[CustomRunnable, AnotherRunnable])
+    model = AnotherRunnable()
+    with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
+        assert model.invoke("test") == "test"
+        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+        assert mock_debug.call_count == 1

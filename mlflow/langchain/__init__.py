@@ -14,6 +14,7 @@ LangChain (native) format
 
 import contextlib
 import functools
+import inspect
 import logging
 import os
 import warnings
@@ -590,11 +591,11 @@ def _load_model(local_model_path, flavor_conf):
                 "Failed to load LangChain model. Unknown model type: "
                 f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
             )
-    # To avoid double logging, we set model_logged to True
+    # To avoid double logging, we set _mlflow_model_logged to True
     # when the model is loaded
     if not autologging_is_disabled(FLAVOR_NAME):
         if _update_langchain_model_config(model):
-            model.model_logged = True
+            model._mlflow_model_logged = True
             model.run_id = get_model_info(local_model_path).run_id
     return model
 
@@ -882,6 +883,33 @@ def load_model(model_uri, dst_path=None):
     return _load_model_from_local_fs(local_model_path)
 
 
+def _patch_runnable_cls(cls, patched_class):
+    if cls.__name__ not in patched_class:
+        for func_name in ["invoke", "batch", "stream"]:
+            if hasattr(cls, func_name):
+                safe_patch(
+                    FLAVOR_NAME,
+                    cls,
+                    func_name,
+                    functools.partial(patched_inference, func_name),
+                )
+                logger.debug(f"patched {cls.__name__}.{func_name}")
+        patched_class.add(cls.__name__)
+
+
+def _inspect_module_and_patch_cls(module, inspected_module, patched_class):
+    from langchain.schema.runnable import Runnable
+
+    if module.__name__ not in inspected_module:
+        inspected_module.add(module.__name__)
+        for _, obj in inspect.getmembers(module):
+            if inspect.ismodule(obj) and (obj.__name__.startswith("langchain")):
+                _inspect_module_and_patch_cls(obj, inspected_module, patched_class)
+            elif inspect.isclass(obj) and issubclass(obj, Runnable):
+                _patch_runnable_cls(obj, patched_class)
+        logger.debug(f"Patched module {module}.\n")
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -900,6 +928,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
+    extra_log_classes=None,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -942,37 +971,39 @@ def autolog(
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        extra_log_classes: A list of langchain classes to log in addition to the default classes.
+            We do not guarantee classes specified in this list can be logged as a model, but tracing
+            will be supported. Note that all classes within the list must be subclasses of Runnable,
+            and we only patch `invoke`, `batch`, and `stream` methods for tracing.
     """
-
     with contextlib.suppress(ImportError):
+        import langchain
+        import langchain_community
         from langchain.agents.agent import AgentExecutor
         from langchain.chains.base import Chain
         from langchain.schema import BaseRetriever
+        from langchain.schema.runnable import Runnable
 
-        classes = lc_runnables_types() + (AgentExecutor, Chain)
-        for cls in classes:
-            # If runnable also contains loader_fn and persist_dir, warn
-            # BaseRetrievalQA, BaseRetriever, ...
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "invoke",
-                functools.partial(patched_inference, "invoke"),
-            )
+        # avoid duplicate patching
+        patched_class = set()
+        # avoid infinite recursion
+        inspected_module = set()
 
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "batch",
-                functools.partial(patched_inference, "batch"),
-            )
+        for module in [langchain, langchain_community]:
+            _inspect_module_and_patch_cls(module, inspected_module, patched_class)
 
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "stream",
-                functools.partial(patched_inference, "stream"),
-            )
+        if extra_log_classes:
+            unsupported_classes = []
+            for cls in extra_log_classes:
+                if inspect.isclass(cls) and issubclass(cls, Runnable):
+                    _patch_runnable_cls(cls, patched_class)
+                else:
+                    unsupported_classes.append(cls)
+            if unsupported_classes:
+                logger.warning(
+                    f"Unsupported classes found in extra_log_classes: {unsupported_classes}. "
+                    "Only subclasses of Runnable are supported."
+                )
 
         for cls in [AgentExecutor, Chain]:
             safe_patch(
