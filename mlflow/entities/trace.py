@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Dict
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -21,12 +21,13 @@ class Trace(_MlflowObject):
     info: TraceInfo
     data: TraceData
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {"info": self.info.to_dict(), "data": self.data.to_dict()}
+
     def to_json(self) -> str:
         from mlflow.tracing.utils import TraceJSONEncoder
 
-        return json.dumps(
-            {"info": asdict(self.info), "data": self.data.to_dict()}, cls=TraceJSONEncoder
-        )
+        return json.dumps(self.to_dict(), cls=TraceJSONEncoder)
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
