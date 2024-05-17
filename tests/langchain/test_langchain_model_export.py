@@ -2646,13 +2646,6 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
     }
 
 
-def test_config_path_context():
-    with mlflow.langchain._config_path_context("tests/langchain/config.yml"):
-        assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
-
-    assert mlflow.models.model_config.__mlflow_model_config__ is None
-
-
 def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel

@@ -14,13 +14,9 @@ LangChain (native) format
 
 import contextlib
 import functools
-import importlib.util
 import logging
 import os
-import sys
-import uuid
 import warnings
-from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 import cloudpickle
@@ -45,21 +41,23 @@ from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
-    _get_temp_file_with_content,
     _load_base_lcs,
     _load_from_yaml,
     _save_base_lcs,
-    _validate_and_wrap_lc_model,
+    _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
     patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _convert_llm_input_data, _save_example
+from mlflow.models.utils import (
+    _convert_llm_input_data,
+    _load_model_code_path,
+    _save_example,
+)
 from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -88,7 +86,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _validate_and_copy_model_code_and_config_paths,
+    _validate_and_copy_file_to_directory,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -252,36 +250,21 @@ def save_model(
     import langchain
     from langchain.schema import BaseRetriever
 
-    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
+    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    model_config_path = None
     model_code_path = None
-    if isinstance(lc_model, str):
+    if isinstance(lc_model_or_path, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
-
-        if os.path.exists(lc_model):
-            model_code_path = lc_model
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                "file path or a databricks notebook file path containing the code for defining "
-                "the chain instance."
-            )
-
-        if isinstance(model_config, dict):
-            model_config_path = _get_temp_file_with_content(
-                "config.yml", yaml.dump(model_config), "w"
-            )
-        elif isinstance(model_config, str):
+        model_code_path = lc_model_or_path
+        if isinstance(model_config, str):
             if os.path.exists(model_config):
-                model_config_path = model_config
                 model_config = _load_from_yaml(model_config)
             else:
                 raise mlflow.MlflowException.invalid_parameter_value(
@@ -289,12 +272,10 @@ def save_model(
                     "Please provide a valid model configuration."
                 )
 
-        lc_model = (
-            _load_model_code_path(model_code_path, model_config)
-            if model_config
-            else _load_model_code_path(model_code_path)
-        )
-        _validate_and_copy_model_code_and_config_paths(model_code_path, model_config_path, path)
+        lc_model = _load_model_code_path(model_code_path, model_config)
+        _validate_and_copy_file_to_directory(model_code_path, path, "code")
+    else:
+        lc_model = lc_model_or_path
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -364,7 +345,6 @@ def save_model(
         )
         model_data_kwargs = {}
 
-    # TODO: Pass model_config to pyfunc
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -374,6 +354,7 @@ def save_model(
         predict_stream_fn="predict_stream",
         streamable=streamable,
         model_code_path=model_code_path,
+        model_config=model_config,
         **model_data_kwargs,
     )
 
@@ -554,13 +535,13 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
+    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
 
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
-        lc_model=lc_model,
+        lc_model=lc_model_or_path,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -839,7 +820,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         return result
 
 
-def _load_pyfunc(path):
+# TODO: Support loading langchain with model_config. For now, this is a no-op.
+def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:
@@ -898,49 +880,6 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
-
-
-@contextmanager
-def _config_path_context(config: Optional[Dict[str, Any]] = None):
-    # Check if config_path is None and set it to "" so when loading the model
-    # the config_path is set to "" so the ModelConfig can correctly check if the
-    # config is set or not
-    if config is None:
-        config = ""
-
-    _set_model_config(config)
-    try:
-        yield
-    finally:
-        _set_model_config(None)
-
-
-# In the Python's module caching mechanism, which by default, prevents the
-# re-importation of previously loaded modules. This is particularly
-# problematic in contexts where it's necessary to reload a module (in this case,
-# the `model code path` module) multiple times within the same Python
-# runtime environment.
-# The issue at hand arises from the desire to import the `model code path` module
-# multiple times during a single runtime session. Normally, once a module is
-# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
-# the cached module rather than re-importing it.
-# To address this, the function dynamically imports the `model code path` module
-# under unique, dynamically generated module names. This is achieved by creating
-# a unique name for each import using a combination of the original module name
-# and a randomly generated UUID. This approach effectively bypasses the caching
-# mechanism, as each import is considered as a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, config: Optional[Dict[str, Any]] = None):
-    with _config_path_context(config):
-        try:
-            new_module_name = f"code_model_{uuid.uuid4().hex}"
-            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[new_module_name] = module
-            spec.loader.exec_module(module)
-        except ImportError as e:
-            raise mlflow.MlflowException("Failed to import LangChain model.") from e
-
-    return mlflow.models.model.__mlflow_model__
 
 
 @experimental

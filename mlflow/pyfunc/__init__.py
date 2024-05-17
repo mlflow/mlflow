@@ -413,7 +413,12 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME, MODEL_CONFIG
+from mlflow.models.model import (
+    _DATABRICKS_FS_LOADER_MODULE,
+    MLMODEL_FILE_NAME,
+    MODEL_CODE_PATH,
+    MODEL_CONFIG,
+)
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
@@ -427,7 +432,9 @@ from mlflow.models.utils import (
     _convert_llm_input_data,
     _enforce_params_schema,
     _enforce_schema,
+    _load_model_code_path,
     _save_example,
+    _validate_and_get_model_code_path,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -495,6 +502,8 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
+    _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
     _validate_infer_and_copy_code_paths,
     _validate_pyfunc_model_config,
@@ -542,6 +551,7 @@ def add_to_model(
     conda_env=None,
     python_env=None,
     model_config=None,
+    model_code_path=None,
     **kwargs,
 ):
     """
@@ -589,6 +599,8 @@ def add_to_model(
             params[ENV][EnvType.VIRTUALENV] = python_env
     if model_config:
         params[MODEL_CONFIG] = model_config
+    if model_code_path:
+        params[MODEL_CODE_PATH] = model_code_path
     return model.add_flavor(FLAVOR_NAME, **params)
 
 
@@ -876,7 +888,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Union[str, Path, Dict[str, Any]]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -902,7 +914,8 @@ def load_model(
             This directory must already exist. If unspecified, a local output
             path will be created.
         model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+            is available during model loading. The configuration can be passed as a file path,
+            or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
@@ -946,6 +959,10 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
+
+    if isinstance(model_config, str):
+        model_config = _validate_and_get_model_config_from_file(model_config)
+
     model_config = _get_overridden_pyfunc_model_config(
         conf.get(MODEL_CONFIG, None), model_config, _logger
     )
@@ -2086,7 +2103,8 @@ Compound types:
 def _validate_function_python_model(python_model):
     if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
-            "`python_model` must be a PythonModel instance or a callable object",
+            "`python_model` must be a PythonModel instance, callable object, or path to a script "
+            "that uses set_model() to set a PythonModel instance or callable object.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -2270,7 +2288,24 @@ def save_model(
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
+    _validate_and_prepare_target_save_path(path)
+
+    model_code_path = None
     if python_model:
+        if isinstance(model_config, Path):
+            model_config = os.fspath(model_config)
+
+        if isinstance(model_config, str):
+            model_config = _validate_and_get_model_config_from_file(model_config)
+
+        if isinstance(python_model, Path):
+            python_model = os.fspath(python_model)
+
+        if isinstance(python_model, str):
+            model_code_path = _validate_and_get_model_code_path(python_model)
+            _validate_and_copy_file_to_directory(model_code_path, path, "code")
+            python_model = _load_model_code_path(model_code_path, model_config)
+
         _validate_function_python_model(python_model)
         if callable(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
@@ -2327,8 +2362,6 @@ def save_model(
             "should be a python module. A `python_model` should be a subclass of PythonModel"
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
-
-    _validate_and_prepare_target_save_path(path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -2432,6 +2465,7 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
         )
 
