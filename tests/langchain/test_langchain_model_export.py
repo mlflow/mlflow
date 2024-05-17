@@ -3099,3 +3099,22 @@ def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": "Databricks"
     }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_langchain_2_12_model_loads():
+    TEST_DIR = "tests"
+    TEST_MLFLOW_12_2_LANGCHAIN_MODEL = os.path.join(
+        TEST_DIR, "resources", "example_mlflow_2.12_langchain_model"
+    )
+
+    model = mlflow.langchain.load_model(TEST_MLFLOW_12_2_LANGCHAIN_MODEL)
+    pyfunc_model = mlflow.pyfunc.load_model(TEST_MLFLOW_12_2_LANGCHAIN_MODEL)
+    assert (
+        model.invoke({"messages": [{"role": "user", "content": "Who owns MLflow?"}]})
+        == "Databricks"
+    )
+    output = pyfunc_model.predict({"messages": [{"role": "user", "content": "Who owns MLflow?"}]})
+    assert output[0]["choices"][0]["message"]["content"] == "Databricks"
