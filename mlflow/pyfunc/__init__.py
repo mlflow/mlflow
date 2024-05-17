@@ -966,6 +966,7 @@ def load_model(
     model_config = _get_overridden_pyfunc_model_config(
         conf.get(MODEL_CONFIG, None), model_config, _logger
     )
+
     try:
         if model_config:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
@@ -2366,7 +2367,6 @@ def save_model(
         mlflow_model = Model()
 
     hints = None
-
     if signature is not None:
         if isinstance(python_model, ChatModel):
             raise MlflowException(
