@@ -87,6 +87,16 @@ describe('useRunSortOptions', () => {
         order: 'DESCENDING',
       },
       {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***ASCENDING',
+        order: 'ASCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***DESCENDING',
+        order: 'DESCENDING',
+      },
+      {
         label: ATTRIBUTE_COLUMN_SORT_LABEL.USER,
         value: 'tags.`mlflow.user`***ASCENDING',
         order: 'ASCENDING',
