@@ -894,20 +894,14 @@ def _patch_runnable_cls(cls):
             )
 
 
-def _inspect_module_and_patch_cls(
-    module, inspected_modules, patched_classes, current_depth, max_depth
-):
+def _inspect_module_and_patch_cls(module, inspected_modules, patched_classes):
     from langchain.schema.runnable import Runnable
 
-    if current_depth >= max_depth:
-        return
     if module.__name__ not in inspected_modules:
         inspected_modules.add(module.__name__)
         for _, obj in inspect.getmembers(module):
             if inspect.ismodule(obj) and (obj.__name__.startswith("langchain")):
-                _inspect_module_and_patch_cls(
-                    obj, inspected_modules, patched_classes, current_depth + 1, max_depth
-                )
+                _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
             elif (
                 inspect.isclass(obj)
                 and obj.__name__ not in patched_classes
@@ -995,14 +989,9 @@ def autolog(
         patched_classes = set()
         # avoid infinite recursion
         inspected_modules = set()
-        # avoid super deep recursion in case DBR crashes
-        # 10 should be deep enough for langchain module
-        max_depth = 10
 
         for module in [langchain, langchain_community]:
-            _inspect_module_and_patch_cls(
-                module, inspected_modules, patched_classes, current_depth=0, max_depth=max_depth
-            )
+            _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
 
         if extra_log_classes:
             unsupported_classes = []
