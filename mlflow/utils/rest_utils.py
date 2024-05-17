@@ -45,17 +45,10 @@ class _DatabricksSdkAPIErrorResponse:
     text: str
 
     def raise_for_status(self):
-        http_error_msg = ""
+        if self.status_code == 200:
+            return
 
-        if 400 <= self.status_code < 500:
-            http_error_msg = (
-                f"{self.status_code} Client Error: {self.reason}"
-            )
-
-        elif 500 <= self.status_code < 600:
-            http_error_msg = (
-                f"{self.status_code} Server Error: {self.reason}"
-            )
+        http_error_msg = f"{self.status_code} Error: {self.reason}"
 
         raise HTTPError(http_error_msg)
 
