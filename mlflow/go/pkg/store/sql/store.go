@@ -1,6 +1,8 @@
 package sql
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -94,6 +96,11 @@ const (
 	LifecycleStageDeleted LifecycleStage = "deleted"
 )
 
+// TODO: is this the right place? Keep here for now?
+type PageToken struct {
+	Offset int32 `json:"offset"`
+}
+
 func (s Store) SearchRuns(
 	experimentIDs []string,
 	filter *string,
@@ -120,9 +127,31 @@ func (s Store) SearchRuns(
 		}
 	}
 
+	// TODO: does we use constants for the column names here?
 	tx := s.db.Where("experiment_id IN ?", experimentIDs).Where("lifecycle_stage IN ?", lifecyleStages)
 
+	// MaxResults
 	tx.Limit(maxResults)
+
+	// PageToken
+	var offset int
+	if utils.IsNotNilOrEmptyString(pageToken) {
+		var token PageToken
+		if err := json.NewDecoder(
+			base64.NewDecoder(
+				base64.StdEncoding,
+				strings.NewReader(*pageToken),
+			),
+		).Decode(&token); err != nil {
+			return nil, nil, contract.NewErrorWith(
+				protos.ErrorCode_INVALID_PARAMETER_VALUE,
+				fmt.Sprintf("invalid page_token: \"%s\"", *pageToken),
+				err,
+			)
+		}
+		offset = int(token.Offset)
+	}
+	tx.Offset(offset)
 
 	// Actual query
 	var runs []model.Run
