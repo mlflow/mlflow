@@ -83,11 +83,18 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 		runViewType = *input.RunViewType
 	}
 
+	maxResults := 1000
+	if input.MaxResults != nil {
+		maxResults = int(*input.MaxResults)
+	}
+
+	// TODO: should the offset be in this service?
+
 	runs, nextPageToken, err := m.store.SearchRuns(
 		input.ExperimentIds,
 		input.Filter,
-		&runViewType,
-		input.MaxResults,
+		runViewType,
+		maxResults,
 		input.OrderBy,
 		input.PageToken,
 	)

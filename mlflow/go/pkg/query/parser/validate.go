@@ -119,9 +119,9 @@ var searchableRunAttributes = []string{
 }
 
 var (
-	builtinNumericAttributes   = []string{"start time", "end time"}
+	builtinNumericAttributes   = []string{"start_time", "end_time"}
 	alternateNumericAttributes = []string{"created", "Created"}
-	alternateStringAttributes  = []string{"run name", "Run name", "Run Name"}
+	alternateStringAttributes  = []string{"run name", "Run name", "Run Name"} // Accurate?
 )
 
 var numericAttributes = append(builtinNumericAttributes, alternateNumericAttributes...)

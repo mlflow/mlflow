@@ -2281,7 +2281,7 @@ type SearchRuns struct {
 	Filter *string `protobuf:"bytes,4,opt,name=filter" json:"filter,omitempty" query:"filter"`
 	// Whether to display only active, only deleted, or all runs.
 	// Defaults to only active runs.
-	RunViewType *ViewType `protobuf:"varint,3,opt,name=run_view_type,json=runViewType,enum=mlflow.ViewType,def=1" json:"run_view_type,omitempty" query:"run_view_type" validate:"required,oneof=ACTIVE ACTIVE_ONLY DELETED_ONLY"`
+	RunViewType *ViewType `protobuf:"varint,3,opt,name=run_view_type,json=runViewType,enum=mlflow.ViewType,def=1" json:"run_view_type,omitempty" query:"run_view_type" validate:"required,oneof=3 1 2"`
 	// Maximum number of runs desired. If unspecified, defaults to 1000.
 	// All servers are guaranteed to support a `max_results` threshold of at least 50,000
 	// but may support more. Callers of this endpoint are encouraged to pass max_results

@@ -86,15 +86,65 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 	return strconv.Itoa(int(*experiment.ExperimentID)), nil
 }
 
+// TODO: is this the right place?
+type LifecycleStage string
+
+const (
+	LifecycleStageActive  LifecycleStage = "active"
+	LifecycleStageDeleted LifecycleStage = "deleted"
+)
+
 func (s Store) SearchRuns(
 	experimentIDs []string,
 	filter *string,
-	runViewType *protos.ViewType,
-	maxResults *int32,
+	runViewType protos.ViewType,
+	maxResults int,
 	orderBy []string,
 	pageToken *string,
 ) ([]*protos.Run, *string, *contract.Error) {
-	panic("implement me")
+	// ViewType
+	var lifecyleStages []LifecycleStage
+	switch runViewType {
+	case protos.ViewType_ACTIVE_ONLY:
+		lifecyleStages = []LifecycleStage{
+			LifecycleStageActive,
+		}
+	case protos.ViewType_DELETED_ONLY:
+		lifecyleStages = []LifecycleStage{
+			LifecycleStageDeleted,
+		}
+	case protos.ViewType_ALL:
+		lifecyleStages = []LifecycleStage{
+			LifecycleStageActive,
+			LifecycleStageDeleted,
+		}
+	}
+
+	tx := s.db.Where("experiment_id IN ?", experimentIDs).Where("lifecycle_stage IN ?", lifecyleStages)
+
+	tx.Limit(maxResults)
+
+	// Actual query
+	var runs []model.Run
+	tx.Preload("LatestMetrics").
+		Preload("Params").
+		Preload("Tags").
+		Find(&runs)
+
+	if tx.Error != nil {
+		return nil, nil, contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			"Failed to query search runs",
+			tx.Error,
+		)
+	}
+
+	contractRuns := make([]*protos.Run, 0, len(runs))
+	for _, run := range runs {
+		contractRuns = append(contractRuns, run.ToProto())
+	}
+
+	return contractRuns, nil, nil
 }
 
 func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
