@@ -259,11 +259,6 @@ class ArtifactRepository:
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
         with ArtifactProgressBar.files(desc="Downloading artifacts", total=len(futures)) as pbar:
-            if len(futures) >= 10 and pbar.pbar:
-                _logger.info(
-                    "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
-                )
             for f in as_completed(futures):
                 try:
                     f.result()
