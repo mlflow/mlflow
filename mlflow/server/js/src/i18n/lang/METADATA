@@ -1,8 +1,0 @@
-# go/metadata
-# proto-file: devtools/metadata/src/proto/metadata.proto
-# proto-message: MetadataSpecification
-
-description: "eng-localization-team"
-
-owner_team: "eng-localization-team"
-
