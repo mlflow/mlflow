@@ -535,13 +535,13 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    lc_model = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
+    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
 
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
-        lc_model=lc_model,
+        lc_model=lc_model_or_path,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
