@@ -84,4 +84,8 @@ class MlflowSpanExporter(SpanExporter):
             self._client._upload_trace_data(trace.info, trace.data)
             self._client._upload_ended_trace_info(trace.info)
         except Exception as e:
-            _logger.debug(f"Failed to log trace to MLflow backend: {e}", exc_info=True)
+            # avoid silent failures
+            _logger.warning(
+                f"Failed to log trace to MLflow backend: {e}",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
