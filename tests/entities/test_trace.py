@@ -7,7 +7,7 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.tracking.context.default_context
-from mlflow.entities import SpanType
+from mlflow.entities import SpanType, Trace
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -16,11 +16,7 @@ from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import get_traces
 
 
-def test_json_deserialization(clear_singleton, monkeypatch):
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
-    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    datetime_now = datetime.now()
-
+def _test_model(datetime=datetime.now()):
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):
@@ -35,13 +31,21 @@ def test_json_deserialization(clear_singleton, monkeypatch):
                 "delta": 1,
                 "metadata": {"foo": "bar"},
                 # Test for non-json-serializable input
-                "datetime": datetime_now,
+                "datetime": datetime,
             },
         )
         def add_one(self, z):
             return z + 1
 
-    model = TestModel()
+    return TestModel()
+
+
+def test_json_deserialization(clear_singleton, monkeypatch):
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    datetime_now = datetime.now()
+
+    model = _test_model(datetime_now)
     model.predict(2, 5)
 
     trace = get_traces()[0]
@@ -182,3 +186,37 @@ def test_trace_serialize_langchain_base_message():
     }
     loaded = json.loads(message_json)
     assert expected_dict_subset.items() <= loaded.items()
+
+
+def test_trace_to_from_dict_and_json(clear_singleton):
+    model = _test_model()
+    model.predict(2, 5)
+
+    trace = get_traces()[0]
+    trace_dict = trace.to_dict()
+    trace_from_dict = Trace.from_dict(trace_dict)
+    trace_json = trace.to_json()
+    trace_from_json = Trace.from_json(trace_json)
+    for loaded_trace in [trace_from_dict, trace_from_json]:
+        assert trace.info == loaded_trace.info
+        assert trace.data.request == loaded_trace.data.request
+        assert trace.data.response == loaded_trace.data.response
+        assert len(trace.data.spans) == len(loaded_trace.data.spans)
+        for i in range(len(trace.data.spans)):
+            for attr in [
+                "name",
+                "request_id",
+                "span_id",
+                "start_time_ns",
+                "end_time_ns",
+                "parent_id",
+                "status",
+                "inputs",
+                "outputs",
+                "_trace_id",
+                "attributes",
+                "events",
+            ]:
+                assert getattr(trace.data.spans[i], attr) == getattr(
+                    loaded_trace.data.spans[i], attr
+                )
