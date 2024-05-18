@@ -1780,29 +1780,29 @@ def test_pyfunc_as_code_log_and_load_wrong_path():
             )
 
 
-def test_predict_code():
+def test_predict_as_code():
     with mlflow.start_run():
-       model_info = mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             python_model="tests/pyfunc/sample_code/predict_code.py",
             artifact_path="model",
             input_example="string",
         )
-    
+
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "asdf"
     expected_output = f"This was the input: {model_input}"
     assert loaded_model.predict(model_input) == expected_output
 
 
-def test_predict_code_with_config():
+def test_predict_as_code_with_config():
     with mlflow.start_run():
-       model_info = mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             python_model="tests/pyfunc/sample_code/predict_code_with_config.py",
             artifact_path="model",
             input_example="string",
-            model_config="tests/pyfunc/sample_code/config.yml"
+            model_config="tests/pyfunc/sample_code/config.yml",
         )
-    
+
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "asdf"
     expected_output = f"This was the input: {model_input}, timeout 300"
