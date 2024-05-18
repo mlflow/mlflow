@@ -192,14 +192,20 @@ class MlflowTraceDataException(MlflowException):
 
 
 class MlflowTraceDataNotFound(MlflowTraceDataException):
-    """:meta private: Exception thrown when trace data is not found"""
+    """Exception thrown when trace data is not found
+
+    :meta private:
+    """
 
     def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
         super().__init__(NOT_FOUND, request_id, artifact_path)
 
 
 class MlflowTraceDataCorrupted(MlflowTraceDataException):
-    """:meta private: Exception thrown when trace data is corrupted"""
+    """Exception thrown when trace data is corrupted
+
+    :meta private:
+    """
 
     def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
         super().__init__(INVALID_STATE, request_id, artifact_path)

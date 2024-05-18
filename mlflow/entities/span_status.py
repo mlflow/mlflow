@@ -24,7 +24,8 @@ class SpanStatusCode(str, Enum):
 
 @dataclass
 class SpanStatus:
-    """:meta private: Status of the span or the trace.
+    """
+    Status of the span or the trace.
 
     Args:
         status_code: The status code of the span or the trace. This must be one of the
@@ -32,6 +33,8 @@ class SpanStatus:
             representation of it like "OK", "ERROR".
         description: Description of the status. This should be only set when the status
             is ERROR, otherwise it will be ignored.
+
+    :meta private:
     """
 
     status_code: SpanStatusCode

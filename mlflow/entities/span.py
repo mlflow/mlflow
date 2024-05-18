@@ -45,12 +45,15 @@ class SpanType:
 
 
 class Span:
-    """:meta private: A span object. A span represents a unit of work or operation
+    """
+    A span object. A span represents a unit of work or operation
     and is the building block of Traces.
 
     This Span class represents immutable span data that is already finished and persisted.
     The "live" span that is being created and updated during the application runtime is
     represented by the :py:class:`LiveSpan <mlflow.entities.LiveSpan>` subclass.
+
+    :meta private:
     """
 
     def __init__(self, otel_span: OTelReadableSpan):
@@ -233,11 +236,13 @@ class Span:
 
 
 class LiveSpan(Span):
-    """:meta private: A "live" version of the :py:class:`Span <mlflow.entities.Span>` class.
+    """A "live" version of the :py:class:`Span <mlflow.entities.Span>` class.
 
     The live spans are those being created and updated during the application runtime.
     When users start a new span using the tracing APIs within their code, this live span
     object is returned to get and set the span attributes, status, events, and etc.
+
+    :meta private:
     """
 
     def __init__(
@@ -351,7 +356,7 @@ class LiveSpan(Span):
 
 
 class NoOpSpan(Span):
-    """:meta private: No-op implementation of the Span interface.
+    """No-op implementation of the Span interface.
 
     This instance should be returned from the mlflow.start_span context manager when span
     creation fails. This class should have exactly the same interface as the Span so that
@@ -366,6 +371,7 @@ class NoOpSpan(Span):
             span.set_inputs({"x": 1})
             # Do something
 
+    :meta private:
     """
 
     def __init__(self, *args, **kwargs):
@@ -426,13 +432,15 @@ class NoOpSpan(Span):
 
 
 class _SpanAttributesRegistry:
-    """:meta private: A utility class to manage the span attributes.
+    """A utility class to manage the span attributes.
 
     In MLflow users can add arbitrary key-value pairs to the span attributes, however,
     OpenTelemetry only allows a limited set of types to be stored in the attribute values.
     Therefore, we serialize all values into JSON string before storing them in the span.
     This class provides simple getter and setter methods to interact with the span attributes
     without worrying about the serde process.
+
+    :meta private:
     """
 
     def __init__(self, otel_span: OTelSpan):
@@ -457,11 +465,13 @@ class _SpanAttributesRegistry:
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):
-    """:meta private: A cache-enabled version of the SpanAttributesRegistry.
+    """A cache-enabled version of the SpanAttributesRegistry.
 
     The caching helps to avoid the redundant deserialization of the attribute, however, it does
     not handle the value change well. Therefore, this class should only be used for the persisted
     spans that are immutable, and thus implemented as a subclass of _SpanAttributesRegistry.
+
+    :meta private:
     """
 
     @lru_cache(maxsize=128)
