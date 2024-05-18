@@ -102,7 +102,7 @@ describe('ArtifactPage', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('Spinner').length).toBe(1);
+    expect(wrapper.find('ArtifactViewBrowserSkeleton').length).toBe(1);
   });
   test('should make correct number of API requests if artifact path specified in url', (done) => {
     const mock = jest.fn();
@@ -136,7 +136,7 @@ describe('ArtifactPage', () => {
     const artifactViewInstance = shallowWithIntl(
       artifactPageInstance.renderArtifactView(false, true, [listArtifactsErrorRequest]),
     );
-    expect(artifactViewInstance.find('.mlflow-artifact-error').length).toBe(1);
+    expect(artifactViewInstance.find('[data-testid="artifact-view-error"]').length).toBe(1);
     jest.clearAllMocks();
   });
   test('ArtifactPage renders ArtifactView when listArtifacts request succeeds', () => {

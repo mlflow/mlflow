@@ -22,6 +22,8 @@ interface CommonComboboxStateProps<T> {
     formOnChange?: (value: any) => void;
     formOnBlur?: (value: any) => void;
     onStateChange?: (changes: UseComboboxStateChange<T>) => void;
+    initialSelectedItem?: T;
+    initialInputValue?: string;
 }
 export type UseComboboxStateProps<T> = SingleSelectProps<T> | MultiSelectProps<T>;
 export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, allowNewValue, formValue, formOnChange, formOnBlur, ...props }: UseComboboxStateProps<T>): UseComboboxReturnValue<T>;

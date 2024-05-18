@@ -14,10 +14,11 @@ export const useRunDetailsPageData = (runUuid: string, experimentId: string) => 
   const dispatch = useDispatch<ThunkDispatch>();
 
   // Get the necessary data from the store
-  const { runInfo, tags, latestMetrics, experiment } = useSelector((state: ReduxState) => ({
+  const { runInfo, tags, latestMetrics, experiment, params } = useSelector((state: ReduxState) => ({
     runInfo: state.entities.runInfosByUuid[runUuid],
     tags: state.entities.tagsByRunUuid[runUuid],
     latestMetrics: state.entities.latestMetricsByRunUuid[runUuid],
+    params: state.entities.paramsByRunUuid[runUuid],
     experiment: state.entities.experimentsById[experimentId],
   }));
 
@@ -69,6 +70,7 @@ export const useRunDetailsPageData = (runUuid: string, experimentId: string) => 
     data: {
       runInfo,
       tags,
+      params,
       latestMetrics,
       experiment,
     },

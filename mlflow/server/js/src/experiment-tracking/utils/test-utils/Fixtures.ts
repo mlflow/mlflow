@@ -5,33 +5,43 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { Experiment, RunInfo } from '../../sdk/MlflowMessages';
+import { ExperimentEntity, RunInfoEntity } from '../../types';
 
 const createExperiment = ({
-  experiment_id = '0',
+  experimentId = '0',
   name = 'Default',
-  artifact_location = 'dbfs:/databricks/mlflow/0',
-  lifecycle_stage = 'active',
+  artifactLocation = 'dbfs:/databricks/mlflow/0',
+  lifecycleStage = 'active',
   tags = [],
-  allowed_actions = [],
-} = {}) =>
-  (Experiment as any).fromJs({
-    experiment_id,
-    name,
-    artifact_location,
-    lifecycle_stage,
-    tags,
-    allowed_actions,
-  });
+  allowedActions = [],
+} = {}): ExperimentEntity => ({
+  experimentId,
+  name,
+  artifactLocation,
+  lifecycleStage,
+  tags,
+  allowedActions,
+  creationTime: 0,
+  lastUpdateTime: 0,
+});
 
-const createRunInfo = () => {
-  return (RunInfo as any).fromJs({ run_uuid: 0 });
+const createRunInfo = (): RunInfoEntity => {
+  return {
+    runUuid: '0',
+    experimentId: '0',
+    artifactUri: '',
+    endTime: 0,
+    status: 'RUNNING',
+    lifecycleStage: '',
+    runName: '',
+    startTime: 0,
+  };
 };
 
 const fixtures = {
   createExperiment,
   createRunInfo,
-  experiments: [createExperiment(), createExperiment({ experiment_id: '1', name: 'Test' })],
+  experiments: [createExperiment(), createExperiment({ experimentId: '1', name: 'Test' })],
 };
 
 export default fixtures;

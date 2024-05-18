@@ -6,8 +6,8 @@ import { ThunkDispatch } from '../../../../../redux-types';
 import { setExperimentTagApi } from '../../../../actions';
 import Routes from '../../../../routes';
 import { CopyButton } from '../../../../../shared/building_blocks/CopyButton';
-import { ExperimentPageSearchFacetsStateV2 } from '../../../experiment-page/models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2 } from '../../../experiment-page/models/ExperimentPageUIStateV2';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { getStringSHA256 } from '../../../../../common/utils/StringUtils';
 import Utils from '../../../../../common/utils/Utils';
 import { EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX } from '../../../../constants';
@@ -16,11 +16,11 @@ type GetShareLinkModalProps = {
   onCancel: () => void;
   visible: boolean;
   experimentIds: string[];
-  searchFacetsState: ExperimentPageSearchFacetsStateV2;
-  uiState: ExperimentPageUIStateV2;
+  searchFacetsState: ExperimentPageSearchFacetsState;
+  uiState: ExperimentPageUIState;
 };
 
-type ShareableViewState = ExperimentPageSearchFacetsStateV2 & ExperimentPageUIStateV2;
+type ShareableViewState = ExperimentPageSearchFacetsState & ExperimentPageUIState;
 
 /**
  * Modal that displays shareable link for the experiment page.

@@ -5,6 +5,7 @@ import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../../constants';
 import type { RunDatasetWithTags } from '../../../../../types';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../../utils/experimentPage.common-utils';
+import type { SuppressKeyboardEventParams } from '@ag-grid-community/core';
 const MAX_DATASETS_VISIBLE = 3;
 
 /**
@@ -49,6 +50,7 @@ const SingleDataset = ({
               componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_datasetscellrenderer.tsx_49"
               type="link"
               onClick={onDatasetSelected}
+              tabIndex={0}
             >
               <span css={{ fontSize: 12 }}>
                 {dataset.name} ({dataset.digest})
@@ -61,6 +63,7 @@ const SingleDataset = ({
             type="link"
             onClick={onDatasetSelected}
             data-testid="open-dataset-drawer"
+            tabIndex={0}
           >
             <span>
               {dataset.name} ({dataset.digest})
@@ -181,6 +184,7 @@ export const DatasetsCellRenderer = React.memo(
                     componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_datasetscellrenderer.tsx_172"
                     size="small"
                     style={{ borderRadius: '8px', width: '40px' }}
+                    tabIndex={0}
                   >
                     <Typography.Text color="secondary">+{moreItemsToShow}</Typography.Text>
                   </Button>
@@ -221,4 +225,20 @@ export const getDatasetsCellHeight = (datasetColumnShown: boolean, row: { data: 
     return EXPERIMENT_RUNS_TABLE_ROW_HEIGHT * datasetsCount;
   }
   return EXPERIMENT_RUNS_TABLE_ROW_HEIGHT;
+};
+
+/**
+ * A utility function that enables custom keyboard navigation for the datasets cell renderer by providing
+ * conditional suppression of default events.
+ *
+ * This cell needs specific handling since it's the only one that displays multiple buttons simultaneously.
+ */
+export const DatasetsCellRendererSuppressKeyboardEvents = ({ event }: SuppressKeyboardEventParams) => {
+  return (
+    event.key === 'Tab' &&
+    event.target instanceof HTMLElement &&
+    // Let's suppress the default action if the focus is on cell or on the dataset button, allowing
+    // tab to move to the next focusable element.
+    (event.target.classList.contains('ag-cell') || event.target instanceof HTMLButtonElement)
+  );
 };

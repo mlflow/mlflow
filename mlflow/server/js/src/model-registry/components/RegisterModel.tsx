@@ -7,18 +7,17 @@
 
 import React from 'react';
 import _ from 'lodash';
-import { Modal, Button, Tooltip, ButtonProps, Spacer } from '@databricks/design-system';
-import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-
+import { Button, ButtonProps, Modal, Spacer, Tooltip } from '@databricks/design-system';
+import { FormattedMessage, injectIntl, type IntlShape } from 'react-intl';
 import {
-  RegisterModelForm,
   CREATE_NEW_MODEL_OPTION_VALUE,
-  SELECTED_MODEL_FIELD,
   MODEL_NAME_FIELD,
+  RegisterModelForm,
+  SELECTED_MODEL_FIELD,
 } from './RegisterModelForm';
 import {
-  createRegisteredModelApi,
   createModelVersionApi,
+  createRegisteredModelApi,
   searchModelVersionsApi,
   searchRegisteredModelsApi,
 } from '../actions';
@@ -198,9 +197,9 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
     ];
   }
 
-  render() {
+  renderHelper(disableButton: boolean, form: React.ReactNode) {
     const { visible, confirmLoading } = this.state;
-    const { disabled, showButton = true, buttonType } = this.props;
+    const { showButton = true, buttonType } = this.props;
     return (
       <div className="register-model-btn-wrapper">
         {showButton && (
@@ -210,7 +209,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
               className="register-model-btn"
               type={buttonType}
               onClick={this.showRegisterModal}
-              disabled={disabled}
+              disabled={disableButton}
               htmlType="button"
             >
               <FormattedMessage
@@ -238,10 +237,15 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
           centered
           footer={this.renderFooter()}
         >
-          {this.renderRegisterModelForm()}
+          {form}
         </Modal>
       </div>
     );
+  }
+
+  render() {
+    const { disabled } = this.props;
+    return this.renderHelper(disabled, this.renderRegisterModelForm());
   }
 }
 

@@ -10,7 +10,7 @@ export const ExperimentViewDatasetSourceURL = ({ datasetWithTags }: ExperimentVi
   const { dataset } = datasetWithTags;
   const { theme } = useDesignSystemTheme();
 
-  const sourceType = dataset.source_type;
+  const sourceType = dataset.sourceType;
 
   if (
     sourceType === DatasetSourceTypes.HTTP ||

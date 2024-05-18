@@ -11,5 +11,5 @@ export const RunViewUserLinkBox = ({
   tags: Record<string, KeyValueEntity>;
 }) => {
   const user = Utils.getUser(runInfo, tags);
-  return <Link to={Routes.searchRunsByUser(runInfo.experiment_id, user)}>{user}</Link>;
+  return <Link to={Routes.searchRunsByUser(runInfo.experimentId, user)}>{user}</Link>;
 };

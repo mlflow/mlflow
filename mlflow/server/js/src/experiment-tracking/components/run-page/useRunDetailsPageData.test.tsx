@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-for-react-18';
 import { useRunDetailsPageData } from './useRunDetailsPageData';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 
@@ -35,6 +35,7 @@ describe('useRunDetailsPageData', () => {
                 tagsByRunUuid: {},
                 latestMetricsByRunUuid: {},
                 modelVersionsByRunUuid: {},
+                paramsByRunUuid: {},
               },
               entities,
             ),
@@ -66,12 +67,12 @@ describe('useRunDetailsPageData', () => {
   });
 
   test("Do not fetch run if it's in the store already", () => {
-    const { result } = mountHook({ runInfosByUuid: { [testRunUuid]: { run_name: 'some_run' } } });
+    const { result } = mountHook({ runInfosByUuid: { [testRunUuid]: { runName: 'some_run' } } });
 
     const { data, loading } = result.current;
 
     expect(data.experiment).toBeUndefined();
-    expect(data.runInfo).toEqual({ run_name: 'some_run' });
+    expect(data.runInfo).toEqual({ runName: 'some_run' });
     expect(loading).toEqual(true);
 
     expect(getRunApi).not.toBeCalled();
