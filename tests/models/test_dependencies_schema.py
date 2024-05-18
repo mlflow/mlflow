@@ -1,13 +1,13 @@
 from mlflow.models.dependencies_schema import (
     DependenciesSchemas,
-    VectorSearchIndex,
+    VectorSearchIndexSchema,
     _get_vector_search_schema,
     set_vector_search_schema,
 )
 
 
 def test_vector_search_index_creation():
-    vsi = VectorSearchIndex(
+    vsi = VectorSearchIndexSchema(
         name="index-name",
         primary_key="primary-key",
         text_column="text-column",
@@ -22,7 +22,7 @@ def test_vector_search_index_creation():
 
 
 def test_vector_search_index_to_dict():
-    vsi = VectorSearchIndex(
+    vsi = VectorSearchIndexSchema(
         name="index-name",
         primary_key="primary-key",
         text_column="text-column",
@@ -51,7 +51,7 @@ def test_vector_search_index_from_dict():
         "doc_uri": "doc-uri",
         "other_columns": ["column1", "column2"],
     }
-    vsi = VectorSearchIndex.from_dict(data)
+    vsi = VectorSearchIndexSchema.from_dict(data)
     assert vsi.name == "index-name"
     assert vsi.primary_key == "primary-key"
     assert vsi.text_column == "text-column"
@@ -60,14 +60,14 @@ def test_vector_search_index_from_dict():
 
 
 def test_dependencies_schemas_to_dict():
-    vsi = VectorSearchIndex(
+    vsi = VectorSearchIndexSchema(
         name="index-name",
         primary_key="primary-key",
         text_column="text-column",
         doc_uri="doc-uri",
         other_columns=["column1", "column2"],
     )
-    schema = DependenciesSchemas(vector_search_index=[vsi])
+    schema = DependenciesSchemas(vector_search_index_schemas=[vsi])
     expected_dict = {
         "dependencies_schemas": {
             "vector_search_index": [

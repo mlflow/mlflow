@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Dict, List, Optional
 
+from mlflow.models.resources import ResourceType
 from mlflow.utils.annotations import experimental
 
 DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY = "__databricks_vector_search_primary_key__"
@@ -14,14 +14,15 @@ DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS = "__databricks_vector_search_other_colum
 @experimental
 def set_vector_search_schema(
     primary_key: str,
-    text_column: str = "",
+    text_column: str,
     doc_uri: Optional[str] = None,
     other_columns: Optional[List[str]] = None,
 ):
     """
     After defining your vector store in a Python file or notebook, call
-    set_vector_search_schema() so that we can correctly map the vector index
-    columns. These columns would be used during tracing and in the review UI.
+    set_vector_search_schema() so that, when MLflow retrieves documents during
+    model inference, MLflow can interpret the fields in each retrieved document and
+    determine which fields correspond to the document text, document URI, etc.
 
     Args:
         primary_key: The primary key of the vector index.
@@ -57,7 +58,7 @@ def _get_vector_search_schema():
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    return VectorSearchIndex(
+    return VectorSearchIndexSchema(
         name="vector_search_index",
         primary_key=globals().get(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY),
         text_column=globals().get(DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN),
@@ -66,24 +67,16 @@ def _get_vector_search_schema():
     )
 
 
-class DependenciesType(Enum):
-    """
-    Enum to define the different types of dependencies of the model.
-    """
-
-    VECTOR_SEARCH_INDEX = "vector_search_index"
-
-
 @dataclass
 class Schema(ABC):
     """
     Base class for defining the resources needed to serve a model.
 
     Args:
-        type (DependenciesType): The type of the schema.
+        type (ResourceType): The type of the schema.
     """
 
-    type: DependenciesType
+    type: ResourceType
 
     @abstractmethod
     def to_dict(self):
@@ -102,24 +95,32 @@ class Schema(ABC):
 
 
 @dataclass
-class VectorSearchIndex(Schema):
+class VectorSearchIndexSchema(Schema):
     """
     Define vector search index resource to serve a model.
 
     Args:
-        name (str): The name of the vector searcg schema.
+        name (str): The name of the vector search index schema.
         primary_key (str): The primary key for the index.
         text_column (str): The main text column for the index.
         doc_uri (Optional[str]): The document URI for the index.
         other_columns (Optional[List[str]]): Additional columns in the index.
     """
 
-    type: DependenciesType = DependenciesType.VECTOR_SEARCH_INDEX
-    name: str = None
-    primary_key: str = None
-    text_column: str = None
-    doc_uri: Optional[str] = None
-    other_columns: Optional[List[str]] = field(default_factory=list)
+    def __init__(
+        self,
+        name: str,
+        primary_key: str,
+        text_column: str,
+        doc_uri: Optional[str] = None,
+        other_columns: Optional[List[str]] = None,
+    ):
+        super().__init__(type=ResourceType.VECTOR_SEARCH_INDEX)
+        self.name = name
+        self.primary_key = primary_key
+        self.text_column = text_column
+        self.doc_uri = doc_uri
+        self.other_columns = other_columns or []
 
     def to_dict(self):
         return {
@@ -147,14 +148,14 @@ class VectorSearchIndex(Schema):
 
 @dataclass
 class DependenciesSchemas:
-    vector_search_index: List[VectorSearchIndex] = field(default_factory=list)
+    vector_search_index_schemas: List[VectorSearchIndexSchema] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Dict[DependenciesType, List[Dict]]]:
+    def to_dict(self) -> Dict[str, Dict[ResourceType, List[Dict]]]:
         return {
             "dependencies_schemas": {
-                DependenciesType.VECTOR_SEARCH_INDEX.value: [
-                    index.to_dict()[DependenciesType.VECTOR_SEARCH_INDEX.value][0]
-                    for index in self.vector_search_index
+                ResourceType.VECTOR_SEARCH_INDEX.value: [
+                    index.to_dict()[ResourceType.VECTOR_SEARCH_INDEX.value][0]
+                    for index in self.vector_search_index_schemas
                 ],
             }
         }
