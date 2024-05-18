@@ -14,6 +14,8 @@ class TraceData:
             but added for ease of access. Stored as a JSON string.
         response: Output data for the entire trace. Equivalent to the output of the root span.
             Stored as a JSON string.
+
+    :meta private:
     """
 
     spans: List[Span] = field(default_factory=list)
