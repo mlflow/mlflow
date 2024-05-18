@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 class MlflowSpanExporter(SpanExporter):
-    """:meta private:
+    """
     An exporter implementation that logs the traces to MLflow.
 
     MLflow backend (will) only support logging the complete trace, not incremental updates
@@ -28,6 +28,8 @@ class MlflowSpanExporter(SpanExporter):
 
     If we want to support distributed tracing, we should first implement an incremental trace
     logging in MLflow backend, then we can get rid of the in-memory trace aggregation.
+
+    :meta private:
     """
 
     def __init__(

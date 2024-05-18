@@ -10,7 +10,8 @@ from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 @dataclass
 class TraceInfo(_MlflowObject):
-    """:meta private: Metadata about a trace.
+    """
+    Metadata about a trace.
 
     Args:
         request_id: id of the trace.
@@ -20,6 +21,8 @@ class TraceInfo(_MlflowObject):
         status: status of the trace.
         request_metadata: request metadata associated with the trace.
         tags: tags associated with the trace.
+
+    :meta private:
     """
 
     request_id: str

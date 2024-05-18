@@ -19,9 +19,11 @@ _logger = logging.getLogger(__name__)
 
 
 def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
-    """:meta private:
+    """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
+
+    :meta private:
     """
     return _TRACE_BUFFER.pop(request_id, None)
 

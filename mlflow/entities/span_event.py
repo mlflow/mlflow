@@ -13,7 +13,8 @@ from mlflow.entities._mlflow_object import _MlflowObject
 
 @dataclass
 class SpanEvent(_MlflowObject):
-    """:meta private: An event that records a specific occurrences or moments in time
+    """
+    An event that records a specific occurrences or moments in time
     during a span, such as an exception being thrown. Compatible with OpenTelemetry.
 
     Args:
@@ -24,6 +25,8 @@ class SpanEvent(_MlflowObject):
             attributes of the event, such as the exception stack trace.
             Attributes value must be one of ``[str, int, float, bool, bytes]``
             or a sequence of these types.
+
+    :meta private:
     """
 
     name: str

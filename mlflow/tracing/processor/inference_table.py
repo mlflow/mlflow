@@ -32,10 +32,12 @@ def _get_flask_request():
 
 
 class InferenceTableSpanProcessor(SimpleSpanProcessor):
-    """:meta private:
+    """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
     This processor is used when the tracing destination is Databricks Inference Table.
+
+    :meta private:
     """
 
     def __init__(self, span_exporter: SpanExporter):

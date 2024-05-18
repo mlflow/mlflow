@@ -26,7 +26,11 @@ _logger = logging.getLogger(__name__)
 
 # Not using enum as we want to allow custom span type string.
 class SpanType:
-    """:meta private: Predefined set of span types."""
+    """
+    Predefined set of span types.
+
+    :meta private:
+    """
 
     LLM = "LLM"
     CHAIN = "CHAIN"

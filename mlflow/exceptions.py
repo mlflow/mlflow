@@ -171,7 +171,11 @@ class _UnsupportedMultipartUploadException(MlflowException):
 
 
 class MlflowTraceDataException(MlflowException):
-    """:meta private: Exception thrown for trace data related error"""
+    """
+    Exception thrown for trace data related error
+
+    :meta private:
+    """
 
     def __init__(
         self, error_code: str, request_id: Optional[str] = None, artifact_path: Optional[str] = None

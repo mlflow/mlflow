@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 def start_span_in_context(name: str) -> trace.Span:
-    """:meta private:
+    """
     Start a new OpenTelemetry span in the current context.
 
     Note that this function doesn't set the started span as the active span in the context. To do
@@ -28,6 +28,8 @@ def start_span_in_context(name: str) -> trace.Span:
 
     Returns:
         The newly created OpenTelemetry span.
+
+    :meta private:
     """
     return _get_tracer(__name__).start_span(name)
 

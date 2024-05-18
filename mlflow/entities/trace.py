@@ -11,11 +11,14 @@ from mlflow.entities.trace_info import TraceInfo
 
 @dataclass
 class Trace(_MlflowObject):
-    """:meta private: A trace object. (TODO: Add conceptual guide for tracing.)
+    """
+    A trace object. (TODO: Add conceptual guide for tracing.)
 
     Args:
         info: A lightweight object that contains the metadata of a trace.
         data: A container object that holds the spans data of a trace.
+
+    :meta private:
     """
 
     info: TraceInfo

@@ -6,7 +6,8 @@ from mlflow.entities import Span
 
 @dataclass
 class TraceData:
-    """:meta private: A container object that holds the spans data of a trace.
+    """
+    A container object that holds the spans data of a trace.
 
     Args:
         spans: List of spans that are part of the trace.
@@ -14,6 +15,8 @@ class TraceData:
             but added for ease of access. Stored as a JSON string.
         response: Output data for the entire trace. Equivalent to the output of the root span.
             Stored as a JSON string.
+
+    :meta private:
     """
 
     spans: List[Span] = field(default_factory=list)

@@ -35,8 +35,10 @@ class _Trace:
 
 
 class InMemoryTraceManager:
-    """:meta private:
+    """
     Manage spans and traces created by the tracing system in memory.
+
+    :meta private:
     """
 
     _instance_lock = threading.Lock()
