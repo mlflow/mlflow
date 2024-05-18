@@ -30,9 +30,9 @@ class TraceData:
             spans=[Span.from_dict(span) for span in d.get("spans", [])],
         )
 
-    def to_dict(self, dump_events=False) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
-            "spans": [span.to_dict(dump_events=dump_events) for span in self.spans],
+            "spans": [span.to_dict() for span in self.spans],
             "request": self.request,
             "response": self.response,
         }

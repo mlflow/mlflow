@@ -1,7 +1,7 @@
 from unittest import mock
 
 import mlflow
-from mlflow.entities import LiveSpan
+from mlflow.entities import LiveSpan, Trace
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -11,7 +11,7 @@ from mlflow.tracing.export.inference_table import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
-from tests.tracing.helper import _dump_attributes, create_mock_otel_span, create_test_trace_info
+from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 _TRACE_ID = 12345
 _REQUEST_ID = f"tr-{_TRACE_ID}"
@@ -78,17 +78,14 @@ def test_export_warn_invalid_attributes():
     exporter.export([otel_span])
 
     trace_dict = pop_trace(_REQUEST_ID)
-    assert trace_dict is not None
-    span_dict = trace_dict["data"]["spans"][0]
-    # Invalid attributes should be exported as is
-    assert span_dict["attributes"] == _dump_attributes(
-        {
-            "mlflow.traceRequestId": _REQUEST_ID,
-            "mlflow.spanType": "UNKNOWN",
-            "valid": "value",
-            "str": "a",
-        }
-    )
+    trace = Trace.from_dict(trace_dict)
+    stored_span = trace.data.spans[0]
+    assert stored_span.attributes == {
+        "mlflow.traceRequestId": _REQUEST_ID,
+        "mlflow.spanType": "UNKNOWN",
+        "valid": "value",
+        "str": "a",
+    }
 
     # Users shouldn't set attribute directly to the OTel span
     otel_span.set_attribute("int", 1)

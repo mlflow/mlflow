@@ -68,4 +68,4 @@ class InferenceTableSpanExporter(SpanExporter):
                 continue
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
-            _TRACE_BUFFER[trace.info.request_id] = trace.to_dict(dump_events=True)
+            _TRACE_BUFFER[trace.info.request_id] = trace.to_dict()

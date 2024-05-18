@@ -23,8 +23,8 @@ class Trace(_MlflowObject):
     info: TraceInfo
     data: TraceData
 
-    def to_dict(self, dump_events=False) -> Dict[str, Any]:
-        return {"info": self.info.to_dict(), "data": self.data.to_dict(dump_events=dump_events)}
+    def to_dict(self) -> Dict[str, Any]:
+        return {"info": self.info.to_dict(), "data": self.data.to_dict()}
 
     def to_json(self) -> str:
         from mlflow.tracing.utils import TraceJSONEncoder
@@ -41,7 +41,10 @@ class Trace(_MlflowObject):
                 "Received keys: %s" % list(trace_dict.keys()),
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return cls(info=info, data=data)
+        return cls(
+            info=TraceInfo.from_dict(info),
+            data=TraceData.from_dict(data),
+        )
 
     @classmethod
     def from_json(cls, trace_json: str) -> Trace:
@@ -49,11 +52,10 @@ class Trace(_MlflowObject):
             trace_dict = json.loads(trace_json)
         except json.JSONDecodeError as e:
             raise MlflowException(
-                "Unable to parse trace JSON: %s. Error: %s" % (trace_json, e),
+                f"Unable to parse trace JSON: {trace_json}. Error: {e}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls.from_dict(trace_dict)
-
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """

@@ -1,4 +1,3 @@
-import json
 import time
 from dataclasses import dataclass
 from typing import List, Optional
@@ -115,7 +114,3 @@ def create_test_trace_info(
 def get_traces() -> List[Trace]:
     # Get all traces from the trace buffer
     return list(TRACE_BUFFER.values())
-
-
-def _dump_attributes(attributes):
-    return {k: json.dumps(v) for k, v in attributes.items()}
