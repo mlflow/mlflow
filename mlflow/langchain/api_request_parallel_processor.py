@@ -286,10 +286,14 @@ class APIRequest:
                 else:
                     response = APIRequest._try_transform_response_to_chat_format(response)
         else:
+            if isinstance(self.lc_model, langchain.chains.base.Chain):
+                kwargs = {"return_only_outputs": True}
+            else:
+                kwargs = {}
             response = self.lc_model(
                 self.request_json,
-                return_only_outputs=True,
                 callbacks=callback_handlers,
+                **kwargs,
             )
 
             if self.did_perform_chat_conversion or self.convert_chat_responses:
