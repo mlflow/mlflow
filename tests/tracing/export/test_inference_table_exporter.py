@@ -97,7 +97,7 @@ def test_export_warn_invalid_attributes():
         span.attributes
         mock_warning.assert_called_once()
         msg = mock_warning.call_args[0][0]
-        assert msg.startswith("Fail to get value for key int")
+        assert msg.startswith("Failed to get value for key int")
 
 
 def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):

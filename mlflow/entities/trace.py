@@ -33,10 +33,15 @@ class Trace(_MlflowObject):
 
     @classmethod
     def from_dict(cls, trace_dict: Dict[str, Any]) -> Trace:
-        return cls(
-            info=TraceInfo.from_dict(trace_dict["info"]),
-            data=TraceData.from_dict(trace_dict["data"]),
-        )
+        info = trace_dict.get("info")
+        data = trace_dict.get("data")
+        if info is None or data is None:
+            raise MlflowException(
+                "Unable to parse Trace from dictionary. Expected keys: 'info' and 'data'. "
+                "Received keys: %s" % list(trace_dict.keys()),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return cls(info=info, data=data)
 
     @classmethod
     def from_json(cls, trace_json: str) -> Trace:
