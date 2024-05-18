@@ -108,6 +108,9 @@ def _install_pyfunc_deps(
     # it's already installed in the container.
     if len(activate_cmd):
         if _container_includes_mlflow_source():
+            # If the MLflow source code is copied to the container,
+            # we always need to run `pip install /opt/mlflow` otherwise
+            # the MLflow dependencies are not installed.
             install_mlflow_cmd = ["pip install /opt/mlflow/."]
         elif install_mlflow:
             install_mlflow_cmd = [f"pip install mlflow=={MLFLOW_VERSION}"]
