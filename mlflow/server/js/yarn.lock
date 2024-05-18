@@ -23,32 +23,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ag-grid-community/client-side-row-model@npm:^27.2.1":
-  version: 27.3.0
-  resolution: "@ag-grid-community/client-side-row-model@npm:27.3.0"
+"@ag-grid-community/client-side-row-model@npm:^28.2.1":
+  version: 28.2.1
+  resolution: "@ag-grid-community/client-side-row-model@npm:28.2.1"
   dependencies:
-    "@ag-grid-community/core": ~27.3.0
-  checksum: 11a3f29a721f3a39d130cc1bcd79e6280ff2c39ea680e8dc59edae30dbc14966337898da856c9b271903d79a0fd049807872a8d8ca4a42007239dedac804433e
+    "@ag-grid-community/core": ~28.2.1
+  checksum: cdd6c74b6a5b44ace07da0cc1797f5f38646cf25ef51d43d3c02aa0ccd702437490a4ce9fd9db2dfcbeefd1edd4e48bd82052e2596e2cfbe8618df8bdcd90b27
   languageName: node
   linkType: hard
 
-"@ag-grid-community/core@npm:^27.2.1, @ag-grid-community/core@npm:~27.3.0":
-  version: 27.3.0
-  resolution: "@ag-grid-community/core@npm:27.3.0"
-  checksum: 915a3eb560c06baffa18ba98462ffb4562c2c898752e87c1f303de75fd77e2356cdceda11bf5b80687ea9fe4c856ea2a9907235dc19b637b109f52340ae2e1fc
+"@ag-grid-community/core@npm:^28.2.1, @ag-grid-community/core@npm:~28.2.1":
+  version: 28.2.1
+  resolution: "@ag-grid-community/core@npm:28.2.1"
+  checksum: da64f8412f33b7b76067f169a1dc867f3641e10e9b3344edec3f26dc792ba2245dd4afca0fe1788c71c6c96ffac04ca4ea30ec43551b77bfab178c9b68b761ec
   languageName: node
   linkType: hard
 
-"@ag-grid-community/react@npm:^27.2.1":
-  version: 27.3.0
-  resolution: "@ag-grid-community/react@npm:27.3.0"
+"@ag-grid-community/react@npm:^28.2.1":
+  version: 28.2.1
+  resolution: "@ag-grid-community/react@npm:28.2.1"
   dependencies:
     prop-types: ^15.8.1
   peerDependencies:
-    "@ag-grid-community/core": ~27.3.0
+    "@ag-grid-community/core": ~28.2.1
     react: ^16.3.0 || ^17.0.0 || ^18.0.0
     react-dom: ^16.3.0 || ^17.0.0 || ^18.0.0
-  checksum: a7215edead31eb7c1d2fea8e1f6a3e3b8173639a240435e08186db833dc1ef507824db212be16c64655adceb84a12172fa721c4eb5db8643151bca04d2267ac9
+  checksum: cbdb6886f2e295723f64874b517dd914d0b75f99a0d9229a636bff2764263ac49aff38ea7e63a7142557d55249122393f8116246b91dfcde60099fdfd8c56a97
   languageName: node
   linkType: hard
 
@@ -4958,9 +4958,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@mlflow/mlflow@workspace:."
   dependencies:
-    "@ag-grid-community/client-side-row-model": ^27.2.1
-    "@ag-grid-community/core": ^27.2.1
-    "@ag-grid-community/react": ^27.2.1
+    "@ag-grid-community/client-side-row-model": ^28.2.1
+    "@ag-grid-community/core": ^28.2.1
+    "@ag-grid-community/react": ^28.2.1
     "@apollo/client": ^3.6.9
     "@babel/core": ^7.23.0
     "@babel/eslint-parser": ^7.22.15
