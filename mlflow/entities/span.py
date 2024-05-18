@@ -450,7 +450,7 @@ class _SpanAttributesRegistry:
                 return json.loads(serialized_value)
             except Exception as e:
                 _logger.warning(
-                    f"Fail to get value for key {key}, make sure you set the attribute "
+                    f"Failed to get value for key {key}, make sure you set the attribute "
                     f"on mlflow Span class instead of directly to the OpenTelemetry span. {e}"
                 )
 
