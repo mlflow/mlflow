@@ -9,7 +9,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
@@ -36,6 +36,8 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
     This processor is used when the tracing destination is Databricks Inference Table.
+
+    :meta private:
     """
 
     def __init__(self, span_exporter: SpanExporter):
@@ -71,6 +73,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 )
                 return
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
+        tags = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
 
         if span._parent is None:
             trace_info = TraceInfo(
@@ -80,6 +83,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,
                 request_metadata={},
+                tags=tags,
             )
             self._trace_manager.register_trace(span.context.trace_id, trace_info)
 
