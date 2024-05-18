@@ -468,13 +468,12 @@ class _SpanAttributesRegistry:
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):
-    """A cache-enabled version of the SpanAttributesRegistry.
+    """
+    A cache-enabled version of the SpanAttributesRegistry.
 
     The caching helps to avoid the redundant deserialization of the attribute, however, it does
     not handle the value change well. Therefore, this class should only be used for the persisted
     spans that are immutable, and thus implemented as a subclass of _SpanAttributesRegistry.
-
-    :meta private:
     """
 
     @lru_cache(maxsize=128)
