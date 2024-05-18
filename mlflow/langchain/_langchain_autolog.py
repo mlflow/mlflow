@@ -73,8 +73,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     A patched implementation of langchain models inference process which enables
     logging the traces, and other optional artifacts like model, input examples, etc.
 
-    We patch either `invoke` or `__call__` function for different models
-    based on their usage.
+    We patch inference functions for different models based on their usage.
     """
     import langchain
 
@@ -86,17 +85,12 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         )
 
     # Inject MLflow tracer into the model
-    # TODO: the legacy LangChain callback is removed as its functionality largely
-    #  overlaps with the tracer while increasing the latency due to synchronous
-    #  artifact logging. However, complex text metrics are not logged by the tracer.
-    #  We should recover this functionality either in the tracer or a separate
-    #  callback before merging the LangChain autologging change into the main branch.
-    #  https://github.com/langchain-ai/langchain/blob/38fb1429fe5a955a863fb91b626c2c9f85efb703/libs/community/langchain_community/callbacks/mlflow_callback.py#L62-L81
     from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
     config = AutoLoggingConfig.init()
     mlflow_tracer = MlflowLangchainTracer()
     args, kwargs = _inject_mlflow_callbacks(func_name, [mlflow_tracer], args, kwargs)
+    _logger.debug("Injected MLflow callbacks into the model.")
 
     # NB: Running the original inference with disabling autologging, so we only patch the top-level
     # component and avoid duplicate logging for child components.
@@ -358,7 +352,7 @@ def _chain_with_retriever(model):
 
 def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *args, **kwargs):
     input_example = None
-    if autolog_config.log_models and not hasattr(self, "model_logged"):
+    if autolog_config.log_models and not hasattr(self, "_mlflow_model_logged"):
         if (
             (func_name == "get_relevant_documents")
             or _runnable_with_retriever(self)
@@ -393,8 +387,10 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
                     )
             except Exception as e:
                 _logger.warning(f"Failed to log model due to error {e}.")
-            if _update_langchain_model_config(self):
-                self.model_logged = True
+        # only try logging model once, even if it can't be logged
+        # we don't want to spam the user with warnings/infos
+        if _update_langchain_model_config(self):
+            self._mlflow_model_logged = True
 
     # Even if the model is not logged, we keep a single run per model
     if _update_langchain_model_config(self):
