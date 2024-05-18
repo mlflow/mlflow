@@ -215,7 +215,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark langchain
+          pip install pyspark langchain langchain-community
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
