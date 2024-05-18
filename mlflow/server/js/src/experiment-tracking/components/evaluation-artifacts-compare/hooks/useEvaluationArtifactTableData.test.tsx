@@ -78,6 +78,62 @@ describe('useEvaluationArtifactTableData', () => {
           rawArtifact: {},
         },
       },
+      run_e: {
+        [TABLE_NAME]: {
+          columns: COLUMNS,
+          entries: [{ input: 'question', additionalInput: 'beta', answer: 0 }],
+          path: TABLE_NAME,
+          rawArtifact: {},
+        },
+      },
+      run_f: {
+        [TABLE_NAME]: {
+          columns: COLUMNS,
+          entries: [{ input: 'question', additionalInput: 'beta', answer: -0 }],
+          path: TABLE_NAME,
+          rawArtifact: {},
+        },
+      },
+      run_g: {
+        [TABLE_NAME]: {
+          columns: COLUMNS,
+          entries: [{ input: 'question', additionalInput: 'beta', answer: false }],
+          path: TABLE_NAME,
+          rawArtifact: {},
+        },
+      },
+      run_h: {
+        [TABLE_NAME]: {
+          columns: COLUMNS,
+          entries: [{ input: 'question', additionalInput: 'beta', answer: NaN }],
+          path: TABLE_NAME,
+          rawArtifact: {},
+        },
+      },
+      run_i: {
+        [TABLE_NAME]: {
+          columns: COLUMNS,
+          entries: [{ input: 'question', additionalInput: 'beta', answer: null }],
+          path: TABLE_NAME,
+          rawArtifact: {},
+        },
+      },
+      run_j: {
+        [TABLE_NAME]: {
+          columns: COLUMNS,
+          entries: [{ input: 'question', additionalInput: 'beta', answer: '' }],
+          path: TABLE_NAME,
+          rawArtifact: {},
+        },
+      },
+      run_k: {
+        [TABLE_NAME]: {
+          columns: COLUMNS,
+          entries: [{ input: 'question', additionalInput: 'beta', answer: undefined }],
+          path: TABLE_NAME,
+          rawArtifact: {},
+        },
+      },
     };
 
     const getResultsForRuns = (comparedRunUuids: string[], groupByColumns: string[], outputColumn: string) =>
@@ -90,11 +146,24 @@ describe('useEvaluationArtifactTableData', () => {
       }).getHookResult();
 
     test('properly groups by a single column having one value', () => {
-      const results = getResultsForRuns(['run_a', 'run_b', 'run_c'], ['input'], 'answer');
+      const results = getResultsForRuns(
+        ['run_a', 'run_b', 'run_c', 'run_e', 'run_f', 'run_g', 'run_h', 'run_i', 'run_j', 'run_k'],
+        ['input'],
+        'answer',
+      );
       expect(results).toHaveLength(1);
       expect(results[0].cellValues?.['run_a']).toEqual('answer_a');
       expect(results[0].cellValues?.['run_b']).toEqual('answer_b');
       expect(results[0].cellValues?.['run_c']).toEqual('answer_c');
+
+      // non-nil and non-strings should get stringified
+      expect(results[0].cellValues?.['run_e']).toEqual('0');
+      expect(results[0].cellValues?.['run_f']).toEqual('0'); // JSON.stringify(-0) === 0
+      expect(results[0].cellValues?.['run_g']).toEqual('false');
+      expect(results[0].cellValues?.['run_h']).toEqual('null'); // JSON.stringify(NaN) === 'null'
+      expect(results[0].cellValues?.['run_i']).toEqual(null);
+      expect(results[0].cellValues?.['run_j']).toEqual('');
+      expect(results[0].cellValues?.['run_k']).toEqual(undefined);
     });
 
     test('properly groups by a single column having distinct values', () => {

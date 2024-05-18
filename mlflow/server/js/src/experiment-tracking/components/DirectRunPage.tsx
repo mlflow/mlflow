@@ -37,8 +37,8 @@ export const DirectRunPageImpl = (props: any) => {
   }, [dispatch, runUuid, props.runInfo]);
 
   useEffect(() => {
-    if (props.runInfo?.experiment_id) {
-      navigate(Routes.getRunPageRoute(props.runInfo.experiment_id, props.runInfo.run_uuid), {
+    if (props.runInfo?.experimentId) {
+      navigate(Routes.getRunPageRoute(props.runInfo.experimentId, props.runInfo.runUuid), {
         replace: true,
       });
     }

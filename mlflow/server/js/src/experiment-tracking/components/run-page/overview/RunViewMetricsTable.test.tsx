@@ -12,10 +12,10 @@ const testRunName = 'Test run name';
 const testExperimentId = '12345';
 
 const testRunInfo = {
-  experiment_id: testExperimentId,
-  lifecycle_stage: 'active',
-  run_name: testRunName,
-  run_uuid: testRunUuid,
+  experimentId: testExperimentId,
+  lifecycleStage: 'active',
+  runName: testRunName,
+  runUuid: testRunUuid,
 } as RunInfoEntity;
 
 // Generates array of metric_a1, metric_a2, ..., metric_b2, ..., metric_c3 metric keys with values from 1.0 to 9.0

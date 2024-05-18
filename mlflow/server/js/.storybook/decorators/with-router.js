@@ -1,4 +1,4 @@
-import { StaticRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from 'react-router-dom';
 
 /**
  * Adds router capabilities to stories by wrapping the story
@@ -30,9 +30,9 @@ export const withRouterDecorator = (Story, { parameters }) => {
   if (parameters.withRouter) {
     const routerProps = typeof parameters.withRouter === 'object' ? parameters.withRouter : {};
     return (
-      <StaticRouter location='/' {...routerProps}>
+      <MemoryRouter initialEntries={['/']} {...routerProps}>
         <Story />
-      </StaticRouter>
+      </MemoryRouter>
     );
   }
 

@@ -2,6 +2,7 @@ import borders from './borders';
 import responsive from './breakpoints';
 import { getColors } from './colors';
 import generalVariables, { getShadowVariables } from './generalVariables';
+import { getGradients } from './gradients';
 import spacing from './spacing';
 import typography from './typography';
 export type ComponentTheme = ReturnType<typeof getTheme>;
@@ -11,6 +12,7 @@ export interface ThemeOptions {
 }
 export interface Theme {
     colors: ReturnType<typeof getColors>;
+    gradients: ReturnType<typeof getGradients>;
     spacing: typeof spacing;
     general: typeof generalVariables & ReturnType<typeof getShadowVariables>;
     typography: typeof typography;
