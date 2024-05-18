@@ -258,18 +258,24 @@ def _inject_callbacks(original_callbacks, new_callbacks):
     from langchain_core.callbacks.base import BaseCallbackManager
 
     def _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
-        return any(isinstance(new_callback, type(original_callback)) for original_callback in original_callbacks)
+        return any(
+            isinstance(new_callback, type(original_callback))
+            for original_callback in original_callbacks
+        )
 
     if isinstance(original_callbacks, BaseCallbackManager):
         for callback in new_callbacks:
-            if not _is_new_callback_already_in_original_callbacks(callback, original_callbacks.handlers):
+            if not _is_new_callback_already_in_original_callbacks(
+                callback, original_callbacks.handlers
+            ):
                 original_callbacks.add_handler(callback)
         return original_callbacks
 
     if not isinstance(original_callbacks, list):
         original_callbacks = [original_callbacks]
 
-    updated_callbacks = original_callbacks
+    # Make a copy of the original callbacks to avoid modifying the original list
+    updated_callbacks = list(original_callbacks)
     for new_callback in new_callbacks:
         if not _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
             updated_callbacks.append(new_callback)

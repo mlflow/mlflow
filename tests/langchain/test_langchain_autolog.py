@@ -22,6 +22,7 @@ from mlflow.langchain._langchain_autolog import (
     _combine_input_and_output,
     _resolve_tags,
 )
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -891,5 +892,9 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, generate_con
     expected_logs = ["chain_start", "chain_end"]
     if isinstance(callbacks, BaseCallbackManager):
         assert callbacks.handlers[0].logs == expected_logs
+        assert (
+            sum(isinstance(handler, MlflowLangchainTracer) for handler in callbacks.handlers) == 1
+        )
     else:
         assert callbacks[0].logs == expected_logs
+        assert sum(isinstance(handler, MlflowLangchainTracer) for handler in callbacks) == 1
