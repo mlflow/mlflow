@@ -16,12 +16,14 @@ from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.langchain._langchain_autolog import (
     INFERENCE_FILE_NAME,
     UNSUPPORT_LOG_MODEL_MESSAGE,
     _combine_input_and_output,
     _resolve_tags,
 )
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -891,8 +893,48 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, generate_con
     expected_logs = ["chain_start", "chain_end"]
     if isinstance(callbacks, BaseCallbackManager):
         assert callbacks.handlers[0].logs == expected_logs
+        assert (
+            sum(isinstance(handler, MlflowLangchainTracer) for handler in callbacks.handlers) == 1
+        )
     else:
         assert callbacks[0].logs == expected_logs
+        assert sum(isinstance(handler, MlflowLangchainTracer) for handler in callbacks) == 1
+
+
+def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnablePassthrough
+
+    mlflow.langchain.autolog()
+    retriever, _ = create_retriever(tmp_path)
+    prompt = ChatPromptTemplate.from_template(
+        "Answer the following question based on the context: {context}\nQuestion: {question}"
+    )
+    chat_model = create_fake_chat_model()
+    retrieval_chain = (
+        {
+            "context": retriever,
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | chat_model
+        | StrOutputParser()
+    )
+    question = "What is a good name for a company that makes MLflow?"
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        list(retrieval_chain.stream(question))
+        retrieval_chain.invoke(question)
+
+    traces = get_traces()
+    assert len(traces) == 2
+    stream_trace = traces[0]
+    invoke_trace = traces[1]
+
+    assert stream_trace.info.status == invoke_trace.info.status == TraceStatus.OK
+    assert stream_trace.data.request == invoke_trace.data.request
+    assert stream_trace.data.response == invoke_trace.data.response
+    assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
 
 
 def test_langchain_tracer_injection_for_arbitrary_runnables():
