@@ -46,8 +46,8 @@ class SpanType:
 
 class Span:
     """
-    A span object. A span represents a unit of work or operation
-    and is the building block of Traces.
+    A span object. A span represents a unit of work or operation and is the building
+    block of Traces.
 
     This Span class represents immutable span data that is already finished and persisted.
     The "live" span that is being created and updated during the application runtime is
@@ -236,7 +236,8 @@ class Span:
 
 
 class LiveSpan(Span):
-    """A "live" version of the :py:class:`Span <mlflow.entities.Span>` class.
+    """
+    A "live" version of the :py:class:`Span <mlflow.entities.Span>` class.
 
     The live spans are those being created and updated during the application runtime.
     When users start a new span using the tracing APIs within their code, this live span
@@ -356,7 +357,8 @@ class LiveSpan(Span):
 
 
 class NoOpSpan(Span):
-    """No-op implementation of the Span interface.
+    """
+    No-op implementation of the Span interface.
 
     This instance should be returned from the mlflow.start_span context manager when span
     creation fails. This class should have exactly the same interface as the Span so that
@@ -432,7 +434,8 @@ class NoOpSpan(Span):
 
 
 class _SpanAttributesRegistry:
-    """A utility class to manage the span attributes.
+    """
+    A utility class to manage the span attributes.
 
     In MLflow users can add arbitrary key-value pairs to the span attributes, however,
     OpenTelemetry only allows a limited set of types to be stored in the attribute values.

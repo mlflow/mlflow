@@ -10,8 +10,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 class SpanStatusCode(str, Enum):
-    """
-    Enum for status code of a span
+    """Enum for status code of a span
 
     :meta private:
     """

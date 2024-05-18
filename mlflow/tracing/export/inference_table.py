@@ -43,7 +43,8 @@ _TRACE_BUFFER = _initialize_trace_buffer()
 
 
 class InferenceTableSpanExporter(SpanExporter):
-    """An exporter implementation that logs the traces to Inference Table.
+    """
+    An exporter implementation that logs the traces to Inference Table.
 
     Currently the Inference Table does not use collector to receive the traces,
     but rather actively fetches the trace during the prediction process. In the

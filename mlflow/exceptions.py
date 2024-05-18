@@ -171,8 +171,7 @@ class _UnsupportedMultipartUploadException(MlflowException):
 
 
 class MlflowTraceDataException(MlflowException):
-    """
-    Exception thrown for trace data related error
+    """Exception thrown for trace data related error
 
     :meta private:
     """

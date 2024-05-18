@@ -504,7 +504,8 @@ class MlflowClient:
         tags: Optional[Dict[str, str]] = None,
         experiment_id: Optional[str] = None,
     ) -> Span:
-        """Create a new trace object and start a root span under it.
+        """
+        Create a new trace object and start a root span under it.
 
         This is an imperative API to manually create a new span under a specific trace id and
         parent span, unlike the higher-level APIs like :py:func:`@mlflow.trace <mlflow.trace>`

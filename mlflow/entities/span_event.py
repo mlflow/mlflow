@@ -73,7 +73,9 @@ class SpanEvent(_MlflowObject):
 
 
 class CustomEncoder(json.JSONEncoder):
-    """Custom encoder to handle json serialization."""
+    """
+    Custom encoder to handle json serialization.
+    """
 
     def default(self, o):
         try:
