@@ -912,7 +912,7 @@ def test_langchain_tracer_injection_for_arbitrary_runnables():
     assert traces[0].data.spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
 
 
-def test_langchain_autolog_extra_log_classes_no_duplicate_patching():
+def test_langchain_autolog_extra_model_classes_no_duplicate_patching():
     from langchain.schema.runnable import Runnable
 
     class CustomRunnable(Runnable):
@@ -929,7 +929,7 @@ def test_langchain_autolog_extra_log_classes_no_duplicate_patching():
         def _type(self):
             return "CHAT_MODEL"
 
-    mlflow.langchain.autolog(extra_log_classes=[CustomRunnable, AnotherRunnable])
+    mlflow.langchain.autolog(extra_model_classes=[CustomRunnable, AnotherRunnable])
     model = AnotherRunnable()
     with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
         assert model.invoke("test") == "test"
@@ -937,7 +937,7 @@ def test_langchain_autolog_extra_log_classes_no_duplicate_patching():
         assert mock_debug.call_count == 1
 
 
-def test_langchain_autolog_extra_log_classes_warning():
+def test_langchain_autolog_extra_model_classes_warning():
     from langchain.schema.runnable import Runnable
 
     class NotARunnable:
@@ -945,12 +945,12 @@ def test_langchain_autolog_extra_log_classes_warning():
             self.x = x
 
     with mock.patch("mlflow.langchain.logger.warning") as mock_warning:
-        mlflow.langchain.autolog(extra_log_classes=[NotARunnable])
+        mlflow.langchain.autolog(extra_model_classes=[NotARunnable])
         mock_warning.assert_called_once_with(
-            "Unsupported classes found in extra_log_classes: ['NotARunnable']. "
+            "Unsupported classes found in extra_model_classes: ['NotARunnable']. "
             "Only subclasses of Runnable are supported."
         )
         mock_warning.reset_mock()
 
-        mlflow.langchain.autolog(extra_log_classes=[Runnable])
+        mlflow.langchain.autolog(extra_model_classes=[Runnable])
         mock_warning.assert_not_called()

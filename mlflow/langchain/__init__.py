@@ -884,6 +884,10 @@ def load_model(model_uri, dst_path=None):
 
 
 def _patch_runnable_cls(cls):
+    """
+    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, and `stream`
+    methods for autologging.
+    """
     for func_name in ["invoke", "batch", "stream"]:
         if hasattr(cls, func_name):
             safe_patch(
@@ -895,6 +899,10 @@ def _patch_runnable_cls(cls):
 
 
 def _inspect_module_and_patch_cls(module, inspected_modules, patched_classes):
+    """
+    Internal method to inspect the module and patch classes that are
+    subclasses of Runnable for autologging.
+    """
     from langchain.schema.runnable import Runnable
 
     if module.__name__ not in inspected_modules:
@@ -929,7 +937,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-    extra_log_classes=None,
+    extra_model_classes=None,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -972,7 +980,7 @@ def autolog(
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
-        extra_log_classes: A list of langchain classes to log in addition to the default classes.
+        extra_model_classes: A list of langchain classes to log in addition to the default classes.
             We do not guarantee classes specified in this list can be logged as a model, but tracing
             will be supported. Note that all classes within the list must be subclasses of Runnable,
             and we only patch `invoke`, `batch`, and `stream` methods for tracing.
@@ -993,9 +1001,9 @@ def autolog(
         for module in [langchain, langchain_community]:
             _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
 
-        if extra_log_classes:
+        if extra_model_classes:
             unsupported_classes = []
-            for cls in extra_log_classes:
+            for cls in extra_model_classes:
                 if cls.__name__ in patched_classes:
                     continue
                 elif inspect.isclass(cls) and issubclass(cls, Runnable):
@@ -1005,7 +1013,7 @@ def autolog(
                     unsupported_classes.append(cls.__name__)
             if unsupported_classes:
                 logger.warning(
-                    f"Unsupported classes found in extra_log_classes: {unsupported_classes}. "
+                    f"Unsupported classes found in extra_model_classes: {unsupported_classes}. "
                     "Only subclasses of Runnable are supported."
                 )
 
