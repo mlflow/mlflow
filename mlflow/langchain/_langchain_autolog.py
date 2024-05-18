@@ -257,13 +257,24 @@ def _inject_callbacks(original_callbacks, new_callbacks):
     """
     from langchain_core.callbacks.base import BaseCallbackManager
 
+    def _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
+        return any(isinstance(new_callback, type(original_callback)) for original_callback in original_callbacks)
+
     if isinstance(original_callbacks, BaseCallbackManager):
         for callback in new_callbacks:
-            original_callbacks.add_handler(callback)
+            if not _is_new_callback_already_in_original_callbacks(callback, original_callbacks.handlers):
+                original_callbacks.add_handler(callback)
         return original_callbacks
+
     if not isinstance(original_callbacks, list):
         original_callbacks = [original_callbacks]
-    return original_callbacks + new_callbacks
+
+    updated_callbacks = original_callbacks
+    for new_callback in new_callbacks:
+        if not _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
+            updated_callbacks.append(new_callback)
+
+    return updated_callbacks
 
 
 def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
