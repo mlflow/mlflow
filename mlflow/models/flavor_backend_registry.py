@@ -8,7 +8,9 @@ Not all flavors have a flavor backend.
 """
 import logging
 
+from mlflow.artifacts import download_artifacts
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
@@ -36,19 +38,7 @@ def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs)
 
 
 def get_flavor_backend(model_uri, **kwargs):
-    if model_uri:
-        with TempDir() as tmp:
-            from mlflow import get_registry_uri
-            if ModelsArtifactRepository.is_models_uri(model_uri) and not is_databricks_unity_catalog_uri(get_registry_uri()):
-                underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-            else:
-                underlying_model_uri = model_uri
-            local_path = _download_artifact_from_uri(
-                append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
-            )
-            model = Model.load(local_path)
-    else:
-        model = None
+    model = get_artifact_repository(artifact_uri=model_uri).download_artifacts(artifact_path=MLMODEL_FILE_NAME)
     flavor_name, flavor_backend = _get_flavor_backend_for_local_model(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
