@@ -22,7 +22,7 @@ def main():
   google_dot_protobuf_dot_descriptor__pb2.EnumValueOptions.RegisterExtension(enum_value_visibility)
   google_dot_protobuf_dot_descriptor__pb2.EnumValueOptions.RegisterExtension(enum_value_doc)"""
 
-    for code, path in [
+    for original_code, path in [
         (scalapb_pb2_code, "mlflow/protos/scalapb/scalapb_pb2.py"),
         (databricks_pb2_code, "mlflow/protos/databricks_pb2.py"),
     ]:
@@ -31,17 +31,17 @@ def main():
   # The following code is a workaround for this breaking change.
   import google.protobuf.__version__ as protobuf_version
   if int(protobuf_version.split(".", 1)[0]) >= 5:
-{textwrap.indent(code, " " * 2)}"""
+{textwrap.indent(original_code, " " * 2)}"""
 
         with open(path) as f:
-            original = f.read()
-            if new_code in original:
+            content = f.read()
+            if new_code in content:
                 continue
 
-            assert code in original
+            assert original_code in content
 
         with open(path, "w") as f:
-            f.write(original.replace(code, new_code))
+            f.write(content.replace(original_code, new_code))
 
 
 if __name__ == "__main__":
